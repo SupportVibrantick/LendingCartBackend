@@ -1,0 +1,10 @@
+extends layout
+
+block content
+  h1= message
+  h2 Error #{error.status}
+  if error.stack
+    pre #{error.stack}
+  else
+    p An error occurred while processing your request.
+  a(href="/") ← Back to Home

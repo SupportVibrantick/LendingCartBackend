@@ -1,0 +1,41 @@
+const app = require("../app");
+const debug = require("debug")("backend:server");
+
+
+function normalizePort(val) {
+  const port = parseInt(val, 10);
+
+  if (isNaN(port)) {
+    // named pipe
+    return val;
+  }
+
+  if (port >= 0) {
+    // port number
+    return port;
+  }
+
+  return false;
+}
+
+const port = normalizePort(process.env.PORT || "3002");
+
+app.listen({ port: port, host: "0.0.0.0" }, (err, address) => {
+  if (err) {
+    console.error("Failed to start server:", err);
+    app.log.error(err);
+    process.exit(1);
+  }
+
+  const bind = typeof port === "string" ? "Pipe " + port : "Port " + port;
+  console.log(`Server is running on ${address}`);
+  debug(`Server is running on ${address}`);
+  app.log.info(`Server listening on ${bind}`);
+});
+
+
+// Attach error listener to the Fastify instance
+app.ready().catch(err => {
+  console.error('Error starting Fastify:', err);
+  process.exit(1);
+});
