@@ -1,5 +1,5 @@
 const { adminLogs } = require("../services/logger/contextLogger");
-
+const adminRoutes = require("./admin");
 // routes/index.js
 async function indexRoutes(fastify, options) {
   // GET route for the index page
@@ -10,6 +10,11 @@ async function indexRoutes(fastify, options) {
       message: "Welcome to Lending Cart!",
     });
   });
+
+  fastify.register(adminRoutes, { prefix: "/admin" });
 }
+
+
+ 
 
 module.exports = indexRoutes;

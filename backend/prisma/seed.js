@@ -21,9 +21,9 @@ async function role() {
 }
 
 async function admin(roleId) {
-  const name = "Vcn";
+  const name = "LendingCart";
   const email = "admin@gmail.com";
-  const plainPassword = "Admin@123";
+  const plainPassword = "admin@123";
   const phone = "7894561230";
 
   const hashedPassword = await bcrypt.hash(plainPassword, 10);

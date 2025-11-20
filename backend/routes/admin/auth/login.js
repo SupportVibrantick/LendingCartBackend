@@ -79,7 +79,6 @@ async function adminLoginRoutes(fastify, options) {
         name: existingAdmin.name,
         role: existingAdmin.role?.id || null,
       });
-      
     } catch (error) {
       adminLogs.error(`Admin login failed`, { error: error });
 
