@@ -17,7 +17,10 @@ import {
 } from "../icons";
 import { useSidebar } from "../context/SidebarContext";
 import GroupOutlinedIcon from '@mui/icons-material/GroupOutlined';
-
+import GroupsOutlinedIcon from '@mui/icons-material/GroupsOutlined';
+import AccountBalanceOutlinedIcon from '@mui/icons-material/AccountBalanceOutlined';
+import AdminPanelSettingsOutlinedIcon from '@mui/icons-material/AdminPanelSettingsOutlined';
+import CurrencyExchangeOutlinedIcon from '@mui/icons-material/CurrencyExchangeOutlined';
 type NavItem = {
   name: string;
   icon: React.ReactNode;
@@ -35,6 +38,26 @@ const navItems: NavItem[] = [
     icon: <GroupOutlinedIcon />,
     name: "Manage User",
     subItems: [{ name: "Add User", path: "/add-user" },{ name: "All User", path: "/all-user" }],
+  },
+  {
+    icon: < GroupsOutlinedIcon/>,
+    name: "Manage Brokers",
+    subItems: [{ name: "Add Broker", path: "/add-broker" },{ name: "All Brokers", path: "/all-brokers" }],
+  },
+  {
+    icon: <AccountBalanceOutlinedIcon />,
+    name: "Manage Lenders",
+    subItems: [{ name: "Add Broker", path: "/add-broker" },{ name: "All Brokers", path: "/all-brokers" }],
+  },
+  {
+    icon: <AdminPanelSettingsOutlinedIcon />,
+    name: "Admin Users",
+    subItems: [{ name: "All Admins", path: "/all-admins" }],
+  },
+  {
+    icon: <CurrencyExchangeOutlinedIcon />,
+    name: "Loan Products",
+    subItems: [{ name: "All Loans", path: "/all-loans" }],
   },
   {
     icon: <CalenderIcon />,
