@@ -20,19 +20,21 @@ import { ScrollToTop } from "./components/common/ScrollToTop";
 import Home from "./pages/Dashboard/Home";
 import AddUser from "./pages/ManageUser/AddUser";
 import AllUsers from "./pages/ManageUser/AllUser";
+import ToastProvider from "./Utils/ToastProvider/ToastProvider";
 
 export default function App() {
   return (
     <>
       <Router>
         <ScrollToTop />
+        <ToastProvider />
         <Routes>
           {/* Dashboard Layout */}
           <Route element={<AppLayout />}>
             <Route index path="/" element={<Home />} />
 
             <Route index path="/add-user" element={<AddUser />} />
-            <Route index path="/all-user" element={<AllUsers/>} />
+            <Route index path="/all-user" element={<AllUsers />} />
             {/* Others Page */}
             <Route path="/profile" element={<UserProfiles />} />
             <Route path="/calendar" element={<Calendar />} />

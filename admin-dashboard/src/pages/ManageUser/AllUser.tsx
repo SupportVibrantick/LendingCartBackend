@@ -40,13 +40,18 @@ const roleLabel: Record<User["role"], string> = {
   lender: "Lender",
 };
 
+
 const AllUser: React.FC = () => {
   const [users, setUsers] = useState<User[]>(dummyUsers);
   const [rowLoadingId, setRowLoadingId] = useState<number | null>(null);
 
+  // NEW — Modal State
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editUserData, setEditUserData] = useState<User | null>(null);
+
   const handleEdit = (user: User) => {
-    // Later: open modal or navigate to edit page
-    console.log("Edit user", user.id);
+    setEditUserData({ ...user });
+    setIsEditModalOpen(true);
   };
 
   const handleDelete = async (user: User) => {
@@ -56,12 +61,21 @@ const AllUser: React.FC = () => {
 
     try {
       setRowLoadingId(user.id);
-      // TODO: call API DELETE /foliomax/users/delete/:id when backend is ready
       await new Promise((resolve) => setTimeout(resolve, 600)); // fake delay
       setUsers((prev) => prev.filter((u) => u.id !== user.id));
     } finally {
       setRowLoadingId(null);
     }
+  };
+
+  const handleSaveChanges = () => {
+    if (!editUserData) return;
+
+    setUsers((prev) =>
+      prev.map((u) => (u.id === editUserData.id ? editUserData : u))
+    );
+
+    setIsEditModalOpen(false);
   };
 
   return (
@@ -117,8 +131,7 @@ const AllUser: React.FC = () => {
                             type="button"
                             onClick={() => handleEdit(user)}
                             disabled={isLoading}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100 hover:text-gray-800 disabled:opacity-40 disabled:cursor-not-allowed"
-                            title="Edit user"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100 hover:text-gray-800 disabled:opacity-40"
                           >
                             <MdModeEdit className="h-4 w-4" />
                           </button>
@@ -127,27 +140,25 @@ const AllUser: React.FC = () => {
                             type="button"
                             onClick={() => handleDelete(user)}
                             disabled={isLoading}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-red-100 text-red-500 hover:bg-red-50 hover:text-red-700 disabled:opacity-40 disabled:cursor-not-allowed"
-                            title="Delete user"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-red-100 text-red-500 hover:bg-red-50 hover:text-red-700 disabled:opacity-40"
                           >
                             {isLoading ? (
                               <svg
                                 className="h-4 w-4 animate-spin"
                                 viewBox="0 0 24 24"
-                                aria-hidden="true"
                               >
                                 <circle
-                                  className="opacity-25"
                                   cx="12"
                                   cy="12"
                                   r="10"
                                   stroke="currentColor"
                                   strokeWidth="4"
+                                  className="opacity-25"
                                   fill="none"
-                                />
+                                ></circle>
                                 <path
-                                  className="opacity-75"
                                   fill="currentColor"
+                                  className="opacity-75"
                                   d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
                                 />
                               </svg>
@@ -165,6 +176,92 @@ const AllUser: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* ------------------------  
+           ✨ EDIT USER MODAL  
+      ------------------------ */}
+      {isEditModalOpen && editUserData && (
+        <div className="fixed inset-0 z-5000000 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-lg animate-slideUp">
+            <h2 className="text-lg font-semibold mb-4">Edit User</h2>
+
+            {/* First Name */}
+            <label className="block mb-3">
+              <span className="text-sm text-gray-700">First Name</span>
+              <input
+                type="text"
+                value={editUserData.firstName}
+                onChange={(e) =>
+                  setEditUserData({ ...editUserData, firstName: e.target.value })
+                }
+                className="w-full px-3 py-2 mt-1 border rounded-md"
+              />
+            </label>
+
+            {/* Last Name */}
+            <label className="block mb-3">
+              <span className="text-sm text-gray-700">Last Name</span>
+              <input
+                type="text"
+                value={editUserData.lastName}
+                onChange={(e) =>
+                  setEditUserData({ ...editUserData, lastName: e.target.value })
+                }
+                className="w-full px-3 py-2 mt-1 border rounded-md"
+              />
+            </label>
+
+            {/* Role */}
+            <label className="block mb-3">
+              <span className="text-sm text-gray-700">Role</span>
+              <select
+                value={editUserData.role}
+                onChange={(e) =>
+                  setEditUserData({
+                    ...editUserData,
+                    role: e.target.value as User["role"],
+                  })
+                }
+                className="w-full px-3 py-2 mt-1 border rounded-md"
+              >
+                <option value="admin">Admin</option>
+                <option value="broker">Broker</option>
+                <option value="lender">Lender</option>
+              </select>
+            </label>
+
+            {/* Phone */}
+            <label className="block mb-4">
+              <span className="text-sm text-gray-700">Phone Number</span>
+              <input
+                type="text"
+                value={editUserData.phone}
+                onChange={(e) =>
+                  setEditUserData({ ...editUserData, phone: e.target.value })
+                }
+                className="w-full px-3 py-2 mt-1 border rounded-md"
+              />
+            </label>
+
+            {/* Actions */}
+            <div className="flex justify-end gap-3 mt-5">
+              <button
+                onClick={() => setIsEditModalOpen(false)}
+                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md"
+              >
+                Cancel
+              </button>
+
+              <button
+                onClick={handleSaveChanges}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              >
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

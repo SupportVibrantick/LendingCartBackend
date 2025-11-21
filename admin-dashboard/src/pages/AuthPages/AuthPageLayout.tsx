@@ -21,7 +21,7 @@ export default function AuthLayout({
                 <img
                   width={231}
                   height={48}
-                  src="/images/logo/lending-logo.png"
+                  src="/bannerLogo.jpeg"
                   alt="Logo"
                 />
               </Link>

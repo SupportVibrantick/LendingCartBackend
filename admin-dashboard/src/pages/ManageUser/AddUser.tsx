@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Toaster, toast } from "react-hot-toast";
+import { toast } from "react-hot-toast";
 
 const roles = [
   { value: "admin", label: "Admin" },
@@ -99,11 +99,11 @@ const AddUser: React.FC = () => {
 
   return (
     <div className="px-6 py-6">
-      <Toaster
+      {/* <Toaster
         position="top-center"
         toastOptions={{ duration: 2000 }}
         containerStyle={{ top: 80, left: "50%", transform: "translateX(-50%)" }}
-      />
+      /> */}
 
       {/* Header */}
       <div className="mb-6">
@@ -115,12 +115,10 @@ const AddUser: React.FC = () => {
 
       {/* GRID LAYOUT START (Form Left + Table Right) */}
       <div className="grid grid-cols-12 gap-6">
-
         {/* LEFT FORM (unchanged) */}
         <div className="col-span-12 lg:col-span-7">
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
             <form onSubmit={handleSubmit} className="p-6 space-y-6">
-
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700">
@@ -150,7 +148,9 @@ const AddUser: React.FC = () => {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Email</label>
+                <label className="text-sm font-medium text-gray-700">
+                  Email
+                </label>
                 <input
                   type="email"
                   value={email}
@@ -174,7 +174,9 @@ const AddUser: React.FC = () => {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Role</label>
+                <label className="text-sm font-medium text-gray-700">
+                  Role
+                </label>
                 <select
                   value={role}
                   onChange={(e) => setRole(e.target.value)}
@@ -205,7 +207,6 @@ const AddUser: React.FC = () => {
         {/* RIGHT TABLE */}
         <div className="col-span-12 lg:col-span-5">
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 h-full flex flex-col">
-
             <h2 className="text-lg font-semibold text-gray-900 mb-4">
               Users List
             </h2>
@@ -222,7 +223,10 @@ const AddUser: React.FC = () => {
 
                 <tbody>
                   {dummyUsers.map((u) => (
-                    <tr key={u.id} className="border-b border-gray-100 last:border-0">
+                    <tr
+                      key={u.id}
+                      className="border-b border-gray-100 last:border-0"
+                    >
                       <td className="py-3 pr-4 text-gray-900 font-medium">
                         {u.firstName} {u.lastName}
                       </td>
@@ -235,10 +239,8 @@ const AddUser: React.FC = () => {
                 </tbody>
               </table>
             </div>
-
           </div>
         </div>
-
       </div>
       {/* GRID END */}
     </div>
