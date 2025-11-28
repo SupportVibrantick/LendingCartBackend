@@ -15,7 +15,8 @@ const {
 } = require("./services/logger/contextLogger");
 const createError = require("http-errors");
 var { runEmailConsumerKafka } = require("./services/kafka/email/consumer");
-
+const swagger = require("@fastify/swagger");
+const swaggerUi = require("@fastify/swagger-ui");
 const indexRoutes = require("./routes/index");
 
 // Configure Fastify with built-in logger
@@ -42,6 +43,38 @@ app.register(cors, {
   origin: "*",
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
   credentials: true,
+});
+
+
+// Swagger Setup
+app.register(swagger, {
+  mode: "dynamic",
+  openapi: {
+    openapi: "3.0.0",
+    info: {
+      title: "Lendingcart Api Documentation",
+      version: "1.0.0",
+    },
+    components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: "http",
+          scheme: "bearer",
+          bearerFormat: "JWT",
+        },
+      },
+    },
+    security: [{ bearerAuth: [] }],
+  },
+});
+
+app.register(swaggerUi, {
+  routePrefix: "/api",
+  uiConfig: {
+    docExpansion: "none",
+    deepLinking: true,
+    persistAuthorization: true,
+  },
 });
 
 app.register(cookieParser);
