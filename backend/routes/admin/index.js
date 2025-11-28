@@ -1,21 +1,31 @@
-// routes/admin/index.js
-const {
-  verifyToken /*, authorizeRoles - decide if needed here or per route */,
-} = require("../../middleware/authMiddleware");
-const authRoutes = require("./auth/index");
-// const rolesRoutes = require("./roles/index");
+// backend/routes/admin/index.js
+const brokerRoutes = require("./brokers");
 
-async function adminRoutes(fastify, options) {
-  // Register /admin/auth routes (path will be /admin/auth/*)
-  fastify.register(authRoutes, { prefix: "/auth" });
+// Registers auth sub-router under /admin/auth
+module.exports = async function adminRoutes(fastify, opts) {
+  // auth folder index (CommonJS)
+  fastify.register(require("./auth"), { prefix: "/auth" });
 
-  // Create a sub-router for /admin/roles/* and apply middleware to it
+  // Protected routes
   fastify.register(async function rolesGroup(instance, opts) {
-    instance.addHook("preHandler", verifyToken);
+    // Combine both middlewares in one preHandler
+    instance.addHook("preHandler", async (req, reply) => {
+      // ⭐ Allow Swagger UI requests to pass without token ⭐
+      if (
+        req.url.startsWith("/docs") ||
+        req.url.startsWith("/swagger") ||
+        req.url.includes("/docs") ||
+        req.url.includes("swagger")
+      ) {
+        return;
+      }
 
-    // instance.register(rolesRoutes, { prefix: "/roles" });
-    
+      await instance.authenticate(req, reply);
+      // requireRole returns a handler; invoke it
+      const roleChecker = instance.requireRole(["PLATFORM_ADMIN"]);
+      await roleChecker(req, reply); // <-- IMPORTANT: invoke the returned handler
+    });
+
+    instance.register(brokerRoutes, { prefix: "/brokers" });
   });
-}
-
-module.exports = adminRoutes;
+};

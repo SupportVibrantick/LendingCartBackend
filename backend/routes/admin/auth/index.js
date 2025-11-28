@@ -1,5 +1,7 @@
-async function adminAuthRoutes(fastify, options) {
-  fastify.register(require("./login"), { prefix: "/login" });
-}
-
-module.exports = adminAuthRoutes;
+// backend/routes/admin/auth/index.js
+module.exports = async function adminAuthRoutes(fastify, opts) {
+  // register individual route files that use module.exports too
+  fastify.register(require("./login"), { prefix: "" });
+  fastify.register(require("./register"), { prefix: "" });
+  fastify.register(require("./me"), { prefix: "" });
+};

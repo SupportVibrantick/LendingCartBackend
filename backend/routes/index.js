@@ -1,3 +1,4 @@
+//backend/routes/index.js
 const { adminLogs } = require("../services/logger/contextLogger");
 const adminRoutes = require("./admin");
 // routes/index.js

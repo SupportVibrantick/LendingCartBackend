@@ -35,19 +35,19 @@ const navItems: NavItem[] = [
     path: "/"
   },
   {
+    icon: <GroupsOutlinedIcon />,
+    name: "Organisations",
+    subItems: [{ name: "Brokers Organisation", path: "/all-brokers-organisation" }]
+  },
+  {
     icon: <GroupOutlinedIcon />,
     name: "Manage User",
     subItems: [{ name: "Add User", path: "/add-user" },{ name: "All User", path: "/all-user" }],
   },
   {
-    icon: < GroupsOutlinedIcon/>,
-    name: "Manage Brokers",
-    subItems: [{ name: "Add Broker", path: "/add-broker" },{ name: "All Brokers", path: "/all-brokers" }],
-  },
-  {
     icon: <AccountBalanceOutlinedIcon />,
     name: "Manage Lenders",
-    subItems: [{ name: "Add Broker", path: "/add-broker" },{ name: "All Brokers", path: "/all-brokers" }],
+    subItems: [{ name: "Add Broker", path: "/add-lender" },{ name: "All Brokers", path: "/all-lenders" }],
   },
   {
     icon: <AdminPanelSettingsOutlinedIcon />,

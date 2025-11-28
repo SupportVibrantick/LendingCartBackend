@@ -14,6 +14,7 @@ const {
   kafkaLogs,
 } = require("./services/logger/contextLogger");
 const createError = require("http-errors");
+var { runEmailConsumerKafka } = require("./services/kafka/email/consumer");
 
 const indexRoutes = require("./routes/index");
 
@@ -31,6 +32,12 @@ const app = Fastify({
   },
 });
 
+// Start the Kafka consumer for sending emails
+runEmailConsumerKafka().catch((error) => {
+  console.error("Error starting the email consumer:", error);
+});
+
+
 app.register(cors, {
   origin: "*",
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
@@ -40,6 +47,13 @@ app.register(cors, {
 app.register(cookieParser);
 
 app.register(fastifyFormbody);
+
+
+const authMiddleware = require("./middleware/authMiddleware");
+const fgaMiddleware = require("./middleware/fgaMiddleware");
+
+app.register(authMiddleware);
+app.register(fgaMiddleware);
 
 app.register(fastifyStatic, {
   root: path.join(__dirname, "public"),
@@ -142,5 +156,6 @@ app.setErrorHandler((error, request, reply) => {
 
 // Register main route files only
 app.register(indexRoutes, { prefix: "/" });
+
 
 module.exports = app;

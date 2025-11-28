@@ -21,6 +21,9 @@ import Home from "./pages/Dashboard/Home";
 import AddUser from "./pages/ManageUser/AddUser";
 import AllUsers from "./pages/ManageUser/AllUser";
 import ToastProvider from "./Utils/ToastProvider/ToastProvider";
+import BrokersPage from "./pages/Brokers/AllBrokers";
+import RequireAuth from "./components/auth/RequireAuth";
+import AllBrokersAdmin from "./pages/Brokers/AllBrokerAdmin";
 
 export default function App() {
   return (
@@ -28,13 +31,21 @@ export default function App() {
       <Router>
         <ScrollToTop />
         <ToastProvider />
-        <Routes>
-          {/* Dashboard Layout */}
-          <Route element={<AppLayout />}>
+         <Routes>
+        {/* Dashboard Layout - protected */}
+        <Route
+          element={
+            <RequireAuth>
+              <AppLayout />
+            </RequireAuth>
+          }
+        >
             <Route index path="/" element={<Home />} />
 
             <Route index path="/add-user" element={<AddUser />} />
             <Route index path="/all-user" element={<AllUsers />} />
+
+            <Route index path="/all-brokers-organisation" element={<BrokersPage />} />
             {/* Others Page */}
             <Route path="/profile" element={<UserProfiles />} />
             <Route path="/calendar" element={<Calendar />} />

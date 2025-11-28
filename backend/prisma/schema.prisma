@@ -1,12 +1,5 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
-  output   = "../generated/prisma/client"
 }
 
 datasource db {
@@ -14,50 +7,736 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Admin {
-  id         Int      @id @default(autoincrement())
-  email      String   @unique
-  phone      String   @unique
-  name       String
-  image      String?
-  password   String
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  isDeleted  Boolean  @default(false)
-  isVerified Boolean  @default(false)
-  role       Role?    @relation(fields: [roleId], references: [id])
-  roleId     Int?
+model Organization {
+  id                         String                    @id @default(uuid()) @db.Uuid
+  name                       String
+  type                       OrganizationType
+  status                     OrganizationStatus
+  email                      String?
+  phone                      String?
+  createdAt                  DateTime                  @default(now()) @db.Timestamptz(6)
+  updatedAt                  DateTime                  @updatedAt @db.Timestamptz(6)
+  affiliateLinks             AffiliateLink[]
+  lenderApplications         ApplicationLender[]       @relation("LenderApplications")
+  auditLogsAsActorOrg        AuditLog[]                @relation("OrgAuditLogs")
+  brokerLenderAccessAsBroker BrokerLenderAccess[]      @relation("BrokerAccess_broker")
+  brokerLenderAccessAsLender BrokerLenderAccess[]      @relation("BrokerAccess_lender")
+  brokerWhiteLabelSettings   BrokerWhiteLabelSetting[]
+  clients                    Client[]                  @relation("BrokerClients")
+  escrowTitleCompanies       EscrowTitleCompany[]
+  lenderProducts             LenderProduct[]
+  brokerLoanApplications     LoanApplication[]         @relation("BrokerLoanApplications")
+  users                      UserAccount[]
+
+  @@map("organizations")
+}
+
+model UserAccount {
+  id                         String                      @id @default(uuid()) @db.Uuid
+  organizationId             String?                     @db.Uuid
+  email                      String                      @unique
+  passwordHash               String
+  firstName                  String?
+  lastName                   String?
+  phone                      String?
+  status                     UserStatus                  @default(ACTIVE)
+  lastLoginAt                DateTime?                   @db.Timestamptz(6)
+  createdAt                  DateTime                    @default(now()) @db.Timestamptz(6)
+  updatedAt                  DateTime                    @updatedAt @db.Timestamptz(6)
+  uploadedDocs               ApplicationDocumentUpload[] @relation("UploadedByUser")
+  applicationSent            ApplicationLender[]         @relation("SentByUser")
+  changedApplicationStatuses ApplicationStatusHistory[]  @relation("ChangedByUser")
+  auditLogs                  AuditLog[]                  @relation("UserAuditLogs")
+  createdEscrowInstructions  EscrowInstruction[]         @relation("CreatedEscrowInstructions")
+  lenderReviews              LenderReview[]              @relation("ReviewedByUser")
+  brokerLoanApplications     LoanApplication[]           @relation("BrokerUserLoanApplications")
+  organization               Organization?               @relation(fields: [organizationId], references: [id])
+  roles                      UserRole[]
+
+  @@map("user_accounts")
 }
 
 model Role {
-  id          Int              @id @default(autoincrement())
-  name        String           @unique
-  permissions RolePermission[] // updated
-  Admin       Admin[]
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
-  isDeleted   Boolean          @default(false)
+  id          String     @id @default(uuid()) @db.Uuid
+  name        RoleName
+  description String?
+  userRoles   UserRole[]
+
+  @@map("roles")
 }
 
-model Permission {
-  id        Int              @id @default(autoincrement())
-  name      String           @unique
-  roles     RolePermission[] // updated
-  createdAt DateTime         @default(now())
-  updatedAt DateTime         @updatedAt
-  isDeleted Boolean          @default(false)
+model UserRole {
+  id     String      @id @default(uuid()) @db.Uuid
+  userId String      @db.Uuid
+  roleId String      @db.Uuid
+  role   Role        @relation(fields: [roleId], references: [id])
+  user   UserAccount @relation(fields: [userId], references: [id])
+
+  @@map("user_roles")
 }
 
-model RolePermission {
-  roleId       Int
-  permissionId Int
+model Client {
+  id                 String             @id @default(uuid()) @db.Uuid
+  primaryBrokerOrgId String             @db.Uuid
+  legalName          String
+  entityType         ClientEntityType
+  taxId              String?
+  industry           String?
+  isActive           Boolean            @default(true)
+  createdAt          DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime           @updatedAt @db.Timestamptz(6)
+  contacts           ClientContact[]
+  portalUsers        ClientPortalUser[]
+  primaryBroker      Organization       @relation("BrokerClients", fields: [primaryBrokerOrgId], references: [id])
+  loanApplications   LoanApplication[]
 
-  role       Role       @relation(fields: [roleId], references: [id])
-  permission Permission @relation(fields: [permissionId], references: [id])
+  @@map("clients")
+}
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  isDeleted Boolean  @default(false)
+model ClientContact {
+  id        String  @id @default(uuid()) @db.Uuid
+  clientId  String  @db.Uuid
+  firstName String
+  lastName  String?
+  email     String
+  phone     String?
+  role      String?
+  isPrimary Boolean @default(false)
+  client    Client  @relation(fields: [clientId], references: [id])
 
-  @@id([roleId, permissionId])
+  @@map("client_contacts")
+}
+
+model ClientPortalUser {
+  id           String                      @id @default(uuid()) @db.Uuid
+  clientId     String                      @db.Uuid
+  email        String                      @unique
+  passwordHash String
+  isActive     Boolean                     @default(true)
+  createdAt    DateTime                    @default(now()) @db.Timestamptz(6)
+  lastLoginAt  DateTime?                   @db.Timestamptz(6)
+  uploadedDocs ApplicationDocumentUpload[] @relation("UploadedByClient")
+  client       Client                      @relation(fields: [clientId], references: [id])
+
+  @@map("client_portal_users")
+}
+
+model LoanProduct {
+  id                          String                       @id @default(uuid()) @db.Uuid
+  code                        LoanProductCode
+  name                        String
+  description                 String?
+  isActive                    Boolean                      @default(true)
+  createdAt                   DateTime                     @default(now()) @db.Timestamptz(6)
+  updatedAt                   DateTime                     @updatedAt @db.Timestamptz(6)
+  lenderProducts              LenderProduct[]
+  productDocumentRequirements ProductDocumentRequirement[]
+
+  @@map("loan_products")
+}
+
+model LenderProduct {
+  id                         String                      @id @default(uuid()) @db.Uuid
+  lenderOrgId                String                      @db.Uuid
+  loanProductId              String?                     @db.Uuid
+  loanProductCode            LoanProductCode
+  minLoanAmount              Decimal?                    @db.Decimal(20, 2)
+  maxLoanAmount              Decimal?                    @db.Decimal(20, 2)
+  minTermMonths              Int?
+  maxTermMonths              Int?
+  regionsSupported           String?
+  industriesSupported        String?
+  isActive                   Boolean                     @default(true)
+  createdAt                  DateTime                    @default(now()) @db.Timestamptz(6)
+  updatedAt                  DateTime                    @updatedAt @db.Timestamptz(6)
+  applicationLenders         ApplicationLender[]
+  eligibilityRuleSets        EligibilityRuleSet[]
+  lenderDocumentRequirements LenderDocumentRequirement[]
+  lender                     Organization                @relation(fields: [lenderOrgId], references: [id])
+  loanProduct                LoanProduct?                @relation(fields: [loanProductId], references: [id])
+
+  @@index([lenderOrgId])
+  @@index([loanProductCode])
+  @@index([loanProductId])
+  @@map("lender_products")
+}
+
+model BrokerLenderAccess {
+  id          String             @id @default(uuid()) @db.Uuid
+  brokerOrgId String             @db.Uuid
+  lenderOrgId String             @db.Uuid
+  source      BrokerLenderSource
+  isActive    Boolean            @default(true)
+  createdAt   DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime           @updatedAt @db.Timestamptz(6)
+  broker      Organization       @relation("BrokerAccess_broker", fields: [brokerOrgId], references: [id])
+  lender      Organization       @relation("BrokerAccess_lender", fields: [lenderOrgId], references: [id])
+
+  @@index([brokerOrgId])
+  @@index([lenderOrgId])
+  @@map("broker_lender_access")
+}
+
+model EligibilityRuleSet {
+  id                         String                      @id @default(uuid()) @db.Uuid
+  lenderProductId            String                      @db.Uuid
+  name                       String
+  description                String?
+  effectiveFrom              DateTime?
+  effectiveTo                DateTime?
+  isActive                   Boolean                     @default(true)
+  createdAt                  DateTime                    @default(now()) @db.Timestamptz(6)
+  updatedAt                  DateTime                    @updatedAt @db.Timestamptz(6)
+  applicationRuleEvaluations ApplicationRuleEvaluation[]
+  lenderProduct              LenderProduct               @relation(fields: [lenderProductId], references: [id])
+  rules                      EligibilityRule[]
+
+  @@index([lenderProductId])
+  @@map("eligibility_rule_sets")
+}
+
+model EligibilityRule {
+  id                     String                  @id @default(uuid()) @db.Uuid
+  ruleSetId              String                  @db.Uuid
+  fieldName              String
+  comparisonOperator     RuleComparisonOperator
+  value                  String
+  severity               RuleSeverity
+  message                String?
+  sortOrder              Int?
+  createdAt              DateTime                @default(now()) @db.Timestamptz(6)
+  updatedAt              DateTime                @updatedAt @db.Timestamptz(6)
+  applicationRuleResults ApplicationRuleResult[]
+  ruleSet                EligibilityRuleSet      @relation(fields: [ruleSetId], references: [id])
+
+  @@index([ruleSetId])
+  @@map("eligibility_rules")
+}
+
+model DocumentType {
+  id                      String                           @id @default(uuid()) @db.Uuid
+  name                    String
+  code                    String
+  description             String?
+  isActive                Boolean                          @default(true)
+  createdAt               DateTime                         @default(now()) @db.Timestamptz(6)
+  updatedAt               DateTime                         @updatedAt @db.Timestamptz(6)
+  applicationRequirements ApplicationDocumentRequirement[]
+  lenderRequirements      LenderDocumentRequirement[]
+  productRequirements     ProductDocumentRequirement[]
+
+  @@map("document_types")
+}
+
+model ProductDocumentRequirement {
+  id              String          @id @default(uuid()) @db.Uuid
+  loanProductId   String?         @db.Uuid
+  loanProductCode LoanProductCode
+  documentTypeId  String          @db.Uuid
+  isRequired      Boolean         @default(true)
+  minFiles        Int?            @default(1)
+  maxFiles        Int?
+  notes           String?
+  sortOrder       Int?
+  createdAt       DateTime        @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime        @updatedAt @db.Timestamptz(6)
+  documentType    DocumentType    @relation(fields: [documentTypeId], references: [id])
+  loanProduct     LoanProduct?    @relation(fields: [loanProductId], references: [id])
+
+  @@index([documentTypeId])
+  @@index([loanProductCode])
+  @@index([loanProductId])
+  @@map("product_document_requirements")
+}
+
+model LenderDocumentRequirement {
+  id              String        @id @default(uuid()) @db.Uuid
+  lenderProductId String        @db.Uuid
+  documentTypeId  String        @db.Uuid
+  isRequired      Boolean       @default(true)
+  minFiles        Int?          @default(1)
+  maxFiles        Int?
+  notes           String?
+  sortOrder       Int?
+  createdAt       DateTime      @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime      @updatedAt @db.Timestamptz(6)
+  documentType    DocumentType  @relation(fields: [documentTypeId], references: [id])
+  lenderProduct   LenderProduct @relation(fields: [lenderProductId], references: [id])
+
+  @@index([lenderProductId])
+  @@index([documentTypeId])
+  @@map("lender_document_requirements")
+}
+
+model BrokerWhiteLabelSetting {
+  id                        String       @id @default(uuid()) @db.Uuid
+  brokerOrgId               String       @db.Uuid
+  customDomain              String?
+  primaryColor              String?
+  secondaryColor            String?
+  logoUrl                   String?
+  showBrokerBrandOnApproval Boolean      @default(false)
+  footerText                String?
+  createdAt                 DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt                 DateTime     @updatedAt @db.Timestamptz(6)
+  broker                    Organization @relation(fields: [brokerOrgId], references: [id])
+
+  @@index([brokerOrgId])
+  @@map("broker_white_label_settings")
+}
+
+model AffiliateLink {
+  id              String                  @id @default(uuid()) @db.Uuid
+  brokerOrgId     String                  @db.Uuid
+  code            String                  @unique
+  targetType      AffiliateTargetType
+  commissionType  AffiliateCommissionType
+  commissionValue Decimal?                @db.Decimal(12, 2)
+  isActive        Boolean                 @default(true)
+  createdAt       DateTime                @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime                @updatedAt @db.Timestamptz(6)
+  broker          Organization            @relation(fields: [brokerOrgId], references: [id])
+
+  @@index([brokerOrgId])
+  @@map("affiliate_links")
+}
+
+model LoanApplication {
+  id                   String                           @id @default(uuid()) @db.Uuid
+  applicationNumber    String                           @unique
+  brokerOrgId          String                           @db.Uuid
+  brokerUserId         String?                          @db.Uuid
+  clientId             String                           @db.Uuid
+  loanProductCode      LoanProductCode
+  status               LoanApplicationStatus            @default(DRAFT)
+  amountRequested      Decimal?                         @db.Decimal(20, 2)
+  termMonthsRequested  Int?
+  purpose              String?
+  createdAt            DateTime                         @default(now()) @db.Timestamptz(6)
+  updatedAt            DateTime                         @updatedAt @db.Timestamptz(6)
+  submittedAt          DateTime?                        @db.Timestamptz(6)
+  collaterals          ApplicationCollateral[]
+  documentRequirements ApplicationDocumentRequirement[]
+  documentUploads      ApplicationDocumentUpload[]
+  financials           ApplicationFinancial?
+  applicationLenders   ApplicationLender[]
+  ruleEvaluations      ApplicationRuleEvaluation[]
+  statusHistory        ApplicationStatusHistory[]
+  escrowInstructions   EscrowInstruction[]
+  brokerOrg            Organization                     @relation("BrokerLoanApplications", fields: [brokerOrgId], references: [id])
+  brokerUser           UserAccount?                     @relation("BrokerUserLoanApplications", fields: [brokerUserId], references: [id])
+  client               Client                           @relation(fields: [clientId], references: [id])
+
+  @@index([brokerOrgId])
+  @@index([clientId])
+  @@index([loanProductCode])
+  @@map("loan_applications")
+}
+
+model ApplicationFinancial {
+  id                String          @id @default(uuid()) @db.Uuid
+  loanApplicationId String          @unique @db.Uuid
+  annualRevenue     Decimal?        @db.Decimal(20, 2)
+  netIncome         Decimal?        @db.Decimal(20, 2)
+  ebitda            Decimal?        @db.Decimal(20, 2)
+  totalDebt         Decimal?        @db.Decimal(20, 2)
+  dscr              Decimal?        @db.Decimal(10, 4)
+  createdAt         DateTime        @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime        @updatedAt @db.Timestamptz(6)
+  loanApplication   LoanApplication @relation(fields: [loanApplicationId], references: [id])
+
+  @@index([loanApplicationId])
+  @@map("application_financials")
+}
+
+model ApplicationCollateral {
+  id                String          @id @default(uuid()) @db.Uuid
+  loanApplicationId String          @db.Uuid
+  collateralType    String
+  description       String?
+  valueEstimated    Decimal?        @db.Decimal(20, 2)
+  lienPosition      String?
+  createdAt         DateTime        @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime        @updatedAt @db.Timestamptz(6)
+  loanApplication   LoanApplication @relation(fields: [loanApplicationId], references: [id])
+
+  @@index([loanApplicationId])
+  @@map("application_collaterals")
+}
+
+model ApplicationDocumentRequirement {
+  id                String                      @id @default(uuid()) @db.Uuid
+  loanApplicationId String                      @db.Uuid
+  documentTypeId    String                      @db.Uuid
+  source            DocRequirementSource
+  isRequired        Boolean                     @default(true)
+  status            DocRequirementStatus        @default(PENDING)
+  createdAt         DateTime                    @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime                    @updatedAt @db.Timestamptz(6)
+  documentType      DocumentType                @relation(fields: [documentTypeId], references: [id])
+  loanApplication   LoanApplication             @relation(fields: [loanApplicationId], references: [id])
+  uploads           ApplicationDocumentUpload[]
+
+  @@index([loanApplicationId])
+  @@index([documentTypeId])
+  @@map("application_document_requirements")
+}
+
+model ApplicationDocumentUpload {
+  id                     String                          @id @default(uuid()) @db.Uuid
+  loanApplicationId      String                          @db.Uuid
+  documentRequirementId  String?                         @db.Uuid
+  uploadedByUserId       String?                         @db.Uuid
+  uploadedByClientUserId String?                         @db.Uuid
+  fileName               String
+  fileUrl                String
+  fileMimeType           String?
+  uploadedAt             DateTime                        @default(now()) @db.Timestamptz(6)
+  documentRequirement    ApplicationDocumentRequirement? @relation(fields: [documentRequirementId], references: [id])
+  loanApplication        LoanApplication                 @relation(fields: [loanApplicationId], references: [id])
+  uploadedByClientUser   ClientPortalUser?               @relation("UploadedByClient", fields: [uploadedByClientUserId], references: [id])
+  uploadedByUser         UserAccount?                    @relation("UploadedByUser", fields: [uploadedByUserId], references: [id])
+
+  @@index([loanApplicationId])
+  @@index([documentRequirementId])
+  @@map("application_document_uploads")
+}
+
+model ApplicationRuleEvaluation {
+  id                String                  @id @default(uuid()) @db.Uuid
+  loanApplicationId String                  @db.Uuid
+  ruleSetId         String?                 @db.Uuid
+  result            String
+  evaluatedAt       DateTime                @default(now()) @db.Timestamptz(6)
+  loanApplication   LoanApplication         @relation(fields: [loanApplicationId], references: [id])
+  ruleSet           EligibilityRuleSet?     @relation(fields: [ruleSetId], references: [id])
+  results           ApplicationRuleResult[]
+
+  @@index([loanApplicationId])
+  @@index([ruleSetId])
+  @@map("application_rule_evaluations")
+}
+
+model ApplicationRuleResult {
+  id               String                    @id @default(uuid()) @db.Uuid
+  ruleEvaluationId String                    @db.Uuid
+  ruleId           String?                   @db.Uuid
+  passed           Boolean
+  message          String?
+  fieldValue       String?
+  createdAt        DateTime                  @default(now()) @db.Timestamptz(6)
+  ruleEvaluation   ApplicationRuleEvaluation @relation(fields: [ruleEvaluationId], references: [id])
+  rule             EligibilityRule?          @relation(fields: [ruleId], references: [id])
+
+  @@index([ruleEvaluationId])
+  @@index([ruleId])
+  @@map("application_rule_results")
+}
+
+model ApplicationStatusHistory {
+  id                String                @id @default(uuid()) @db.Uuid
+  loanApplicationId String                @db.Uuid
+  fromStatus        LoanApplicationStatus
+  toStatus          LoanApplicationStatus
+  changedByUserId   String?               @db.Uuid
+  reason            String?
+  createdAt         DateTime              @default(now()) @db.Timestamptz(6)
+  changedByUser     UserAccount?          @relation("ChangedByUser", fields: [changedByUserId], references: [id])
+  loanApplication   LoanApplication       @relation(fields: [loanApplicationId], references: [id])
+
+  @@index([loanApplicationId])
+  @@index([changedByUserId])
+  @@map("application_status_history")
+}
+
+model ApplicationLender {
+  id                String                  @id @default(uuid()) @db.Uuid
+  loanApplicationId String                  @db.Uuid
+  lenderOrgId       String                  @db.Uuid
+  lenderProductId   String?                 @db.Uuid
+  status            ApplicationLenderStatus @default(SENT)
+  sentByUserId      String?                 @db.Uuid
+  sentAt            DateTime?               @db.Timestamptz(6)
+  lastUpdatedAt     DateTime?               @db.Timestamptz(6)
+  lender            Organization            @relation("LenderApplications", fields: [lenderOrgId], references: [id])
+  lenderProduct     LenderProduct?          @relation(fields: [lenderProductId], references: [id])
+  loanApplication   LoanApplication         @relation(fields: [loanApplicationId], references: [id])
+  sentByUser        UserAccount?            @relation("SentByUser", fields: [sentByUserId], references: [id])
+  lenderReviews     LenderReview[]
+
+  @@index([loanApplicationId])
+  @@index([lenderOrgId])
+  @@map("application_lenders")
+}
+
+model LenderReview {
+  id                  String            @id @default(uuid()) @db.Uuid
+  applicationLenderId String            @db.Uuid
+  reviewedByUserId    String?           @db.Uuid
+  reviewStatus        ReviewStatus
+  approvedAmount      Decimal?          @db.Decimal(20, 2)
+  interestRate        Decimal?          @db.Decimal(8, 4)
+  notes               String?
+  createdAt           DateTime          @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime          @updatedAt @db.Timestamptz(6)
+  conditions          LenderCondition[]
+  applicationLender   ApplicationLender @relation(fields: [applicationLenderId], references: [id])
+  reviewedByUser      UserAccount?      @relation("ReviewedByUser", fields: [reviewedByUserId], references: [id])
+
+  @@index([applicationLenderId])
+  @@index([reviewedByUserId])
+  @@map("lender_reviews")
+}
+
+model LenderCondition {
+  id             String          @id @default(uuid()) @db.Uuid
+  lenderReviewId String          @db.Uuid
+  description    String
+  status         ConditionStatus @default(OPEN)
+  satisfiedAt    DateTime?       @db.Timestamptz(6)
+  lenderReview   LenderReview    @relation(fields: [lenderReviewId], references: [id])
+
+  @@index([lenderReviewId])
+  @@map("lender_conditions")
+}
+
+model EscrowTitleCompany {
+  id                  String              @id @default(uuid()) @db.Uuid
+  organizationId      String              @db.Uuid
+  contactPerson       String?
+  contactEmail        String?
+  contactPhone        String?
+  defaultInstructions String?
+  createdAt           DateTime            @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime            @updatedAt @db.Timestamptz(6)
+  escrowInstructions  EscrowInstruction[]
+  organization        Organization        @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId])
+  @@map("escrow_title_companies")
+}
+
+model EscrowInstruction {
+  id                String             @id @default(uuid()) @db.Uuid
+  loanApplicationId String             @db.Uuid
+  escrowCompanyId   String             @db.Uuid
+  instructionsText  String?
+  createdByUserId   String?            @db.Uuid
+  createdAt         DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime           @updatedAt @db.Timestamptz(6)
+  createdByUser     UserAccount?       @relation("CreatedEscrowInstructions", fields: [createdByUserId], references: [id])
+  escrowCompany     EscrowTitleCompany @relation(fields: [escrowCompanyId], references: [id])
+  loanApplication   LoanApplication    @relation(fields: [loanApplicationId], references: [id])
+
+  @@index([loanApplicationId])
+  @@index([escrowCompanyId])
+  @@map("escrow_instructions")
+}
+
+model NotificationTemplate {
+  id        String              @id @default(uuid()) @db.Uuid
+  eventType String
+  channel   NotificationChannel
+  subject   String?
+  body      String?
+  isActive  Boolean             @default(true)
+  createdAt DateTime            @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime            @updatedAt @db.Timestamptz(6)
+  rules     NotificationRule[]
+
+  @@map("notification_templates")
+}
+
+model NotificationRule {
+  id                     String               @id @default(uuid()) @db.Uuid
+  eventType              String
+  recipientType          RecipientType
+  notificationTemplateId String               @db.Uuid
+  isEnabled              Boolean              @default(true)
+  createdAt              DateTime             @default(now()) @db.Timestamptz(6)
+  updatedAt              DateTime             @updatedAt @db.Timestamptz(6)
+  notificationTemplate   NotificationTemplate @relation(fields: [notificationTemplateId], references: [id])
+
+  @@index([notificationTemplateId])
+  @@map("notification_rules")
+}
+
+model Notification {
+  id                String              @id @default(uuid()) @db.Uuid
+  eventType         String
+  channel           NotificationChannel
+  status            NotificationStatus
+  recipientType     RecipientType
+  recipientClientId String?             @db.Uuid
+  recipientUserId   String?             @db.Uuid
+  subject           String?
+  body              String?
+  createdAt         DateTime            @default(now()) @db.Timestamptz(6)
+  sentAt            DateTime?           @db.Timestamptz(6)
+
+  @@index([recipientClientId])
+  @@index([recipientUserId])
+  @@map("notifications")
+}
+
+model AuditLog {
+  id           String        @id @default(uuid()) @db.Uuid
+  actorUserId  String?       @db.Uuid
+  actorOrgId   String?       @db.Uuid
+  entityType   String
+  entityId     String
+  action       String
+  oldValueJson String?
+  newValueJson String?
+  createdAt    DateTime      @default(now()) @db.Timestamptz(6)
+  actorOrg     Organization? @relation("OrgAuditLogs", fields: [actorOrgId], references: [id])
+  actorUser    UserAccount?  @relation("UserAuditLogs", fields: [actorUserId], references: [id])
+
+  @@index([actorUserId])
+  @@index([actorOrgId])
+  @@map("audit_logs")
+}
+
+enum OrganizationType {
+  PLATFORM
+  BROKER
+  LENDER
+  ESCROW_TITLE
+}
+
+enum OrganizationStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum UserStatus {
+  ACTIVE
+  INVITED
+  DISABLED
+}
+
+enum RoleName {
+  PLATFORM_ADMIN
+  PLATFORM_SUPPORT
+  BROKER_ADMIN
+  BROKER_OFFICER
+  LENDER_ADMIN
+  LENDER_UNDERWRITER
+  CLIENT_USER
+}
+
+enum ClientEntityType {
+  COMPANY
+  INDIVIDUAL
+  PARTNERSHIP
+  TRUST
+}
+
+enum LoanProductCode {
+  SBA
+  USDA
+  BRIDGE
+  DSCR
+  CONSTRUCTION
+  EQUIPMENT
+  ASSET_BASED
+  AR_AP
+  PO_FINANCE
+}
+
+enum LoanApplicationStatus {
+  DRAFT
+  SUBMITTED
+  IN_REVIEW
+  AUTO_APPROVED
+  AUTO_DECLINED
+  LENDER_SELECTED
+  LENDER_APPROVED
+  LENDER_DECLINED
+  FUNDED
+  WITHDRAWN
+}
+
+enum DocRequirementSource {
+  PRODUCT_DEFAULT
+  LENDER_DEFAULT
+  BROKER_ADDED
+  LENDER_ADDED
+}
+
+enum DocRequirementStatus {
+  PENDING
+  PARTIAL
+  COMPLETE
+}
+
+enum ApplicationLenderStatus {
+  SENT
+  IN_REVIEW
+  APPROVED
+  DECLINED
+  WITHDRAWN
+}
+
+enum ReviewStatus {
+  IN_REVIEW
+  APPROVED
+  DECLINED
+  CONDITIONAL
+}
+
+enum ConditionStatus {
+  OPEN
+  SATISFIED
+  WAIVED
+}
+
+enum NotificationChannel {
+  EMAIL
+  SMS
+  IN_APP
+}
+
+enum NotificationStatus {
+  QUEUED
+  SENT
+  FAILED
+}
+
+enum RecipientType {
+  CLIENT
+  USER
+  BROKER
+  LENDER
+}
+
+enum RuleComparisonOperator {
+  GT
+  GTE
+  LT
+  LTE
+  EQ
+  NEQ
+  IN
+  NOT_IN
+}
+
+enum RuleSeverity {
+  HARD_FAIL
+  SOFT_FAIL
+}
+
+enum AffiliateTargetType {
+  BROKER_SIGNUP
+  CLIENT_APPLICATION
+}
+
+enum AffiliateCommissionType {
+  PERCENTAGE
+  FLAT
+}
+
+enum BrokerLenderSource {
+  PLATFORM_DEFAULT
+  BROKER_ADDED
 }

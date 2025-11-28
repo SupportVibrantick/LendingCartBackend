@@ -1,64 +1,73 @@
-// middleware/authMiddleware.js
+// backend/middleware/authMiddleware.js
+const fp = require("fastify-plugin");
 require("dotenv").config();
-
 const jwt = require("jsonwebtoken");
 const jwtSecret = process.env.JWT_SECRET || "SecretKey";
-
 const logger = require("../services/logger/contextLogger");
 
-// Fastify compatible version
-const verifyToken = async (request, reply) => {
-  const token = request.headers["authorization"]?.split(" ")[1];
+function registerAuthMiddleware(fastify, opts, done) {
+  fastify.decorate("authenticate", async function (request, reply) {
+    try {
+      const authHeader = request.headers["authorization"] || "";
+      const header = String(authHeader || "").trim();
+      const token = header.startsWith("Bearer ") ? header.slice(7).trim() : (header || null);
 
-  if (!token) {
-    logger.commonLogs.error("No token provided", {
-      endpoint: request.url,
-      method: request.method,
-    });
-    reply.status(401).send({ message: "No token provided" });
-    // Throwing an error after sending a response is generally not needed
-    // Fastify will stop the handler chain if you send a response in a preHandler hook
-    return; // Explicitly return to avoid further execution if needed
-  }
+      if (!token) {
+        logger.commonLogs.error("No token provided", {
+          endpoint: request.url,
+          method: request.method,
+        });
+        return reply.code(401).send({ ok: false, message: "No token provided" });
+      }
 
-  try {
-    const decoded = await new Promise((resolve, reject) => {
-      jwt.verify(token, jwtSecret, (err, decodedToken) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(decodedToken);
-        }
-      });
-    });
+      const decoded = jwt.verify(token, jwtSecret);
+      
+     
 
-    request.user = { id: decoded.id, role: decoded.role }; // Use request.user convention
-  } catch (err) {
-    logger.commonLogs.error("Invalid or expired token", {
-      endpoint: request.url,
-      method: request.method,
-    });
-    reply.status(401).send({ message: "Invalid or expired token" });
-    throw err; // Throw to stop the handler chain
-  }
-};
+      const userId = decoded.userId ?? decoded.id ?? decoded.user?.id ?? null;
+      const orgId = decoded.orgId ?? decoded.organizationId ?? null;
+      const roles = decoded.roles ?? decoded.role ?? [];
 
-// Fastify compatible version
-const authorizeRoles = (allowedRoles = []) => {
-  return async (request, reply) => {
-    const userRole = request.user?.role; // Access role from request.user
-    if (!userRole || !allowedRoles.includes(userRole)) {
-      logger.commonLogs.warn("Access denied due to insufficient role", {
+      if (!userId) {
+        logger.commonLogs.warn("Token missing user id", {
+          endpoint: request.url,
+          method: request.method,
+        });
+        return reply.code(401).send({ ok: false, message: "Invalid token payload" });
+      }
+
+      request.user = { userId, orgId, roles, raw: decoded };
+    } catch (err) {
+      logger.commonLogs.error("Invalid or expired token", {
         endpoint: request.url,
         method: request.method,
-        role: userRole,
+        error: err && err.message ? err.message : err,
       });
-
-      reply.status(403).send({ message: "Access denied: Unauthorized role" });
-      throw new Error("Unauthorized role"); // Throw to stop the handler chain
+      return reply.code(401).send({ ok: false, message: "Invalid or expired token" });
     }
-    // If role is valid, just continue by returning or not throwing
-  };
-};
+  });
 
-module.exports = { verifyToken, authorizeRoles };
+  fastify.decorate("requireRole", (allowedRoles = []) => {
+    return async (request, reply) => {
+      const userRoles = request.user?.roles ?? [];
+      const has = Array.isArray(userRoles)
+        ? userRoles.some((r) => allowedRoles.includes(r))
+        : allowedRoles.includes(userRoles);
+
+        
+      if (!has) {
+        logger.commonLogs.warn("Access denied - role", {
+          endpoint: request.url,
+          method: request.method,
+          userRoles,
+          allowedRoles,
+        });
+        return reply.code(403).send({ ok: false, message: "Forbidden - insufficient role" });
+      }
+    };
+  });
+
+  done();
+}
+
+module.exports = fp(registerAuthMiddleware, { name: "auth-middleware" });

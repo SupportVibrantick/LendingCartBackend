@@ -1,24 +1,22 @@
-// routes/admin/auth/login.js
-const { adminLogs } = require("../../../services/logger/contextLogger");
-const { PrismaClient } = require("../../../generated/prisma/client");
-const { addSchema } = require("../../../schemas/admin/login/add.schema");
-const prisma = new PrismaClient();
+// backend/routes/admin/auth/login.js
+const { loginSchema } = require("../../../schemas/admin/login/login.schema.js");
+const { getUserRolesFromFGA } = require("../../../services/fgaService.js");
 const jwt = require("jsonwebtoken");
-const jwtSecret = process.env.JWT_SECRET || "SecretKey";
-const jwtExpiration = process.env.JWT_EXPIRATION || "1h";
-const bcrypt = require("bcrypt");
+const { PrismaClient } = require("@prisma/client");
+const prisma = new PrismaClient();
+// const prisma = require("../config/prisma.js");
+const { comparePassword } = require("../../../utils/password.js");
 
-/**
- * @param {import("fastify").FastifyInstance} fastify
- */
-
-async function adminLoginRoutes(fastify, options) {
-  // Login POST handler
-  fastify.post("/", async (request, reply) => {
+module.exports = async function adminLoginRoute(fastify, opts) {
+  fastify.post("/login", async (request, reply) => {
     try {
-      const validationResult = addSchema.safeParse(request.body);
+      const validationResult = loginSchema.safeParse(request.body);
 
       if (!validationResult.success) {
+        adminLogs.error(`Invalid data for creating role`, {
+          error: validationResult.error,
+        });
+
         return reply.status(400).send({
           success: false,
           message: "Invalid data for auth.",
@@ -31,65 +29,70 @@ async function adminLoginRoutes(fastify, options) {
 
       const { email, password } = validationResult.data;
 
-      const existingAdmin = await prisma.admin.findFirst({
-        where: {
-          email: email,
-        },
+      const user = await prisma.userAccount.findUnique({
+        where: { email },
         include: {
-          role: true,
+          roles: { include: { role: true } },
+          organization: true,
         },
       });
 
-      if (!existingAdmin) {
+      if (!user) {
         return reply.status(404).send({
           success: false,
           message: "Invalid email address for authentication",
         });
       }
 
-      const isPasswordValid = await bcrypt.compare(
-        password,
-        existingAdmin.password
-      );
+      const match = await comparePassword(password, user.passwordHash);
 
-      if (!isPasswordValid) {
-        return reply.status(403).send({
+      if (!match) {
+        return reply.status(404).send({
           success: false,
-          message: "Invalid password",
+          message: "Invalid password for authentication",
         });
       }
 
+      let fgaRoles = [];
+      try {
+        fgaRoles = await getUserRolesFromFGA(user.id);
+      } catch (e) {
+        fastify.log.warn(
+          "FGA roles fetch failed:",
+          e && e.message ? e.message : e
+        );
+      }
+
       const token = jwt.sign(
-        { id: existingAdmin.id, role: existingAdmin.role?.name },
-        jwtSecret,
         {
-          expiresIn: jwtExpiration,
-        }
+          userId: user.id,
+          orgId: user.organizationId,
+          roles: user.roles?.map((r) => r.role.name) ?? [],
+        },
+        process.env.JWT_SECRET,
+        { expiresIn: "2h" }
       );
 
-      adminLogs.info("Admin login attempt", {
-        adminId: existingAdmin.id,
-        email: existingAdmin.email,
+      return reply.send({
+        ok: true,
+        token,
+        user: {
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          orgId: user.organizationId,
+          fgaRoles,
+          dbRoles: user.roles?.map((r) => r.role.name) ?? [],
+        },
       });
-
-      reply.status(200).send({
-        success: true,
-        message: "Login successfully",
-        token: token,
-        name: existingAdmin.name,
-        role: existingAdmin.role?.id || null,
-      });
-    } catch (error) {
-      adminLogs.error(`Admin login failed`, { error: error });
-
-      return reply.status(500).send({
-        success: false,
-        message: "Server error during login. Please try again later.",
-        details:
-          process.env.NODE_ENV === "development" ? error.message : undefined,
-      });
+    } catch (err) {
+      // Zod validation errors come with .issues
+      if (err && err.issues) {
+        return reply.code(400).send({ ok: false, errors: err.issues });
+      }
+      fastify.log.error(err);
+      return reply.code(500).send({ ok: false, message: "Server error" });
     }
   });
-}
-
-module.exports = adminLoginRoutes;
+};
