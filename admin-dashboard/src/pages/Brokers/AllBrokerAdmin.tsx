@@ -27,12 +27,13 @@ const API = {
 
 const AllBrokersAdmin: React.FC = () => {
   const [brokers, setBrokers] = useState<BrokerOrg[]>([]);
-  const [loadingBrokers, setLoadingBrokers] = useState(false);
+  const [loadingBrokers, setLoadingBrokers] = useState<boolean>(false);
   const [selectedBroker, setSelectedBroker] = useState<string>("");
 
   const [admins, setAdmins] = useState<AdminUser[]>([]);
-  const [loadingAdmins, setLoadingAdmins] = useState(false);
+  const [loadingAdmins, setLoadingAdmins] = useState<boolean>(false);
 
+  // use fetchError to store latest fetch error message (optional)
   const [fetchError, setFetchError] = useState<string | null>(null);
 
   // EDIT MODAL STATE
@@ -43,13 +44,14 @@ const AllBrokersAdmin: React.FC = () => {
     email: "",
     phone: "",
   });
-  const [savingEdit, setSavingEdit] = useState(false);
+  const [savingEdit, setSavingEdit] = useState<boolean>(false);
 
   // ---------------------------
   // Fetch Brokers
   // ---------------------------
   const fetchBrokers = useCallback(async () => {
     try {
+      setFetchError(null);
       setLoadingBrokers(true);
       const token = sessionStorage.getItem("admin_token");
 
@@ -61,6 +63,11 @@ const AllBrokersAdmin: React.FC = () => {
         },
       });
 
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`Failed to fetch brokers: ${res.status} ${text}`);
+      }
+
       const json = await res.json();
       const list = json.data || [];
 
@@ -71,7 +78,9 @@ const AllBrokersAdmin: React.FC = () => {
 
       setBrokers(mapped);
     } catch (err: any) {
-      toast.error(err?.message || "Failed to fetch brokers");
+      const message = err?.message || "Failed to fetch brokers";
+      setFetchError(message);
+      toast.error(message);
     } finally {
       setLoadingBrokers(false);
     }
@@ -86,6 +95,7 @@ const AllBrokersAdmin: React.FC = () => {
   // ---------------------------
   const fetchAdmins = async (id: string) => {
     try {
+      setFetchError(null);
       setLoadingAdmins(true);
       setAdmins([]);
 
@@ -99,6 +109,11 @@ const AllBrokersAdmin: React.FC = () => {
         },
       });
 
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`Failed to fetch admins: ${res.status} ${text}`);
+      }
+
       const json = await res.json();
       const adminList = json.data?.admins || [];
 
@@ -109,8 +124,10 @@ const AllBrokersAdmin: React.FC = () => {
       }));
 
       setAdmins(mapped);
-    } catch {
-      toast.error("Failed to load admins");
+    } catch (err: any) {
+      const message = err?.message || "Failed to load admins";
+      setFetchError(message);
+      toast.error(message);
     } finally {
       setLoadingAdmins(false);
     }
@@ -118,7 +135,8 @@ const AllBrokersAdmin: React.FC = () => {
 
   const handleSelect = (value: string) => {
     setSelectedBroker(value);
-    fetchAdmins(value);
+    if (value) fetchAdmins(value);
+    else setAdmins([]);
   };
 
   // ---------------------------
@@ -138,12 +156,16 @@ const AllBrokersAdmin: React.FC = () => {
         },
       });
 
-      if (!res.ok) throw new Error("Failed to delete admin");
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`Failed to delete admin: ${res.status} ${text}`);
+      }
 
       toast.success("Admin deleted");
       setAdmins((prev) => prev.filter((a) => a.id !== adminId));
-    } catch {
-      toast.error("Delete failed");
+    } catch (err: any) {
+      const message = err?.message || "Delete failed";
+      toast.error(message);
     }
   };
 
@@ -166,20 +188,22 @@ const AllBrokersAdmin: React.FC = () => {
         body: JSON.stringify(editForm),
       });
 
-      if (!res.ok) throw new Error("Failed to update admin");
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`Failed to update admin: ${res.status} ${text}`);
+      }
 
       toast.success("Admin updated successfully");
 
       // Update UI
       setAdmins((prev) =>
-        prev.map((a) =>
-          a.id === editingAdmin.id ? { ...a, ...editForm } : a
-        )
+        prev.map((a) => (a.id === editingAdmin.id ? { ...a, ...editForm } : a))
       );
 
       setEditingAdmin(null);
-    } catch {
-      toast.error("Update failed");
+    } catch (err: any) {
+      const message = err?.message || "Update failed";
+      toast.error(message);
     } finally {
       setSavingEdit(false);
     }
@@ -209,6 +233,10 @@ const AllBrokersAdmin: React.FC = () => {
 
       {/* Card */}
       <div className="bg-white rounded-xl border p-6 max-w-4xl space-y-6">
+        {/* Optional: show fetch error */}
+        {fetchError && (
+          <div className="text-sm text-red-600 mb-2">Error: {fetchError}</div>
+        )}
 
         {/* Dropdown */}
         <div>
@@ -217,13 +245,15 @@ const AllBrokersAdmin: React.FC = () => {
             value={selectedBroker}
             onChange={(e) => handleSelect(e.target.value)}
             className="block w-full border px-3 py-2 rounded-lg"
+            disabled={loadingBrokers}
           >
-            <option value="">Select Broker</option>
-            {brokers.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.name}
-              </option>
-            ))}
+            <option value="">{loadingBrokers ? "Loading brokers..." : "Select Broker"}</option>
+            {!loadingBrokers &&
+              brokers.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name}
+                </option>
+              ))}
           </select>
         </div>
 
@@ -285,7 +315,6 @@ const AllBrokersAdmin: React.FC = () => {
       {editingAdmin && (
         <div className="fixed inset-0 bg-black/40 flex justify-center items-center z-5000000 backdrop-blur-sm">
           <div className="bg-white p-6 rounded-xl w-full max-w-md">
-
             <h2 className="text-lg font-semibold mb-4">Edit Admin</h2>
 
             <div className="space-y-3">
@@ -342,7 +371,6 @@ const AllBrokersAdmin: React.FC = () => {
                 {savingEdit ? "Saving..." : "Save"}
               </button>
             </div>
-
           </div>
         </div>
       )}

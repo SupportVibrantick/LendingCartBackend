@@ -1,5 +1,80 @@
-extends layout
+doctype html
+html(lang="en")
+  head
+    meta(charset="utf-8")
+    meta(name="viewport" content="width=device-width,initial-scale=1")
+    title= title
+    style.
+      body{
+        background-color: #222;
+        background: url('https://www.toptal.com/designers/subtlepatterns/uploads/ep_naturalblack.png') repeat;
+        color: #DDD;
+        font-family: helvetica,arial, sans-serif;
+        margin: 0;
+        -webkit-font-smoothing:antialiased;
+        -moz-osx-font-smoothing:grayscale;
+      }
 
-block content
-  h1= title
-  p  #{message}
+      .container{
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 0 2vmax;
+      }
+
+      .fs{
+        min-height: 100vh;
+        height: 100%;
+        width: 100%;
+        border-bottom: 1px solid #999;
+      }
+
+      .highlight{
+        color: #27A4DD;
+      }
+
+      h1,p{
+        padding-left: 2vmax;
+      }
+
+      p{
+        padding-top: .5em;
+        color: #BBB;
+        max-width: 65ch;
+      }
+
+      h1{
+        font-weight: bold;
+        font-size: 18vmin;
+        line-height: .8;
+        letter-spacing: -.06em;
+        text-align: left;
+        text-transform: uppercase;
+        padding-top: 40vh;
+        margin: 0;
+      }
+
+      footer{
+        margin-top: 10vh;
+        margin-bottom: 5vh;
+        padding-top: 5vh;
+        width: 100%;
+        text-align: center;
+        color: #666;
+        border-top: 1px solid #999;
+      }
+
+      @media screen and (max-width: 768px) {
+        h1{ font-size: 12vmin; padding-top: 25vh; }
+      }
+
+  body
+    .container
+      .row.fs
+        h1
+          | welcome 
+          br
+          | to 
+          span.highlight LendingCart Server
+        
+
+      

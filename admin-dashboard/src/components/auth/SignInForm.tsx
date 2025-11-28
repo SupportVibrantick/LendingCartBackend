@@ -4,7 +4,8 @@ import { EyeCloseIcon, EyeIcon } from "../../icons";
 import Label from "../form/Label";
 import Input from "../form/input/InputField";
 import Checkbox from "../form/input/Checkbox";
-import Button from "../ui/button/Button";
+// removed Button import to avoid prop type mismatch
+// import Button from "../ui/button/Button";
 
 export default function SignInForm() {
   const [showPassword, setShowPassword] = useState(false);
@@ -20,7 +21,8 @@ export default function SignInForm() {
 
   const navigate = useNavigate();
 
-  const API_BASE = "http://localhost:3001";
+  const API_BASE = import.meta.env.VITE_API_BASE || "";
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -152,9 +154,14 @@ export default function SignInForm() {
               {error && <div className="text-sm text-red-600">{error}</div>}
 
               <div>
-                <Button className="w-full" size="sm" type="submit" disabled={isSubmitting}>
+                {/* native button used to avoid prop mismatch on custom Button component */}
+                <button
+                  type="submit"
+                  className="w-full px-4 py-2 text-sm rounded-md bg-blue-600 text-white disabled:opacity-60"
+                  disabled={isSubmitting}
+                >
                   {isSubmitting ? "Signing in..." : "Sign in"}
-                </Button>
+                </button>
               </div>
             </div>
           </form>

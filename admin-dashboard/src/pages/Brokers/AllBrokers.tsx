@@ -4,7 +4,7 @@ import { TiPlus } from "react-icons/ti";
 import EditBrokerModal from "./EditBrokerModal"; // adjust path if needed
 
 type Broker = {
-  id: string;
+  id: number;
   name: string;
   email: string;
   phone: string;
@@ -38,7 +38,7 @@ function statusClass(status?: string) {
 export default function BrokersPage() {
   const [brokers, setBrokers] = useState<Broker[]>([]);
   const [loading, setLoading] = useState(false);
-  const [rowLoadingId, setRowLoadingId] = useState<string | null>(null);
+  const [rowLoadingId, setRowLoadingId] = useState<number | null>(null);
 
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [form, setForm] = useState({
@@ -81,7 +81,8 @@ export default function BrokersPage() {
     setCurrentPage(1);
   }, [query, pageSize]);
 
-  function getAuthHeaders() {
+  // ensure this function always returns string->string headers (no undefined values)
+  function getAuthHeaders(): Record<string, string> {
     try {
       const token = sessionStorage.getItem("admin_token");
       if (token) {
@@ -90,7 +91,9 @@ export default function BrokersPage() {
           Authorization: `Bearer ${token}`,
         };
       }
-    } catch (e) {}
+    } catch (e) {
+      // ignore
+    }
     return { "Content-Type": "application/json" };
   }
 
@@ -107,17 +110,28 @@ export default function BrokersPage() {
 
       const json = await res.json();
       const list = Array.isArray(json) ? json : json.data || [];
-      const normalized: Broker[] = list.map((o: any, idx: number) => ({
-        id: o.id ?? String(idx + 1),
-        name:
-          o.name ??
-          o.organizationName ??
-          `${o.adminFirstName ?? ""} ${o.adminLastName ?? ""}`.trim(),
-        email: o.email ?? o.organizationEmail ?? o.adminEmail ?? "",
-        phone: o.phone ?? o.organizationPhone ?? "",
-        status: o.status ?? "UNKNOWN",
-        createdAt: o.createdAt,
-      }));
+      const normalized: Broker[] = list.map((o: any, idx: number) => {
+        // attempt to convert id to number; fallback to index-based id
+        const parsedId =
+          typeof o.id === "number"
+            ? o.id
+            : typeof o.id === "string" && o.id.trim() !== ""
+            ? Number(o.id)
+            : NaN;
+        const id = Number.isFinite(parsedId) ? parsedId : idx + 1;
+
+        return {
+          id,
+          name:
+            o.name ??
+            o.organizationName ??
+            `${o.adminFirstName ?? ""} ${o.adminLastName ?? ""}`.trim(),
+          email: o.email ?? o.organizationEmail ?? o.adminEmail ?? "",
+          phone: o.phone ?? o.organizationPhone ?? "",
+          status: o.status ?? "UNKNOWN",
+          createdAt: o.createdAt,
+        };
+      });
       setBrokers(normalized);
     } catch (err: any) {
       console.error(err);
@@ -314,7 +328,7 @@ export default function BrokersPage() {
   // ------------------------------
   // Fetch admins for a broker id
   // ------------------------------
-  async function fetchAdmins(brokerId: string) {
+  async function fetchAdmins(brokerId: number) {
     setLoadingAdmins(true);
     setAdmins([]);
     setAdminsError(null);
