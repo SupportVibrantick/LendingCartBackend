@@ -28,6 +28,10 @@ model Organization {
   brokerLoanApplications     LoanApplication[]         @relation("BrokerLoanApplications")
   users                      UserAccount[]
 
+  // soft-delete fields (additive, non-breaking)
+  isDeleted                  Boolean?                  @default(false) @map("is_deleted")
+  deletedAt                  DateTime?                 @db.Timestamptz(6) @map("deleted_at")
+
   @@map("organizations")
 }
 
@@ -52,6 +56,10 @@ model UserAccount {
   brokerLoanApplications     LoanApplication[]           @relation("BrokerUserLoanApplications")
   organization               Organization?               @relation(fields: [organizationId], references: [id])
   roles                      UserRole[]
+
+  // soft-delete fields (additive, non-breaking)
+  isDeleted                  Boolean?                    @default(false) @map("is_deleted")
+  deletedAt                  DateTime?                   @db.Timestamptz(6) @map("deleted_at")
 
   @@map("user_accounts")
 }
@@ -90,6 +98,10 @@ model Client {
   primaryBroker      Organization       @relation("BrokerClients", fields: [primaryBrokerOrgId], references: [id])
   loanApplications   LoanApplication[]
 
+  // soft-delete fields (additive, non-breaking)
+  isDeleted          Boolean?           @default(false) @map("is_deleted")
+  deletedAt          DateTime?          @db.Timestamptz(6) @map("deleted_at")
+
   @@map("clients")
 }
 
@@ -117,6 +129,10 @@ model ClientPortalUser {
   lastLoginAt  DateTime?                   @db.Timestamptz(6)
   uploadedDocs ApplicationDocumentUpload[] @relation("UploadedByClient")
   client       Client                      @relation(fields: [clientId], references: [id])
+
+  // soft-delete fields (additive, non-breaking)
+  isDeleted    Boolean?                   @default(false) @map("is_deleted")
+  deletedAt    DateTime?                  @db.Timestamptz(6) @map("deleted_at")
 
   @@map("client_portal_users")
 }
@@ -185,8 +201,8 @@ model EligibilityRuleSet {
   effectiveFrom              DateTime?
   effectiveTo                DateTime?
   isActive                   Boolean                     @default(true)
-  createdAt                  DateTime                    @default(now()) @db.Timestamptz(6)
-  updatedAt                  DateTime                    @updatedAt @db.Timestamptz(6)
+  createdAt                  DateTime                     @default(now()) @db.Timestamptz(6)
+  updatedAt                  DateTime                     @updatedAt @db.Timestamptz(6)
   applicationRuleEvaluations ApplicationRuleEvaluation[]
   lenderProduct              LenderProduct               @relation(fields: [lenderProductId], references: [id])
   rules                      EligibilityRule[]

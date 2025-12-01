@@ -1,5 +1,8 @@
 // backend/routes/admin/index.js
 const brokerRoutes = require("./brokers");
+const lendersRoutes = require("./lenders");
+const logsRoutes = require("./logs/logs.js"); 
+
 
 // Registers auth sub-router under /admin/auth
 module.exports = async function adminRoutes(fastify, opts) {
@@ -10,7 +13,7 @@ module.exports = async function adminRoutes(fastify, opts) {
   fastify.register(async function rolesGroup(instance, opts) {
     // Combine both middlewares in one preHandler
     instance.addHook("preHandler", async (req, reply) => {
-      // ⭐ Allow Swagger UI requests to pass without token ⭐
+      // Allow Swagger UI requests to pass without token 
       if (
         req.url.startsWith("/docs") ||
         req.url.startsWith("/swagger") ||
@@ -27,5 +30,7 @@ module.exports = async function adminRoutes(fastify, opts) {
     });
 
     instance.register(brokerRoutes, { prefix: "/brokers" });
+    instance.register(lendersRoutes, { prefix: "/lenders" });
+    instance.register(logsRoutes, { prefix: "/logs" });
   });
 };

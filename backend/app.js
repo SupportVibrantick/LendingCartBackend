@@ -52,7 +52,7 @@ app.register(swagger, {
   openapi: {
     openapi: "3.0.0",
     info: {
-      title: "Lendingcart Api Documentation",
+      title: "Lendingcart Documentation",
       version: "1.0.0",
     },
     components: {
@@ -67,6 +67,7 @@ app.register(swagger, {
     security: [{ bearerAuth: [] }],
   },
 });
+
 
 app.register(swaggerUi, {
   routePrefix: "/api",

@@ -15,7 +15,28 @@ const bodySchema = z.object({
 });
 
 module.exports = async function adminRegisterRoute(fastify, opts) {
-  fastify.post("/register", async (req, reply) => {
+  fastify.post("/register",
+    {
+      schema: {
+        tags: ["Admin Auth"],
+        summary: "Admin / user registration",
+        description: "Create a new user account (optionally attach to organization and assign a role). Returns a JWT and basic user info.",
+        body: {
+          type: "object",
+          required: ["email", "password"],
+          properties: {
+            email: { type: "string", format: "email" },
+            password: { type: "string", minLength: 8 },
+            firstName: { type: ["string", "null"] },
+            lastName: { type: ["string", "null"] },
+            organizationId: { type: "string", format: "uuid" },
+            role: { type: "string" },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+    async (req, reply) => {
     try {
       const data = bodySchema.parse(req.body);
 

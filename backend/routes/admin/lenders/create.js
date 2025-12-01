@@ -1,20 +1,22 @@
+// routes/admin/lenders/create.js
 const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 const { adminLogs } = require("../../../services/logger/contextLogger.js");
-const { createBrokerSchema } = require("../../../schemas/admin/brokers/create.schema.js");
+const { createLenderSchema } = require("../../../schemas/admin/lenders/create.schema.js");
 const bcrypt = require("bcrypt");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
  */
-async function createBrokerRoutes(fastify) {
+async function createLenderRoutes(fastify) {
   fastify.post(
     "/",
     {
       schema: {
-        tags: ["Admin -> Brokers"], // <-- Swagger grouping
-        summary: "Create a broker organization with admin user",
-        description: "Creates a BROKER organization and an associated admin user.",
+        tags: ["Admin -> Lenders"], // <-- Swagger grouping
+        summary: "Create a lender organization with admin user",
+        description:
+          "Creates a LENDER organization, an associated admin user, and optionally links it to a broker via BrokerLenderAccess.",
         body: {
           type: "object",
           required: [
@@ -34,6 +36,11 @@ async function createBrokerRoutes(fastify) {
             adminLastName: { type: "string" },
             adminEmail: { type: "string", format: "email" },
             adminPassword: { type: "string" },
+
+            // Optional: link this lender to a broker immediately
+            // - can be "any broker" chosen by a platform admin
+            // - or the caller's own brokerOrgId (i.e. "assign to himself")
+            brokerOrgId: { type: "string", format: "uuid", nullable: true },
           },
         },
         response: {
@@ -45,8 +52,9 @@ async function createBrokerRoutes(fastify) {
               data: {
                 type: "object",
                 properties: {
-                  organizationId: { type: "integer" },
-                  adminUserId: { type: "integer" },
+                  organizationId: { type: "string", format: "uuid" },
+                  adminUserId: { type: "string", format: "uuid" },
+                  brokerAccessCreated: { type: "boolean" },
                 },
               },
             },
@@ -80,14 +88,14 @@ async function createBrokerRoutes(fastify) {
     async (request, reply) => {
       try {
         // Validate with Zod
-        const validation = createBrokerSchema.safeParse(request.body);
+        const validation = createLenderSchema.safeParse(request.body);
 
         if (!validation.success) {
-          adminLogs.error("Invalid broker creation payload", validation.error);
+          adminLogs.error("Invalid lender creation payload", validation.error);
 
           return reply.status(400).send({
             success: false,
-            message: "Invalid input data for creating broker.",
+            message: "Invalid input data for creating lender.",
             details:
               process.env.NODE_ENV === "development"
                 ? validation.error.issues
@@ -103,9 +111,12 @@ async function createBrokerRoutes(fastify) {
           adminLastName,
           adminEmail,
           adminPassword,
+          brokerOrgId,
         } = validation.data;
 
-        // Check duplicate organization
+        // ---- DUPLICATE CHECKS ----
+
+        // Check duplicate organization (name/email/phone)
         const existingOrg = await prisma.organization.findFirst({
           where: {
             OR: [
@@ -135,28 +146,50 @@ async function createBrokerRoutes(fastify) {
           });
         }
 
-        // Hash password
+        // If brokerOrgId is supplied, ensure that broker organization exists and is of type BROKER
+        let brokerOrg = null;
+        if (brokerOrgId) {
+          brokerOrg = await prisma.organization.findFirst({
+            where: {
+              id: brokerOrgId,
+              type: "BROKER",
+              isDeleted: { not: true },
+            },
+          });
+
+          if (!brokerOrg) {
+            return reply.status(400).send({
+              success: false,
+              message:
+                "Invalid brokerOrgId. Broker organization not found or not active.",
+            });
+          }
+        }
+
+        // ---- HASH PASSWORD ----
         const passwordHash = await bcrypt.hash(adminPassword, 10);
 
-        let newOrganization;
+        let newLenderOrg;
         let newAdmin;
+        let brokerAccessCreated = false;
 
+        // ---- TRANSACTION ----
         await prisma.$transaction(async (tx) => {
-          // Create Organization
-          newOrganization = await tx.organization.create({
+          // 1) Create LENDER Organization
+          newLenderOrg = await tx.organization.create({
             data: {
               name: organizationName,
-              type: "BROKER",
+              type: "LENDER",
               status: "ACTIVE",
               email: organizationEmail,
               phone: organizationPhone,
             },
           });
 
-          // Create Admin User
+          // 2) Create Admin User for this LENDER
           newAdmin = await tx.userAccount.create({
             data: {
-              organizationId: newOrganization.id,
+              organizationId: newLenderOrg.id,
               email: adminEmail,
               passwordHash,
               firstName: adminFirstName,
@@ -165,9 +198,11 @@ async function createBrokerRoutes(fastify) {
             },
           });
 
-          // Assign BROKER_ADMIN role
-          const role = await tx.role.findFirst({ where: { name: "BROKER_ADMIN" } });
-          if (!role) throw new Error("BROKER_ADMIN role missing");
+          // 3) Assign LENDER_ADMIN role
+          const role = await tx.role.findFirst({
+            where: { name: "LENDER_ADMIN" },
+          });
+          if (!role) throw new Error("LENDER_ADMIN role missing");
 
           await tx.userRole.create({
             data: {
@@ -175,27 +210,56 @@ async function createBrokerRoutes(fastify) {
               roleId: role.id,
             },
           });
+
+          // 4) Optionally create BrokerLenderAccess if brokerOrgId is provided
+          if (brokerOrg) {
+            // Check if access already exists (defensive)
+            const existingAccess = await tx.brokerLenderAccess.findFirst({
+              where: {
+                brokerOrgId: brokerOrg.id,
+                lenderOrgId: newLenderOrg.id,
+              },
+            });
+
+            if (!existingAccess) {
+              await tx.brokerLenderAccess.create({
+                data: {
+                  brokerOrgId: brokerOrg.id,
+                  lenderOrgId: newLenderOrg.id,
+                  // Since this is an admin route, we treat it as PLATFORM_DEFAULT.
+                  // If you later add a broker-side route, use BROKER_ADDED there.
+                  source: "PLATFORM_DEFAULT",
+                  isActive: true,
+                },
+              });
+            }
+
+            brokerAccessCreated = true;
+          }
         });
 
-        adminLogs.info("Broker organization created", {
-          organizationId: newOrganization.id,
+        adminLogs.info("Lender organization created", {
+          organizationId: newLenderOrg.id,
           adminUserId: newAdmin.id,
+          brokerOrgId: brokerOrgId || null,
+          brokerAccessCreated,
         });
 
         return reply.status(201).send({
           success: true,
-          message: "Broker created successfully.",
+          message: "Lender created successfully.",
           data: {
-            organizationId: newOrganization.id,
+            organizationId: newLenderOrg.id,
             adminUserId: newAdmin.id,
+            brokerAccessCreated,
           },
         });
       } catch (error) {
-        adminLogs.error("Broker creation failed", error);
+        adminLogs.error("Lender creation failed", error);
 
         return reply.status(500).send({
           success: false,
-          message: "Server error occurred while creating broker.",
+          message: "Server error occurred while creating lender.",
           details:
             process.env.NODE_ENV === "development" ? error.message : undefined,
         });
@@ -204,4 +268,4 @@ async function createBrokerRoutes(fastify) {
   );
 }
 
-module.exports = createBrokerRoutes;
+module.exports = createLenderRoutes;
