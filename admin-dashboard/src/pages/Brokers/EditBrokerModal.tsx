@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 
 export type Broker = {
-  id: number;
+  id: string;
   name: string;
   email: string;
   phone: string;

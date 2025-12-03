@@ -1,31 +1,41 @@
 require("dotenv").config();
 const nodemailer = require("nodemailer");
-
 const logger = require("./logger/contextLogger");
 
-// Validate Environment Variables
-const { EMAIL_HOST, EMAIL_PORT, EMAIL_USER, EMAIL_PASSWORD } = process.env;
+// Load SMTP variables
+const EMAIL_HOST = process.env.SMTP_HOST || "smtp.hostinger.com";
+const EMAIL_PORT = process.env.SMTP_PORT || 465;
+const EMAIL_USER = process.env.SMTP_USER  || "mailerbot@vibrantick.in";
+const EMAIL_PASSWORD = process.env.SMTP_PASS || "Mailerbot@123";
 
 if (!EMAIL_HOST || !EMAIL_PORT || !EMAIL_USER || !EMAIL_PASSWORD) {
   logger.commonLogs.error(
-    "Missing required email environment variables. Please check .env file."
+    "Missing required SMTP environment variables. Please check .env file."
   );
-  return;
 }
 
-// Create reusable transporter (reused across all emails)
+// Create transporter
 const transporter = nodemailer.createTransport({
-  host: String(EMAIL_HOST),
+  host: EMAIL_HOST,
   port: Number(EMAIL_PORT),
-  secure: true,
-  // service: "Gmail",
+  secure: Number(EMAIL_PORT) === 465, // true for 465, false otherwise
   auth: {
-    user: String(EMAIL_USER),
-    pass: String(EMAIL_PASSWORD),
+    user: EMAIL_USER,
+    pass: EMAIL_PASSWORD,
   },
 });
 
-// Function to send an email
+// SMTP READY CHECK
+(async () => {
+  try {
+    await transporter.verify();
+    console.log(`\n✅ SMTP Ready: Connected to ${EMAIL_HOST}:${EMAIL_PORT}\n`);
+  } catch (err) {
+    console.log(`\n❌ SMTP Error: Unable to connect to mail server\n`, err.message);
+  }
+})();
+
+// SEND MAIL FUNCTION
 const sendMail = async (mailOptions = {}) => {
   try {
     const recipient = mailOptions?.to || "unknown recipient";
@@ -35,9 +45,8 @@ const sendMail = async (mailOptions = {}) => {
       return;
     }
 
-    // Attach from email if not provided
     if (!mailOptions.from) {
-      mailOptions.from = process.env.EMAIL_USER;
+      mailOptions.from = EMAIL_USER;
     }
 
     const info = await transporter.sendMail(mailOptions);
@@ -46,15 +55,13 @@ const sendMail = async (mailOptions = {}) => {
       `Mail sent successfully to ${recipient} with messageId=${info.messageId}`
     );
 
-    return info; // Return the info in case calling function needs it
+    return info;
   } catch (error) {
-    const recipient = mailOptions?.to || "unknown recipient";
-
-    logger.commonLogs.error(`Error in Sending Mail to ${recipient}`, {
+    logger.commonLogs.error(`Error in Sending Mail to ${mailOptions.to}`, {
       error,
     });
 
-    return error; // Return the error so the calling function can decide what to do next
+    throw error; // better to throw than silently return error object
   }
 };
 

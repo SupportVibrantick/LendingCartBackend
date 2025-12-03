@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Welcome to LendingCart</title>
+
+    <style>
+      body {
+        font-family: "Arial", sans-serif;
+        margin: 0;
+        padding: 0;
+        background-color: #f4f6f8;
+      }
+
+      .container {
+        max-width: 600px;
+        margin: 30px auto;
+        background: #ffffff;
+        padding: 30px;
+        border-radius: 10px;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.07);
+      }
+
+      .header {
+        text-align: center;
+        padding-bottom: 15px;
+        border-bottom: 2px solid #f0f0f0;
+      }
+
+      .header h1 {
+        color: #004aad;
+        margin: 0;
+        font-size: 26px;
+      }
+
+      .content {
+        margin-top: 25px;
+        color: #333;
+      }
+
+      .content p {
+        line-height: 1.6;
+        font-size: 16px;
+      }
+
+      .details-box {
+        background: #f4f8ff;
+        padding: 15px;
+        border-left: 4px solid #004aad;
+        margin-top: 20px;
+        border-radius: 6px;
+      }
+
+      .details-box p {
+        margin: 6px 0;
+        font-size: 15px;
+      }
+
+      .btn {
+        display: inline-block;
+        margin-top: 20px;
+        padding: 12px 22px;
+        background: #004aad;
+        color: #fff !important;
+        border-radius: 6px;
+        text-decoration: none;
+        font-size: 16px;
+        font-weight: bold;
+      }
+
+      .footer {
+        text-align: center;
+        margin-top: 30px;
+        font-size: 13px;
+        color: #666;
+      }
+
+      .social-icons {
+        margin: 12px 0;
+      }
+
+      .social-icons a {
+        margin: 0 8px;
+        display: inline-block;
+      }
+
+      .social-icons img {
+        width: 24px;
+        height: 24px;
+        opacity: 0.8;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>Welcome to LendingCart</h1>
+      </div>
+
+      <div class="content">
+        <p>Dear <strong>{{name}}</strong>,</p>
+
+        <p>
+          We’re excited to welcome you to <strong>LendingCart</strong>!  
+          Your broker account has been successfully registered and activated.  
+          You can now log in and begin using our platform.
+        </p>
+
+        <p>Below are the details associated with your registration:</p>
+
+        <div class="details-box">
+          <p><strong>Organization Name:</strong> {{organizationName}}</p>
+          <p><strong>Organization Email:</strong> {{organizationEmail}}</p>
+          <p><strong>Organization Phone:</strong> {{organizationPhone}}</p>
+          <p><strong>Admin Email:</strong> {{adminEmail}}</p>
+        </div>
+
+        <p>
+          If any of this information is incorrect, please reach out to our support team immediately.
+        </p>
+
+        <center>
+          <a href="{{loginUrl}}" class="btn">Login to Dashboard</a>
+        </center>
+      </div>
+
+      <div class="footer">
+        <p>&copy; {{currentYear}} LendingCart. All rights reserved.</p>
+        <p>
+          Need help? Contact us at  
+          <a href="mailto:support@lendingcart.in">support@lendingcart.in</a>
+        </p>
+
+        <div class="social-icons">
+          <a href="https://facebook.com" target="_blank">
+            <img src="https://img.icons8.com/material-outlined/24/000000/facebook-new.png" />
+          </a>
+          <a href="https://instagram.com" target="_blank">
+            <img src="https://img.icons8.com/material-outlined/24/000000/instagram-new.png" />
+          </a>
+          <a href="https://linkedin.com" target="_blank">
+            <img src="https://img.icons8.com/material-outlined/24/000000/linkedin.png" />
+          </a>
+          <a href="mailto:support@lendingcart.in">
+            <img src="https://img.icons8.com/material-outlined/24/000000/mail.png" />
+          </a>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

@@ -23,6 +23,7 @@ import AllUsers from "./pages/ManageUser/AllUser";
 import ToastProvider from "./Utils/ToastProvider/ToastProvider";
 import BrokersPage from "./pages/Brokers/AllBrokers";
 import RequireAuth from "./components/auth/RequireAuth";
+import AllLendersPage from "./pages/Lenders/AllLenders";
 
 
 export default function App() {
@@ -46,6 +47,7 @@ export default function App() {
             <Route index path="/all-user" element={<AllUsers />} />
 
             <Route index path="/all-brokers-organisation" element={<BrokersPage />} />
+            <Route index path="/all-lenders-organisation" element={<AllLendersPage/>} />
             {/* Others Page */}
             <Route path="/profile" element={<UserProfiles />} />
             <Route path="/calendar" element={<Calendar />} />

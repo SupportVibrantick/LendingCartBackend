@@ -47,7 +47,7 @@ const navItems: NavItem[] = [
   {
     icon: <AccountBalanceOutlinedIcon />,
     name: "Manage Lenders",
-    subItems: [{ name: "Add Broker", path: "/add-lender" },{ name: "All Brokers", path: "/all-lenders" }],
+    subItems: [{ name: "Lender's Organisation", path: "/all-lenders-organisation" }],
   },
   {
     icon: <AdminPanelSettingsOutlinedIcon />,

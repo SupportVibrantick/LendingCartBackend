@@ -12,8 +12,8 @@ async function readBrokerRoutes(fastify) {
       schema: {
         tags: ["Admin -> Brokers"], // groups under Brokers in Swagger
         summary: "List brokers",
-        description: "Paginated list of broker organizations with optional filters and sorting.",
-        
+        description:
+          "Paginated list of broker organizations with optional filters and sorting.",
       },
     },
     async (request, reply) => {
@@ -30,7 +30,12 @@ async function readBrokerRoutes(fastify) {
         if (q.email) where.email = { contains: q.email, mode: "insensitive" };
         if (q.phone) where.phone = { contains: q.phone };
 
-        const allowedSortFields = new Set(["createdAt", "updatedAt", "name", "email"]);
+        const allowedSortFields = new Set([
+          "createdAt",
+          "updatedAt",
+          "name",
+          "email",
+        ]);
         const sortBy = allowedSortFields.has(q.sortBy) ? q.sortBy : "createdAt";
         const sortOrder = q.sortOrder === "asc" ? "asc" : "desc";
 
@@ -89,7 +94,8 @@ async function readBrokerRoutes(fastify) {
         return reply.status(500).send({
           success: false,
           message: "Server error while fetching brokers",
-          details: process.env.NODE_ENV === "development" ? error.message : undefined,
+          details:
+            process.env.NODE_ENV === "development" ? error.message : undefined,
         });
       }
     }
@@ -104,7 +110,8 @@ async function readBrokerRoutes(fastify) {
       schema: {
         tags: ["Admin -> Brokers"],
         summary: "Get broker by id",
-        description: "Return broker details including admins, white-label, affiliate links and lender access.",
+        description:
+          "Return broker details including admins, white-label, affiliate links and lender access.",
         params: {
           type: "object",
           properties: {
@@ -128,6 +135,7 @@ async function readBrokerRoutes(fastify) {
                   status: { type: "string" },
                   createdAt: { type: "string" },
                   updatedAt: { type: "string" },
+
                   admins: {
                     type: "array",
                     items: {
@@ -142,9 +150,35 @@ async function readBrokerRoutes(fastify) {
                       },
                     },
                   },
+
                   affiliateLinks: { type: "array", items: { type: "object" } },
-                  lenderAccess: { type: "array", items: { type: "object" } },
+
+                  lenderAccess: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        id: { type: "string" },
+                        lenderOrgId: { type: "string" },
+                        source: { type: "string" },
+                        isActive: { type: "boolean" },
+                        lender: {
+                          type: "object",
+                          properties: {
+                            id: { type: "string" },
+                            name: { type: "string" },
+                            email: { type: ["string", "null"] },
+                            phone: { type: ["string", "null"] },
+                            status: { type: "string" },
+                            createdAt: { type: "string" },
+                          },
+                        },
+                      },
+                    },
+                  },
+
                   whiteLabel: { type: ["object", "null"] },
+
                   counts: {
                     type: "object",
                     properties: {
@@ -155,21 +189,6 @@ async function readBrokerRoutes(fastify) {
                   },
                 },
               },
-            },
-          },
-          404: {
-            type: "object",
-            properties: {
-              success: { type: "boolean" },
-              message: { type: "string" },
-            },
-          },
-          500: {
-            type: "object",
-            properties: {
-              success: { type: "boolean" },
-              message: { type: "string" },
-              details: { type: ["string", "null"] },
             },
           },
         },
@@ -183,7 +202,6 @@ async function readBrokerRoutes(fastify) {
           where: { id },
           include: {
             users: {
-              // THESE ARE ADMINS
               select: {
                 id: true,
                 email: true,
@@ -193,14 +211,25 @@ async function readBrokerRoutes(fastify) {
                 createdAt: true,
               },
               orderBy: { createdAt: "desc" },
-              take: 200,
             },
 
             brokerWhiteLabelSettings: true,
             affiliateLinks: true,
+
             brokerLenderAccessAsBroker: {
-              select: { id: true, lenderOrgId: true, isActive: true, source: true },
-              take: 200,
+              where: { isActive: true },
+              include: {
+                lender: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    phone: true,
+                    status: true,
+                    createdAt: true,
+                  },
+                },
+              },
             },
 
             _count: {
@@ -220,7 +249,6 @@ async function readBrokerRoutes(fastify) {
           });
         }
 
-        // ---- Transform for frontend clarity ----
         const cleaned = {
           id: broker.id,
           name: broker.name,
@@ -230,8 +258,7 @@ async function readBrokerRoutes(fastify) {
           createdAt: broker.createdAt,
           updatedAt: broker.updatedAt,
 
-          admins: broker.users, // <--- THE FIX
-
+          admins: broker.users,
           affiliateLinks: broker.affiliateLinks,
           lenderAccess: broker.brokerLenderAccessAsBroker,
           whiteLabel: broker.brokerWhiteLabelSettings,
@@ -257,7 +284,8 @@ async function readBrokerRoutes(fastify) {
         return reply.status(500).send({
           success: false,
           message: "Server error while fetching broker",
-          details: process.env.NODE_ENV === "development" ? error.message : undefined,
+          details:
+            process.env.NODE_ENV === "development" ? error.message : undefined,
         });
       }
     }

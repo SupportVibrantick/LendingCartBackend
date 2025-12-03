@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Welcome to LendingCart</title>
+
+    <style>
+      /* Reset & base */
+      body,html { margin:0; padding:0; width:100%; background:#f3f6f9; -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; }
+      body { font-family: "Inter", "Segoe UI", Roboto, Arial, sans-serif; color:#243142; }
+      a { color: #0b66d0; text-decoration:none; }
+      .wrap { width:100%; padding:28px 12px; box-sizing:border-box; }
+
+      /* Card */
+      .card { max-width:680px; margin:0 auto; background:#ffffff; border-radius:12px; box-shadow:0 8px 30px rgba(20,30,40,0.06); overflow:hidden; }
+      .header { background:linear-gradient(180deg,#ffffff, #f8fbff); padding:28px 36px 18px 36px; text-align:center; border-bottom:1px solid #eef4fb; }
+      .logo { display:block; margin:0 auto 12px auto; max-width:200px; height:auto; }
+      .title { font-size:22px; color:#0b66d0; margin:6px 0 0 0; font-weight:700; letter-spacing:0.1px; }
+
+      .body { padding:28px 40px; }
+      .greeting { font-size:16px; margin:0 0 12px 0; }
+      .lead { font-size:15px; margin:0 0 18px 0; color:#394954; line-height:1.6; }
+
+      .panel {
+        background:#f5f9ff;
+        border-left:4px solid #0b66d0;
+        padding:14px 18px;
+        border-radius:8px;
+        margin:18px 0;
+      }
+      .panel p { margin:6px 0; font-size:15px; color:#22303a; }
+      .panel .label { display:block; color:#氵; font-weight:600; margin-bottom:4px; } /* label style below */
+
+      .grid { display:flex; gap:12px; flex-wrap:wrap; margin-top:6px; }
+      .col { flex:1; min-width:180px; }
+
+      .cta-wrap { text-align:center; margin-top:22px; }
+      .btn {
+        display:inline-block;
+        background:#0b66d0;
+        color:#fff !important;
+        padding:12px 20px;
+        border-radius:8px;
+        font-weight:600;
+        box-shadow:0 6px 18px rgba(11,102,208,0.18);
+      }
+
+      .note { margin-top:18px; font-size:13px; color:#60707b; }
+
+      .footer { background:#fbfdff; padding:18px 36px; border-top:1px solid #eef4fb; text-align:center; color:#7c8a95; font-size:13px; }
+      .socials { margin-top:10px; display:flex; justify-content:center; gap:12px; }
+      .socials img { width:20px; height:20px; opacity:0.9; }
+
+      /* small screens */
+      @media (max-width:520px) {
+        .body { padding:20px; }
+        .header { padding:20px; }
+        .title { font-size:20px; }
+        .card { margin:0 8px; }
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="wrap">
+      <div class="card" role="article" aria-label="Welcome to LendingCart">
+        <!-- Header with logo -->
+        <div class="header">
+          <!-- logo uses API base URL; pass apiBase to your template renderer -->
+          <img class="logo" src="{{apiBase}}/public/images/bannerLogo.jpeg" alt="LendingCart logo" />
+          <div class="title">Welcome to LendingCart</div>
+        </div>
+
+        <!-- Body -->
+        <div class="body">
+          <p class="greeting">Hi <strong>{{name}}</strong>,</p>
+
+          <p class="lead">
+            Congratulations — your organization has been registered on <strong>LendingCart</strong>. We’re pleased to have you on board as a Broker. LendingCart connects brokers with lenders and provides a secure dashboard to manage leads, track loan status, and collaborate with partners.
+          </p>
+
+          <p>
+            Below are the details registered for your organization. Please review and let us know if anything needs correction.
+          </p>
+
+          <!-- Details panel -->
+          <div class="panel" role="region" aria-label="Registration details">
+            <p><strong>Organization Name:</strong> {{organizationName}}</p>
+            <p><strong>Organization Email:</strong> <a href="mailto:{{organizationEmail}}">{{organizationEmail}}</a></p>
+            <p><strong>Organization Phone:</strong> {{organizationPhone}}</p>
+            <p><strong>Admin Email:</strong> <a href="mailto:{{adminEmail}}">{{adminEmail}}</a></p>
+          </div>
+
+          <!-- Quick tips -->
+          <div style="margin-top:6px; font-size:14px; color:#475d66;">
+            <strong>Next steps</strong>
+            <ul style="margin:8px 0 0 18px; color:#556b74;">
+              <li>Click <em>Login to Dashboard</em> to set up your profile and add users.</li>
+              <li>Complete your KYC and bank details to enable loan submissions.</li>
+              <li>Visit the Help Center or contact support if you need assistance.</li>
+            </ul>
+          </div>
+
+          <!-- CTA -->
+          <div class="cta-wrap">
+            <!-- build loginUrl as {{loginUrl}} when rendering template (use VITE_API_BASE + '/broker/login') -->
+            <a href="{{loginUrl}}" class="btn" target="_blank" rel="noopener">Login to Dashboard</a>
+          </div>
+
+          <p class="note">
+            For security, never share your password. If you did not register this organization or believe this is an error, contact support immediately.
+          </p>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+          <div>&copy; {{currentYear}} LendingCart. All rights reserved.</div>
+          <div style="margin-top:8px;">Need help? Email <a href="mailto:support@lendingcart.in">support@lendingcart.in</a> or call <a href="tel:+911234567890">+91 12 3456 7890</a></div>
+
+          <div class="socials" aria-hidden="true">
+            <a href="https://facebook.com" target="_blank" rel="noopener"><img src="https://img.icons8.com/material-outlined/24/000000/facebook-new.png" alt="facebook" /></a>
+            <a href="https://instagram.com" target="_blank" rel="noopener"><img src="https://img.icons8.com/material-outlined/24/000000/instagram-new.png" alt="instagram" /></a>
+            <a href="https://linkedin.com" target="_blank" rel="noopener"><img src="https://img.icons8.com/material-outlined/24/000000/linkedin.png" alt="linkedin" /></a>
+            <a href="mailto:support@lendingcart.in"><img src="https://img.icons8.com/material-outlined/24/000000/mail.png" alt="email" /></a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

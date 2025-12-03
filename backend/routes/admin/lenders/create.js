@@ -5,6 +5,11 @@ const { adminLogs } = require("../../../services/logger/contextLogger.js");
 const { createLenderSchema } = require("../../../schemas/admin/lenders/create.schema.js");
 const bcrypt = require("bcrypt");
 
+// Mail + Kafka (same pattern as brokers)
+const { loadTemplate } = require("../../../utils/loadTemplate");
+const sendMail = require("../../../services/mail");
+const { sendEmailUsingKafka } = require("../../../services/kafka/email/producer.js");
+
 /**
  * @param {import("fastify").FastifyInstance} fastify
  */
@@ -41,46 +46,6 @@ async function createLenderRoutes(fastify) {
             // - can be "any broker" chosen by a platform admin
             // - or the caller's own brokerOrgId (i.e. "assign to himself")
             brokerOrgId: { type: "string", format: "uuid", nullable: true },
-          },
-        },
-        response: {
-          201: {
-            type: "object",
-            properties: {
-              success: { type: "boolean" },
-              message: { type: "string" },
-              data: {
-                type: "object",
-                properties: {
-                  organizationId: { type: "string", format: "uuid" },
-                  adminUserId: { type: "string", format: "uuid" },
-                  brokerAccessCreated: { type: "boolean" },
-                },
-              },
-            },
-          },
-          400: {
-            type: "object",
-            properties: {
-              success: { type: "boolean" },
-              message: { type: "string" },
-              details: { type: ["object", "null"] },
-            },
-          },
-          409: {
-            type: "object",
-            properties: {
-              success: { type: "boolean" },
-              message: { type: "string" },
-            },
-          },
-          500: {
-            type: "object",
-            properties: {
-              success: { type: "boolean" },
-              message: { type: "string" },
-              details: { type: ["string", "null"] },
-            },
           },
         },
       },
@@ -244,6 +209,62 @@ async function createLenderRoutes(fastify) {
           brokerOrgId: brokerOrgId || null,
           brokerAccessCreated,
         });
+
+        // -----------------------------
+        // 📧 SEND EMAIL (AFTER SUCCESS)
+        // -----------------------------
+        try {
+          const apiBase = process.env.VITE_API_BASE || process.env.APP_URL;
+
+          const html = loadTemplate("admin/lender/create", {
+            name: adminFirstName,
+            currentYear: new Date().getFullYear(),
+
+            // Org details
+            organizationName,
+            organizationEmail,
+            organizationPhone,
+
+            // Admin
+            adminFirstName,
+            adminLastName,
+            adminEmail,
+
+            // Logo + links
+            apiBase,
+            loginUrl: `${apiBase}/lender/login`,
+          });
+
+          const subject = "Your Lender Account Has Been Created";
+          const text = `Hello ${adminFirstName}, your lender account is ready.`;
+
+          // Try via Kafka first
+          try {
+            await sendEmailUsingKafka(adminEmail, subject, text, html);
+
+            adminLogs.info("Lender creation email queued via Kafka", {
+              to: adminEmail,
+            });
+          } catch (kafkaErr) {
+            adminLogs.error(
+              "Kafka email queue failed for lender email, falling back to direct SMTP",
+              kafkaErr
+            );
+
+            await sendMail({
+              to: adminEmail,
+              subject,
+              text,
+              html,
+            });
+
+            adminLogs.info("Fallback SMTP lender email sent directly", {
+              to: adminEmail,
+            });
+          }
+        } catch (mailErr) {
+          adminLogs.error("Lender created but all email attempts failed", mailErr);
+        }
 
         return reply.status(201).send({
           success: true,

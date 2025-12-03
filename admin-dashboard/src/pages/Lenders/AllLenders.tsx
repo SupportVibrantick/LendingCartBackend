@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { MdModeEdit} from "react-icons/md";
+import { MdModeEdit, MdDelete } from "react-icons/md";
 import { TiPlus } from "react-icons/ti";
-import EditBrokerModal from "./EditBrokerModal"; // adjust path if needed
+import EditBrokerModal from "../Brokers/EditBrokerModal"; // you can reuse this for lenders too
 
-type Broker = {
-  id: string;
+type Lender = {
+  id: any; // keep flexible because API returns UUID string; UI can still treat as string/number
   name: string;
   email: string;
   phone: string;
@@ -20,8 +20,7 @@ type Admin = {
   phone?: string;
 };
 
-// const STATUS_ORDER = ["ACTIVE", "INACTIVE"]; 
-
+const STATUS_ORDER = ["ACTIVE", "INACTIVE"]; // keep real backend enum
 
 function statusClass(status?: string) {
   switch (status) {
@@ -29,17 +28,15 @@ function statusClass(status?: string) {
       return "bg-green-100 text-green-800 border-green-200";
     case "INACTIVE":
       return "bg-yellow-100 text-yellow-800 border-yellow-200";
-    case "SUSPENDED":
-      return "bg-red-100 text-red-800 border-red-200";
     default:
       return "bg-gray-100 text-gray-800 border-gray-200";
   }
 }
 
-export default function BrokersPage() {
-  const [brokers, setBrokers] = useState<Broker[]>([]);
+export default function AllLendersPage() {
+  const [lenders, setLenders] = useState<Lender[]>([]);
   const [loading, setLoading] = useState(false);
-  const [rowLoadingId, setRowLoadingId] = useState<string | null>(null);
+  const [rowLoadingId, setRowLoadingId] = useState<any | null>(null);
 
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [form, setForm] = useState({
@@ -54,14 +51,14 @@ export default function BrokersPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const [editingBroker, setEditingBroker] = useState<Broker | null>(null);
+  const [editingLender, setEditingLender] = useState<Lender | null>(null);
 
   const [query, setQuery] = useState("");
   const [pageSize, setPageSize] = useState<number>(10);
   const [currentPage, setCurrentPage] = useState<number>(1);
 
   // Admins modal & editing state
-  const [showAdminsFor, setShowAdminsFor] = useState<Broker | null>(null);
+  const [showAdminsFor, setShowAdminsFor] = useState<Lender | null>(null);
   const [admins, setAdmins] = useState<Admin[]>([]);
   const [loadingAdmins, setLoadingAdmins] = useState(false);
   const [adminsError, setAdminsError] = useState<string | null>(null);
@@ -71,10 +68,10 @@ export default function BrokersPage() {
   const [adminEditForm, setAdminEditForm] = useState<Admin>({});
   const [adminSaving, setAdminSaving] = useState(false);
 
-  const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001"; // adjust if needed
+  const API_BASE = "http://localhost:3001"; // adjust if needed
 
   useEffect(() => {
-    fetchBrokers();
+    fetchLenders();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -82,7 +79,6 @@ export default function BrokersPage() {
     setCurrentPage(1);
   }, [query, pageSize]);
 
-  // ensure this function always returns string->string headers (no undefined values)
   function getAuthHeaders(): Record<string, string> {
     try {
       const token = sessionStorage.getItem("admin_token");
@@ -92,37 +88,43 @@ export default function BrokersPage() {
           Authorization: `Bearer ${token}`,
         };
       }
-    } catch (e) {
+    } catch {
       // ignore
     }
     return { "Content-Type": "application/json" };
   }
 
-  async function fetchBrokers() {
+  async function fetchLenders() {
     setLoading(true);
     try {
       const headers = getAuthHeaders();
-      const res = await fetch(`${API_BASE}/admin/brokers/read/`, {
+      const res = await fetch(`${API_BASE}/admin/lenders/read/`, {
         method: "GET",
         headers,
       });
 
-      if (!res.ok) throw new Error(`Failed to fetch brokers: ${res.status}`);
+      if (!res.ok) throw new Error(`Failed to fetch lenders: ${res.status}`);
 
       const json = await res.json();
-      const list = Array.isArray(json) ? json : json.data || [];
+      // your lenders list API: { success, data: { total, page, limit, results: [...] } }
+      const list = Array.isArray(json)
+        ? json
+        : json.data?.results || json.data || [];
 
-      const normalized: Broker[] = list.map((o: any) => ({
-        id: String(o.id),
-        name: o.name ?? "",
-        email: o.email ?? "",
-        phone: o.phone ?? "",
-        status: o.status ?? "UNKNOWN",
-        createdAt: o.createdAt ?? null,
-      }));
+      const normalized: Lender[] = (list as any[]).map((o: any, idx: number) => {
+        const id = o.id ?? idx + 1;
+        return {
+          id,
+          name: o.name ?? o.organizationName ?? "",
+          email: o.email ?? o.organizationEmail ?? "",
+          phone: o.phone ?? o.organizationPhone ?? "",
+          status: o.status ?? "UNKNOWN",
+          createdAt: o.createdAt,
+        };
+      });
 
-      setBrokers(normalized);
-    } catch (err: any) {
+      setLenders(normalized);
+    } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
@@ -143,13 +145,14 @@ export default function BrokersPage() {
     setIsAddOpen(true);
   };
 
-  // const handleDelete = async (broker: Broker) => {
-  //   if (!window.confirm(`Delete broker "${broker.name}"?`)) return;
-  //   setRowLoadingId(broker.id);
-  //   await new Promise((r) => setTimeout(r, 600));
-  //   setBrokers((prev) => prev.filter((b) => b.id !== broker.id));
-  //   setRowLoadingId(null);
-  // };
+  const handleDelete = async (lender: Lender) => {
+    if (!window.confirm(`Delete lender "${lender.name}"?`)) return;
+    // you likely want a soft-delete API here later
+    setRowLoadingId(lender.id);
+    await new Promise((r) => setTimeout(r, 600));
+    setLenders((prev) => prev.filter((b) => b.id !== lender.id));
+    setRowLoadingId(null);
+  };
 
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -181,7 +184,7 @@ export default function BrokersPage() {
 
       const headers = getAuthHeaders();
 
-      const res = await fetch(`${API_BASE}/admin/brokers/create`, {
+      const res = await fetch(`${API_BASE}/admin/lenders/create`, {
         method: "POST",
         headers,
         body: JSON.stringify(payload),
@@ -194,7 +197,7 @@ export default function BrokersPage() {
       }
 
       setIsAddOpen(false);
-      await fetchBrokers();
+      await fetchLenders();
     } catch (err: any) {
       console.error(err);
       setFormError(err.message || "Network error");
@@ -205,8 +208,8 @@ export default function BrokersPage() {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return brokers;
-    return brokers.filter((b) => {
+    if (!q) return lenders;
+    return lenders.filter((b) => {
       return (
         (b.name || "").toLowerCase().includes(q) ||
         (b.email || "").toLowerCase().includes(q) ||
@@ -214,7 +217,7 @@ export default function BrokersPage() {
         (b.status || "").toLowerCase().includes(q)
       );
     });
-  }, [brokers, query]);
+  }, [lenders, query]);
 
   const total = filtered.length;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -235,194 +238,155 @@ export default function BrokersPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  const openEditModal = (b: Broker) => {
-    setEditingBroker(b);
+  const openEditModal = (b: Lender) => {
+    setEditingLender(b);
   };
 
-  const handleEditSave = async (updated: Broker) => {
-  // optimistic
-  setBrokers((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
-  setEditingBroker(null);
+  const handleEditSave = async (updated: Lender) => {
+    setLenders((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+    setEditingLender(null);
 
-  try {
-    const token = sessionStorage.getItem("admin_token");
-    const res = await fetch(`${API_BASE}/admin/brokers/update/${updated.id}`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: JSON.stringify({
-        name: updated.name,
-        email: updated.email,
-        phone: updated.phone,
-      }),
-    });
-
-    const json = await res.json().catch(() => ({} as any));
-
-    if (res.ok && json?.data?.organization) {
-      const org = json.data.organization;
-      setBrokers((prev) =>
-        prev.map((b) =>
-          b.id === updated.id
-            ? {
-                ...b,
-                name: org.name ?? b.name,
-                email: org.email ?? b.email,
-                phone: org.phone ?? b.phone,
-                status: org.status ?? b.status,
-                createdAt: org.createdAt ?? b.createdAt,
-              }
-            : b
-        )
-      );
-    } else if (!res.ok) {
-      console.error("Broker update error:", json);
-    }
-  } catch (err) {
-    console.error("Failed to persist broker update:", err);
-  }
-};
-
-
-  const changeStatusFor = async (broker: Broker) => {
-  if (!broker?.id) return;
-
-  const cur = (broker.status || "INACTIVE").toUpperCase();
-  const next = cur === "ACTIVE" ? "INACTIVE" : "ACTIVE";
-
-  const prevStatus = broker.status;
-
-  // optimistic update in UI
-  setBrokers((prev) =>
-    prev.map((b) => (b.id === broker.id ? { ...b, status: next } : b))
-  );
-  setRowLoadingId(broker.id);
-
-  const token = sessionStorage.getItem("admin_token");
-  const headers: HeadersInit = {
-    "Content-Type": "application/json",
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  };
-
-  try {
-    // 1) Try dedicated status route
-    const toActive = next === "ACTIVE";
-    const statusUrl = `${API_BASE}/admin/brokers/status/${
-      toActive ? "activate" : "deactivate"
-    }/${broker.id}`;
-
-    // ✅ send an *empty JSON body* so Fastify is happy
-    let res = await fetch(statusUrl, {
-      method: "PATCH",
-      headers,
-      body: JSON.stringify({}), // <--- this fixes the 400 error
-    });
-
-    // If route not found / method not allowed, fallback to update route
-    if (res.status === 404 || res.status === 405) {
-      const updateUrl = `${API_BASE}/admin/brokers/update/${broker.id}`;
-      res = await fetch(updateUrl, {
+    try {
+      const token = sessionStorage.getItem("admin_token");
+      await fetch(`${API_BASE}/admin/lenders/update/${updated.id}`, {
         method: "PATCH",
-        headers,
-        body: JSON.stringify({ status: next }),
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          name: updated.name,
+          email: updated.email,
+          phone: updated.phone,
+        }),
       });
+    } catch (err) {
+      console.error("Failed to persist lender update:", err);
     }
+  };
 
-    if (!res.ok) {
-      throw new Error(`Status update failed: ${res.status}`);
-    }
+  const changeStatusFor = async (lender: Lender) => {
+    if (!lender?.id) return;
+    const cur = (lender.status || "UNKNOWN").toUpperCase();
+    const idx = STATUS_ORDER.indexOf(cur);
+    const next = idx === -1 ? "ACTIVE" : STATUS_ORDER[(idx + 1) % STATUS_ORDER.length];
 
-    const json = await res.json().catch(() => ({} as any));
+    const prevStatus = lender.status;
+    setLenders((prev) =>
+      prev.map((b) => (b.id === lender.id ? { ...b, status: next } : b))
+    );
+    setRowLoadingId(lender.id);
 
-    // Case 1: status route -> data: { id, name, previousStatus, status }
-    // Case 2: update route -> data: { organization, admin? }
-    if (json?.data) {
-      if (json.data.status) {
-        // from status route
-        const serverStatus = json.data.status;
-        setBrokers((prev) =>
+    try {
+      const token = sessionStorage.getItem("admin_token");
+
+      // use dedicated lender status routes with broker-guard logic
+      const path =
+        next === "ACTIVE"
+          ? `${API_BASE}/admin/lenders/status/activate/${lender.id}`
+          : `${API_BASE}/admin/lenders/status/deactivate/${lender.id}`;
+
+      const res = await fetch(path, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json?.success === false) {
+        // If blocked by broker or any error -> rollback
+        const msg =
+          json?.message ||
+          (res.status === 400
+            ? "Cannot change status for this lender (likely assigned to brokers)."
+            : `Status update failed: ${res.status}`);
+        throw new Error(msg);
+      }
+
+      // If server returns canonical data, merge
+      if (json && json.data) {
+        const serverObj = json.data;
+        setLenders((prev) =>
           prev.map((b) =>
-            b.id === broker.id ? { ...b, status: serverStatus } : b
-          )
-        );
-      } else if (json.data.organization?.status) {
-        // from update route
-        const orgStatus = json.data.organization.status;
-        setBrokers((prev) =>
-          prev.map((b) =>
-            b.id === broker.id ? { ...b, status: orgStatus } : b
+            b.id === lender.id
+              ? {
+                  ...b,
+                  name: serverObj.name ?? b.name,
+                  status: serverObj.status ?? next,
+                }
+              : b
           )
         );
       }
+    } catch (err: any) {
+      console.error(err);
+      setLenders((prev) =>
+        prev.map((b) =>
+          b.id === lender.id ? { ...b, status: prevStatus } : b
+        )
+      );
+      alert(err?.message || "Failed to update status. Please try again.");
+    } finally {
+      setRowLoadingId(null);
     }
-  } catch (err) {
-    console.error("changeStatusFor error:", err);
-    // rollback UI
-    setBrokers((prev) =>
-      prev.map((b) =>
-        b.id === broker.id ? { ...b, status: prevStatus } : b
-      )
-    );
-    alert("Failed to update status. Please try again.");
-  } finally {
-    setRowLoadingId(null);
-  }
-};
-
-
-
+  };
 
   // ------------------------------
-  // Fetch admins for a broker id
+  // Fetch admins for a lender id
   // ------------------------------
-  async function fetchAdmins(brokerId: string) {
-  setLoadingAdmins(true);
-  setAdmins([]);
-  setAdminsError(null);
+  async function fetchAdmins(lenderId: any) {
+    setLoadingAdmins(true);
+    setAdmins([]);
+    setAdminsError(null);
 
-  try {
-    const token = sessionStorage.getItem("admin_token");
-    const res = await fetch(`${API_BASE}/admin/brokers/read/${brokerId}`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-    });
+    try {
+      const token = sessionStorage.getItem("admin_token");
+      const res = await fetch(`${API_BASE}/admin/lenders/read/${lenderId}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
 
-    if (!res.ok) throw new Error(`Failed to load admins: ${res.status}`);
+      if (!res.ok) throw new Error(`Failed to load lender admins: ${res.status}`);
 
-    const json = await res.json().catch(() => ({} as any));
+      const json = await res.json().catch(() => ({}));
+      const org = json?.data?.organization;
+      const adminUser = json?.data?.adminUser;
 
-    const adminList = json?.data?.admins || [];
-    const normalized: Admin[] = (Array.isArray(adminList) ? adminList : []).map(
-      (a: any) => ({
+      let adminList: any[] = [];
+
+      if (Array.isArray(org?.users) && org.users.length > 0) {
+        adminList = org.users;
+      } else if (adminUser) {
+        adminList = [adminUser];
+      }
+
+      const normalized: Admin[] = adminList.map((a: any) => ({
         id: a.id,
         firstName: a.firstName ?? "",
         lastName: a.lastName ?? "",
         email: a.email ?? "",
         phone: a.phone ?? "",
-      })
-    );
+      }));
 
-    setAdmins(normalized);
-  } catch (err: any) {
-    console.error("fetchAdmins error:", err);
-    setAdminsError(err?.message || "Failed to load admins");
-  } finally {
-    setLoadingAdmins(false);
+      setAdmins(normalized);
+    } catch (err: any) {
+      console.error("fetchAdmins error:", err);
+      setAdminsError(err?.message || "Failed to load admins");
+    } finally {
+      setLoadingAdmins(false);
+    }
   }
-}
 
-
-  const openAdminsFor = async (broker: Broker) => {
-    setShowAdminsFor(broker);
-    // reset any admin edit state when opening a different broker
+  const openAdminsFor = async (lender: Lender) => {
+    setShowAdminsFor(lender);
     setEditingAdminId(null);
     setAdminEditForm({});
-    await fetchAdmins(broker.id);
+    await fetchAdmins(lender.id);
   };
 
   const closeAdmins = () => {
@@ -433,7 +397,6 @@ export default function BrokersPage() {
     setAdminEditForm({});
   };
 
-  // begin editing an admin (fills adminEditForm)
   const startEditAdmin = (a: Admin) => {
     setEditingAdminId(a.id ?? null);
     setAdminEditForm({
@@ -445,97 +408,84 @@ export default function BrokersPage() {
     });
   };
 
-  // cancel admin edit
   const cancelEditAdmin = () => {
     setEditingAdminId(null);
     setAdminEditForm({});
   };
 
-  // save admin edit (optimistic + persist)
   const saveAdminEdit = async () => {
-  const adminId = editingAdminId;
-  if (!adminId) return alert("No admin selected for edit.");
-  if (!showAdminsFor?.id)
-    return alert("No broker selected for this admin edit.");
+    const adminId = editingAdminId;
+    if (!adminId) return alert("No admin selected for edit.");
 
-  if (
-    !(
-      adminEditForm.firstName ||
-      adminEditForm.lastName ||
-      adminEditForm.email
-    )
-  ) {
-    return alert(
-      "Please provide at least one field to update (first name / last name / email)."
-    );
-  }
-
-  setAdminSaving(true);
-
-  // optimistic update
-  setAdmins((prev) =>
-    prev.map((p) => (p.id === adminId ? { ...p, ...adminEditForm } : p))
-  );
-
-  try {
-    const token = sessionStorage.getItem("admin_token");
-    const res = await fetch(
-      `${API_BASE}/admin/brokers/update/${showAdminsFor.id}`,
-      {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({
-          admin: {
-            id: adminId,
-            firstName: adminEditForm.firstName,
-            lastName: adminEditForm.lastName,
-            email: adminEditForm.email,
-            // phone is not handled in backend update.js,
-            // if you want it, you'll need to add it to backend schema & update logic.
-          },
-        }),
-      }
-    );
-
-    if (!res.ok) {
-      throw new Error(`Save failed: ${res.status}`);
-    }
-
-    const json = await res.json().catch(() => ({} as any));
-    // backend: data: { organization, admin }
-    if (json && json.data && json.data.admin) {
-      const serverAdmin = json.data.admin;
-      setAdmins((prev) =>
-        prev.map((p) =>
-          p.id === adminId ? { ...p, ...serverAdmin } : p
-        )
+    if (
+      !(
+        adminEditForm.firstName ||
+        adminEditForm.lastName ||
+        adminEditForm.email
+      )
+    ) {
+      return alert(
+        "Please provide at least one field to update (first name / last name / email)."
       );
     }
 
-    setEditingAdminId(null);
-    setAdminEditForm({});
-  } catch (err: any) {
-    console.error("saveAdminEdit error:", err);
-    alert(err?.message || "Failed to save admin. Changes rolled back.");
-    if (showAdminsFor?.id) {
-      await fetchAdmins(showAdminsFor.id); // rollback to server truth
-    }
-  } finally {
-    setAdminSaving(false);
-  }
-};
+    setAdminSaving(true);
 
+    setAdmins((prev) =>
+      prev.map((p) => (p.id === adminId ? { ...p, ...adminEditForm } : p))
+    );
+
+    try {
+      const token = sessionStorage.getItem("admin_token");
+      const res = await fetch(
+        `${API_BASE}/admin/lenders/admin/update/${adminId}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({
+            firstName: adminEditForm.firstName,
+            lastName: adminEditForm.lastName,
+            email: adminEditForm.email,
+            phone: adminEditForm.phone,
+          }),
+        }
+      );
+
+      if (!res.ok) {
+        throw new Error(`Save failed: ${res.status}`);
+      }
+
+      const json = await res.json().catch(() => ({}));
+      if (json && json.data) {
+        const serverObj = json.data;
+        setAdmins((prev) =>
+          prev.map((p) => (p.id === adminId ? { ...p, ...serverObj } : p))
+        );
+      }
+
+      setEditingAdminId(null);
+      setAdminEditForm({});
+    } catch (err: any) {
+      console.error("saveAdminEdit error:", err);
+      alert(err?.message || "Failed to save admin. Changes rolled back.");
+      if (showAdminsFor?.id) {
+        await fetchAdmins(showAdminsFor.id);
+      }
+    } finally {
+      setAdminSaving(false);
+    }
+  };
 
   return (
     <div className="px-6 py-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">All Brokers</h1>
+          <h1 className="text-2xl font-semibold text-gray-900">All Lenders</h1>
           <p className="text-sm text-gray-500 mt-1">
-            Manage broker organizations and their admins.
+            Manage lender organizations and their admin users.
           </p>
         </div>
 
@@ -546,7 +496,7 @@ export default function BrokersPage() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className="px-3 py-2 border rounded-md w-64 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              aria-label="Search brokers"
+              aria-label="Search lenders"
             />
             <select
               value={pageSize}
@@ -564,10 +514,10 @@ export default function BrokersPage() {
             onClick={openAdd}
             className="inline-flex items-center whitespace-nowrap px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
             type="button"
-            aria-label="Add Broker"
+            aria-label="Add Lender"
           >
             <TiPlus className="mr-2" />
-            Add Broker
+            Add Lender
           </button>
         </div>
       </div>
@@ -575,11 +525,11 @@ export default function BrokersPage() {
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
         {loading ? (
           <div className="py-16 text-center text-sm text-gray-500">
-            Loading brokers...
+            Loading lenders...
           </div>
         ) : total === 0 ? (
           <div className="py-16 text-center text-sm text-gray-500">
-            No brokers found.
+            No lenders found.
           </div>
         ) : (
           <>
@@ -607,7 +557,7 @@ export default function BrokersPage() {
                           <button
                             onClick={() => openAdminsFor(b)}
                             className="text-left underline text-blue-600 hover:text-blue-800"
-                            aria-label={`View admins for ${b.name}`}
+                            aria-label={`View admin for ${b.name}`}
                           >
                             {b.name}
                           </button>
@@ -672,7 +622,7 @@ export default function BrokersPage() {
                               <MdModeEdit />
                             </button>
 
-                            {/* <button
+                            <button
                               disabled={isLoading}
                               onClick={() => handleDelete(b)}
                               className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-red-100 text-red-500 hover:bg-red-50 hover:text-red-700 disabled:opacity-40"
@@ -701,7 +651,7 @@ export default function BrokersPage() {
                               ) : (
                                 <MdDelete />
                               )}
-                            </button> */}
+                            </button>
 
                             <button
                               onClick={() => openAdminsFor(b)}
@@ -788,12 +738,12 @@ export default function BrokersPage() {
         )}
       </div>
 
-      {/* Add Broker Modal */}
+      {/* Add Lender Modal */}
       {isAddOpen && (
         <div className="fixed inset-0 z-500000 flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <div className="bg-white rounded-xl p-6 w-full max-w-2xl shadow-lg">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold">Create Broker</h2>
+              <h2 className="text-lg font-semibold">Create Lender</h2>
               <button
                 onClick={() => setIsAddOpen(false)}
                 className="text-gray-500 hover:text-gray-800"
@@ -807,7 +757,9 @@ export default function BrokersPage() {
               className="grid grid-cols-1 md:grid-cols-2 gap-3"
             >
               <label className="block">
-                <span className="text-sm text-gray-700">Organization Name</span>
+                <span className="text-sm text-gray-700">
+                  Organization Name
+                </span>
                 <input
                   value={form.organizationName}
                   onChange={(e) =>
@@ -907,7 +859,7 @@ export default function BrokersPage() {
                   disabled={submitting}
                   className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
                 >
-                  {submitting ? "Creating..." : "Create Broker"}
+                  {submitting ? "Creating..." : "Create Lender"}
                 </button>
               </div>
             </form>
@@ -915,13 +867,13 @@ export default function BrokersPage() {
         </div>
       )}
 
-      {/* Edit Broker Modal (separate component) */}
-      {editingBroker && (
+      {/* Edit Lender Modal (reusing EditBrokerModal for now) */}
+      {editingLender && (
         <EditBrokerModal
-          isOpen={Boolean(editingBroker)}
-          broker={editingBroker}
-          onClose={() => setEditingBroker(null)}
-          onSave={handleEditSave}
+          isOpen={Boolean(editingLender)}
+          broker={editingLender as any}
+          onClose={() => setEditingLender(null)}
+          onSave={handleEditSave as any}
         />
       )}
 
@@ -952,7 +904,7 @@ export default function BrokersPage() {
                 </div>
               ) : admins.length === 0 ? (
                 <div className="py-8 text-center text-gray-500">
-                  No admins found for this broker.
+                  No admins found for this lender.
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -961,7 +913,6 @@ export default function BrokersPage() {
                       key={a.id ?? idx}
                       className="border rounded p-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3"
                     >
-                      {/* left: details / edit fields */}
                       <div className="flex-1">
                         {editingAdminId === a.id ? (
                           <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
@@ -1014,7 +965,8 @@ export default function BrokersPage() {
                           <div>
                             <div className="font-medium text-gray-900">
                               {(a.firstName || "") +
-                                (a.lastName ? ` ${a.lastName}` : "") || "—"}
+                                (a.lastName ? ` ${a.lastName}` : "") ||
+                                "—"}
                             </div>
                             <div className="text-sm text-gray-600">
                               {a.email || "-"}
@@ -1023,7 +975,6 @@ export default function BrokersPage() {
                         )}
                       </div>
 
-                      {/* right: phone + actions */}
                       <div className="flex items-center gap-2">
                         <div className="text-sm text-gray-600">
                           {a.phone || "-"}

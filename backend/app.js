@@ -19,6 +19,7 @@ const swagger = require("@fastify/swagger");
 const swaggerUi = require("@fastify/swagger-ui");
 const indexRoutes = require("./routes/index");
 
+
 // Configure Fastify with built-in logger
 const app = Fastify({
   logger: {
@@ -37,6 +38,7 @@ const app = Fastify({
 runEmailConsumerKafka().catch((error) => {
   console.error("Error starting the email consumer:", error);
 });
+
 
 
 app.register(cors, {
@@ -85,6 +87,7 @@ app.register(fastifyFormbody);
 
 const authMiddleware = require("./middleware/authMiddleware");
 const fgaMiddleware = require("./middleware/fgaMiddleware");
+const Mail = require("nodemailer/lib/mailer");
 
 app.register(authMiddleware);
 app.register(fgaMiddleware);
