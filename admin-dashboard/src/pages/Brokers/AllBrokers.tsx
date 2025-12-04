@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { MdModeEdit} from "react-icons/md";
+import { MdModeEdit } from "react-icons/md";
 import { TiPlus } from "react-icons/ti";
 import EditBrokerModal from "./EditBrokerModal"; // adjust path if needed
 
@@ -20,19 +20,18 @@ type Admin = {
   phone?: string;
 };
 
-// const STATUS_ORDER = ["ACTIVE", "INACTIVE"]; 
-
+// const STATUS_ORDER = ["ACTIVE", "INACTIVE"];
 
 function statusClass(status?: string) {
   switch (status) {
     case "ACTIVE":
-      return "bg-green-100 text-green-800 border-green-200";
+      return "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/40";
     case "INACTIVE":
-      return "bg-yellow-100 text-yellow-800 border-yellow-200";
+      return "bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-500/10 dark:text-yellow-300 dark:border-yellow-500/40";
     case "SUSPENDED":
-      return "bg-red-100 text-red-800 border-red-200";
+      return "bg-red-100 text-red-800 border-red-200 dark:bg-red-500/10 dark:text-red-300 dark:border-red-500/40";
     default:
-      return "bg-gray-100 text-gray-800 border-gray-200";
+      return "bg-gray-100 text-gray-800 border-gray-200 dark:bg-slate-600/30 dark:text-slate-100 dark:border-slate-500";
   }
 }
 
@@ -143,14 +142,6 @@ export default function BrokersPage() {
     setIsAddOpen(true);
   };
 
-  // const handleDelete = async (broker: Broker) => {
-  //   if (!window.confirm(`Delete broker "${broker.name}"?`)) return;
-  //   setRowLoadingId(broker.id);
-  //   await new Promise((r) => setTimeout(r, 600));
-  //   setBrokers((prev) => prev.filter((b) => b.id !== broker.id));
-  //   setRowLoadingId(null);
-  // };
-
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
     setFormError(null);
@@ -240,182 +231,180 @@ export default function BrokersPage() {
   };
 
   const handleEditSave = async (updated: Broker) => {
-  // optimistic
-  setBrokers((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
-  setEditingBroker(null);
+    // optimistic
+    setBrokers((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+    setEditingBroker(null);
 
-  try {
-    const token = sessionStorage.getItem("admin_token");
-    const res = await fetch(`${API_BASE}/admin/brokers/update/${updated.id}`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: JSON.stringify({
-        name: updated.name,
-        email: updated.email,
-        phone: updated.phone,
-      }),
-    });
-
-    const json = await res.json().catch(() => ({} as any));
-
-    if (res.ok && json?.data?.organization) {
-      const org = json.data.organization;
-      setBrokers((prev) =>
-        prev.map((b) =>
-          b.id === updated.id
-            ? {
-                ...b,
-                name: org.name ?? b.name,
-                email: org.email ?? b.email,
-                phone: org.phone ?? b.phone,
-                status: org.status ?? b.status,
-                createdAt: org.createdAt ?? b.createdAt,
-              }
-            : b
-        )
+    try {
+      const token = sessionStorage.getItem("admin_token");
+      const res = await fetch(
+        `${API_BASE}/admin/brokers/update/${updated.id}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({
+            name: updated.name,
+            email: updated.email,
+            phone: updated.phone,
+          }),
+        }
       );
-    } else if (!res.ok) {
-      console.error("Broker update error:", json);
+
+      const json = await res.json().catch(() => ({} as any));
+
+      if (res.ok && json?.data?.organization) {
+        const org = json.data.organization;
+        setBrokers((prev) =>
+          prev.map((b) =>
+            b.id === updated.id
+              ? {
+                  ...b,
+                  name: org.name ?? b.name,
+                  email: org.email ?? b.email,
+                  phone: org.phone ?? b.phone,
+                  status: org.status ?? b.status,
+                  createdAt: org.createdAt ?? b.createdAt,
+                }
+              : b
+          )
+        );
+      } else if (!res.ok) {
+        console.error("Broker update error:", json);
+      }
+    } catch (err) {
+      console.error("Failed to persist broker update:", err);
     }
-  } catch (err) {
-    console.error("Failed to persist broker update:", err);
-  }
-};
-
-
-  const changeStatusFor = async (broker: Broker) => {
-  if (!broker?.id) return;
-
-  const cur = (broker.status || "INACTIVE").toUpperCase();
-  const next = cur === "ACTIVE" ? "INACTIVE" : "ACTIVE";
-
-  const prevStatus = broker.status;
-
-  // optimistic update in UI
-  setBrokers((prev) =>
-    prev.map((b) => (b.id === broker.id ? { ...b, status: next } : b))
-  );
-  setRowLoadingId(broker.id);
-
-  const token = sessionStorage.getItem("admin_token");
-  const headers: HeadersInit = {
-    "Content-Type": "application/json",
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
 
-  try {
-    // 1) Try dedicated status route
-    const toActive = next === "ACTIVE";
-    const statusUrl = `${API_BASE}/admin/brokers/status/${
-      toActive ? "activate" : "deactivate"
-    }/${broker.id}`;
+  const changeStatusFor = async (broker: Broker) => {
+    if (!broker?.id) return;
 
-    // ✅ send an *empty JSON body* so Fastify is happy
-    let res = await fetch(statusUrl, {
-      method: "PATCH",
-      headers,
-      body: JSON.stringify({}), // <--- this fixes the 400 error
-    });
+    const cur = (broker.status || "INACTIVE").toUpperCase();
+    const next = cur === "ACTIVE" ? "INACTIVE" : "ACTIVE";
 
-    // If route not found / method not allowed, fallback to update route
-    if (res.status === 404 || res.status === 405) {
-      const updateUrl = `${API_BASE}/admin/brokers/update/${broker.id}`;
-      res = await fetch(updateUrl, {
+    const prevStatus = broker.status;
+
+    // optimistic update in UI
+    setBrokers((prev) =>
+      prev.map((b) => (b.id === broker.id ? { ...b, status: next } : b))
+    );
+    setRowLoadingId(broker.id);
+
+    const token = sessionStorage.getItem("admin_token");
+    const headers: HeadersInit = {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
+
+    try {
+      // 1) Try dedicated status route
+      const toActive = next === "ACTIVE";
+      const statusUrl = `${API_BASE}/admin/brokers/status/${
+        toActive ? "activate" : "deactivate"
+      }/${broker.id}`;
+
+      // ✅ send an *empty JSON body* so Fastify is happy
+      let res = await fetch(statusUrl, {
         method: "PATCH",
         headers,
-        body: JSON.stringify({ status: next }),
+        body: JSON.stringify({}), // <--- this fixes the 400 error
       });
-    }
 
-    if (!res.ok) {
-      throw new Error(`Status update failed: ${res.status}`);
-    }
-
-    const json = await res.json().catch(() => ({} as any));
-
-    // Case 1: status route -> data: { id, name, previousStatus, status }
-    // Case 2: update route -> data: { organization, admin? }
-    if (json?.data) {
-      if (json.data.status) {
-        // from status route
-        const serverStatus = json.data.status;
-        setBrokers((prev) =>
-          prev.map((b) =>
-            b.id === broker.id ? { ...b, status: serverStatus } : b
-          )
-        );
-      } else if (json.data.organization?.status) {
-        // from update route
-        const orgStatus = json.data.organization.status;
-        setBrokers((prev) =>
-          prev.map((b) =>
-            b.id === broker.id ? { ...b, status: orgStatus } : b
-          )
-        );
+      // If route not found / method not allowed, fallback to update route
+      if (res.status === 404 || res.status === 405) {
+        const updateUrl = `${API_BASE}/admin/brokers/update/${broker.id}`;
+        res = await fetch(updateUrl, {
+          method: "PATCH",
+          headers,
+          body: JSON.stringify({ status: next }),
+        });
       }
+
+      if (!res.ok) {
+        throw new Error(`Status update failed: ${res.status}`);
+      }
+
+      const json = await res.json().catch(() => ({} as any));
+
+      // Case 1: status route -> data: { id, name, previousStatus, status }
+      // Case 2: update route -> data: { organization, admin? }
+      if (json?.data) {
+        if (json.data.status) {
+          // from status route
+          const serverStatus = json.data.status;
+          setBrokers((prev) =>
+            prev.map((b) =>
+              b.id === broker.id ? { ...b, status: serverStatus } : b
+            )
+          );
+        } else if (json.data.organization?.status) {
+          // from update route
+          const orgStatus = json.data.organization.status;
+          setBrokers((prev) =>
+            prev.map((b) =>
+              b.id === broker.id ? { ...b, status: orgStatus } : b
+            )
+          );
+        }
+      }
+    } catch (err) {
+      console.error("changeStatusFor error:", err);
+      // rollback UI
+      setBrokers((prev) =>
+        prev.map((b) =>
+          b.id === broker.id ? { ...b, status: prevStatus } : b
+        )
+      );
+      alert("Failed to update status. Please try again.");
+    } finally {
+      setRowLoadingId(null);
     }
-  } catch (err) {
-    console.error("changeStatusFor error:", err);
-    // rollback UI
-    setBrokers((prev) =>
-      prev.map((b) =>
-        b.id === broker.id ? { ...b, status: prevStatus } : b
-      )
-    );
-    alert("Failed to update status. Please try again.");
-  } finally {
-    setRowLoadingId(null);
-  }
-};
-
-
-
+  };
 
   // ------------------------------
   // Fetch admins for a broker id
   // ------------------------------
   async function fetchAdmins(brokerId: string) {
-  setLoadingAdmins(true);
-  setAdmins([]);
-  setAdminsError(null);
+    setLoadingAdmins(true);
+    setAdmins([]);
+    setAdminsError(null);
 
-  try {
-    const token = sessionStorage.getItem("admin_token");
-    const res = await fetch(`${API_BASE}/admin/brokers/read/${brokerId}`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-    });
+    try {
+      const token = sessionStorage.getItem("admin_token");
+      const res = await fetch(`${API_BASE}/admin/brokers/read/${brokerId}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
 
-    if (!res.ok) throw new Error(`Failed to load admins: ${res.status}`);
+      if (!res.ok) throw new Error(`Failed to load admins: ${res.status}`);
 
-    const json = await res.json().catch(() => ({} as any));
+      const json = await res.json().catch(() => ({} as any));
 
-    const adminList = json?.data?.admins || [];
-    const normalized: Admin[] = (Array.isArray(adminList) ? adminList : []).map(
-      (a: any) => ({
+      const adminList = json?.data?.admins || [];
+      const normalized: Admin[] = (
+        Array.isArray(adminList) ? adminList : []
+      ).map((a: any) => ({
         id: a.id,
         firstName: a.firstName ?? "",
         lastName: a.lastName ?? "",
         email: a.email ?? "",
         phone: a.phone ?? "",
-      })
-    );
+      }));
 
-    setAdmins(normalized);
-  } catch (err: any) {
-    console.error("fetchAdmins error:", err);
-    setAdminsError(err?.message || "Failed to load admins");
-  } finally {
-    setLoadingAdmins(false);
+      setAdmins(normalized);
+    } catch (err: any) {
+      console.error("fetchAdmins error:", err);
+      setAdminsError(err?.message || "Failed to load admins");
+    } finally {
+      setLoadingAdmins(false);
+    }
   }
-}
-
 
   const openAdminsFor = async (broker: Broker) => {
     setShowAdminsFor(broker);
@@ -453,88 +442,87 @@ export default function BrokersPage() {
 
   // save admin edit (optimistic + persist)
   const saveAdminEdit = async () => {
-  const adminId = editingAdminId;
-  if (!adminId) return alert("No admin selected for edit.");
-  if (!showAdminsFor?.id)
-    return alert("No broker selected for this admin edit.");
+    const adminId = editingAdminId;
+    if (!adminId) return alert("No admin selected for edit.");
+    if (!showAdminsFor?.id)
+      return alert("No broker selected for this admin edit.");
 
-  if (
-    !(
-      adminEditForm.firstName ||
-      adminEditForm.lastName ||
-      adminEditForm.email
-    )
-  ) {
-    return alert(
-      "Please provide at least one field to update (first name / last name / email)."
-    );
-  }
-
-  setAdminSaving(true);
-
-  // optimistic update
-  setAdmins((prev) =>
-    prev.map((p) => (p.id === adminId ? { ...p, ...adminEditForm } : p))
-  );
-
-  try {
-    const token = sessionStorage.getItem("admin_token");
-    const res = await fetch(
-      `${API_BASE}/admin/brokers/update/${showAdminsFor.id}`,
-      {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({
-          admin: {
-            id: adminId,
-            firstName: adminEditForm.firstName,
-            lastName: adminEditForm.lastName,
-            email: adminEditForm.email,
-            // phone is not handled in backend update.js,
-            // if you want it, you'll need to add it to backend schema & update logic.
-          },
-        }),
-      }
-    );
-
-    if (!res.ok) {
-      throw new Error(`Save failed: ${res.status}`);
-    }
-
-    const json = await res.json().catch(() => ({} as any));
-    // backend: data: { organization, admin }
-    if (json && json.data && json.data.admin) {
-      const serverAdmin = json.data.admin;
-      setAdmins((prev) =>
-        prev.map((p) =>
-          p.id === adminId ? { ...p, ...serverAdmin } : p
-        )
+    if (
+      !(
+        adminEditForm.firstName ||
+        adminEditForm.lastName ||
+        adminEditForm.email
+      )
+    ) {
+      return alert(
+        "Please provide at least one field to update (first name / last name / email)."
       );
     }
 
-    setEditingAdminId(null);
-    setAdminEditForm({});
-  } catch (err: any) {
-    console.error("saveAdminEdit error:", err);
-    alert(err?.message || "Failed to save admin. Changes rolled back.");
-    if (showAdminsFor?.id) {
-      await fetchAdmins(showAdminsFor.id); // rollback to server truth
-    }
-  } finally {
-    setAdminSaving(false);
-  }
-};
+    setAdminSaving(true);
 
+    // optimistic update
+    setAdmins((prev) =>
+      prev.map((p) => (p.id === adminId ? { ...p, ...adminEditForm } : p))
+    );
+
+    try {
+      const token = sessionStorage.getItem("admin_token");
+      const res = await fetch(
+        `${API_BASE}/admin/brokers/update/${showAdminsFor.id}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({
+            admin: {
+              id: adminId,
+              firstName: adminEditForm.firstName,
+              lastName: adminEditForm.lastName,
+              email: adminEditForm.email,
+              // phone is not handled in backend update.js,
+              // if you want it, you'll need to add it to backend schema & update logic.
+            },
+          }),
+        }
+      );
+
+      if (!res.ok) {
+        throw new Error(`Save failed: ${res.status}`);
+      }
+
+      const json = await res.json().catch(() => ({} as any));
+      // backend: data: { organization, admin }
+      if (json && json.data && json.data.admin) {
+        const serverAdmin = json.data.admin;
+        setAdmins((prev) =>
+          prev.map((p) => (p.id === adminId ? { ...p, ...serverAdmin } : p))
+        );
+      }
+
+      setEditingAdminId(null);
+      setAdminEditForm({});
+    } catch (err: any) {
+      console.error("saveAdminEdit error:", err);
+      alert(err?.message || "Failed to save admin. Changes rolled back.");
+      if (showAdminsFor?.id) {
+        await fetchAdmins(showAdminsFor.id); // rollback to server truth
+      }
+    } finally {
+      setAdminSaving(false);
+    }
+  };
 
   return (
-    <div className="px-6 py-6">
+    <div className="px-6 py-6 text-gray-900 dark:text-gray-100">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">All Brokers</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
+            All Brokers
+          </h1>
+          <p className="text-sm text-gray-500 mt-1 dark:text-slate-400">
             Manage broker organizations and their admins.
           </p>
         </div>
@@ -545,13 +533,18 @@ export default function BrokersPage() {
               placeholder="Search by name, email, phone or status"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              className="px-3 py-2 border rounded-md w-64 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="px-3 py-2 border rounded-md w-64 focus:outline-none focus:ring-1 focus:ring-blue-500
+                         border-gray-300 bg-white text-gray-900
+                         dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100
+                         placeholder-gray-400 dark:placeholder-slate-400"
               aria-label="Search brokers"
             />
             <select
               value={pageSize}
               onChange={(e) => setPageSize(Number(e.target.value))}
-              className="px-2 py-2 border rounded-md bg-white"
+              className="px-2 py-2 border rounded-md bg-white text-gray-900
+                         border-gray-300
+                         dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
               aria-label="Page size"
             >
               <option value={5}>5 / page</option>
@@ -572,13 +565,13 @@ export default function BrokersPage() {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 dark:bg-slate-900 dark:border-slate-700">
         {loading ? (
-          <div className="py-16 text-center text-sm text-gray-500">
+          <div className="py-16 text-center text-sm text-gray-500 dark:text-slate-400">
             Loading brokers...
           </div>
         ) : total === 0 ? (
-          <div className="py-16 text-center text-sm text-gray-500">
+          <div className="py-16 text-center text-sm text-gray-500 dark:text-slate-400">
             No brokers found.
           </div>
         ) : (
@@ -586,7 +579,7 @@ export default function BrokersPage() {
             <div className="overflow-auto">
               <table className="min-w-full text-sm">
                 <thead>
-                  <tr className="border-b border-gray-100 text-xs text-gray-500 uppercase tracking-wide">
+                  <tr className="border-b border-gray-100 dark:border-slate-700 text-xs text-gray-500 dark:text-slate-400 uppercase tracking-wide">
                     <th className="py-2 pr-4 text-left">Organization</th>
                     <th className="py-2 pr-4 text-left">Email</th>
                     <th className="py-2 pr-4 text-left">Phone</th>
@@ -601,22 +594,24 @@ export default function BrokersPage() {
                     return (
                       <tr
                         key={b.id}
-                        className="border-b border-gray-100 last:border-0 hover:bg-gray-50/40"
+                        className="border-b border-gray-100 last:border-0 hover:bg-gray-50/40
+                                   dark:border-slate-800 dark:hover:bg-slate-800/60"
                       >
-                        <td className="py-3 pr-4 text-gray-900 whitespace-nowrap">
+                        <td className="py-3 pr-4 text-gray-900 whitespace-nowrap dark:text-gray-100">
                           <button
                             onClick={() => openAdminsFor(b)}
-                            className="text-left underline text-blue-600 hover:text-blue-800"
+                            className="text-left underline text-blue-600 hover:text-blue-800
+                                       dark:text-blue-300 dark:hover:text-blue-200"
                             aria-label={`View admins for ${b.name}`}
                           >
                             {b.name}
                           </button>
                         </td>
 
-                        <td className="py-3 pr-4 text-gray-600 whitespace-nowrap">
+                        <td className="py-3 pr-4 text-gray-600 whitespace-nowrap dark:text-slate-300">
                           {b.email}
                         </td>
-                        <td className="py-3 pr-4 text-gray-600 whitespace-nowrap">
+                        <td className="py-3 pr-4 text-gray-600 whitespace-nowrap dark:text-slate-300">
                           {b.phone}
                         </td>
 
@@ -655,7 +650,7 @@ export default function BrokersPage() {
                           </button>
                         </td>
 
-                        <td className="py-3 pr-4 text-gray-600 whitespace-nowrap">
+                        <td className="py-3 pr-4 text-gray-600 whitespace-nowrap dark:text-slate-300">
                           {b.createdAt
                             ? new Date(b.createdAt).toLocaleDateString()
                             : "-"}
@@ -666,47 +661,18 @@ export default function BrokersPage() {
                             <button
                               disabled={isLoading}
                               onClick={() => openEditModal(b)}
-                              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100 hover:text-gray-800 disabled:opacity-40"
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100 hover:text-gray-800 disabled:opacity-40
+                                         dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
                               aria-label={`Edit ${b.name}`}
                             >
                               <MdModeEdit />
                             </button>
 
-                            {/* <button
-                              disabled={isLoading}
-                              onClick={() => handleDelete(b)}
-                              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-red-100 text-red-500 hover:bg-red-50 hover:text-red-700 disabled:opacity-40"
-                              aria-label={`Delete ${b.name}`}
-                            >
-                              {isLoading ? (
-                                <svg
-                                  className="h-4 w-4 animate-spin"
-                                  viewBox="0 0 24 24"
-                                >
-                                  <circle
-                                    cx="12"
-                                    cy="12"
-                                    r="10"
-                                    stroke="currentColor"
-                                    strokeWidth="4"
-                                    className="opacity-25"
-                                    fill="none"
-                                  ></circle>
-                                  <path
-                                    fill="currentColor"
-                                    className="opacity-75"
-                                    d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
-                                  />
-                                </svg>
-                              ) : (
-                                <MdDelete />
-                              )}
-                            </button> */}
-
                             <button
                               onClick={() => openAdminsFor(b)}
                               disabled={isLoading}
-                              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100 disabled:opacity-40"
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100 disabled:opacity-40
+                                         dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
                               aria-label={`More actions for ${b.name}`}
                               title="More actions"
                             >
@@ -724,7 +690,7 @@ export default function BrokersPage() {
             </div>
 
             <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-              <div className="text-sm text-gray-600">
+              <div className="text-sm text-gray-600 dark:text-slate-300">
                 Showing{" "}
                 <span className="font-medium">
                   {(currentPage - 1) * pageSize + 1}
@@ -740,7 +706,9 @@ export default function BrokersPage() {
                 <button
                   onClick={() => gotoPage(currentPage - 1)}
                   disabled={currentPage === 1}
-                  className="px-3 py-1 border rounded-md disabled:opacity-40"
+                  className="px-3 py-1 border rounded-md disabled:opacity-40
+                             border-gray-300 bg-white text-gray-800
+                             dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                 >
                   Prev
                 </button>
@@ -765,7 +733,7 @@ export default function BrokersPage() {
                           className={`px-3 py-1 rounded-md ${
                             page === currentPage
                               ? "bg-blue-600 text-white"
-                              : "border"
+                              : "border border-gray-300 bg-white text-gray-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                           }`}
                         >
                           {page}
@@ -778,7 +746,9 @@ export default function BrokersPage() {
                 <button
                   onClick={() => gotoPage(currentPage + 1)}
                   disabled={currentPage === totalPages}
-                  className="px-3 py-1 border rounded-md disabled:opacity-40"
+                  className="px-3 py-1 border rounded-md disabled:opacity-40
+                             border-gray-300 bg-white text-gray-800
+                             dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                 >
                   Next
                 </button>
@@ -791,12 +761,14 @@ export default function BrokersPage() {
       {/* Add Broker Modal */}
       {isAddOpen && (
         <div className="fixed inset-0 z-500000 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-xl p-6 w-full max-w-2xl shadow-lg">
+          <div className="bg-white rounded-xl p-6 w-full max-w-2xl shadow-lg dark:bg-slate-900 dark:border dark:border-slate-700">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold">Create Broker</h2>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Create Broker
+              </h2>
               <button
                 onClick={() => setIsAddOpen(false)}
-                className="text-gray-500 hover:text-gray-800"
+                className="text-gray-500 hover:text-gray-800 dark:text-slate-400 dark:hover:text-slate-200"
               >
                 Close
               </button>
@@ -807,18 +779,22 @@ export default function BrokersPage() {
               className="grid grid-cols-1 md:grid-cols-2 gap-3"
             >
               <label className="block">
-                <span className="text-sm text-gray-700">Organization Name</span>
+                <span className="text-sm text-gray-700 dark:text-slate-200">
+                  Organization Name
+                </span>
                 <input
                   value={form.organizationName}
                   onChange={(e) =>
                     setForm({ ...form, organizationName: e.target.value })
                   }
-                  className="w-full px-3 py-2 mt-1 border rounded-md"
+                  className="w-full px-3 py-2 mt-1 border rounded-md
+                             border-gray-300 bg-white text-gray-900
+                             dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
                 />
               </label>
 
               <label className="block">
-                <span className="text-sm text-gray-700">
+                <span className="text-sm text-gray-700 dark:text-slate-200">
                   Organization Email
                 </span>
                 <input
@@ -826,12 +802,14 @@ export default function BrokersPage() {
                   onChange={(e) =>
                     setForm({ ...form, organizationEmail: e.target.value })
                   }
-                  className="w-full px-3 py-2 mt-1 border rounded-md"
+                  className="w-full px-3 py-2 mt-1 border rounded-md
+                             border-gray-300 bg-white text-gray-900
+                             dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
                 />
               </label>
 
               <label className="block">
-                <span className="text-sm text-gray-700">
+                <span className="text-sm text-gray-700 dark:text-slate-200">
                   Organization Phone
                 </span>
                 <input
@@ -839,52 +817,70 @@ export default function BrokersPage() {
                   onChange={(e) =>
                     setForm({ ...form, organizationPhone: e.target.value })
                   }
-                  className="w-full px-3 py-2 mt-1 border rounded-md"
+                  className="w-full px-3 py-2 mt-1 border rounded-md
+                             border-gray-300 bg-white text-gray-900
+                             dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
                 />
               </label>
 
               <label className="block">
-                <span className="text-sm text-gray-700">Admin First Name</span>
+                <span className="text-sm text-gray-700 dark:text-slate-200">
+                  Admin First Name
+                </span>
                 <input
                   value={form.adminFirstName}
                   onChange={(e) =>
                     setForm({ ...form, adminFirstName: e.target.value })
                   }
-                  className="w-full px-3 py-2 mt-1 border rounded-md"
+                  className="w-full px-3 py-2 mt-1 border rounded-md
+                             border-gray-300 bg-white text-gray-900
+                             dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
                 />
               </label>
 
               <label className="block">
-                <span className="text-sm text-gray-700">Admin Last Name</span>
+                <span className="text-sm text-gray-700 dark:text-slate-200">
+                  Admin Last Name
+                </span>
                 <input
                   value={form.adminLastName}
                   onChange={(e) =>
                     setForm({ ...form, adminLastName: e.target.value })
                   }
-                  className="w-full px-3 py-2 mt-1 border rounded-md"
+                  className="w-full px-3 py-2 mt-1 border rounded-md
+                             border-gray-300 bg-white text-gray-900
+                             dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
                 />
               </label>
 
               <label className="block">
-                <span className="text-sm text-gray-700">Admin Email</span>
+                <span className="text-sm text-gray-700 dark:text-slate-200">
+                  Admin Email
+                </span>
                 <input
                   value={form.adminEmail}
                   onChange={(e) =>
                     setForm({ ...form, adminEmail: e.target.value })
                   }
-                  className="w-full px-3 py-2 mt-1 border rounded-md"
+                  className="w-full px-3 py-2 mt-1 border rounded-md
+                             border-gray-300 bg-white text-gray-900
+                             dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
                 />
               </label>
 
               <label className="block">
-                <span className="text-sm text-gray-700">Admin Password</span>
+                <span className="text-sm text-gray-700 dark:text-slate-200">
+                  Admin Password
+                </span>
                 <input
                   type="password"
                   value={form.adminPassword}
                   onChange={(e) =>
                     setForm({ ...form, adminPassword: e.target.value })
                   }
-                  className="w-full px-3 py-2 mt-1 border rounded-md"
+                  className="w-full px-3 py-2 mt-1 border rounded-md
+                             border-gray-300 bg-white text-gray-900
+                             dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
                 />
               </label>
 
@@ -898,14 +894,15 @@ export default function BrokersPage() {
                 <button
                   type="button"
                   onClick={() => setIsAddOpen(false)}
-                  className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md"
+                  className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md
+                             dark:text-slate-200 dark:hover:bg-slate-800"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-70"
                 >
                   {submitting ? "Creating..." : "Create Broker"}
                 </button>
@@ -928,14 +925,14 @@ export default function BrokersPage() {
       {/* Admins Modal (with inline edit) */}
       {showAdminsFor && (
         <div className="fixed inset-0 z-600000 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-xl p-6 w-full max-w-2xl shadow-lg">
+          <div className="bg-white rounded-xl p-6 w-full max-w-2xl shadow-lg dark:bg-slate-900 dark:border dark:border-slate-700">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
                 Admins for {showAdminsFor.name}
               </h2>
               <button
                 onClick={closeAdmins}
-                className="text-gray-500 hover:text-gray-800"
+                className="text-gray-500 hover:text-gray-800 dark:text-slate-400 dark:hover:text-slate-200"
               >
                 Close
               </button>
@@ -943,15 +940,15 @@ export default function BrokersPage() {
 
             <div>
               {loadingAdmins ? (
-                <div className="py-8 text-center text-gray-500">
+                <div className="py-8 text-center text-gray-500 dark:text-slate-400">
                   Loading admins...
                 </div>
               ) : adminsError ? (
-                <div className="py-8 text-center text-red-600">
+                <div className="py-8 text-center text-red-600 dark:text-red-400">
                   {adminsError}
                 </div>
               ) : admins.length === 0 ? (
-                <div className="py-8 text-center text-gray-500">
+                <div className="py-8 text-center text-gray-500 dark:text-slate-400">
                   No admins found for this broker.
                 </div>
               ) : (
@@ -959,7 +956,9 @@ export default function BrokersPage() {
                   {admins.map((a, idx) => (
                     <div
                       key={a.id ?? idx}
-                      className="border rounded p-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3"
+                      className="border rounded p-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3
+                                 border-gray-200 bg-white
+                                 dark:border-slate-700 dark:bg-slate-900"
                     >
                       {/* left: details / edit fields */}
                       <div className="flex-1">
@@ -973,7 +972,9 @@ export default function BrokersPage() {
                                   firstName: e.target.value,
                                 })
                               }
-                              className="px-2 py-1 border rounded"
+                              className="px-2 py-1 border rounded
+                                         border-gray-300 bg-white text-gray-900
+                                         dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
                               placeholder="First name"
                             />
                             <input
@@ -984,7 +985,9 @@ export default function BrokersPage() {
                                   lastName: e.target.value,
                                 })
                               }
-                              className="px-2 py-1 border rounded"
+                              className="px-2 py-1 border rounded
+                                         border-gray-300 bg-white text-gray-900
+                                         dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
                               placeholder="Last name"
                             />
                             <input
@@ -995,7 +998,9 @@ export default function BrokersPage() {
                                   email: e.target.value,
                                 })
                               }
-                              className="px-2 py-1 border rounded col-span-1 md:col-span-1"
+                              className="px-2 py-1 border rounded col-span-1 md:col-span-1
+                                         border-gray-300 bg-white text-gray-900
+                                         dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
                               placeholder="Email"
                             />
                             <input
@@ -1006,17 +1011,19 @@ export default function BrokersPage() {
                                   phone: e.target.value,
                                 })
                               }
-                              className="px-2 py-1 border rounded"
+                              className="px-2 py-1 border rounded
+                                         border-gray-300 bg-white text-gray-900
+                                         dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
                               placeholder="Phone"
                             />
                           </div>
                         ) : (
                           <div>
-                            <div className="font-medium text-gray-900">
+                            <div className="font-medium text-gray-900 dark:text-gray-100">
                               {(a.firstName || "") +
                                 (a.lastName ? ` ${a.lastName}` : "") || "—"}
                             </div>
-                            <div className="text-sm text-gray-600">
+                            <div className="text-sm text-gray-600 dark:text-slate-300">
                               {a.email || "-"}
                             </div>
                           </div>
@@ -1025,7 +1032,7 @@ export default function BrokersPage() {
 
                       {/* right: phone + actions */}
                       <div className="flex items-center gap-2">
-                        <div className="text-sm text-gray-600">
+                        <div className="text-sm text-gray-600 dark:text-slate-300">
                           {a.phone || "-"}
                         </div>
 
@@ -1034,14 +1041,16 @@ export default function BrokersPage() {
                             <button
                               onClick={saveAdminEdit}
                               disabled={adminSaving}
-                              className="px-3 py-1 bg-blue-600 text-white rounded-md"
+                              className="px-3 py-1 bg-blue-600 text-white rounded-md disabled:opacity-70"
                             >
                               {adminSaving ? "Saving..." : "Save"}
                             </button>
                             <button
                               onClick={cancelEditAdmin}
                               disabled={adminSaving}
-                              className="px-3 py-1 border rounded-md"
+                              className="px-3 py-1 border rounded-md
+                                         border-gray-300 bg-white text-gray-800
+                                         dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                             >
                               Cancel
                             </button>
@@ -1050,7 +1059,9 @@ export default function BrokersPage() {
                           <>
                             <button
                               onClick={() => startEditAdmin(a)}
-                              className="px-2 py-1 border rounded-md text-sm"
+                              className="px-2 py-1 border rounded-md text-sm
+                                         border-gray-300 bg-white text-gray-800
+                                         dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                             >
                               Edit
                             </button>
@@ -1066,7 +1077,8 @@ export default function BrokersPage() {
             <div className="mt-4 flex justify-end">
               <button
                 onClick={closeAdmins}
-                className="px-4 py-2 bg-gray-100 rounded-md"
+                className="px-4 py-2 bg-gray-100 rounded-md
+                           dark:bg-slate-800 dark:text-slate-100"
               >
                 Close
               </button>

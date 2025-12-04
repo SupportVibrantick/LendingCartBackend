@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import {
   ArrowDownIcon,
   ArrowUpIcon,
@@ -6,7 +7,67 @@ import {
 } from "../../icons";
 import Badge from "../ui/badge/Badge";
 
+type AdminStats = {
+  brokers: number;
+  lenders: number;
+};
+
+// Same as other pages: base URL from env
+const API_BASE = import.meta.env.VITE_API_BASE || "";
+
 export default function EcommerceMetrics() {
+  const [stats, setStats] = useState<AdminStats | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchStats = async () => {
+      try {
+        const token = sessionStorage.getItem("admin_token");
+
+        const headers: Record<string, string> = {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        };
+
+        const res = await fetch(`${API_BASE}/admin/stats`, {
+          method: "GET",
+          headers,
+          // note: no credentials: "include" here, same as BrokersPage
+        });
+
+        if (!res.ok) {
+          console.error(
+            "Failed to fetch admin stats",
+            res.status,
+            await res.text().catch(() => "")
+          );
+          return;
+        }
+
+        const json = await res.json();
+        console.log("admin stats response:", json);
+
+        if (json?.success && json?.data && isMounted) {
+          const orgs = json.data.organizations || {};
+          setStats({
+            brokers: orgs.brokers ?? 0,
+            lenders: orgs.lenders ?? 0,
+          });
+        }
+      } catch (err) {
+        console.error("Error fetching admin stats", err);
+      }
+    };
+
+    fetchStats();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const brokersCount = stats?.brokers ?? 0;
+  const lendersCount = stats?.lenders ?? 0;
+
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:gap-6">
       {/* <!-- Metric Item Start --> */}
@@ -18,10 +79,10 @@ export default function EcommerceMetrics() {
         <div className="flex items-end justify-between mt-5">
           <div>
             <span className="text-sm text-gray-500 dark:text-gray-400">
-              Customers
+              Total Brokers
             </span>
             <h4 className="mt-2 font-bold text-gray-800 text-title-sm dark:text-white/90">
-              3,782
+              {brokersCount.toLocaleString()}
             </h4>
           </div>
           <Badge color="success">
@@ -30,7 +91,6 @@ export default function EcommerceMetrics() {
           </Badge>
         </div>
       </div>
-      {/* <!-- Metric Item End --> */}
 
       {/* <!-- Metric Item Start --> */}
       <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6">
@@ -40,10 +100,10 @@ export default function EcommerceMetrics() {
         <div className="flex items-end justify-between mt-5">
           <div>
             <span className="text-sm text-gray-500 dark:text-gray-400">
-              Orders
+              Total Lenders
             </span>
             <h4 className="mt-2 font-bold text-gray-800 text-title-sm dark:text-white/90">
-              5,359
+              {lendersCount.toLocaleString()}
             </h4>
           </div>
 
@@ -53,7 +113,6 @@ export default function EcommerceMetrics() {
           </Badge>
         </div>
       </div>
-      {/* <!-- Metric Item End --> */}
     </div>
   );
 }

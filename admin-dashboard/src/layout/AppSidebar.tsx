@@ -21,6 +21,7 @@ import GroupsOutlinedIcon from '@mui/icons-material/GroupsOutlined';
 import AccountBalanceOutlinedIcon from '@mui/icons-material/AccountBalanceOutlined';
 import AdminPanelSettingsOutlinedIcon from '@mui/icons-material/AdminPanelSettingsOutlined';
 import CurrencyExchangeOutlinedIcon from '@mui/icons-material/CurrencyExchangeOutlined';
+import { PiSecurityCameraFill } from "react-icons/pi";
 type NavItem = {
   name: string;
   icon: React.ReactNode;
@@ -37,7 +38,7 @@ const navItems: NavItem[] = [
   {
     icon: <GroupsOutlinedIcon />,
     name: "Organisations",
-    subItems: [{ name: "Brokers Organisation", path: "/all-brokers-organisation" }]
+    subItems: [{ name: "Brokers Organisation", path: "/all-brokers-organisation" },{ name: "Broker Assigned Lenders", path: "/all-brokers-lenders" }]
   },
   {
     icon: <GroupOutlinedIcon />,
@@ -58,6 +59,11 @@ const navItems: NavItem[] = [
     icon: <CurrencyExchangeOutlinedIcon />,
     name: "Loan Products",
     subItems: [{ name: "All Loans", path: "/all-loans" }],
+  },
+  {
+    icon: <PiSecurityCameraFill/>,
+    name: "Dashboard Logs",
+    path:"/admin-logs"
   },
   // {
   //   icon: <CalenderIcon />,

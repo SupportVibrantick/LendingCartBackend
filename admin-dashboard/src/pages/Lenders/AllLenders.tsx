@@ -20,16 +20,23 @@ type Admin = {
   phone?: string;
 };
 
+// 🔹 Broker type for optional assignment
+type BrokerOrg = {
+  id: string;
+  name: string;
+  email?: string;
+};
+
 const STATUS_ORDER = ["ACTIVE", "INACTIVE"]; // keep real backend enum
 
 function statusClass(status?: string) {
   switch (status) {
     case "ACTIVE":
-      return "bg-green-100 text-green-800 border-green-200";
+      return "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/40";
     case "INACTIVE":
-      return "bg-yellow-100 text-yellow-800 border-yellow-200";
+      return "bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-500/10 dark:text-yellow-300 dark:border-yellow-500/40";
     default:
-      return "bg-gray-100 text-gray-800 border-gray-200";
+      return "bg-gray-100 text-gray-800 border-gray-200 dark:bg-slate-600/30 dark:text-slate-100 dark:border-slate-500";
   }
 }
 
@@ -47,6 +54,8 @@ export default function AllLendersPage() {
     adminLastName: "",
     adminEmail: "",
     adminPassword: "",
+    // 🔹 optional broker assignment
+    brokerOrgId: "",
   });
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -68,10 +77,16 @@ export default function AllLendersPage() {
   const [adminEditForm, setAdminEditForm] = useState<Admin>({});
   const [adminSaving, setAdminSaving] = useState(false);
 
+  // 🔹 brokers for dropdown
+  const [brokers, setBrokers] = useState<BrokerOrg[]>([]);
+  const [loadingBrokers, setLoadingBrokers] = useState(false);
+  const [brokersError, setBrokersError] = useState<string | null>(null);
+
   const API_BASE = "http://localhost:3001"; // adjust if needed
 
   useEffect(() => {
     fetchLenders();
+    fetchBrokers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -94,6 +109,7 @@ export default function AllLendersPage() {
     return { "Content-Type": "application/json" };
   }
 
+  // -------- LENDERS LIST --------
   async function fetchLenders() {
     setLoading(true);
     try {
@@ -106,7 +122,6 @@ export default function AllLendersPage() {
       if (!res.ok) throw new Error(`Failed to fetch lenders: ${res.status}`);
 
       const json = await res.json();
-      // your lenders list API: { success, data: { total, page, limit, results: [...] } }
       const list = Array.isArray(json)
         ? json
         : json.data?.results || json.data || [];
@@ -131,6 +146,41 @@ export default function AllLendersPage() {
     }
   }
 
+  // -------- BROKERS (for dropdown) --------
+  async function fetchBrokers() {
+    setLoadingBrokers(true);
+    setBrokersError(null);
+    try {
+      const headers = getAuthHeaders();
+      const res = await fetch(`${API_BASE}/admin/brokers/read/`, {
+        method: "GET",
+        headers,
+      });
+
+      if (!res.ok) throw new Error(`Failed to fetch brokers: ${res.status}`);
+
+      const json = await res.json();
+      const list = Array.isArray(json)
+        ? json
+        : json.data?.results || json.data || [];
+
+      const normalized: BrokerOrg[] = (list as any[]).map(
+        (b: any, idx: number) => ({
+          id: b.id ?? String(idx + 1),
+          name: b.name ?? b.organizationName ?? "Unnamed Broker",
+          email: b.email ?? b.organizationEmail ?? "",
+        })
+      );
+
+      setBrokers(normalized);
+    } catch (err: any) {
+      console.error("fetchBrokers error:", err);
+      setBrokersError(err?.message || "Failed to load brokers");
+    } finally {
+      setLoadingBrokers(false);
+    }
+  }
+
   const openAdd = () => {
     setForm({
       organizationName: "",
@@ -140,6 +190,7 @@ export default function AllLendersPage() {
       adminLastName: "",
       adminEmail: "",
       adminPassword: "",
+      brokerOrgId: "",
     });
     setFormError(null);
     setIsAddOpen(true);
@@ -147,7 +198,6 @@ export default function AllLendersPage() {
 
   const handleDelete = async (lender: Lender) => {
     if (!window.confirm(`Delete lender "${lender.name}"?`)) return;
-    // you likely want a soft-delete API here later
     setRowLoadingId(lender.id);
     await new Promise((r) => setTimeout(r, 600));
     setLenders((prev) => prev.filter((b) => b.id !== lender.id));
@@ -172,7 +222,7 @@ export default function AllLendersPage() {
 
     setSubmitting(true);
     try {
-      const payload = {
+      const payload: any = {
         organizationName: form.organizationName,
         organizationEmail: form.organizationEmail,
         organizationPhone: form.organizationPhone,
@@ -181,6 +231,10 @@ export default function AllLendersPage() {
         adminEmail: form.adminEmail,
         adminPassword: form.adminPassword,
       };
+
+      if (form.brokerOrgId) {
+        payload.brokerOrgId = form.brokerOrgId;
+      }
 
       const headers = getAuthHeaders();
 
@@ -269,7 +323,8 @@ export default function AllLendersPage() {
     if (!lender?.id) return;
     const cur = (lender.status || "UNKNOWN").toUpperCase();
     const idx = STATUS_ORDER.indexOf(cur);
-    const next = idx === -1 ? "ACTIVE" : STATUS_ORDER[(idx + 1) % STATUS_ORDER.length];
+    const next =
+      idx === -1 ? "ACTIVE" : STATUS_ORDER[(idx + 1) % STATUS_ORDER.length];
 
     const prevStatus = lender.status;
     setLenders((prev) =>
@@ -280,7 +335,6 @@ export default function AllLendersPage() {
     try {
       const token = sessionStorage.getItem("admin_token");
 
-      // use dedicated lender status routes with broker-guard logic
       const path =
         next === "ACTIVE"
           ? `${API_BASE}/admin/lenders/status/activate/${lender.id}`
@@ -296,7 +350,6 @@ export default function AllLendersPage() {
 
       const json = await res.json().catch(() => ({}));
       if (!res.ok || json?.success === false) {
-        // If blocked by broker or any error -> rollback
         const msg =
           json?.message ||
           (res.status === 400
@@ -305,7 +358,6 @@ export default function AllLendersPage() {
         throw new Error(msg);
       }
 
-      // If server returns canonical data, merge
       if (json && json.data) {
         const serverObj = json.data;
         setLenders((prev) =>
@@ -480,11 +532,13 @@ export default function AllLendersPage() {
   };
 
   return (
-    <div className="px-6 py-6">
+    <div className="px-6 py-6 text-gray-900 dark:text-gray-100">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">All Lenders</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
+            All Lenders
+          </h1>
+          <p className="text-sm text-gray-500 mt-1 dark:text-slate-400">
             Manage lender organizations and their admin users.
           </p>
         </div>
@@ -495,13 +549,18 @@ export default function AllLendersPage() {
               placeholder="Search by name, email, phone or status"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              className="px-3 py-2 border rounded-md w-64 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="px-3 py-2 border rounded-md w-64 focus:outline-none focus:ring-1 focus:ring-blue-500
+                         border-gray-300 bg-white text-gray-900
+                         dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100
+                         placeholder-gray-400 dark:placeholder-slate-400"
               aria-label="Search lenders"
             />
             <select
               value={pageSize}
               onChange={(e) => setPageSize(Number(e.target.value))}
-              className="px-2 py-2 border rounded-md bg-white"
+              className="px-2 py-2 border rounded-md bg-white text-gray-900
+                         border-gray-300
+                         dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
               aria-label="Page size"
             >
               <option value={5}>5 / page</option>
@@ -522,13 +581,13 @@ export default function AllLendersPage() {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 dark:bg-slate-900 dark:border-slate-700">
         {loading ? (
-          <div className="py-16 text-center text-sm text-gray-500">
+          <div className="py-16 text-center text-sm text-gray-500 dark:text-slate-400">
             Loading lenders...
           </div>
         ) : total === 0 ? (
-          <div className="py-16 text-center text-sm text-gray-500">
+          <div className="py-16 text-center text-sm text-gray-500 dark:text-slate-400">
             No lenders found.
           </div>
         ) : (
@@ -536,7 +595,7 @@ export default function AllLendersPage() {
             <div className="overflow-auto">
               <table className="min-w-full text-sm">
                 <thead>
-                  <tr className="border-b border-gray-100 text-xs text-gray-500 uppercase tracking-wide">
+                  <tr className="border-b border-gray-100 text-xs text-gray-500 uppercase tracking-wide dark:border-slate-700 dark:text-slate-400">
                     <th className="py-2 pr-4 text-left">Organization</th>
                     <th className="py-2 pr-4 text-left">Email</th>
                     <th className="py-2 pr-4 text-left">Phone</th>
@@ -551,22 +610,22 @@ export default function AllLendersPage() {
                     return (
                       <tr
                         key={b.id}
-                        className="border-b border-gray-100 last:border-0 hover:bg-gray-50/40"
+                        className="border-b border-gray-100 last:border-0 hover:bg-gray-50/40 dark:border-slate-800 dark:hover:bg-slate-800/60"
                       >
-                        <td className="py-3 pr-4 text-gray-900 whitespace-nowrap">
+                        <td className="py-3 pr-4 text-gray-900 whitespace-nowrap dark:text-gray-100">
                           <button
                             onClick={() => openAdminsFor(b)}
-                            className="text-left underline text-blue-600 hover:text-blue-800"
+                            className="text-left underline text-blue-600 hover:text-blue-800 dark:text-blue-300 dark:hover:text-blue-200"
                             aria-label={`View admin for ${b.name}`}
                           >
                             {b.name}
                           </button>
                         </td>
 
-                        <td className="py-3 pr-4 text-gray-600 whitespace-nowrap">
+                        <td className="py-3 pr-4 text-gray-600 whitespace-nowrap dark:text-slate-300">
                           {b.email}
                         </td>
-                        <td className="py-3 pr-4 text-gray-600 whitespace-nowrap">
+                        <td className="py-3 pr-4 text-gray-600 whitespace-nowrap dark:text-slate-300">
                           {b.phone}
                         </td>
 
@@ -605,7 +664,7 @@ export default function AllLendersPage() {
                           </button>
                         </td>
 
-                        <td className="py-3 pr-4 text-gray-600 whitespace-nowrap">
+                        <td className="py-3 pr-4 text-gray-600 whitespace-nowrap dark:text-slate-300">
                           {b.createdAt
                             ? new Date(b.createdAt).toLocaleDateString()
                             : "-"}
@@ -616,7 +675,8 @@ export default function AllLendersPage() {
                             <button
                               disabled={isLoading}
                               onClick={() => openEditModal(b)}
-                              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100 hover:text-gray-800 disabled:opacity-40"
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100 hover:text-gray-800 disabled:opacity-40
+                                         dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
                               aria-label={`Edit ${b.name}`}
                             >
                               <MdModeEdit />
@@ -625,7 +685,8 @@ export default function AllLendersPage() {
                             <button
                               disabled={isLoading}
                               onClick={() => handleDelete(b)}
-                              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-red-100 text-red-500 hover:bg-red-50 hover:text-red-700 disabled:opacity-40"
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-red-100 text-red-500 hover:bg-red-50 hover:text-red-700 disabled:opacity-40
+                                         dark:border-red-500/60 dark:bg-slate-900 dark:hover:bg-red-500/10"
                               aria-label={`Delete ${b.name}`}
                             >
                               {isLoading ? (
@@ -656,7 +717,8 @@ export default function AllLendersPage() {
                             <button
                               onClick={() => openAdminsFor(b)}
                               disabled={isLoading}
-                              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100 disabled:opacity-40"
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100 disabled:opacity-40
+                                         dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
                               aria-label={`More actions for ${b.name}`}
                               title="More actions"
                             >
@@ -674,7 +736,7 @@ export default function AllLendersPage() {
             </div>
 
             <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-              <div className="text-sm text-gray-600">
+              <div className="text-sm text-gray-600 dark:text-slate-300">
                 Showing{" "}
                 <span className="font-medium">
                   {(currentPage - 1) * pageSize + 1}
@@ -690,7 +752,9 @@ export default function AllLendersPage() {
                 <button
                   onClick={() => gotoPage(currentPage - 1)}
                   disabled={currentPage === 1}
-                  className="px-3 py-1 border rounded-md disabled:opacity-40"
+                  className="px-3 py-1 border rounded-md disabled:opacity-40
+                             border-gray-300 bg-white text-gray-800
+                             dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                 >
                   Prev
                 </button>
@@ -715,7 +779,7 @@ export default function AllLendersPage() {
                           className={`px-3 py-1 rounded-md ${
                             page === currentPage
                               ? "bg-blue-600 text-white"
-                              : "border"
+                              : "border border-gray-300 bg-white text-gray-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                           }`}
                         >
                           {page}
@@ -728,7 +792,9 @@ export default function AllLendersPage() {
                 <button
                   onClick={() => gotoPage(currentPage + 1)}
                   disabled={currentPage === totalPages}
-                  className="px-3 py-1 border rounded-md disabled:opacity-40"
+                  className="px-3 py-1 border rounded-md disabled:opacity-40
+                             border-gray-300 bg-white text-gray-800
+                             dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                 >
                   Next
                 </button>
@@ -741,12 +807,14 @@ export default function AllLendersPage() {
       {/* Add Lender Modal */}
       {isAddOpen && (
         <div className="fixed inset-0 z-500000 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-xl p-6 w-full max-w-2xl shadow-lg">
+          <div className="bg-white rounded-xl p-6 w-full max-w-2xl shadow-lg dark:bg-slate-900 dark:border dark:border-slate-700">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold">Create Lender</h2>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Create Lender
+              </h2>
               <button
                 onClick={() => setIsAddOpen(false)}
-                className="text-gray-500 hover:text-gray-800"
+                className="text-gray-500 hover:text-gray-800 dark:text-slate-400 dark:hover:text-slate-200"
               >
                 Close
               </button>
@@ -757,7 +825,7 @@ export default function AllLendersPage() {
               className="grid grid-cols-1 md:grid-cols-2 gap-3"
             >
               <label className="block">
-                <span className="text-sm text-gray-700">
+                <span className="text-sm text-gray-700 dark:text-slate-200">
                   Organization Name
                 </span>
                 <input
@@ -765,12 +833,14 @@ export default function AllLendersPage() {
                   onChange={(e) =>
                     setForm({ ...form, organizationName: e.target.value })
                   }
-                  className="w-full px-3 py-2 mt-1 border rounded-md"
+                  className="w-full px-3 py-2 mt-1 border rounded-md
+                             border-gray-300 bg-white text-gray-900
+                             dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
                 />
               </label>
 
               <label className="block">
-                <span className="text-sm text-gray-700">
+                <span className="text-sm text-gray-700 dark:text-slate-200">
                   Organization Email
                 </span>
                 <input
@@ -778,12 +848,14 @@ export default function AllLendersPage() {
                   onChange={(e) =>
                     setForm({ ...form, organizationEmail: e.target.value })
                   }
-                  className="w-full px-3 py-2 mt-1 border rounded-md"
+                  className="w-full px-3 py-2 mt-1 border rounded-md
+                             border-gray-300 bg-white text-gray-900
+                             dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
                 />
               </label>
 
               <label className="block">
-                <span className="text-sm text-gray-700">
+                <span className="text-sm text-gray-700 dark:text-slate-200">
                   Organization Phone
                 </span>
                 <input
@@ -791,53 +863,106 @@ export default function AllLendersPage() {
                   onChange={(e) =>
                     setForm({ ...form, organizationPhone: e.target.value })
                   }
-                  className="w-full px-3 py-2 mt-1 border rounded-md"
+                  className="w-full px-3 py-2 mt-1 border rounded-md
+                             border-gray-300 bg-white text-gray-900
+                             dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
                 />
               </label>
 
               <label className="block">
-                <span className="text-sm text-gray-700">Admin First Name</span>
+                <span className="text-sm text-gray-700 dark:text-slate-200">
+                  Admin First Name
+                </span>
                 <input
                   value={form.adminFirstName}
                   onChange={(e) =>
                     setForm({ ...form, adminFirstName: e.target.value })
                   }
-                  className="w-full px-3 py-2 mt-1 border rounded-md"
+                  className="w-full px-3 py-2 mt-1 border rounded-md
+                             border-gray-300 bg-white text-gray-900
+                             dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
                 />
               </label>
 
               <label className="block">
-                <span className="text-sm text-gray-700">Admin Last Name</span>
+                <span className="text-sm text-gray-700 dark:text-slate-200">
+                  Admin Last Name
+                </span>
                 <input
                   value={form.adminLastName}
                   onChange={(e) =>
                     setForm({ ...form, adminLastName: e.target.value })
                   }
-                  className="w-full px-3 py-2 mt-1 border rounded-md"
+                  className="w-full px-3 py-2 mt-1 border rounded-md
+                             border-gray-300 bg-white text-gray-900
+                             dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
                 />
               </label>
 
               <label className="block">
-                <span className="text-sm text-gray-700">Admin Email</span>
+                <span className="text-sm text-gray-700 dark:text-slate-200">
+                  Admin Email
+                </span>
                 <input
                   value={form.adminEmail}
                   onChange={(e) =>
                     setForm({ ...form, adminEmail: e.target.value })
                   }
-                  className="w-full px-3 py-2 mt-1 border rounded-md"
+                  className="w-full px-3 py-2 mt-1 border rounded-md
+                             border-gray-300 bg-white text-gray-900
+                             dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
                 />
               </label>
 
               <label className="block">
-                <span className="text-sm text-gray-700">Admin Password</span>
+                <span className="text-sm text-gray-700 dark:text-slate-200">
+                  Admin Password
+                </span>
                 <input
                   type="password"
                   value={form.adminPassword}
                   onChange={(e) =>
                     setForm({ ...form, adminPassword: e.target.value })
                   }
-                  className="w-full px-3 py-2 mt-1 border rounded-md"
+                  className="w-full px-3 py-2 mt-1 border rounded-md
+                             border-gray-300 bg-white text-gray-900
+                             dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
                 />
+              </label>
+
+              {/* 🔹 Optional Broker dropdown */}
+              <label className="block md:col-span-2">
+                <span className="text-sm text-gray-700 dark:text-slate-200">
+                  Assign Broker (optional)
+                </span>
+                <select
+                  value={form.brokerOrgId}
+                  onChange={(e) =>
+                    setForm({ ...form, brokerOrgId: e.target.value })
+                  }
+                  className="w-full px-3 py-2 mt-1 border rounded-md bg-white text-gray-900
+                             border-gray-300
+                             dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
+                >
+                  <option value="">No broker (none)</option>
+                  {loadingBrokers && (
+                    <option value="" disabled>
+                      Loading brokers...
+                    </option>
+                  )}
+                  {!loadingBrokers &&
+                    brokers.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.name}
+                        {b.email ? ` (${b.email})` : ""}
+                      </option>
+                    ))}
+                </select>
+                {brokersError && (
+                  <div className="text-xs text-red-500 mt-1">
+                    {brokersError}
+                  </div>
+                )}
               </label>
 
               {formError && (
@@ -850,14 +975,15 @@ export default function AllLendersPage() {
                 <button
                   type="button"
                   onClick={() => setIsAddOpen(false)}
-                  className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md"
+                  className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md
+                             dark:text-slate-200 dark:hover:bg-slate-800"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-70"
                 >
                   {submitting ? "Creating..." : "Create Lender"}
                 </button>
@@ -880,14 +1006,14 @@ export default function AllLendersPage() {
       {/* Admins Modal (with inline edit) */}
       {showAdminsFor && (
         <div className="fixed inset-0 z-600000 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-xl p-6 w-full max-w-2xl shadow-lg">
+          <div className="bg-white rounded-xl p-6 w-full max-w-2xl shadow-lg dark:bg-slate-900 dark:border dark:border-slate-700">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
                 Admins for {showAdminsFor.name}
               </h2>
               <button
                 onClick={closeAdmins}
-                className="text-gray-500 hover:text-gray-800"
+                className="text-gray-500 hover:text-gray-800 dark:text-slate-400 dark:hover:text-slate-200"
               >
                 Close
               </button>
@@ -895,15 +1021,15 @@ export default function AllLendersPage() {
 
             <div>
               {loadingAdmins ? (
-                <div className="py-8 text-center text-gray-500">
+                <div className="py-8 text-center text-gray-500 dark:text-slate-400">
                   Loading admins...
                 </div>
               ) : adminsError ? (
-                <div className="py-8 text-center text-red-600">
+                <div className="py-8 text-center text-red-600 dark:text-red-400">
                   {adminsError}
                 </div>
               ) : admins.length === 0 ? (
-                <div className="py-8 text-center text-gray-500">
+                <div className="py-8 text-center text-gray-500 dark:text-slate-400">
                   No admins found for this lender.
                 </div>
               ) : (
@@ -911,7 +1037,9 @@ export default function AllLendersPage() {
                   {admins.map((a, idx) => (
                     <div
                       key={a.id ?? idx}
-                      className="border rounded p-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3"
+                      className="border rounded p-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3
+                                 border-gray-200 bg-white
+                                 dark:border-slate-700 dark:bg-slate-900"
                     >
                       <div className="flex-1">
                         {editingAdminId === a.id ? (
@@ -924,7 +1052,9 @@ export default function AllLendersPage() {
                                   firstName: e.target.value,
                                 })
                               }
-                              className="px-2 py-1 border rounded"
+                              className="px-2 py-1 border rounded
+                                         border-gray-300 bg-white text-gray-900
+                                         dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
                               placeholder="First name"
                             />
                             <input
@@ -935,7 +1065,9 @@ export default function AllLendersPage() {
                                   lastName: e.target.value,
                                 })
                               }
-                              className="px-2 py-1 border rounded"
+                              className="px-2 py-1 border rounded
+                                         border-gray-300 bg-white text-gray-900
+                                         dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
                               placeholder="Last name"
                             />
                             <input
@@ -946,7 +1078,9 @@ export default function AllLendersPage() {
                                   email: e.target.value,
                                 })
                               }
-                              className="px-2 py-1 border rounded col-span-1 md:col-span-1"
+                              className="px-2 py-1 border rounded col-span-1 md:col-span-1
+                                         border-gray-300 bg-white text-gray-900
+                                         dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
                               placeholder="Email"
                             />
                             <input
@@ -957,18 +1091,20 @@ export default function AllLendersPage() {
                                   phone: e.target.value,
                                 })
                               }
-                              className="px-2 py-1 border rounded"
+                              className="px-2 py-1 border rounded
+                                         border-gray-300 bg-white text-gray-900
+                                         dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
                               placeholder="Phone"
                             />
                           </div>
                         ) : (
                           <div>
-                            <div className="font-medium text-gray-900">
+                            <div className="font-medium text-gray-900 dark:text-gray-100">
                               {(a.firstName || "") +
                                 (a.lastName ? ` ${a.lastName}` : "") ||
                                 "—"}
                             </div>
-                            <div className="text-sm text-gray-600">
+                            <div className="text-sm text-gray-600 dark:text-slate-300">
                               {a.email || "-"}
                             </div>
                           </div>
@@ -976,7 +1112,7 @@ export default function AllLendersPage() {
                       </div>
 
                       <div className="flex items-center gap-2">
-                        <div className="text-sm text-gray-600">
+                        <div className="text-sm text-gray-600 dark:text-slate-300">
                           {a.phone || "-"}
                         </div>
 
@@ -985,14 +1121,16 @@ export default function AllLendersPage() {
                             <button
                               onClick={saveAdminEdit}
                               disabled={adminSaving}
-                              className="px-3 py-1 bg-blue-600 text-white rounded-md"
+                              className="px-3 py-1 bg-blue-600 text-white rounded-md disabled:opacity-70"
                             >
                               {adminSaving ? "Saving..." : "Save"}
                             </button>
                             <button
                               onClick={cancelEditAdmin}
                               disabled={adminSaving}
-                              className="px-3 py-1 border rounded-md"
+                              className="px-3 py-1 border rounded-md
+                                         border-gray-300 bg-white text-gray-800
+                                         dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                             >
                               Cancel
                             </button>
@@ -1001,7 +1139,9 @@ export default function AllLendersPage() {
                           <>
                             <button
                               onClick={() => startEditAdmin(a)}
-                              className="px-2 py-1 border rounded-md text-sm"
+                              className="px-2 py-1 border rounded-md text-sm
+                                         border-gray-300 bg-white text-gray-800
+                                         dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                             >
                               Edit
                             </button>
@@ -1017,7 +1157,8 @@ export default function AllLendersPage() {
             <div className="mt-4 flex justify-end">
               <button
                 onClick={closeAdmins}
-                className="px-4 py-2 bg-gray-100 rounded-md"
+                className="px-4 py-2 bg-gray-100 rounded-md
+                           dark:bg-slate-800 dark:text-slate-100"
               >
                 Close
               </button>
