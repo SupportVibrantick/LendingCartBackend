@@ -25,7 +25,7 @@ import BrokersPage from "./pages/Brokers/AllBrokers";
 import RequireAuth from "./components/auth/RequireAuth";
 import AllLendersPage from "./pages/Lenders/AllLenders";
 import BrokersLenders from "./pages/Brokers/BrokersLenders";
-import AdminLogs from "./pages/Logs/AdminLogs";
+import AdminLogs from "./pages/AdminLogs/AdminLogs";
 
 
 export default function App() {
