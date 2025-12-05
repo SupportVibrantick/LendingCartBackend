@@ -16,7 +16,7 @@ import {
   // UserCircleIcon,
 } from "../icons";
 import { useSidebar } from "../context/SidebarContext";
-import GroupOutlinedIcon from '@mui/icons-material/GroupOutlined';
+// import GroupOutlinedIcon from '@mui/icons-material/GroupOutlined';
 import GroupsOutlinedIcon from '@mui/icons-material/GroupsOutlined';
 import AccountBalanceOutlinedIcon from '@mui/icons-material/AccountBalanceOutlined';
 import AdminPanelSettingsOutlinedIcon from '@mui/icons-material/AdminPanelSettingsOutlined';
@@ -40,25 +40,25 @@ const navItems: NavItem[] = [
     name: "Organisations",
     subItems: [{ name: "Brokers Organisation", path: "/all-brokers-organisation" },{ name: "Broker Assigned Lenders", path: "/all-brokers-lenders" }]
   },
-  {
-    icon: <GroupOutlinedIcon />,
-    name: "Manage User",
-    subItems: [{ name: "Add User", path: "/add-user" },{ name: "All User", path: "/all-user" }],
-  },
+  // {
+  //   icon: <GroupOutlinedIcon />,
+  //   name: "Manage User",
+  //   subItems: [{ name: "Add User", path: "/add-user" },{ name: "All User", path: "/all-user" }],
+  // },
   {
     icon: <AccountBalanceOutlinedIcon />,
     name: "Manage Lenders",
     subItems: [{ name: "Lender's Organisation", path: "/all-lenders-organisation" }],
   },
   {
+    icon: <CurrencyExchangeOutlinedIcon />,
+    name: "Loan Products",
+    subItems: [{ name: "All Loan Products", path: "/all-loan-products" }],
+  },
+  {
     icon: <AdminPanelSettingsOutlinedIcon />,
     name: "Admin Users",
     subItems: [{ name: "All Admins", path: "/all-admins" }],
-  },
-  {
-    icon: <CurrencyExchangeOutlinedIcon />,
-    name: "Loan Products",
-    subItems: [{ name: "All Loans", path: "/all-loans" }],
   },
   {
     icon: <PiSecurityCameraFill/>,

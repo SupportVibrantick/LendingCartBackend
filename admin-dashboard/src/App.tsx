@@ -26,6 +26,7 @@ import RequireAuth from "./components/auth/RequireAuth";
 import AllLendersPage from "./pages/Lenders/AllLenders";
 import BrokersLenders from "./pages/Brokers/BrokersLenders";
 import AdminLogs from "./pages/AdminLogs/AdminLogs";
+import AllLoanProducts from "./pages/LoanProducts/AllLoanProducts";
 
 
 export default function App() {
@@ -51,6 +52,8 @@ export default function App() {
             <Route index path="/all-brokers-organisation" element={<BrokersPage />} />
             <Route index path="/all-brokers-lenders" element={<BrokersLenders/>} />
             <Route index path="/all-lenders-organisation" element={<AllLendersPage/>} />
+            <Route index path="/all-loan-products" element={<AllLoanProducts/>} />
+             
 
             <Route index path="/admin-logs" element={<AdminLogs/>} />
 

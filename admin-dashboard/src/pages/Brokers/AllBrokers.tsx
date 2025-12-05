@@ -20,8 +20,6 @@ type Admin = {
   phone?: string;
 };
 
-// const STATUS_ORDER = ["ACTIVE", "INACTIVE"];
-
 function statusClass(status?: string) {
   switch (status) {
     case "ACTIVE":
@@ -70,7 +68,7 @@ export default function BrokersPage() {
   const [adminEditForm, setAdminEditForm] = useState<Admin>({});
   const [adminSaving, setAdminSaving] = useState(false);
 
-  const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001"; // adjust if needed
+  const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001";
 
   useEffect(() => {
     fetchBrokers();
@@ -81,7 +79,6 @@ export default function BrokersPage() {
     setCurrentPage(1);
   }, [query, pageSize]);
 
-  // ensure this function always returns string->string headers (no undefined values)
   function getAuthHeaders(): Record<string, string> {
     try {
       const token = sessionStorage.getItem("admin_token");
@@ -300,20 +297,17 @@ export default function BrokersPage() {
     };
 
     try {
-      // 1) Try dedicated status route
       const toActive = next === "ACTIVE";
       const statusUrl = `${API_BASE}/admin/brokers/status/${
         toActive ? "activate" : "deactivate"
       }/${broker.id}`;
 
-      // ✅ send an *empty JSON body* so Fastify is happy
       let res = await fetch(statusUrl, {
         method: "PATCH",
         headers,
-        body: JSON.stringify({}), // <--- this fixes the 400 error
+        body: JSON.stringify({}),
       });
 
-      // If route not found / method not allowed, fallback to update route
       if (res.status === 404 || res.status === 405) {
         const updateUrl = `${API_BASE}/admin/brokers/update/${broker.id}`;
         res = await fetch(updateUrl, {
@@ -329,11 +323,8 @@ export default function BrokersPage() {
 
       const json = await res.json().catch(() => ({} as any));
 
-      // Case 1: status route -> data: { id, name, previousStatus, status }
-      // Case 2: update route -> data: { organization, admin? }
       if (json?.data) {
         if (json.data.status) {
-          // from status route
           const serverStatus = json.data.status;
           setBrokers((prev) =>
             prev.map((b) =>
@@ -341,7 +332,6 @@ export default function BrokersPage() {
             )
           );
         } else if (json.data.organization?.status) {
-          // from update route
           const orgStatus = json.data.organization.status;
           setBrokers((prev) =>
             prev.map((b) =>
@@ -352,7 +342,6 @@ export default function BrokersPage() {
       }
     } catch (err) {
       console.error("changeStatusFor error:", err);
-      // rollback UI
       setBrokers((prev) =>
         prev.map((b) =>
           b.id === broker.id ? { ...b, status: prevStatus } : b
@@ -364,9 +353,6 @@ export default function BrokersPage() {
     }
   };
 
-  // ------------------------------
-  // Fetch admins for a broker id
-  // ------------------------------
   async function fetchAdmins(brokerId: string) {
     setLoadingAdmins(true);
     setAdmins([]);
@@ -408,7 +394,6 @@ export default function BrokersPage() {
 
   const openAdminsFor = async (broker: Broker) => {
     setShowAdminsFor(broker);
-    // reset any admin edit state when opening a different broker
     setEditingAdminId(null);
     setAdminEditForm({});
     await fetchAdmins(broker.id);
@@ -422,7 +407,6 @@ export default function BrokersPage() {
     setAdminEditForm({});
   };
 
-  // begin editing an admin (fills adminEditForm)
   const startEditAdmin = (a: Admin) => {
     setEditingAdminId(a.id ?? null);
     setAdminEditForm({
@@ -434,13 +418,11 @@ export default function BrokersPage() {
     });
   };
 
-  // cancel admin edit
   const cancelEditAdmin = () => {
     setEditingAdminId(null);
     setAdminEditForm({});
   };
 
-  // save admin edit (optimistic + persist)
   const saveAdminEdit = async () => {
     const adminId = editingAdminId;
     if (!adminId) return alert("No admin selected for edit.");
@@ -461,7 +443,6 @@ export default function BrokersPage() {
 
     setAdminSaving(true);
 
-    // optimistic update
     setAdmins((prev) =>
       prev.map((p) => (p.id === adminId ? { ...p, ...adminEditForm } : p))
     );
@@ -482,8 +463,6 @@ export default function BrokersPage() {
               firstName: adminEditForm.firstName,
               lastName: adminEditForm.lastName,
               email: adminEditForm.email,
-              // phone is not handled in backend update.js,
-              // if you want it, you'll need to add it to backend schema & update logic.
             },
           }),
         }
@@ -494,7 +473,6 @@ export default function BrokersPage() {
       }
 
       const json = await res.json().catch(() => ({} as any));
-      // backend: data: { organization, admin }
       if (json && json.data && json.data.admin) {
         const serverAdmin = json.data.admin;
         setAdmins((prev) =>
@@ -508,7 +486,7 @@ export default function BrokersPage() {
       console.error("saveAdminEdit error:", err);
       alert(err?.message || "Failed to save admin. Changes rolled back.");
       if (showAdminsFor?.id) {
-        await fetchAdmins(showAdminsFor.id); // rollback to server truth
+        await fetchAdmins(showAdminsFor.id);
       }
     } finally {
       setAdminSaving(false);
@@ -516,24 +494,26 @@ export default function BrokersPage() {
   };
 
   return (
-    <div className="px-6 py-6 text-gray-900 dark:text-gray-100">
+    <div className="px-4 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8 text-gray-900 dark:text-gray-100">
+      {/* Header + controls */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
+          <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">
             All Brokers
           </h1>
-          <p className="text-sm text-gray-500 mt-1 dark:text-slate-400">
+          <p className="text-xs sm:text-sm text-gray-500 mt-1 dark:text-slate-400">
             Manage broker organizations and their admins.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
+          <div className="flex flex-1 sm:flex-none items-center gap-2">
             <input
               placeholder="Search by name, email, phone or status"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              className="px-3 py-2 border rounded-md w-64 focus:outline-none focus:ring-1 focus:ring-blue-500
+              className="flex-1 px-3 py-2 border rounded-md text-sm sm:text-base
+                         focus:outline-none focus:ring-1 focus:ring-blue-500
                          border-gray-300 bg-white text-gray-900
                          dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100
                          placeholder-gray-400 dark:placeholder-slate-400"
@@ -542,7 +522,7 @@ export default function BrokersPage() {
             <select
               value={pageSize}
               onChange={(e) => setPageSize(Number(e.target.value))}
-              className="px-2 py-2 border rounded-md bg-white text-gray-900
+              className="px-2 py-2 border rounded-md bg-white text-gray-900 text-sm
                          border-gray-300
                          dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
               aria-label="Page size"
@@ -555,7 +535,7 @@ export default function BrokersPage() {
 
           <button
             onClick={openAdd}
-            className="inline-flex items-center whitespace-nowrap px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+            className="inline-flex items-center justify-center sm:justify-start whitespace-nowrap px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm sm:text-base"
             type="button"
             aria-label="Add Broker"
           >
@@ -565,27 +545,40 @@ export default function BrokersPage() {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 dark:bg-slate-900 dark:border-slate-700">
+      {/* Table */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 sm:p-5 dark:bg-slate-900 dark:border-slate-700">
         {loading ? (
-          <div className="py-16 text-center text-sm text-gray-500 dark:text-slate-400">
+          <div className="py-12 sm:py-16 text-center text-sm text-gray-500 dark:text-slate-400">
             Loading brokers...
           </div>
         ) : total === 0 ? (
-          <div className="py-16 text-center text-sm text-gray-500 dark:text-slate-400">
+          <div className="py-12 sm:py-16 text-center text-sm text-gray-500 dark:text-slate-400">
             No brokers found.
           </div>
         ) : (
           <>
-            <div className="overflow-auto">
-              <table className="min-w-full text-sm">
+            <div className="-mx-4 sm:mx-0 overflow-x-auto">
+              <table className="min-w-full text-xs sm:text-sm">
                 <thead>
-                  <tr className="border-b border-gray-100 dark:border-slate-700 text-xs text-gray-500 dark:text-slate-400 uppercase tracking-wide">
-                    <th className="py-2 pr-4 text-left">Organization</th>
-                    <th className="py-2 pr-4 text-left">Email</th>
-                    <th className="py-2 pr-4 text-left">Phone</th>
-                    <th className="py-2 pr-4 text-left">Status</th>
-                    <th className="py-2 pr-4 text-left">Created</th>
-                    <th className="py-2 pr-4 text-right">Actions</th>
+                  <tr className="border-b border-gray-100 dark:border-slate-700 text-[11px] sm:text-xs text-gray-500 dark:text-slate-400 uppercase tracking-wide">
+                    <th className="py-2 pl-4 pr-4 text-left sm:pl-0">
+                      Organization
+                    </th>
+                    <th className="py-2 pr-4 text-left hidden sm:table-cell">
+                      Email
+                    </th>
+                    <th className="py-2 pr-4 text-left hidden md:table-cell">
+                      Phone
+                    </th>
+                    <th className="py-2 pr-4 text-left hidden md:table-cell">
+                      Status
+                    </th>
+                    <th className="py-2 pr-4 text-left hidden lg:table-cell">
+                      Created
+                    </th>
+                    <th className="py-2 pr-4 text-right w-24 sm:w-32">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -597,29 +590,59 @@ export default function BrokersPage() {
                         className="border-b border-gray-100 last:border-0 hover:bg-gray-50/40
                                    dark:border-slate-800 dark:hover:bg-slate-800/60"
                       >
-                        <td className="py-3 pr-4 text-gray-900 whitespace-nowrap dark:text-gray-100">
+                        {/* Organization + mobile details */}
+                        <td className="py-3 pl-4 pr-4 text-gray-900 whitespace-nowrap align-top sm:pl-0 dark:text-gray-100">
                           <button
                             onClick={() => openAdminsFor(b)}
                             className="text-left underline text-blue-600 hover:text-blue-800
-                                       dark:text-blue-300 dark:hover:text-blue-200"
+                                       dark:text-blue-300 dark:hover:text-blue-200 break-words"
                             aria-label={`View admins for ${b.name}`}
                           >
                             {b.name}
                           </button>
+
+                          {/* Extra info for small screens (stacked) */}
+                          <div className="mt-1 space-y-0.5 text-[11px] text-gray-500 sm:hidden dark:text-slate-300">
+                            <div>
+                              <span className="font-medium">Email:</span>{" "}
+                              {b.email || "-"}
+                            </div>
+                            <div>
+                              <span className="font-medium">Phone:</span>{" "}
+                              {b.phone || "-"}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium">Status:</span>
+                              <span
+                                className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] ${statusClass(
+                                  b.status
+                                )}`}
+                              >
+                                {b.status ?? "UNKNOWN"}
+                              </span>
+                            </div>
+                            {b.createdAt && (
+                              <div>
+                                <span className="font-medium">Created:</span>{" "}
+                                {new Date(b.createdAt).toLocaleDateString()}
+                              </div>
+                            )}
+                          </div>
                         </td>
 
-                        <td className="py-3 pr-4 text-gray-600 whitespace-nowrap dark:text-slate-300">
+                        {/* Desktop / tablet columns */}
+                        <td className="py-3 pr-4 text-gray-600 whitespace-nowrap hidden sm:table-cell dark:text-slate-300">
                           {b.email}
                         </td>
-                        <td className="py-3 pr-4 text-gray-600 whitespace-nowrap dark:text-slate-300">
+                        <td className="py-3 pr-4 text-gray-600 whitespace-nowrap hidden md:table-cell dark:text-slate-300">
                           {b.phone}
                         </td>
 
-                        <td className="py-3 pr-4 whitespace-nowrap">
+                        <td className="py-3 pr-4 whitespace-nowrap hidden md:table-cell">
                           <button
                             onClick={() => !isLoading && changeStatusFor(b)}
                             disabled={isLoading}
-                            className={`inline-flex items-center gap-2 px-3 py-1 text-xs font-medium rounded-full border ${statusClass(
+                            className={`inline-flex items-center gap-2 px-3 py-1 text-[11px] font-medium rounded-full border ${statusClass(
                               b.status
                             )} disabled:opacity-60`}
                             title="Click to change status"
@@ -650,14 +673,15 @@ export default function BrokersPage() {
                           </button>
                         </td>
 
-                        <td className="py-3 pr-4 text-gray-600 whitespace-nowrap dark:text-slate-300">
+                        <td className="py-3 pr-4 text-gray-600 whitespace-nowrap hidden lg:table-cell dark:text-slate-300">
                           {b.createdAt
                             ? new Date(b.createdAt).toLocaleDateString()
                             : "-"}
                         </td>
 
-                        <td className="py-3 pr-4">
-                          <div className="flex items-center justify-end gap-2">
+                        {/* Actions */}
+                        <td className="py-3 pr-4 align-top">
+                          <div className="flex items-center justify-end gap-1 sm:gap-2">
                             <button
                               disabled={isLoading}
                               onClick={() => openEditModal(b)}
@@ -676,7 +700,7 @@ export default function BrokersPage() {
                               aria-label={`More actions for ${b.name}`}
                               title="More actions"
                             >
-                              <span className="text-xl leading-none select-none">
+                              <span className="text-lg leading-none select-none sm:text-xl">
                                 ⋮
                               </span>
                             </button>
@@ -689,8 +713,9 @@ export default function BrokersPage() {
               </table>
             </div>
 
-            <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-              <div className="text-sm text-gray-600 dark:text-slate-300">
+            {/* Pagination */}
+            <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs sm:text-sm">
+              <div className="text-gray-600 dark:text-slate-300">
                 Showing{" "}
                 <span className="font-medium">
                   {(currentPage - 1) * pageSize + 1}
@@ -706,7 +731,7 @@ export default function BrokersPage() {
                 <button
                   onClick={() => gotoPage(currentPage - 1)}
                   disabled={currentPage === 1}
-                  className="px-3 py-1 border rounded-md disabled:opacity-40
+                  className="px-3 py-1 border rounded-md disabled:opacity-40 text-xs sm:text-sm
                              border-gray-300 bg-white text-gray-800
                              dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                 >
@@ -730,7 +755,7 @@ export default function BrokersPage() {
                         <button
                           key={page}
                           onClick={() => gotoPage(page)}
-                          className={`px-3 py-1 rounded-md ${
+                          className={`px-2 sm:px-3 py-1 rounded-md text-xs sm:text-sm ${
                             page === currentPage
                               ? "bg-blue-600 text-white"
                               : "border border-gray-300 bg-white text-gray-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
@@ -746,7 +771,7 @@ export default function BrokersPage() {
                 <button
                   onClick={() => gotoPage(currentPage + 1)}
                   disabled={currentPage === totalPages}
-                  className="px-3 py-1 border rounded-md disabled:opacity-40
+                  className="px-3 py-1 border rounded-md disabled:opacity-40 text-xs sm:text-sm
                              border-gray-300 bg-white text-gray-800
                              dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                 >
@@ -760,15 +785,15 @@ export default function BrokersPage() {
 
       {/* Add Broker Modal */}
       {isAddOpen && (
-        <div className="fixed inset-0 z-500000 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-xl p-6 w-full max-w-2xl shadow-lg dark:bg-slate-900 dark:border dark:border-slate-700">
+        <div className="fixed inset-0 z-[500000] flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+          <div className="bg-white rounded-xl p-4 sm:p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-lg dark:bg-slate-900 dark:border dark:border-slate-700">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+              <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">
                 Create Broker
               </h2>
               <button
                 onClick={() => setIsAddOpen(false)}
-                className="text-gray-500 hover:text-gray-800 dark:text-slate-400 dark:hover:text-slate-200"
+                className="text-gray-500 hover:text-gray-800 dark:text-slate-400 dark:hover:text-slate-200 text-sm sm:text-base"
               >
                 Close
               </button>
@@ -787,7 +812,7 @@ export default function BrokersPage() {
                   onChange={(e) =>
                     setForm({ ...form, organizationName: e.target.value })
                   }
-                  className="w-full px-3 py-2 mt-1 border rounded-md
+                  className="w-full px-3 py-2 mt-1 border rounded-md text-sm
                              border-gray-300 bg-white text-gray-900
                              dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
                 />
@@ -802,7 +827,7 @@ export default function BrokersPage() {
                   onChange={(e) =>
                     setForm({ ...form, organizationEmail: e.target.value })
                   }
-                  className="w-full px-3 py-2 mt-1 border rounded-md
+                  className="w-full px-3 py-2 mt-1 border rounded-md text-sm
                              border-gray-300 bg-white text-gray-900
                              dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
                 />
@@ -817,7 +842,7 @@ export default function BrokersPage() {
                   onChange={(e) =>
                     setForm({ ...form, organizationPhone: e.target.value })
                   }
-                  className="w-full px-3 py-2 mt-1 border rounded-md
+                  className="w-full px-3 py-2 mt-1 border rounded-md text-sm
                              border-gray-300 bg-white text-gray-900
                              dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
                 />
@@ -832,7 +857,7 @@ export default function BrokersPage() {
                   onChange={(e) =>
                     setForm({ ...form, adminFirstName: e.target.value })
                   }
-                  className="w-full px-3 py-2 mt-1 border rounded-md
+                  className="w-full px-3 py-2 mt-1 border rounded-md text-sm
                              border-gray-300 bg-white text-gray-900
                              dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
                 />
@@ -847,7 +872,7 @@ export default function BrokersPage() {
                   onChange={(e) =>
                     setForm({ ...form, adminLastName: e.target.value })
                   }
-                  className="w-full px-3 py-2 mt-1 border rounded-md
+                  className="w-full px-3 py-2 mt-1 border rounded-md text-sm
                              border-gray-300 bg-white text-gray-900
                              dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
                 />
@@ -862,7 +887,7 @@ export default function BrokersPage() {
                   onChange={(e) =>
                     setForm({ ...form, adminEmail: e.target.value })
                   }
-                  className="w-full px-3 py-2 mt-1 border rounded-md
+                  className="w-full px-3 py-2 mt-1 border rounded-md text-sm
                              border-gray-300 bg-white text-gray-900
                              dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
                 />
@@ -878,23 +903,23 @@ export default function BrokersPage() {
                   onChange={(e) =>
                     setForm({ ...form, adminPassword: e.target.value })
                   }
-                  className="w-full px-3 py-2 mt-1 border rounded-md
+                  className="w-full px-3 py-2 mt-1 border rounded-md text-sm
                              border-gray-300 bg-white text-gray-900
                              dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
                 />
               </label>
 
               {formError && (
-                <div className="text-sm text-red-600 col-span-2">
+                <div className="text-sm text-red-600 col-span-1 md:col-span-2">
                   {formError}
                 </div>
               )}
 
-              <div className="col-span-2 flex justify-end gap-3 mt-2">
+              <div className="col-span-1 md:col-span-2 flex flex-col sm:flex-row justify-end gap-2 sm:gap-3 mt-2">
                 <button
                   type="button"
                   onClick={() => setIsAddOpen(false)}
-                  className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md
+                  className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md
                              dark:text-slate-200 dark:hover:bg-slate-800"
                 >
                   Cancel
@@ -902,7 +927,7 @@ export default function BrokersPage() {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-70"
+                  className="px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-70"
                 >
                   {submitting ? "Creating..." : "Create Broker"}
                 </button>
@@ -912,7 +937,7 @@ export default function BrokersPage() {
         </div>
       )}
 
-      {/* Edit Broker Modal (separate component) */}
+      {/* Edit Broker Modal */}
       {editingBroker && (
         <EditBrokerModal
           isOpen={Boolean(editingBroker)}
@@ -922,17 +947,17 @@ export default function BrokersPage() {
         />
       )}
 
-      {/* Admins Modal (with inline edit) */}
+      {/* Admins Modal */}
       {showAdminsFor && (
-        <div className="fixed inset-0 z-600000 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-xl p-6 w-full max-w-2xl shadow-lg dark:bg-slate-900 dark:border dark:border-slate-700">
+        <div className="fixed inset-0 z-[600000] flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+          <div className="bg-white rounded-xl p-4 sm:p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-lg dark:bg-slate-900 dark:border dark:border-slate-700">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+              <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">
                 Admins for {showAdminsFor.name}
               </h2>
               <button
                 onClick={closeAdmins}
-                className="text-gray-500 hover:text-gray-800 dark:text-slate-400 dark:hover:text-slate-200"
+                className="text-gray-500 hover:text-gray-800 dark:text-slate-400 dark:hover:text-slate-200 text-sm sm:text-base"
               >
                 Close
               </button>
@@ -940,15 +965,15 @@ export default function BrokersPage() {
 
             <div>
               {loadingAdmins ? (
-                <div className="py-8 text-center text-gray-500 dark:text-slate-400">
+                <div className="py-8 text-center text-gray-500 dark:text-slate-400 text-sm">
                   Loading admins...
                 </div>
               ) : adminsError ? (
-                <div className="py-8 text-center text-red-600 dark:text-red-400">
+                <div className="py-8 text-center text-red-600 dark:text-red-400 text-sm">
                   {adminsError}
                 </div>
               ) : admins.length === 0 ? (
-                <div className="py-8 text-center text-gray-500 dark:text-slate-400">
+                <div className="py-8 text-center text-gray-500 dark:text-slate-400 text-sm">
                   No admins found for this broker.
                 </div>
               ) : (
@@ -972,7 +997,7 @@ export default function BrokersPage() {
                                   firstName: e.target.value,
                                 })
                               }
-                              className="px-2 py-1 border rounded
+                              className="px-2 py-1 border rounded text-sm
                                          border-gray-300 bg-white text-gray-900
                                          dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
                               placeholder="First name"
@@ -985,7 +1010,7 @@ export default function BrokersPage() {
                                   lastName: e.target.value,
                                 })
                               }
-                              className="px-2 py-1 border rounded
+                              className="px-2 py-1 border rounded text-sm
                                          border-gray-300 bg-white text-gray-900
                                          dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
                               placeholder="Last name"
@@ -998,7 +1023,7 @@ export default function BrokersPage() {
                                   email: e.target.value,
                                 })
                               }
-                              className="px-2 py-1 border rounded col-span-1 md:col-span-1
+                              className="px-2 py-1 border rounded text-sm col-span-1 md:col-span-1
                                          border-gray-300 bg-white text-gray-900
                                          dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
                               placeholder="Email"
@@ -1011,7 +1036,7 @@ export default function BrokersPage() {
                                   phone: e.target.value,
                                 })
                               }
-                              className="px-2 py-1 border rounded
+                              className="px-2 py-1 border rounded text-sm
                                          border-gray-300 bg-white text-gray-900
                                          dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
                               placeholder="Phone"
@@ -1019,11 +1044,11 @@ export default function BrokersPage() {
                           </div>
                         ) : (
                           <div>
-                            <div className="font-medium text-gray-900 dark:text-gray-100">
+                            <div className="font-medium text-gray-900 dark:text-gray-100 text-sm">
                               {(a.firstName || "") +
                                 (a.lastName ? ` ${a.lastName}` : "") || "—"}
                             </div>
-                            <div className="text-sm text-gray-600 dark:text-slate-300">
+                            <div className="text-xs sm:text-sm text-gray-600 dark:text-slate-300">
                               {a.email || "-"}
                             </div>
                           </div>
@@ -1031,8 +1056,8 @@ export default function BrokersPage() {
                       </div>
 
                       {/* right: phone + actions */}
-                      <div className="flex items-center gap-2">
-                        <div className="text-sm text-gray-600 dark:text-slate-300">
+                      <div className="flex items-center gap-2 justify-between md:justify-end">
+                        <div className="text-xs sm:text-sm text-gray-600 dark:text-slate-300">
                           {a.phone || "-"}
                         </div>
 
@@ -1041,14 +1066,14 @@ export default function BrokersPage() {
                             <button
                               onClick={saveAdminEdit}
                               disabled={adminSaving}
-                              className="px-3 py-1 bg-blue-600 text-white rounded-md disabled:opacity-70"
+                              className="px-3 py-1 bg-blue-600 text-white rounded-md disabled:opacity-70 text-xs sm:text-sm"
                             >
                               {adminSaving ? "Saving..." : "Save"}
                             </button>
                             <button
                               onClick={cancelEditAdmin}
                               disabled={adminSaving}
-                              className="px-3 py-1 border rounded-md
+                              className="px-3 py-1 border rounded-md text-xs sm:text-sm
                                          border-gray-300 bg-white text-gray-800
                                          dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                             >
@@ -1056,16 +1081,14 @@ export default function BrokersPage() {
                             </button>
                           </>
                         ) : (
-                          <>
-                            <button
-                              onClick={() => startEditAdmin(a)}
-                              className="px-2 py-1 border rounded-md text-sm
-                                         border-gray-300 bg-white text-gray-800
-                                         dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                            >
-                              Edit
-                            </button>
-                          </>
+                          <button
+                            onClick={() => startEditAdmin(a)}
+                            className="px-2 py-1 border rounded-md text-xs sm:text-sm
+                                       border-gray-300 bg-white text-gray-800
+                                       dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                          >
+                            Edit
+                          </button>
                         )}
                       </div>
                     </div>
@@ -1077,7 +1100,7 @@ export default function BrokersPage() {
             <div className="mt-4 flex justify-end">
               <button
                 onClick={closeAdmins}
-                className="px-4 py-2 bg-gray-100 rounded-md
+                className="px-4 py-2 bg-gray-100 rounded-md text-sm
                            dark:bg-slate-800 dark:text-slate-100"
               >
                 Close
