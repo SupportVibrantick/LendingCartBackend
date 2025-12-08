@@ -18,7 +18,7 @@ var { runEmailConsumerKafka } = require("./services/kafka/email/consumer");
 const swagger = require("@fastify/swagger");
 const swaggerUi = require("@fastify/swagger-ui");
 const indexRoutes = require("./routes/index");
-
+const verifySuperAdmin = require("./plugins/verifySuperAdmin");
 
 // Configure Fastify with built-in logger
 const app = Fastify({
@@ -91,6 +91,8 @@ const Mail = require("nodemailer/lib/mailer");
 
 app.register(authMiddleware);
 app.register(fgaMiddleware);
+app.register(verifySuperAdmin);  
+
 
 app.register(fastifyStatic, {
   root: path.join(__dirname, "public"),
@@ -193,6 +195,12 @@ app.setErrorHandler((error, request, reply) => {
 
 // Register main route files only
 app.register(indexRoutes, { prefix: "/" });
+
+
+app.ready(() => {
+  console.log("\nRegistered Routes:");
+  console.log(app.printRoutes());
+});
 
 
 module.exports = app;

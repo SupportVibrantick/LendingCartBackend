@@ -27,6 +27,7 @@ import AllLendersPage from "./pages/Lenders/AllLenders";
 import BrokersLenders from "./pages/Brokers/BrokersLenders";
 import AdminLogs from "./pages/AdminLogs/AdminLogs";
 import AllLoanProducts from "./pages/LoanProducts/AllLoanProducts";
+import AllSuperadmin from "./pages/SuperAdmin/AllSuperAdmin";
 
 
 export default function App() {
@@ -54,6 +55,7 @@ export default function App() {
             <Route index path="/all-lenders-organisation" element={<AllLendersPage/>} />
             <Route index path="/all-loan-products" element={<AllLoanProducts/>} />
              
+            <Route index path="/all-super-admins" element={<AllSuperadmin/>} />
 
             <Route index path="/admin-logs" element={<AdminLogs/>} />
 

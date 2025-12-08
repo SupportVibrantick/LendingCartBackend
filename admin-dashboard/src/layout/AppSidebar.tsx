@@ -58,7 +58,7 @@ const navItems: NavItem[] = [
   {
     icon: <AdminPanelSettingsOutlinedIcon />,
     name: "Admin Users",
-    subItems: [{ name: "All Admins", path: "/all-admins" }],
+    subItems: [{ name: "All Admins", path: "/all-super-admins" }],
   },
   {
     icon: <PiSecurityCameraFill/>,

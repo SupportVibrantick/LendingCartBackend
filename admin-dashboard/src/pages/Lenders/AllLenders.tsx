@@ -77,12 +77,12 @@ export default function AllLendersPage() {
   const [adminEditForm, setAdminEditForm] = useState<Admin>({});
   const [adminSaving, setAdminSaving] = useState(false);
 
-  // 🔹 brokers for dropdown
+  //  brokers for dropdown
   const [brokers, setBrokers] = useState<BrokerOrg[]>([]);
   const [loadingBrokers, setLoadingBrokers] = useState(false);
   const [brokersError, setBrokersError] = useState<string | null>(null);
 
-  const API_BASE = "http://localhost:3001"; // adjust if needed
+  const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001"; // adjust if needed
 
   useEffect(() => {
     fetchLenders();
