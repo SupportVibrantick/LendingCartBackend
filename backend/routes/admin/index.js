@@ -4,6 +4,7 @@ const lendersRoutes = require("./lenders");
 const logsRoutes = require("./logs/logs.js"); 
 const statsRoutes = require("./stats"); 
 const loanProductsRoutes = require("./loanProducts");
+const lenderProducts = require("./lenderProducts");
 const adminUserRoutes = require("./adminUsers");
 
 // Registers auth sub-router under /admin/auth
@@ -38,6 +39,7 @@ module.exports = async function adminRoutes(fastify, opts) {
     instance.register(logsRoutes, { prefix: "/logs" });
     instance.register(statsRoutes, { prefix: "/stats" });
     instance.register(loanProductsRoutes,{prefix:"/loan-products"});
+    instance.register(lenderProducts,{prefix:"/lender-products"});
     instance.register(adminUserRoutes,{prefix:"/admin-user"});
   });
 };

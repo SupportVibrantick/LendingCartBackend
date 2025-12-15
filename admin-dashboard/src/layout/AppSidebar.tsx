@@ -53,7 +53,7 @@ const navItems: NavItem[] = [
   {
     icon: <CurrencyExchangeOutlinedIcon />,
     name: "Loan Products",
-    subItems: [{ name: "All Loan Products", path: "/all-loan-products" }],
+    subItems: [{ name: "All Loan Products", path: "/all-loan-products" },{ name: "Lender Assigned Products", path: "/lender-assigned-products" },{ name: "Assigned Products", path: "/assigned-products" }],
   },
   {
     icon: <AdminPanelSettingsOutlinedIcon />,

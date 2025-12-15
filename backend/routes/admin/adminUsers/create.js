@@ -24,7 +24,7 @@ module.exports = fp(async function createAdminUserRoutes(fastify) {
 
     try {
 
-      // 🔥 If no orgId provided, use the platform org created by seeder
+      //  If no orgId provided, use the platform org created by seeder
       if (!organizationId) {
         const platformOrg = await prisma.organization.findFirst({
           where: { type: "PLATFORM", status: "ACTIVE" }   // Safe auto-detect
