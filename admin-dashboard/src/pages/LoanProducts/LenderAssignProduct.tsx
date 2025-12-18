@@ -74,26 +74,28 @@ export default function LenderProductAssign() {
 
   /* ================= LOAD DATA ================= */
   useEffect(() => {
-    async function loadData() {
-      
-      setMessage(null);
+  async function loadData() {
+    try {
+      const [lendersRes, productsRes] = await Promise.all([
+        api.get("/admin/lenders/read"),
+        api.get("/admin/loan-products/list"),
+      ]);
 
-      try {
-        const [lendersRes, productsRes] = await Promise.all([
-          api.get("/admin/lenders/read"),
-          api.get("/admin/loan-products/list"),
-        ]);
+      // LENDERS → paginated
+      setLenders(lendersRes.data?.data?.results ?? []);
 
-        setLenders(lendersRes.data?.data ?? []);
-        setLoanProducts(productsRes.data?.data ?? []);
-      } catch {
-        setMessage({ type: "error", text: "Failed to load data" });
-      } finally {
-        
-      }
+      // PRODUCTS → direct array
+      setLoanProducts(productsRes.data?.data ?? []);
+
+    } catch (err) {
+      setMessage({ type: "error", text: "Failed to load data" });
     }
-    loadData();
-  }, []);
+  }
+
+  loadData();
+}, []);
+
+
 
   /* ================= VALIDATION ================= */
   function validate(): Errors {
