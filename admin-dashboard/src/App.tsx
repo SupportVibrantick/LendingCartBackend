@@ -27,6 +27,7 @@ import AllLendersPage from "./pages/Lenders/AllLenders";
 import BrokersLenders from "./pages/Brokers/BrokersLenders";
 import AdminLogs from "./pages/AdminLogs/AdminLogs";
 import AllLoanProducts from "./pages/LoanProducts/AllLoanProducts";
+import AllDocuments from "./pages/Documents/AllDocuments";
 import AllSuperadmin from "./pages/SuperAdmin/AllSuperAdmin";
 import LenderProductAssign from "./pages/LoanProducts/LenderAssignProduct";
 import AssignedProducts from "./pages/LoanProducts/AssignedProducts";
@@ -59,6 +60,8 @@ export default function App() {
             <Route index path="/lender-assigned-products" element={<LenderProductAssign/>} />
             <Route index path="/assigned-products" element={<AssignedProducts/>} />
             <Route index path="/all-super-admins" element={<AllSuperadmin/>} />
+
+            <Route index path="/all-documents" element={<AllDocuments/>} />
 
             <Route index path="/admin-logs" element={<AdminLogs/>} />
 
