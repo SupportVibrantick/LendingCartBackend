@@ -1,8 +1,8 @@
 // backend/routes/lender/index.js
 const authRoutes = require("./auth");
-// const brokerRoutes = require("./broker");     // if lender interacts with brokers
-// const commonRoutes = require("./common");     // shared lender utilities
-// add more lender modules here later (products, applications, etc.)
+const loanProductRoutes = require("./loanProduct");
+// const brokerRoutes = require("./broker");
+// const commonRoutes = require("./common");
 
 module.exports = async function lenderRoutes(fastify, opts) {
   // -------------------------
@@ -29,10 +29,10 @@ module.exports = async function lenderRoutes(fastify, opts) {
         return;
       }
 
-      // Auth check
+      // JWT auth
       await instance.authenticate(req, reply);
 
-      // Role check
+      // Role guard
       const roleChecker = instance.requireRole([
         "LENDER_ADMIN",
         "LENDER_UNDERWRITER",
@@ -41,13 +41,15 @@ module.exports = async function lenderRoutes(fastify, opts) {
     });
 
     // -------------------------
-    // Lender modules
+    // Lender feature modules
     // -------------------------
+    instance.register(loanProductRoutes, {
+      prefix: "/loan-products",
+    });
+
+    // Later:
     // instance.register(brokerRoutes, { prefix: "/brokers" });
     // instance.register(commonRoutes, { prefix: "/common" });
-
-    // Later you will add:
-    // instance.register(require("./products"), { prefix: "/products" });
     // instance.register(require("./applications"), { prefix: "/applications" });
   });
 };

@@ -9,8 +9,10 @@ function registerAuthMiddleware(fastify, opts, done) {
   fastify.decorate("authenticate", async function (request, reply) {
     try {
       const authHeader = request.headers["authorization"] || "";
-      const header = String(authHeader || "").trim();
-      const token = header.startsWith("Bearer ") ? header.slice(7).trim() : (header || null);
+      const header = String(authHeader).trim();
+      const token = header.startsWith("Bearer ")
+        ? header.slice(7).trim()
+        : header || null;
 
       if (!token) {
         logger.commonLogs.error("No token provided", {
@@ -21,12 +23,29 @@ function registerAuthMiddleware(fastify, opts, done) {
       }
 
       const decoded = jwt.verify(token, jwtSecret);
-      
-     
 
-      const userId = decoded.userId ?? decoded.id ?? decoded.user?.id ?? null;
-      const orgId = decoded.orgId ?? decoded.organizationId ?? null;
-      const roles = decoded.roles ?? decoded.role ?? [];
+      //  Normalize payload (BACKWARD COMPATIBLE)
+      const userId =
+        decoded.userId ??
+        decoded.id ??
+        decoded.user?.id ??
+        null;
+
+      const organizationId =
+        decoded.organizationId ??
+        decoded.orgId ??
+        decoded.organization?.id ??
+        null;
+
+      const orgType =
+        decoded.orgType ??
+        decoded.organization?.type ??
+        null;
+
+      const roles =
+        decoded.roles ??
+        decoded.role ??
+        [];
 
       if (!userId) {
         logger.commonLogs.warn("Token missing user id", {
@@ -36,12 +55,20 @@ function registerAuthMiddleware(fastify, opts, done) {
         return reply.code(401).send({ ok: false, message: "Invalid token payload" });
       }
 
-      request.user = { userId, orgId, roles, raw: decoded };
+      // DO NOT REMOVE OLD KEYS (super-admin safety)
+      request.user = {
+        userId,
+        orgId: organizationId,      // backward compatibility
+        organizationId,             // new standard
+        orgType,                    // new standard
+        roles,
+        raw: decoded,
+      };
     } catch (err) {
       logger.commonLogs.error("Invalid or expired token", {
         endpoint: request.url,
         method: request.method,
-        error: err && err.message ? err.message : err,
+        error: err?.message || err,
       });
       return reply.code(401).send({ ok: false, message: "Invalid or expired token" });
     }
@@ -50,19 +77,20 @@ function registerAuthMiddleware(fastify, opts, done) {
   fastify.decorate("requireRole", (allowedRoles = []) => {
     return async (request, reply) => {
       const userRoles = request.user?.roles ?? [];
-      const has = Array.isArray(userRoles)
+      const hasAccess = Array.isArray(userRoles)
         ? userRoles.some((r) => allowedRoles.includes(r))
         : allowedRoles.includes(userRoles);
 
-        
-      if (!has) {
+      if (!hasAccess) {
         logger.commonLogs.warn("Access denied - role", {
           endpoint: request.url,
           method: request.method,
           userRoles,
           allowedRoles,
         });
-        return reply.code(403).send({ ok: false, message: "Forbidden - insufficient role" });
+        return reply
+          .code(403)
+          .send({ ok: false, message: "Forbidden - insufficient role" });
       }
     };
   });
