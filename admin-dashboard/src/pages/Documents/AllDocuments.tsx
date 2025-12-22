@@ -204,37 +204,37 @@ const AllLoanProducts: React.FC = () => {
     };
 
     const handleToggleStatus = async (document: Document) => {
-        try {
-            setTogglingId(document.id);
+  try {
+    setTogglingId(document.id);
 
-            // Correct path: PATCH /admin/document-types/status/:id
-            const res = await fetch(
-                `${API_BASE}/admin/document-types/status/${document.id}`,
-                {
-                    method: "PATCH",
-                    headers: getAuthHeaders(),
-                    body: JSON.stringify({ isActive: !document.isActive }),
-                }
-            );
+    const res = await fetch(
+      `${API_BASE}/admin/document-types/status`,
+      {
+        method: "PATCH",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          id: document.id,
+          isActive: !document.isActive,
+        }),
+      }
+    );
 
-            const json = await res.json();
-            if (!res.ok || !json.success) {
-                console.error(
-                    "Failed to update document status:",
-                    json.message || res.status
-                );
-                toast.error(json.message || "Failed to update document status");
-                return;
-            }
+    const json = await res.json();
 
-            await fetchDocuments();
-            toast.success("Status Updated")
-        } catch (err) {
-            console.error("Failed to toggle document status", err);
-        } finally {
-            setTogglingId(null);
-        }
-    };
+    if (!res.ok || !json.success) {
+      toast.error(json.message || "Failed to update document status");
+      return;
+    }
+
+    await fetchDocuments();
+    toast.success("Status Updated");
+  } catch (err) {
+    console.error("Failed to toggle document status", err);
+  } finally {
+    setTogglingId(null);
+  }
+};
+
 
 
 

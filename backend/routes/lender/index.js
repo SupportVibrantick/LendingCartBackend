@@ -1,6 +1,8 @@
 // backend/routes/lender/index.js
 const authRoutes = require("./auth");
 const loanProductRoutes = require("./loanProduct");
+const documentConfigRoutes = require("./documentConfig");
+const eligibilityRoutes = require("./eligibility");
 // const brokerRoutes = require("./broker");
 // const commonRoutes = require("./common");
 
@@ -45,6 +47,14 @@ module.exports = async function lenderRoutes(fastify, opts) {
     // -------------------------
     instance.register(loanProductRoutes, {
       prefix: "/loan-products",
+    });
+
+    instance.register(documentConfigRoutes,{
+      prefix: "/document-config",
+    });
+
+    instance.register(eligibilityRoutes,{
+      prefix: "/eligibility-engine",
     });
 
     // Later:

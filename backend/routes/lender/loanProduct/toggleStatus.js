@@ -6,7 +6,7 @@ const prisma = new PrismaClient();
  */
 async function toggleLenderLoanProductStatusRoutes(fastify) {
   fastify.patch(
-    "/:id/toggle-status",
+    "/:id",
     {
       preHandler: [fastify.authenticate],
       schema: {

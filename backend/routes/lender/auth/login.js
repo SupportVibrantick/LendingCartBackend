@@ -94,7 +94,7 @@ async function lenderLoginRoutes(fastify) {
           },
           process.env.JWT_SECRET,
           {
-            expiresIn: "15m",
+            expiresIn: "24h",
             issuer: "lendingcart",
             audience: "lender-app",
           }
