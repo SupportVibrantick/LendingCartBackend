@@ -17,7 +17,7 @@ module.exports = async function lenderRoutes(fastify, opts) {
   // -------------------------
   fastify.register(async function lenderProtected(instance) {
 
-    // 🔐 Verify JWT + role
+    //  Verify JWT + role
     instance.register(require("../../plugins/verifyLender"));
 
     instance.addHook("preHandler", async (req, reply) => {

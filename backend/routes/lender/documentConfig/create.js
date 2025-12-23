@@ -84,7 +84,7 @@ async function createLenderDocumentConfigRoutes(fastify) {
           });
         }
 
-        // ✅ Validate document type
+        //  Validate document type
         const docType = await prisma.documentType.findFirst({
           where: { id: documentTypeId, isActive: true },
         });
@@ -96,7 +96,7 @@ async function createLenderDocumentConfigRoutes(fastify) {
           });
         }
 
-        // ✅ Prevent duplicates
+        //  Prevent duplicates
         const exists = await prisma.lenderDocumentRequirement.findFirst({
           where: {
             lenderProductId,
@@ -111,7 +111,7 @@ async function createLenderDocumentConfigRoutes(fastify) {
           });
         }
 
-        // ✅ Create document requirement (CORRECT MODEL)
+        // Create document requirement (CORRECT MODEL)
         const result = await prisma.lenderDocumentRequirement.create({
           data: {
             lenderProductId,
