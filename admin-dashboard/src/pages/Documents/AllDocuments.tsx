@@ -204,36 +204,36 @@ const AllLoanProducts: React.FC = () => {
     };
 
     const handleToggleStatus = async (document: Document) => {
-  try {
-    setTogglingId(document.id);
+        try {
+            setTogglingId(document.id);
 
-    const res = await fetch(
-      `${API_BASE}/admin/document-types/status`,
-      {
-        method: "PATCH",
-        headers: getAuthHeaders(),
-        body: JSON.stringify({
-          id: document.id,
-          isActive: !document.isActive,
-        }),
-      }
-    );
+            const res = await fetch(
+                `${API_BASE}/admin/document-types/status`,
+                {
+                    method: "PATCH",
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({
+                        id: document.id,
+                        isActive: !document.isActive,
+                    }),
+                }
+            );
 
-    const json = await res.json();
+            const json = await res.json();
 
-    if (!res.ok || !json.success) {
-      toast.error(json.message || "Failed to update document status");
-      return;
-    }
+            if (!res.ok || !json.success) {
+                toast.error(json.message || "Failed to update document status");
+                return;
+            }
 
-    await fetchDocuments();
-    toast.success("Status Updated");
-  } catch (err) {
-    console.error("Failed to toggle document status", err);
-  } finally {
-    setTogglingId(null);
-  }
-};
+            await fetchDocuments();
+            toast.success("Status Updated");
+        } catch (err) {
+            console.error("Failed to toggle document status", err);
+        } finally {
+            setTogglingId(null);
+        }
+    };
 
 
 
@@ -439,7 +439,7 @@ const AllLoanProducts: React.FC = () => {
                                                     type="button"
                                                     onClick={() => {
                                                         if (!togglingId) {
-                                                            handleToggleStatus(p);
+                                                            handleToggleStatus(fp);
                                                         }
                                                     }}
                                                     disabled={togglingId === p.id}
