@@ -1,0 +1,65 @@
+// backend/routes/lender/auth/me.js
+const { PrismaClient } = require("@prisma/client");
+const prisma = new PrismaClient();
+
+/**
+ * @param {import("fastify").FastifyInstance} fastify
+ */
+async function lenderMeRoutes(fastify) {
+  fastify.get(
+    "/me",
+    {
+      preHandler: fastify.authenticate,
+      schema: {
+        tags: ["Lender -> Auth"],
+        summary: "Get logged-in lender user profile",
+      },
+    },
+    async (request, reply) => {
+      try {
+        const { userId, organizationId } = request.user;
+
+        const user = await prisma.userAccount.findUnique({
+          where: { id: userId },
+          include: {
+            organization: true,
+            roles: {
+              include: { role: true },
+            },
+          },
+        });
+
+        if (!user || user.organizationId !== organizationId) {
+          return reply.code(404).send({
+            ok: false,
+            message: "User not found",
+          });
+        }
+
+        return reply.send({
+          ok: true,
+          data: {
+            id: user.id,
+            email: user.email,
+            name: `${user.firstName} ${user.lastName}`,
+            status: user.status,
+            organization: {
+              id: user.organization.id,
+              name: user.organization.name,
+              type: user.organization.type,
+              status: user.organization.status,
+            },
+            roles: user.roles.map((r) => r.role.name),
+          },
+        });
+      } catch (err) {
+        return reply.code(500).send({
+          ok: false,
+          message: "Failed to fetch user profile",
+        });
+      }
+    }
+  );
+}
+
+module.exports = lenderMeRoutes;
