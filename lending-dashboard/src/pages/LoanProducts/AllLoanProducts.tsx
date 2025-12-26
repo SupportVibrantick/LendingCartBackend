@@ -1,32 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { MdModeEdit, MdDelete } from "react-icons/md";
+import { MdModeEdit } from "react-icons/md";
 import { TiPlus } from "react-icons/ti";
-import EditBrokerModal from "../Brokers/EditBrokerModal"; // you can reuse this for lenders too
+import EditLoanProductModal from "./EditLoanProductModal"; // you can reuse this for lenders too
 import toast from "react-hot-toast";
-
-type Lender = {
-  id: any; // keep flexible because API returns UUID string; UI can still treat as string/number
-  name: string;
-  email: string;
-  phone: string;
-  status?: string;
-  createdAt?: string;
-};
-
-type Admin = {
-  id?: string;
-  firstName?: string;
-  lastName?: string;
-  email?: string;
-  phone?: string;
-};
-
-// 🔹 Broker type for optional assignment
-type BrokerOrg = {
-  id: string;
-  name: string;
-  email?: string;
-};
 
 type LoanProductForm = {
   loanProductCode: string;
@@ -48,23 +24,34 @@ type LoanProductList = {
   maxLoanAmount: number;
   minTermMonths: number;
   maxTermMonths: number;
-  industriesSupported: string;
-  regionsSupported: string;
+  industriesSupported: string[];
+  regionsSupported: string[];
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
 }
 
-const parseArray = (value?: string) => {
+const safeParseArray = (value: any): string[] => {
+  if (Array.isArray(value)) return value;
+
+  if (typeof value !== "string") return [];
+
   try {
-    return value ? JSON.parse(value) : [];
+    let parsed = JSON.parse(value);
+
+    // handle double-stringified case
+    if (typeof parsed === "string") {
+      parsed = JSON.parse(parsed);
+    }
+
+    return Array.isArray(parsed) ? parsed : [];
   } catch {
     return [];
   }
 };
 
 
-const STATUS_ORDER = ["ACTIVE", "INACTIVE"]; // keep real backend enum
+// const STATUS_ORDER = ["ACTIVE", "INACTIVE"]; // keep real backend enum
 
 function statusClass(status?: string) {
   switch (status) {
@@ -90,7 +77,7 @@ const LOAN_PRODUCT_CODES: { value: string; label: string }[] = [
   { value: "PO_FINANCE", label: "PO Finance" },
 ];
 
-export default function AllLendersPage() {
+export default function AlloanProducts() {
   const [lenders, setLenders] = useState<LoanProductList[]>([]);
   const [loading, setLoading] = useState(false);
   const [rowLoadingId, setRowLoadingId] = useState<any | null>(null);
@@ -114,28 +101,11 @@ export default function AllLendersPage() {
   const [pageSize, setPageSize] = useState<number>(10);
   const [currentPage, setCurrentPage] = useState<number>(1);
 
-  // Admins modal & editing state
-  const [showAdminsFor, setShowAdminsFor] = useState<Lender | null>(null);
-  const [admins, setAdmins] = useState<Admin[]>([]);
-  const [loadingAdmins, setLoadingAdmins] = useState(false);
-  const [adminsError, setAdminsError] = useState<string | null>(null);
-
-  // Admin inline-edit state
-  const [editingAdminId, setEditingAdminId] = useState<string | null>(null);
-  const [adminEditForm, setAdminEditForm] = useState<Admin>({});
-  const [adminSaving, setAdminSaving] = useState(false);
-
-  //  brokers for dropdown
-  const [brokers, setBrokers] = useState<BrokerOrg[]>([]);
-  const [loadingBrokers, setLoadingBrokers] = useState(false);
-  const [brokersError, setBrokersError] = useState<string | null>(null);
 
   const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001"; // adjust if needed
 
   useEffect(() => {
     fetchLoanProducts();
-    // fetchBrokers();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -174,49 +144,18 @@ export default function AllLendersPage() {
       const list = Array.isArray(json)
         ? json
         : json.data?.results || json.data || [];
-
-      setLenders(list);
+      const normalized = (list as LoanProductList[]).map((p) => ({
+        ...p,
+        industriesSupported: safeParseArray(p.industriesSupported),
+        regionsSupported: safeParseArray(p.regionsSupported),
+      }));
+      setLenders(normalized as any);
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
     }
   }
-
-  // -------- BROKERS (for dropdown) --------
-  // async function fetchBrokers() {
-  //   setLoadingBrokers(true);
-  //   setBrokersError(null);
-  //   try {
-  //     const headers = getAuthHeaders();
-  //     const res = await fetch(`${API_BASE}/admin/brokers/read/`, {
-  //       method: "GET",
-  //       headers,
-  //     });
-
-  //     if (!res.ok) throw new Error(`Failed to fetch brokers: ${res.status}`);
-
-  //     const json = await res.json();
-  //     const list = Array.isArray(json)
-  //       ? json
-  //       : json.data?.results || json.data || [];
-
-  //     const normalized: BrokerOrg[] = (list as any[]).map(
-  //       (b: any, idx: number) => ({
-  //         id: b.id ?? String(idx + 1),
-  //         name: b.name ?? b.organizationName ?? "Unnamed Broker",
-  //         email: b.email ?? b.organizationEmail ?? "",
-  //       })
-  //     );
-
-  //     setBrokers(normalized);
-  //   } catch (err: any) {
-  //     console.error("fetchBrokers error:", err);
-  //     setBrokersError(err?.message || "Failed to load brokers");
-  //   } finally {
-  //     setLoadingBrokers(false);
-  //   }
-  // }
 
   const openAdd = () => {
     setForm({
@@ -323,12 +262,14 @@ export default function AllLendersPage() {
     setEditingLender(b);
   };
 
-  const toDbValue = (v: any) =>
-    Array.isArray(v) ? JSON.stringify(v) : v;
 
   const handleEditSave = async (updated: LoanProductList) => {
-    console.log(updated)
-    setLenders((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+    const normalizedUpdated = {
+      ...updated,
+      regionsSupported: safeParseArray(updated.regionsSupported),
+      industriesSupported: safeParseArray(updated.industriesSupported),
+    };
+    setLenders((prev) => prev.map((p) => (p.id === updated.id ? normalizedUpdated : p)));
     setEditingLender(null);
 
     try {
@@ -344,9 +285,9 @@ export default function AllLendersPage() {
           maxLoanAmount: updated.maxLoanAmount,
           minTermMonths: updated.minTermMonths,
           maxTermMonths: updated.maxTermMonths,
-          regionsSupported: toDbValue(updated.regionsSupported),
-          industriesSupported: toDbValue(updated.industriesSupported),
-          isActive: true
+          industriesSupported: updated.industriesSupported,
+          regionsSupported: updated.regionsSupported,
+          isActive: updated.isActive
         }),
       });
       const json = await res.json();
@@ -362,217 +303,63 @@ export default function AllLendersPage() {
     }
   };
 
-  // const changeStatusFor = async (lender: Lender) => {
-  //   if (!lender?.id) return;
-  //   const cur = (lender.status || "UNKNOWN").toUpperCase();
-  //   const idx = STATUS_ORDER.indexOf(cur);
-  //   const next =
-  //     idx === -1 ? "ACTIVE" : STATUS_ORDER[(idx + 1) % STATUS_ORDER.length];
+  const changeStatusFor = async (loan: LoanProductList) => {
+    if (!loan?.id) return;
 
-  //   const prevStatus = lender.status;
-  //   setLenders((prev) =>
-  //     prev.map((b) => (b.id === lender.id ? { ...b, status: next } : b))
-  //   );
-  //   setRowLoadingId(lender.id);
+    const prevStatus = loan.isActive;
+    const nextStatus = !loan.isActive;
 
-  //   try {
-  //     const token = sessionStorage.getItem("admin_token");
+    // optimistic UI update
+    setLenders((prev) =>
+      prev.map((b) =>
+        b.id === loan.id ? { ...b, isActive: nextStatus } : b
+      )
+    );
 
-  //     const path =
-  //       next === "ACTIVE"
-  //         ? `${API_BASE}/admin/lenders/status/activate/${lender.id}`
-  //         : `${API_BASE}/admin/lenders/status/deactivate/${lender.id}`;
+    setRowLoadingId(loan.id);
 
-  //     const res = await fetch(path, {
-  //       method: "PATCH",
-  //       headers: {
-  //         "Content-Type": "application/json",
-  //         ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  //       },
-  //     });
+    try {
+      const token = sessionStorage.getItem("lending_token");
 
-  //     const json = await res.json().catch(() => ({}));
-  //     if (!res.ok || json?.success === false) {
-  //       const msg =
-  //         json?.message ||
-  //         (res.status === 400
-  //           ? "Cannot change status for this lender (likely assigned to brokers)."
-  //           : `Status update failed: ${res.status}`);
-  //       throw new Error(msg);
-  //     }
+      const res = await fetch(
+        `${API_BASE}/lender/loan-products/status/${loan.id}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({
+            isActive: nextStatus,
+          }),
+        }
+      );
 
-  //     if (json && json.data) {
-  //       const serverObj = json.data;
-  //       setLenders((prev) =>
-  //         prev.map((b) =>
-  //           b.id === lender.id
-  //             ? {
-  //               ...b,
-  //               name: serverObj.name ?? b.name,
-  //               status: serverObj.status ?? next,
-  //             }
-  //             : b
-  //         )
-  //       );
-  //     }
-  //   } catch (err: any) {
-  //     console.error(err);
-  //     setLenders((prev) =>
-  //       prev.map((b) =>
-  //         b.id === lender.id ? { ...b, status: prevStatus } : b
-  //       )
-  //     );
-  //     alert(err?.message || "Failed to update status. Please try again.");
-  //   } finally {
-  //     setRowLoadingId(null);
-  //   }
-  // };
+      const json = await res.json();
 
-  // ------------------------------
-  // Fetch admins for a lender id
-  // ------------------------------
-  // async function fetchAdmins(lenderId: any) {
-  //   setLoadingAdmins(true);
-  //   setAdmins([]);
-  //   setAdminsError(null);
+      if (!res.ok || json?.success === false) {
+        throw new Error(json?.message || "Status update failed");
+      }
 
-  //   try {
-  //     const token = sessionStorage.getItem("admin_token");
-  //     const res = await fetch(`${API_BASE}/admin/lenders/read/${lenderId}`, {
-  //       method: "GET",
-  //       headers: {
-  //         "Content-Type": "application/json",
-  //         ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  //       },
-  //     });
+      toast.success(
+        `Loan product ${nextStatus ? "activated" : "deactivated"}`
+      );
+    } catch (err: any) {
+      console.error(err);
 
-  //     if (!res.ok) throw new Error(`Failed to load lender admins: ${res.status}`);
+      // rollback UI on failure
+      setLenders((prev) =>
+        prev.map((b) =>
+          b.id === loan.id ? { ...b, isActive: prevStatus } : b
+        )
+      );
 
-  //     const json = await res.json().catch(() => ({}));
-  //     const org = json?.data?.organization;
-  //     const adminUser = json?.data?.adminUser;
-
-  //     let adminList: any[] = [];
-
-  //     if (Array.isArray(org?.users) && org.users.length > 0) {
-  //       adminList = org.users;
-  //     } else if (adminUser) {
-  //       adminList = [adminUser];
-  //     }
-
-  //     const normalized: Admin[] = adminList.map((a: any) => ({
-  //       id: a.id,
-  //       firstName: a.firstName ?? "",
-  //       lastName: a.lastName ?? "",
-  //       email: a.email ?? "",
-  //       phone: a.phone ?? "",
-  //     }));
-
-  //     setAdmins(normalized);
-  //   } catch (err: any) {
-  //     console.error("fetchAdmins error:", err);
-  //     setAdminsError(err?.message || "Failed to load admins");
-  //   } finally {
-  //     setLoadingAdmins(false);
-  //   }
-  // }
-
-  // const openAdminsFor = async (lender: Lender) => {
-  //   setShowAdminsFor(lender);
-  //   setEditingAdminId(null);
-  //   setAdminEditForm({});
-  //   await fetchAdmins(lender.id);
-  // };
-
-  const closeAdmins = () => {
-    setShowAdminsFor(null);
-    setAdmins([]);
-    setAdminsError(null);
-    setEditingAdminId(null);
-    setAdminEditForm({});
+      toast.error(err?.message || "Failed to update status");
+    } finally {
+      setRowLoadingId(null);
+    }
   };
 
-  const startEditAdmin = (a: Admin) => {
-    setEditingAdminId(a.id ?? null);
-    setAdminEditForm({
-      id: a.id,
-      firstName: a.firstName,
-      lastName: a.lastName,
-      email: a.email,
-      phone: a.phone,
-    });
-  };
-
-  const cancelEditAdmin = () => {
-    setEditingAdminId(null);
-    setAdminEditForm({});
-  };
-
-  // const saveAdminEdit = async () => {
-  //   const adminId = editingAdminId;
-  //   if (!adminId) return alert("No admin selected for edit.");
-
-  //   if (
-  //     !(
-  //       adminEditForm.firstName ||
-  //       adminEditForm.lastName ||
-  //       adminEditForm.email
-  //     )
-  //   ) {
-  //     return alert(
-  //       "Please provide at least one field to update (first name / last name / email)."
-  //     );
-  //   }
-
-  //   setAdminSaving(true);
-
-  //   setAdmins((prev) =>
-  //     prev.map((p) => (p.id === adminId ? { ...p, ...adminEditForm } : p))
-  //   );
-
-  //   try {
-  //     const token = sessionStorage.getItem("admin_token");
-  //     const res = await fetch(
-  //       `${API_BASE}/admin/lenders/admin/update/${adminId}`,
-  //       {
-  //         method: "PATCH",
-  //         headers: {
-  //           "Content-Type": "application/json",
-  //           ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  //         },
-  //         body: JSON.stringify({
-  //           firstName: adminEditForm.firstName,
-  //           lastName: adminEditForm.lastName,
-  //           email: adminEditForm.email,
-  //           phone: adminEditForm.phone,
-  //         }),
-  //       }
-  //     );
-
-  //     if (!res.ok) {
-  //       throw new Error(`Save failed: ${res.status}`);
-  //     }
-
-  //     const json = await res.json().catch(() => ({}));
-  //     if (json && json.data) {
-  //       const serverObj = json.data;
-  //       setAdmins((prev) =>
-  //         prev.map((p) => (p.id === adminId ? { ...p, ...serverObj } : p))
-  //       );
-  //     }
-
-  //     setEditingAdminId(null);
-  //     setAdminEditForm({});
-  //   } catch (err: any) {
-  //     console.error("saveAdminEdit error:", err);
-  //     alert(err?.message || "Failed to save admin. Changes rolled back.");
-  //     if (showAdminsFor?.id) {
-  //       await fetchAdmins(showAdminsFor.id);
-  //     }
-  //   } finally {
-  //     setAdminSaving(false);
-  //   }
-  // };
 
   function toggleChip(
     key: "regionsSupported" | "industriesSupported",
@@ -665,8 +452,8 @@ export default function AllLendersPage() {
                 <tbody>
                   {paginated.map((b) => {
                     const isLoading = rowLoadingId === b.id;
-                    const industries = parseArray(b.industriesSupported);
-                    const regions = parseArray(b.regionsSupported);
+                    const industries = b.industriesSupported;
+                    const regions = b.regionsSupported;
 
                     return (
                       <tr
@@ -698,7 +485,7 @@ export default function AllLendersPage() {
 
                         <td className="py-3 pr-4 whitespace-nowrap">
                           <button
-                            // onClick={() => !isLoading && changeStatusFor(b)}
+                            onClick={() => !isLoading && changeStatusFor(b)}
                             disabled={isLoading}
                             className={`inline-flex items-center gap-2 px-3 py-1 text-xs font-medium rounded-full border ${statusClass(
                               b.isActive ? "ACTIVE" : "INACTIVE"
@@ -874,11 +661,6 @@ export default function AllLendersPage() {
                       </option>
                     ))}
                 </select>
-                {brokersError && (
-                  <div className="text-xs text-red-500 mt-1">
-                    {brokersError}
-                  </div>
-                )}
               </label>
               <label className="block">
                 <span className="text-sm text-gray-700 dark:text-slate-200">
@@ -887,6 +669,9 @@ export default function AllLendersPage() {
                 <input
                   type="number"
                   value={form.minLoanAmount}
+                  min={0}
+                  max={form.maxLoanAmount || undefined}
+                  required
                   onChange={(e) =>
                     setForm({ ...form, minLoanAmount: Number(e.target.value) })
                   }
@@ -902,6 +687,8 @@ export default function AllLendersPage() {
                 </span>
                 <input
                   type="number"
+                  min={form.minLoanAmount || 0}
+                  required
                   value={form.maxLoanAmount}
                   onChange={(e) =>
                     setForm({ ...form, maxLoanAmount: Number(e.target.value) })
@@ -918,6 +705,9 @@ export default function AllLendersPage() {
                 </span>
                 <input
                   type="number"
+                  min={0}
+                  max={form.maxTermMonths || undefined}
+                  required
                   value={form.minTermMonths}
                   onChange={(e) =>
                     setForm({ ...form, minTermMonths: Number(e.target.value) })
@@ -934,6 +724,8 @@ export default function AllLendersPage() {
                 </span>
                 <input
                   type="number"
+                  min={form.minTermMonths || 0}
+                  required
                   value={form.maxTermMonths}
                   onChange={(e) =>
                     setForm({ ...form, maxTermMonths: Number(e.target.value) })
@@ -996,176 +788,12 @@ export default function AllLendersPage() {
 
       {/* Edit Lender Modal (reusing EditBrokerModal for now) */}
       {editingLender && (
-        <EditBrokerModal
+        <EditLoanProductModal
           isOpen={Boolean(editingLender)}
-          loanProduct={editingLender as any}
+          loanProduct={editingLender}
           onClose={() => setEditingLender(null)}
           onSave={handleEditSave as any}
         />
-      )}
-
-      {/* Admins Modal (with inline edit) */}
-      {showAdminsFor && (
-        <div className="fixed inset-0 z-600000 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-xl p-6 w-full max-w-2xl shadow-lg dark:bg-slate-900 dark:border dark:border-slate-700">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                Admins for {showAdminsFor.name}
-              </h2>
-              <button
-                onClick={closeAdmins}
-                className="text-gray-500 hover:text-gray-800 dark:text-slate-400 dark:hover:text-slate-200"
-              >
-                Close
-              </button>
-            </div>
-
-            <div>
-              {loadingAdmins ? (
-                <div className="py-8 text-center text-gray-500 dark:text-slate-400">
-                  Loading admins...
-                </div>
-              ) : adminsError ? (
-                <div className="py-8 text-center text-red-600 dark:text-red-400">
-                  {adminsError}
-                </div>
-              ) : admins.length === 0 ? (
-                <div className="py-8 text-center text-gray-500 dark:text-slate-400">
-                  No admins found for this lender.
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {admins.map((a, idx) => (
-                    <div
-                      key={a.id ?? idx}
-                      className="border rounded p-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3
-                                 border-gray-200 bg-white
-                                 dark:border-slate-700 dark:bg-slate-900"
-                    >
-                      <div className="flex-1">
-                        {editingAdminId === a.id ? (
-                          <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
-                            <input
-                              value={adminEditForm.firstName || ""}
-                              onChange={(e) =>
-                                setAdminEditForm({
-                                  ...adminEditForm,
-                                  firstName: e.target.value,
-                                })
-                              }
-                              className="px-2 py-1 border rounded
-                                         border-gray-300 bg-white text-gray-900
-                                         dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
-                              placeholder="First name"
-                            />
-                            <input
-                              value={adminEditForm.lastName || ""}
-                              onChange={(e) =>
-                                setAdminEditForm({
-                                  ...adminEditForm,
-                                  lastName: e.target.value,
-                                })
-                              }
-                              className="px-2 py-1 border rounded
-                                         border-gray-300 bg-white text-gray-900
-                                         dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
-                              placeholder="Last name"
-                            />
-                            <input
-                              value={adminEditForm.email || ""}
-                              onChange={(e) =>
-                                setAdminEditForm({
-                                  ...adminEditForm,
-                                  email: e.target.value,
-                                })
-                              }
-                              className="px-2 py-1 border rounded col-span-1 md:col-span-1
-                                         border-gray-300 bg-white text-gray-900
-                                         dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
-                              placeholder="Email"
-                            />
-                            <input
-                              value={adminEditForm.phone || ""}
-                              onChange={(e) =>
-                                setAdminEditForm({
-                                  ...adminEditForm,
-                                  phone: e.target.value,
-                                })
-                              }
-                              className="px-2 py-1 border rounded
-                                         border-gray-300 bg-white text-gray-900
-                                         dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
-                              placeholder="Phone"
-                            />
-                          </div>
-                        ) : (
-                          <div>
-                            <div className="font-medium text-gray-900 dark:text-gray-100">
-                              {(a.firstName || "") +
-                                (a.lastName ? ` ${a.lastName}` : "") ||
-                                "—"}
-                            </div>
-                            <div className="text-sm text-gray-600 dark:text-slate-300">
-                              {a.email || "-"}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <div className="text-sm text-gray-600 dark:text-slate-300">
-                          {a.phone || "-"}
-                        </div>
-
-                        {editingAdminId === a.id ? (
-                          <>
-                            <button
-                              onClick={saveAdminEdit}
-                              disabled={adminSaving}
-                              className="px-3 py-1 bg-blue-600 text-white rounded-md disabled:opacity-70"
-                            >
-                              {adminSaving ? "Saving..." : "Save"}
-                            </button>
-                            <button
-                              onClick={cancelEditAdmin}
-                              disabled={adminSaving}
-                              className="px-3 py-1 border rounded-md
-                                         border-gray-300 bg-white text-gray-800
-                                         dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                            >
-                              Cancel
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            <button
-                              onClick={() => startEditAdmin(a)}
-                              className="px-2 py-1 border rounded-md text-sm
-                                         border-gray-300 bg-white text-gray-800
-                                         dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                            >
-                              Edit
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="mt-4 flex justify-end">
-              <button
-                onClick={closeAdmins}
-                className="px-4 py-2 bg-gray-100 rounded-md
-                           dark:bg-slate-800 dark:text-slate-100"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
       )}
     </div>
   );

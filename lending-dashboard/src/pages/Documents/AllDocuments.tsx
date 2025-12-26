@@ -64,17 +64,6 @@ function getAuthHeaders(): Record<string, string> {
     return { "Content-Type": "application/json" };
 }
 
-// tiny helper for status pill
-function statusClass(status?: string) {
-    switch ((status || "").toUpperCase()) {
-        case "ACTIVE":
-            return "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/40";
-        case "INACTIVE":
-            return "bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-500/10 dark:text-yellow-300 dark:border-yellow-500/40";
-        default:
-            return "bg-gray-100 text-gray-800 border-gray-200 dark:bg-slate-600/30 dark:text-slate-100 dark:border-slate-500";
-    }
-}
 
 const AllLoanProducts: React.FC = () => {
     const [documents, setDocuments] = useState<Document[]>([]);
@@ -82,7 +71,6 @@ const AllLoanProducts: React.FC = () => {
     const [documentConfig, setDocumentConfig] = useState<DocumentConfig[]>([]);
     const [loadingList, setLoadingList] = useState(false);
     const [saving, setSaving] = useState(false);
-    const [togglingId, setTogglingId] = useState<string | null>(null);
 
     const [editingProductId, setEditingProductId] = useState<string | null>(null);
     const [form, setForm] = useState<DocumentForm>({
@@ -249,7 +237,6 @@ const AllLoanProducts: React.FC = () => {
             toast.error("Please select lender product and document");
             return;
         }
-        console.log(form)
 
         try {
             setSaving(true);
@@ -289,7 +276,7 @@ const AllLoanProducts: React.FC = () => {
                 const createPayload = {
                     lenderProductId: form.lenderProductId,
                     documentTypeId: form.documentTypeId,
-                    isMandatory: form.isRequired, 
+                    isRequired: form.isRequired === undefined ? false : form.isRequired
                 };
 
                 const res = await fetch(
@@ -338,40 +325,6 @@ const AllLoanProducts: React.FC = () => {
             sortOrder: config.sortOrder ?? 0,
         });
     };
-
-    // const handleToggleStatus = async (document: Document) => {
-    //     try {
-    //         setTogglingId(document.id);
-
-    //         const res = await fetch(
-    //             `${API_BASE}/admin/document-types/status`,
-    //             {
-    //                 method: "PATCH",
-    //                 headers: getAuthHeaders(),
-    //                 body: JSON.stringify({
-    //                     id: document.id,
-    //                     isActive: !document.isActive,
-    //                 }),
-    //             }
-    //         );
-
-    //         const json = await res.json();
-
-    //         if (!res.ok || !json.success) {
-    //             toast.error(json.message || "Failed to update document status");
-    //             return;
-    //         }
-
-    //         await fetchDocuments();
-    //         toast.success("Status Updated");
-    //     } catch (err) {
-    //         console.error("Failed to toggle document status", err);
-    //     } finally {
-    //         setTogglingId(null);
-    //     }
-    // };
-
-
 
 
     // ===== Effects =====
