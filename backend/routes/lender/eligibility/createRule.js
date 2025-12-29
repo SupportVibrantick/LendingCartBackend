@@ -19,7 +19,7 @@ module.exports = async function createRuleRoutes(fastify) {
     },
     async (req, reply) => {
       try {
-        // 🔐 Auth check
+        //  Auth check
         if (
           !req.user ||
           req.user.orgType !== "LENDER" ||
@@ -31,7 +31,7 @@ module.exports = async function createRuleRoutes(fastify) {
           });
         }
 
-        // ✅ Zod validation
+        //  Zod validation
         const parsed = createRuleSchema.safeParse(req.body);
         if (!parsed.success) {
           return reply.status(400).send({
@@ -51,7 +51,7 @@ module.exports = async function createRuleRoutes(fastify) {
           sortOrder,
         } = parsed.data;
 
-        // ✅ Ownership check (RuleSet → LenderProduct → LenderOrg)
+        //  Ownership check (RuleSet → LenderProduct → LenderOrg)
         const ruleSet = await prisma.eligibilityRuleSet.findFirst({
           where: {
             id: ruleSetId,
@@ -68,7 +68,7 @@ module.exports = async function createRuleRoutes(fastify) {
           });
         }
 
-        // ✅ Create rule
+        //  Create rule
         const rule = await prisma.eligibilityRule.create({
           data: {
             ruleSetId,
