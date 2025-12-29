@@ -12,11 +12,9 @@ export default function SignInForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [isChecked, setIsChecked] = useState(false);
 
-  // controlled form state
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  // UI state
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

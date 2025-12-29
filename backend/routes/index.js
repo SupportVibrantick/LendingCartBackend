@@ -1,6 +1,7 @@
 const adminRoutes = require("../routes/admin");
 const lenderRoutes = require("../routes/lender");
 const commonDocumentTypes = require("../routes/common/documentTypes");
+const commonLoanProducts = require("./common/loanProducts");
 
 async function indexRoutes(fastify, options) {
   fastify.get("/", async (request, reply) => {
@@ -14,6 +15,10 @@ async function indexRoutes(fastify, options) {
   //  Common (read-only, role-based)
   fastify.register(commonDocumentTypes, {
     prefix: "/document-types",
+  });
+
+  fastify.register(commonLoanProducts, {
+    prefix: "/common/loan-products",
   });
 
   //  Role-specific
