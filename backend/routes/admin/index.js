@@ -7,6 +7,7 @@ const loanProductsRoutes = require("./loanProducts");
 const lenderProducts = require("./lenderProducts");
 const adminUserRoutes = require("./adminUsers");
 const documentTypes = require("./documentTypes");
+const landingPagesLeads = require("./LandingPagesLeads");
 
 // Registers auth sub-router under /admin/auth
 module.exports = async function adminRoutes(fastify, opts) {
@@ -43,5 +44,10 @@ module.exports = async function adminRoutes(fastify, opts) {
     instance.register(lenderProducts,{prefix:"/lender-products"});
     instance.register(adminUserRoutes,{prefix:"/admin-user"});
     instance.register(documentTypes, { prefix: "/document-types" });
+
+    instance.register(landingPagesLeads, {
+  prefix: "/landing-page-leads",
+});
+
   });
 };

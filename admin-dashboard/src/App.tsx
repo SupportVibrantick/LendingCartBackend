@@ -31,6 +31,7 @@ import AllDocuments from "./pages/Documents/AllDocuments";
 import AllSuperadmin from "./pages/SuperAdmin/AllSuperAdmin";
 import LenderProductAssign from "./pages/LoanProducts/LenderAssignProduct";
 import AssignedProducts from "./pages/LoanProducts/AssignedProducts";
+import AllLeads from "./pages/LandingPageLeads/AllLeads";
 
 
 export default function App() {
@@ -62,7 +63,7 @@ export default function App() {
             <Route index path="/all-super-admins" element={<AllSuperadmin/>} />
 
             <Route index path="/all-documents" element={<AllDocuments/>} />
-
+            <Route index path="/all-landing-pages-leads" element={<AllLeads/>} />
             <Route index path="/admin-logs" element={<AdminLogs/>} />
 
             {/* Others Page */}

@@ -4,6 +4,6 @@ module.exports = async function (fastify) {
   });
 
   fastify.register(require("./ClmLandingPage"), {
-    prefix: "/clm-landing-page",
+    prefix: "/clm",
   });
 };
