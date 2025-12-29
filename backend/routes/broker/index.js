@@ -1,0 +1,56 @@
+// backend/routes/broker/index.js
+const authRoutes = require("./auth");
+const lenderRoutes = require("./lenders");
+// later you can add:
+// const documentRoutes = require("./documents");
+// const applicationRoutes = require("./applications");
+
+module.exports = async function brokerRoutes(fastify, opts) {
+  // -------------------------
+  // Public auth routes
+  // -------------------------
+  fastify.register(authRoutes, { prefix: "/auth" });
+
+  // -------------------------
+  // Protected broker routes
+  // -------------------------
+  fastify.register(async function brokerProtected(instance) {
+    // Verify JWT + broker org
+    instance.register(require("../../plugins/verifyBroker"));
+
+    instance.addHook("preHandler", async (req, reply) => {
+      // Allow Swagger
+      if (
+        req.url.startsWith("/docs") ||
+        req.url.startsWith("/swagger") ||
+        req.url.includes("/docs") ||
+        req.url.includes("swagger")
+      ) {
+        return;
+      }
+
+      // JWT auth
+      await instance.authenticate(req, reply);
+
+      // Role guard
+      const roleChecker = instance.requireRole([
+        "BROKER_ADMIN",
+        "BROKER_OFFICER",
+      ]);
+      await roleChecker(req, reply);
+    });
+
+    // -------------------------
+    // Broker feature modules
+    // -------------------------
+
+    // Lenders visible to broker
+    instance.register(lenderRoutes, {
+      prefix: "/lenders",
+    });
+
+    // Later extensions
+    // instance.register(documentRoutes, { prefix: "/documents" });
+    // instance.register(applicationRoutes, { prefix: "/applications" });
+  });
+};
