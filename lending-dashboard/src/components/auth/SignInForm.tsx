@@ -64,13 +64,13 @@ export default function SignInForm() {
 
       // Save token(s) in sessionStorage (not localStorage) as requested
       try {
-        sessionStorage.setItem("lending_token", accessToken);
+        sessionStorage.setItem("lender_token", accessToken);
         // if (refreshToken) sessionStorage.setItem("lending_refresh", refreshToken);
 
         // optionally save a simple user object if returned
-        // if (json?.data?.user) {
-        //   sessionStorage.setItem("lending_user", JSON.stringify(json.data.user));
-        // }
+        if (json?.data?.user) {
+          sessionStorage.setItem("lender_user", JSON.stringify(json.data.user));
+        }
       } catch (storageError) {
         console.warn("Unable to save token to sessionStorage", storageError);
       }

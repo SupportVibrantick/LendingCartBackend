@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
 import { Dropdown } from "../ui/dropdown/Dropdown";
-import {  useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 export default function UserDropdown() {
   const [isOpen, setIsOpen] = useState(false);
@@ -9,9 +9,20 @@ export default function UserDropdown() {
   const [displayEmail, setDisplayEmail] = useState("Admin@gmail.com");
   const navigate = useNavigate();
 
+   const toTitleCase = (value?: string) =>
+    value
+      ? value
+        .toLowerCase()
+        .split(" ")
+        .map(
+          (w) => w.charAt(0).toUpperCase() + w.slice(1)
+        )
+        .join(" ")
+      : "";
+
   useEffect(() => {
     try {
-      const raw = sessionStorage.getItem("admin_user");
+      const raw = sessionStorage.getItem("lender_user");
       if (raw) {
         const user = JSON.parse(raw);
         if (user?.firstName || user?.lastName) {
@@ -70,11 +81,10 @@ export default function UserDropdown() {
           <img src="/profile.png" alt="User" />
         </span>
 
-        <span className="block mr-1 font-medium text-theme-sm">{displayName}</span>
+        <span className="block mr-1 font-medium text-theme-sm">{toTitleCase(displayName)}</span>
         <svg
-          className={`stroke-gray-500 dark:stroke-gray-400 transition-transform duration-200 ${
-            isOpen ? "rotate-180" : ""
-          }`}
+          className={`stroke-gray-500 dark:stroke-gray-400 transition-transform duration-200 ${isOpen ? "rotate-180" : ""
+            }`}
           width="18"
           height="20"
           viewBox="0 0 18 20"
@@ -99,7 +109,7 @@ export default function UserDropdown() {
       >
         <div>
           <span className="block font-medium text-gray-700 text-theme-sm dark:text-gray-400">
-            {displayName}
+            {toTitleCase(displayName)}
           </span>
           <span className="mt-0.5 block text-theme-xs text-gray-500 dark:text-gray-400">
             {displayEmail}

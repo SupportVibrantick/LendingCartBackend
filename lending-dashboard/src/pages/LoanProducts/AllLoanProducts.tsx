@@ -31,6 +31,12 @@ type LoanProductList = {
   updatedAt: string;
 }
 
+type LoanProductCode = {
+  id: string,
+  code: string,
+  name: string
+}
+
 const safeParseArray = (value: any): string[] => {
   if (Array.isArray(value)) return value;
 
@@ -64,22 +70,11 @@ function statusClass(status?: string) {
   }
 }
 
-// keep options in sync with Prisma enum LoanProductCode
-const LOAN_PRODUCT_CODES: { value: string; label: string }[] = [
-  { value: "SBA", label: "SBA" },
-  { value: "USDA", label: "USDA" },
-  { value: "BRIDGE", label: "Bridge" },
-  { value: "DSCR", label: "DSCR" },
-  { value: "CONSTRUCTION", label: "Construction" },
-  { value: "EQUIPMENT", label: "Equipment" },
-  { value: "ASSET_BASED", label: "Asset Based" },
-  { value: "AR_AP", label: "AR/AP" },
-  { value: "PO_FINANCE", label: "PO Finance" },
-];
 
 export default function AlloanProducts() {
   const [lenders, setLenders] = useState<LoanProductList[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loanProductCode, setLoanProductCode] = useState<LoanProductCode[]>([]);
   const [rowLoadingId, setRowLoadingId] = useState<any | null>(null);
 
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -106,6 +101,7 @@ export default function AlloanProducts() {
 
   useEffect(() => {
     fetchLoanProducts();
+    fetchLoanProductCodeList();
   }, []);
 
   useEffect(() => {
@@ -114,7 +110,7 @@ export default function AlloanProducts() {
 
   function getAuthHeaders(): Record<string, string> {
     try {
-      const token = sessionStorage.getItem("lending_token");
+      const token = sessionStorage.getItem("lender_token");
       if (token) {
         return {
           "Content-Type": "application/json",
@@ -156,6 +152,33 @@ export default function AlloanProducts() {
       setLoading(false);
     }
   }
+
+  // ------- Loan Product Code List ---------
+  async function fetchLoanProductCodeList() {
+    setLoading(true);
+    try {
+      const headers = getAuthHeaders();
+      const res = await fetch(`${API_BASE}/common/loan-products/loan-product-code`, {
+        method: "GET",
+        headers,
+      });
+
+      if (!res.ok) throw new Error(`Failed to fetch loan product codes: ${res.status}`);
+
+      const json = await res.json();
+
+      const list = Array.isArray(json)
+        ? json
+        : json.data?.results || json.data || [];
+
+      setLoanProductCode(list);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
 
   const openAdd = () => {
     setForm({
@@ -388,7 +411,7 @@ export default function AlloanProducts() {
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
             <input
-              placeholder="Search by name, email, phone or status"
+              placeholder="Search by loan product name"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className="px-3 py-2 border rounded-md w-64 focus:outline-none focus:ring-1 focus:ring-blue-500
@@ -649,15 +672,15 @@ export default function AlloanProducts() {
                              dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
                 >
                   <option value="">No Loan Product Code (none)</option>
-                  {!LOAN_PRODUCT_CODES && (
+                  {!loanProductCode && (
                     <option value="" disabled>
                       Loading products...
                     </option>
                   )}
-                  {LOAN_PRODUCT_CODES &&
-                    LOAN_PRODUCT_CODES.map((p, i) => (
-                      <option key={i} value={p.value}>
-                        {p.label}
+                  {loanProductCode &&
+                    loanProductCode.map((p) => (
+                      <option key={p.id} value={p.code}>
+                        {p.code}
                       </option>
                     ))}
                 </select>

@@ -2,14 +2,6 @@
 import React, { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 
-type Broker = {
-  id: string;
-  name: string;
-  email?: string;
-  phone?: string;
-  status?: string;
-  createdAt?: string;
-};
 
 type Lender = {
   id: string;
@@ -17,14 +9,36 @@ type Lender = {
 };
 
 type RuleSet = {
-  lenderProductId: string;
+  lenderLoanProductId: string;
   name: string;
   description: string;
 }
 
+type RuleSetId = {
+  id: string,
+  lenderLoanProductId: string,
+  name: string,
+  description: string,
+  effectiveFrom: string,
+  effectiveTo: string,
+  isActive: boolean,
+  createdAt: string,
+  updatedAt: string
+}
+
+type Rule = {
+  ruleSetId: string,
+  fieldName: string,
+  comparisonOperator: string,
+  value: string,
+  severity: string,
+  message: string,
+  sortOrder: number
+}
+
 const comparisonOperators = ["GT", "GTE", "LT", "LTE", "EQ", "NEQ", "IN", "NOT_IN"];
 
-const severity = ["Hard Fail", "Soft Fail"];
+const severity = ["HARD_FAIL", "SOFT_FAIL"];
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001";
 
@@ -43,17 +57,35 @@ const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001";
 // }
 
 const BrokersLenders: React.FC = () => {
-  const [brokers] = useState<Broker[]>([]);
-  const [selectedBrokerId, setSelectedBrokerId] = useState<string>("");
   const [lenders, setLenders] = useState<Lender[]>([]);
   const [submitting, setSubmitting] = useState(false);
-  const [loadingBrokers] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [ruleFormError, setruleFormError] = useState<string | null>(null);
+  const [ruleSetId, setRuleSetId] = useState<RuleSetId[]>([{
+    id: "",
+    lenderLoanProductId: "",
+    name: "",
+    description: "",
+    effectiveFrom: "",
+    effectiveTo: "",
+    isActive: false,
+    createdAt: "",
+    updatedAt: ""
+  }])
   const [form, setForm] = useState<RuleSet>({
-    lenderProductId: "",
+    lenderLoanProductId: "",
     name: "",
     description: ""
   });
+  const [ruleForm, setRuleForm] = useState<Rule>({
+    ruleSetId: "",
+    fieldName: "",
+    comparisonOperator: "",
+    value: "",
+    severity: "",
+    message: "",
+    sortOrder: 0
+  })
 
   function getAuthHeaders(): Record<string, string> {
     try {
@@ -96,11 +128,36 @@ const BrokersLenders: React.FC = () => {
     }
   }
 
+  async function fetchRuleSetIds() {
+    // setLoading(true);
+    try {
+      const headers = getAuthHeaders();
+      const res = await fetch(`${API_BASE}/lender/eligibility-engine/rule-sets/all`, {
+        method: "GET",
+        headers,
+      });
+
+      if (!res.ok) throw new Error(`Failed to fetch rule set ids: ${res.status}`);
+
+      const json = await res.json();
+
+      const list = Array.isArray(json)
+        ? json
+        : json.data?.results || json.data || [];
+
+      setRuleSetId(list);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      // setLoading(false);
+    }
+  }
+
   // ===== Effects =====
 
   useEffect(() => {
     fetchLoanProducts();
-
+    fetchRuleSetIds();
   }, []);
 
   // ===== Handlers =====
@@ -109,7 +166,7 @@ const BrokersLenders: React.FC = () => {
     setFormError(null);
 
     if (
-      !form.lenderProductId ||
+      !form.lenderLoanProductId ||
       !form.name ||
       !form.description
     ) {
@@ -122,7 +179,7 @@ const BrokersLenders: React.FC = () => {
     setSubmitting(true);
     try {
       const payload: any = {
-        lenderProductId: form.lenderProductId,
+        lenderLoanProductId: form.lenderLoanProductId,
         name: form.name,
         description: form.description
       }
@@ -142,12 +199,83 @@ const BrokersLenders: React.FC = () => {
         return;
       } else {
         toast.success(json.message || "Rule set created successfully")
+        setForm({
+          lenderLoanProductId: "",
+          name: "",
+          description: ""
+        });
       }
 
       await fetchLoanProducts();
     } catch (err: any) {
       console.error(err);
       setFormError(err.message || "Network error");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleRuleSubmit = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    setruleFormError(null);
+
+    if (
+      !ruleForm.ruleSetId ||
+      !ruleForm.fieldName ||
+      !ruleForm.value ||
+      !ruleForm.comparisonOperator ||
+      !ruleForm.severity ||
+      !ruleForm.message ||
+      !ruleForm.sortOrder
+    ) {
+      setruleFormError(
+        "Please fill required fields."
+      );
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const payload: any = {
+        ruleSetId: ruleForm.ruleSetId,
+        fieldName: ruleForm.fieldName,
+        value: ruleForm.value,
+        comparisonOperator: ruleForm.comparisonOperator,
+        severity: ruleForm.severity,
+        message: ruleForm.message,
+        sortOrder: ruleForm.sortOrder,
+      }
+
+      const headers = getAuthHeaders();
+
+      const res = await fetch(`${API_BASE}/lender/eligibility-engine/rules`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(payload),
+      });
+
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(json.message || "Failed to create rule")
+        setruleFormError(json?.message || `Server returned ${res.status}`);
+        return;
+      } else {
+        toast.success(json.message || "Rule created successfully");
+        setRuleForm({
+          ruleSetId: "",
+          fieldName: "",
+          comparisonOperator: "",
+          value: "",
+          severity: "",
+          message: "",
+          sortOrder: 0
+        });
+      }
+
+      await fetchRuleSetIds();
+    } catch (err: any) {
+      console.error(err);
+      setruleFormError(err.message || "Network error");
     } finally {
       setSubmitting(false);
     }
@@ -185,9 +313,9 @@ const BrokersLenders: React.FC = () => {
           <select
             className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900
                        dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100 mb-2"
-            value={form.lenderProductId}
+            value={form.lenderLoanProductId}
             onChange={(e) =>
-              setForm((f) => ({ ...f, lenderProductId: e.target.value }))
+              setForm((f) => ({ ...f, lenderLoanProductId: e.target.value }))
             }
             disabled={submitting}
           >
@@ -259,7 +387,7 @@ const BrokersLenders: React.FC = () => {
         </form>
 
         {/* RIGHT CARD – Assign Lender Form */}
-        <form className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 dark:bg-slate-900 dark:border-slate-700">
+        <form onSubmit={handleRuleSubmit} className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 dark:bg-slate-900 dark:border-slate-700">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
             Lender Rule
           </h2>
@@ -268,27 +396,28 @@ const BrokersLenders: React.FC = () => {
           </p> */}
 
           <label className="block text-sm font-medium text-gray-700 dark:text-slate-200 mb-2">
-            Product Name
+            Rule Set Name
           </label>
           <select
             className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900
                        dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
-            value={selectedBrokerId}
-            onChange={(e) => setSelectedBrokerId(e.target.value)}
-            disabled={loadingBrokers}
+            value={ruleForm.ruleSetId}
+            onChange={(e) =>
+              setRuleForm((f) => ({ ...f, ruleSetId: e.target.value }))
+            }
+            disabled={submitting}
           >
-            {loadingBrokers && <option value="">Loading brokers...</option>}
-            {!loadingBrokers && brokers.length === 0 && (
-              <option value="">No brokers found</option>
+            {ruleSetId.length === 0 && (
+              <option value="">No rule set names found</option>
             )}
-            {!loadingBrokers && brokers.length > 0 && (
+            {ruleSetId.length > 0 && (
               <>
-                <option value="">Select a broker</option>
-                {brokers.map((broker) => (
-                  <option key={broker.id} value={broker.id}>
-                    {broker.name}
+                <option value="">Select a rule set name</option>
+                {ruleSetId.map((rule) => {
+                  return <option key={rule.id} value={rule.id}>
+                    {rule.name}
                   </option>
-                ))}
+                })}
               </>
             )}
           </select>
@@ -301,12 +430,12 @@ const BrokersLenders: React.FC = () => {
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900
                                         dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
               type="text"
-              // value={form.maxFiles}
-              // onChange={(e) =>
-              //   setForm((f) => ({ ...f, maxFiles: Number(e.target.value) }))
-              // }
+              value={ruleForm.fieldName}
+              onChange={(e) =>
+                setRuleForm((f) => ({ ...f, fieldName: e.target.value }))
+              }
               placeholder="Enter field name"
-            // disabled={saving}
+              disabled={submitting}
             />
           </div>
 
@@ -318,12 +447,12 @@ const BrokersLenders: React.FC = () => {
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900
                                         dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
               type="number"
-              // value={form.maxFiles}
-              // onChange={(e) =>
-              //   setForm((f) => ({ ...f, maxFiles: Number(e.target.value) }))
-              // }
+              value={ruleForm.value}
+              onChange={(e) =>
+                setRuleForm((f) => ({ ...f, value: e.target.value }))
+              }
               placeholder="Enter Value"
-            // disabled={saving}
+              disabled={submitting}
             />
           </div>
 
@@ -333,9 +462,11 @@ const BrokersLenders: React.FC = () => {
           <select
             className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900
                        dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
-            value={selectedBrokerId}
-            onChange={(e) => setSelectedBrokerId(e.target.value)}
-            disabled={loadingBrokers}
+            value={ruleForm.severity}
+            onChange={(e) =>
+              setRuleForm((f) => ({ ...f, severity: e.target.value }))
+            }
+            disabled={submitting}
           >
             {severity.length > 0 && (
               <>
@@ -355,9 +486,11 @@ const BrokersLenders: React.FC = () => {
           <select
             className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900
                        dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
-            value={selectedBrokerId}
-            onChange={(e) => setSelectedBrokerId(e.target.value)}
-            disabled={loadingBrokers}
+            value={ruleForm.comparisonOperator}
+            onChange={(e) =>
+              setRuleForm((f) => ({ ...f, comparisonOperator: e.target.value }))
+            }
+            disabled={submitting}
           >
             {comparisonOperators.length > 0 && (
               <>
@@ -378,10 +511,10 @@ const BrokersLenders: React.FC = () => {
             <textarea
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900
                                         dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
-              value={form.description}
-              // onChange={(e) =>
-              //   setForm((f) => ({ ...f, description: e.target.value }))
-              // }
+              value={ruleForm.message}
+              onChange={(e) =>
+                setRuleForm((f) => ({ ...f, message: e.target.value }))
+              }
               rows={2}
               disabled={submitting}
             />
@@ -395,20 +528,25 @@ const BrokersLenders: React.FC = () => {
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900
                                         dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
               type="number"
-              // value={form.maxFiles}
-              // onChange={(e) =>
-              //   setForm((f) => ({ ...f, maxFiles: Number(e.target.value) }))
-              // }
+              value={ruleForm.sortOrder}
+              onChange={(e) =>
+                setRuleForm((f) => ({ ...f, sortOrder: Number(e.target.value) }))
+              }
               placeholder="Enter sort order"
-            // disabled={saving}
+              disabled={submitting}
             />
           </div>
+
+          {ruleFormError && (
+            <div className="text-sm text-red-600 col-span-2">
+              {ruleFormError}
+            </div>
+          )}
 
           <div className="flex items-center justify-between gap-3 pt-1 mt-2">
             <button
               disabled={submitting}
               type="submit"
-              // disabled={saving}
               className="inline-flex items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed
                            dark:bg-blue-500 dark:hover:bg-blue-600"
             >Create Rule</button>
