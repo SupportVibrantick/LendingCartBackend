@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { MdDelete } from "react-icons/md";
 
 /* ================= TYPES ================= */
@@ -63,8 +63,8 @@ export default function AllLeads() {
   const [rowLoadingId, setRowLoadingId] = useState<string | null>(null);
 
   const [query, setQuery] = useState("");
-  const [pageSize, setPageSize] = useState(10);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize] = useState(10);
+  const [currentPage] = useState(1);
 
   /* ================= FETCH ================= */
 
@@ -105,9 +105,6 @@ export default function AllLeads() {
     );
   }, [leads, query]);
 
-  const total = filtered.length;
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-
   const paginated = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
     return filtered.slice(start, start + pageSize);
@@ -127,8 +124,10 @@ export default function AllLeads() {
         }
       );
 
-      setLeads((prev) => prev.map((l) => (l.id === id ? { ...l, status } : l)));
-    } catch (err) {
+      setLeads((prev) =>
+        prev.map((l) => (l.id === id ? { ...l, status } : l))
+      );
+    } catch {
       alert("Failed to update status");
     } finally {
       setRowLoadingId(null);
@@ -146,7 +145,7 @@ export default function AllLeads() {
       });
 
       setLeads((prev) => prev.filter((l) => l.id !== id));
-    } catch (err) {
+    } catch {
       alert("Failed to delete lead");
     } finally {
       setRowLoadingId(null);
