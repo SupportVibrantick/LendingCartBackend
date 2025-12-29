@@ -2,7 +2,7 @@
 
 const createRuleSetRoutes = require("./createRuleSet");
 const listRuleSetsRoutes = require("./listRuleSets");
-
+const listAllRuleSetsRoutes = require("./listAllRuleSets");
 const createRuleRoutes = require("./createRule");
 const listRulesRoutes = require("./listRules");
 const updateRuleRoutes = require("./updateRule");
@@ -17,7 +17,9 @@ async function lenderEligibilityRoutes(fastify) {
   // -------------------------
   fastify.register(createRuleSetRoutes, { prefix: "/rule-sets" });
   fastify.register(listRuleSetsRoutes, { prefix: "/rule-sets" });
-
+ fastify.register(listAllRuleSetsRoutes, {
+    prefix: "/rule-sets",
+  });
   // // -------------------------
   // // Individual Rules
   // // -------------------------
