@@ -18,10 +18,10 @@ import {
 import { useSidebar } from "../context/SidebarContext";
 // import GroupOutlinedIcon from '@mui/icons-material/GroupOutlined';
 import GroupsOutlinedIcon from '@mui/icons-material/GroupsOutlined';
-import AccountBalanceOutlinedIcon from '@mui/icons-material/AccountBalanceOutlined';
-import AdminPanelSettingsOutlinedIcon from '@mui/icons-material/AdminPanelSettingsOutlined';
+// import AccountBalanceOutlinedIcon from '@mui/icons-material/AccountBalanceOutlined';
+// import AdminPanelSettingsOutlinedIcon from '@mui/icons-material/AdminPanelSettingsOutlined';
 import CurrencyExchangeOutlinedIcon from '@mui/icons-material/CurrencyExchangeOutlined';
-import { PiSecurityCameraFill } from "react-icons/pi";
+// import { PiSecurityCameraFill } from "react-icons/pi";
 import { GrDocumentText } from "react-icons/gr";
 
 type NavItem = {
@@ -39,39 +39,40 @@ const navItems: NavItem[] = [
   },
   {
     icon: <GroupsOutlinedIcon />,
-    name: "Organisations",
-    subItems: [{ name: "Brokers Organisation", path: "/all-brokers-organisation" }, { name: "Broker Assigned Lenders", path: "/all-brokers-lenders" }]
+    name: "Eligibility Engine",
+    subItems: [{ name: "All Set Rules", path: "/all-set-rules" }, { name: "All Rules", path: "/all-rules" },{ name: "Eligibility Rules", path: "/all-brokers-lenders" }]
   },
   // {
   //   icon: <GroupOutlinedIcon />,
   //   name: "Manage User",
   //   subItems: [{ name: "Add User", path: "/add-user" },{ name: "All User", path: "/all-user" }],
   // },
-  {
-    icon: <AccountBalanceOutlinedIcon />,
-    name: "Manage Lenders",
-    subItems: [{ name: "Lender's Organisation", path: "/all-lenders-organisation" }],
-  },
+  // {
+  //   icon: <AccountBalanceOutlinedIcon />,
+  //   name: "Manage Lenders",
+  //   subItems: [{ name: "Lender's Organisation", path: "/all-lenders-organisation" }],
+  // },
   {
     icon: <CurrencyExchangeOutlinedIcon />,
     name: "Loan Products",
-    subItems: [{ name: "All Loan Products", path: "/all-loan-products" }, { name: "Lender Assigned Products", path: "/lender-assigned-products" }, { name: "Assigned Products", path: "/assigned-products" }],
+    // subItems: [{ name: "All Loan Products", path: "/all-loan-products" }, { name: "Lender Assigned Products", path: "/lender-assigned-products" }, { name: "Assigned Products", path: "/assigned-products" }],
+    subItems: [{ name: "All Loan Products", path: "/all-loan-products" }],
   },
   {
     icon: <GrDocumentText />,
     name: "Document Type",
     subItems: [{ name: "All Documents", path: "/all-documents" }],
   },
-  {
-    icon: <AdminPanelSettingsOutlinedIcon />,
-    name: "Admin Users",
-    subItems: [{ name: "All Admins", path: "/all-super-admins" }],
-  },
-  {
-    icon: <PiSecurityCameraFill />,
-    name: "Dashboard Logs",
-    path: "/admin-logs"
-  },
+  // {
+  //   icon: <AdminPanelSettingsOutlinedIcon />,
+  //   name: "Admin Users",
+  //   subItems: [{ name: "All Admins", path: "/all-super-admins" }],
+  // },
+  // {
+  //   icon: <PiSecurityCameraFill />,
+  //   name: "Dashboard Logs",
+  //   path: "/admin-logs"
+  // },
   // {
   //   icon: <CalenderIcon />,
   //   name: "Calendar",
