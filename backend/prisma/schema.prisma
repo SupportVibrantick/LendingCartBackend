@@ -613,6 +613,55 @@ model AuditLog {
   @@map("audit_logs")
 }
 
+model CommercialLendingMasteryLead {
+  id        String     @id @default(uuid()) @db.Uuid
+  firstName String?
+  lastName  String?
+  email     String
+  phone     String?
+  source    String     @default("commerciallendingmastery")
+  status    LeadStatus @default(NEW)
+  campaign  String?
+  metadata  Json?
+  createdAt DateTime   @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime   @updatedAt @db.Timestamptz(6)
+
+  @@index([email], map: "commercial_lending_mastery_leads_email_idx")
+  @@index([source], map: "commercial_lending_mastery_leads_source_idx")
+  @@index([status], map: "commercial_lending_mastery_leads_status_idx")
+  @@map("commercial_lending_mastery_leads")
+}
+
+model ClmLandingPageLead {
+  id        String     @id @default(uuid()) @db.Uuid
+  firstName String?
+  lastName  String?
+  email     String
+  phone     String?
+  source    String     @default("clmlandingpage")
+  status    LeadStatus @default(NEW)
+  campaign  String?
+  metadata  Json?
+  createdAt DateTime   @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime   @updatedAt @db.Timestamptz(6)
+
+  @@index([email], map: "clm_landing_page_leads_email_idx")
+  @@index([source], map: "clm_landing_page_leads_source_idx")
+  @@index([status], map: "clm_landing_page_leads_status_idx")
+  @@map("clm_landing_page_leads")
+}
+
+
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  NOT_INTERESTED
+  CONVERTED
+}
+
+
 enum OrganizationType {
   PLATFORM
   BROKER
