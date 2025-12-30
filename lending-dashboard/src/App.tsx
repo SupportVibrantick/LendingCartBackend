@@ -23,7 +23,7 @@ import AllUsers from "./pages/ManageUser/AllUser";
 import ToastProvider from "./Utils/ToastProvider/ToastProvider";
 // import BrokersPage from "./pages/Eligibility Engine/AllBrokers";
 import AllRuleSets from "./pages/Eligibility Engine/AllRuleSets";
-// import AllRules from "./pages/Eligibility Engine/AllRules";
+import AllRules from "./pages/Eligibility Engine/AllRules";
 import RequireAuth from "./components/auth/RequireAuth";
 // import AllLendersPage from "./pages/Lenders/AllLenders";
 import BrokersLenders from "./pages/Eligibility Engine/CreateRule";
@@ -33,6 +33,9 @@ import AllDocuments from "./pages/Documents/AllDocuments";
 import AllSuperadmin from "./pages/SuperAdmin/AllSuperAdmin";
 import LenderProductAssign from "./pages/LoanProducts/LenderAssignProduct";
 import AssignedProducts from "./pages/LoanProducts/AssignedProducts";
+import MyBroker from "./pages/Brokers/MyBroker";
+import FindBroker from "./pages/Brokers/FindBroker";
+import BrokerRequest from "./pages/Brokers/BrokerRequest";
 
 
 export default function App() {
@@ -41,33 +44,38 @@ export default function App() {
       <Router>
         <ScrollToTop />
         <ToastProvider />
-         <Routes>
-        {/* Dashboard Layout - protected */}
-        <Route
-          element={
-            <RequireAuth>
-              <AppLayout />
-            </RequireAuth>
-          }
-        >
+        <Routes>
+          {/* Dashboard Layout - protected */}
+          <Route
+            element={
+              <RequireAuth>
+                <AppLayout />
+              </RequireAuth>
+            }
+          >
             <Route index path="/" element={<Home />} />
 
             <Route index path="/add-user" element={<AddUser />} />
             <Route index path="/all-user" element={<AllUsers />} />
 
             {/* <Route index path="/all-brokers-organisation" element={<BrokersPage />} /> */}
-            <Route index path="/all-brokers-lenders" element={<BrokersLenders/>} />
-            <Route index path="/all-set-rules" element={<AllRuleSets/>} />
-            {/* <Route index path="/all-rules" element={<AllRules/>} /> */}
+            <Route index path="/all-brokers-lenders" element={<BrokersLenders />} />
+            <Route index path="/all-set-rules" element={<AllRuleSets />} />
+            <Route index path="/all-rules" element={<AllRules />} />
             {/* <Route index path="/all-lenders-organisation" element={<AllLendersPage/>} /> */}
-            <Route index path="/all-loan-products" element={<AllLoanProducts/>} />
-            <Route index path="/lender-assigned-products" element={<LenderProductAssign/>} />
-            <Route index path="/assigned-products" element={<AssignedProducts/>} />
-            <Route index path="/all-super-admins" element={<AllSuperadmin/>} />
+            <Route index path="/all-loan-products" element={<AllLoanProducts />} />
+            <Route index path="/lender-assigned-products" element={<LenderProductAssign />} />
+            <Route index path="/assigned-products" element={<AssignedProducts />} />
+            <Route index path="/all-super-admins" element={<AllSuperadmin />} />
 
-            <Route index path="/all-documents" element={<AllDocuments/>} />
+            <Route index path="/all-documents" element={<AllDocuments />} />
 
-            <Route index path="/admin-logs" element={<AdminLogs/>} />
+            <Route index path="/admin-logs" element={<AdminLogs />} />
+
+            {/* Brokers */}
+            <Route index path="/my-broker" element={<MyBroker />} />
+            <Route index path="/broker-request" element={<BrokerRequest />} />
+            <Route index path="/find-broker" element={<FindBroker />} />
 
             {/* Others Page */}
             <Route path="/profile" element={<UserProfiles />} />
