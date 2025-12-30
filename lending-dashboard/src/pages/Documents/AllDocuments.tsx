@@ -362,7 +362,7 @@ const AllLoanProducts: React.FC = () => {
                         {/* Product Ids */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-slate-200 mb-1">
-                                Select Lender Product Name
+                                Select Loan Product
                             </label>
                             <select
                                 className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900
@@ -373,7 +373,7 @@ const AllLoanProducts: React.FC = () => {
                                 }
                                 disabled={!!editingProductId || saving}
                             >
-                                <option value="">Select a lender name</option>
+                                <option value="">Select a loan product</option>
                                 {lenders.map((opt) => (
                                     <option key={opt.id} value={opt.id}>
                                         {opt.loanProductCode}
