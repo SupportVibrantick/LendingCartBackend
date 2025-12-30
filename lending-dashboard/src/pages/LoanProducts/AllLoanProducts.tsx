@@ -296,7 +296,7 @@ export default function AlloanProducts() {
     setEditingLender(null);
 
     try {
-      const token = sessionStorage.getItem("lending_token");
+      const token = sessionStorage.getItem("lender_token");
       const res = await fetch(`${API_BASE}/lender/loan-products/update/${updated.id}`, {
         method: "PUT",
         headers: {
@@ -342,7 +342,7 @@ export default function AlloanProducts() {
     setRowLoadingId(loan.id);
 
     try {
-      const token = sessionStorage.getItem("lending_token");
+      const token = sessionStorage.getItem("lender_token");
 
       const res = await fetch(
         `${API_BASE}/lender/loan-products/status/${loan.id}`,

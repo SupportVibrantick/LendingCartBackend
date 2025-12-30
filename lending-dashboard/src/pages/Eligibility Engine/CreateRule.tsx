@@ -89,7 +89,7 @@ const BrokersLenders: React.FC = () => {
 
   function getAuthHeaders(): Record<string, string> {
     try {
-      const token = sessionStorage.getItem("lending_token");
+      const token = sessionStorage.getItem("lender_token");
       if (token) {
         return {
           "Content-Type": "application/json",
