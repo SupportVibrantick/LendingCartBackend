@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { MdModeEdit } from "react-icons/md";
 import EditRuleSetModal from "./EditRuleSetModal"; // adjust path if needed
 import toast from "react-hot-toast";
@@ -58,6 +58,7 @@ export default function AllRuleSets() {
     const [selectedLenderProductId, setSelectedLenderProductId] = useState<string>("");
     const [lenders, setLenders] = useState<LoanProductList[]>([]);
     const [loading, setLoading] = useState(false);
+    const [currentPage, setCurrentPage] = useState<number>(1);
     // const [rowLoadingId, setRowLoadingId] = useState<string | null>(null);
 
     // const [isAddOpen, setIsAddOpen] = useState(false);
@@ -84,9 +85,9 @@ export default function AllRuleSets() {
 
     const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001";
 
-    // useEffect(() => {
-    //     setCurrentPage(1);
-    // }, [query, pageSize]);
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [query, pageSize]);
 
     function getAuthHeaders(): Record<string, string> {
         try {
@@ -168,37 +169,23 @@ export default function AllRuleSets() {
         fetchLoanProducts();
     }, []);
 
-    // async function fetchBrokers() {
-    //     setLoading(true);
-    //     try {
-    //         const headers = getAuthHeaders();
-    //         const res = await fetch(`${API_BASE}/admin/brokers/read/`, {
-    //             method: "GET",
-    //             headers,
-    //         });
+    const filteredRules = useMemo(() => {
+        const q = query.trim().toLowerCase();
 
-    //         if (!res.ok) throw new Error(`Failed to fetch brokers: ${res.status}`);
+        if (!q) return rules;
 
-    //         const json = await res.json();
-    //         const list = Array.isArray(json) ? json : json.data || [];
+        return rules.filter((r) =>
+            r.name.toLowerCase().includes(q)
+        );
+    }, [rules, query]);
 
-    //         const normalized: Broker[] = list.map((o: any) => ({
-    //             id: String(o.id),
-    //             name: o.name ?? "",
-    //             email: o.email ?? "",
-    //             phone: o.phone ?? "",
-    //             status: o.status ?? "UNKNOWN",
-    //             createdAt: o.createdAt ?? null,
-    //         }));
+    const totalItems = filteredRules.length;
+    const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
 
-    //         setBrokers(normalized);
-    //     } catch (err: any) {
-    //         console.error(err);
-    //     } finally {
-    //         setLoading(false);
-    //     }
-    // }
-
+    const paginatedRules = useMemo(() => {
+        const start = (currentPage - 1) * pageSize;
+        return filteredRules.slice(start, start + pageSize);
+    }, [filteredRules, currentPage, pageSize]);
     // const openAdd = () => {
     //     setForm({
     //         organizationName: "",
@@ -377,7 +364,7 @@ export default function AllRuleSets() {
                             ))}
                         </select>
                         <input
-                            placeholder="Search by name, email, phone or status"
+                            placeholder="Search by name"
                             value={query}
                             onChange={(e) => setQuery(e.target.value)}
                             className="flex-1 px-3 py-2 border rounded-md text-sm sm:text-base
@@ -412,9 +399,11 @@ export default function AllRuleSets() {
                     <div className="py-6 text-center text-gray-500">
                         Loading rule sets...
                     </div>
-                ) : rules.length === 0 ? (
+                ) : paginatedRules.length === 0 ? (
                     <div className="py-6 text-center text-gray-500">
-                        Please select a product.
+                        {query
+                            ? "No rule sets found for your search."
+                            : "Please select a product."}
                     </div>
                 ) : (
                     <table className="min-w-full text-sm">
@@ -430,7 +419,7 @@ export default function AllRuleSets() {
                             </tr>
                         </thead>
                         <tbody>
-                            {rules.map((r) => (
+                            {paginatedRules.map((r) => (
                                 <tr key={r.id} className="border-b last:border-0">
                                     <td className="py-3">{r.name}</td>
                                     <td className="py-3 text-gray-600">
@@ -477,6 +466,41 @@ export default function AllRuleSets() {
                 )}
             </div>
 
+            {totalPages > 1 && (
+                <div className="flex justify-end items-center gap-2 mt-4">
+                    <button
+                        onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                        className="px-3 py-1 border rounded disabled:opacity-40"
+                    >
+                        Prev
+                    </button>
+
+                    {Array.from({ length: totalPages }).map((_, i) => {
+                        const page = i + 1;
+                        return (
+                            <button
+                                key={page}
+                                onClick={() => setCurrentPage(page)}
+                                className={`px-3 py-1 border rounded ${page === currentPage
+                                    ? "bg-blue-600 text-white"
+                                    : "bg-white text-gray-700"
+                                    }`}
+                            >
+                                {page}
+                            </button>
+                        );
+                    })}
+
+                    <button
+                        onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                        disabled={currentPage === totalPages}
+                        className="px-3 py-1 border rounded disabled:opacity-40"
+                    >
+                        Next
+                    </button>
+                </div>
+            )}
 
 
             {/* Edit Rule set Modal */}
