@@ -91,7 +91,7 @@ export default function AllRuleSets() {
 
     function getAuthHeaders(): Record<string, string> {
         try {
-            const token = sessionStorage.getItem("lending_token");
+            const token = sessionStorage.getItem("lender_token");
             if (token) {
                 return {
                     "Content-Type": "application/json",
@@ -422,7 +422,7 @@ export default function AllRuleSets() {
                             {paginatedRules.map((r) => (
                                 <tr key={r.id} className="border-b last:border-0">
                                     <td className="py-3">{r.name}</td>
-                                    <td className="py-3 text-gray-600">
+                                    <td className="py-3">
                                         {r.description || "-"}
                                     </td>
                                     <td className="py-3">
@@ -435,14 +435,14 @@ export default function AllRuleSets() {
                                             {r.isActive ? "ACTIVE" : "INACTIVE"}
                                         </span>
                                     </td>
-                                    <td className="py-3 text-gray-600">
+                                    <td className="py-3">
                                         {formatDate(r.effectiveFrom)}
                                     </td>
 
-                                    <td className="py-3 text-gray-600">
+                                    <td className="py-3">
                                         {formatDate(r.effectiveTo)}
                                     </td>
-                                    <td className="py-3 text-gray-600">
+                                    <td className="py-3">
                                         {new Date(r.createdAt).toLocaleDateString()}
                                     </td>
                                     <td className="py-3 pr-4">

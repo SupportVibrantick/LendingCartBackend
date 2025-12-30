@@ -23,6 +23,7 @@ import GroupsOutlinedIcon from '@mui/icons-material/GroupsOutlined';
 import CurrencyExchangeOutlinedIcon from '@mui/icons-material/CurrencyExchangeOutlined';
 // import { PiSecurityCameraFill } from "react-icons/pi";
 import { GrDocumentText } from "react-icons/gr";
+import { FaPersonCirclePlus } from "react-icons/fa6";
 
 type NavItem = {
   name: string;
@@ -63,6 +64,13 @@ const navItems: NavItem[] = [
     name: "Document Type",
     subItems: [{ name: "All Documents", path: "/all-documents" }],
   },
+
+  {
+    icon: <FaPersonCirclePlus />,
+    name: "Broker",
+    subItems: [{ name: "My Broker", path: "/my-broker" }, { name: "Broker Request", path: "/broker-request" }, { name: "Find Broker", path: "/find-broker" }],
+  },
+
   // {
   //   icon: <AdminPanelSettingsOutlinedIcon />,
   //   name: "Admin Users",
