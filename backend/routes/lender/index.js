@@ -3,6 +3,7 @@ const authRoutes = require("./auth");
 const loanProductRoutes = require("./loanProduct");
 const documentConfigRoutes = require("./documentConfig");
 const eligibilityRoutes = require("./eligibility");
+const brokerRoutes = require("./broker");
 // const brokerRoutes = require("./broker");
 // const commonRoutes = require("./common");
 
@@ -55,6 +56,10 @@ module.exports = async function lenderRoutes(fastify, opts) {
 
     instance.register(eligibilityRoutes,{
       prefix: "/eligibility-engine",
+    });
+
+    instance.register(brokerRoutes, {
+      prefix: "/brokers",
     });
 
     // Later:
