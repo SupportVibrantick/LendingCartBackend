@@ -1,9 +1,8 @@
 // backend/routes/admin/adminUsers/create.js
 const fp = require('fastify-plugin');
-const { PrismaClient } = require('@prisma/client');
+
 const bcrypt = require('bcrypt');
 
-const prisma = new PrismaClient();
 const { createAdminUserSchema } = require('../../../schemas/admin/adminUsers/create.schema.js');
 const { assignRoleToUser } = require('../../../services/fgaService.js');
 const { adminLogs } = require('../../../services/logger/contextLogger.js');
@@ -14,7 +13,7 @@ module.exports = fp(async function createAdminUserRoutes(fastify) {
     preHandler: [fastify.authenticate, fastify.verifySuperAdmin],
   }, 
   async (request, reply) => {
-
+const prisma = fastify.prisma;
     const parsed = createAdminUserSchema.safeParse(request.body);
     if (!parsed.success) {
       return reply.code(400).send({ message: "Validation failed", errors: parsed.error.flatten() });

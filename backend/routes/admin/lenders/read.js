@@ -1,6 +1,4 @@
 // routes/admin/lenders/read.js
-const { PrismaClient } = require("@prisma/client");
-const prisma = new PrismaClient();
 const { adminLogs } = require("../../../services/logger/contextLogger.js");
 
 /**
@@ -33,6 +31,7 @@ async function readLendersRoutes(fastify) {
       },
     },
     async (request, reply) => {
+      const prisma = fastify.prisma;
       try {
         const page = Math.max(1, parseInt(request.query.page || "1", 10));
         const limit = Math.min(100, Math.max(1, parseInt(request.query.limit || "20", 10)));

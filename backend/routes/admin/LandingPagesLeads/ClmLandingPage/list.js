@@ -1,8 +1,6 @@
-const { PrismaClient } = require("@prisma/client");
-const prisma = new PrismaClient();
-
 module.exports = async function (fastify) {
   fastify.get("/", async (req, reply) => {
+    const prisma = fastify.prisma;
     const { page = 1, limit = 20, status } = req.query;
 
     const skip = (page - 1) * limit;

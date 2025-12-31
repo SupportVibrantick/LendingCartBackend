@@ -2,8 +2,6 @@
 const { loginSchema } = require("../../../schemas/admin/login/login.schema.js");
 const { getUserRolesFromFGA } = require("../../../services/fgaService.js");
 const jwt = require("jsonwebtoken");
-const { PrismaClient } = require("@prisma/client");
-const prisma = new PrismaClient();
 // const prisma = require("../config/prisma.js");
 const { comparePassword } = require("../../../utils/password.js");
 
@@ -27,6 +25,7 @@ module.exports = async function adminLoginRoute(fastify, opts) {
       },
     },
     async (request, reply) => {
+      const prisma = fastify.prisma;
       try {
         const validationResult = loginSchema.safeParse(request.body);
 

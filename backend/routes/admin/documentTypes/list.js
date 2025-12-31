@@ -1,6 +1,3 @@
-const { PrismaClient } = require("@prisma/client");
-const prisma = new PrismaClient();
-
 /**
  * @param {import("fastify").FastifyInstance} fastify
  */
@@ -14,6 +11,7 @@ async function listDocumentTypesRoutes(fastify) {
       },
     },
     async (req, reply) => {
+      const prisma = fastify.prisma;
       try {
         const {
           page = 1,

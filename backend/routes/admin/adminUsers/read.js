@@ -1,9 +1,9 @@
 // backend/routes/admin/adminUsers/read.js
 const fp = require("fastify-plugin");
-const { PrismaClient } = require("@prisma/client");
+
 const { getUserRolesFromFGA } = require("../../../services/fgaService");
 
-const prisma = new PrismaClient();
+
 
 module.exports = fp(async function adminUserReadRoutes(fastify) {
 
@@ -15,6 +15,7 @@ module.exports = fp(async function adminUserReadRoutes(fastify) {
     preHandler: [fastify.authenticate, fastify.verifySuperAdmin],
   }, 
   async (req, reply) => {
+    const prisma = fastify.prisma;
     try {
       const users = await prisma.userAccount.findMany({
         where: { status: "ACTIVE" },

@@ -1,5 +1,3 @@
-const { PrismaClient } = require("@prisma/client");
-const prisma = new PrismaClient();
 const { adminLogs } = require("../../../services/logger/contextLogger.js");
 const { createLoanProductSchema } = require("../../../schemas/admin/loanProducts/create.schema.js");
 
@@ -17,6 +15,7 @@ async function createLoanProduct(fastify) {
       }
     },
     async (req, reply) => {
+      const prisma = fastify.prisma;
       try {
         const validation = createLoanProductSchema.safeParse(req.body);
         if (!validation.success) {

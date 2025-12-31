@@ -43,6 +43,7 @@ model UserAccount {
   firstName                  String?
   lastName                   String?
   phone                      String?
+  profileImage               String?                     @map("profile_image")
   status                     UserStatus                  @default(ACTIVE)
   lastLoginAt                DateTime?                   @db.Timestamptz(6)
   createdAt                  DateTime                    @default(now()) @db.Timestamptz(6)

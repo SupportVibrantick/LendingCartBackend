@@ -1,6 +1,3 @@
-const { PrismaClient } = require("@prisma/client");
-const prisma = new PrismaClient();
-
 async function listLoanProducts(fastify) {
   fastify.get(
     "/",
@@ -11,6 +8,7 @@ async function listLoanProducts(fastify) {
       }
     },
     async (_, reply)=>{
+      const prisma = fastify.prisma;
       const products = await prisma.loanProduct.findMany({
         orderBy:{ createdAt:"desc" }
       });

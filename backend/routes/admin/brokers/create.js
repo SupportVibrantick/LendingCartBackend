@@ -1,5 +1,3 @@
-const { PrismaClient } = require("@prisma/client");
-const prisma = new PrismaClient();
 const { adminLogs } = require("../../../services/logger/contextLogger.js");
 const {
   createBrokerSchema,
@@ -26,6 +24,7 @@ async function createBrokerRoutes(fastify) {
       },
     },
     async (request, reply) => {
+      const prisma = fastify.prisma;
       try {
         const validation = createBrokerSchema.safeParse(request.body);
 
