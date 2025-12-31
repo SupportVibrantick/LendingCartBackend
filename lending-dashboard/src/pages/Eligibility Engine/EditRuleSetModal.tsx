@@ -42,13 +42,18 @@ export default function EditBrokerModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  function toDateInputValue(value?: string | null) {
+    if (!value) return "";
+    return value.split("T")[0]; // YYYY-MM-DD
+  }
+
   useEffect(() => {
     if (ruleSet) {
       setForm({
         name: ruleSet.name ?? "",
         description: ruleSet.description ?? "",
-        effectiveFrom: ruleSet.effectiveFrom ?? null,
-        effectiveTo: ruleSet.effectiveTo ?? null,
+        effectiveFrom: toDateInputValue(ruleSet.effectiveFrom),
+        effectiveTo: toDateInputValue(ruleSet.effectiveTo),
       });
       setError(null);
     }
@@ -71,8 +76,12 @@ export default function EditBrokerModal({
         ...ruleSet,
         name: form.name.trim(),
         description: form.description.trim(),
-        effectiveFrom: form.effectiveFrom || null,
-        effectiveTo: form.effectiveTo || null,
+        effectiveFrom: form.effectiveFrom
+          ? new Date(form.effectiveFrom).toISOString()
+          : null,
+        effectiveTo: form.effectiveTo
+          ? new Date(form.effectiveTo).toISOString()
+          : null,
       };
 
       await new Promise((r) => setTimeout(r, 300)); // optional UX delay
@@ -87,7 +96,7 @@ export default function EditBrokerModal({
 
   return (
     <div className="fixed inset-0 z-[500000] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-lg dark:bg-slate-900">
+      <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-lg dark:bg-slate-900 dark:border dark:border-slate-700">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
             Edit Rule Set

@@ -290,9 +290,9 @@ export default function AllRuleSets() {
 
     const handleEditSave = async (updated: RuleSet): Promise<void> => {
         // 🔹 optimistic UI update
-        setRules((prev) =>
-            prev.map((r) => (r.id === updated.id ? updated : r))
-        );
+        // setRules((prev) =>
+        //     prev.map((r) => (r.id === updated.id ? updated : r))
+        // );
 
         setEditingRuleSet(null);
         try {
@@ -317,8 +317,9 @@ export default function AllRuleSets() {
                 toast.error("Failed to update rule set");
             }
 
+
             // 🔹 sync with server response (optional but best)
-            if (json.data) {
+            if (json.success) {
                 setRules((prev) =>
                     prev.map((r) => (r.id === updated.id ? json.data : r))
                 );
@@ -400,10 +401,38 @@ export default function AllRuleSets() {
                         Loading rule sets...
                     </div>
                 ) : paginatedRules.length === 0 ? (
-                    <div className="py-6 text-center text-gray-500">
-                        {query
-                            ? "No rule sets found for your search."
-                            : "Please select a product."}
+                    <div
+                        className="py-10 flex flex-col items-center justify-center text-center
+               rounded-lg border border-dashed
+               border-gray-300 bg-gray-50
+               dark:border-slate-700 dark:bg-slate-800/40"
+                    >
+                        {/* Icon */}
+                        <div className="mb-3 text-3xl">
+                            {query ? "🔍" : "📌"}
+                        </div>
+
+                        {/* Main Message */}
+                        <p className="text-sm sm:text-base font-medium text-gray-700 dark:text-slate-200">
+                            {query ? (
+                                <>
+                                    No <span className="font-semibold">rule sets</span> matched your
+                                    <span className="font-semibold text-gray-900 dark:text-white"> search</span>.
+                                </>
+                            ) : (
+                                <>
+                                    Please <span className="text-blue-600 font-semibold">select a loan product</span>
+                                    {" "}to view rule sets.
+                                </>
+                            )}
+                        </p>
+
+                        {/* Helper Text */}
+                        <p className="mt-1 text-xs text-gray-500 dark:text-slate-400">
+                            {query
+                                ? "Try changing or clearing the search keyword."
+                                : "Choose a product from the dropdown above."}
+                        </p>
                     </div>
                 ) : (
                     <table className="min-w-full text-sm">
