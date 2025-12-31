@@ -691,7 +691,7 @@ export default function AlloanProducts() {
                 </span>
                 <input
                   type="number"
-                  value={form.minLoanAmount}
+                  // value={form.minLoanAmount}
                   min={0}
                   max={form.maxLoanAmount || undefined}
                   required
@@ -712,7 +712,7 @@ export default function AlloanProducts() {
                   type="number"
                   min={form.minLoanAmount || 0}
                   required
-                  value={form.maxLoanAmount}
+                  // value={form.maxLoanAmount}
                   onChange={(e) =>
                     setForm({ ...form, maxLoanAmount: Number(e.target.value) })
                   }
@@ -731,7 +731,7 @@ export default function AlloanProducts() {
                   min={0}
                   max={form.maxTermMonths || undefined}
                   required
-                  value={form.minTermMonths}
+                  // value={form.minTermMonths}
                   onChange={(e) =>
                     setForm({ ...form, minTermMonths: Number(e.target.value) })
                   }
@@ -749,7 +749,7 @@ export default function AlloanProducts() {
                   type="number"
                   min={form.minTermMonths || 0}
                   required
-                  value={form.maxTermMonths}
+                  // value={form.maxTermMonths}
                   onChange={(e) =>
                     setForm({ ...form, maxTermMonths: Number(e.target.value) })
                   }
@@ -760,7 +760,7 @@ export default function AlloanProducts() {
               </label>
 
               <div>
-                <label className="block text-sm text-gray-700">Regions Supported</label>
+                <label className="block text-sm text-gray-700 dark:text-slate-200">Regions Supported</label>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {["CA", "TX", "FL", "NY", "NJ"].map((r) => (
                     <button type="button" key={r} onClick={() => toggleChip("regionsSupported", r)} className={`px-3 py-1 rounded-full border ${form.regionsSupported.includes(r) ? "bg-blue-600 text-white" : "bg-white text-gray-700"}`}>
@@ -771,7 +771,7 @@ export default function AlloanProducts() {
               </div>
 
               <div>
-                <label className="block text-sm text-gray-700">Industries Supported</label>
+                <label className="block text-sm text-gray-700 dark:text-slate-200">Industries Supported</label>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {["Real Estate", "Hospitality"].map((r) => (
                     <button type="button" key={r} onClick={() => toggleChip("industriesSupported", r)} className={`px-3 py-1 rounded-full border ${form.industriesSupported.includes(r) ? "bg-blue-600 text-white" : "bg-white text-gray-700"}`}>
