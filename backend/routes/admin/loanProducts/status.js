@@ -1,5 +1,3 @@
-const { PrismaClient } = require("@prisma/client");
-const prisma = new PrismaClient();
 const { updateLoanProductStatusSchema } = require("../../../schemas/admin/loanProducts/status.schema.js");
 
 async function updateLoanProductStatus(fastify){
@@ -12,6 +10,7 @@ async function updateLoanProductStatus(fastify){
       }
     },
     async(req, reply)=>{
+      const prisma = fastify.prisma;
       const validation = updateLoanProductStatusSchema.safeParse(req.body);
       if(!validation.success) return reply.status(400).send({ success:false,message:"Invalid Input" });
 

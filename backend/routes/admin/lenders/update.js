@@ -1,6 +1,4 @@
 // routes/admin/lenders/update.js
-const { PrismaClient } = require("@prisma/client");
-const prisma = new PrismaClient();
 const { adminLogs } = require("../../../services/logger/contextLogger.js");
 const bcrypt = require("bcrypt");
 
@@ -53,6 +51,7 @@ async function updateLenderRoutes(fastify) {
     },
 
     async (request, reply) => {
+      const prisma = fastify.prisma;
       const lenderOrgId = request.params.id;
       const body = request.body || {};
 

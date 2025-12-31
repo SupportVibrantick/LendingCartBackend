@@ -1,6 +1,4 @@
 // routes/admin/lenderProducts/create.js
-const { PrismaClient, Prisma } = require("@prisma/client");
-const prisma = new PrismaClient();
 const { adminLogs } = require("../../../services/logger/contextLogger");
 const {
   createLenderProductSchema,
@@ -17,6 +15,7 @@ async function createLenderProductRoutes(fastify) {
       },
     },
     async (request, reply) => {
+      const prisma = fastify.prisma;
       try {
         // ---------------------------
         // Validate body via Zod

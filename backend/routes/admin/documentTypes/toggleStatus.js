@@ -1,5 +1,3 @@
-const { PrismaClient } = require("@prisma/client");
-const prisma = new PrismaClient();
 const { adminLogs } = require("../../../services/logger/contextLogger");
 const {
   toggleDocumentTypeStatusSchema,
@@ -18,6 +16,7 @@ async function toggleDocumentTypeStatusRoutes(fastify) {
       },
     },
     async (req, reply) => {
+      const prisma = fastify.prisma;
       try {
         const parsed = toggleDocumentTypeStatusSchema.safeParse(req.body);
 

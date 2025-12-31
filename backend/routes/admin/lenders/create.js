@@ -1,6 +1,4 @@
 // routes/admin/lenders/create.js
-const { PrismaClient } = require("@prisma/client");
-const prisma = new PrismaClient();
 const { adminLogs } = require("../../../services/logger/contextLogger.js");
 const { createLenderSchema } = require("../../../schemas/admin/lenders/create.schema.js");
 const bcrypt = require("bcrypt");
@@ -51,6 +49,7 @@ async function createLenderRoutes(fastify) {
       },
     },
     async (request, reply) => {
+      const prisma = fastify.prisma;
       try {
         // Validate with Zod
         const validation = createLenderSchema.safeParse(request.body);

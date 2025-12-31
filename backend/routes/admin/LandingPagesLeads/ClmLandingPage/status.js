@@ -1,8 +1,6 @@
-const { PrismaClient, LeadStatus } = require("@prisma/client");
-const prisma = new PrismaClient();
-
 module.exports = async function (fastify) {
   fastify.patch("/:id/status", async (req, reply) => {
+    const prisma = fastify.prisma;
     const { id } = req.params;
     const { status } = req.body;
 

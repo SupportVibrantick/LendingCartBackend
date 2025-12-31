@@ -1,6 +1,4 @@
 // routes/admin/brokers/update.js (simplified)
-const { PrismaClient } = require("@prisma/client");
-const prisma = new PrismaClient();
 const { adminLogs } = require("../../../services/logger/contextLogger.js");
 const bcrypt = require("bcrypt");
 
@@ -106,6 +104,7 @@ async function updateBrokerRoutes(fastify, options) {
       },
     },
     async (request, reply) => {
+      const prisma = fastify.prisma;
       const orgId = request.params?.id;
       if (!orgId) return reply.status(400).send({ success: false, message: "Missing broker id" });
 

@@ -20,7 +20,7 @@ const swaggerUi = require("@fastify/swagger-ui");
 const indexRoutes = require("./routes/index");
 const verifySuperAdmin = require("./plugins/verifySuperAdmin");
 const dbPlugin = require("./plugins/dbPlugin");
-
+const multipart = require("@fastify/multipart");
 // Configure Fastify with built-in logger
 const app = Fastify({
   logger: {
@@ -71,6 +71,13 @@ app.register(swagger, {
   },
 });
 
+
+
+app.register(multipart, {
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB
+  },
+});
 
 app.register(swaggerUi, {
   routePrefix: "/api",

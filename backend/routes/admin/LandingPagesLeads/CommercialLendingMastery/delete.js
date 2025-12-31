@@ -1,8 +1,6 @@
-const { PrismaClient } = require("@prisma/client");
-const prisma = new PrismaClient();
-
 module.exports = async function (fastify) {
   fastify.delete("/:id", async (req, reply) => {
+    const prisma = fastify.prisma;
     const { id } = req.params;
 
     await prisma.commercialLendingMasteryLead.delete({
