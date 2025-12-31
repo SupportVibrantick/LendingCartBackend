@@ -1,6 +1,3 @@
-const { PrismaClient } = require("@prisma/client");
-const prisma = new PrismaClient();
-
 module.exports = async function listActiveDocumentTypes(fastify) {
   fastify.get(
     "/active",
@@ -11,6 +8,7 @@ module.exports = async function listActiveDocumentTypes(fastify) {
       },
     },
     async (req, reply) => {
+      const prisma = fastify.prisma;
       await fastify.authenticate(req, reply);
 
       const docs = await prisma.documentType.findMany({

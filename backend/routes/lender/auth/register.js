@@ -1,5 +1,3 @@
-const { PrismaClient } = require("@prisma/client");
-const prisma = new PrismaClient();
 const bcrypt = require("bcrypt");
 
 /**
@@ -15,6 +13,7 @@ async function lenderRegisterRoutes(fastify) {
       },
     },
     async (req, reply) => {
+      const prisma = fastify.prisma;
       const {
         organizationName,
         organizationEmail,

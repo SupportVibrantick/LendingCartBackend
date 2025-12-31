@@ -1,6 +1,3 @@
-const { PrismaClient } = require("@prisma/client");
-const prisma = new PrismaClient();
-
 const {
   createLenderDocumentConfigSchema,
 } = require("../../../schemas/lender/documentConfig/create.schema");
@@ -33,6 +30,7 @@ async function createLenderDocumentConfigRoutes(fastify) {
       },
     },
     async (req, reply) => {
+      const prisma = fastify.prisma;
       try {
         // 🔐 Auth check
         if (

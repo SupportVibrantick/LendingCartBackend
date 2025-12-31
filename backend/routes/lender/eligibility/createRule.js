@@ -1,5 +1,3 @@
-const { PrismaClient } = require("@prisma/client");
-const prisma = new PrismaClient();
 
 const {
   createRuleSchema,
@@ -18,6 +16,7 @@ module.exports = async function createRuleRoutes(fastify) {
       },
     },
     async (req, reply) => {
+      const prisma = fastify.prisma;
       try {
         //  Auth check
         if (

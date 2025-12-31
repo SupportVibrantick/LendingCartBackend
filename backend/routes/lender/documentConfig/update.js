@@ -25,6 +25,7 @@ async function updateLenderDocumentConfigRoutes(fastify) {
       },
     },
     async (req, reply) => {
+      const prisma = fastify.prisma;
       try {
         // 🔐 Auth check
         if (

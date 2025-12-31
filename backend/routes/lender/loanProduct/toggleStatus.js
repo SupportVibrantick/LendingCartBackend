@@ -1,6 +1,3 @@
-const { PrismaClient } = require("@prisma/client");
-const prisma = new PrismaClient();
-
 /**
  * @param {import("fastify").FastifyInstance} fastify
  */
@@ -23,6 +20,7 @@ async function toggleLenderLoanProductStatusRoutes(fastify) {
       },
     },
     async (req, reply) => {
+      const prisma = fastify.prisma;
       try {
         // ---------------------------
         // Auth check

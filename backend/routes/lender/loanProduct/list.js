@@ -1,6 +1,3 @@
-const { PrismaClient } = require("@prisma/client");
-const prisma = new PrismaClient();
-
 async function listLenderLoanProductsRoutes(fastify) {
   fastify.get(
     "/",
@@ -11,6 +8,7 @@ async function listLenderLoanProductsRoutes(fastify) {
       },
     },
     async (req, reply) => {
+      const prisma = fastify.prisma;
       const lenderOrgId = req.user.organizationId;
 
       const products = await prisma.lenderProduct.findMany({
