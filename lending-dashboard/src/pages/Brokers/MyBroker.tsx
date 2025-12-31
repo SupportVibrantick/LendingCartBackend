@@ -56,8 +56,8 @@ export default function BrokerList() {
       const list = Array.isArray(json.data)
         ? json.data
         : Array.isArray(json)
-        ? json
-        : [];
+          ? json
+          : [];
 
       setBrokers(list);
     } catch (err) {
@@ -181,11 +181,10 @@ export default function BrokerList() {
 
                   <td className="py-3">
                     <span
-                      className={`px-2 py-1 rounded-full text-xs ${
-                        b.status === "ACTIVE"
-                          ? "bg-green-100 text-green-700 dark:bg-green-500/10 dark:text-green-300"
-                          : "bg-gray-100 text-gray-700 dark:bg-slate-600/30 dark:text-slate-300"
-                      }`}
+                      className={`px-2 py-1 rounded-full text-xs ${b.status === "ACTIVE"
+                        ? "bg-green-100 text-green-700 dark:bg-green-500/10 dark:text-green-300"
+                        : "bg-gray-100 text-gray-700 dark:bg-slate-600/30 dark:text-slate-300"
+                        }`}
                     >
                       {b.status}
                     </span>

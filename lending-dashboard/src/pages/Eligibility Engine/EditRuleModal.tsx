@@ -60,8 +60,8 @@ export default function EditRuleModal({
   };
 
   return (
-    <div className="fixed inset-0 z-500000 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="bg-white dark:bg-slate-900 rounded-xl p-6 w-full max-w-lg">
+    <div className="fixed inset-0 z-500000 flex items-center justify-center bg-black/40 backdrop-blur-sm ">
+      <div className="bg-white dark:bg-slate-900 rounded-xl p-6 w-full max-w-lg dark:border dark:border-slate-700">
         <h2 className="text-lg font-semibold mb-4">Edit Rule</h2>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -91,7 +91,7 @@ export default function EditRuleModal({
               onChange={(e) =>
                 setForm(f => f && ({ ...f, comparisonOperator: e.target.value }))
               }
-              className="w-full border rounded px-3 py-2"
+              className="w-full border rounded px-3 py-2 text-gray-900 dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
             >
               <option value="">Select Operator</option>
               {comparisonOperators.map(op => (
@@ -110,6 +110,7 @@ export default function EditRuleModal({
             <input
               type="number"
               value={form.value}
+              min={0}
               onChange={(e) =>
                 setForm(f => f && ({ ...f, value: e.target.value }))
               }
@@ -128,7 +129,7 @@ export default function EditRuleModal({
               onChange={(e) =>
                 setForm(f => f && ({ ...f, severity: e.target.value }))
               }
-              className="w-full border rounded px-3 py-2"
+              className="w-full border rounded px-3 py-2 text-gray-900 dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
             >
               <option value="">Select Severity</option>
               {severities.map(s => (
@@ -162,6 +163,7 @@ export default function EditRuleModal({
             </label>
             <input
               type="number"
+              min={0}
               value={form.sortOrder}
               onChange={(e) =>
                 setForm(f => f && ({ ...f, sortOrder: Number(e.target.value) }))

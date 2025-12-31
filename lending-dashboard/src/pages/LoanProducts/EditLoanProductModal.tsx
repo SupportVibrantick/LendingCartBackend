@@ -132,8 +132,8 @@ export default function EditLoanProductModal({ isOpen, loanProduct, onClose, onS
     };
 
     return (
-        <div className="fixed inset-0 z-500000 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-            <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-lg">
+        <div className="fixed inset-0 z-500000 flex items-center justify-center bg-black/40 backdrop-blur-sm ">
+            <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-lg dark:bg-slate-900 dark:border dark:border-slate-700">
                 <div className="flex items-center justify-between mb-4">
                     <h2 className="text-lg font-semibold">Edit Loan Product</h2>
                     <button onClick={onClose} className="text-gray-500 hover:text-gray-800">Close</button>
@@ -141,7 +141,7 @@ export default function EditLoanProductModal({ isOpen, loanProduct, onClose, onS
 
                 <form onSubmit={handleSave} className="grid grid-cols-1 gap-3">
                     <label className="block">
-                        <span className="text-sm text-gray-700">Min Loan Amount</span>
+                        <span className="text-sm text-gray-700 dark:text-slate-200">Min Loan Amount</span>
                         <input
                             type="number"
                             min={0}
@@ -155,7 +155,7 @@ export default function EditLoanProductModal({ isOpen, loanProduct, onClose, onS
                     </label>
 
                     <label className="block">
-                        <span className="text-sm text-gray-700">Max Loan Amount</span>
+                        <span className="text-sm text-gray-700 dark:text-slate-200">Max Loan Amount</span>
                         <input
                             type="number"
                             value={form.maxLoanAmount}
@@ -167,7 +167,7 @@ export default function EditLoanProductModal({ isOpen, loanProduct, onClose, onS
                     </label>
 
                     <label className="block">
-                        <span className="text-sm text-gray-700">Min Term Months</span>
+                        <span className="text-sm text-gray-700 dark:text-slate-200">Min Term Months</span>
                         <input
                             type="number"
                             min={0}
@@ -180,7 +180,7 @@ export default function EditLoanProductModal({ isOpen, loanProduct, onClose, onS
                     </label>
 
                     <label className="block">
-                        <span className="text-sm text-gray-700">Max Term Months</span>
+                        <span className="text-sm text-gray-700 dark:text-slate-200">Max Term Months</span>
                         <input
                             type="number"
                             min={form.minTermMonths || 0}
@@ -192,7 +192,7 @@ export default function EditLoanProductModal({ isOpen, loanProduct, onClose, onS
                     </label>
 
                     <div>
-                        <label className="block text-sm text-gray-700">Regions Supported</label>
+                        <label className="block text-sm text-gray-700 dark:text-slate-200">Regions Supported</label>
                         <div className="mt-2 flex flex-wrap gap-2">
                             {["CA", "TX", "FL", "NY", "NJ"].map((r) => (
                                 <button type="button" key={r} onClick={() => toggleChip("regionsSupported", r)} className={`px-3 py-1 rounded-full border ${form.regionsSupported.includes(r) ? "bg-blue-600 text-white" : "bg-white text-gray-700"}`}>
@@ -203,7 +203,7 @@ export default function EditLoanProductModal({ isOpen, loanProduct, onClose, onS
                     </div>
 
                     <div>
-                        <label className="block text-sm text-gray-700">Industries Supported</label>
+                        <label className="block text-sm text-gray-700 dark:text-slate-200">Industries Supported</label>
                         <div className="mt-2 flex flex-wrap gap-2">
                             {["Real Estate", "Hospitality"].map((r) => (
                                 <button type="button" key={r} onClick={() => toggleChip("industriesSupported", r)} className={`px-3 py-1 rounded-full border ${form.industriesSupported.includes(r) ? "bg-blue-600 text-white" : "bg-white text-gray-700"}`}>
@@ -217,7 +217,7 @@ export default function EditLoanProductModal({ isOpen, loanProduct, onClose, onS
                     {error && <div className="text-sm text-red-600">{error}</div>}
 
                     <div className="flex justify-end gap-3 mt-2">
-                        <button type="button" onClick={onClose} className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md">
+                        <button type="button" onClick={onClose} className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md dark:text-slate-200 dark:hover:bg-slate-800">
                             Cancel
                         </button>
                         <button type="submit" disabled={saving} className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">

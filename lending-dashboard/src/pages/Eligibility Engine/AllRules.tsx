@@ -263,13 +263,47 @@ export default function AllRuleSets() {
                         Loading rules...
                     </div>
                 ) : paginatedRules.length === 0 ? (
-                    <div className="py-6 text-center text-gray-500">
-                        {!selectedLenderProductId && "Please select a rule set name to view rules."}
-                        {selectedLenderProductId && rules.length === 0 && !query &&
-                            "No eligibility rules found for the selected rule set."}
-                        {query &&
-                            "No rules matched your search criteria."}
+                    <div className="py-10 flex flex-col items-center justify-center text-center rounded-lg border border-dashed
+                border-gray-300 bg-gray-50
+                dark:border-slate-700 dark:bg-slate-800/40">
+
+                        {/* ICON */}
+                        <div className="mb-3 text-3xl">
+                            {!selectedLenderProductId && "📌"}
+                            {selectedLenderProductId && rules.length === 0 && !query && "📭"}
+                            {query && "🔍"}
+                        </div>
+
+                        {/* MESSAGE */}
+                        <p className="text-sm sm:text-base font-medium text-gray-700 dark:text-slate-200">
+                            {!selectedLenderProductId && (
+                                <>
+                                    Please <span className="text-blue-600 font-semibold">select a rule set</span> to view eligibility rules.
+                                </>
+                            )}
+
+                            {selectedLenderProductId && rules.length === 0 && !query && (
+                                <>
+                                    No <span className="font-semibold">eligibility rules</span> found for the selected rule set.
+                                </>
+                            )}
+
+                            {query && (
+                                <>
+                                    No rules matched your
+                                    <span className="font-semibold text-gray-900 dark:text-white"> search criteria</span>.
+                                </>
+                            )}
+                        </p>
+
+                        {/* HELPER TEXT */}
+                        <p className="mt-1 text-xs text-gray-500 dark:text-slate-400">
+                            {!selectedLenderProductId && "Choose a rule set from the dropdown above."}
+                            {selectedLenderProductId && rules.length === 0 && !query && "Try adding a new rule for this rule set."}
+                            {query && "Try adjusting or clearing the search input."}
+                        </p>
                     </div>
+
                 ) : (
                     <table className="min-w-full text-sm">
                         <thead>

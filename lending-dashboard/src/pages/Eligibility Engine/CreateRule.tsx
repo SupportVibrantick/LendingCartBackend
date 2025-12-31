@@ -447,6 +447,7 @@ const BrokersLenders: React.FC = () => {
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900
                                         dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
               type="number"
+              min={0}
               value={ruleForm.value}
               onChange={(e) =>
                 setRuleForm((f) => ({ ...f, value: e.target.value }))
@@ -528,7 +529,8 @@ const BrokersLenders: React.FC = () => {
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900
                                         dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
               type="number"
-              value={ruleForm.sortOrder}
+              // value={ruleForm.sortOrder}
+              min={0}
               onChange={(e) =>
                 setRuleForm((f) => ({ ...f, sortOrder: Number(e.target.value) }))
               }
