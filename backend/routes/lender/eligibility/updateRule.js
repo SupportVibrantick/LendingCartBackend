@@ -1,6 +1,3 @@
-const { PrismaClient } = require("@prisma/client");
-const prisma = new PrismaClient();
-
 const {
   updateRuleSchema,
 } = require("../../../schemas/lender/eligibility/update.schema");
@@ -10,6 +7,7 @@ const {
  */
 module.exports = async function updateRuleRoutes(fastify) {
   fastify.put("/:id", async (req, reply) => {
+    const prisma = fastify.prisma;
     try {
       //  Auth check
       if (

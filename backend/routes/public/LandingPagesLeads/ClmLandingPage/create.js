@@ -1,8 +1,7 @@
-const { PrismaClient } = require("@prisma/client");
-const prisma = new PrismaClient();
 
 module.exports = async function (fastify) {
   fastify.post("/", async (req, reply) => {
+    const prisma = fastify.prisma;
     try {
       const { firstName, lastName, email, phone } = req.body;
 

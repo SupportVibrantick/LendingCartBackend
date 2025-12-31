@@ -1,7 +1,4 @@
 // backend/routes/lender/auth/me.js
-const { PrismaClient } = require("@prisma/client");
-const prisma = new PrismaClient();
-
 /**
  * @param {import("fastify").FastifyInstance} fastify
  */
@@ -16,6 +13,7 @@ async function lenderMeRoutes(fastify) {
       },
     },
     async (request, reply) => {
+      const prisma = fastify.prisma;
       try {
         const { userId, organizationId } = request.user;
 

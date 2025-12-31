@@ -19,6 +19,7 @@ const swagger = require("@fastify/swagger");
 const swaggerUi = require("@fastify/swagger-ui");
 const indexRoutes = require("./routes/index");
 const verifySuperAdmin = require("./plugins/verifySuperAdmin");
+const dbPlugin = require("./plugins/dbPlugin");
 
 // Configure Fastify with built-in logger
 const app = Fastify({
@@ -88,7 +89,7 @@ app.register(fastifyFormbody);
 const authMiddleware = require("./middleware/authMiddleware");
 const fgaMiddleware = require("./middleware/fgaMiddleware");
 const Mail = require("nodemailer/lib/mailer");
-
+app.register(dbPlugin);
 app.register(authMiddleware);
 app.register(fgaMiddleware);
 app.register(verifySuperAdmin);  

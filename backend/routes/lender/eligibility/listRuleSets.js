@@ -1,6 +1,4 @@
 // backend/routes/lender/eligibility/listRuleSets.js
-const { PrismaClient } = require("@prisma/client");
-const prisma = new PrismaClient();
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
@@ -22,6 +20,7 @@ module.exports = async function listRuleSetsRoutes(fastify) {
       },
     },
     async (req, reply) => {
+      const prisma = fastify.prisma;
       try {
         if (
           !req.user ||

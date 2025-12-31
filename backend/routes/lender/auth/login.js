@@ -1,5 +1,3 @@
-const { PrismaClient } = require("@prisma/client");
-const prisma = new PrismaClient();
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 
@@ -25,6 +23,7 @@ async function lenderLoginRoutes(fastify) {
       },
     },
     async (req, reply) => {
+      const prisma = fastify.prisma;
       try {
         const { email, password } = req.body;
 

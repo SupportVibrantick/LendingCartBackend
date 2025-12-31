@@ -1,6 +1,3 @@
-const { PrismaClient, Prisma } = require("@prisma/client");
-const prisma = new PrismaClient();
-
 const {
   createLenderLoanProductSchema,
 } = require("../../../schemas/lender/loanProduct/create.schema");
@@ -42,6 +39,7 @@ async function createLenderLoanProductRoutes(fastify) {
       },
     },
     async (req, reply) => {
+      const prisma = fastify.prisma;
       try {
         // ---------------------------
         // Auth safety (middleware-aligned)

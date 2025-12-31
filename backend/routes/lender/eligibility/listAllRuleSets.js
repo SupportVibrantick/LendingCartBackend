@@ -1,6 +1,3 @@
-const { PrismaClient } = require("@prisma/client");
-const prisma = new PrismaClient();
-
 module.exports = async function listAllRuleSetsRoutes(fastify) {
   fastify.get(
     "/all",
@@ -11,6 +8,7 @@ module.exports = async function listAllRuleSetsRoutes(fastify) {
       },
     },
     async (req, reply) => {
+      const prisma = fastify.prisma;
       try {
         if (
           !req.user ||
