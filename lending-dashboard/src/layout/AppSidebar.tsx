@@ -67,8 +67,8 @@ const navItems: NavItem[] = [
 
   {
     icon: <FaPersonCirclePlus />,
-    name: "Broker",
-    subItems: [{ name: "My Broker", path: "/my-broker" }, { name: "Broker Request", path: "/broker-request" }, { name: "Find Broker", path: "/find-broker" }],
+    name: "Broker Interactions",
+    subItems: [{ name: "My Brokers", path: "/my-broker" }, { name: "Invited Brokers ", path: "/broker-request" }, { name: "Find Brokers", path: "/find-broker" }],
   },
 
   // {

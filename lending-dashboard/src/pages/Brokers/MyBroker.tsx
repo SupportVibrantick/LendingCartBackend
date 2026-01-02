@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
+import Swal from "sweetalert2";
 import toast from "react-hot-toast";
 
 type Broker = {
@@ -97,6 +98,74 @@ export default function BrokerList() {
     setCurrentPage(1);
   }, [search, pageSize]);
 
+  // Handlers
+  async function handleStatusToggle(broker: Broker) {
+    const nextStatus =
+      broker.status === "ACTIVE" ? "INACTIVE" : "ACTIVE";
+
+    const result = await Swal.fire({
+      title: "Change broker status?",
+      text: `Do you want to update this broker status?`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Yes, update",
+      cancelButtonText: "Cancel",
+      confirmButtonColor: "#2563eb",
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+
+      // 🔥 FORCE Z-INDEX
+      didOpen: () => {
+        const container = document.querySelector(".swal2-container") as HTMLElement;
+        if (container) {
+          container.style.zIndex = "2147483647"; // max safe z-index
+        }
+      },
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+      const res = await fetch(
+        `${API_BASE}/lender/brokers/${broker.id}/status`,
+        {
+          method: "POST",
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ status: nextStatus }),
+        }
+      );
+
+      const json = await res.json();
+
+      if (!res.ok || json.success !== true) {
+        throw new Error(json.message || "Status update failed");
+      }
+
+      setBrokers((prev) =>
+        prev.map((b) =>
+          b.id === broker.id
+            ? { ...b, status: nextStatus }
+            : b
+        )
+      );
+
+      Swal.fire({
+        icon: "success",
+        title: "Status updated successfully",
+        timer: 1200,
+        showConfirmButton: false,
+      });
+
+    } catch (error: any) {
+      Swal.fire({
+        icon: "error",
+        title: "Failed to update status",
+        text: "Please try again",
+      });
+    }
+  }
+
+
   // ================= UI =================
   return (
     <div className="px-6 py-6 text-gray-900 dark:text-gray-100">
@@ -104,7 +173,7 @@ export default function BrokerList() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-semibold dark:text-white">
-            Brokers
+            My Brokers
           </h1>
           <p className="text-sm text-gray-500 dark:text-slate-400">
             Manage assigned brokers
@@ -179,15 +248,18 @@ export default function BrokerList() {
                   <td className="py-3">{b.email}</td>
                   <td className="py-3">{b.phone}</td>
 
-                  <td className="py-3">
-                    <span
-                      className={`px-2 py-1 rounded-full text-xs ${b.status === "ACTIVE"
-                        ? "bg-green-100 text-green-700 dark:bg-green-500/10 dark:text-green-300"
-                        : "bg-gray-100 text-gray-700 dark:bg-slate-600/30 dark:text-slate-300"
+                  <td className="p-4">
+                    <button
+                      type="button"
+                      onClick={() => handleStatusToggle(b)}
+                      className={`px-3 py-1 z-50000000 rounded-full text-xs font-medium transition cursor-pointer ${b.status === "ACTIVE"
+                        ? "bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-500/10 dark:text-green-300"
+                        : "bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-slate-700 dark:text-slate-300"
                         }`}
+                      title="Click to change status"
                     >
                       {b.status}
-                    </span>
+                    </button>
                   </td>
 
                   <td className="py-3">
