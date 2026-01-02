@@ -1,5 +1,6 @@
 const adminRoutes = require("../routes/admin");
 const lenderRoutes = require("../routes/lender");
+const brokerRoutes = require("../routes/broker");
 const commonDocumentTypes = require("../routes/common/documentTypes");
 const commonLoanProducts = require("./common/loanProducts");
 const landingPagesLeads = require("./public/LandingPagesLeads");
@@ -29,6 +30,7 @@ async function indexRoutes(fastify, options) {
   //  Role-specific
   fastify.register(adminRoutes, { prefix: "/admin" });
   fastify.register(lenderRoutes, { prefix: "/lender" });
+  fastify.register(lenderRoutes, { prefix: "/broker" });
 }
 
 module.exports = indexRoutes;

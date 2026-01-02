@@ -18,7 +18,7 @@ async function lenderUpdateProfileRoutes(fastify) {
       const prisma = fastify.prisma;
 
       try {
-        // 🔐 Lender check
+        //  Lender check
         if (
           !req.user ||
           req.user.orgType !== "LENDER" ||

@@ -1,7 +1,4 @@
 // backend/routes/broker/auth/login.js
-
-const { PrismaClient } = require("@prisma/client");
-const prisma = new PrismaClient();
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 
@@ -21,7 +18,7 @@ const REFRESH_EXPIRES_IN = process.env.REFRESH_EXPIRES_IN || "7d";
  */
 async function brokerLoginRoutes(fastify) {
   fastify.post(
-    "/login",
+    "/",
     {
       schema: {
         tags: ["Broker -> Auth"],
@@ -30,6 +27,7 @@ async function brokerLoginRoutes(fastify) {
       },
     },
     async (request, reply) => {
+      const prisma = fastify.prisma;
       try {
         // Validate input
         const parsed = brokerLoginSchema.safeParse(request.body);
