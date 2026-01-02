@@ -7,7 +7,7 @@ async function brokersRoutes(fastify, options) {
   fastify.register(createRoutes, { prefix: "/create" });
   fastify.register(readRoutes, { prefix: "/read" });
   fastify.register(deleteRoutes, { prefix: "/status" });
-  fastify.register(updateRoutes, { prefix: "/update" });
+  fastify.register(updateRoutes, { prefix: "/update" } );
 }
 
 module.exports = brokersRoutes;

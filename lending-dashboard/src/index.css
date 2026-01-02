@@ -776,3 +776,18 @@ span.flatpickr-weekday,
 .simplebar-scrollbar.simplebar-visible:before {
   @apply opacity-100;
 }
+
+/* ===== SweetAlert2 HARD FIX ===== */
+.swal2-container {
+  z-index: 2147483647 !important;
+  position: fixed !important;
+}
+
+.swal2-backdrop-show {
+  z-index: 2147483646 !important;
+}
+
+/* prevent dashboard overlays from overlapping */
+body.swal2-shown > *:not(.swal2-container) {
+  pointer-events: none;
+}
