@@ -1,6 +1,6 @@
 // backend/routes/broker/index.js
 const authRoutes = require("./auth");
-const lenderRoutes = require("./lenders");
+// const lenderRoutes = require("./lenders");
 // later you can add:
 // const documentRoutes = require("./documents");
 // const applicationRoutes = require("./applications");
@@ -45,9 +45,9 @@ module.exports = async function brokerRoutes(fastify, opts) {
     // -------------------------
 
     // Lenders visible to broker
-    instance.register(lenderRoutes, {
-      prefix: "/lenders",
-    });
+    // instance.register(lenderRoutes, {
+    //   prefix: "/lenders",
+    // });
 
     // Later extensions
     // instance.register(documentRoutes, { prefix: "/documents" });

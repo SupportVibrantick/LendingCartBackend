@@ -1,3 +1,5 @@
+
+
 const { adminLogs } = require("../../../services/logger/contextLogger.js");
 
 async function readBrokerRoutes(fastify) {
@@ -194,6 +196,7 @@ async function readBrokerRoutes(fastify) {
       },
     },
     async (request, reply) => {
+      const prisma = fastify.prisma;
       try {
         const { id } = request.params;
 
