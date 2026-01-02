@@ -9,7 +9,7 @@ export default function UserDropdown() {
   const [displayEmail, setDisplayEmail] = useState("Admin@gmail.com");
   const navigate = useNavigate();
 
-   const toTitleCase = (value?: string) =>
+  const toTitleCase = (value?: string) =>
     value
       ? value
         .toLowerCase()
@@ -54,12 +54,8 @@ export default function UserDropdown() {
   function handleLogout() {
     try {
       // remove specific keys
-      sessionStorage.removeItem("admin_token");
-      sessionStorage.removeItem("admin_refresh");
-      sessionStorage.removeItem("admin_user");
-      sessionStorage.removeItem("admin_user_name");
-      sessionStorage.removeItem("admin_user_email");
-      // optional: clear everything in session storage
+      sessionStorage.removeItem("lender_token");
+      sessionStorage.removeItem("lender_user");
       // sessionStorage.clear();
     } catch (e) {
       // ignore storage errors
