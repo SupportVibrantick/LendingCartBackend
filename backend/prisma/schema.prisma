@@ -8,29 +8,33 @@ datasource db {
 }
 
 model Organization {
-  id                         String                    @id @default(uuid()) @db.Uuid
+  id                         String               @id @default(uuid()) @db.Uuid
   name                       String
   type                       OrganizationType
   status                     OrganizationStatus
   email                      String?
   phone                      String?
-  createdAt                  DateTime                  @default(now()) @db.Timestamptz(6)
-  updatedAt                  DateTime                  @updatedAt @db.Timestamptz(6)
+  createdAt                  DateTime             @default(now()) @db.Timestamptz(6)
+  updatedAt                  DateTime             @updatedAt @db.Timestamptz(6)
   affiliateLinks             AffiliateLink[]
-  lenderApplications         ApplicationLender[]       @relation("LenderApplications")
-  auditLogsAsActorOrg        AuditLog[]                @relation("OrgAuditLogs")
-  brokerLenderAccessAsBroker BrokerLenderAccess[]      @relation("BrokerAccess_broker")
-  brokerLenderAccessAsLender BrokerLenderAccess[]      @relation("BrokerAccess_lender")
-  brokerWhiteLabelSettings   BrokerWhiteLabelSetting[]
-  clients                    Client[]                  @relation("BrokerClients")
-  escrowTitleCompanies       EscrowTitleCompany[]
-  lenderProducts             LenderProduct[]
-  brokerLoanApplications     LoanApplication[]         @relation("BrokerLoanApplications")
-  users                      UserAccount[]
+  lenderApplications         ApplicationLender[]  @relation("LenderApplications")
+  auditLogsAsActorOrg        AuditLog[]           @relation("OrgAuditLogs")
+  brokerLenderAccessAsBroker BrokerLenderAccess[] @relation("BrokerAccess_broker")
+  brokerLenderAccessAsLender BrokerLenderAccess[] @relation("BrokerAccess_lender")
+
+  brokerLenderInvitesAsBroker BrokerLenderInvite[] @relation("BrokerInvite_broker")
+  brokerLenderInvitesAsLender BrokerLenderInvite[] @relation("BrokerInvite_lender")
+
+  brokerWhiteLabelSettings BrokerWhiteLabelSetting[]
+  clients                  Client[]                  @relation("BrokerClients")
+  escrowTitleCompanies     EscrowTitleCompany[]
+  lenderProducts           LenderProduct[]
+  brokerLoanApplications   LoanApplication[]         @relation("BrokerLoanApplications")
+  users                    UserAccount[]
 
   // soft-delete fields (additive, non-breaking)
-  isDeleted                  Boolean?                  @default(false) @map("is_deleted")
-  deletedAt                  DateTime?                 @db.Timestamptz(6) @map("deleted_at")
+  isDeleted Boolean?  @default(false) @map("is_deleted")
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
 
   @@map("organizations")
 }
@@ -59,8 +63,8 @@ model UserAccount {
   roles                      UserRole[]
 
   // soft-delete fields (additive, non-breaking)
-  isDeleted                  Boolean?                    @default(false) @map("is_deleted")
-  deletedAt                  DateTime?                   @db.Timestamptz(6) @map("deleted_at")
+  isDeleted Boolean?  @default(false) @map("is_deleted")
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
 
   @@map("user_accounts")
 }
@@ -100,8 +104,8 @@ model Client {
   loanApplications   LoanApplication[]
 
   // soft-delete fields (additive, non-breaking)
-  isDeleted          Boolean?           @default(false) @map("is_deleted")
-  deletedAt          DateTime?          @db.Timestamptz(6) @map("deleted_at")
+  isDeleted Boolean?  @default(false) @map("is_deleted")
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
 
   @@map("clients")
 }
@@ -132,8 +136,8 @@ model ClientPortalUser {
   client       Client                      @relation(fields: [clientId], references: [id])
 
   // soft-delete fields (additive, non-breaking)
-  isDeleted    Boolean?                   @default(false) @map("is_deleted")
-  deletedAt    DateTime?                  @db.Timestamptz(6) @map("deleted_at")
+  isDeleted Boolean?  @default(false) @map("is_deleted")
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
 
   @@map("client_portal_users")
 }
@@ -194,6 +198,29 @@ model BrokerLenderAccess {
   @@map("broker_lender_access")
 }
 
+model BrokerLenderInvite {
+  id          String       @id @default(uuid()) @db.Uuid
+  lenderOrgId String       @db.Uuid
+  brokerOrgId String       @db.Uuid
+  status      InviteStatus @default(PENDING)
+  createdAt   DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime     @updatedAt @db.Timestamptz(6)
+
+  lender Organization @relation("BrokerInvite_lender", fields: [lenderOrgId], references: [id])
+  broker Organization @relation("BrokerInvite_broker", fields: [brokerOrgId], references: [id])
+
+  @@unique([lenderOrgId, brokerOrgId])
+  @@index([lenderOrgId])
+  @@index([brokerOrgId])
+  @@map("broker_lender_invites")
+}
+
+enum InviteStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
 model EligibilityRuleSet {
   id                         String                      @id @default(uuid()) @db.Uuid
   lenderProductId            String                      @db.Uuid
@@ -202,8 +229,8 @@ model EligibilityRuleSet {
   effectiveFrom              DateTime?
   effectiveTo                DateTime?
   isActive                   Boolean                     @default(true)
-  createdAt                  DateTime                     @default(now()) @db.Timestamptz(6)
-  updatedAt                  DateTime                     @updatedAt @db.Timestamptz(6)
+  createdAt                  DateTime                    @default(now()) @db.Timestamptz(6)
+  updatedAt                  DateTime                    @updatedAt @db.Timestamptz(6)
   applicationRuleEvaluations ApplicationRuleEvaluation[]
   lenderProduct              LenderProduct               @relation(fields: [lenderProductId], references: [id])
   rules                      EligibilityRule[]
@@ -652,8 +679,6 @@ model ClmLandingPageLead {
   @@map("clm_landing_page_leads")
 }
 
-
-
 enum LeadStatus {
   NEW
   CONTACTED
@@ -661,7 +686,6 @@ enum LeadStatus {
   NOT_INTERESTED
   CONVERTED
 }
-
 
 enum OrganizationType {
   PLATFORM
