@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Swal from "sweetalert2";
 import toast from "react-hot-toast";
 
@@ -8,38 +8,34 @@ type Broker = {
   name: string;
   email: string;
   phone: string;
-  status: string;
+  brokerStatus: "ACTIVE" | "INACTIVE";
+  connectionStatus: "CONNECTED" | "PENDING" | "DISABLED";
   source: string;
   assignedAt: string;
 };
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001";
+const API_BASE =
+  import.meta.env.VITE_API_BASE || "http://localhost:3001";
 
-export default function BrokerList() {
+export default function MyBrokers() {
   const [brokers, setBrokers] = useState<Broker[]>([]);
-  const [loading, setLoading] = useState<boolean>(false);
+  const [loading, setLoading] = useState(false);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
 
-  // search + pagination
-  const [search, setSearch] = useState<string>("");
-  const [currentPage, setCurrentPage] = useState<number>(1);
-  const [pageSize, setPageSize] = useState<number>(10);
+  const [search, setSearch] = useState("");
+  const [pageSize, setPageSize] = useState(10);
+  const [currentPage, setCurrentPage] = useState(1);
 
+  /* ================= AUTH ================= */
   function getAuthHeaders(): HeadersInit {
-    try {
-      const token = sessionStorage.getItem("lender_token");
-      if (token) {
-        return {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        };
-      }
-    } catch {
-      /* ignore */
-    }
-    return { "Content-Type": "application/json" };
+    const token = sessionStorage.getItem("lender_token");
+    return {
+      "Content-Type": "application/json",
+      Authorization: token ? `Bearer ${token}` : "",
+    };
   }
 
-  // ================= FETCH =================
+  /* ================= FETCH ================= */
   useEffect(() => {
     fetchBrokers();
   }, []);
@@ -47,134 +43,123 @@ export default function BrokerList() {
   async function fetchBrokers() {
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/lender/brokers/list`, {
-        headers: getAuthHeaders(),
-      });
-
+      const res = await fetch(
+        `${API_BASE}/lender/brokers/list`,
+        { headers: getAuthHeaders() }
+      );
       const json = await res.json();
-
-      // ✅ handle both response styles
-      const list = Array.isArray(json.data)
-        ? json.data
-        : Array.isArray(json)
-          ? json
-          : [];
-
-      setBrokers(list);
-    } catch (err) {
-      console.error(err);
+      setBrokers(Array.isArray(json.data) ? json.data : []);
+    } catch {
       toast.error("Failed to load brokers");
-      setBrokers([]);
     } finally {
       setLoading(false);
     }
   }
 
-  // ================= SEARCH =================
-  const filteredBrokers = useMemo(() => {
+  /* ================= SEARCH ================= */
+  const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return brokers;
-
     return brokers.filter(
       (b) =>
-        b.name?.toLowerCase().includes(q) ||
-        b.email?.toLowerCase().includes(q) ||
-        b.phone?.toLowerCase().includes(q)
+        b.name.toLowerCase().includes(q) ||
+        b.email.toLowerCase().includes(q) ||
+        b.phone.includes(q)
     );
   }, [brokers, search]);
 
-  // ================= PAGINATION =================
+  /* ================= PAGINATION ================= */
   const totalPages = Math.max(
     1,
-    Math.ceil(filteredBrokers.length / pageSize)
+    Math.ceil(filtered.length / pageSize)
   );
 
-  const paginatedBrokers = useMemo(() => {
+  const paginated = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
-    return filteredBrokers.slice(start, start + pageSize);
-  }, [filteredBrokers, currentPage, pageSize]);
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, currentPage, pageSize]);
 
   useEffect(() => {
     setCurrentPage(1);
   }, [search, pageSize]);
 
-  // Handlers
-  async function handleStatusToggle(broker: Broker) {
-    const nextStatus =
-      broker.status === "ACTIVE" ? "INACTIVE" : "ACTIVE";
+  /* ================= CONNECTION TOGGLE ================= */
+  async function handleConnectionToggle(broker: Broker) {
+    // 🔁 toggle logic
+    const isActive = broker.connectionStatus === "DISABLED";
+    const nextStatus = isActive ? "CONNECTED" : "DISABLED";
 
     const result = await Swal.fire({
-      title: "Change broker status?",
-      text: `Do you want to update this broker status?`,
+      title: "Change connection?",
+      text: `Set connection to ${nextStatus}?`,
       icon: "warning",
       showCancelButton: true,
       confirmButtonText: "Yes, update",
-      cancelButtonText: "Cancel",
       confirmButtonColor: "#2563eb",
       allowOutsideClick: false,
       allowEscapeKey: false,
-
-      // 🔥 FORCE Z-INDEX
-      didOpen: () => {
-        const container = document.querySelector(".swal2-container") as HTMLElement;
-        if (container) {
-          container.style.zIndex = "2147483647"; // max safe z-index
-        }
-      },
     });
 
     if (!result.isConfirmed) return;
+
+    setUpdatingId(broker.id);
 
     try {
       const res = await fetch(
         `${API_BASE}/lender/brokers/${broker.id}/status`,
         {
-          method: "POST",
+          method: "PATCH",
           headers: getAuthHeaders(),
-          body: JSON.stringify({ status: nextStatus }),
+          body: JSON.stringify({
+            isActive, 
+          }),
         }
       );
 
       const json = await res.json();
 
       if (!res.ok || json.success !== true) {
-        throw new Error(json.message || "Status update failed");
+        throw new Error(json.message || "Update failed");
       }
+
 
       setBrokers((prev) =>
         prev.map((b) =>
           b.id === broker.id
-            ? { ...b, status: nextStatus }
+            ? { ...b, connectionStatus: nextStatus }
             : b
         )
       );
 
       Swal.fire({
         icon: "success",
-        title: "Status updated successfully",
+        title: "Connection updated",
         timer: 1200,
         showConfirmButton: false,
       });
-
-    } catch (error: any) {
+    } catch (err: any) {
       Swal.fire({
         icon: "error",
-        title: "Failed to update status",
-        text: "Please try again",
+        title: "Update failed",
+        text: err.message || "Please try again",
       });
+
+      // 🔄 keep UI in sync
+      fetchBrokers();
+    } finally {
+      setUpdatingId(null);
     }
   }
 
 
-  // ================= UI =================
+  /* ================= UI ================= */
   return (
     <div className="px-6 py-6 text-gray-900 dark:text-gray-100">
+
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+      <div className="flex flex-col sm:flex-row sm:justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-semibold dark:text-white">
-            My Brokers
-          </h1>
+          <h1 className="text-2xl font-semibold">My Brokers</h1>
           <p className="text-sm text-gray-500 dark:text-slate-400">
             Manage assigned brokers
           </p>
@@ -187,15 +172,14 @@ export default function BrokerList() {
             placeholder="Search broker..."
             className="px-3 py-2 border rounded-md text-sm
               bg-white border-gray-300
-              dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
+              dark:bg-slate-800 dark:border-slate-600"
           />
-
           <select
             value={pageSize}
             onChange={(e) => setPageSize(Number(e.target.value))}
             className="px-2 py-2 border rounded-md text-sm
               bg-white border-gray-300
-              dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
+              dark:bg-slate-800 dark:border-slate-600"
           >
             <option value={5}>5 / page</option>
             <option value={10}>10 / page</option>
@@ -207,62 +191,71 @@ export default function BrokerList() {
       {/* Table */}
       <div className="bg-white border rounded-xl p-4 dark:bg-slate-900 dark:border-slate-700">
         {loading ? (
-          <div className="py-6 text-center text-gray-500 dark:text-slate-400">
-            Loading brokers...
+          <div className="py-6 text-center text-gray-500">
+            Loading brokers…
           </div>
-        ) : paginatedBrokers.length === 0 ? (
-          <div className="py-6 text-center text-gray-500 dark:text-slate-400">
+        ) : paginated.length === 0 ? (
+          <div className="py-6 text-center text-gray-500">
             No brokers found
           </div>
         ) : (
           <table className="min-w-full text-sm">
             <thead>
-              <tr className="border-b text-xs uppercase text-gray-500 dark:text-slate-400 dark:border-slate-700">
+              <tr className="border-b text-xs uppercase text-gray-500 dark:border-slate-700">
                 <th className="py-2 text-left">Profile</th>
                 <th className="py-2 text-left">Name</th>
                 <th className="py-2 text-left">Email</th>
                 <th className="py-2 text-left">Phone</th>
                 <th className="py-2 text-left">Status</th>
+                <th className="py-2 text-left">Connection</th>
                 <th className="py-2 text-left">Assigned At</th>
               </tr>
             </thead>
 
             <tbody>
-              {paginatedBrokers.map((b) => (
-                <tr
-                  key={b.id}
-                  className="border-b last:border-0 dark:border-slate-800"
-                >
+              {paginated.map((b) => (
+                <tr key={b.id} className="border-b dark:border-slate-800">
                   <td className="py-3">
                     <img
-                      src={b.profile?.trim() || "/broker-icon.jpg"}
-                      alt={b.name}
+                      src={b.profile || "/broker-icon.jpg"}
                       className="h-10 w-10 rounded-full border object-cover"
-                      onError={(e) => {
-                        e.currentTarget.src = "/broker-icon.jpg";
-                      }}
                     />
                   </td>
+                  <td>{b.name}</td>
+                  <td>{b.email}</td>
+                  <td>{b.phone}</td>
 
-                  <td className="py-3">{b.name}</td>
-                  <td className="py-3">{b.email}</td>
-                  <td className="py-3">{b.phone}</td>
-
-                  <td className="p-4">
-                    <button
-                      type="button"
-                      onClick={() => handleStatusToggle(b)}
-                      className={`px-3 py-1 z-50000000 rounded-full text-xs font-medium transition cursor-pointer ${b.status === "ACTIVE"
-                        ? "bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-500/10 dark:text-green-300"
-                        : "bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-slate-700 dark:text-slate-300"
-                        }`}
-                      title="Click to change status"
+                  {/* STATUS (READ ONLY) */}
+                  <td>
+                    <span
+                      className={`px-3 py-1 rounded-full text-xs font-medium`}
                     >
-                      {b.status}
-                    </button>
+                      {b.brokerStatus}
+                    </span>
                   </td>
 
-                  <td className="py-3">
+                  {/* CONNECTION (CLICKABLE) */}
+                  <td>
+                    <td className="py-3">
+                      <button
+                        disabled={updatingId === b.id}
+                        onClick={() => handleConnectionToggle(b)}
+                        className={`px-3 py-1 rounded-full text-xs font-medium transition
+      ${b.connectionStatus === "CONNECTED"
+                            ? "bg-green-100 text-green-700"
+                            : "bg-red-100 text-red-700"
+                          }
+      ${updatingId === b.id ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}
+    `}
+                        title="Click to toggle connection"
+                      >
+                        {updatingId === b.id ? "Updating..." : b.connectionStatus}
+                      </button>
+                    </td>
+
+                  </td>
+
+                  <td>
                     {new Date(b.assignedAt).toLocaleDateString()}
                   </td>
                 </tr>
@@ -276,17 +269,22 @@ export default function BrokerList() {
       {totalPages > 1 && (
         <div className="flex justify-end gap-2 mt-4">
           <button
-            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+            onClick={() =>
+              setCurrentPage((p) => Math.max(1, p - 1))
+            }
             disabled={currentPage === 1}
-            className="px-3 py-1 border rounded disabled:opacity-40 dark:border-slate-700"
+            className="px-3 py-1 border rounded disabled:opacity-40"
           >
             Prev
           </button>
-
           <button
-            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+            onClick={() =>
+              setCurrentPage((p) =>
+                Math.min(totalPages, p + 1)
+              )
+            }
             disabled={currentPage === totalPages}
-            className="px-3 py-1 border rounded disabled:opacity-40 dark:border-slate-700"
+            className="px-3 py-1 border rounded disabled:opacity-40"
           >
             Next
           </button>

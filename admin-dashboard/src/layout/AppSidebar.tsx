@@ -39,7 +39,7 @@ const navItems: NavItem[] = [
   },
   {
     icon: <GroupsOutlinedIcon />,
-    name: "Organisationss",
+    name: "Broker Organisations",
     subItems: [{ name: "Brokers Organisation", path: "/all-brokers-organisation" }, { name: "Broker Assigned Lenders", path: "/all-brokers-lenders" }]
   },
   // {
