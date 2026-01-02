@@ -8,14 +8,16 @@ async function listLenderBrokersRoutes(fastify) {
       schema: {
         tags: ["Lender -> Brokers"],
         summary: "List brokers assigned to lender",
-        description: "Returns brokers mapped to the authenticated lender",
+        description:
+          "Returns brokers connected to the lender with connection status",
       },
     },
     async (req, reply) => {
       const prisma = fastify.prisma;
+
       try {
         // ---------------------------
-        // Auth safety (middleware-aligned)
+        // Auth safety
         // ---------------------------
         if (
           !req.user ||
@@ -31,12 +33,11 @@ async function listLenderBrokersRoutes(fastify) {
         const lenderOrgId = req.user.organizationId;
 
         // ---------------------------
-        // Fetch mapped brokers
+        // Fetch ALL broker connections
         // ---------------------------
         const brokers = await prisma.brokerLenderAccess.findMany({
           where: {
-            lenderOrgId,
-            isActive: true,
+            lenderOrgId, // ❗ no isActive filter
           },
           include: {
             broker: {
@@ -45,7 +46,7 @@ async function listLenderBrokersRoutes(fastify) {
                 name: true,
                 email: true,
                 phone: true,
-                status: true,
+                status: true, // global broker status
                 createdAt: true,
               },
             },
@@ -65,12 +66,19 @@ async function listLenderBrokersRoutes(fastify) {
             name: b.broker.name,
             email: b.broker.email,
             phone: b.broker.phone,
-            status: b.broker.status,
+
+            // Global broker state
+            brokerStatus: b.broker.status, // ACTIVE / INACTIVE
+
+            // Lender-level relationship state
+            connectionStatus: b.isActive ? "CONNECTED" : "DISABLED",
+
             source: b.source,
             assignedAt: b.createdAt,
           })),
         });
       } catch (error) {
+        req.log.error(error);
         return reply.status(500).send({
           success: false,
           message: "Server error while fetching brokers",
