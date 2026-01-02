@@ -7,7 +7,7 @@ const { adminLogs } = require("../../../services/logger/contextLogger.js");
  * @param {import("fastify").FastifyInstance} fastify
  */
 async function statusRoutes(fastify) {
- 
+
   async function toggleOrgStatusTx(tx, orgId, toActive, actor = {}) {
     const org = await tx.organization.findUnique({
       where: { id: orgId },

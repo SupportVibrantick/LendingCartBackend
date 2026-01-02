@@ -35,7 +35,7 @@ import LenderProductAssign from "./pages/LoanProducts/LenderAssignProduct";
 import AssignedProducts from "./pages/LoanProducts/AssignedProducts";
 import MyBroker from "./pages/Brokers/MyBroker";
 import FindBroker from "./pages/Brokers/FindBroker";
-import BrokerRequest from "./pages/Brokers/BrokerRequest";
+import BrokerRequest from "./pages/Brokers/BrokerInvites";
 
 
 export default function App() {

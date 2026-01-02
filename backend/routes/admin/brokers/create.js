@@ -7,8 +7,8 @@ const {
 const bcrypt = require("bcrypt");
 
 // Mail + Kafka
-const { loadTemplate } = require("../../../utils/loadTemplate");   
-const sendMail = require("../../../services/mail");                
+const { loadTemplate } = require("../../../utils/loadTemplate");
+const sendMail = require("../../../services/mail");
 const { sendEmailUsingKafka } = require("../../../services/kafka/email/producer.js");
 
 /**
@@ -139,24 +139,24 @@ async function createBrokerRoutes(fastify) {
         try {
           const apiBase = process.env.VITE_API_BASE || process.env.APP_URL;
 
-const html = loadTemplate("admin/broker/create", {
-  name: adminFirstName,
-  currentYear: new Date().getFullYear(),
+          const html = loadTemplate("admin/broker/create", {
+            name: adminFirstName,
+            currentYear: new Date().getFullYear(),
 
-  // Org details
-  organizationName,
-  organizationEmail,
-  organizationPhone,
+            // Org details
+            organizationName,
+            organizationEmail,
+            organizationPhone,
 
-  // Admin
-  adminFirstName,
-  adminLastName,
-  adminEmail,
+            // Admin
+            adminFirstName,
+            adminLastName,
+            adminEmail,
 
-  // Logo + links
-  apiBase,
-  loginUrl: `${apiBase}/broker/login`,
-});
+            // Logo + links
+            apiBase,
+            loginUrl: `${apiBase}/broker/login`,
+          });
 
 
           const subject = "Your Broker Account Has Been Created";
@@ -170,15 +170,15 @@ const html = loadTemplate("admin/broker/create", {
               to: adminEmail,
             });
 
-            
-            
+
+
           } catch (kafkaErr) {
             adminLogs.error(
               "Kafka email queue failed, falling back to direct SMTP",
               kafkaErr
             );
 
-           await sendMail({
+            await sendMail({
               to: adminEmail,
               subject,
               text,
