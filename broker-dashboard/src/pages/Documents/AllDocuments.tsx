@@ -65,7 +65,7 @@ const AllLoanProducts: React.FC = () => {
     const [documents, setDocuments] = useState<Document[]>([]);
     const [loadingList, setLoadingList] = useState(false);
     const [saving, setSaving] = useState(false);
-    const [togglingId, setTogglingId] = useState<string | null>(null);
+    // const [togglingId, setTogglingId] = useState<string | null>(null);
 
     const [editingProductId, setEditingProductId] = useState<string | null>(null);
     const [form, setForm] = useState<DocumentForm>({
@@ -203,42 +203,43 @@ const AllLoanProducts: React.FC = () => {
         });
     };
 
-    const handleToggleStatus = async (document: Document) => {
-        try {
-            setTogglingId(document.id);
+    // const handleToggleStatus = async (document: Document) => {
+    //     try {
+    //         setTogglingId(document.id);
 
-            const res = await fetch(
-                `${API_BASE}/admin/document-types/status`,
-                {
-                    method: "PATCH",
-                    headers: getAuthHeaders(),
-                    body: JSON.stringify({
-                        id: document.id,
-                        isActive: !document.isActive,
-                    }),
-                }
-            );
+    //         const res = await fetch(
+    //             `${API_BASE}/admin/document-types/status`,
+    //             {
+    //                 method: "PATCH",
+    //                 headers: getAuthHeaders(),
+    //                 body: JSON.stringify({
+    //                     id: document.id,
+    //                     isActive: !document.isActive,
+    //                 }),
+    //             }
+    //         );
 
-            const json = await res.json();
+    //         const json = await res.json();
 
-            if (!res.ok || !json.success) {
-                toast.error(json.message || "Failed to update document status");
-                return;
-            }
+    //         if (!res.ok || !json.success) {
+    //             toast.error(json.message || "Failed to update document status");
+    //             return;
+    //         }
 
-            await fetchDocuments();
-            toast.success("Status Updated");
-        } catch (err) {
-            console.error("Failed to toggle document status", err);
-        } finally {
-            setTogglingId(null);
-        }
-    };
+    //         await fetchDocuments();
+    //         toast.success("Status Updated");
+    //     } catch (err) {
+    //         console.error("Failed to toggle document status", err);
+    //     } finally {
+    //         setTogglingId(null);
+    //     }
+    // };
 
 
 
 
     // ===== Effects =====
+    
     useEffect(() => {
         fetchDocuments();
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -438,22 +439,22 @@ const AllLoanProducts: React.FC = () => {
                                                 <button
                                                     type="button"
                                                     onClick={() => {
-                                                        if (!togglingId) {
-                                                            handleToggleStatus(fp);
-                                                        }
+                                                        // if (!togglingId) {
+                                                            // handleToggleStatus(fp);
+                                                        // }
                                                     }}
-                                                    disabled={togglingId === p.id}
+                                                    // disabled={togglingId === p.id}
                                                     className={`inline-flex items-center px-3 py-1 rounded-full border text-xs cursor-pointer
                                       ${statusClass(
                                                         p.isActive ? "ACTIVE" : "INACTIVE"
                                                     )}
                                       disabled:opacity-60 disabled:cursor-not-allowed`}
                                                 >
-                                                    {togglingId === p.id
+                                                    {/* {togglingId === p.id
                                                         ? "Updating..."
                                                         : p.isActive
                                                             ? "ACTIVE"
-                                                            : "INACTIVE"}
+                                                            : "INACTIVE"} */}
                                                 </button>
                                             </td>
 

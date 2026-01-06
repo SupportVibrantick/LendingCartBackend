@@ -111,7 +111,7 @@ export default function MyBrokers() {
           method: "PATCH",
           headers: getAuthHeaders(),
           body: JSON.stringify({
-            isActive, 
+            isActive,
           }),
         }
       );
