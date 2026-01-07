@@ -1,17 +1,5 @@
-// backend/routes/broker/auth/login.js
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
-
-const {
-  brokerLoginSchema,
-} = require("../../../schemas/broker/auth/login.schema");
-
-const { brokerLogs } = require("../../../services/logger/contextLogger");
-
-const JWT_SECRET = process.env.JWT_SECRET || "supersecret";
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "15m";
-const REFRESH_SECRET = process.env.REFRESH_SECRET || "refreshsecret";
-const REFRESH_EXPIRES_IN = process.env.REFRESH_EXPIRES_IN || "7d";
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
@@ -23,32 +11,32 @@ async function brokerLoginRoutes(fastify) {
       schema: {
         tags: ["Broker -> Auth"],
         summary: "Broker login",
-        description: "Login for broker admin/officer users",
+        description: "Authenticate broker admin user",
+        body: {
+          type: "object",
+          required: ["email", "password"],
+          properties: {
+            email: { type: "string", format: "email" },
+            password: { type: "string", minLength: 8 },
+          },
+        },
       },
     },
-    async (request, reply) => {
+    async (req, reply) => {
       const prisma = fastify.prisma;
+
       try {
-        // Validate input
-        const parsed = brokerLoginSchema.safeParse(request.body);
-        if (!parsed.success) {
-          return reply.status(400).send({
-            success: false,
-            message: "Invalid login payload",
-          });
-        }
+        const email = req.body.email.trim().toLowerCase();
+        const { password } = req.body;
 
-        const { email, password } = parsed.data;
-
-        // Find user
+        // ---------------------------
+        // Find user (case-insensitive)
+        // ---------------------------
         const user = await prisma.userAccount.findFirst({
           where: {
-            email,
-            isDeleted: false,
-            organization: {
-              type: "BROKER",
-              status: "ACTIVE",
-              isDeleted: false,
+            email: {
+              equals: email,
+              mode: "insensitive",
             },
           },
           include: {
@@ -60,77 +48,102 @@ async function brokerLoginRoutes(fastify) {
         });
 
         if (!user) {
-          return reply.status(401).send({
+          return reply.code(401).send({
             success: false,
             message: "Invalid email or password",
           });
         }
 
-        // Check password
-        const isMatch = await bcrypt.compare(password, user.passwordHash);
-        if (!isMatch) {
-          return reply.status(401).send({
+        // ---------------------------
+        // User status check
+        // ---------------------------
+        if (user.status !== "ACTIVE") {
+          return reply.code(401).send({
             success: false,
-            message: "Invalid email or password",
+            message: "User account is inactive",
           });
         }
 
-        //  Ensure broker role
-        const hasBrokerRole = user.roles.some((r) =>
-          ["BROKER_ADMIN", "BROKER_OFFICER"].includes(r.role.name)
+        // ---------------------------
+        // Organization validation
+        // ---------------------------
+        if (
+          !user.organization ||
+          user.organization.type !== "BROKER" ||
+          user.organization.status !== "ACTIVE"
+        ) {
+          return reply.code(401).send({
+            success: false,
+            message: "Invalid broker organization",
+          });
+        }
+
+        // ---------------------------
+        // Role validation
+        // ---------------------------
+        const roles = user.roles.map((r) => r.role.name);
+
+        if (!roles.includes("BROKER_ADMIN")) {
+          return reply.code(403).send({
+            success: false,
+            message: "Access denied",
+          });
+        }
+
+        // ---------------------------
+        // Password verification
+        // ---------------------------
+        const isValidPassword = await bcrypt.compare(
+          password,
+          user.passwordHash
         );
 
-        if (!hasBrokerRole) {
-          return reply.status(403).send({
+        if (!isValidPassword) {
+          return reply.code(401).send({
             success: false,
-            message: "Access denied for this account",
+            message: "Invalid email or password",
           });
         }
 
-        // Generate tokens
-        const payload = {
-          userId: user.id,
-          organizationId: user.organizationId,
-          orgType: "BROKER",
-          roles: user.roles.map((r) => r.role.name),
-        };
+        // ---------------------------
+        // Generate JWT
+        // ---------------------------
+        const token = jwt.sign(
+          {
+            id: user.id,
+            organizationId: user.organizationId,
+            orgType: "BROKER",
+            roles,
+          },
+          process.env.JWT_SECRET,
+          {
+            expiresIn: "24h",
+            issuer: "lendingcart",
+            audience: "broker-app",
+          }
+        );
 
-        const accessToken = jwt.sign(payload, JWT_SECRET, {
-          expiresIn: JWT_EXPIRES_IN,
-        });
-
-        const refreshToken = jwt.sign(payload, REFRESH_SECRET, {
-          expiresIn: REFRESH_EXPIRES_IN,
-        });
-
-        brokerLogs.info("Broker logged in", {
-          userId: user.id,
-          organizationId: user.organizationId,
-        });
-
+        // ---------------------------
+        // Success response
+        // ---------------------------
         return reply.send({
           success: true,
           message: "Login successful",
           data: {
-            accessToken,
-            refreshToken,
+            token,
             user: {
               id: user.id,
               email: user.email,
-              firstName: user.firstName,
-              lastName: user.lastName,
-              roles: payload.roles,
-              organization: {
-                id: user.organization.id,
-                name: user.organization.name,
-                type: user.organization.type,
-              },
+              name: `${user.firstName} ${user.lastName}`,
+              organizationId: user.organizationId,
+              organizationName: user.organization.name,
+              roles,
             },
           },
         });
-      } catch (err) {
-        brokerLogs.error("Broker login failed", err);
-        return reply.status(500).send({
+      } catch (error) {
+        fastify.log.error("Broker login error", error);
+        return reply.code(500).send({
           success: false,
           message: "Server error during login",
         });

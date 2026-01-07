@@ -1,7 +1,3 @@
-// backend/routes/broker/auth/register.js
-
-const { PrismaClient } = require("@prisma/client");
-const prisma = new PrismaClient();
 const bcrypt = require("bcrypt");
 
 const {
@@ -16,7 +12,7 @@ const { brokerLogs } = require("../../../services/logger/contextLogger");
  */
 async function brokerRegisterRoutes(fastify) {
   fastify.post(
-    "/register",
+    "/",
     {
       schema: {
         tags: ["Broker -> Auth"],
@@ -24,16 +20,20 @@ async function brokerRegisterRoutes(fastify) {
       },
     },
     async (req, reply) => {
+      const prisma = fastify.prisma;
+
       try {
         const parsed = brokerRegisterSchema.safeParse(req.body);
         if (!parsed.success) {
           return reply.status(400).send({
             success: false,
             message: "Invalid registration payload",
+            // optional for dev:
+            // errors: parsed.error.issues,
           });
         }
 
-        const {
+        let {
           organizationName,
           organizationEmail,
           organizationPhone,
@@ -43,13 +43,17 @@ async function brokerRegisterRoutes(fastify) {
           password,
         } = parsed.data;
 
+        // Normalize
+        organizationEmail = organizationEmail.trim().toLowerCase();
+        email = email.trim().toLowerCase();
+
         // Duplicate org
         const orgExists = await prisma.organization.findFirst({
           where: {
             OR: [
               { name: organizationName },
               { email: organizationEmail },
-              { phone: organizationPhone },
+              { phone: String(organizationPhone) },
             ],
           },
         });
@@ -63,7 +67,9 @@ async function brokerRegisterRoutes(fastify) {
 
         // Duplicate user
         const userExists = await prisma.userAccount.findFirst({
-          where: { email },
+          where: {
+            email: { equals: email, mode: "insensitive" },
+          },
         });
 
         if (userExists) {
@@ -82,7 +88,7 @@ async function brokerRegisterRoutes(fastify) {
             data: {
               name: organizationName,
               email: organizationEmail,
-              phone: organizationPhone,
+              phone: String(organizationPhone),
               type: "BROKER",
               status: "ACTIVE",
             },
