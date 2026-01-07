@@ -25,7 +25,7 @@ const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001";
 // same as BrokersPage
 function getAuthHeaders(): Record<string, string> {
   try {
-    const token = sessionStorage.getItem("admin_token");
+    const token = sessionStorage.getItem("broker_token");
     if (token) {
       return {
         "Content-Type": "application/json",

@@ -43,11 +43,11 @@ export default function UserDropdown() {
   function handleLogout() {
     try {
       // remove specific keys
-      sessionStorage.removeItem("admin_token");
-      sessionStorage.removeItem("admin_refresh");
-      sessionStorage.removeItem("admin_user");
-      sessionStorage.removeItem("admin_user_name");
-      sessionStorage.removeItem("admin_user_email");
+      sessionStorage.removeItem("broker_token");
+      sessionStorage.removeItem("broker_refresh");
+      sessionStorage.removeItem("broker_user");
+      sessionStorage.removeItem("broker_user_name");
+      sessionStorage.removeItem("broker_user_email");
       // optional: clear everything in session storage
       // sessionStorage.clear();
     } catch (e) {

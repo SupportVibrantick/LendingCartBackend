@@ -23,7 +23,7 @@ export default function EcommerceMetrics() {
 
     const fetchStats = async () => {
       try {
-        const token = sessionStorage.getItem("admin_token");
+        const token = sessionStorage.getItem("broker_token");
 
         const headers: Record<string, string> = {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
