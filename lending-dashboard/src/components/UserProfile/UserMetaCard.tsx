@@ -172,7 +172,7 @@ export default function UserProfileCard() {
       </div>
 
       {/* ================= DETAILS ================= */}
-      <div className="mt-8 space-y-5">
+      <div className="mt-8 space-y-5 text-gray-500 dark:text-white">
 
         {/* First Name */}
         <ProfileRow
