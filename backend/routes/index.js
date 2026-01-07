@@ -30,7 +30,7 @@ async function indexRoutes(fastify, options) {
   //  Role-specific
   fastify.register(adminRoutes, { prefix: "/admin" });
   fastify.register(lenderRoutes, { prefix: "/lender" });
-  fastify.register(lenderRoutes, { prefix: "/broker" });
+  fastify.register(brokerRoutes, { prefix: "/broker" });
 }
 
 module.exports = indexRoutes;
