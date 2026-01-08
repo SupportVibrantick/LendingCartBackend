@@ -162,7 +162,7 @@ export default function SignUpForm() {
           Back
         </Link>
 
-        <h1 className="mb-4 font-semibold text-gray-800 text-title-sm">
+        <h1 className="mb-4 font-semibold text-gray-800 text-title-sm dark:text-white">
           Create Account
         </h1>
 
@@ -202,7 +202,6 @@ export default function SignUpForm() {
               )}
             </span>
           </div>
-
 
           <div className="flex items-center gap-2">
             <Checkbox checked={isChecked} onChange={setIsChecked} />

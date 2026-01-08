@@ -23,7 +23,8 @@ import AllUsers from "./pages/ManageUser/AllUser";
 import ToastProvider from "./Utils/ToastProvider/ToastProvider";
 import BrokersPage from "./pages/Brokers/AllBrokers";
 import RequireAuth from "./components/auth/RequireAuth";
-import AllLendersPage from "./pages/Lenders/AllLenders";
+import ConnectedLenders from "./pages/Lenders/ConnectedLenders";
+import LenderInvites from "./pages/Lenders/LenderInvites";
 import BrokersLenders from "./pages/Brokers/BrokersLenders";
 import AdminLogs from "./pages/AdminLogs/AdminLogs";
 import AllLoanProducts from "./pages/LoanProducts/AllLoanProducts";
@@ -39,31 +40,32 @@ export default function App() {
       <Router>
         <ScrollToTop />
         <ToastProvider />
-         <Routes>
-        {/* Dashboard Layout - protected */}
-        <Route
-          element={
-            <RequireAuth>
-              <AppLayout />
-            </RequireAuth>
-          }
-        >
+        <Routes>
+          {/* Dashboard Layout - protected */}
+          <Route
+            element={
+              <RequireAuth>
+                <AppLayout />
+              </RequireAuth>
+            }
+          >
             <Route index path="/" element={<Home />} />
 
             <Route index path="/add-user" element={<AddUser />} />
             <Route index path="/all-user" element={<AllUsers />} />
 
             <Route index path="/all-brokers-organisation" element={<BrokersPage />} />
-            <Route index path="/all-brokers-lenders" element={<BrokersLenders/>} />
-            <Route index path="/all-lenders-organisation" element={<AllLendersPage/>} />
-            <Route index path="/all-loan-products" element={<AllLoanProducts/>} />
-            <Route index path="/lender-assigned-products" element={<LenderProductAssign/>} />
-            <Route index path="/assigned-products" element={<AssignedProducts/>} />
-            <Route index path="/all-super-admins" element={<AllSuperadmin/>} />
+            <Route index path="/all-brokers-lenders" element={<BrokersLenders />} />
+            <Route index path="/all-connected-lenders" element={<ConnectedLenders />} />
+            <Route index path="/all-lender-invites" element={<LenderInvites />} />
+            <Route index path="/all-loan-products" element={<AllLoanProducts />} />
+            <Route index path="/lender-assigned-products" element={<LenderProductAssign />} />
+            <Route index path="/assigned-products" element={<AssignedProducts />} />
+            <Route index path="/all-super-admins" element={<AllSuperadmin />} />
 
-            <Route index path="/all-documents" element={<AllDocuments/>} />
+            <Route index path="/all-documents" element={<AllDocuments />} />
 
-            <Route index path="/admin-logs" element={<AdminLogs/>} />
+            <Route index path="/admin-logs" element={<AdminLogs />} />
 
             {/* Others Page */}
             <Route path="/profile" element={<UserProfiles />} />

@@ -9,6 +9,7 @@ type SessionUser = {
   name: string;
   email: string;
   organizationName: string;
+  organizationId: string;
   roles: string[];
   profileImage?: string;
 };
@@ -30,7 +31,7 @@ export default function UserProfileCard() {
 
   // ================= LOAD USER =================
   useEffect(() => {
-    const raw = sessionStorage.getItem("lender_user");
+    const raw = sessionStorage.getItem("broker_user");
     if (!raw) return;
 
     const parsed: SessionUser = JSON.parse(raw);
@@ -110,12 +111,13 @@ export default function UserProfileCard() {
         id: user.id,
         email: user.email,
         organizationName: user.organizationName,
+        organizationId: user.organizationId,
         roles: user.roles,
         name: displayName,
         profileImage: json.data?.profileImage || user.profileImage,
       };
 
-      sessionStorage.setItem("lender_user", JSON.stringify(updatedUser));
+      sessionStorage.setItem("broker_user", JSON.stringify(updatedUser));
       setUser(updatedUser);
       setEditing(null);
       setProfileImage(null);
