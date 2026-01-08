@@ -181,6 +181,7 @@ async function readLendersRoutes(fastify) {
       },
     },
     async (request, reply) => {
+      const prisma = fastify.prisma;
       try {
         const id = request.params.id;
 
