@@ -12,7 +12,7 @@ type Props = {
  */
 export default function RequireAuth({ children }: Props) {
   const location = useLocation();
-  const token = typeof window !== "undefined" ? sessionStorage.getItem("admin_token") : null;
+  const token = typeof window !== "undefined" ? sessionStorage.getItem("broker_token") : null;
 
   if (!token) {
     // redirect to signin and remember where user wanted to go
