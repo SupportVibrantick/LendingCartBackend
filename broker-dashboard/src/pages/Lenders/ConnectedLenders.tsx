@@ -226,9 +226,6 @@ export default function ConnectedLendersTable() {
                           <div className="font-medium text-gray-900 dark:text-gray-100">
                             {l.lenderName}
                           </div>
-                          <div className="text-xs text-gray-500 dark:text-slate-400">
-                            ID: {l.lenderId.slice(0, 8)}...
-                          </div>
                         </td>
 
                         <td className="px-4 py-3 text-gray-700 dark:text-slate-300">

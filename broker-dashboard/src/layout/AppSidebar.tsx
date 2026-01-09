@@ -41,7 +41,7 @@ const navItems: NavItem[] = [
   {
     icon: <FaHandHoldingUsd />,
     name: "Lenders",
-    subItems: [{ name: "Connected Lenders", path: "/all-connected-lenders" }, { name: "Lender Invites", path: "/all-lender-invites" }]
+    subItems: [{ name: "Connected Lenders", path: "/all-connected-lenders" }, { name: "Lender Invites", path: "/all-lender-invites" }, { name: "Lender Products", path: "/all-lender-products" }]
   },
   // {
   //   icon: <GroupOutlinedIcon />,

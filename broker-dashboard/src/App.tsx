@@ -25,6 +25,7 @@ import BrokersPage from "./pages/Brokers/AllBrokers";
 import RequireAuth from "./components/auth/RequireAuth";
 import ConnectedLenders from "./pages/Lenders/ConnectedLenders";
 import LenderInvites from "./pages/Lenders/LenderInvites";
+import LenderProducts from "./pages/Lenders/LenderProducts";
 import BrokersLenders from "./pages/Brokers/BrokersLenders";
 import AdminLogs from "./pages/AdminLogs/AdminLogs";
 import AllLoanProducts from "./pages/LoanProducts/AllLoanProducts";
@@ -56,8 +57,11 @@ export default function App() {
 
             <Route index path="/all-brokers-organisation" element={<BrokersPage />} />
             <Route index path="/all-brokers-lenders" element={<BrokersLenders />} />
+
             <Route index path="/all-connected-lenders" element={<ConnectedLenders />} />
             <Route index path="/all-lender-invites" element={<LenderInvites />} />
+            <Route index path="/all-lender-products" element={<LenderProducts />} />
+
             <Route index path="/all-loan-products" element={<AllLoanProducts />} />
             <Route index path="/lender-assigned-products" element={<LenderProductAssign />} />
             <Route index path="/assigned-products" element={<AssignedProducts />} />
