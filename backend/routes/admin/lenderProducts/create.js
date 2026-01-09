@@ -1,4 +1,5 @@
 // routes/admin/lenderProducts/create.js
+const { Prisma } = require("@prisma/client");
 const { adminLogs } = require("../../../services/logger/contextLogger");
 const {
   createLenderProductSchema,
@@ -119,7 +120,7 @@ async function createLenderProductRoutes(fastify) {
         });
       } catch (error) {
         adminLogs.error("LenderProduct create failed", error);
-
+ 
         return reply.status(500).send({
           success: false,
           message: "Server error while creating lender product",
