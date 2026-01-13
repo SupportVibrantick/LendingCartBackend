@@ -58,7 +58,6 @@ export default function SignUpForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log(form)
     try {
       setSaving(true);
       const res = await fetch(`${API_BASE}/lender/auth/register`, {

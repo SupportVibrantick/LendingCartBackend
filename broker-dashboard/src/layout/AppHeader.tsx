@@ -7,26 +7,26 @@ import NotificationDropdown from "../components/header/NotificationDropdown";
 import UserDropdown from "../components/header/UserDropdown";
 
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001";
+// const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001";
 
-function getAuthHeaders(): Record<string, string> {
-  try {
-    let token = sessionStorage.getItem("lender_token");
-    if (token) {
-      return {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      };
-    }
-  } catch {
-    /* ignore */
-  }
-  return { "Content-Type": "application/json" };
-}
+// function getAuthHeaders(): Record<string, string> {
+//   try {
+//     let token = sessionStorage.getItem("lender_token");
+//     if (token) {
+//       return {
+//         "Content-Type": "application/json",
+//         Authorization: `Bearer ${token}`,
+//       };
+//     }
+//   } catch {
+//     /* ignore */
+//   }
+//   return { "Content-Type": "application/json" };
+// }
 
 const AppHeader: React.FC = () => {
   const [isApplicationMenuOpen, setApplicationMenuOpen] = useState(false);
-  const [user, setUser] = useState<any | null>(null);
+  // const [user, setUser] = useState<any | null>(null);
   const [time, setTime] = useState("");
 
   const { isMobileOpen, toggleSidebar, toggleMobileSidebar } = useSidebar();
@@ -45,47 +45,47 @@ const AppHeader: React.FC = () => {
 
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const fetchAuthUser = async () => {
-    try {
-      const res = await fetch(`${API_BASE}/lender/auth/me`, {
-        method: "GET",
-        headers: getAuthHeaders(),
-      });
+  // const fetchAuthUser = async () => {
+  //   try {
+  //     const res = await fetch(`${API_BASE}/lender/auth/me`, {
+  //       method: "GET",
+  //       headers: getAuthHeaders(),
+  //     });
 
-      if (!res.ok) {
-        console.error("Failed to load user:", res.status);
-        return;
-      }
+  //     if (!res.ok) {
+  //       console.error("Failed to load user:", res.status);
+  //       return;
+  //     }
 
-      const json = await res.json();
+  //     const json = await res.json();
 
-      if (json?.success === false) {
-        console.error("Failed to load user:", json.message);
-        return;
-      }
+  //     if (json?.success === false) {
+  //       console.error("Failed to load user:", json.message);
+  //       return;
+  //     }
 
-      const user = json.data ?? json;
-      setUser(user);
-    } catch (err) {
-      console.error("Failed to load user:", err);
-    }
-  };
+  //     const user = json.data ?? json;
+  //     setUser(user);
+  //   } catch (err) {
+  //     console.error("Failed to load user:", err);
+  //   }
+  // };
 
-  const toTitleCase = (value?: string) =>
-    value
-      ? value
-        .toLowerCase()
-        .split(" ")
-        .map(
-          (w) => w.charAt(0).toUpperCase() + w.slice(1)
-        )
-        .join(" ")
-      : "";
+  // const toTitleCase = (value?: string) =>
+  //   value
+  //     ? value
+  //       .toLowerCase()
+  //       .split(" ")
+  //       .map(
+  //         (w) => w.charAt(0).toUpperCase() + w.slice(1)
+  //       )
+  //       .join(" ")
+  //     : "";
 
 
 
   useEffect(() => {
-    fetchAuthUser();
+    // fetchAuthUser();
     const handleKeyDown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key === "k") {
         event.preventDefault();
@@ -202,7 +202,8 @@ const AppHeader: React.FC = () => {
             <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
               Welcome{" "}
               <span className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                {toTitleCase(user?.name)}
+                {/* {toTitleCase(user?.name)} */}
+                Broker
               </span>
             </h1>
           </div>
