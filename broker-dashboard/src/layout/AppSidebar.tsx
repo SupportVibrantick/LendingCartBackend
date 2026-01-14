@@ -19,6 +19,7 @@ import { useSidebar } from "../context/SidebarContext";
 // import GroupOutlinedIcon from '@mui/icons-material/GroupOutlined';
 // import GroupsOutlinedIcon from '@mui/icons-material/GroupsOutlined';
 import { FaHandHoldingUsd } from "react-icons/fa";
+import { MdWeb } from "react-icons/md";
 // import AccountBalanceOutlinedIcon from '@mui/icons-material/AccountBalanceOutlined';
 // import AdminPanelSettingsOutlinedIcon from '@mui/icons-material/AdminPanelSettingsOutlined';
 // import CurrencyExchangeOutlinedIcon from '@mui/icons-material/CurrencyExchangeOutlined';
@@ -42,6 +43,12 @@ const navItems: NavItem[] = [
     icon: <FaHandHoldingUsd />,
     name: "Lenders",
     subItems: [{ name: "Connected Lenders", path: "/all-connected-lenders" }, { name: "Lender Invites", path: "/all-lender-invites" }, { name: "Lender Products", path: "/all-lender-products" }]
+  },
+
+   {
+    icon: <MdWeb />,
+    name: "White Label Settings",
+    subItems: [{ name: "Config Website", path: "/broker-website-dashboard/config-website" }]
   },
   // {
   //   icon: <GroupOutlinedIcon />,
