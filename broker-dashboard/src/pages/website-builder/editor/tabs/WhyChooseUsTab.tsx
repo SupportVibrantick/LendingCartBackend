@@ -33,14 +33,14 @@ export default function WhyChooseUsTab({
           className="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl space-y-2"
         >
           <input
-            className="w-full border rounded px-3 py-2 bg-white dark:bg-slate-900"
+            className="text-sm text-gray-800 w-full border rounded px-3 py-2 bg-white dark:bg-slate-900"
             value={item.title}
             onChange={(e) => updateItem(i, e.target.value)}
           />
 
           <button
             onClick={() => removeItem(i)}
-            className="text-red-500 text-sm"
+            className="text-red-500 text-xs"
           >
             Remove
           </button>

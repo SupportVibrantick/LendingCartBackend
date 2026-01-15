@@ -10,14 +10,14 @@ export default function HeroSection({ config }: { config: SiteConfig }) {
     >
       <div className="max-w-7xl mx-auto px-6 py-20 grid md:grid-cols-2 gap-12 items-center text-white">
         <div>
-          <h1 className="text-4xl md:text-5xl font-bold leading-tight">
+          <h1 className="text-4xl font-bold leading-tight">
             {config.home.heroHeading}
           </h1>
-          <p className="mt-4 text-lg opacity-90">
+          <p className="mt-4 text-md opacity-90">
             {config.home.heroSubheading}
           </p>
 
-          <button className="mt-8 bg-white text-black px-6 py-3 rounded-xl font-semibold shadow-lg hover:scale-105 transition">
+          <button className="text-sm mt-8 bg-white text-black px-6 py-3 rounded-xl font-semibold shadow-lg hover:scale-105 transition">
             {config.home.ctaText}
           </button>
         </div>

@@ -51,7 +51,7 @@ export default function HomeTab({
                 }
               }}
             />
-            <div className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm">
+            <div className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs">
               Upload Image
             </div>
           </label>
@@ -62,7 +62,7 @@ export default function HomeTab({
       <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl">
         <label className="text-sm font-medium">Hero Heading</label>
         <input
-          className="mt-1 w-full border rounded-lg px-3 py-2 bg-white dark:bg-slate-900"
+          className="text-gray-800 text-sm mt-1 w-full border rounded-lg px-3 py-2 bg-white dark:bg-slate-900"
           value={config.home.heroHeading}
           onChange={(e) =>
             setConfig({
@@ -77,7 +77,7 @@ export default function HomeTab({
       <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl">
         <label className="text-sm font-medium">Subheading</label>
         <input
-          className="mt-1 w-full border rounded-lg px-3 py-2 bg-white dark:bg-slate-900"
+          className="text-gray-800 text-sm mt-1 w-full border rounded-lg px-3 py-2 bg-white dark:bg-slate-900"
           value={config.home.heroSubheading}
           onChange={(e) =>
             setConfig({
@@ -92,7 +92,7 @@ export default function HomeTab({
       <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl">
         <label className="text-sm font-medium">CTA Button Text</label>
         <input
-          className="mt-1 w-full border rounded-lg px-3 py-2 bg-white dark:bg-slate-900"
+          className="text-gray-800 text-sm mt-1 w-full border rounded-lg px-3 py-2 bg-white dark:bg-slate-900"
           value={config.home.ctaText}
           onChange={(e) =>
             setConfig({

@@ -4,7 +4,7 @@ export default function ProductsSection({ config }: { config: SiteConfig }) {
   return (
     <div className="py-20 bg-slate-50 dark:bg-slate-950">
       <div className="max-w-7xl mx-auto px-6">
-        <h2 className="text-3xl font-bold text-center mb-12">
+        <h2 className="text-2xl font-bold text-center mb-12">
           Our Loan Products
         </h2>
 
@@ -22,8 +22,8 @@ export default function ProductsSection({ config }: { config: SiteConfig }) {
                     : "linear-gradient(135deg,#4f46e5,#7c3aed)",
               }}
             >
-              <h3 className="text-xl font-semibold">{p.title}</h3>
-              <p className="mt-2 opacity-90">{p.description}</p>
+              <h3 className="text-lg font-semibold">{p.title}</h3>
+              <p className="text-sm mt-2 opacity-90">{p.description}</p>
             </div>
           ))}
         </div>

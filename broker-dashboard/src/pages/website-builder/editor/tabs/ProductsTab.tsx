@@ -30,18 +30,18 @@ export default function ProductsTab({
       {config.products.map((p, i) => (
         <div key={i} className="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl space-y-2">
           <input
-            className="w-full border rounded px-3 py-2"
+            className="text-sm text-gray-800 w-full border rounded px-3 py-2"
             value={p.title}
             onChange={(e) => updateProduct(i, "title", e.target.value)}
           />
           <input
-            className="w-full border rounded px-3 py-2"
+            className="text-sm text-gray-800 w-full border rounded px-3 py-2"
             value={p.description}
             onChange={(e) => updateProduct(i, "description", e.target.value)}
           />
           <button
             onClick={() => removeProduct(i)}
-            className="text-red-500 text-sm"
+            className="text-red-500 text-xs"
           >
             Remove
           </button>

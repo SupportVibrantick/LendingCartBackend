@@ -9,11 +9,12 @@ export default function ContactTab({
 }) {
   return (
     <div className="space-y-4">
-
+      {/* PHONE */}
       <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl">
-        <label className="text-sm">Phone</label>
+        <label className="text-sm font-medium">Phone</label>
         <input
-          className="mt-1 w-full border rounded-lg px-3 py-2 bg-white dark:bg-slate-900"
+          className="text-sm text-gray-800 mt-1 w-full border rounded-lg px-3 py-2 bg-white dark:bg-slate-900"
+          type="number"
           value={config.contact.phone}
           onChange={(e) =>
             setConfig({
@@ -24,10 +25,12 @@ export default function ContactTab({
         />
       </div>
 
+      {/* WHATSAPP */}
       <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl">
-        <label className="text-sm">WhatsApp</label>
+        <label className="text-sm font-medium">WhatsApp</label>
         <input
-          className="mt-1 w-full border rounded-lg px-3 py-2 bg-white dark:bg-slate-900"
+          type="number"
+          className="text-sm text-gray-800 mt-1 w-full border rounded-lg px-3 py-2 bg-white dark:bg-slate-900"
           value={config.contact.whatsapp}
           onChange={(e) =>
             setConfig({
@@ -38,6 +41,37 @@ export default function ContactTab({
         />
       </div>
 
+      {/* ADDRESS */}
+      <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl">
+        <label className="text-sm font-medium">Address</label>
+        <textarea
+          rows={3}
+          className="text-sm text-gray-800 mt-1 w-full border rounded-lg px-3 py-2 bg-white dark:bg-slate-900"
+          value={config.contact.address}
+          onChange={(e) =>
+            setConfig({
+              ...config,
+              contact: { ...config.contact, address: e.target.value },
+            })
+          }
+        />
+      </div>
+
+      {/* WORKING HOURS */}
+      <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl">
+        <label className="text-sm font-medium">Working Hours</label>
+        <input
+          className="text-sm text-gray-800 mt-1 w-full border rounded-lg px-3 py-2 bg-white dark:bg-slate-900"
+          placeholder="Mon - Sat, 10:00 AM - 7:00 PM"
+          value={config.contact.workingHours}
+          onChange={(e) =>
+            setConfig({
+              ...config,
+              contact: { ...config.contact, workingHours: e.target.value },
+            })
+          }
+        />
+      </div>
     </div>
   );
 }
