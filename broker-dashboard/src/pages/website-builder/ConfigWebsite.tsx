@@ -31,14 +31,35 @@ export default function ConfigWebsite() {
       ],
     },
     products: [
-      { title: "Home Loan", description: "Low EMIs, Quick Approval" },
-      { title: "Business Loan", description: "Funds to Grow Your Business" },
-      { title: "Personal Loan", description: "Instant Personal Loans" },
+      {
+        title: "Home Loan",
+        description: "Low EMIs, Quick Approval",
+        imageUrl: "",
+      },
+      {
+        title: "Business Loan",
+        description: "Funds to Grow Your Business",
+        imageUrl: "",
+      },
+      {
+        title: "Personal Loan",
+        description: "Instant Personal Loans",
+        imageUrl: "",
+      },
     ],
     whyChooseUs: [
-      { title: "Fast Approval" },
-      { title: "Low Interest Rates" },
-      { title: "Expert Support" },
+      {
+        title: "Fast Approval",
+        description: "Quick and easy loan approval process",
+      },
+      {
+        title: "Best Rates",
+        description: "We provide competitive interest rates",
+      },
+      {
+        title: "Expert Support",
+        description: "Our experts guide you at every step",
+      },
     ],
     contact: {
       phone: "9876543210",

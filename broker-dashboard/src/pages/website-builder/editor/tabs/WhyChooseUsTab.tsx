@@ -7,52 +7,80 @@ export default function WhyChooseUsTab({
   config: SiteConfig;
   setConfig: (c: SiteConfig) => void;
 }) {
-  const updateItem = (i: number, value: string) => {
-    const items = [...config.whyChooseUs];
-    items[i] = { title: value };
-    setConfig({ ...config, whyChooseUs: items });
-  };
+  const items = config.whyChooseUs;
 
-  const addItem = () => {
-    setConfig({
-      ...config,
-      whyChooseUs: [...config.whyChooseUs, { title: "New Reason" }],
-    });
-  };
-
-  const removeItem = (i: number) => {
-    const items = config.whyChooseUs.filter((_, idx) => idx !== i);
-    setConfig({ ...config, whyChooseUs: items });
+  const updateItems = (newItems: typeof items) => {
+    setConfig({ ...config, whyChooseUs: newItems });
   };
 
   return (
     <div className="space-y-4">
-      {config.whyChooseUs.map((item, i) => (
+
+      {/* HEADER */}
+      <div className="flex justify-between items-center">
+        <div className="font-semibold">Why Choose Us Cards</div>
+
+        <button
+          className="bg-blue-600 text-white px-3 py-2 rounded-lg text-xs"
+          onClick={() =>
+            updateItems([
+              ...items,
+              { title: "", description: "" },
+            ])
+          }
+        >
+          + Add Card
+        </button>
+      </div>
+
+      {/* ITEMS */}
+      {items.map((item, i) => (
         <div
           key={i}
-          className="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl space-y-2"
+          className="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl space-y-3 border"
         >
+          <div className="flex justify-between items-center">
+            <div className="font-semibold text-sm">
+              Card {i + 1}
+            </div>
+
+            <button
+              onClick={() =>
+                updateItems(items.filter((_, idx) => idx !== i))
+              }
+              className="text-red-600 text-xs"
+            >
+              Remove
+            </button>
+          </div>
+
+          {/* TITLE */}
           <input
-            className="text-sm text-gray-800 w-full border rounded px-3 py-2 bg-white dark:bg-slate-900"
+            className="w-full border rounded-lg px-3 py-2 bg-white dark:bg-slate-900 text-sm text-gray-800"
+            placeholder="Title"
             value={item.title}
-            onChange={(e) => updateItem(i, e.target.value)}
+            onChange={(e) => {
+              const copy = [...items];
+              copy[i] = { ...copy[i], title: e.target.value };
+              updateItems(copy);
+            }}
           />
 
-          <button
-            onClick={() => removeItem(i)}
-            className="text-red-500 text-xs"
-          >
-            Remove
-          </button>
+          {/* DESCRIPTION */}
+          <textarea
+            className="w-full border rounded-lg px-3 py-2 bg-white dark:bg-slate-900 text-sm text-gray-800"
+            placeholder="Description"
+            rows={2}
+            value={item.description}
+            onChange={(e) => {
+              const copy = [...items];
+              copy[i] = { ...copy[i], description: e.target.value };
+              updateItems(copy);
+            }}
+          />
         </div>
       ))}
 
-      <button
-        onClick={addItem}
-        className="w-full py-2 border-2 border-dashed rounded text-sm"
-      >
-        + Add Reason
-      </button>
     </div>
   );
 }

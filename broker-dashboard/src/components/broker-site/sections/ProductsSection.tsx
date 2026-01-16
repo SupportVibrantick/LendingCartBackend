@@ -2,7 +2,7 @@ import { SiteConfig } from "../../../types/siteBuilder";
 
 export default function ProductsSection({ config }: { config: SiteConfig }) {
   return (
-    <div className="py-20 bg-slate-50 dark:bg-slate-950">
+    <div className="py-20 bg-[#F8FAFC] dark:bg-slate-950">
       <div className="max-w-7xl mx-auto px-6">
         <h2 className="text-2xl font-bold text-center mb-12">
           Our Loan Products
@@ -10,20 +10,20 @@ export default function ProductsSection({ config }: { config: SiteConfig }) {
 
         <div className="grid md:grid-cols-3 gap-8">
           {config.products.map((p, i) => (
-            <div
-              key={i}
-              className="p-8 rounded-2xl text-white shadow-xl"
-              style={{
-                background:
-                  i === 0
-                    ? "linear-gradient(135deg,#2563eb,#1e40af)"
-                    : i === 1
-                    ? "linear-gradient(135deg,#0f172a,#334155)"
-                    : "linear-gradient(135deg,#4f46e5,#7c3aed)",
-              }}
-            >
-              <h3 className="text-lg font-semibold">{p.title}</h3>
-              <p className="text-sm mt-2 opacity-90">{p.description}</p>
+            <div key={i} className="p-8 rounded-md">
+              <figure className="flex justify-center pb-4">
+                <img
+                  src={
+                    p.imageUrl ||
+                    "https://cdn-icons-png.freepik.com/256/17222/17222841.png"
+                  }
+                  className="h-28 w-28 bg-[#EBEAEB] border rounded-full p-4 object-contain"
+                />
+              </figure>
+              <h3 className="text-lg font-semibold text-center">{p.title || "Product Title"}</h3>
+              <p className="text-sm font-light mt-2 opacity-90 text-center">
+                {p.description || "Product Description"}
+              </p>
             </div>
           ))}
         </div>

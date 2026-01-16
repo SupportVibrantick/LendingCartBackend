@@ -29,10 +29,12 @@ export type SiteConfig = {
   products: {
     title: string;
     description: string;
+    imageUrl?: string;
   }[];
 
   whyChooseUs: {
     title: string;
+    description: string;
   }[];
 
   contact: {
@@ -49,7 +51,7 @@ export type SiteConfig = {
     steps: {
       title: string;
       description: string;
-      iconUrl?: string;   // uploaded image
+      iconUrl?: string; // uploaded image
     }[];
   };
 
