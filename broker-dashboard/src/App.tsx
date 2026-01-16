@@ -33,7 +33,7 @@ import AllDocuments from "./pages/Documents/AllDocuments";
 import AllSuperadmin from "./pages/SuperAdmin/AllSuperAdmin";
 import LenderProductAssign from "./pages/LoanProducts/LenderAssignProduct";
 import AssignedProducts from "./pages/LoanProducts/AssignedProducts";
-
+import ConfigWebsite from "./pages/website-builder/ConfigWebsite";
 
 export default function App() {
   return (
@@ -55,16 +55,48 @@ export default function App() {
             <Route index path="/add-user" element={<AddUser />} />
             <Route index path="/all-user" element={<AllUsers />} />
 
-            <Route index path="/all-brokers-organisation" element={<BrokersPage />} />
-            <Route index path="/all-brokers-lenders" element={<BrokersLenders />} />
+            <Route
+              index
+              path="/all-brokers-organisation"
+              element={<BrokersPage />}
+            />
+            <Route
+              index
+              path="/all-brokers-lenders"
+              element={<BrokersLenders />}
+            />
 
-            <Route index path="/all-connected-lenders" element={<ConnectedLenders />} />
-            <Route index path="/all-lender-invites" element={<LenderInvites />} />
-            <Route index path="/all-lender-products" element={<LenderProducts />} />
+            <Route
+              index
+              path="/all-connected-lenders"
+              element={<ConnectedLenders />}
+            />
+            <Route
+              index
+              path="/all-lender-invites"
+              element={<LenderInvites />}
+            />
+            <Route
+              index
+              path="/all-lender-products"
+              element={<LenderProducts />}
+            />
 
-            <Route index path="/all-loan-products" element={<AllLoanProducts />} />
-            <Route index path="/lender-assigned-products" element={<LenderProductAssign />} />
-            <Route index path="/assigned-products" element={<AssignedProducts />} />
+            <Route
+              index
+              path="/all-loan-products"
+              element={<AllLoanProducts />}
+            />
+            <Route
+              index
+              path="/lender-assigned-products"
+              element={<LenderProductAssign />}
+            />
+            <Route
+              index
+              path="/assigned-products"
+              element={<AssignedProducts />}
+            />
             <Route index path="/all-super-admins" element={<AllSuperadmin />} />
 
             <Route index path="/all-documents" element={<AllDocuments />} />
@@ -93,6 +125,14 @@ export default function App() {
             {/* Charts */}
             <Route path="/line-chart" element={<LineChart />} />
             <Route path="/bar-chart" element={<BarChart />} />
+
+            {/* Config Website */}
+            <Route
+              index
+              path="/broker-website-dashboard/config-website"
+              element={<ConfigWebsite />}
+            />
+          
           </Route>
 
           {/* Auth Layout */}
