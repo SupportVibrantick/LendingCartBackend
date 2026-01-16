@@ -1,6 +1,9 @@
 // backend/routes/broker/index.js
 const authRoutes = require("./auth");
 const lenderRoutes = require("./lenders");
+const whiteLabelRoutes = require("./whiteLabelSettings");
+const applicationRoutes = require("./applications");
+
 // later you can add:
 // const documentRoutes = require("./documents");
 // const applicationRoutes = require("./applications");
@@ -47,6 +50,14 @@ module.exports = async function brokerRoutes(fastify, opts) {
     // Lenders visible to broker
     instance.register(lenderRoutes, {
       prefix: "/lenders",
+    });
+
+    instance.register(whiteLabelRoutes,{
+      prefix : "/white-label",
+    });
+
+     instance.register(applicationRoutes, {
+      prefix: "/applications",
     });
 
     // Later extensions

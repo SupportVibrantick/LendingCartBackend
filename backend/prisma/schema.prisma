@@ -8,14 +8,17 @@ datasource db {
 }
 
 model Organization {
-  id                         String               @id @default(uuid()) @db.Uuid
-  name                       String
-  type                       OrganizationType
-  status                     OrganizationStatus
-  email                      String?
-  phone                      String?
-  createdAt                  DateTime             @default(now()) @db.Timestamptz(6)
-  updatedAt                  DateTime             @updatedAt @db.Timestamptz(6)
+  id        String             @id @default(uuid()) @db.Uuid
+  name      String
+  type      OrganizationType
+  status    OrganizationStatus
+  email     String?
+  phone     String?
+  createdAt DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime           @updatedAt @db.Timestamptz(6)
+
+  brokerApplications BrokerApplication[]
+
   affiliateLinks             AffiliateLink[]
   lenderApplications         ApplicationLender[]  @relation("LenderApplications")
   auditLogsAsActorOrg        AuditLog[]           @relation("OrgAuditLogs")
@@ -313,17 +316,35 @@ model LenderDocumentRequirement {
 }
 
 model BrokerWhiteLabelSetting {
-  id                        String       @id @default(uuid()) @db.Uuid
-  brokerOrgId               String       @db.Uuid
-  customDomain              String?
-  primaryColor              String?
-  secondaryColor            String?
-  logoUrl                   String?
-  showBrokerBrandOnApproval Boolean      @default(false)
-  footerText                String?
-  createdAt                 DateTime     @default(now()) @db.Timestamptz(6)
-  updatedAt                 DateTime     @updatedAt @db.Timestamptz(6)
-  broker                    Organization @relation(fields: [brokerOrgId], references: [id])
+  id          String @id @default(uuid()) @db.Uuid
+  brokerOrgId String @unique @db.Uuid
+
+  // DOMAIN CONFIG
+  platformSubdomain String? @unique
+  customDomain      String? @unique
+  domainVerified    Boolean @default(false)
+  sslStatus         String? // PENDING | ISSUED | FAILED
+
+  // BRANDING / THEME
+  brandName      String?
+  logoUrl        String?
+  faviconUrl     String?
+  primaryColor   String?
+  secondaryColor String?
+  fontFamily     String?
+
+  // UI / COPY
+  footerText   String?
+  supportEmail String?
+
+  // WHITE-LABEL FLAGS
+  fullWhiteLabel            Boolean @default(false) // hides platform branding
+  showBrokerBrandOnApproval Boolean @default(false)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  broker Organization @relation(fields: [brokerOrgId], references: [id])
 
   @@index([brokerOrgId])
   @@map("broker_white_label_settings")
@@ -375,6 +396,74 @@ model LoanApplication {
   @@index([clientId])
   @@index([loanProductCode])
   @@map("loan_applications")
+}
+
+model BrokerApplication {
+  id          String  @id @default(uuid()) @db.Uuid
+  brokerOrgId String  @db.Uuid
+  name        String
+  isActive    Boolean @default(false)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  products BrokerApplicationProduct[]
+
+  broker Organization @relation(fields: [brokerOrgId], references: [id])
+
+  @@index([brokerOrgId])
+  @@map("broker_applications")
+}
+
+model BrokerApplicationProduct {
+  id                  String          @id @default(uuid()) @db.Uuid
+  brokerApplicationId String          @db.Uuid
+  loanProductCode     LoanProductCode
+  isActive            Boolean         @default(true)
+
+  fields BrokerApplicationProductField[]
+
+  brokerApplication BrokerApplication @relation(fields: [brokerApplicationId], references: [id])
+
+  @@unique([brokerApplicationId, loanProductCode])
+  @@index([loanProductCode])
+  @@map("broker_application_products")
+}
+
+model BrokerApplicationProductField {
+  id                   String @id @default(uuid()) @db.Uuid
+  applicationProductId String @db.Uuid
+
+  fieldKey   String
+  label      String
+  fieldType  FieldType
+  isRequired Boolean   @default(false)
+
+  options    Json?
+  validation Json?
+  sortOrder  Int?
+
+  applicationProduct BrokerApplicationProduct @relation(fields: [applicationProductId], references: [id])
+
+  @@index([applicationProductId])
+  @@map("broker_application_product_fields")
+}
+
+model LoanApplicationField {
+  id              String          @id @default(uuid()) @db.Uuid
+  loanProductCode LoanProductCode
+  fieldKey        String // e.g. "annualRevenue"
+  label           String // "Annual Revenue"
+  fieldType       FieldType
+  isRequired      Boolean         @default(false)
+  options         Json? // for dropdowns
+  validation      Json? // min, max, regex
+  sortOrder       Int?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([loanProductCode])
+  @@map("loan_application_fields")
 }
 
 model ApplicationFinancial {
@@ -829,4 +918,13 @@ enum AffiliateCommissionType {
 enum BrokerLenderSource {
   PLATFORM_DEFAULT
   BROKER_ADDED
+}
+
+enum FieldType {
+  TEXT
+  NUMBER
+  DATE
+  SELECT
+  FILE
+  BOOLEAN
 }

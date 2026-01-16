@@ -205,10 +205,10 @@ app.setErrorHandler((error, request, reply) => {
 app.register(indexRoutes, { prefix: "/" });
 
 
-app.ready(() => {
-  console.log("\nRegistered Routes:");
-  console.log(app.printRoutes());
-});
+// app.ready(() => {
+//   console.log("\nRegistered Routes:");
+//   console.log(app.printRoutes());
+// });
 
 
 module.exports = app;
