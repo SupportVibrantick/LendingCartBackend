@@ -4,6 +4,7 @@ const brokerRoutes = require("../routes/broker");
 const commonDocumentTypes = require("../routes/common/documentTypes");
 const commonLoanProducts = require("./common/loanProducts");
 const landingPagesLeads = require("./public/LandingPagesLeads");
+const publicBrokerApplications = require("./public/broker/applications");
 
 async function indexRoutes(fastify, options) {
   fastify.get("/", async (request, reply) => {
@@ -17,6 +18,11 @@ async function indexRoutes(fastify, options) {
   fastify.register(landingPagesLeads, {
     prefix: "/public/landing-leads",
   });
+
+  fastify.register(publicBrokerApplications, {
+  prefix: "/public/broker/applications",
+});
+
 
   //  Common (read-only, role-based)
   fastify.register(commonDocumentTypes, {

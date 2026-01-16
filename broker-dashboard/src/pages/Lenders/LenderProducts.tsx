@@ -251,7 +251,7 @@ export default function LenderProductsPage() {
                                     {paginated.map((p) => {
                                         const regions = parseJsonArray(p.regionsSupported);
                                         const industries = parseJsonArray(p.industriesSupported);
-
+     
                                         return (
                                             <tr
                                                 key={p.lenderProductId}
