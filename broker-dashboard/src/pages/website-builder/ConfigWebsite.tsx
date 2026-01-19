@@ -62,10 +62,17 @@ export default function ConfigWebsite() {
       },
     ],
     contact: {
+      email: "inquiry@yourbroker.ai",
       phone: "9876543210",
       whatsapp: "9876543210",
       address: "Punjab, Mohali",
       workingHours: "Mon - Sat, 10:00 AM - 7:00 PM",
+      social: {
+        facebook: "",
+        instagram: "",
+        linkedin: "",
+        twitter: "",
+      }
     },
     howItWorks: {
       enabled: true,

@@ -30,9 +30,11 @@ export default function HowItWorksTab({
     <div className="space-y-6">
 
       {/* ENABLE */}
-      <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl flex items-center justify-between">
+      <div className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 rounded-xl flex items-center justify-between">
         <div>
-          <div className="font-semibold">Show Section</div>
+          <div className="font-semibold text-slate-800 dark:text-slate-200">
+            Show Section
+          </div>
           <div className="text-xs text-slate-500">
             Enable / Disable "How It Works" section
           </div>
@@ -52,8 +54,10 @@ export default function HowItWorksTab({
       </div>
 
       {/* TITLE */}
-      <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl">
-        <label className="text-sm font-medium">Section Title</label>
+      <div className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 rounded-xl">
+        <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+          Section Title
+        </label>
         <input
           value={h.title}
           onChange={(e) =>
@@ -62,13 +66,15 @@ export default function HowItWorksTab({
               howItWorks: { ...h, title: e.target.value },
             })
           }
-          className="text-sm text-gray-800 mt-1 w-full border rounded-lg px-3 py-2 bg-white dark:bg-slate-900"
+          className="mt-1 w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-900 text-sm text-slate-800 dark:text-slate-100"
         />
       </div>
 
       {/* CTA */}
-      <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl">
-        <label className="text-sm font-medium">Button Text</label>
+      <div className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 rounded-xl">
+        <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+          Button Text
+        </label>
         <input
           value={h.ctaText}
           onChange={(e) =>
@@ -77,20 +83,27 @@ export default function HowItWorksTab({
               howItWorks: { ...h, ctaText: e.target.value },
             })
           }
-          className="text-sm text-gray-800 mt-1 w-full border rounded-lg px-3 py-2 bg-white dark:bg-slate-900"
+          className="mt-1 w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-900 text-sm text-slate-800 dark:text-slate-100"
         />
       </div>
 
       {/* STEPS */}
-      <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl">
+      <div className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 rounded-xl">
         <div className="flex justify-between items-center mb-4">
-          <div className="font-semibold">Steps</div>
+          <div className="font-semibold text-slate-800 dark:text-slate-200">
+            Steps
+          </div>
           <button
-            className="text-xs flex items-center gap-2 bg-blue-600 text-white px-3 py-2 rounded-lg"
+            className="text-xs flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg"
             onClick={() =>
               updateSteps([
                 ...h.steps,
-                { title: "Step Title", description: "Step Description", iconUrl: "https://lirp.cdn-website.com/3d34d6e7/dms3rep/multi/opt/step-3a-a10ec3c6-150w.png" },
+                {
+                  title: "Step Title",
+                  description: "Step Description",
+                  iconUrl:
+                    "https://lirp.cdn-website.com/3d34d6e7/dms3rep/multi/opt/step-3a-a10ec3c6-150w.png",
+                },
               ])
             }
           >
@@ -103,14 +116,16 @@ export default function HowItWorksTab({
           {h.steps.map((s, i) => (
             <div
               key={i}
-              className="bg-white dark:bg-slate-900 border rounded-xl p-4 space-y-4"
+              className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-4 space-y-4"
             >
               {/* HEADER */}
               <div className="flex items-center justify-between">
-                <div className="font-semibold">Step {i + 1}</div>
+                <div className="font-semibold text-slate-800 dark:text-slate-200">
+                  Step {i + 1}
+                </div>
 
                 <button
-                  className="text-red-600 hover:bg-red-50 p-2 rounded-lg"
+                  className="text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 p-2 rounded-lg"
                   onClick={() =>
                     updateSteps(h.steps.filter((_, idx) => idx !== i))
                   }
@@ -121,16 +136,18 @@ export default function HowItWorksTab({
 
               {/* ICON UPLOAD */}
               <div>
-                <label className="text-sm font-medium">Step Icon</label>
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Step Icon
+                </label>
 
                 <div className="flex items-center gap-4 mt-2">
                   {s.iconUrl ? (
                     <img
                       src={s.iconUrl}
-                      className="h-16 w-16 rounded-full object-contain border bg-white p-2"
+                      className="h-16 w-16 rounded-full object-contain border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 p-2"
                     />
                   ) : (
-                    <div className="h-16 w-16 rounded-full flex items-center justify-center border text-xs text-slate-400 bg-white">
+                    <div className="h-16 w-16 rounded-full flex items-center justify-center border border-slate-300 dark:border-slate-600 text-xs text-slate-400 bg-white dark:bg-slate-800">
                       No Icon
                     </div>
                   )}
@@ -144,7 +161,7 @@ export default function HowItWorksTab({
                         handleIconUpload(e.target.files?.[0], i)
                       }
                     />
-                    <div className="text-xs flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg">
+                    <div className="text-xs flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg">
                       <Upload size={16} />
                       Upload Icon
                     </div>
@@ -152,7 +169,7 @@ export default function HowItWorksTab({
 
                   {s.iconUrl && (
                     <button
-                      className="text-red-600 text-xs"
+                      className="text-red-600 text-xs hover:underline"
                       onClick={() => {
                         const copy = [...h.steps];
                         copy[i] = { ...copy[i], iconUrl: "" };
@@ -173,7 +190,7 @@ export default function HowItWorksTab({
                   copy[i] = { ...copy[i], title: e.target.value };
                   updateSteps(copy);
                 }}
-                className="text-sm text-gray-800 w-full border rounded-lg px-3 py-2 bg-white dark:bg-slate-900"
+                className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-900 text-sm text-slate-800 dark:text-slate-100"
                 placeholder="Step Title"
               />
 
@@ -185,7 +202,7 @@ export default function HowItWorksTab({
                   copy[i] = { ...copy[i], description: e.target.value };
                   updateSteps(copy);
                 }}
-                className="text-sm text-gray-800 w-full border rounded-lg px-3 py-2 bg-white dark:bg-slate-900"
+                className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-900 text-sm text-slate-800 dark:text-slate-100"
                 placeholder="Step Description"
                 rows={2}
               />

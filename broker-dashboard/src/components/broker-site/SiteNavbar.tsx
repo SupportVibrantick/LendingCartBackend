@@ -10,17 +10,17 @@ export default function SiteNavbar({
   activePage: "home" | "about" | "get-loan" | "contact";
 }) {
   const linkClass = (page: "home" | "about" | "get-loan" | "contact") =>
-    `cursor-pointer px-3 py-2 font-medium transition text-sm ${
+    `cursor-pointer px-3 py-2 font-medium transition text-sm border-b-2 ${
       activePage === page
-        ? "text-blue-600 border-b-2 border-blue-600"
-        : "text-slate-600 hover:text-blue-600"
+        ? "text-blue-600 border-blue-600"
+        : "border-transparent text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400"
     }`;
 
   return (
-    <div className="bg-white dark:bg-slate-900 border-b px-8 py-4 flex items-center justify-between">
+    <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-8 py-4 flex items-center justify-between">
+      
       {/* LOGO AREA */}
       <div className="flex items-center gap-3">
-
         {config.branding.logoUrl ? (
           <img
             src={config.branding.logoUrl}
@@ -30,7 +30,7 @@ export default function SiteNavbar({
         ) : (
           <div
             className="font-bold text-md"
-            style={{ color: config.branding.logoColor }}
+            style={{ color: config.branding.logoColor || "#2563eb" }}
           >
             {config.branding.brandName}
           </div>

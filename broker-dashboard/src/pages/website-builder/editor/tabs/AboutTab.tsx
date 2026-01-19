@@ -25,9 +25,12 @@ export default function AboutTab({ config, setConfig }: Props) {
 
   return (
     <div className="space-y-4">
+
       {/* HERO TITLE */}
-      <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl">
-        <label className="text-sm font-medium">Hero Title</label>
+      <div className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 rounded-xl">
+        <label className="text-sm font-medium text-slate-800 dark:text-slate-200">
+          Hero Title
+        </label>
         <input
           value={about.heroTitle}
           onChange={(e) =>
@@ -36,13 +39,15 @@ export default function AboutTab({ config, setConfig }: Props) {
               about: { ...about, heroTitle: e.target.value },
             })
           }
-          className="text-gray-800 text-sm mt-1 w-full border rounded-lg px-3 py-2 bg-white dark:bg-slate-900"
+          className="mt-1 w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100"
         />
       </div>
 
       {/* DESCRIPTION */}
-      <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl">
-        <label className="text-sm font-medium">Description</label>
+      <div className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 rounded-xl">
+        <label className="text-sm font-medium text-slate-800 dark:text-slate-200">
+          Description
+        </label>
         <textarea
           value={about.description}
           rows={4}
@@ -52,13 +57,15 @@ export default function AboutTab({ config, setConfig }: Props) {
               about: { ...about, description: e.target.value },
             })
           }
-          className="text-sm mt-1 w-full border rounded-lg px-3 py-2 text-gray-800 bg-white dark:bg-slate-900"
+          className="mt-1 w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100"
         />
       </div>
 
       {/* HEADING COLOR */}
-      <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl">
-        <label className="text-sm font-medium">Headings Color</label>
+      <div className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 rounded-xl">
+        <label className="text-sm font-medium text-slate-800 dark:text-slate-200">
+          Headings Color
+        </label>
 
         <div className="mt-2 flex items-center gap-4">
           <input
@@ -70,7 +77,7 @@ export default function AboutTab({ config, setConfig }: Props) {
                 about: { ...about, headingColor: e.target.value },
               })
             }
-            className="h-7 w-14 rounded cursor-pointer shadow-sm"
+            className="h-8 w-16 rounded border border-slate-300 dark:border-slate-600 cursor-pointer"
           />
 
           <input
@@ -82,23 +89,27 @@ export default function AboutTab({ config, setConfig }: Props) {
                 about: { ...about, headingColor: e.target.value },
               })
             }
-            className="text-sm text-gray-800 border rounded-lg px-3 py-2 w-32 bg-white dark:bg-slate-900"
+            className="w-36 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-mono"
           />
         </div>
       </div>
 
       {/* HERO IMAGE */}
-      <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl">
-        <label className="text-sm font-medium">Hero Image</label>
+      <div className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 rounded-xl">
+        <label className="text-sm font-medium text-slate-800 dark:text-slate-200">
+          Hero Image
+        </label>
 
-        <div className="mt-2 flex items-center gap-4">
+        <div className="mt-3 flex items-center gap-4 flex-wrap">
           {about.heroImageUrl ? (
-            <img
-              src={about.heroImageUrl}
-              className="h-20 rounded-lg object-cover border bg-white"
-            />
+            <div className="h-20 w-32 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 overflow-hidden">
+              <img
+                src={about.heroImageUrl}
+                className="h-full w-full object-cover"
+              />
+            </div>
           ) : (
-            <div className="h-20 w-32 flex items-center justify-center border rounded text-xs text-slate-400 bg-white">
+            <div className="h-20 w-32 flex items-center justify-center border border-dashed border-slate-300 dark:border-slate-600 rounded text-xs text-slate-400 bg-white dark:bg-slate-900">
               No Image
             </div>
           )}
@@ -117,7 +128,7 @@ export default function AboutTab({ config, setConfig }: Props) {
                 )
               }
             />
-            <div className="px-4 py-2 bg-blue-600 text-white rounded-lg text-xs">
+            <div className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs">
               Upload Image
             </div>
           </label>
@@ -125,9 +136,11 @@ export default function AboutTab({ config, setConfig }: Props) {
       </div>
 
       {/* TEAM MEMBERS */}
-      <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl">
+      <div className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 rounded-xl">
         <div className="flex justify-between items-center mb-4">
-          <h3 className="font-semibold text-md">Team Members</h3>
+          <h3 className="font-semibold text-md text-slate-800 dark:text-slate-200">
+            Team Members
+          </h3>
 
           <button
             className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
@@ -143,16 +156,15 @@ export default function AboutTab({ config, setConfig }: Props) {
           {about.team.map((m, i) => (
             <div
               key={i}
-              className="relative bg-white dark:bg-slate-900 border rounded-xl p-4 shadow-sm hover:shadow-md transition"
+              className="relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-4 shadow-sm hover:shadow-md transition"
             >
-              {/* DELETE BUTTON TOP RIGHT */}
+              {/* DELETE */}
               <button
-                className="absolute top-2 right-2 text-slate-400 hover:text-red-600 text-sm"
+                className="absolute top-2 right-2 text-slate-400 hover:text-red-500"
                 onClick={() => {
                   const copy = about.team.filter((_, idx) => idx !== i);
                   updateTeam(copy);
                 }}
-                title="Remove"
               >
                 ✕
               </button>
@@ -164,7 +176,7 @@ export default function AboutTab({ config, setConfig }: Props) {
                     m.imageUrl ||
                     "https://lirp.cdn-website.com/3d34d6e7/dms3rep/multi/opt/placeholder-1920w.jpg"
                   }
-                  className="h-20 w-20 rounded-full object-cover border bg-white"
+                  className="h-20 w-20 rounded-full object-cover border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900"
                 />
               </div>
 
@@ -176,11 +188,11 @@ export default function AboutTab({ config, setConfig }: Props) {
                   copy[i] = { ...copy[i], name: e.target.value };
                   updateTeam(copy);
                 }}
-                className="w-full border rounded-lg px-3 py-2 bg-white dark:bg-slate-900 text-center text-sm text-gray-800"
+                className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-900 text-center text-sm text-slate-800 dark:text-slate-100"
                 placeholder="Member Name"
               />
 
-              {/* UPLOAD BUTTON */}
+              {/* UPLOAD */}
               <div className="mt-3 flex justify-center">
                 <label className="cursor-pointer">
                   <input
@@ -204,6 +216,7 @@ export default function AboutTab({ config, setConfig }: Props) {
           ))}
         </div>
       </div>
+
     </div>
   );
 }

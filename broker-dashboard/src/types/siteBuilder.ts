@@ -38,10 +38,18 @@ export type SiteConfig = {
   }[];
 
   contact: {
+    email: string;
     phone: string;
     whatsapp: string;
     address: string;
     workingHours: string;
+
+    social: {
+      facebook?: string;
+      instagram?: string;
+      linkedin?: string;
+      twitter?: string;
+    };
   };
 
   howItWorks: {

@@ -6,10 +6,12 @@ import SiteFooter from "./SiteFooter";
 import HeroSection from "./sections/HeroSection";
 import ProductsSection from "./sections/ProductsSection";
 import WhyChooseUs from "./sections/WhyChooseUs";
-import ContactCTA from "./sections/ContactCTA";
+import FundedDealsMap from "./sections/FundedDealsMap";
 import ContactPage from "../../pages/website-builder/preview/ContactPage";
 import AboutPage from "../../pages/website-builder/preview/AboutPage";
 import HowItWorksSection from "./sections/HowItWorksSection";
+import ReviewSection from "./sections/Reviews";
+import StatsSection from "./sections/StatsSection";
 
 export default function SiteLayout({ config }: { config: SiteConfig }) {
   const [activePage, setActivePage] = useState<
@@ -31,7 +33,9 @@ export default function SiteLayout({ config }: { config: SiteConfig }) {
           <ProductsSection config={config} />
           <HowItWorksSection config={config} onNavigate={setActivePage} />
           <WhyChooseUs config={config} />
-          <ContactCTA config={config} />
+          <StatsSection />
+          <ReviewSection />
+          <FundedDealsMap />
         </>
       )}
 
