@@ -9,7 +9,7 @@ async function brokerApplicationsRoutes(fastify) {
   fastify.register(require("./createApplication"));
   fastify.register(require("./listApplications"));
   fastify.register(require("./updateApplicationStatus"));
-
+  fastify.register(require("./activeApplication"));
   // ─────────────────────────────────────────────
   // Application → Products (admin-approved only)
   // ─────────────────────────────────────────────
@@ -23,6 +23,7 @@ async function brokerApplicationsRoutes(fastify) {
   fastify.register(require("./fields/addField"));
   fastify.register(require("./fields/updateField"));
   fastify.register(require("./fields/deleteField"));
+  fastify.register(require("./fields/listFields"));
 }
 
 module.exports = brokerApplicationsRoutes;
