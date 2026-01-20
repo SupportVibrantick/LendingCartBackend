@@ -37,6 +37,7 @@ import ConfigWebsite from "./pages/website-builder/ConfigWebsite";
 import CreateApplication from "./pages/ApplicationBuilder/CreateApplication";
 import Application from "./pages/ApplicationBuilder/Application";
 import LoanApplicationConfig from "./pages/ApplicationBuilder/LoanApplicationConfig";
+import ActiveApplication from "./pages/ActiveApplication/ActiveApp";
 
 export default function App() {
   return (
@@ -117,6 +118,12 @@ export default function App() {
               index
               path="/application-config"
               element={<LoanApplicationConfig />}
+            />
+
+              <Route
+              index
+              path="/active-application"
+              element={<ActiveApplication />}
             />
 
             <Route index path="/all-super-admins" element={<AllSuperadmin />} />
