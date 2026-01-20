@@ -196,16 +196,20 @@ layer(base);
 
 @utility menu-item-active {
   @apply text-white;
-  background: linear-gradient(90deg, #0ea5a4, #0b5cff);
-}
-
-@utility menu-item-inactive {
-  @apply text-gray-400 bg-transparent;
+  background: #084e6b;
 }
 
 .menu-item:hover {
   color: white !important;
-  background: linear-gradient(90deg, #0ea5a4, #0b5cff) !important;
+  background: #084e6b !important;
+}
+
+.menu-item:hover svg {
+  color: white !important;
+}
+
+@utility menu-item-inactive {
+  @apply text-gray-400 bg-transparent;
 }
 
 @utility menu-item-icon {
@@ -248,16 +252,24 @@ layer(base);
 
 @utility menu-dropdown-item-active {
   @apply text-white;
-  background: linear-gradient(90deg, #0ea5a4, #0b5cff);
+  background: #084e6b;
 }
 
-@utility menu-dropdown-item-inactive {
-  @apply text-gray-400 bg-transparent;
+.menu-dropdown-item {
+  border-radius: 10px;
 }
 
 .menu-dropdown-item:hover {
   color: white !important;
-  background: linear-gradient(90deg, #0ea5a4, #0b5cff) !important;
+  background: #084e6b !important;
+}
+
+.menu-dropdown-item:hover svg {
+  color: white !important;
+}
+
+@utility menu-dropdown-item-inactive {
+  @apply text-gray-400 bg-transparent;
 }
 
 @utility menu-dropdown-badge {

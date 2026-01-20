@@ -21,6 +21,7 @@ import { useSidebar } from "../context/SidebarContext";
 import { FaHandHoldingUsd } from "react-icons/fa";
 import { MdWeb } from "react-icons/md";
 import { FaAppStore } from "react-icons/fa6";
+import { MdOutlineDocumentScanner } from "react-icons/md";
 // import AccountBalanceOutlinedIcon from '@mui/icons-material/AccountBalanceOutlined';
 // import AdminPanelSettingsOutlinedIcon from '@mui/icons-material/AdminPanelSettingsOutlined';
 // import CurrencyExchangeOutlinedIcon from '@mui/icons-material/CurrencyExchangeOutlined';
@@ -55,7 +56,13 @@ const navItems: NavItem[] = [
   {
     icon: <FaAppStore />,
     name: "Application Builder",
-    subItems: [{ name: "Create Application", path: "/create-application" }, { name: "Application", path: "/application" }, { name: "Loan Application Config", path: "/application-config" }]
+    subItems: [{ name: "Create Application", path: "/create-application" }, { name: "Loan Application Config", path: "/application-config" }, { name: "Application", path: "/application" },]
+  },
+
+  {
+    icon: <MdOutlineDocumentScanner />,
+    name: "Active Application",
+    path: "/active-application"
   },
   // {
   //   icon: <GroupOutlinedIcon />,
@@ -244,11 +251,12 @@ const AppSidebar: React.FC = () => {
               )}
               {(isExpanded || isHovered || isMobileOpen) && (
                 <ChevronDownIcon
-                  className={`ml-auto w-5 h-5 transition-transform duration-200 ${openSubmenu?.type === menuType &&
-                    openSubmenu?.index === index
-                    ? "rotate-180 text-brand-500"
-                    : ""
-                    }`}
+                  className={`ml-auto w-5 h-5 transition-all duration-200 
+    ${openSubmenu?.type === menuType && openSubmenu?.index === index
+                      ? "rotate-180 text-white"
+                      : "text-gray-400 group-hover:text-white"
+                    }
+  `}
                 />
               )}
             </button>

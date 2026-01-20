@@ -72,7 +72,7 @@ export default function ApplicationBuilder() {
     };
 
     return (
-        <div className="min-h-screen dark:bg-slate-950 text-slate-900 dark:text-slate-100 p-6">
+        <div className="min-h-screen dark:bg-slate-900 text-slate-900 dark:text-slate-100 p-6">
             <h1 className="text-2xl font-bold mb-6">Application Form Builder</h1>
 
             <div className="grid grid-cols-1 lg:grid-cols-[380px_minmax(0,1fr)] gap-6">
