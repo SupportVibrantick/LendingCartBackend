@@ -233,9 +233,9 @@ export default function LenderProductsPage() {
                 ) : (
                     <>
                         <div className="overflow-x-auto">
-                            <table className="min-w-full text-sm table-fixed">
+                            <table className="min-w-full text-[15px] table-fixed">
                                 <thead className="bg-gray-50 dark:bg-slate-800 border-b dark:border-slate-700">
-                                    <tr className="text-xs uppercase text-gray-500 dark:text-slate-400">
+                                    <tr className="text-[13px] font-semibold uppercase text-gray-500 dark:text-slate-400">
                                         <th className="w-[9%] px-2 py-2 text-left">Code</th>
                                         <th className="w-[16%] px-2 py-2 text-left">Name</th>
                                         <th className="w-[8%] px-2 py-2 text-left">Min</th>
@@ -257,14 +257,14 @@ export default function LenderProductsPage() {
                                                 key={p.lenderProductId}
                                                 className="border-b dark:border-slate-800 align-top leading-tight"
                                             >
-                                                <td className="w-[9%] px-2 py-1.5 font-medium">{p.loanProductCode}</td>
-                                                <td className="w-[16%] px-2 py-1.5">{p.loanProductName}</td>
-                                                <td className="w-[8%] px-2 py-1.5">{p.minLoanAmount}</td>
-                                                <td className="w-[8%] px-2 py-1.5">{p.maxLoanAmount}</td>
-                                                <td className="w-[10%] px-2 py-1.5">{p.termRange}</td>
+                                                <td className="w-[16%] px-3 py-2 font-medium">{p.loanProductCode}</td>
+                                                <td className="w-[16%] px-3 py-2">{p.loanProductName}</td>
+                                                <td className="w-[16%] px-3 py-2">{p.minLoanAmount}</td>
+                                                <td className="w-[16%] px-3 py-2">{p.maxLoanAmount}</td>
+                                                <td className="w-[16%] px-3 py-2">{p.termRange}</td>
 
                                                 {/* Regions */}
-                                                <td className="w-[22%] px-2 py-1.5">
+                                                <td className="w-[16%] px-3 py-2">
                                                     {regions.length === 0 ? (
                                                         <span className="text-xs text-gray-400">—</span>
                                                     ) : (
@@ -272,7 +272,7 @@ export default function LenderProductsPage() {
                                                             {regions.map((r) => (
                                                                 <span
                                                                     key={r}
-                                                                    className="px-1.5 py-0.5 rounded text-[10.5px] bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300 whitespace-nowrap"
+                                                                    className="text-[12.5px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300 whitespace-nowrap"
                                                                 >
                                                                     {r}
                                                                 </span>
@@ -282,7 +282,7 @@ export default function LenderProductsPage() {
                                                 </td>
 
                                                 {/* Industries */}
-                                                <td className="w-[19%] px-2 py-1.5">
+                                                <td className="w-[16%] px-3 py-2">
                                                     {industries.length === 0 ? (
                                                         <span className="text-xs text-gray-400">—</span>
                                                     ) : (
@@ -290,7 +290,7 @@ export default function LenderProductsPage() {
                                                             {industries.map((i) => (
                                                                 <span
                                                                     key={i}
-                                                                    className="px-1.5 py-0.5 rounded text-[10.5px] bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300 whitespace-nowrap"
+                                                                    className="px-1.5 py-0.5 rounded text-[12.5px] bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300 whitespace-nowrap"
                                                                 >
                                                                     {i}
                                                                 </span>
@@ -302,7 +302,7 @@ export default function LenderProductsPage() {
                                                 {/* Status */}
                                                 <td className="w-[8%] px-2 py-1.5">
                                                     <span
-                                                        className={`px-1.5 py-0.5 rounded text-[10.5px] font-medium ${p.isActive
+                                                        className={`px-1.5 py-0.5 rounded text-[12px] font-semibold ${p.isActive
                                                             ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300"
                                                             : "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300"
                                                             }`}

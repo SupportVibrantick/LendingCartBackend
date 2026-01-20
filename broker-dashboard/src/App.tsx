@@ -34,6 +34,9 @@ import AllSuperadmin from "./pages/SuperAdmin/AllSuperAdmin";
 import LenderProductAssign from "./pages/LoanProducts/LenderAssignProduct";
 import AssignedProducts from "./pages/LoanProducts/AssignedProducts";
 import ConfigWebsite from "./pages/website-builder/ConfigWebsite";
+import CreateApplication from "./pages/ApplicationBuilder/CreateApplication";
+import Application from "./pages/ApplicationBuilder/Application";
+import LoanApplicationConfig from "./pages/ApplicationBuilder/LoanApplicationConfig";
 
 export default function App() {
   return (
@@ -97,6 +100,25 @@ export default function App() {
               path="/assigned-products"
               element={<AssignedProducts />}
             />
+
+             <Route
+              index
+              path="/create-application"
+              element={<CreateApplication />}
+            />
+
+              <Route
+              index
+              path="/application"
+              element={<Application />}
+            />
+
+              <Route
+              index
+              path="/application-config"
+              element={<LoanApplicationConfig />}
+            />
+
             <Route index path="/all-super-admins" element={<AllSuperadmin />} />
 
             <Route index path="/all-documents" element={<AllDocuments />} />
