@@ -28,19 +28,24 @@ export default function BrandingTab({
 
   return (
     <div className="space-y-4">
-      {/* LOGO */}
-      <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl">
-        <label className="text-sm font-medium">Logo</label>
 
-        <div className="mt-2 flex items-center gap-4">
+      {/* LOGO */}
+      <div className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 rounded-xl">
+        <label className="text-sm font-medium text-slate-800 dark:text-slate-200">
+          Logo
+        </label>
+
+        <div className="mt-3 flex items-center gap-4 flex-wrap">
           {/* PREVIEW */}
           {config.branding.logoUrl ? (
-            <img
-              src={config.branding.logoUrl}
-              className="h-16 object-contain border rounded p-2 bg-white"
-            />
+            <div className="h-16 w-32 flex items-center justify-center border border-slate-200 dark:border-slate-700 rounded bg-white dark:bg-slate-900 p-2">
+              <img
+                src={config.branding.logoUrl}
+                className="h-full object-contain"
+              />
+            </div>
           ) : (
-            <div className="h-16 w-32 flex items-center justify-center border rounded text-xs text-slate-400 bg-white">
+            <div className="h-16 w-32 flex items-center justify-center border border-dashed border-slate-300 dark:border-slate-600 rounded text-xs text-slate-400 bg-white dark:bg-slate-900">
               No Logo
             </div>
           )}
@@ -54,7 +59,7 @@ export default function BrandingTab({
               className="hidden"
               onChange={(e) => handleLogoUpload(e.target.files?.[0])}
             />
-            <div className="text-xs px-4 py-2 bg-blue-600 text-white rounded-lg">
+            <div className="text-xs px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg">
               Upload
             </div>
           </label>
@@ -62,7 +67,7 @@ export default function BrandingTab({
           {/* REMOVE */}
           {config.branding.logoUrl && (
             <button
-              className="text-xs px-3 py-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200"
+              className="text-xs px-3 py-2 bg-red-500/10 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-500/20"
               onClick={() => {
                 setConfig({
                   ...config,
@@ -81,10 +86,12 @@ export default function BrandingTab({
       </div>
 
       {/* BRAND NAME */}
-      <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl">
-        <label className="text-sm font-medium">Brand Name</label>
+      <div className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 rounded-xl">
+        <label className="text-sm font-medium text-slate-800 dark:text-slate-200">
+          Brand Name
+        </label>
         <input
-          className="text-gray-800 text-sm mt-1 w-full border rounded-lg px-3 py-2 bg-white dark:bg-slate-900"
+          className="mt-1 w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100"
           value={config.branding.brandName}
           onChange={(e) =>
             setConfig({
@@ -96,8 +103,10 @@ export default function BrandingTab({
       </div>
 
       {/* LOGO COLOR */}
-      <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl">
-        <label className="text-sm font-medium">Logo / Brand Text Color</label>
+      <div className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 rounded-xl">
+        <label className="text-sm font-medium text-slate-800 dark:text-slate-200">
+          Logo / Brand Text Color
+        </label>
 
         <div className="flex items-center gap-3 mt-2">
           <input
@@ -112,7 +121,7 @@ export default function BrandingTab({
                 },
               })
             }
-            className="h-10 w-14 rounded border"
+            className="h-10 w-14 rounded border border-slate-300 dark:border-slate-600"
           />
 
           <input
@@ -126,18 +135,20 @@ export default function BrandingTab({
                 },
               })
             }
-            className="flex-1 border rounded-lg px-3 py-2 text-sm font-mono"
+            className="flex-1 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-mono"
           />
         </div>
 
-        <p className="text-xs text-slate-500 mt-1">
+        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
           Used when logo is not uploaded (text logo)
         </p>
       </div>
 
       {/* PRIMARY COLOR */}
-      <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl">
-        <label className="text-sm font-medium">Primary Color</label>
+      <div className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 rounded-xl">
+        <label className="text-sm font-medium text-slate-800 dark:text-slate-200">
+          Primary Color
+        </label>
 
         <div className="mt-3 flex items-center gap-3">
           {/* Color Preview */}
@@ -157,7 +168,7 @@ export default function BrandingTab({
               className="absolute inset-0 opacity-0 cursor-pointer"
             />
             <div
-              className="h-7 w-14 rounded cursor-pointer shadow-sm border"
+              className="h-8 w-16 rounded border border-slate-300 dark:border-slate-600 shadow-sm"
               style={{ backgroundColor: config.branding.primaryColor }}
             />
           </label>
@@ -175,7 +186,7 @@ export default function BrandingTab({
                 },
               })
             }
-            className="text-gray-800 flex-1 border rounded-lg px-3 py-2 text-xs bg-white dark:bg-slate-900 font-mono"
+            className="flex-1 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-xs bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-mono"
             placeholder="#2563EB"
           />
         </div>

@@ -44,48 +44,45 @@ export default function EditorPanel({
   const [activeTab, setActiveTab] = useState<TabKey>("home");
   const [open, setOpen] = useState(false);
 
+  const activeTabData = tabs.find((t) => t.key === activeTab)!;
+
   return (
-    <div className="h-full bg-white dark:bg-slate-900 border dark:border-slate-800 rounded-xl overflow-hidden flex flex-col">
+    <div className="h-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden flex flex-col">
       {/* HEADER */}
-      <div className="p-4 border-b dark:border-slate-800 font-semibold text-sm">
+      <div className="p-4 border-b border-slate-200 dark:border-slate-800 text-slate-800 dark:text-white font-semibold text-sm">
         Website Builder
       </div>
 
       {/* SECTION SELECTOR */}
-      <div className="p-4 border-b dark:border-slate-800 relative">
+      <div className="p-4 border-b border-slate-200 dark:border-slate-800 relative">
         <div
           onClick={() => setOpen((o) => !o)}
-          className="flex items-center justify-between cursor-pointer border rounded-xl px-4 py-3 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 transition"
+          className="flex items-center justify-between cursor-pointer border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 transition text-slate-800 dark:text-white"
         >
           <div className="flex items-center gap-3">
-            {(() => {
-              const tab = tabs.find((t) => t.key === activeTab)!;
-              const Icon = tab.icon;
-              return (
-                <>
-                  <div className="h-9 w-9 rounded-lg bg-blue-600 text-white flex items-center justify-center">
-                    <Icon size={18} />
-                  </div>
-                  <div>
-                    <div className="text-sm font-semibold">{tab.label}</div>
-                    <div className="text-xs text-slate-500">
-                      Editing section
-                    </div>
-                  </div>
-                </>
-              );
-            })()}
+            <div className="h-9 w-9 rounded-lg bg-blue-600 text-white flex items-center justify-center">
+              <activeTabData.icon size={18} />
+            </div>
+
+            <div>
+              <div className="text-sm font-semibold">{activeTabData.label}</div>
+              <div className="text-xs text-slate-500 dark:text-slate-400">
+                Editing section
+              </div>
+            </div>
           </div>
 
           <ChevronDown
-            className={`transition ${open ? "rotate-180" : ""}`}
+            className={`transition text-slate-600 dark:text-slate-300 ${
+              open ? "rotate-180" : ""
+            }`}
             size={18}
           />
         </div>
 
         {/* DROPDOWN */}
         {open && (
-          <div className="absolute z-50 left-4 right-4 mt-2 bg-white dark:bg-slate-900 border rounded-xl shadow-xl overflow-hidden">
+          <div className="absolute z-50 left-4 right-4 mt-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl overflow-hidden">
             {tabs.map((t) => {
               const Icon = t.icon;
               const active = activeTab === t.key;
@@ -97,15 +94,18 @@ export default function EditorPanel({
                     setActiveTab(t.key);
                     setOpen(false);
                   }}
-                  className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition ${
-                    active
-                      ? "bg-blue-50 text-blue-700"
-                      : "hover:bg-slate-50 dark:hover:bg-slate-800"
-                  }`}
+                  className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition
+                    ${
+                      active
+                        ? "bg-blue-600/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400"
+                        : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                    }`}
                 >
                   <div
-                    className={`h-8 w-8 rounded-lg flex items-center justify-center ${
-                      active ? "bg-blue-600 text-white" : "bg-slate-100"
+                    className={`h-8 w-8 rounded-lg flex items-center justify-center transition ${
+                      active
+                        ? "bg-blue-600 text-white"
+                        : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
                     }`}
                   >
                     <Icon size={16} />
@@ -128,42 +128,35 @@ export default function EditorPanel({
       </div>
 
       {/* CONTENT */}
-      <div className="flex-1 overflow-auto p-4 space-y-4">
+      <div className="flex-1 overflow-auto p-4 space-y-4 text-slate-800 dark:text-slate-100">
         {activeTab === "branding" && (
           <BrandingTab config={config} setConfig={setConfig} />
         )}
-
         {activeTab === "home" && (
           <HomeTab config={config} setConfig={setConfig} />
         )}
-
         {activeTab === "about" && (
           <AboutTab config={config} setConfig={setConfig} />
         )}
-
         {activeTab === "products" && (
           <ProductsTab config={config} setConfig={setConfig} />
         )}
-
         {activeTab === "why" && (
           <WhyChooseUsTab config={config} setConfig={setConfig} />
         )}
-
         {activeTab === "howitworks" && (
           <HowItWorksTab config={config} setConfig={setConfig} />
         )}
-
         {activeTab === "contact" && (
           <ContactTab config={config} setConfig={setConfig} />
         )}
-
         {activeTab === "footer" && (
           <FooterTab config={config} setConfig={setConfig} />
         )}
       </div>
 
       {/* SAVE BUTTON */}
-      <div className="p-4 border-t dark:border-slate-800">
+      <div className="p-4 border-t border-slate-200 dark:border-slate-800">
         <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-semibold text-xs">
           Save Changes
         </button>

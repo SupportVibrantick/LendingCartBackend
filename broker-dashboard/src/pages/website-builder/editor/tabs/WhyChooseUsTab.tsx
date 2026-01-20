@@ -18,10 +18,12 @@ export default function WhyChooseUsTab({
 
       {/* HEADER */}
       <div className="flex justify-between items-center">
-        <div className="font-semibold">Why Choose Us Cards</div>
+        <div className="font-semibold text-slate-800 dark:text-slate-200">
+          Why Choose Us Cards
+        </div>
 
         <button
-          className="bg-blue-600 text-white px-3 py-2 rounded-lg text-xs"
+          className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-xs"
           onClick={() =>
             updateItems([
               ...items,
@@ -37,10 +39,10 @@ export default function WhyChooseUsTab({
       {items.map((item, i) => (
         <div
           key={i}
-          className="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl space-y-3 border"
+          className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 rounded-xl space-y-3"
         >
           <div className="flex justify-between items-center">
-            <div className="font-semibold text-sm">
+            <div className="font-semibold text-sm text-slate-800 dark:text-slate-200">
               Card {i + 1}
             </div>
 
@@ -48,7 +50,7 @@ export default function WhyChooseUsTab({
               onClick={() =>
                 updateItems(items.filter((_, idx) => idx !== i))
               }
-              className="text-red-600 text-xs"
+              className="text-red-600 hover:text-red-700 text-xs"
             >
               Remove
             </button>
@@ -56,7 +58,7 @@ export default function WhyChooseUsTab({
 
           {/* TITLE */}
           <input
-            className="w-full border rounded-lg px-3 py-2 bg-white dark:bg-slate-900 text-sm text-gray-800"
+            className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-900 text-sm text-slate-800 dark:text-slate-100"
             placeholder="Title"
             value={item.title}
             onChange={(e) => {
@@ -68,7 +70,7 @@ export default function WhyChooseUsTab({
 
           {/* DESCRIPTION */}
           <textarea
-            className="w-full border rounded-lg px-3 py-2 bg-white dark:bg-slate-900 text-sm text-gray-800"
+            className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-900 text-sm text-slate-800 dark:text-slate-100"
             placeholder="Description"
             rows={2}
             value={item.description}

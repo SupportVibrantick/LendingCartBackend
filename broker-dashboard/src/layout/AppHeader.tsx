@@ -104,14 +104,11 @@ const AppHeader: React.FC = () => {
     const updateTime = () => {
       const now = new Date();
 
-      const formatted = now
-        .toLocaleTimeString(undefined, {
-          hour: "numeric",
-          minute: "2-digit",
-          hour12: true,
-        })
-        .replace(" AM", "")
-        .replace(" PM", "");
+      const formatted = now.toLocaleTimeString(undefined, {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      });
 
       setTime(formatted);
     };
@@ -120,6 +117,7 @@ const AppHeader: React.FC = () => {
     const interval = setInterval(updateTime, 1000);
     return () => clearInterval(interval);
   }, []);
+
 
   return (
     <header className="sticky top-0 flex w-full bg-white border-gray-200 z-99999 dark:border-gray-800 dark:bg-gray-900 lg:border-b">

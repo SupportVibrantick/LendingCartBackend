@@ -7,35 +7,39 @@ export default function HomeTab({
   config: SiteConfig;
   setConfig: (c: SiteConfig) => void;
 }) {
-  const handleHeroImageUpload = (file: File) => {
-    const reader = new FileReader();
+  const handleHeroImageUpload = (file?: File) => {
+    if (!file) return;
 
+    const reader = new FileReader();
     reader.onload = () => {
       setConfig({
         ...config,
         home: { ...config.home, heroImageUrl: reader.result as string },
       });
     };
-
     reader.readAsDataURL(file);
   };
 
   return (
     <div className="space-y-4">
 
-      {/* HERO IMAGE UPLOAD */}
-      <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl">
-        <label className="text-sm font-medium">Hero Banner Image</label>
+      {/* HERO IMAGE */}
+      <div className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 rounded-xl">
+        <label className="text-sm font-medium text-slate-800 dark:text-slate-200">
+          Hero Banner Image
+        </label>
 
-        <div className="mt-2 flex items-center gap-4">
+        <div className="mt-3 flex items-center gap-4 flex-wrap">
           {config.home.heroImageUrl ? (
-            <img
-              src={config.home.heroImageUrl}
-              alt="Hero"
-              className="h-20 w-32 object-cover rounded border bg-white"
-            />
+            <div className="h-20 w-32 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 overflow-hidden">
+              <img
+                src={config.home.heroImageUrl}
+                alt="Hero"
+                className="h-full w-full object-cover"
+              />
+            </div>
           ) : (
-            <div className="h-20 w-32 flex items-center justify-center border rounded text-xs text-slate-400 bg-white">
+            <div className="h-20 w-32 flex items-center justify-center border border-dashed border-slate-300 dark:border-slate-600 rounded text-xs text-slate-400 bg-white dark:bg-slate-900">
               No Image
             </div>
           )}
@@ -45,11 +49,7 @@ export default function HomeTab({
               type="file"
               accept="image/*"
               className="hidden"
-              onChange={(e) => {
-                if (e.target.files && e.target.files[0]) {
-                  handleHeroImageUpload(e.target.files[0]);
-                }
-              }}
+              onChange={(e) => handleHeroImageUpload(e.target.files?.[0])}
             />
             <div className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs">
               Upload Image
@@ -59,10 +59,12 @@ export default function HomeTab({
       </div>
 
       {/* HERO HEADING */}
-      <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl">
-        <label className="text-sm font-medium">Hero Heading</label>
+      <div className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 rounded-xl">
+        <label className="text-sm font-medium text-slate-800 dark:text-slate-200">
+          Hero Heading
+        </label>
         <input
-          className="text-gray-800 text-sm mt-1 w-full border rounded-lg px-3 py-2 bg-white dark:bg-slate-900"
+          className="mt-1 w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100"
           value={config.home.heroHeading}
           onChange={(e) =>
             setConfig({
@@ -74,10 +76,12 @@ export default function HomeTab({
       </div>
 
       {/* SUBHEADING */}
-      <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl">
-        <label className="text-sm font-medium">Subheading</label>
+      <div className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 rounded-xl">
+        <label className="text-sm font-medium text-slate-800 dark:text-slate-200">
+          Subheading
+        </label>
         <input
-          className="text-gray-800 text-sm mt-1 w-full border rounded-lg px-3 py-2 bg-white dark:bg-slate-900"
+          className="mt-1 w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100"
           value={config.home.heroSubheading}
           onChange={(e) =>
             setConfig({
@@ -89,10 +93,12 @@ export default function HomeTab({
       </div>
 
       {/* CTA TEXT */}
-      <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl">
-        <label className="text-sm font-medium">CTA Button Text</label>
+      <div className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 rounded-xl">
+        <label className="text-sm font-medium text-slate-800 dark:text-slate-200">
+          CTA Button Text
+        </label>
         <input
-          className="text-gray-800 text-sm mt-1 w-full border rounded-lg px-3 py-2 bg-white dark:bg-slate-900"
+          className="mt-1 w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100"
           value={config.home.ctaText}
           onChange={(e) =>
             setConfig({
