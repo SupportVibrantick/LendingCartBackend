@@ -402,6 +402,7 @@ model BrokerApplication {
   id          String  @id @default(uuid()) @db.Uuid
   brokerOrgId String  @db.Uuid
   name        String
+  code        String?  @unique
   isActive    Boolean @default(false)
 
   createdAt DateTime @default(now()) @db.Timestamptz(6)

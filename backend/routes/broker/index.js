@@ -3,6 +3,7 @@ const authRoutes = require("./auth");
 const lenderRoutes = require("./lenders");
 const whiteLabelRoutes = require("./whiteLabelSettings");
 const applicationRoutes = require("./applications");
+const websiteBuilderRoutes = require("./websiteBuilder");
 
 // later you can add:
 // const documentRoutes = require("./documents");
@@ -59,6 +60,10 @@ module.exports = async function brokerRoutes(fastify, opts) {
      instance.register(applicationRoutes, {
       prefix: "/applications",
     });
+
+    instance.register(websiteBuilderRoutes, {
+  prefix: "/website-builder",
+});
 
     // Later extensions
     // instance.register(documentRoutes, { prefix: "/documents" });

@@ -1,27 +1,46 @@
 module.exports = async function addProduct(fastify) {
   fastify.post("/:applicationId/products", async (req, reply) => {
     const { applicationId } = req.params;
-    const { loanProductCode } = req.body;
+    const { loanProductCodes } = req.body;
 
-    // Validate admin product
-    const product = await fastify.prisma.loanProduct.findFirst({
-      where: { code: loanProductCode, isActive: true },
-    });
-
-    if (!product) {
+    // Validate input
+    if (!Array.isArray(loanProductCodes) || loanProductCodes.length === 0) {
       return reply.code(400).send({
         success: false,
-        message: "Invalid loan product",
+        message: "loanProductCodes must be a non-empty array",
       });
     }
 
-    const record = await fastify.prisma.brokerApplicationProduct.create({
-      data: {
-        brokerApplicationId: applicationId,
-        loanProductCode,
+    // Validate all products exist & are active
+    const products = await fastify.prisma.loanProduct.findMany({
+      where: {
+        code: { in: loanProductCodes },
+        isActive: true,
       },
     });
 
-    reply.send({ success: true, data: record });
+    if (products.length !== loanProductCodes.length) {
+      return reply.code(400).send({
+        success: false,
+        message: "One or more loan products are invalid",
+      });
+    }
+
+    //  Prepare bulk insert
+    const data = loanProductCodes.map((code) => ({
+      brokerApplicationId: applicationId,
+      loanProductCode: code,
+    }));
+
+    //  Insert multiple products
+    const result = await fastify.prisma.brokerApplicationProduct.createMany({
+      data,
+      skipDuplicates: true, // respects @@unique([brokerApplicationId, loanProductCode])
+    });
+
+    return reply.send({
+      success: true,
+      insertedCount: result.count,
+    });
   });
 };
