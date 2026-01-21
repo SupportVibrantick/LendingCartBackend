@@ -25,10 +25,12 @@ export default function ProductsTab({
 
       {/* HEADER */}
       <div className="flex justify-between items-center">
-        <div className="font-semibold">Loan Products</div>
+        <div className="font-semibold text-slate-800 dark:text-slate-200">
+          Loan Products
+        </div>
 
         <button
-          className="bg-blue-600 text-white px-3 py-2 rounded-lg text-xs"
+          className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-xs"
           onClick={() =>
             updateProducts([
               ...products,
@@ -44,13 +46,15 @@ export default function ProductsTab({
       {products.map((p, i) => (
         <div
           key={i}
-          className="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl space-y-3 border"
+          className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 rounded-xl space-y-3"
         >
           <div className="flex justify-between items-center">
-            <div className="font-semibold text-sm">Product {i + 1}</div>
+            <div className="font-semibold text-sm text-slate-800 dark:text-slate-200">
+              Product {i + 1}
+            </div>
 
             <button
-              className="text-red-600 text-xs"
+              className="text-red-600 hover:text-red-700 text-xs"
               onClick={() =>
                 updateProducts(products.filter((_, idx) => idx !== i))
               }
@@ -62,12 +66,14 @@ export default function ProductsTab({
           {/* IMAGE */}
           <div className="flex items-center gap-4">
             {p.imageUrl ? (
-              <img
-                src={p.imageUrl}
-                className="h-16 w-16 object-contain border rounded bg-white p-2"
-              />
+              <div className="h-16 w-16 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-2 flex items-center justify-center">
+                <img
+                  src={p.imageUrl}
+                  className="h-full w-full object-contain"
+                />
+              </div>
             ) : (
-              <div className="h-16 w-16 flex items-center justify-center border rounded text-xs text-slate-400 bg-white">
+              <div className="h-16 w-16 flex items-center justify-center border border-dashed border-slate-300 dark:border-slate-600 rounded text-xs text-slate-400 bg-white dark:bg-slate-900">
                 No Image
               </div>
             )}
@@ -85,7 +91,7 @@ export default function ProductsTab({
                   })
                 }
               />
-              <div className="px-3 py-2 bg-blue-600 text-white rounded-lg text-xs">
+              <div className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs">
                 Upload Image
               </div>
             </label>
@@ -99,7 +105,7 @@ export default function ProductsTab({
               copy[i] = { ...copy[i], title: e.target.value };
               updateProducts(copy);
             }}
-            className="text-gray-800 w-full border rounded-lg px-3 py-2 bg-white dark:bg-slate-900 text-sm"
+            className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-900 text-sm text-slate-800 dark:text-slate-100"
             placeholder="Product Title"
           />
 
@@ -111,7 +117,7 @@ export default function ProductsTab({
               copy[i] = { ...copy[i], description: e.target.value };
               updateProducts(copy);
             }}
-            className="text-gray-800 w-full border rounded-lg px-3 py-2 bg-white dark:bg-slate-900 text-sm"
+            className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-900 text-sm text-slate-800 dark:text-slate-100"
             placeholder="Product Description"
             rows={2}
           />

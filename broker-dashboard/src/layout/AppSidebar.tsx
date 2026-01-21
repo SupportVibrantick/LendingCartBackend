@@ -20,6 +20,8 @@ import { useSidebar } from "../context/SidebarContext";
 // import GroupsOutlinedIcon from '@mui/icons-material/GroupsOutlined';
 import { FaHandHoldingUsd } from "react-icons/fa";
 import { MdWeb } from "react-icons/md";
+import { FaAppStore } from "react-icons/fa6";
+import { MdOutlineDocumentScanner } from "react-icons/md";
 // import AccountBalanceOutlinedIcon from '@mui/icons-material/AccountBalanceOutlined';
 // import AdminPanelSettingsOutlinedIcon from '@mui/icons-material/AdminPanelSettingsOutlined';
 // import CurrencyExchangeOutlinedIcon from '@mui/icons-material/CurrencyExchangeOutlined';
@@ -45,10 +47,22 @@ const navItems: NavItem[] = [
     subItems: [{ name: "Connected Lenders", path: "/all-connected-lenders" }, { name: "Lender Invites", path: "/all-lender-invites" }, { name: "Lender Products", path: "/all-lender-products" }]
   },
 
-   {
+  {
     icon: <MdWeb />,
     name: "White Label Settings",
     subItems: [{ name: "Config Website", path: "/broker-website-dashboard/config-website" }]
+  },
+
+  {
+    icon: <FaAppStore />,
+    name: "Application Builder",
+    subItems: [{ name: "Create Application", path: "/create-application" }, { name: "Loan Application Config", path: "/application-config" }, { name: "Application", path: "/application" },]
+  },
+
+  {
+    icon: <MdOutlineDocumentScanner />,
+    name: "Active Application",
+    path: "/active-application"
   },
   // {
   //   icon: <GroupOutlinedIcon />,
@@ -237,11 +251,12 @@ const AppSidebar: React.FC = () => {
               )}
               {(isExpanded || isHovered || isMobileOpen) && (
                 <ChevronDownIcon
-                  className={`ml-auto w-5 h-5 transition-transform duration-200 ${openSubmenu?.type === menuType &&
-                    openSubmenu?.index === index
-                    ? "rotate-180 text-brand-500"
-                    : ""
-                    }`}
+                  className={`ml-auto w-5 h-5 transition-all duration-200 
+    ${openSubmenu?.type === menuType && openSubmenu?.index === index
+                      ? "rotate-180 text-white"
+                      : "text-gray-400 group-hover:text-white"
+                    }
+  `}
                 />
               )}
             </button>
@@ -325,7 +340,7 @@ const AppSidebar: React.FC = () => {
 
   return (
     <aside
-      className={`fixed mt-16 flex flex-col lg:mt-0 top-0 px-5 left-0 bg-white dark:bg-gray-900 dark:border-gray-800 text-gray-900 h-screen transition-all duration-300 ease-in-out z-50 border-r border-gray-200 
+      className={`fixed mt-16 flex flex-col lg:mt-0 top-0 px-5 left-0 bg-[#0F172A] dark:border-gray-800 text-gray-900 h-screen transition-all duration-300 ease-in-out z-50 border-r border-gray-200 
         ${isExpanded || isMobileOpen
           ? "w-[290px]"
           : isHovered
