@@ -65,11 +65,11 @@ const navItems: NavItem[] = [
     subItems: [{ name: "All Documents", path: "/all-documents" }],
   },
 
-  {
-    icon: <FaPersonCirclePlus />,
-    name: "Broker Interactions",
-    subItems: [{ name: "My Brokers", path: "/my-broker" }, { name: "Invited Brokers ", path: "/broker-request" }, { name: "Find Brokers", path: "/find-broker" }],
-  },
+  // {
+  //   icon: <FaPersonCirclePlus />,
+  //   name: "Broker Interactions",
+  //   subItems: [{ name: "My Brokers", path: "/my-broker" }, { name: "Invited Brokers ", path: "/broker-request" }, { name: "Find Brokers", path: "/find-broker" }],
+  // },
 
   // {
   //   icon: <AdminPanelSettingsOutlinedIcon />,
