@@ -41,7 +41,7 @@ async function lenderMeRoutes(fastify) {
             id: user.id,
             email: user.email,
             name: `${user.firstName} ${user.lastName}`,
-            profileImage: user.profileImage || null, // ⭐ added
+            profileImage: user.profileImage || null, 
             status: user.status,
             organization: {
               id: user.organization.id,
