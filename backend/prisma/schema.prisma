@@ -437,6 +437,7 @@ model BrokerApplicationProductField {
 
   fieldKey   String
   label      String
+  placeholder String?
   fieldType  FieldType
   isRequired Boolean   @default(false)
 
@@ -923,7 +924,9 @@ enum BrokerLenderSource {
 
 enum FieldType {
   TEXT
+  TEXTAREA
   NUMBER
+  EMAIL
   DATE
   SELECT
   FILE
