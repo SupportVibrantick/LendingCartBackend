@@ -48,9 +48,7 @@ async function listInvitedLendersRoutes(fastify) {
         // Fetch invites sent by broker
         // ---------------------------
         const invites = await prisma.brokerLenderInvite.findMany({
-          where: {
-            brokerOrgId,
-          },
+          where: { brokerOrgId },
           include: {
             lender: {
               select: {
@@ -60,6 +58,14 @@ async function listInvitedLendersRoutes(fastify) {
                 phone: true,
                 status: true,
                 createdAt: true,
+
+                // ⭐ get lender admin profile image
+                users: {
+                  select: {
+                    profileImage: true,
+                  },
+                  take: 1,
+                },
               },
             },
           },
@@ -88,6 +94,10 @@ async function listInvitedLendersRoutes(fastify) {
             name: i.lender.name,
             email: i.lender.email,
             phone: i.lender.phone,
+
+            // ⭐ profile image
+            profileImage: i.lender.users[0]?.profileImage || null,
+
             lenderStatus: i.lender.status,
             inviteStatus: i.status,
             invitedAt: i.createdAt,
