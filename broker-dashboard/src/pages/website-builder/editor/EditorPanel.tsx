@@ -128,7 +128,7 @@ export default function EditorPanel({
       </div>
 
       {/* CONTENT */}
-      <div className="flex-1 overflow-auto p-4 space-y-4 text-slate-800 dark:text-slate-100">
+      <div className="flex-1 overflow-auto p-4 space-y-4 text-slate-800 dark:text-slate-100 custom-scrollbar">
         {activeTab === "branding" && (
           <BrandingTab config={config} setConfig={setConfig} />
         )}
