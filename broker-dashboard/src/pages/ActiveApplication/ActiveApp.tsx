@@ -5,13 +5,21 @@ const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
 /* ================= TYPES ================= */
 
+type Validation = {
+  min?: number;
+  max?: number;
+};
+
 type Field = {
   fieldId: string;
   fieldKey: string;
   label: string;
+  placeholder?: string | null;
   type: "TEXT" | "NUMBER" | "EMAIL" | "FILE" | "TEXTAREA" | "SELECT";
   required: boolean;
   options: string[] | null;
+  validation?: Validation | null;
+  sortOrder?: number | null;
 };
 
 type Product = {
@@ -22,6 +30,7 @@ type Product = {
 
 type ActiveApplicationResponse = {
   applicationId: string;
+  applicationName: string;
   products: Product[];
 };
 
@@ -70,10 +79,37 @@ const ActiveApplication: React.FC = () => {
       }
 
       const app = json.data as ActiveApplicationResponse;
-      setData(app);
 
-      if (app.products.length > 0) {
-        setActiveProductId(app.products[0].productId);
+      // ✅ Clean + Deduplicate + Sort fields
+      const fixedProducts = app.products.map((p) => {
+        const uniqueMap = new Map<string, Field>();
+
+        (p.fields || []).forEach((f) => {
+          if (!uniqueMap.has(f.fieldId)) {
+            uniqueMap.set(f.fieldId, f);
+          }
+        });
+
+        let uniqueFields = Array.from(uniqueMap.values());
+
+        // sort if sortOrder exists
+        uniqueFields.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+
+        return {
+          ...p,
+          fields: uniqueFields,
+        };
+      });
+
+      const fixedApp: ActiveApplicationResponse = {
+        ...app,
+        products: fixedProducts,
+      };
+
+      setData(fixedApp);
+
+      if (fixedApp.products.length > 0) {
+        setActiveProductId(fixedApp.products[0].productId);
       }
     } catch (err: any) {
       toast.error(err.message || "Failed to load active application");
@@ -106,15 +142,32 @@ const ActiveApplication: React.FC = () => {
     const common =
       "w-full rounded-lg border px-3 py-2 text-sm bg-white text-slate-900 border-slate-300 dark:bg-slate-900 dark:text-slate-100 dark:border-slate-700";
 
+    const placeholder = field.placeholder || "";
+
     switch (field.type) {
       case "NUMBER":
+        return (
+          <input
+            type="number"
+            className={common}
+            required={field.required}
+            min={field.validation?.min}
+            max={field.validation?.max}
+            placeholder={placeholder}
+            onChange={(e) =>
+              handleChange(field.fieldKey, Number(e.target.value))
+            }
+          />
+        );
+
       case "TEXT":
       case "EMAIL":
         return (
           <input
-            type={field.type === "NUMBER" ? "number" : "text"}
+            type="text"
             className={common}
             required={field.required}
+            placeholder={placeholder}
             onChange={(e) => handleChange(field.fieldKey, e.target.value)}
           />
         );
@@ -137,6 +190,7 @@ const ActiveApplication: React.FC = () => {
             className={common}
             rows={4}
             required={field.required}
+            placeholder={placeholder}
             onChange={(e) => handleChange(field.fieldKey, e.target.value)}
           />
         );
@@ -148,7 +202,9 @@ const ActiveApplication: React.FC = () => {
             required={field.required}
             onChange={(e) => handleChange(field.fieldKey, e.target.value)}
           >
-            <option value="">Select</option>
+            <option value="">
+              {placeholder || "Select"}
+            </option>
             {field.options?.map((o, i) => (
               <option key={i} value={o}>
                 {o}
@@ -162,57 +218,21 @@ const ActiveApplication: React.FC = () => {
           <input
             type="text"
             className={common}
+            placeholder={placeholder}
             onChange={(e) => handleChange(field.fieldKey, e.target.value)}
           />
         );
     }
   };
 
+
   /* ================= UI ================= */
 
   if (loading) {
     return (
-      <div className="min-h-[60vh] flex flex-col items-center justify-center text-center
-    bg-slate-50 text-slate-900
-    dark:bg-slate-900 dark:text-slate-100
-">
-        {/* Spinner */}
-        <div className="h-14 w-14 rounded-full border-4 
-        border-slate-200 dark:border-slate-700 
-        border-t-blue-600 animate-spin mb-4">
-        </div>
-
-        {/* Icon bubble */}
-        <div className="h-12 w-12 flex items-center justify-center rounded-full 
-        bg-blue-100 dark:bg-blue-500/10 
-        text-blue-600 dark:text-blue-400 
-        mb-3">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="h-6 w-6"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={1.8}
-              d="M12 6v6l4 2"
-            />
-          </svg>
-        </div>
-
-        {/* Text */}
-        <div className="text-sm font-semibold text-slate-800 dark:text-slate-100">
-          Loading active application
-        </div>
-
-        <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-          Please wait while we prepare your form...
-        </div>
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <div className="h-12 w-12 rounded-full border-4 border-slate-300 border-t-blue-600 animate-spin" />
       </div>
-
     );
   }
 
@@ -232,7 +252,9 @@ const ActiveApplication: React.FC = () => {
     <div className="min-h-screen p-4 md:p-6 bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100">
       {/* ================= HEADER ================= */}
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold">Active Loan Application</h1>
+        <h1 className="text-2xl font-semibold">
+          {data.applicationName}
+        </h1>
         <p className="text-sm text-slate-500 dark:text-slate-400">
           Fill customer details for selected product
         </p>
@@ -265,8 +287,7 @@ const ActiveApplication: React.FC = () => {
         {/* ================= EMPTY ================= */}
         {(!activeProduct || activeProduct.fields.length === 0) && (
           <div className="flex items-center gap-3 text-slate-400 text-sm">
-            <span className="text-xl">📄</span>
-            No fields configured for this product.
+            📄 No fields configured for this product.
           </div>
         )}
 
