@@ -58,6 +58,7 @@ module.exports = async function activeApplication(fastify) {
       success: true,
       data: {
         applicationId: application.id,
+        applicationName: application.name,
         products: application.products.map((product) => ({
           productId: product.id,
           loanProductCode: product.loanProductCode,
@@ -66,6 +67,7 @@ module.exports = async function activeApplication(fastify) {
             fieldKey: field.fieldKey,
             label: field.label,
             type: field.fieldType,
+            placeholder: field.placeholder,
             required: field.isRequired,
             options: field.options,
             validation: field.validation,
