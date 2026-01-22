@@ -36,6 +36,7 @@ module.exports = async function activeApplication(fastify) {
                 fieldKey: true,
                 label: true,
                 fieldType: true,
+                placeholder:true,
                 isRequired: true,
                 options: true,
                 validation: true,
