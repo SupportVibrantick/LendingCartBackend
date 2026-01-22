@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import Swal from "sweetalert2";
 
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
+
+/* ================= TYPES ================= */
+
 type Broker = {
   id: string;
   profile?: string | null;
@@ -12,6 +16,16 @@ type Broker = {
   source: string;
   assignedAt: string;
 };
+
+/* ================= HELPERS ================= */
+
+function getAuthHeaders(): HeadersInit {
+  const token = sessionStorage.getItem("broker_token");
+  return {
+    "Content-Type": "application/json",
+    ...(token && { Authorization: `Bearer ${token}` }),
+  };
+}
 
 function getInitialAvatar(name: string) {
   const letter = name?.charAt(0)?.toUpperCase() || "?";
@@ -27,93 +41,77 @@ function getInitialAvatar(name: string) {
     "bg-indigo-500",
   ];
 
-  const color =
-    colors[name.charCodeAt(0) % colors.length];
+  const color = colors[name.charCodeAt(0) % colors.length];
 
   return { letter, color };
 }
 
-
-/* ================= DUMMY DATA ================= */
-
-const DUMMY_BROKERS: Broker[] = [
-  {
-    id: "1",
-    profile: null,
-    name: "Amit Sharma",
-    email: "amit@gmail.com",
-    phone: "9876543210",
-    brokerStatus: "ACTIVE",
-    connectionStatus: "CONNECTED",
-    source: "MANUAL",
-    assignedAt: "2025-12-01",
-  },
-  {
-    id: "2",
-    profile: null,
-    name: "Rohit Verma",
-    email: "rohit@gmail.com",
-    phone: "9988776655",
-    brokerStatus: "ACTIVE",
-    connectionStatus: "DISABLED",
-    source: "MANUAL",
-    assignedAt: "2025-11-21",
-  },
-  {
-    id: "3",
-    profile: null,
-    name: "Neha Gupta",
-    email: "neha@gmail.com",
-    phone: "9123456789",
-    brokerStatus: "INACTIVE",
-    connectionStatus: "DISABLED",
-    source: "MANUAL",
-    assignedAt: "2025-10-10",
-  },
-  {
-    id: "4",
-    profile: null,
-    name: "Suresh Patel",
-    email: "suresh@gmail.com",
-    phone: "9000011111",
-    brokerStatus: "ACTIVE",
-    connectionStatus: "CONNECTED",
-    source: "MANUAL",
-    assignedAt: "2025-09-15",
-  },
-];
+/* ================= PAGE ================= */
 
 export default function MyLenders() {
   const [brokers, setBrokers] = useState<Broker[]>([]);
   const [loading, setLoading] = useState(true);
-  const [updatingId, setUpdatingId] = useState<string | null>(null);
+  // const [updatingId, setUpdatingId] = useState<string | null>(null);
 
   const [search, setSearch] = useState("");
   const [pageSize, setPageSize] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
 
-  /* ================= LOAD DUMMY DATA ================= */
+  /* ================= FETCH API ================= */
+
   useEffect(() => {
-    setLoading(true);
-    setTimeout(() => {
-      setBrokers(DUMMY_BROKERS);
-      setLoading(false);
-    }, 600); // fake loading
+    fetchConnectedLenders();
   }, []);
 
+  async function fetchConnectedLenders() {
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/broker/lenders/connected`, {
+        headers: getAuthHeaders(),
+      });
+
+      const json = await res.json();
+
+      if (!res.ok || json.success !== true) {
+        throw new Error(json.message || "Failed to load lenders");
+      }
+
+      const mapped: Broker[] = (json.data || []).map((l: any) => ({
+        id: l.lenderId,
+        profile: null,
+        name: l.lenderName,
+        email: l.lenderEmail,
+        phone: "", // API me phone nahi aa raha
+        brokerStatus: "ACTIVE",
+        connectionStatus: "CONNECTED",
+        source: "API",
+        assignedAt: l.connectedAt,
+      }));
+
+      setBrokers(mapped);
+    } catch (err: any) {
+      console.error(err);
+      Swal.fire("Error", err.message || "Failed to load lenders", "error");
+      setBrokers([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   /* ================= SEARCH ================= */
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return brokers;
     return brokers.filter(
       (b) =>
         b.name.toLowerCase().includes(q) ||
-        b.email.toLowerCase().includes(q) ||
-        b.phone.includes(q)
+        b.email.toLowerCase().includes(q)
     );
   }, [brokers, search]);
 
   /* ================= PAGINATION ================= */
+
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
 
   const paginated = useMemo(() => {
@@ -125,47 +123,13 @@ export default function MyLenders() {
     setCurrentPage(1);
   }, [search, pageSize]);
 
-  /* ================= CONNECTION TOGGLE (LOCAL) ================= */
-  async function handleConnectionToggle(broker: Broker) {
-    const isActive = broker.connectionStatus === "DISABLED";
-    const nextStatus = isActive ? "CONNECTED" : "DISABLED";
-
-    const result = await Swal.fire({
-      title: "Change connection?",
-      text: `Set connection to ${nextStatus}?`,
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonText: "Yes, update",
-      confirmButtonColor: "#2563eb",
-    });
-
-    if (!result.isConfirmed) return;
-
-    setUpdatingId(broker.id);
-
-    // Fake delay
-    setTimeout(() => {
-      setBrokers((prev) =>
-        prev.map((b) =>
-          b.id === broker.id ? { ...b, connectionStatus: nextStatus } : b
-        )
-      );
-
-      setUpdatingId(null);
-
-      Swal.fire({
-        icon: "success",
-        title: "Connection updated",
-        timer: 1000,
-        showConfirmButton: false,
-      });
-    }, 500);
-  }
+  const isSearchEmpty = search.trim() !== "" && filtered.length === 0;
+  const isTotalEmpty = brokers.length === 0;
 
   /* ================= UI ================= */
+
   return (
     <div className="px-6 py-6 text-gray-900 dark:text-gray-100">
-
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:justify-between gap-4 mb-6">
         <div>
@@ -198,72 +162,104 @@ export default function MyLenders() {
       {/* Table */}
       <div className="bg-white border rounded-xl p-4 dark:bg-slate-900 dark:border-slate-700">
         {loading ? (
-          <div className="py-10 text-center text-gray-500">
-            Loading lenders…
-          </div>
-        ) : paginated.length === 0 ? (
+          (
+            <div className="p-4 animate-pulse">
+              {/* Header skeleton */}
+              <div className="grid grid-cols-4 gap-4 pb-3 border-b border-slate-200 dark:border-slate-700 text-xs uppercase">
+                <div className="h-3 w-16 rounded bg-slate-200 dark:bg-slate-700"></div>
+                <div className="h-3 w-24 rounded bg-slate-200 dark:bg-slate-700"></div>
+                <div className="h-3 w-32 rounded bg-slate-200 dark:bg-slate-700"></div>
+                <div className="h-3 w-24 rounded bg-slate-200 dark:bg-slate-700"></div>
+              </div>
+
+              {/* Rows skeleton */}
+              <div className="space-y-4 mt-4">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <div
+                    key={i}
+                    className="grid grid-cols-4 gap-4 items-center py-3 border-b border-slate-100 dark:border-slate-800"
+                  >
+                    {/* Avatar */}
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-full bg-slate-200 dark:bg-slate-700"></div>
+                    </div>
+
+                    {/* Name */}
+                    <div className="h-4 w-32 rounded bg-slate-200 dark:bg-slate-700"></div>
+
+                    {/* Email */}
+                    <div className="h-4 w-48 rounded bg-slate-200 dark:bg-slate-700"></div>
+
+                    {/* Date */}
+                    <div className="h-4 w-24 rounded bg-slate-200 dark:bg-slate-700"></div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )
+        ) : isTotalEmpty ? (
+          /* ================= NO LENDERS AT ALL ================= */
           <div className="py-14 flex flex-col items-center justify-center text-center border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-900/40">
 
             {/* Icon */}
             <div className="h-16 w-16 flex items-center justify-center rounded-full bg-blue-100 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 mb-4 shadow-sm">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-8 w-8"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.6}
-                  d="M12 4c4.418 0 8 1.79 8 4v8c0 2.21-3.582 4-8 4s-8-1.79-8-4V8c0-2.21 3.582-4 8-4z"
-                />
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.6}
-                  d="M4 8c0 2.21 3.582 4 8 4s8-1.79 8-4"
-                />
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.6}
+                  d="M12 4c4.418 0 8 1.79 8 4v8c0 2.21-3.582 4-8 4s-8-1.79-8-4V8c0-2.21 3.582-4 8-4z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.6}
+                  d="M4 8c0 2.21 3.582 4 8 4s8-1.79 8-4" />
               </svg>
             </div>
 
-            {/* Title */}
             <h3 className="text-base font-semibold text-slate-800 dark:text-slate-100">
-              No Lenders Found
+              No Lenders Connected Yet
             </h3>
 
-            {/* Subtitle */}
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-xs">
-              You don’t have any lenders assigned yet. Once lenders are connected, they will appear here.
+              You haven’t connected any lenders yet. Once lenders are added, they will appear here.
             </p>
-
           </div>
-        ) : (
-          <table className="min-w-full text-sm">
-            <thead>
-              <tr className="border-b text-xs uppercase text-gray-500 dark:border-slate-700">
-                <th className="py-2 text-left">Profile</th>
-                <th className="py-2 text-left">Name</th>
-                <th className="py-2 text-left">Email</th>
-                <th className="py-2 text-left">Phone</th>
-                <th className="py-2 text-left">Status</th>
-                <th className="py-2 text-left">Connection</th>
-                <th className="py-2 text-left">Assigned At</th>
-              </tr>
-            </thead>
 
-            <tbody>
-              {paginated.map((b) => (
-                <tr key={b.id} className="border-b dark:border-slate-800">
-                  <td className="py-3">
-                    {b.profile ? (
-                      <img
-                        src={b.profile}
-                        className="h-10 w-10 rounded-full border object-cover"
-                      />
-                    ) : (
-                      (() => {
+        ) : isSearchEmpty ? (
+          /* ================= NO SEARCH RESULTS ================= */
+          <div className="py-14 flex flex-col items-center justify-center text-center border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-900/40">
+
+            {/* Search Icon */}
+            <div className="h-16 w-16 flex items-center justify-center rounded-full bg-purple-100 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 mb-4 shadow-sm">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M21 21l-4.35-4.35m1.85-5.4a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
+
+            <h3 className="text-base font-semibold text-slate-800 dark:text-slate-100">
+              No Results Found
+            </h3>
+
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-xs">
+              We couldn’t find any lenders matching <span className="font-medium">"{search}"</span>.
+              Try a different keyword.
+            </p>
+          </div>
+
+        )
+          /* ================= TABLE ================= */
+          : (
+            <table className="min-w-full text-sm">
+              <thead>
+                <tr className="border-b text-xs uppercase text-gray-500 dark:border-slate-700">
+                  <th className="py-2 text-left">Profile</th>
+                  <th className="py-2 text-left">Name</th>
+                  <th className="py-2 text-left">Email</th>
+                  <th className="py-2 text-left">Connected At</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {paginated.map((b) => (
+                  <tr key={b.id} className="border-b dark:border-slate-800">
+                    <td className="py-3">
+                      {(() => {
                         const { letter, color } = getInitialAvatar(b.name);
                         return (
                           <div
@@ -272,48 +268,20 @@ export default function MyLenders() {
                             {letter}
                           </div>
                         );
-                      })()
-                    )}
-                  </td>
-                  <td>{b.name}</td>
-                  <td>{b.email}</td>
-                  <td>{b.phone}</td>
+                      })()}
+                    </td>
 
-                  <td>
-                    <span className="px-3 py-1 rounded-full text-xs font-medium">
-                      {b.brokerStatus}
-                    </span>
-                  </td>
+                    <td>{b.name}</td>
+                    <td>{b.email}</td>
 
-                  <td className="py-3">
-                    <button
-                      disabled={updatingId === b.id}
-                      onClick={() => handleConnectionToggle(b)}
-                      className={`px-3 py-1 rounded-full text-xs font-medium transition
-                        ${b.connectionStatus === "CONNECTED"
-                          ? "bg-green-100 text-green-700"
-                          : "bg-red-100 text-red-700"
-                        }
-                        ${updatingId === b.id
-                          ? "opacity-50 cursor-not-allowed"
-                          : "cursor-pointer"
-                        }
-                      `}
-                    >
-                      {updatingId === b.id
-                        ? "Updating..."
-                        : b.connectionStatus}
-                    </button>
-                  </td>
-
-                  <td>
-                    {new Date(b.assignedAt).toLocaleDateString()}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+                    <td>
+                      {new Date(b.assignedAt).toLocaleDateString()}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
       </div>
 
       {/* Pagination */}

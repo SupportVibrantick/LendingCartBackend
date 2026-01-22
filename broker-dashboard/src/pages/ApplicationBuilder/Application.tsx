@@ -29,6 +29,11 @@ function getAuthHeaders() {
     };
 }
 
+type Validation = {
+    min?: number;
+    max?: number;
+};
+
 type FormField = {
     id: string;
     type: FieldType;
@@ -36,6 +41,10 @@ type FormField = {
     placeholder?: string;
     required: boolean;
     options?: string[];
+    validation?: {
+        min?: number;
+        max?: number;
+    };
 };
 
 async function safeJson(res: Response) {
@@ -54,22 +63,16 @@ export default function ApplicationBuilder() {
     const [applications, setApplications] = useState<AppItem[]>([]);
     const [products, setProducts] = useState<ProductItem[]>([]);
     const [loadingProducts, setLoadingProducts] = useState(false);
+
     const [optionsInput, setOptionsInput] = useState("");
+    const [minVal, setMinVal] = useState("");
+    const [maxVal, setMaxVal] = useState("");
 
-    /* ================= MASTER STORE ================= */
-    const [configs, setConfigs] = useState<
-        Record<string, Record<string, FormField[]>>
-    >({});
-
-    /* ================= SELECTED ================= */
     const [selectedAppId, setSelectedAppId] = useState("");
-    const [selectedProductCode, setSelectedProductCode] = useState("");
+    const [selectedProductId, setSelectedProductId] = useState("");
 
-    /* ================= CURRENT FIELDS ================= */
-    const fields: FormField[] =
-        configs[selectedAppId]?.[selectedProductCode] || [];
+    const [fields, setFields] = useState<FormField[]>([]);
 
-    /* ================= EDITOR STATE ================= */
     const [editingId, setEditingId] = useState<string | null>(null);
 
     const [form, setForm] = useState<Omit<FormField, "id">>({
@@ -78,7 +81,9 @@ export default function ApplicationBuilder() {
         placeholder: "",
         required: false,
         options: [],
+        validation: {},
     });
+
 
     /* ================= LOAD APPLICATIONS ================= */
     const loadApplications = async () => {
@@ -86,25 +91,20 @@ export default function ApplicationBuilder() {
             const res = await fetch(`${API_BASE}/broker/applications`, {
                 headers: getAuthHeaders(),
             });
-
             const json = await safeJson(res);
-
-            if (!res.ok || json.success !== true) {
-                throw new Error(json.message || "Failed to load applications");
-            }
-
+            if (!res.ok || json.success !== true) throw new Error(json.message);
             setApplications(json.data || []);
         } catch (err: any) {
             toast.error(err.message || "Failed to load applications");
         }
     };
 
-    /* ================= LOAD PRODUCTS BY APP ================= */
+    /* ================= LOAD PRODUCTS ================= */
     const loadProducts = async (appId: string) => {
         try {
             setLoadingProducts(true);
             setProducts([]);
-            setSelectedProductCode("");
+            setSelectedProductId("");
 
             const res = await fetch(
                 `${API_BASE}/broker/applications/${appId}/products`,
@@ -112,10 +112,7 @@ export default function ApplicationBuilder() {
             );
 
             const json = await safeJson(res);
-
-            if (!res.ok || json.success !== true) {
-                throw new Error(json.message || "Failed to load products");
-            }
+            if (!res.ok || json.success !== true) throw new Error(json.message);
 
             setProducts(json.data || []);
         } catch (err: any) {
@@ -125,31 +122,81 @@ export default function ApplicationBuilder() {
         }
     };
 
+    /* ================= LOAD FIELDS (LIST API) ================= */
+    const loadFields = async (productId: string) => {
+        try {
+            console.log(productId)
+            const res = await fetch(
+                `${API_BASE}/broker/applications/products/${productId}/fields`,
+                { headers: getAuthHeaders() }
+            );
+
+            const json = await safeJson(res);
+            if (!res.ok || json.success !== true) throw new Error(json.message);
+
+            const mapped: FormField[] = (json.data || []).map((f: any) => ({
+                id: f.fieldId || crypto.randomUUID(),
+                type: f.fieldType.toLowerCase(),
+                label: f.label,
+                placeholder: f.placeholder || "",
+                required: f.isRequired,
+                options: f.options ? String(f.options).split(",") : [],
+                validation: f.validation || {},
+            }));
+
+            setFields(mapped);
+        } catch (err: any) {
+            toast.error(err.message || "Failed to load fields");
+        }
+    };
+
     useEffect(() => {
         loadApplications();
     }, []);
 
     useEffect(() => {
-        if (selectedAppId) {
-            loadProducts(selectedAppId);
-        }
+        if (selectedAppId) loadProducts(selectedAppId);
     }, [selectedAppId]);
 
-    /* ================= ENSURE PATH EXISTS ================= */
     useEffect(() => {
-        if (!selectedAppId || !selectedProductCode) return;
+        if (selectedProductId) loadFields(selectedProductId);
+    }, [selectedProductId]);
 
-        setConfigs((prev) => ({
-            ...prev,
-            [selectedAppId]: {
-                ...prev[selectedAppId],
-                [selectedProductCode]:
-                    prev[selectedAppId]?.[selectedProductCode] || [],
-            },
-        }));
-    }, [selectedAppId, selectedProductCode]);
+    /* ================= SAVE FIELD API ================= */
+    async function saveFieldToServer(field: FormField) {
+        const payload: any = {
+            fieldKey: field.label
+                .toLowerCase()
+                .replace(/\s+/g, "_")
+                .replace(/[^a-z0-9_]/g, ""),
+            label: field.label,
+            fieldType: field.type.toUpperCase(),
+            isRequired: field.required,
+        };
 
-    /* ================= HELPERS ================= */
+        if (field.placeholder) payload.placeholder = field.placeholder;
+        if (field.type === "select") payload.options = (field.options || []).join(",");
+
+        if (field.type === "number" && field.validation) {
+            payload.validation = {};
+            if (field.validation.min !== undefined) payload.validation.min = field.validation.min;
+            if (field.validation.max !== undefined) payload.validation.max = field.validation.max;
+        }
+
+        const res = await fetch(
+            `${API_BASE}/broker/applications/products/${selectedProductId}/fields`,
+            {
+                method: "POST",
+                headers: getAuthHeaders(),
+                body: JSON.stringify(payload),
+            }
+        );
+
+        const json = await safeJson(res);
+        if (!res.ok || json.success !== true) throw new Error(json.message);
+
+        return json;
+    }
 
     const resetForm = () => {
         setEditingId(null);
@@ -159,68 +206,53 @@ export default function ApplicationBuilder() {
             placeholder: "",
             required: false,
             options: [],
+            validation: {},
         });
         setOptionsInput("");
     };
 
-    /* ================= ADD / UPDATE ================= */
 
-    const handleAddOrUpdate = () => {
+    /* ================= ADD ================= */
+    const handleAddOrUpdate = async () => {
         let finalOptions: string[] = [];
 
         if (form.type === "select") {
-            finalOptions = optionsInput
-                .split(",")
-                .map((s) => s.trim())
-                .filter(Boolean);
+            finalOptions = optionsInput.split(",").map((s) => s.trim()).filter(Boolean);
+            if (finalOptions.length === 0) return alert("Please add at least one option");
+        }
 
-            if (finalOptions.length === 0) {
-                return alert("Please add at least one option for dropdown");
+        if (form.type === "number") {
+            const min = form.validation?.min;
+            const max = form.validation?.max;
+
+            if (min !== undefined && max !== undefined && min > max) {
+                alert("Min value cannot be greater than Max value");
+                return;
             }
         }
 
-        if (!form.label.trim()) return alert("Label is required");
-        if (!selectedAppId || !selectedProductCode)
-            return alert("Select application and product first");
+        const validation: Validation = {};
+        if (form.type === "number") {
+            if (minVal !== "") validation.min = Number(minVal);
+            if (maxVal !== "") validation.max = Number(maxVal);
+        }
 
-        setConfigs((prev) => {
-            const current =
-                prev[selectedAppId]?.[selectedProductCode] || [];
+        const newField: FormField = {
+            id: editingId || Date.now().toString(),
+            ...form,
+            validation: form.type === "number" ? form.validation : undefined,
+            options: form.type === "select" ? finalOptions : [],
 
-            let updated: FormField[];
+        };
 
-            if (editingId) {
-                updated = current.map((f) =>
-                    f.id === editingId
-                        ? {
-                            ...f,
-                            ...form,
-                            options: form.type === "select" ? finalOptions : [],
-                        }
-                        : f
-                );
-            }
-            else {
-                updated = [
-                    ...current,
-                    {
-                        id: Date.now().toString(),
-                        ...form,
-                        options: form.type === "select" ? finalOptions : [],
-                    },
-                ];
-            }
-
-            return {
-                ...prev,
-                [selectedAppId]: {
-                    ...prev[selectedAppId],
-                    [selectedProductCode]: updated,
-                },
-            };
-        });
-
-        resetForm();
+        try {
+            await saveFieldToServer(newField);
+            toast.success("Field saved");
+            loadFields(selectedProductId);
+            resetForm();
+        } catch (err: any) {
+            toast.error(err.message || "Failed to save field");
+        }
     };
 
     const handleEdit = (f: FormField) => {
@@ -231,32 +263,20 @@ export default function ApplicationBuilder() {
             placeholder: f.placeholder,
             required: f.required,
             options: Array.isArray(f.options) ? f.options : [],
+            validation: f.validation || {},
         });
 
-        if (f.type === "select") {
-            setOptionsInput((f.options || []).join(", "));
-        } else {
-            setOptionsInput("");
+        if (f.type === "select") setOptionsInput((f.options || []).join(", "));
+        if (f.type === "number") {
+            setMinVal(f.validation?.min?.toString() || "");
+            setMaxVal(f.validation?.max?.toString() || "");
         }
     };
 
+    // const handleDelete = (id: string) => {
+    //     alert("Delete API later");
+    // };
 
-    const handleDelete = (id: string) => {
-        if (!confirm("Remove this field?")) return;
-
-        setConfigs((prev) => {
-            const current =
-                prev[selectedAppId]?.[selectedProductCode] || [];
-
-            return {
-                ...prev,
-                [selectedAppId]: {
-                    ...prev[selectedAppId],
-                    [selectedProductCode]: current.filter((f) => f.id !== id),
-                },
-            };
-        });
-    };
 
     /* ================= UI ================= */
 
@@ -286,14 +306,14 @@ export default function ApplicationBuilder() {
                 {selectedAppId && (
                     <select
                         className="border rounded-lg px-3 py-2 bg-white text-slate-900 border-slate-300 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600"
-                        value={selectedProductCode}
-                        onChange={(e) => setSelectedProductCode(e.target.value)}
+                        value={selectedProductId}
+                        onChange={(e) => setSelectedProductId(e.target.value)}
                     >
                         <option value="">
                             {loadingProducts ? "Loading products..." : "Select Product"}
                         </option>
                         {products.map((p) => (
-                            <option key={p.id} value={p.loanProductCode}>
+                            <option key={p.id} value={p.id}>
                                 {p.loanProductCode}
                             </option>
                         ))}
@@ -301,7 +321,7 @@ export default function ApplicationBuilder() {
                 )}
             </div>
 
-            {!selectedAppId || !selectedProductCode ? (
+            {!selectedAppId || !selectedProductId ? (
                 <div className="flex flex-col items-center justify-center py-20 text-center border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-2xl bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
 
                     {/* Icon */}
@@ -395,6 +415,44 @@ export default function ApplicationBuilder() {
                             />
                         )}
 
+                        {/* Min / Max for Number */}
+                        {form.type === "number" && (
+                            <div className="grid grid-cols-2 gap-3">
+                                <input
+                                    type="number"
+                                    placeholder="Min value"
+                                    className="w-full border rounded-lg px-3 py-2 bg-white dark:bg-slate-800 dark:border-slate-600"
+                                    value={form.validation?.min ?? ""}
+                                    onChange={(e) =>
+                                        setForm({
+                                            ...form,
+                                            validation: {
+                                                ...form.validation,
+                                                min: e.target.value ? Number(e.target.value) : undefined,
+                                            },
+                                        })
+                                    }
+                                />
+
+                                <input
+                                    type="number"
+                                    placeholder="Max value"
+                                    className="w-full border rounded-lg px-3 py-2 bg-white dark:bg-slate-800 dark:border-slate-600"
+                                    value={form.validation?.max ?? ""}
+                                    onChange={(e) =>
+                                        setForm({
+                                            ...form,
+                                            validation: {
+                                                ...form.validation,
+                                                max: e.target.value ? Number(e.target.value) : undefined,
+                                            },
+                                        })
+                                    }
+                                />
+                            </div>
+                        )}
+
+
                         {/* Options for Select */}
                         {form.type === "select" && (
                             <input
@@ -430,7 +488,7 @@ export default function ApplicationBuilder() {
                                             <Edit3 size={16} />
                                         </button>
                                         <button
-                                            onClick={() => handleDelete(f.id)}
+                                            // onClick={() => handleDelete(f.id)}
                                             className="text-red-500"
                                         >
                                             <Trash2 size={16} />
@@ -457,9 +515,12 @@ export default function ApplicationBuilder() {
                                         <input
                                             type={f.type}
                                             placeholder={f.placeholder}
-                                            className="w-full border rounded px-3 py-2 bg-white text-slate-900 border-slate-300 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600"
+                                            min={f.type === "number" ? f.validation?.min : undefined}
+                                            max={f.type === "number" ? f.validation?.max : undefined}
+                                            className="w-full border rounded px-3 py-2 ..."
                                         />
                                     )}
+
 
                                     {/* TEXTAREA */}
                                     {f.type === "textarea" && (
@@ -472,7 +533,7 @@ export default function ApplicationBuilder() {
                                     {/* SELECT */}
                                     {f.type === "select" && (
                                         <select className="w-full border rounded px-3 py-2 bg-white text-slate-900 border-slate-300 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600">
-                                            <option value="">Select</option>
+                                            <option value="">Please Select</option>
                                             {f.options?.map((o, i) => (
                                                 <option key={i} value={o}>
                                                     {o}
