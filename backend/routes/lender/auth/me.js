@@ -14,6 +14,7 @@ async function lenderMeRoutes(fastify) {
     },
     async (request, reply) => {
       const prisma = fastify.prisma;
+
       try {
         const { userId, organizationId } = request.user;
 
@@ -40,6 +41,7 @@ async function lenderMeRoutes(fastify) {
             id: user.id,
             email: user.email,
             name: `${user.firstName} ${user.lastName}`,
+            profileImage: user.profileImage || null, // ⭐ added
             status: user.status,
             organization: {
               id: user.organization.id,
@@ -51,6 +53,7 @@ async function lenderMeRoutes(fastify) {
           },
         });
       } catch (err) {
+        request.log.error(err);
         return reply.code(500).send({
           ok: false,
           message: "Failed to fetch user profile",

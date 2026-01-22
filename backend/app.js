@@ -101,11 +101,20 @@ app.register(authMiddleware);
 app.register(fgaMiddleware);
 app.register(verifySuperAdmin);  
 
+// Serve uploads (profile images)
+app.register(fastifyStatic, {
+  root: path.join(__dirname, "uploads"),
+  prefix: "/uploads/",
+  decorateReply: false,
+});
 
+// Serve public assets
 app.register(fastifyStatic, {
   root: path.join(__dirname, "public"),
-  prefix: "/public/", // optional: default '/'
+  prefix: "/public/",
+  decorateReply: false,
 });
+
 
 // View engine setup (Pug)
 app.register(pointOfView, {
