@@ -38,6 +38,9 @@ import CreateApplication from "./pages/ApplicationBuilder/CreateApplication";
 import Application from "./pages/ApplicationBuilder/Application";
 import LoanApplicationConfig from "./pages/ApplicationBuilder/LoanApplicationConfig";
 import ActiveApplication from "./pages/ActiveApplication/ActiveApp";
+import FindLenders from "./pages/LenderInteraction/FindLenders";
+import InvitedLenders from "./pages/LenderInteraction/InvitedLenders";
+import MyLenders from "./pages/LenderInteraction/MyLenders";
 
 export default function App() {
   return (
@@ -102,28 +105,46 @@ export default function App() {
               element={<AssignedProducts />}
             />
 
-             <Route
+            <Route
               index
               path="/create-application"
               element={<CreateApplication />}
             />
 
-              <Route
+            <Route
               index
               path="/application"
               element={<Application />}
             />
 
-              <Route
+            <Route
               index
               path="/application-config"
               element={<LoanApplicationConfig />}
             />
 
-              <Route
+            <Route
               index
               path="/active-application"
               element={<ActiveApplication />}
+            />
+
+            <Route
+              index
+              path="/find-lenders"
+              element={<FindLenders />}
+            />
+
+            <Route
+              index
+              path="/my-lenders"
+              element={<MyLenders />}
+            />
+
+            <Route
+              index
+              path="/invited-lenders"
+              element={<InvitedLenders />}
             />
 
             <Route index path="/all-super-admins" element={<AllSuperadmin />} />
@@ -161,7 +182,7 @@ export default function App() {
               path="/broker-website-dashboard/config-website"
               element={<ConfigWebsite />}
             />
-          
+
           </Route>
 
           {/* Auth Layout */}

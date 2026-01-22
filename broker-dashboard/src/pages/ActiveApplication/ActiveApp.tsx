@@ -70,8 +70,6 @@ const ActiveApplication: React.FC = () => {
       }
 
       const app = json.data as ActiveApplicationResponse;
-      console.log("app:", app)
-
       setData(app);
 
       if (app.products.length > 0) {
@@ -106,7 +104,7 @@ const ActiveApplication: React.FC = () => {
 
   const renderField = (field: Field) => {
     const common =
-      "w-full rounded-lg border px-3 py-2 text-sm dark:bg-slate-900 dark:border-slate-700";
+      "w-full rounded-lg border px-3 py-2 text-sm bg-white text-slate-900 border-slate-300 dark:bg-slate-900 dark:text-slate-100 dark:border-slate-700";
 
     switch (field.type) {
       case "NUMBER":
@@ -143,6 +141,22 @@ const ActiveApplication: React.FC = () => {
           />
         );
 
+      case "SELECT":
+        return (
+          <select
+            className={common}
+            required={field.required}
+            onChange={(e) => handleChange(field.fieldKey, e.target.value)}
+          >
+            <option value="">Select</option>
+            {field.options?.map((o, i) => (
+              <option key={i} value={o}>
+                {o}
+              </option>
+            ))}
+          </select>
+        );
+
       default:
         return (
           <input
@@ -158,7 +172,47 @@ const ActiveApplication: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="p-6 text-sm text-slate-400">Loading active application...</div>
+      <div className="min-h-[60vh] flex flex-col items-center justify-center text-center
+    bg-slate-50 text-slate-900
+    dark:bg-slate-900 dark:text-slate-100
+">
+        {/* Spinner */}
+        <div className="h-14 w-14 rounded-full border-4 
+        border-slate-200 dark:border-slate-700 
+        border-t-blue-600 animate-spin mb-4">
+        </div>
+
+        {/* Icon bubble */}
+        <div className="h-12 w-12 flex items-center justify-center rounded-full 
+        bg-blue-100 dark:bg-blue-500/10 
+        text-blue-600 dark:text-blue-400 
+        mb-3">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-6 w-6"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={1.8}
+              d="M12 6v6l4 2"
+            />
+          </svg>
+        </div>
+
+        {/* Text */}
+        <div className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+          Loading active application
+        </div>
+
+        <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+          Please wait while we prepare your form...
+        </div>
+      </div>
+
     );
   }
 
@@ -175,36 +229,35 @@ const ActiveApplication: React.FC = () => {
   );
 
   return (
-    <div className="p-4 md:p-6 text-gray-900 dark:text-gray-100">
+    <div className="min-h-screen p-4 md:p-6 bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100">
       {/* ================= HEADER ================= */}
       <div className="mb-6">
         <h1 className="text-2xl font-semibold">Active Loan Application</h1>
-        <p className="text-sm text-slate-400">
+        <p className="text-sm text-slate-500 dark:text-slate-400">
           Fill customer details for selected product
         </p>
       </div>
 
-      {/* ================= PRODUCT TABS ================= */}
-      <div className="flex flex-wrap gap-2 mb-6">
-        {data.products.map((p) => (
-          <button
-            key={p.productId}
-            onClick={() => setActiveProductId(p.productId)}
-            className={`px-4 py-2 rounded-lg text-sm border transition
-              ${
-                activeProductId === p.productId
-                  ? "bg-[#084e6b] text-white border-[#084e6b]"
-                  : "bg-transparent border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
-              }
-            `}
-          >
-            {p.loanProductCode}
-          </button>
-        ))}
+      {/* ================= PRODUCT SELECT ================= */}
+      <div className="mb-6 max-w-sm">
+        <label className="block text-sm font-medium mb-1">
+          Select Product
+        </label>
+        <select
+          value={activeProductId}
+          onChange={(e) => setActiveProductId(e.target.value)}
+          className="w-full rounded-lg border px-3 py-2 text-sm bg-white text-slate-900 border-slate-300 dark:bg-slate-900 dark:text-slate-100 dark:border-slate-700"
+        >
+          {data.products.map((p) => (
+            <option key={p.productId} value={p.productId}>
+              {p.loanProductCode}
+            </option>
+          ))}
+        </select>
       </div>
 
       {/* ================= FORM CARD ================= */}
-      <div className="bg-white dark:bg-slate-900 border dark:border-slate-700 rounded-xl p-5">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-5">
         <h2 className="text-lg font-semibold mb-4">
           {activeProduct?.loanProductCode} Application Form
         </h2>

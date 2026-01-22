@@ -113,7 +113,7 @@ export default function ConfigWebsite() {
       </div>
 
       {/* RIGHT: LIVE PREVIEW */}
-      <div className="flex-1 bg-slate-100 dark:bg-slate-950 rounded-xl p-4 overflow-auto">
+      <div className="flex-1 bg-slate-100 dark:bg-slate-950 rounded-xl p-4 overflow-auto custom-scrollbar">
         <SitePreview config={config} />
       </div>
     </div>

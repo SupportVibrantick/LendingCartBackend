@@ -22,6 +22,7 @@ import { FaHandHoldingUsd } from "react-icons/fa";
 import { MdWeb } from "react-icons/md";
 import { FaAppStore } from "react-icons/fa6";
 import { MdOutlineDocumentScanner } from "react-icons/md";
+import { FaUsersBetweenLines } from "react-icons/fa6";
 // import AccountBalanceOutlinedIcon from '@mui/icons-material/AccountBalanceOutlined';
 // import AdminPanelSettingsOutlinedIcon from '@mui/icons-material/AdminPanelSettingsOutlined';
 // import CurrencyExchangeOutlinedIcon from '@mui/icons-material/CurrencyExchangeOutlined';
@@ -63,6 +64,12 @@ const navItems: NavItem[] = [
     icon: <MdOutlineDocumentScanner />,
     name: "Active Application",
     path: "/active-application"
+  },
+
+  {
+    icon: <FaUsersBetweenLines />,
+    name: "Lender Interactions",
+    subItems: [{ name: "My Lenders", path: "/my-lenders" }, { name: "Invited Lenders", path: "/invited-lenders" }, { name: "Find Lenders", path: "/find-lenders" },]
   },
   // {
   //   icon: <GroupOutlinedIcon />,
