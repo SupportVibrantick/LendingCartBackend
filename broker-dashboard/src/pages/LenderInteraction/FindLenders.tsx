@@ -228,7 +228,7 @@ export default function FindLenders() {
                     <option value={12}>12 / page</option>
                   </select>
 
-                  {/* ▼ custom arrow */}
+                  {/* custom arrow */}
                   <svg
                     className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400"
                     xmlns="http://www.w3.org/2000/svg"
@@ -240,7 +240,6 @@ export default function FindLenders() {
                   </svg>
                 </div>
               </div>
-
             </div>
           </>
         )}

@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { Trash2, Edit3 } from "lucide-react";
 import toast from "react-hot-toast";
-import Swal from "sweetalert2";
 
 /* ================= TYPES ================= */
 
@@ -135,7 +134,7 @@ export default function ApplicationBuilder() {
             if (!res.ok || json.success !== true) throw new Error(json.message);
 
             const mapped: FormField[] = (json.data || []).map((f: any) => ({
-                id: f.id,
+                id: f.fieldId || crypto.randomUUID(),
                 type: f.fieldType.toLowerCase(),
                 label: f.label,
                 placeholder: f.placeholder || "",
@@ -273,65 +272,9 @@ export default function ApplicationBuilder() {
         }
     };
 
-    const handleDelete = async (id: string) => {
-        if (!id) {
-            toast.error("Invalid field id");
-            return;
-        }
-
-        const result = await Swal.fire({
-            title: "Delete Field?",
-            text: "This field will be permanently removed.",
-            icon: "warning",
-            showCancelButton: true,
-            confirmButtonText: "Yes, delete it",
-            cancelButtonText: "Cancel",
-            confirmButtonColor: "#dc2626",
-            cancelButtonColor: "#64748b",
-        });
-
-        if (!result.isConfirmed) return;
-
-        try {
-            const token = sessionStorage.getItem("broker_token");
-
-            const res = await fetch(
-                `${API_BASE}/broker/applications/fields/${id}`,
-                {
-                    method: "DELETE",
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                    },
-                }
-            );
-
-            const json = await res.json();
-
-            if (!res.ok || json.success !== true) {
-                throw new Error(json.message || "Failed to delete field");
-            }
-
-            await Swal.fire({
-                title: "Deleted!",
-                text: "Field has been deleted successfully.",
-                icon: "success",
-                timer: 1500,
-                showConfirmButton: false,
-            });
-
-            // Reload fields list
-            loadFields(selectedProductId);
-
-        } catch (err: any) {
-            console.error("Delete field error:", err);
-
-            Swal.fire({
-                title: "Error",
-                text: err.message || "Failed to delete field",
-                icon: "error",
-            });
-        }
-    };
+    // const handleDelete = (id: string) => {
+    //     alert("Delete API later");
+    // };
 
 
     /* ================= UI ================= */
@@ -459,26 +402,6 @@ export default function ApplicationBuilder() {
                             onChange={(e) => setForm({ ...form, label: e.target.value })}
                         />
 
-                        {/* Required Toggle */}
-                        <div className="flex items-center gap-3 mt-2">
-                            <input
-                                id="required"
-                                type="checkbox"
-                                checked={form.required}
-                                onChange={(e) =>
-                                    setForm({ ...form, required: e.target.checked })
-                                }
-                                className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                            />
-                            <label
-                                htmlFor="required"
-                                className="text-sm font-medium text-slate-700 dark:text-slate-300 cursor-pointer"
-                            >
-                                Required Field
-                            </label>
-                        </div>
-
-
                         {/* Placeholder */}
                         {form.type !== "select" && form.type !== "file" && (
                             <input
@@ -539,8 +462,6 @@ export default function ApplicationBuilder() {
                             />
                         )}
 
-
-
                         <button
                             onClick={handleAddOrUpdate}
                             className="bg-blue-600 text-white px-4 py-2 rounded"
@@ -566,7 +487,7 @@ export default function ApplicationBuilder() {
                                             <Edit3 size={16} />
                                         </button>
                                         <button
-                                            onClick={() => handleDelete(f.id)}
+                                            // onClick={() => handleDelete(f.id)}
                                             className="text-red-500"
                                         >
                                             <Trash2 size={16} />
