@@ -56,6 +56,7 @@ model UserAccount {
   createdAt                  DateTime                    @default(now()) @db.Timestamptz(6)
   updatedAt                  DateTime                    @updatedAt @db.Timestamptz(6)
   uploadedDocs               ApplicationDocumentUpload[] @relation("UploadedByUser")
+  applicationTemplates       ApplicationTemplate[]
   applicationSent            ApplicationLender[]         @relation("SentByUser")
   changedApplicationStatuses ApplicationStatusHistory[]  @relation("ChangedByUser")
   auditLogs                  AuditLog[]                  @relation("UserAuditLogs")
@@ -402,7 +403,7 @@ model BrokerApplication {
   id          String  @id @default(uuid()) @db.Uuid
   brokerOrgId String  @db.Uuid
   name        String
-  code        String?  @unique
+  code        String? @unique
   isActive    Boolean @default(false)
 
   createdAt DateTime @default(now()) @db.Timestamptz(6)
@@ -435,11 +436,11 @@ model BrokerApplicationProductField {
   id                   String @id @default(uuid()) @db.Uuid
   applicationProductId String @db.Uuid
 
-  fieldKey   String
-  label      String
+  fieldKey    String
+  label       String
   placeholder String?
-  fieldType  FieldType
-  isRequired Boolean   @default(false)
+  fieldType   FieldType
+  isRequired  Boolean   @default(false)
 
   options    Json?
   validation Json?
@@ -768,6 +769,63 @@ model ClmLandingPageLead {
   @@index([source], map: "clm_landing_page_leads_source_idx")
   @@index([status], map: "clm_landing_page_leads_status_idx")
   @@map("clm_landing_page_leads")
+}
+
+model ApplicationTemplate {
+  id          String  @id @default(uuid()) @db.Uuid
+  name        String
+  code        String  @unique
+  description String?
+  isActive    Boolean @default(false)
+
+  // optional future-proofing
+  version   Int     @default(1)
+  isDefault Boolean @default(false)
+
+  createdByUserId String?  @db.Uuid
+  createdAt       DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime @updatedAt @db.Timestamptz(6)
+
+  products ApplicationTemplateProduct[]
+
+  createdBy UserAccount? @relation(fields: [createdByUserId], references: [id])
+
+  @@map("application_templates")
+}
+
+model ApplicationTemplateProduct {
+  id                    String          @id @default(uuid()) @db.Uuid
+  applicationTemplateId String          @db.Uuid
+  loanProductCode       LoanProductCode
+  isActive              Boolean         @default(true)
+
+  fields ApplicationTemplateProductField[]
+
+  applicationTemplate ApplicationTemplate @relation(fields: [applicationTemplateId], references: [id])
+
+  @@unique([applicationTemplateId, loanProductCode])
+  @@index([loanProductCode])
+  @@map("application_template_products")
+}
+
+model ApplicationTemplateProductField {
+  id                           String @id @default(uuid()) @db.Uuid
+  applicationTemplateProductId String @db.Uuid
+
+  fieldKey    String
+  label       String
+  placeholder String?
+  fieldType   FieldType
+  isRequired  Boolean   @default(false)
+
+  options    Json?
+  validation Json?
+  sortOrder  Int?
+
+  applicationTemplateProduct ApplicationTemplateProduct @relation(fields: [applicationTemplateProductId], references: [id])
+
+  @@index([applicationTemplateProductId])
+  @@map("application_template_product_fields")
 }
 
 enum LeadStatus {

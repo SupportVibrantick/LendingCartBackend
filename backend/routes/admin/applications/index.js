@@ -10,6 +10,14 @@ async function brokerApplicationsRoutes(fastify) {
   fastify.register(require("./listApplications"));
   fastify.register(require("./updateApplicationStatus"));
   fastify.register(require("./activeApplication"));
+
+
+
+  fastify.register(require("./createFromTemplate"));
+  fastify.register(require("./templates"), {
+    prefix: "/templates",
+  });
+
   // ─────────────────────────────────────────────
   // Application → Products (admin-approved only)
   // ─────────────────────────────────────────────
