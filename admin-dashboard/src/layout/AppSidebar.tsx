@@ -68,6 +68,11 @@ const navItems: NavItem[] = [
     subItems: [{ name: "All Admins", path: "/all-super-admins" }],
   },
   {
+    icon: <AdminPanelSettingsOutlinedIcon />,
+    name: "All Leads",
+    subItems: [{ name: "All leads", path: "/all-landing-pages-leads" }],
+  },
+  {
     icon: <PiSecurityCameraFill />,
     name: "Dashboard Logs",
     path: "/admin-logs"

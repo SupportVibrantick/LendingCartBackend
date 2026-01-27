@@ -1,16 +1,22 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { MdModeEdit, MdDelete } from "react-icons/md";
 import { TiPlus } from "react-icons/ti";
-import EditBrokerModal from "../Brokers/EditBrokerModal"; // you can reuse this for lenders too
+import EditLenderModal from "./EditLenderModal";
+
 
 type Lender = {
-  id: any; // keep flexible because API returns UUID string; UI can still treat as string/number
+  id: any;
   name: string;
   email: string;
   phone: string;
   status?: string;
   createdAt?: string;
+  brokerName?: string;
+
+  
+  brokerOrgId?: string;
 };
+
 
 type Admin = {
   id?: string;
@@ -133,6 +139,7 @@ export default function AllLendersPage() {
           name: o.name ?? o.organizationName ?? "",
           email: o.email ?? o.organizationEmail ?? "",
           phone: o.phone ?? o.organizationPhone ?? "",
+          brokerName: o.brokerLenderAccessAsLender?.[0]?.broker?.name || null,
           status: o.status ?? "UNKNOWN",
           createdAt: o.createdAt,
         };
@@ -268,7 +275,8 @@ export default function AllLendersPage() {
         (b.name || "").toLowerCase().includes(q) ||
         (b.email || "").toLowerCase().includes(q) ||
         (b.phone || "").toLowerCase().includes(q) ||
-        (b.status || "").toLowerCase().includes(q)
+        (b.status || "").toLowerCase().includes(q)||
+        (b.brokerName || "").toLowerCase().includes(q)
       );
     });
   }, [lenders, query]);
@@ -292,32 +300,71 @@ export default function AllLendersPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  const openEditModal = (b: Lender) => {
-    setEditingLender(b);
-  };
+ const openEditModal = async (b: Lender) => {
+  try {
+    const token = sessionStorage.getItem("admin_token");
 
-  const handleEditSave = async (updated: Lender) => {
-    setLenders((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
-    setEditingLender(null);
-
-    try {
-      const token = sessionStorage.getItem("admin_token");
-      await fetch(`${API_BASE}/admin/lenders/update/${updated.id}`, {
-        method: "PATCH",
+    const res = await fetch(
+      `${API_BASE}/admin/lenders/read/${b.id}`,
+      {
         headers: {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({
-          name: updated.name,
-          email: updated.email,
-          phone: updated.phone,
-        }),
-      });
-    } catch (err) {
-      console.error("Failed to persist lender update:", err);
-    }
-  };
+      }
+    );
+
+    const json = await res.json();
+
+    // ✅ CORRECT PATH FROM YOUR RESPONSE
+    const brokerOrgId =
+      json?.data?.organization?.brokerLenderAccessAsLender?.[0]
+        ?.brokerOrgId || "";
+
+    setEditingLender({
+      ...b,
+      brokerOrgId, // ✅ THIS MAKES DROPDOWN SELECTED
+    });
+  } catch (err) {
+    console.error("Failed to load lender details", err);
+  }
+};
+
+
+
+  const handleEditSave = async ( payload: {
+    id: any;
+    name: string;
+    email: string;
+    phone: string;
+    brokerOrgId: string | null;
+  }) => {
+  setEditingLender(null);
+
+  try {
+    const token = sessionStorage.getItem("admin_token");
+
+    await fetch(`${API_BASE}/admin/lenders/update/${payload.id}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({
+        name: payload.name,
+        email: payload.email,
+        phone: payload.phone,
+        brokerOrgId: payload.brokerOrgId, // ✅ NEW
+      }),
+    });
+
+    // refresh list safely
+    await fetchLenders();
+  } catch (err) {
+    console.error("Failed to update lender:", err);
+  }
+};
+
 
   const changeStatusFor = async (lender: Lender) => {
     if (!lender?.id) return;
@@ -599,6 +646,7 @@ export default function AllLendersPage() {
                     <th className="py-2 pr-4 text-left">Organization</th>
                     <th className="py-2 pr-4 text-left">Email</th>
                     <th className="py-2 pr-4 text-left">Phone</th>
+                    <th className="py-2 pr-4 text-left">Broker</th>
                     <th className="py-2 pr-4 text-left">Status</th>
                     <th className="py-2 pr-4 text-left">Created</th>
                     <th className="py-2 pr-4 text-right">Actions</th>
@@ -628,6 +676,14 @@ export default function AllLendersPage() {
                         <td className="py-3 pr-4 text-gray-600 whitespace-nowrap dark:text-slate-300">
                           {b.phone}
                         </td>
+
+                        <td className="py-3 pr-4 text-gray-600 whitespace-nowrap dark:text-slate-300">
+  {b.brokerName ? (
+    <span className="font-medium">{b.brokerName}</span>
+  ) : (
+    <span className="text-gray-400 italic">—</span>
+  )}
+</td>
 
                         <td className="py-3 pr-4 whitespace-nowrap">
                           <button
@@ -993,15 +1049,18 @@ export default function AllLendersPage() {
         </div>
       )}
 
-      {/* Edit Lender Modal (reusing EditBrokerModal for now) */}
-      {editingLender && (
-        <EditBrokerModal
-          isOpen={Boolean(editingLender)}
-          broker={editingLender as any}
-          onClose={() => setEditingLender(null)}
-          onSave={handleEditSave as any}
-        />
-      )}
+    
+     {/* Edit Lender Modal */}
+{editingLender && (
+  <EditLenderModal
+    isOpen={true}
+    lender={editingLender}
+    brokers={brokers}
+    onClose={() => setEditingLender(null)}
+    onSave={handleEditSave}
+  />
+)}
+
 
       {/* Admins Modal (with inline edit) */}
       {showAdminsFor && (

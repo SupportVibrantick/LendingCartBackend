@@ -19,7 +19,8 @@ const swagger = require("@fastify/swagger");
 const swaggerUi = require("@fastify/swagger-ui");
 const indexRoutes = require("./routes/index");
 const verifySuperAdmin = require("./plugins/verifySuperAdmin");
-
+const dbPlugin = require("./plugins/dbPlugin");
+const multipart = require("@fastify/multipart");
 // Configure Fastify with built-in logger
 const app = Fastify({
   logger: {
@@ -71,6 +72,13 @@ app.register(swagger, {
 });
 
 
+
+app.register(multipart, {
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB
+  },
+});
+
 app.register(swaggerUi, {
   routePrefix: "/api",
   uiConfig: {
@@ -88,16 +96,25 @@ app.register(fastifyFormbody);
 const authMiddleware = require("./middleware/authMiddleware");
 const fgaMiddleware = require("./middleware/fgaMiddleware");
 const Mail = require("nodemailer/lib/mailer");
-
+app.register(dbPlugin);
 app.register(authMiddleware);
 app.register(fgaMiddleware);
 app.register(verifySuperAdmin);  
 
+// Serve uploads (profile images)
+app.register(fastifyStatic, {
+  root: path.join(__dirname, "uploads"),
+  prefix: "/uploads/",
+  decorateReply: false,
+});
 
+// Serve public assets
 app.register(fastifyStatic, {
   root: path.join(__dirname, "public"),
-  prefix: "/public/", // optional: default '/'
+  prefix: "/public/",
+  decorateReply: false,
 });
+
 
 // View engine setup (Pug)
 app.register(pointOfView, {
@@ -197,10 +214,10 @@ app.setErrorHandler((error, request, reply) => {
 app.register(indexRoutes, { prefix: "/" });
 
 
-app.ready(() => {
-  console.log("\nRegistered Routes:");
-  console.log(app.printRoutes());
-});
+// app.ready(() => {
+//   console.log("\nRegistered Routes:");
+//   console.log(app.printRoutes());
+// });
 
 
 module.exports = app;

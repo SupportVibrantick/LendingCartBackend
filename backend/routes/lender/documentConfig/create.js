@@ -1,6 +1,3 @@
-const { PrismaClient } = require("@prisma/client");
-const prisma = new PrismaClient();
-
 const {
   createLenderDocumentConfigSchema,
 } = require("../../../schemas/lender/documentConfig/create.schema");
@@ -33,6 +30,7 @@ async function createLenderDocumentConfigRoutes(fastify) {
       },
     },
     async (req, reply) => {
+      const prisma = fastify.prisma;
       try {
         // 🔐 Auth check
         if (
@@ -84,7 +82,7 @@ async function createLenderDocumentConfigRoutes(fastify) {
           });
         }
 
-        // ✅ Validate document type
+        //  Validate document type
         const docType = await prisma.documentType.findFirst({
           where: { id: documentTypeId, isActive: true },
         });
@@ -96,7 +94,7 @@ async function createLenderDocumentConfigRoutes(fastify) {
           });
         }
 
-        // ✅ Prevent duplicates
+        //  Prevent duplicates
         const exists = await prisma.lenderDocumentRequirement.findFirst({
           where: {
             lenderProductId,
@@ -111,7 +109,7 @@ async function createLenderDocumentConfigRoutes(fastify) {
           });
         }
 
-        // ✅ Create document requirement (CORRECT MODEL)
+        // Create document requirement (CORRECT MODEL)
         const result = await prisma.lenderDocumentRequirement.create({
           data: {
             lenderProductId,

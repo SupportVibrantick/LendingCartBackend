@@ -1,6 +1,4 @@
 // routes/admin/brokers/status.js
-const { PrismaClient } = require("@prisma/client");
-const prisma = new PrismaClient();
 const { adminLogs } = require("../../../services/logger/contextLogger.js");
 
 /**
@@ -9,6 +7,7 @@ const { adminLogs } = require("../../../services/logger/contextLogger.js");
 async function statusRoutes(fastify) {
 
   async function toggleOrgStatusTx(tx, orgId, toActive, actor = {}) {
+    const prisma = fastify.prisma;
     const org = await tx.organization.findUnique({
       where: { id: orgId },
       select: { id: true, type: true, name: true, status: true },

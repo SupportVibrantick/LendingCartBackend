@@ -1,7 +1,4 @@
 // routes/admin/logs.js
-const { PrismaClient } = require("@prisma/client");
-const prisma = new PrismaClient();
-
 /**
  * @param {import("fastify").FastifyInstance} fastify
  */
@@ -25,6 +22,7 @@ async function logsRoutes(fastify) {
       },
     },
     async (req, reply) => {
+      const prisma = fastify.prisma;
       const { page = 1, limit = 20, action, entityType } = req.query;
 
       const skip = (page - 1) * limit;

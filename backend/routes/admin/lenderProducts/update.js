@@ -1,6 +1,4 @@
 // routes/admin/lenderProducts/update.js
-const { PrismaClient } = require("@prisma/client");
-const prisma = new PrismaClient();
 const { adminLogs } = require("../../../services/logger/contextLogger");
 const {
   updateLenderProductSchema,
@@ -16,6 +14,7 @@ async function updateLenderProductRoutes(fastify) {
       },
     },
     async (request, reply) => {
+      const prisma = fastify.prisma;
       try {
         const productId = request.params.id;
 

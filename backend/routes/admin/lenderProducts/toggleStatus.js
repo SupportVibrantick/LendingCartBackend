@@ -1,7 +1,4 @@
 // routes/admin/lenderProducts/toggleStatus.js
-const { PrismaClient } = require("@prisma/client");
-const prisma = new PrismaClient();
-
 async function toggleStatusRoutes(fastify) {
   fastify.patch(
     "/:id/status",
@@ -12,6 +9,7 @@ async function toggleStatusRoutes(fastify) {
       },
     },
     async (request, reply) => {
+      const prisma = fastify.prisma;
       try {
         const { id } = request.params;
 

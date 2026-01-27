@@ -1,6 +1,3 @@
-const { PrismaClient } = require("@prisma/client");
-const prisma = new PrismaClient();
-
 const {
   updateRuleSchema,
 } = require("../../../schemas/lender/eligibility/update.schema");
@@ -10,8 +7,9 @@ const {
  */
 module.exports = async function updateRuleRoutes(fastify) {
   fastify.put("/:id", async (req, reply) => {
+    const prisma = fastify.prisma;
     try {
-      // 🔐 Auth check
+      //  Auth check
       if (
         !req.user ||
         req.user.orgType !== "LENDER" ||
@@ -23,7 +21,7 @@ module.exports = async function updateRuleRoutes(fastify) {
         });
       }
 
-      // ✅ Zod validation
+      //  Zod validation
       const parsed = updateRuleSchema.safeParse(req.body);
       if (!parsed.success) {
         return reply.status(400).send({
@@ -33,7 +31,7 @@ module.exports = async function updateRuleRoutes(fastify) {
         });
       }
 
-      // ✅ Fetch rule + ownership
+      //  Fetch rule + ownership
       const rule = await prisma.eligibilityRule.findFirst({
         where: {
           id: req.params.id,

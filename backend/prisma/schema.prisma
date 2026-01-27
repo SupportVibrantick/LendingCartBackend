@@ -8,25 +8,32 @@ datasource db {
 }
 
 model Organization {
-  id                         String                    @id @default(uuid()) @db.Uuid
-  name                       String
-  type                       OrganizationType
-  status                     OrganizationStatus
-  email                      String?
-  phone                      String?
-  createdAt                  DateTime                  @default(now()) @db.Timestamptz(6)
-  updatedAt                  DateTime                  @updatedAt @db.Timestamptz(6)
+  id        String             @id @default(uuid()) @db.Uuid
+  name      String
+  type      OrganizationType
+  status    OrganizationStatus
+  email     String?
+  phone     String?
+  createdAt DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime           @updatedAt @db.Timestamptz(6)
+
+  brokerApplications BrokerApplication[]
+
   affiliateLinks             AffiliateLink[]
-  lenderApplications         ApplicationLender[]       @relation("LenderApplications")
-  auditLogsAsActorOrg        AuditLog[]                @relation("OrgAuditLogs")
-  brokerLenderAccessAsBroker BrokerLenderAccess[]      @relation("BrokerAccess_broker")
-  brokerLenderAccessAsLender BrokerLenderAccess[]      @relation("BrokerAccess_lender")
-  brokerWhiteLabelSettings   BrokerWhiteLabelSetting[]
-  clients                    Client[]                  @relation("BrokerClients")
-  escrowTitleCompanies       EscrowTitleCompany[]
-  lenderProducts             LenderProduct[]
-  brokerLoanApplications     LoanApplication[]         @relation("BrokerLoanApplications")
-  users                      UserAccount[]
+  lenderApplications         ApplicationLender[]  @relation("LenderApplications")
+  auditLogsAsActorOrg        AuditLog[]           @relation("OrgAuditLogs")
+  brokerLenderAccessAsBroker BrokerLenderAccess[] @relation("BrokerAccess_broker")
+  brokerLenderAccessAsLender BrokerLenderAccess[] @relation("BrokerAccess_lender")
+
+  brokerLenderInvitesAsBroker BrokerLenderInvite[] @relation("BrokerInvite_broker")
+  brokerLenderInvitesAsLender BrokerLenderInvite[] @relation("BrokerInvite_lender")
+
+  brokerWhiteLabelSettings BrokerWhiteLabelSetting[]
+  clients                  Client[]                  @relation("BrokerClients")
+  escrowTitleCompanies     EscrowTitleCompany[]
+  lenderProducts           LenderProduct[]
+  brokerLoanApplications   LoanApplication[]         @relation("BrokerLoanApplications")
+  users                    UserAccount[]
 
   // soft-delete fields (additive, non-breaking)
   isDeleted Boolean?  @default(false) @map("is_deleted")
@@ -43,6 +50,7 @@ model UserAccount {
   firstName                  String?
   lastName                   String?
   phone                      String?
+  profileImage               String?                     @map("profile_image")
   status                     UserStatus                  @default(ACTIVE)
   lastLoginAt                DateTime?                   @db.Timestamptz(6)
   createdAt                  DateTime                    @default(now()) @db.Timestamptz(6)
@@ -193,6 +201,29 @@ model BrokerLenderAccess {
   @@map("broker_lender_access")
 }
 
+model BrokerLenderInvite {
+  id          String       @id @default(uuid()) @db.Uuid
+  lenderOrgId String       @db.Uuid
+  brokerOrgId String       @db.Uuid
+  status      InviteStatus @default(PENDING)
+  createdAt   DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime     @updatedAt @db.Timestamptz(6)
+
+  lender Organization @relation("BrokerInvite_lender", fields: [lenderOrgId], references: [id])
+  broker Organization @relation("BrokerInvite_broker", fields: [brokerOrgId], references: [id])
+
+  @@unique([lenderOrgId, brokerOrgId])
+  @@index([lenderOrgId])
+  @@index([brokerOrgId])
+  @@map("broker_lender_invites")
+}
+
+enum InviteStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
 model EligibilityRuleSet {
   id                         String                      @id @default(uuid()) @db.Uuid
   lenderProductId            String                      @db.Uuid
@@ -285,17 +316,35 @@ model LenderDocumentRequirement {
 }
 
 model BrokerWhiteLabelSetting {
-  id                        String       @id @default(uuid()) @db.Uuid
-  brokerOrgId               String       @db.Uuid
-  customDomain              String?
-  primaryColor              String?
-  secondaryColor            String?
-  logoUrl                   String?
-  showBrokerBrandOnApproval Boolean      @default(false)
-  footerText                String?
-  createdAt                 DateTime     @default(now()) @db.Timestamptz(6)
-  updatedAt                 DateTime     @updatedAt @db.Timestamptz(6)
-  broker                    Organization @relation(fields: [brokerOrgId], references: [id])
+  id          String @id @default(uuid()) @db.Uuid
+  brokerOrgId String @unique @db.Uuid
+
+  // DOMAIN CONFIG
+  platformSubdomain String? @unique
+  customDomain      String? @unique
+  domainVerified    Boolean @default(false)
+  sslStatus         String? // PENDING | ISSUED | FAILED
+
+  // BRANDING / THEME
+  brandName      String?
+  logoUrl        String?
+  faviconUrl     String?
+  primaryColor   String?
+  secondaryColor String?
+  fontFamily     String?
+
+  // UI / COPY
+  footerText   String?
+  supportEmail String?
+
+  // WHITE-LABEL FLAGS
+  fullWhiteLabel            Boolean @default(false) // hides platform branding
+  showBrokerBrandOnApproval Boolean @default(false)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  broker Organization @relation(fields: [brokerOrgId], references: [id])
 
   @@index([brokerOrgId])
   @@map("broker_white_label_settings")
@@ -347,6 +396,76 @@ model LoanApplication {
   @@index([clientId])
   @@index([loanProductCode])
   @@map("loan_applications")
+}
+
+model BrokerApplication {
+  id          String  @id @default(uuid()) @db.Uuid
+  brokerOrgId String  @db.Uuid
+  name        String
+  code        String?  @unique
+  isActive    Boolean @default(false)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  products BrokerApplicationProduct[]
+
+  broker Organization @relation(fields: [brokerOrgId], references: [id])
+
+  @@index([brokerOrgId])
+  @@map("broker_applications")
+}
+
+model BrokerApplicationProduct {
+  id                  String          @id @default(uuid()) @db.Uuid
+  brokerApplicationId String          @db.Uuid
+  loanProductCode     LoanProductCode
+  isActive            Boolean         @default(true)
+
+  fields BrokerApplicationProductField[]
+
+  brokerApplication BrokerApplication @relation(fields: [brokerApplicationId], references: [id])
+
+  @@unique([brokerApplicationId, loanProductCode])
+  @@index([loanProductCode])
+  @@map("broker_application_products")
+}
+
+model BrokerApplicationProductField {
+  id                   String @id @default(uuid()) @db.Uuid
+  applicationProductId String @db.Uuid
+
+  fieldKey   String
+  label      String
+  placeholder String?
+  fieldType  FieldType
+  isRequired Boolean   @default(false)
+
+  options    Json?
+  validation Json?
+  sortOrder  Int?
+
+  applicationProduct BrokerApplicationProduct @relation(fields: [applicationProductId], references: [id])
+
+  @@index([applicationProductId])
+  @@map("broker_application_product_fields")
+}
+
+model LoanApplicationField {
+  id              String          @id @default(uuid()) @db.Uuid
+  loanProductCode LoanProductCode
+  fieldKey        String // e.g. "annualRevenue"
+  label           String // "Annual Revenue"
+  fieldType       FieldType
+  isRequired      Boolean         @default(false)
+  options         Json? // for dropdowns
+  validation      Json? // min, max, regex
+  sortOrder       Int?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([loanProductCode])
+  @@map("loan_application_fields")
 }
 
 model ApplicationFinancial {
@@ -613,6 +732,52 @@ model AuditLog {
   @@map("audit_logs")
 }
 
+model CommercialLendingMasteryLead {
+  id        String     @id @default(uuid()) @db.Uuid
+  firstName String?
+  lastName  String?
+  email     String
+  phone     String?
+  source    String     @default("commerciallendingmastery")
+  status    LeadStatus @default(NEW)
+  campaign  String?
+  metadata  Json?
+  createdAt DateTime   @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime   @updatedAt @db.Timestamptz(6)
+
+  @@index([email], map: "commercial_lending_mastery_leads_email_idx")
+  @@index([source], map: "commercial_lending_mastery_leads_source_idx")
+  @@index([status], map: "commercial_lending_mastery_leads_status_idx")
+  @@map("commercial_lending_mastery_leads")
+}
+
+model ClmLandingPageLead {
+  id        String     @id @default(uuid()) @db.Uuid
+  firstName String?
+  lastName  String?
+  email     String
+  phone     String?
+  source    String     @default("clmlandingpage")
+  status    LeadStatus @default(NEW)
+  campaign  String?
+  metadata  Json?
+  createdAt DateTime   @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime   @updatedAt @db.Timestamptz(6)
+
+  @@index([email], map: "clm_landing_page_leads_email_idx")
+  @@index([source], map: "clm_landing_page_leads_source_idx")
+  @@index([status], map: "clm_landing_page_leads_status_idx")
+  @@map("clm_landing_page_leads")
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  NOT_INTERESTED
+  CONVERTED
+}
+
 enum OrganizationType {
   PLATFORM
   BROKER
@@ -755,4 +920,15 @@ enum AffiliateCommissionType {
 enum BrokerLenderSource {
   PLATFORM_DEFAULT
   BROKER_ADDED
+}
+
+enum FieldType {
+  TEXT
+  TEXTAREA
+  NUMBER
+  EMAIL
+  DATE
+  SELECT
+  FILE
+  BOOLEAN
 }

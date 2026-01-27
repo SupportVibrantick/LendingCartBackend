@@ -1,6 +1,5 @@
 // routes/admin/lenderProducts/create.js
-const { PrismaClient, Prisma } = require("@prisma/client");
-const prisma = new PrismaClient();
+const { Prisma } = require("@prisma/client");
 const { adminLogs } = require("../../../services/logger/contextLogger");
 const {
   createLenderProductSchema,
@@ -17,6 +16,7 @@ async function createLenderProductRoutes(fastify) {
       },
     },
     async (request, reply) => {
+      const prisma = fastify.prisma;
       try {
         // ---------------------------
         // Validate body via Zod
@@ -120,7 +120,7 @@ async function createLenderProductRoutes(fastify) {
         });
       } catch (error) {
         adminLogs.error("LenderProduct create failed", error);
-
+ 
         return reply.status(500).send({
           success: false,
           message: "Server error while creating lender product",

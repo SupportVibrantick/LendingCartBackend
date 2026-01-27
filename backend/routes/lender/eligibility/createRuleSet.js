@@ -1,7 +1,3 @@
-// backend/routes/lender/eligibility/createRuleSet.js
-const { PrismaClient } = require("@prisma/client");
-const prisma = new PrismaClient();
-
 const {
   createRuleSetSchema,
 } = require("../../../schemas/lender/eligibility/createRuleSet.schema");
@@ -19,8 +15,9 @@ async function createRuleSetRoutes(fastify) {
       },
     },
     async (req, reply) => {
+      const prisma = fastify.prisma;
       try {
-        // 🔐 Auth check
+        //  Auth check
         if (
           !req.user ||
           req.user.orgType !== "LENDER" ||
@@ -32,7 +29,7 @@ async function createRuleSetRoutes(fastify) {
           });
         }
 
-        // ✅ Validate input
+        //  Validate input
         const parsed = createRuleSetSchema.safeParse(req.body);
         if (!parsed.success) {
           return reply.status(400).send({
@@ -42,12 +39,17 @@ async function createRuleSetRoutes(fastify) {
           });
         }
 
-        const { lenderProductId, name, description } = parsed.data;
+        //  Rename handled here
+        const {
+          lenderLoanProductId,
+          name,
+          description,
+        } = parsed.data;
 
-        // ✅ Ownership check
+        //  Ownership check
         const product = await prisma.lenderProduct.findFirst({
           where: {
-            id: lenderProductId,
+            id: lenderLoanProductId,
             lenderOrgId: req.user.organizationId,
           },
         });
@@ -59,10 +61,10 @@ async function createRuleSetRoutes(fastify) {
           });
         }
 
-        // ✅ Prevent duplicate rule-set names per product
+        //  Prevent duplicate rule-set names per product
         const exists = await prisma.eligibilityRuleSet.findFirst({
           where: {
-            lenderProductId,
+            lenderProductId: lenderLoanProductId, //  mapped correctly
             name,
           },
         });
@@ -74,10 +76,10 @@ async function createRuleSetRoutes(fastify) {
           });
         }
 
-        // ✅ Create rule set
+        //  Create rule set
         const ruleSet = await prisma.eligibilityRuleSet.create({
           data: {
-            lenderProductId,
+            lenderProductId: lenderLoanProductId, //  mapped correctly
             name,
             description: description ?? null,
           },

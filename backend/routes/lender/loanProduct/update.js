@@ -1,5 +1,5 @@
-const { PrismaClient, Prisma } = require("@prisma/client");
-const prisma = new PrismaClient();
+const { Prisma } = require("@prisma/client");
+
 
 const {
   updateLenderLoanProductSchema,
@@ -46,6 +46,7 @@ async function updateLenderLoanProductRoutes(fastify) {
       },
     },
     async (req, reply) => {
+      const prisma = fastify.prisma;
       try {
         // ---------------------------
         // Auth check (middleware-aligned)
@@ -134,6 +135,7 @@ async function updateLenderLoanProductRoutes(fastify) {
           data: updated,
         });
       } catch (error) {
+        console.log(error);
         return reply.status(500).send({
           success: false,
           message: "Server error while updating loan product",
