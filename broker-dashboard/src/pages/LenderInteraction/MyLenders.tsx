@@ -7,7 +7,7 @@ const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
 type Broker = {
   id: string;
-  profile?: string | null;
+  profileImage?: string | null;
   name: string;
   email: string;
   phone: string;
@@ -27,24 +27,24 @@ function getAuthHeaders(): HeadersInit {
   };
 }
 
-function getInitialAvatar(name: string) {
-  const letter = name?.charAt(0)?.toUpperCase() || "?";
+// function getInitialAvatar(name: string) {
+//   const letter = name?.charAt(0)?.toUpperCase() || "?";
 
-  const colors = [
-    "bg-red-500",
-    "bg-green-500",
-    "bg-blue-500",
-    "bg-purple-500",
-    "bg-pink-500",
-    "bg-orange-500",
-    "bg-teal-500",
-    "bg-indigo-500",
-  ];
+//   const colors = [
+//     "bg-red-500",
+//     "bg-green-500",
+//     "bg-blue-500",
+//     "bg-purple-500",
+//     "bg-pink-500",
+//     "bg-orange-500",
+//     "bg-teal-500",
+//     "bg-indigo-500",
+//   ];
 
-  const color = colors[name.charCodeAt(0) % colors.length];
+//   const color = colors[name.charCodeAt(0) % colors.length];
 
-  return { letter, color };
-}
+//   return { letter, color };
+// }
 
 /* ================= PAGE ================= */
 
@@ -78,10 +78,10 @@ export default function MyLenders() {
 
       const mapped: Broker[] = (json.data || []).map((l: any) => ({
         id: l.lenderId,
-        profile: null,
+        profileImage: null,
         name: l.lenderName,
         email: l.lenderEmail,
-        phone: "", // API me phone nahi aa raha
+        phone: "",
         brokerStatus: "ACTIVE",
         connectionStatus: "CONNECTED",
         source: "API",
@@ -259,16 +259,13 @@ export default function MyLenders() {
                 {paginated.map((b) => (
                   <tr key={b.id} className="border-b dark:border-slate-800">
                     <td className="py-3">
-                      {(() => {
-                        const { letter, color } = getInitialAvatar(b.name);
-                        return (
-                          <div
-                            className={`h-10 w-10 rounded-full flex items-center justify-center text-white font-semibold ${color}`}
-                          >
-                            {letter}
-                          </div>
-                        );
-                      })()}
+                      <img
+                        src={b.profileImage ? `${API_BASE}/public${b.profileImage}` : "/circle_logo.png"}
+                        onError={(e: any) => {
+                          e.currentTarget.src = "/circle_logo.png";
+                        }}
+                        className="h-12 w-12 rounded-full object-cover ring-4 ring-slate-50 dark:ring-slate-800 shadow-inner"
+                      />
                     </td>
 
                     <td>{b.name}</td>

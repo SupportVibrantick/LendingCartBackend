@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
 import { Trash2, Edit3 } from "lucide-react";
 import toast from "react-hot-toast";
-import Swal from "sweetalert2";
 
 /* ================= TYPES ================= */
 
 type FieldType = "text" | "number" | "email" | "textarea" | "select" | "file";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
+
+type Broker = { id: string; name: string };
 
 type AppItem = {
     id: string;
@@ -23,7 +24,7 @@ type ProductItem = {
 };
 
 function getAuthHeaders() {
-    const token = sessionStorage.getItem("broker_token");
+    const token = sessionStorage.getItem("admin_token");
     return {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
@@ -64,6 +65,8 @@ export default function ApplicationBuilder() {
     const [applications, setApplications] = useState<AppItem[]>([]);
     const [products, setProducts] = useState<ProductItem[]>([]);
     const [loadingProducts, setLoadingProducts] = useState(false);
+    const [brokers, setBrokers] = useState<Broker[]>([]);
+    const [selectedBrokerId, setSelectedBrokerId] = useState("");
 
     const [optionsInput, setOptionsInput] = useState("");
     const [minVal, setMinVal] = useState("");
@@ -85,13 +88,27 @@ export default function ApplicationBuilder() {
         validation: {},
     });
 
-
-    /* ================= LOAD APPLICATIONS ================= */
-    const loadApplications = async () => {
+    // ================= Load Brokers =====================
+    const fetchBrokers = async () => {
         try {
-            const res = await fetch(`${API_BASE}/broker/applications`, {
+            const res = await fetch(`${API_BASE}/admin/brokers/read`, {
                 headers: getAuthHeaders(),
             });
+            const json = await res.json();
+            setBrokers(json.data || []);
+        } catch (error) {
+            toast.error("Failed to load brokers");
+        }
+    };
+
+
+    /* ================= LOAD APPLICATIONS ================= */
+    const loadApplications = async (brokerId: string) => {
+        try {
+            const res = await fetch(
+                `${API_BASE}/admin/applications?brokerOrgId=${brokerId}`,
+                { headers: getAuthHeaders() }
+            );
             const json = await safeJson(res);
             if (!res.ok || json.success !== true) throw new Error(json.message);
             setApplications(json.data || []);
@@ -108,7 +125,7 @@ export default function ApplicationBuilder() {
             setSelectedProductId("");
 
             const res = await fetch(
-                `${API_BASE}/broker/applications/${appId}/products`,
+                `${API_BASE}/admin/applications/${appId}/products?brokerOrgId=${selectedBrokerId}`,
                 { headers: getAuthHeaders() }
             );
 
@@ -127,7 +144,7 @@ export default function ApplicationBuilder() {
     const loadFields = async (productId: string) => {
         try {
             const res = await fetch(
-                `${API_BASE}/broker/applications/products/${productId}/fields`,
+                `${API_BASE}/admin/applications/products/${productId}/fields?brokerOrgId=${selectedBrokerId}`,
                 { headers: getAuthHeaders() }
             );
 
@@ -135,7 +152,7 @@ export default function ApplicationBuilder() {
             if (!res.ok || json.success !== true) throw new Error(json.message);
 
             const mapped: FormField[] = (json.data || []).map((f: any) => ({
-                id: f.id,
+                id: f.fieldId || crypto.randomUUID(),
                 type: f.fieldType.toLowerCase(),
                 label: f.label,
                 placeholder: f.placeholder || "",
@@ -151,8 +168,22 @@ export default function ApplicationBuilder() {
     };
 
     useEffect(() => {
-        loadApplications();
+        fetchBrokers();
     }, []);
+
+    useEffect(() => {
+        if (!selectedBrokerId) {
+            setApplications([]);
+            setProducts([]);
+            setFields([]);
+            setSelectedAppId("");
+            setSelectedProductId("");
+            return;
+        }
+
+        loadApplications(selectedBrokerId);
+    }, [selectedBrokerId]);
+
 
     useEffect(() => {
         if (selectedAppId) loadProducts(selectedAppId);
@@ -173,6 +204,8 @@ export default function ApplicationBuilder() {
             fieldType: field.type.toUpperCase(),
             isRequired: field.required,
         };
+        payload.brokerOrgId = selectedBrokerId;
+        payload.sortOrder = fields.length + 1;
 
         if (field.placeholder) payload.placeholder = field.placeholder;
         if (field.type === "select") payload.options = (field.options || []).join(",");
@@ -184,7 +217,7 @@ export default function ApplicationBuilder() {
         }
 
         const res = await fetch(
-            `${API_BASE}/broker/applications/products/${selectedProductId}/fields`,
+            `${API_BASE}/admin/applications/products/${selectedProductId}/fields`,
             {
                 method: "POST",
                 headers: getAuthHeaders(),
@@ -273,65 +306,9 @@ export default function ApplicationBuilder() {
         }
     };
 
-    const handleDelete = async (id: string) => {
-        if (!id) {
-            toast.error("Invalid field id");
-            return;
-        }
-
-        const result = await Swal.fire({
-            title: "Delete Field?",
-            text: "This field will be permanently removed.",
-            icon: "warning",
-            showCancelButton: true,
-            confirmButtonText: "Yes, delete it",
-            cancelButtonText: "Cancel",
-            confirmButtonColor: "#dc2626",
-            cancelButtonColor: "#64748b",
-        });
-
-        if (!result.isConfirmed) return;
-
-        try {
-            const token = sessionStorage.getItem("broker_token");
-
-            const res = await fetch(
-                `${API_BASE}/broker/applications/fields/${id}`,
-                {
-                    method: "DELETE",
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                    },
-                }
-            );
-
-            const json = await res.json();
-
-            if (!res.ok || json.success !== true) {
-                throw new Error(json.message || "Failed to delete field");
-            }
-
-            await Swal.fire({
-                title: "Deleted!",
-                text: "Field has been deleted successfully.",
-                icon: "success",
-                timer: 1500,
-                showConfirmButton: false,
-            });
-
-            // Reload fields list
-            loadFields(selectedProductId);
-
-        } catch (err: any) {
-            console.error("Delete field error:", err);
-
-            Swal.fire({
-                title: "Error",
-                text: err.message || "Failed to delete field",
-                icon: "error",
-            });
-        }
-    };
+    // const handleDelete = (id: string) => {
+    //     alert("Delete API later");
+    // };
 
 
     /* ================= UI ================= */
@@ -343,9 +320,30 @@ export default function ApplicationBuilder() {
             </h1>
 
             {/* ================= SELECT ================= */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                {/* APPLICATION */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+
+                {/* BROKER */}
                 <select
+                    className="border rounded-lg px-3 py-2 bg-white text-slate-900 border-slate-300 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600"
+                    value={selectedBrokerId}
+                    onChange={(e) => {
+                        setSelectedBrokerId(e.target.value);
+                        setSelectedAppId("");
+                        setSelectedProductId("");
+                        setProducts([]);
+                        setFields([]);
+                    }}
+                >
+                    <option value="">Select Broker</option>
+                    {brokers.map((b) => (
+                        <option key={b.id} value={b.id}>
+                            {b.name}
+                        </option>
+                    ))}
+                </select>
+
+                {/* APPLICATION */}
+                {selectedBrokerId && <select
                     className="border rounded-lg px-3 py-2 bg-white text-slate-900 border-slate-300 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600"
                     value={selectedAppId}
                     onChange={(e) => setSelectedAppId(e.target.value)}
@@ -356,7 +354,7 @@ export default function ApplicationBuilder() {
                             {a.name}
                         </option>
                     ))}
-                </select>
+                </select>}
 
                 {/* PRODUCT (only show if app selected) */}
                 {selectedAppId && (
@@ -459,26 +457,6 @@ export default function ApplicationBuilder() {
                             onChange={(e) => setForm({ ...form, label: e.target.value })}
                         />
 
-                        {/* Required Toggle */}
-                        <div className="flex items-center gap-3 mt-2">
-                            <input
-                                id="required"
-                                type="checkbox"
-                                checked={form.required}
-                                onChange={(e) =>
-                                    setForm({ ...form, required: e.target.checked })
-                                }
-                                className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                            />
-                            <label
-                                htmlFor="required"
-                                className="text-sm font-medium text-slate-700 dark:text-slate-300 cursor-pointer"
-                            >
-                                Required Field
-                            </label>
-                        </div>
-
-
                         {/* Placeholder */}
                         {form.type !== "select" && form.type !== "file" && (
                             <input
@@ -539,8 +517,6 @@ export default function ApplicationBuilder() {
                             />
                         )}
 
-
-
                         <button
                             onClick={handleAddOrUpdate}
                             className="bg-blue-600 text-white px-4 py-2 rounded"
@@ -566,7 +542,7 @@ export default function ApplicationBuilder() {
                                             <Edit3 size={16} />
                                         </button>
                                         <button
-                                            onClick={() => handleDelete(f.id)}
+                                            // onClick={() => handleDelete(f.id)}
                                             className="text-red-500"
                                         >
                                             <Trash2 size={16} />

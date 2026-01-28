@@ -98,7 +98,7 @@ export default function BrokersPage() {
     setLoading(true);
     try {
       const headers = getAuthHeaders();
-      const res = await fetch(`${API_BASE}/admin/brokers/read/`, {
+      const res = await fetch(`${API_BASE}/admin/brokers/read`, {
         method: "GET",
         headers,
       });

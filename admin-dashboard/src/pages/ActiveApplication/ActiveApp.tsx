@@ -5,6 +5,15 @@ const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
 /* ================= TYPES ================= */
 
+type Broker = {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  status?: string;
+  createdAt?: string;
+};
+
 type Validation = {
   min?: number;
   max?: number;
@@ -37,7 +46,7 @@ type ActiveApplicationResponse = {
 /* ================= HELPERS ================= */
 
 function getAuthHeaders() {
-  const token = sessionStorage.getItem("broker_token");
+  const token = sessionStorage.getItem("admin_token");
   return {
     Authorization: `Bearer ${token}`,
   };
@@ -57,20 +66,60 @@ async function safeJson(res: Response) {
 
 const ActiveApplication: React.FC = () => {
   const [data, setData] = useState<ActiveApplicationResponse | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [activeProductId, setActiveProductId] = useState<string>("");
-
+  const [brokerOrgId, setBrokerOrgId] = useState<string>("");
+  const [brokers, setBrokers] = useState<Broker[]>([]);
   const [formValues, setFormValues] = useState<Record<string, any>>({});
+
+  /* ================= LOAD BROKERS ================= */
+
+  async function fetchBrokers() {
+    setLoading(true);
+    try {
+      const headers = getAuthHeaders();
+      const res = await fetch(`${API_BASE}/admin/brokers/read`, {
+        method: "GET",
+        headers,
+      });
+
+      if (!res.ok) throw new Error(`Failed to fetch brokers: ${res.status}`);
+
+      const json = await res.json();
+
+      const list = Array.isArray(json) ? json : json.data || [];
+
+      const normalized: Broker[] = list.map((o: any) => ({
+        id: String(o.id),
+        name: o.name ?? "",
+        email: o.email ?? "",
+        phone: o.phone ?? "",
+        status: o.status ?? "UNKNOWN",
+        createdAt: o.createdAt ?? null,
+      }));
+
+      setBrokers(normalized);
+    } catch (err: any) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   /* ================= LOAD ACTIVE APPLICATION ================= */
 
-  const loadActiveApplication = async () => {
+  const loadActiveApplication = async (selectedBrokerId: string) => {
     try {
+      if (!selectedBrokerId) return;
+
       setLoading(true);
 
-      const res = await fetch(`${API_BASE}/broker/applications/active`, {
-        headers: getAuthHeaders(),
-      });
+      const res = await fetch(
+        `${API_BASE}/admin/applications/active?brokerOrgId=${selectedBrokerId}`,
+        {
+          headers: getAuthHeaders(),
+        }
+      );
 
       const json = await safeJson(res);
 
@@ -90,10 +139,9 @@ const ActiveApplication: React.FC = () => {
           }
         });
 
-        let uniqueFields = Array.from(uniqueMap.values());
-
-        // sort if sortOrder exists
-        uniqueFields.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+        const uniqueFields = Array.from(uniqueMap.values()).sort(
+          (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)
+        );
 
         return {
           ...p,
@@ -112,15 +160,13 @@ const ActiveApplication: React.FC = () => {
         setActiveProductId(fixedApp.products[0].productId);
       }
     } catch (err: any) {
-      toast.error(err.message || "Failed to load active application");
+      console.error(err);
+     
+      setData(null);
     } finally {
       setLoading(false);
     }
   };
-
-  useEffect(() => {
-    loadActiveApplication();
-  }, []);
 
   /* ================= HANDLERS ================= */
 
@@ -202,9 +248,7 @@ const ActiveApplication: React.FC = () => {
             required={field.required}
             onChange={(e) => handleChange(field.fieldKey, e.target.value)}
           >
-            <option value="">
-              {placeholder || "Select"}
-            </option>
+            <option value="">{placeholder || "Select"}</option>
             {field.options?.map((o, i) => (
               <option key={i} value={o}>
                 {o}
@@ -225,73 +269,95 @@ const ActiveApplication: React.FC = () => {
     }
   };
 
+  useEffect(() => {
+    fetchBrokers();
+  }, []);
 
-  /* ================= UI ================= */
-
-  if (loading) {
-    return (
-      <div className="min-h-[60vh] flex items-center justify-center">
-        <div className="h-12 w-12 rounded-full border-4 border-slate-300 border-t-blue-600 animate-spin" />
-      </div>
-    );
-  }
-
-  if (!data) {
-    return (
-      <div className="p-6 text-sm text-red-500">
-        Failed to load active application
-      </div>
-    );
-  }
-
-  const activeProduct = data.products.find(
+  const activeProduct = data?.products.find(
     (p) => p.productId === activeProductId
   );
+
+  /* ================= UI ================= */
 
   return (
     <div className="min-h-screen p-4 md:p-6 bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100">
       {/* ================= HEADER ================= */}
       <div className="mb-6">
         <h1 className="text-2xl font-semibold">
-          {data.applicationName}
+          {data ? data.applicationName : "Active Application"}
         </h1>
         <p className="text-sm text-slate-500 dark:text-slate-400">
           Fill customer details for selected product
         </p>
       </div>
 
-      {/* ================= PRODUCT SELECT ================= */}
+      {/* ================= BROKER SELECT ================= */}
       <div className="mb-6 max-w-sm">
-        <label className="block text-sm font-medium mb-1">
-          Select Product
-        </label>
+        <label className="block text-sm font-medium mb-1">Select Broker</label>
         <select
-          value={activeProductId}
-          onChange={(e) => setActiveProductId(e.target.value)}
+          value={brokerOrgId}
+          onChange={(e) => {
+            const selected = e.target.value;
+            setBrokerOrgId(selected);
+            setFormValues({});
+            setActiveProductId("");
+
+            if (selected) {
+              loadActiveApplication(selected);
+            } else {
+              setData(null);
+            }
+          }}
           className="w-full rounded-lg border px-3 py-2 text-sm bg-white text-slate-900 border-slate-300 dark:bg-slate-900 dark:text-slate-100 dark:border-slate-700"
         >
-          {data.products.map((p) => (
-            <option key={p.productId} value={p.productId}>
-              {p.loanProductCode}
+          <option value="">Select Broker</option>
+          {brokers.map((b) => (
+            <option key={b.id} value={b.id}>
+              {b.name}
             </option>
           ))}
         </select>
       </div>
 
+      {/* ================= LOADING ================= */}
+      {loading && (
+        <div className="min-h-[30vh] flex items-center justify-center">
+          <div className="h-10 w-10 rounded-full border-4 border-slate-300 border-t-blue-600 animate-spin" />
+        </div>
+      )}
+
+      {/* ================= PRODUCT SELECT ================= */}
+      {data && data && data.products.length > 0 && (
+        <div className="mb-6 max-w-sm">
+          <label className="block text-sm font-medium mb-1">
+            Select Product
+          </label>
+          <select
+            value={activeProductId}
+            onChange={(e) => setActiveProductId(e.target.value)}
+            className="w-full rounded-lg border px-3 py-2 text-sm bg-white text-slate-900 border-slate-300 dark:bg-slate-900 dark:text-slate-100 dark:border-slate-700"
+          >
+            {data.products.map((p) => (
+              <option key={p.productId} value={p.productId}>
+                {p.loanProductCode}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       {/* ================= FORM CARD ================= */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-5">
         <h2 className="text-lg font-semibold mb-4">
-          {activeProduct?.loanProductCode} Application Form
+          {activeProduct?.loanProductCode || "Application"} Form
         </h2>
 
-        {/* ================= EMPTY ================= */}
         {(!activeProduct || activeProduct.fields.length === 0) && (
           <div className="flex items-center gap-3 text-slate-400 text-sm">
             📄 No fields configured for this product.
           </div>
         )}
 
-        {/* ================= FIELDS ================= */}
         {activeProduct && activeProduct.fields.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {activeProduct.fields.map((field) => (
@@ -308,7 +374,6 @@ const ActiveApplication: React.FC = () => {
           </div>
         )}
 
-        {/* ================= ACTION ================= */}
         {activeProduct && activeProduct.fields.length > 0 && (
           <div className="mt-6">
             <button
