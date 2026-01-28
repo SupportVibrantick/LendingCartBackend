@@ -4,9 +4,10 @@
 async function templateProductsRoutes(fastify) {
   fastify.register(require("./createProduct"));
 
-  // OPTIONAL (future)
-  // fastify.register(require("./listProducts"));
-  // fastify.register(require("./removeProduct"));
+  // Sections under product
+  fastify.register(require("../sections"), {
+    prefix: "/:productId/sections",
+  });
 
   // Fields under product
   fastify.register(require("../fields"), {
