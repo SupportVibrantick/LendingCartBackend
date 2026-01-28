@@ -1,22 +1,54 @@
 module.exports = async function addTemplateField(fastify) {
   fastify.post("/", async (req, reply) => {
     const { productId } = req.params;
-    const { fieldKey, label, fieldType } = req.body;
+    const { sectionId, fieldKey, label, fieldType } = req.body;
 
-    if (!fieldKey || !label || !fieldType) {
+    /* ===============================
+       1. REQUIRED VALIDATION
+    =============================== */
+
+    if (!sectionId || !fieldKey || !label || !fieldType) {
       return reply.code(400).send({
         success: false,
-        message: "fieldKey, label and fieldType are required",
+        message: "sectionId, fieldKey, label and fieldType are required",
       });
     }
 
-    const field = await fastify.prisma.applicationTemplateProductField.create({
-      data: {
-        applicationTemplateProductId: productId,
-        ...req.body,
-      },
-    });
+    /* ===============================
+       2. VALIDATE SECTION BELONGS TO PRODUCT
+    =============================== */
 
-    reply.send({ success: true, data: field });
+    const section =
+      await fastify.prisma.applicationTemplateSection.findFirst({
+        where: {
+          id: sectionId,
+          applicationTemplateProductId: productId,
+        },
+      });
+
+    if (!section) {
+      return reply.code(400).send({
+        success: false,
+        message: "Invalid sectionId for this product",
+      });
+    }
+
+    /* ===============================
+       3. CREATE FIELD
+    =============================== */
+
+    const field =
+      await fastify.prisma.applicationTemplateProductField.create({
+        data: {
+          applicationTemplateProductId: productId,
+          sectionId,
+          ...req.body,
+        },
+      });
+
+    reply.send({
+      success: true,
+      data: field,
+    });
   });
 };

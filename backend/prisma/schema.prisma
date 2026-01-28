@@ -798,7 +798,7 @@ model ApplicationTemplateProduct {
   applicationTemplateId String          @db.Uuid
   loanProductCode       LoanProductCode
   isActive              Boolean         @default(true)
-
+  sections ApplicationTemplateSection[]
   fields ApplicationTemplateProductField[]
 
   applicationTemplate ApplicationTemplate @relation(fields: [applicationTemplateId], references: [id])
@@ -823,10 +823,30 @@ model ApplicationTemplateProductField {
   sortOrder  Int?
 
   applicationTemplateProduct ApplicationTemplateProduct @relation(fields: [applicationTemplateProductId], references: [id])
-
-  @@index([applicationTemplateProductId])
+  sectionId String? @db.Uuid
+  section   ApplicationTemplateSection? @relation(fields: [sectionId], references: [id])
+  @@index([applicationTemplateProductId,sectionId])
   @@map("application_template_product_fields")
 }
+
+model ApplicationTemplateSection {
+  id                         String   @id @default(uuid()) @db.Uuid
+  applicationTemplateProductId String   @db.Uuid
+
+  name        String           // "Personal Information"
+  description String?
+  sortOrder   Int
+  isActive    Boolean          @default(true)
+
+  fields ApplicationTemplateProductField[]
+
+  applicationTemplateProduct ApplicationTemplateProduct @relation(fields: [applicationTemplateProductId], references: [id])
+
+  @@index([applicationTemplateProductId])
+  @@unique([applicationTemplateProductId, name])
+  @@map("application_template_sections")
+}
+
 
 enum LeadStatus {
   NEW
