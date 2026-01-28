@@ -11,8 +11,17 @@ type AppItem = {
     createdAt: string;
 };
 
+type Broker = {
+    id: string;
+    name: string;
+    email: string;
+    phone: string;
+    status?: string;
+    createdAt?: string;
+};
+
 function getAuthHeaders() {
-    const token = sessionStorage.getItem("broker_token");
+    const token = sessionStorage.getItem("admin_token");
     return {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
@@ -32,6 +41,9 @@ async function safeJson(res: Response) {
 const CreateApplication: React.FC = () => {
     const [items, setItems] = useState<AppItem[]>([]);
     const [loading, setLoading] = useState(false);
+    const [brokers, setBrokers] = useState<Broker[]>([]);
+    const [brokerOrgId, setBrokerOrgId] = useState("");
+    const [filterBrokerOrgId, setFilterBrokerOrgId] = useState("");
 
     const [, setEditingId] = useState<string | null>(null);
     const [form, setForm] = useState({
@@ -40,13 +52,18 @@ const CreateApplication: React.FC = () => {
     });
 
     /* ================= LOAD LIST ================= */
-    const loadApplications = async () => {
+    const loadApplications = async (selectedBrokerId: string) => {
         try {
+            if (!selectedBrokerId) return;
+
             setLoading(true);
 
-            const res = await fetch(`${API_BASE}/broker/applications`, {
-                headers: getAuthHeaders(),
-            });
+            const res = await fetch(
+                `${API_BASE}/admin/applications?brokerOrgId=${selectedBrokerId}`,
+                {
+                    headers: getAuthHeaders(),
+                }
+            );
 
             const json = await safeJson(res);
 
@@ -63,8 +80,39 @@ const CreateApplication: React.FC = () => {
         }
     };
 
+    async function fetchBrokers() {
+        setLoading(true);
+        try {
+            const headers = getAuthHeaders();
+            const res = await fetch(`${API_BASE}/admin/brokers/read`, {
+                method: "GET",
+                headers,
+            });
+
+            if (!res.ok) throw new Error(`Failed to fetch brokers: ${res.status}`);
+
+            const json = await res.json();
+            const list = Array.isArray(json) ? json : json.data || [];
+
+            const normalized: Broker[] = list.map((o: any) => ({
+                id: String(o.id),
+                name: o.name ?? "",
+                email: o.email ?? "",
+                phone: o.phone ?? "",
+                status: o.status ?? "UNKNOWN",
+                createdAt: o.createdAt ?? null,
+            }));
+
+            setBrokers(normalized);
+        } catch (err: any) {
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
+    }
+
     useEffect(() => {
-        loadApplications();
+        fetchBrokers();
     }, []);
 
     /* ================= CREATE ================= */
@@ -76,13 +124,23 @@ const CreateApplication: React.FC = () => {
             return;
         }
 
+        if (!brokerOrgId) {
+            toast.error("Please select a broker");
+            return;
+        }
+
         const loadingToast = toast.loading("Creating application...");
 
         try {
-            const res = await fetch(`${API_BASE}/broker/applications`, {
+            const res = await fetch(`${API_BASE}/admin/applications`, {
                 method: "POST",
                 headers: getAuthHeaders(),
-                body: JSON.stringify({ name: form.name }),
+                body: JSON.stringify(
+                    {
+                        name: form.name,
+                        brokerOrgId
+                    }
+                ),
             });
 
             const json = await safeJson(res);
@@ -93,8 +151,10 @@ const CreateApplication: React.FC = () => {
 
             toast.success("Application created successfully");
             setForm({ name: "", isActive: true });
-
-            loadApplications();
+            setBrokerOrgId("");
+            if (filterBrokerOrgId) {
+                loadApplications(filterBrokerOrgId);
+            }
         } catch (err: any) {
             console.error("CREATE ERROR:", err);
             toast.error(err.message || "Could not create application");
@@ -116,15 +176,23 @@ const CreateApplication: React.FC = () => {
     const toggleStatus = async (e: React.MouseEvent, item: AppItem) => {
         e.preventDefault();
 
+        if (!filterBrokerOrgId) {
+            toast.error("Please select a broker first from filter");
+            return;
+        }
+
         const loadingToast = toast.loading("Updating status...");
 
         try {
             const res = await fetch(
-                `${API_BASE}/broker/applications/${item.id}/status`,
+                `${API_BASE}/admin/applications/${item.id}/status`,
                 {
                     method: "PATCH",
                     headers: getAuthHeaders(),
-                    body: JSON.stringify({ isActive: !item.isActive }),
+                    body: JSON.stringify({
+                        isActive: !item.isActive,
+                        brokerOrgId: filterBrokerOrgId,
+                    }),
                 }
             );
 
@@ -135,10 +203,12 @@ const CreateApplication: React.FC = () => {
             }
 
             toast.success(
-                `Application ${!item.isActive ? "activated" : "deactivated"}`
+                `Application ${!item.isActive ? "activated" : "deactivated"} successfully`
             );
 
-            loadApplications();
+            // Reload table
+            if (filterBrokerOrgId)
+                loadApplications(filterBrokerOrgId);
         } catch (err: any) {
             console.error("STATUS ERROR:", err);
             toast.error(err.message || "Could not update status");
@@ -169,6 +239,22 @@ const CreateApplication: React.FC = () => {
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div>
                             <label className="block text-sm mb-1">
+                                Broker
+                            </label>
+                            <select
+                                className="w-full rounded-md border px-3 py-2 text-sm dark:bg-slate-800 dark:border-slate-700"
+                                value={brokerOrgId}
+                                onChange={(e) => setBrokerOrgId(e.target.value)}
+                            >
+                                <option value="">Select Broker</option>
+                                {brokers.map((b) => (
+                                    <option key={b.id} value={b.id}>
+                                        {b.name}
+                                    </option>
+                                ))}
+                            </select>
+
+                            <label className="block text-sm mb-1 mt-2">
                                 Application Name
                             </label>
                             <input
@@ -192,7 +278,31 @@ const CreateApplication: React.FC = () => {
 
                 {/* RIGHT */}
                 <div className="bg-white dark:bg-slate-900 border dark:border-slate-700 rounded-xl p-5">
-                    <h2 className="text-lg font-semibold mb-4">Applications</h2>
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-lg font-semibold">Applications</h2>
+
+                        <select
+                            className="rounded-md border px-3 py-2 text-sm dark:bg-slate-800 dark:border-slate-700"
+                            value={filterBrokerOrgId}
+                            onChange={(e) => {
+                                const selected = e.target.value;
+                                setFilterBrokerOrgId(selected);
+
+                                if (selected) {
+                                    loadApplications(selected);
+                                } else {
+                                    setItems([]);
+                                }
+                            }}
+                        >
+                            <option value="">Filter by Broker</option>
+                            {brokers.map((b) => (
+                                <option key={b.id} value={b.id}>
+                                    {b.name}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
 
                     {loading ? (
                         <div className="text-sm text-slate-400">Loading...</div>
@@ -248,9 +358,19 @@ const CreateApplication: React.FC = () => {
                                 </tbody>
                             </table>
 
-                            {items.length === 0 && (
-                                <div className="text-sm text-slate-400 pt-4">
-                                    No applications found
+                            {!loading && items.length === 0 && (
+                                <div className="flex flex-col items-center justify-center py-16 text-center rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40">
+                                    <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400">
+                                        📄
+                                    </div>
+
+                                    <h3 className="text-base font-semibold text-slate-700 dark:text-slate-200">
+                                        No Applications Found
+                                    </h3>
+
+                                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-sm">
+                                        There are no applications for this broker yet. Create a new application to get started.
+                                    </p>
                                 </div>
                             )}
                         </div>
