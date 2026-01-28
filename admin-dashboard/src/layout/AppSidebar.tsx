@@ -15,6 +15,7 @@ import {
   // TableIcon,
   // UserCircleIcon,
 } from "../icons";
+import { LuLayoutTemplate } from "react-icons/lu";
 import { FaAppStore } from "react-icons/fa6";
 import { useSidebar } from "../context/SidebarContext";
 // import GroupOutlinedIcon from '@mui/icons-material/GroupOutlined';
@@ -47,6 +48,11 @@ const navItems: NavItem[] = [
     icon: <FaAppStore />,
     name: "Application Builder",
     subItems: [{ name: "Create Application", path: "/create-application" }, { name: "Loan Application Config", path: "/loan-application-config" }, { name: "Application Builder", path: "/application-builder" }, { name: "Active Application", path: "/active-application" }]
+  },
+  {
+    icon: <LuLayoutTemplate />,
+    name: "Template Builder",
+    subItems: [{ name: "Create Templates", path: "/create-template" }, { name: "All Templates", path: "/all-templates" }, { name: "Add Loan Products", path: "/add-loan-product" }, { name: "Add Sections", path: "/add-sections" }, { name: "Add Fields", path: "/add-fields" }]
   },
   // {
   //   icon: <GroupOutlinedIcon />,
