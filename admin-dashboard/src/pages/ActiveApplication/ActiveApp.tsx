@@ -161,7 +161,7 @@ const ActiveApplication: React.FC = () => {
       }
     } catch (err: any) {
       console.error(err);
-     
+
       setData(null);
     } finally {
       setLoading(false);
