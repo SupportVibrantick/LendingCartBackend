@@ -47,7 +47,7 @@ const navItems: NavItem[] = [
   {
     icon: <FaAppStore />,
     name: "Application Builder",
-    subItems: [{ name: "Create Application", path: "/create-application" }, { name: "Loan Application Config", path: "/loan-application-config" }, { name: "Application Builder", path: "/application-builder" }, { name: "Active Application", path: "/active-application" }]
+    subItems: [{ name: "Create Application", path: "/create-application" }, { name: "Loan Application Config", path: "/loan-application-config" }, { name: "Add Sections", path: "/add-app-sections" }, { name: "Application Builder", path: "/application-builder" }, { name: "Active Application", path: "/active-application" }]
   },
   {
     icon: <LuLayoutTemplate />,

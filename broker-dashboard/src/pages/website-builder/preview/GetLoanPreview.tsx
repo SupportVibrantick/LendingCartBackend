@@ -168,7 +168,7 @@ export default function GetLoanPage() {
 
           {/* ================= BORROWER INFO ================= */}
           {
-            selectedProductId && (
+             isBroker && (
               <>
                 <SectionHeader title="Borrower Info" />
 

@@ -190,166 +190,168 @@ const AdminTemplateFieldBuilder: React.FC = () => {
     /* ================= UI ================= */
 
     return (
-        <div className="max-w-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 space-y-6">
-            <div className="flex items-center gap-2 font-semibold text-slate-800 dark:text-slate-100">
-                <ListChecks className="text-indigo-500" />
-                Template Field Builder (Admin)
-            </div>
-
-            {/* ================= TEMPLATE SELECT ================= */}
-            <div>
-                <label className="text-sm text-slate-600 dark:text-slate-400 mb-1 block">
-                    Select Template
-                </label>
-                <div className="relative">
-                    <LayoutTemplate className="absolute left-3 top-2.5 text-slate-400" size={16} />
-                    <select
-                        value={selectedTemplateId}
-                        onChange={(e) => setSelectedTemplateId(e.target.value)}
-                        className="w-full pl-9 rounded-lg border px-3 py-2 bg-white dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600"
-                    >
-                        <option value="">Select Template</option>
-                        {templates.map((t) => (
-                            <option key={t.id} value={t.id}>
-                                {t.name}
-                            </option>
-                        ))}
-                    </select>
+        <div className="min-h-screen w-full flex items-center justify-center p-4">
+            <div className="max-w-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 space-y-6 w-full">
+                <div className="flex items-center gap-2 font-semibold text-slate-800 dark:text-slate-100">
+                    <ListChecks className="text-indigo-500" />
+                    Template Field Builder (Admin)
                 </div>
-            </div>
 
-            {/* ================= PRODUCT SELECT ================= */}
-            {selectedTemplateId && (
+                {/* ================= TEMPLATE SELECT ================= */}
                 <div>
                     <label className="text-sm text-slate-600 dark:text-slate-400 mb-1 block">
-                        Select Product
+                        Select Template
                     </label>
                     <div className="relative">
-                        <Boxes className="absolute left-3 top-2.5 text-slate-400" size={16} />
+                        <LayoutTemplate className="absolute left-3 top-2.5 text-slate-400" size={16} />
                         <select
-                            value={selectedProductId}
-                            onChange={(e) => setSelectedProductId(e.target.value)}
+                            value={selectedTemplateId}
+                            onChange={(e) => setSelectedTemplateId(e.target.value)}
                             className="w-full pl-9 rounded-lg border px-3 py-2 bg-white dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600"
                         >
-                            <option value="">Select Product</option>
-                            {products.map((p) => (
-                                <option key={p.id} value={p.id}>
-                                    {p.loanProductCode}
+                            <option value="">Select Template</option>
+                            {templates.map((t) => (
+                                <option key={t.id} value={t.id}>
+                                    {t.name}
                                 </option>
                             ))}
                         </select>
                     </div>
                 </div>
-            )}
 
-            {/* ================= SECTION SELECT (NEW) ================= */}
-            {selectedProductId && (
-                <div>
-                    <label className="text-sm text-slate-600 dark:text-slate-400 mb-1 block">
-                        Select Section
-                    </label>
-                    <div className="relative">
-                        <Layers className="absolute left-3 top-2.5 text-slate-400" size={16} />
-                        <select
-                            value={selectedSectionId}
-                            onChange={(e) => setSelectedSectionId(e.target.value)}
-                            className="w-full pl-9 rounded-lg border px-3 py-2 bg-white dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600"
-                        >
-                            <option value="">Select Section</option>
-                            {sections.map((s) => (
-                                <option key={s.id} value={s.id}>
-                                    {s.name}
-                                </option>
-                            ))}
-                        </select>
+                {/* ================= PRODUCT SELECT ================= */}
+                {selectedTemplateId && (
+                    <div>
+                        <label className="text-sm text-slate-600 dark:text-slate-400 mb-1 block">
+                            Select Product
+                        </label>
+                        <div className="relative">
+                            <Boxes className="absolute left-3 top-2.5 text-slate-400" size={16} />
+                            <select
+                                value={selectedProductId}
+                                onChange={(e) => setSelectedProductId(e.target.value)}
+                                className="w-full pl-9 rounded-lg border px-3 py-2 bg-white dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600"
+                            >
+                                <option value="">Select Product</option>
+                                {products.map((p) => (
+                                    <option key={p.id} value={p.id}>
+                                        {p.loanProductCode}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
                     </div>
-                </div>
-            )}
+                )}
 
-            {/* ================= FIELD FORM ================= */}
-            {selectedSectionId && (
-                <div className="border-t pt-5 space-y-4">
-                    <div className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                        Add New Field
+                {/* ================= SECTION SELECT (NEW) ================= */}
+                {selectedProductId && (
+                    <div>
+                        <label className="text-sm text-slate-600 dark:text-slate-400 mb-1 block">
+                            Select Section
+                        </label>
+                        <div className="relative">
+                            <Layers className="absolute left-3 top-2.5 text-slate-400" size={16} />
+                            <select
+                                value={selectedSectionId}
+                                onChange={(e) => setSelectedSectionId(e.target.value)}
+                                className="w-full pl-9 rounded-lg border px-3 py-2 bg-white dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600"
+                            >
+                                <option value="">Select Section</option>
+                                {sections.map((s) => (
+                                    <option key={s.id} value={s.id}>
+                                        {s.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
                     </div>
+                )}
 
-                    <input
-                        value={label}
-                        onChange={(e) => setLabel(e.target.value)}
-                        placeholder="Field Label (e.g. Annual Revenue)"
-                        className="w-full border rounded-lg px-3 py-2 bg-white dark:bg-slate-800 dark:border-slate-600"
-                    />
-
-                    <input
-                        value={placeholder}
-                        onChange={(e) => setPlaceholder(e.target.value)}
-                        placeholder="Placeholder (optional)"
-                        className="w-full border rounded-lg px-3 py-2 bg-white dark:bg-slate-800 dark:border-slate-600"
-                    />
-
-                    <div className="grid grid-cols-2 gap-3">
-                        <select
-                            value={type}
-                            onChange={(e) => setType(e.target.value as FieldType)}
-                            className="border rounded-lg px-3 py-2 bg-white dark:bg-slate-800 dark:border-slate-600"
-                        >
-                            <option value="TEXT">Text</option>
-                            <option value="NUMBER">Number</option>
-                            <option value="EMAIL">Email</option>
-                            <option value="TEXTAREA">Textarea</option>
-                            <option value="SELECT">Dropdown</option>
-                            <option value="FILE">File</option>
-                        </select>
+                {/* ================= FIELD FORM ================= */}
+                {selectedSectionId && (
+                    <div className="border-t pt-5 space-y-4">
+                        <div className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                            Add New Field
+                        </div>
 
                         <input
-                            type="number"
-                            value={sortOrder}
-                            onChange={(e) => setSortOrder(Number(e.target.value))}
-                            placeholder="Sort Order"
-                            className="border rounded-lg px-3 py-2 bg-white dark:bg-slate-800 dark:border-slate-600"
+                            value={label}
+                            onChange={(e) => setLabel(e.target.value)}
+                            placeholder="Field Label (e.g. Annual Revenue)"
+                            className="w-full border rounded-lg px-3 py-2 bg-white dark:bg-slate-800 dark:border-slate-600 dark:text-white"
                         />
-                        {type === "SELECT" && (
-                            <div>
-                                <label className="text-sm text-slate-600 dark:text-slate-400 mb-1 block">
-                                    Options (comma separated)
-                                </label>
-                                <input
-                                    value={options}
-                                    onChange={(e) => setOptions(e.target.value)}
-                                    placeholder="e.g. Self Employed,Business,Freelancer,Other"
-                                    className="w-full border rounded-lg px-3 py-2 bg-white dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100"
-                                />
-                            </div>
-                        )}
-                    </div>
 
-                    <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
                         <input
-                            type="checkbox"
-                            checked={isRequired}
-                            onChange={(e) => setIsRequired(e.target.checked)}
-                            className="accent-indigo-600"
+                            value={placeholder}
+                            onChange={(e) => setPlaceholder(e.target.value)}
+                            placeholder="Placeholder (optional)"
+                            className="w-full border rounded-lg px-3 py-2 bg-white dark:bg-slate-800 dark:border-slate-600 dark:text-white"
                         />
-                        Required Field
-                    </label>
 
-                    <button
-                        onClick={handleAddField}
-                        disabled={saving}
-                        className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-semibold disabled:opacity-60"
-                    >
-                        {saving ? (
-                            <>
-                                <Loader2 className="animate-spin" size={18} /> Saving...
-                            </>
-                        ) : (
-                            <>
-                                <Plus size={18} /> Add Field
-                            </>
-                        )}
-                    </button>
-                </div>
-            )}
+                        <div className="grid grid-cols-2 gap-3">
+                            <select
+                                value={type}
+                                onChange={(e) => setType(e.target.value as FieldType)}
+                                className="border rounded-lg px-3 py-2 bg-white dark:bg-slate-800 dark:border-slate-600 dark:text-white"
+                            >
+                                <option value="TEXT">Text</option>
+                                <option value="NUMBER">Number</option>
+                                <option value="EMAIL">Email</option>
+                                <option value="TEXTAREA">Textarea</option>
+                                <option value="SELECT">Dropdown</option>
+                                <option value="FILE">File</option>
+                            </select>
+
+                            <input
+                                type="number"
+                                value={sortOrder}
+                                onChange={(e) => setSortOrder(Number(e.target.value))}
+                                placeholder="Sort Order"
+                                className="border rounded-lg px-3 py-2 bg-white dark:bg-slate-800 dark:border-slate-600 dark:text-white"
+                            />
+                            {type === "SELECT" && (
+                                <div>
+                                    <label className="text-sm text-slate-600 dark:text-slate-400 mb-1 block">
+                                        Options (comma separated)
+                                    </label>
+                                    <input
+                                        value={options}
+                                        onChange={(e) => setOptions(e.target.value)}
+                                        placeholder="e.g. Self Employed,Business,Freelancer,Other"
+                                        className="w-full border rounded-lg px-3 py-2 bg-white dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100"
+                                    />
+                                </div>
+                            )}
+                        </div>
+
+                        <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+                            <input
+                                type="checkbox"
+                                checked={isRequired}
+                                onChange={(e) => setIsRequired(e.target.checked)}
+                                className="accent-indigo-600"
+                            />
+                            Required Field
+                        </label>
+
+                        <button
+                            onClick={handleAddField}
+                            disabled={saving}
+                            className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-semibold disabled:opacity-60"
+                        >
+                            {saving ? (
+                                <>
+                                    <Loader2 className="animate-spin" size={18} /> Saving...
+                                </>
+                            ) : (
+                                <>
+                                    <Plus size={18} /> Add Field
+                                </>
+                            )}
+                        </button>
+                    </div>
+                )}
+            </div>
         </div>
     );
 };

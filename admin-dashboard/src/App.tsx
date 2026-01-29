@@ -41,6 +41,7 @@ import AllTemplates from "./pages/TemplateBuilder/AllTemplates";
 import AddLoanProduct from "./pages/TemplateBuilder/AddLoanProduct";
 import AddFields from "./pages/TemplateBuilder/AddFields";
 import AddSection from "./pages/TemplateBuilder/AddSection";
+import AddAppSection from "./pages/ApplicationBuilder/AddSection";
 
 export default function App() {
   return (
@@ -73,6 +74,7 @@ export default function App() {
             <Route index path="/add-loan-product" element={<AddLoanProduct />} />
             <Route index path="/add-fields" element={<AddFields />} />
             <Route index path="/add-sections" element={<AddSection />} />
+            <Route index path="/add-app-sections" element={<AddAppSection />} />
             <Route index path="/all-lenders-organisation" element={<AllLendersPage/>} />
             <Route index path="/all-loan-products" element={<AllLoanProducts/>} />
             <Route index path="/lender-assigned-products" element={<LenderProductAssign/>} />

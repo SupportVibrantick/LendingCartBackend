@@ -59,12 +59,12 @@ const TemplateCard: React.FC<Template> = ({
             <div className="bg-slate-50 dark:bg-slate-800 rounded-[22px] p-6 h-full flex flex-col border border-transparent group-hover:border-white dark:group-hover:border-slate-700 group-hover:bg-white dark:group-hover:bg-slate-900 transition-all duration-500">
                 {/* Header */}
                 <div className="flex justify-between items-start mb-6">
-                    <span className="px-3 py-1 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-[10px] font-bold uppercase tracking-wider rounded-full">
-                        {version}
+                    <span className="text-xs px-3 py-1 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-400">
+                        Version v{version}
                     </span>
 
-                    <span className="text-[11px] font-mono text-slate-400 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-700 px-2 py-1 rounded-md">
-                        {code}
+                    <span className="text-xs font-mono border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 px-2 py-1 rounded">
+                        Code: {code}
                     </span>
                 </div>
 
@@ -170,7 +170,7 @@ const TemplateMarketplace: React.FC = () => {
                         </span>
                     </h1>
 
-                    <p className="text-slate-500 dark:text-slate-400 text-lg max-w-xl">
+                    <p className="text-slate-500 dark:text-slate-400 text-md max-w-xl">
                         Select a pre-built application template to streamline your customer onboarding process.
                     </p>
                 </div>
