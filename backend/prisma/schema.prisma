@@ -422,7 +422,7 @@ model BrokerApplicationProduct {
   brokerApplicationId String          @db.Uuid
   loanProductCode     LoanProductCode
   isActive            Boolean         @default(true)
-
+  sections BrokerApplicationSection[]
   fields BrokerApplicationProductField[]
 
   brokerApplication BrokerApplication @relation(fields: [brokerApplicationId], references: [id])
@@ -441,7 +441,8 @@ model BrokerApplicationProductField {
   placeholder String?
   fieldType   FieldType
   isRequired  Boolean   @default(false)
-
+  sectionId String? @db.Uuid
+  section   BrokerApplicationSection? @relation(fields: [sectionId], references: [id])
   options    Json?
   validation Json?
   sortOrder  Int?
@@ -451,6 +452,26 @@ model BrokerApplicationProductField {
   @@index([applicationProductId])
   @@map("broker_application_product_fields")
 }
+
+model BrokerApplicationSection {
+  id                    String   @id @default(uuid()) @db.Uuid
+  applicationProductId  String   @db.Uuid
+
+  name        String
+  description String?
+  sortOrder   Int
+  isActive    Boolean   @default(true)
+
+  fields BrokerApplicationProductField[]
+
+  applicationProduct BrokerApplicationProduct @relation(fields: [applicationProductId], references: [id])
+
+  @@index([applicationProductId])
+  @@unique([applicationProductId, name])
+  @@map("broker_application_sections")
+}
+
+
 
 model LoanApplicationField {
   id              String          @id @default(uuid()) @db.Uuid

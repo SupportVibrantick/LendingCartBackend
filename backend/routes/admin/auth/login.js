@@ -87,7 +87,7 @@ module.exports = async function adminLoginRoute(fastify, opts) {
             roles: user.roles?.map((r) => r.role.name) ?? [],
           },
           process.env.JWT_SECRET,
-          { expiresIn: "2h" }
+          { expiresIn: "24h" }
         );
 
         return reply.send({

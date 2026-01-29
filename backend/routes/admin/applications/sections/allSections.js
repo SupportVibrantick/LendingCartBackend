@@ -1,11 +1,10 @@
-module.exports = async function listFields(fastify) {
-  fastify.get("/products/:productId/fields", async (req, reply) => {
+/**
+ * List all sections for a Broker Application Product
+ */
+module.exports = async function allApplicationSections(fastify) {
+  fastify.get("/", async (req, reply) => {
     const { productId } = req.params;
     const { brokerOrgId } = req.query;
-
-    /* ===============================
-       1. ADMIN CONTEXT VALIDATION
-    =============================== */
 
     if (!brokerOrgId) {
       return reply.code(400).send({
@@ -15,28 +14,29 @@ module.exports = async function listFields(fastify) {
     }
 
     /* ===============================
-       2. VERIFY OWNERSHIP (ADMIN SAFETY)
+       VERIFY PRODUCT OWNERSHIP
     =============================== */
 
-    const product = await fastify.prisma.brokerApplicationProduct.findFirst({
-      where: {
-        id: productId,
-        brokerApplication: {
-          brokerOrgId,
+    const product =
+      await fastify.prisma.brokerApplicationProduct.findFirst({
+        where: {
+          id: productId,
+          brokerApplication: {
+            brokerOrgId,
+          },
         },
-      },
-      select: { id: true },
-    });
+        select: { id: true },
+      });
 
     if (!product) {
       return reply.code(404).send({
         success: false,
-        message: "Application product not found for this broker",
+        message: "Product not found for this broker",
       });
     }
 
     /* ===============================
-       3. FETCH SECTIONS WITH FIELDS
+       FETCH SECTIONS
     =============================== */
 
     const sections =
@@ -57,7 +57,7 @@ module.exports = async function listFields(fastify) {
         },
       });
 
-    return reply.send({
+    reply.send({
       success: true,
       data: sections,
     });
