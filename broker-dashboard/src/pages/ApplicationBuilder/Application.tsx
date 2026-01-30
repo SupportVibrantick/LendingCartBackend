@@ -3,9 +3,39 @@ import { Trash2, Edit3 } from "lucide-react";
 import toast from "react-hot-toast";
 import Swal from "sweetalert2";
 
+export enum ApiFieldType {
+    TEXT = "TEXT",
+    TEXTAREA = "TEXTAREA",
+    NUMBER = "NUMBER",
+    EMAIL = "EMAIL",
+    PHONE = "PHONE",
+    PASSWORD = "PASSWORD",
+    DATE = "DATE",
+    TIME = "TIME",
+    DATETIME = "DATETIME",
+
+    SELECT = "SELECT",
+    MULTI_SELECT = "MULTI_SELECT",
+    RADIO = "RADIO",
+    CHECKBOX = "CHECKBOX",
+    CHECKBOX_GROUP = "CHECKBOX_GROUP",
+
+    BOOLEAN = "BOOLEAN",
+    TOGGLE = "TOGGLE",
+
+    FILE = "FILE",
+    FILE_MULTIPLE = "FILE_MULTIPLE",
+    IMAGE = "IMAGE",
+
+    CURRENCY = "CURRENCY",
+    PERCENTAGE = "PERCENTAGE",
+    SLIDER = "SLIDER",
+    RANGE = "RANGE",
+}
+
 /* ================= TYPES ================= */
 
-type FieldType = "text" | "number" | "email" | "textarea" | "select" | "file";
+type FieldType = "text" | "number" | "email" | "textarea" | "select" | "file" | "radio" | "boolean" | "date" | "range" | "checkbox";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
@@ -22,6 +52,36 @@ type ProductItem = {
     isActive: boolean;
 };
 
+type ApiField = {
+    id: string;
+    label: string;
+    fieldType: ApiFieldType;
+    placeholder?: string | null;
+    isRequired: boolean;
+    options?: string[] | null;
+    validation?: {
+        min?: number;
+        max?: number;
+    };
+};
+
+type ApiSection = {
+    id: string;
+    name: string;
+    description?: string;
+    sortOrder: number;
+    isActive: boolean;
+    fields: ApiField[];
+};
+
+type ListFieldsResponse = {
+    applicationId: string;
+    productId: string;
+    sections: ApiSection[];
+    unsectionedFields: ApiField[];
+};
+
+
 function getAuthHeaders() {
     const token = sessionStorage.getItem("broker_token");
     return {
@@ -30,10 +90,10 @@ function getAuthHeaders() {
     };
 }
 
-type Validation = {
-    min?: number;
-    max?: number;
-};
+// type Validation = {
+//     min?: number;
+//     max?: number;
+// };
 
 type FormField = {
     id: string;
@@ -48,6 +108,60 @@ type FormField = {
     };
 };
 
+
+
+function mapApiFieldTypeToUI(type: ApiFieldType): FieldType {
+    switch (type) {
+        case ApiFieldType.TEXT:
+        case ApiFieldType.PHONE:
+        case ApiFieldType.PASSWORD:
+            return "text";
+
+        case ApiFieldType.EMAIL:
+            return "email";
+
+        case ApiFieldType.NUMBER:
+        case ApiFieldType.CURRENCY:
+        case ApiFieldType.PERCENTAGE:
+            return "number";
+
+        case ApiFieldType.TEXTAREA:
+            return "textarea";
+
+        case ApiFieldType.SELECT:
+        case ApiFieldType.MULTI_SELECT:
+            return "select";
+
+        case ApiFieldType.RADIO:
+            return "radio";
+
+        case ApiFieldType.CHECKBOX_GROUP:
+            return "checkbox";
+
+        case ApiFieldType.CHECKBOX:
+        case ApiFieldType.BOOLEAN:
+        case ApiFieldType.TOGGLE:
+            return "boolean";
+
+        case ApiFieldType.DATE:
+        case ApiFieldType.TIME:
+        case ApiFieldType.DATETIME:
+            return "date";
+
+        case ApiFieldType.FILE:
+        case ApiFieldType.FILE_MULTIPLE:
+        case ApiFieldType.IMAGE:
+            return "file";
+
+        case ApiFieldType.RANGE:
+        case ApiFieldType.SLIDER:
+            return "range";
+
+        default:
+            return "text";
+    }
+}
+
 async function safeJson(res: Response) {
     const text = await res.text();
     try {
@@ -58,21 +172,77 @@ async function safeJson(res: Response) {
     }
 }
 
+function renderDynamicField(
+    field: ApiField,
+    actions?: {
+        onEdit?: (f: FormField) => void;
+        onDelete?: (id: string) => void;
+    }
+) {
+    const uiType = mapApiFieldTypeToUI(field.fieldType);
+
+    return (
+        <div className="flex justify-between items-center border p-2 rounded bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700">
+            {/* LEFT INFO */}
+            <div>
+                <div className="font-medium text-slate-900 dark:text-slate-100">
+                    {field.label}
+                </div>
+                <div className="text-xs text-slate-400">
+                    {uiType}
+                </div>
+            </div>
+
+            {/* ACTIONS */}
+            <div className="flex gap-2">
+                <button
+                    type="button"
+                    onClick={() =>
+                        actions?.onEdit?.({
+                            id: field.id,
+                            type: uiType,
+                            label: field.label,
+                            placeholder: field.placeholder || "",
+                            required: field.isRequired,
+                            options: field.options || [],
+                            validation: field.validation || {},
+                        })
+                    }
+                    className="text-slate-600 hover:text-blue-600"
+                >
+                    <Edit3 size={16} />
+                </button>
+
+                <button
+                    type="button"
+                    onClick={() => actions?.onDelete?.(field.id)}
+                    className="text-red-500 hover:text-red-600"
+                >
+                    <Trash2 size={16} />
+                </button>
+            </div>
+        </div>
+    );
+}
+
 /* ================= PAGE ================= */
 
 export default function ApplicationBuilder() {
     const [applications, setApplications] = useState<AppItem[]>([]);
     const [products, setProducts] = useState<ProductItem[]>([]);
     const [loadingProducts, setLoadingProducts] = useState(false);
+    const [loadingSections, setLoadingSections] = useState(false);
+    const [selectedSectionId, setSelectedSectionId] = useState("");
 
     const [optionsInput, setOptionsInput] = useState("");
-    const [minVal, setMinVal] = useState("");
-    const [maxVal, setMaxVal] = useState("");
+    // const [minVal, setMinVal] = useState("");
+    // const [maxVal, setMaxVal] = useState("");
 
     const [selectedAppId, setSelectedAppId] = useState("");
     const [selectedProductId, setSelectedProductId] = useState("");
 
-    const [fields, setFields] = useState<FormField[]>([]);
+    const [sections, setSections] = useState<ApiSection[]>([]);
+    const [unsectionedFields, setUnsectionedFields] = useState<FormField[]>([]);
 
     const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -123,7 +293,7 @@ export default function ApplicationBuilder() {
         }
     };
 
-    /* ================= LOAD FIELDS (LIST API) ================= */
+    /* ================= LOAD FIELDS (SECTION-WISE) ================= */
     const loadFields = async (productId: string) => {
         try {
             const res = await fetch(
@@ -132,23 +302,61 @@ export default function ApplicationBuilder() {
             );
 
             const json = await safeJson(res);
-            if (!res.ok || json.success !== true) throw new Error(json.message);
+            if (!res.ok || json.success !== true) {
+                throw new Error(json.message || "Failed to load fields");
+            }
 
-            const mapped: FormField[] = (json.data || []).map((f: any) => ({
-                id: f.id,
-                type: f.fieldType.toLowerCase(),
-                label: f.label,
-                placeholder: f.placeholder || "",
-                required: f.isRequired,
-                options: f.options ? String(f.options).split(",") : [],
-                validation: f.validation || {},
-            }));
+            const data: ListFieldsResponse = json.data;
 
-            setFields(mapped);
+            setSections(data.sections || []);
+
+            setUnsectionedFields(
+                (data.unsectionedFields || []).map((f) => ({
+                    id: f.id,
+                    type: mapApiFieldTypeToUI(f.fieldType),
+                    label: f.label,
+                    placeholder: f.placeholder || "",
+                    required: f.isRequired,
+                    options: f.options || [],
+                    validation: f.validation || {},
+                }))
+            );
+
         } catch (err: any) {
             toast.error(err.message || "Failed to load fields");
         }
     };
+
+    const loadSections = async (productId: string) => {
+        try {
+            setLoadingSections(true);
+            setSections([]);
+            setSelectedSectionId("");
+
+            const res = await fetch(
+                `${API_BASE}/broker/applications/products/${productId}/sections`,
+                { headers: getAuthHeaders() }
+            );
+
+            const json = await safeJson(res);
+            if (!res.ok || json.success !== true) {
+                throw new Error(json.message || "Failed to load sections");
+            }
+
+            setSections(json.data || []);
+        } catch (err: any) {
+            toast.error(err.message || "Failed to load sections");
+        } finally {
+            setLoadingSections(false);
+        }
+    };
+
+    useEffect(() => {
+        if (selectedProductId) {
+            loadSections(selectedProductId);
+            loadFields(selectedProductId); // existing call
+        }
+    }, [selectedProductId]);
 
     useEffect(() => {
         loadApplications();
@@ -162,20 +370,65 @@ export default function ApplicationBuilder() {
         if (selectedProductId) loadFields(selectedProductId);
     }, [selectedProductId]);
 
+    function mapUITypeToApi(type: FieldType): ApiFieldType {
+        switch (type) {
+            case "select":
+                return ApiFieldType.SELECT;
+
+            case "radio":
+                return ApiFieldType.RADIO;
+
+            case "checkbox":
+                return ApiFieldType.CHECKBOX_GROUP; // ⭐ IMPORTANT
+
+            case "boolean":
+                return ApiFieldType.BOOLEAN;
+
+            case "number":
+                return ApiFieldType.NUMBER;
+
+            case "email":
+                return ApiFieldType.EMAIL;
+
+            case "date":
+                return ApiFieldType.DATE;
+
+            case "file":
+                return ApiFieldType.FILE;
+
+            case "range":
+                return ApiFieldType.RANGE;
+
+            default:
+                return ApiFieldType.TEXT;
+        }
+    }
+
     /* ================= SAVE FIELD API ================= */
     async function saveFieldToServer(field: FormField) {
         const payload: any = {
+            sectionId: selectedSectionId,
             fieldKey: field.label
                 .toLowerCase()
                 .replace(/\s+/g, "_")
                 .replace(/[^a-z0-9_]/g, ""),
             label: field.label,
-            fieldType: field.type.toUpperCase(),
+            fieldType: mapUITypeToApi(field.type),
             isRequired: field.required,
         };
 
+        if (["select", "radio", "checkbox"].includes(field.type)) {
+            const opts = (field.options || []).filter(Boolean);
+
+            if (opts.length === 0) {
+                throw new Error("Options required for this field type");
+            }
+
+            payload.options = opts;
+        }
+
         if (field.placeholder) payload.placeholder = field.placeholder;
-        if (field.type === "select") payload.options = (field.options || []).join(",");
+        // if (field.type === "select") payload.options = (field.options || []).join(",");
 
         if (field.type === "number" && field.validation) {
             payload.validation = {};
@@ -214,11 +467,22 @@ export default function ApplicationBuilder() {
 
     /* ================= ADD ================= */
     const handleAddOrUpdate = async () => {
+        if (!selectedSectionId) {
+            toast.error("Please provide section Id")
+            return;
+        }
         let finalOptions: string[] = [];
 
-        if (form.type === "select") {
-            finalOptions = optionsInput.split(",").map((s) => s.trim()).filter(Boolean);
-            if (finalOptions.length === 0) return alert("Please add at least one option");
+        if (["select", "radio", "checkbox"].includes(form.type)) {
+            finalOptions = optionsInput
+                .split(",")
+                .map((s) => s.trim())
+                .filter(Boolean);
+
+            if (finalOptions.length === 0) {
+                toast.error("Please add at least one option");
+                return;
+            }
         }
 
         if (form.type === "number") {
@@ -226,23 +490,17 @@ export default function ApplicationBuilder() {
             const max = form.validation?.max;
 
             if (min !== undefined && max !== undefined && min > max) {
-                alert("Min value cannot be greater than Max value");
+                toast.error("Min value cannot be greater than Max value");
                 return;
             }
-        }
-
-        const validation: Validation = {};
-        if (form.type === "number") {
-            if (minVal !== "") validation.min = Number(minVal);
-            if (maxVal !== "") validation.max = Number(maxVal);
         }
 
         const newField: FormField = {
             id: editingId || Date.now().toString(),
             ...form,
-            validation: form.type === "number" ? form.validation : undefined,
-            options: form.type === "select" ? finalOptions : [],
-
+            options: ["select", "radio", "checkbox"].includes(form.type)
+                ? finalOptions
+                : [],
         };
 
         try {
@@ -255,6 +513,7 @@ export default function ApplicationBuilder() {
         }
     };
 
+
     const handleEdit = (f: FormField) => {
         setEditingId(f.id);
         setForm({
@@ -266,11 +525,14 @@ export default function ApplicationBuilder() {
             validation: f.validation || {},
         });
 
-        if (f.type === "select") setOptionsInput((f.options || []).join(", "));
-        if (f.type === "number") {
-            setMinVal(f.validation?.min?.toString() || "");
-            setMaxVal(f.validation?.max?.toString() || "");
+        if (["select", "radio", "checkbox"].includes(f.type)) {
+            setOptionsInput((f.options || []).join(", "));
         }
+
+        // if (f.type === "number") {
+        //     setMinVal(f.validation?.min?.toString() || "");
+        //     setMaxVal(f.validation?.max?.toString() || "");
+        // }
     };
 
     const handleDelete = async (id: string) => {
@@ -375,6 +637,26 @@ export default function ApplicationBuilder() {
                         ))}
                     </select>
                 )}
+
+                {/* SECTION SELECT */}
+                {selectedProductId && (
+                    <select
+                        className="w-full border rounded px-3 py-2 bg-white text-slate-900 border-slate-300
+                   dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600"
+                        value={selectedSectionId}
+                        onChange={(e) => setSelectedSectionId(e.target.value)}
+                    >
+                        <option value="">
+                            {loadingSections ? "Loading sections..." : "Select Section"}
+                        </option>
+
+                        {sections.map((s) => (
+                            <option key={s.id} value={s.id}>
+                                {s.name}
+                            </option>
+                        ))}
+                    </select>
+                )}
             </div>
 
             {!selectedAppId || !selectedProductId ? (
@@ -449,6 +731,10 @@ export default function ApplicationBuilder() {
                             <option value="email">Email</option>
                             <option value="textarea">Textarea</option>
                             <option value="select">Dropdown</option>
+                            <option value="date">Date</option>
+                            <option value="checkbox">checkbox</option>
+                            <option value="radio">Radio</option>
+                            <option value="range">Range</option>
                             <option value="file">File Upload</option>
                         </select>
 
@@ -480,7 +766,7 @@ export default function ApplicationBuilder() {
 
 
                         {/* Placeholder */}
-                        {form.type !== "select" && form.type !== "file" && (
+                        {form.type !== "select" && form.type !== "file" && form.type !== "radio" && form.type !== "range" && form.type !== "date" && form.type !== "boolean" && form.type !== "checkbox" && (
                             <input
                                 className="w-full border rounded-lg px-3 py-2 bg-white dark:bg-slate-800 dark:border-slate-600"
                                 placeholder="Placeholder"
@@ -530,7 +816,7 @@ export default function ApplicationBuilder() {
 
 
                         {/* Options for Select */}
-                        {form.type === "select" && (
+                        {["select", "radio", "checkbox"].includes(form.type) && (
                             <input
                                 className="w-full border rounded-lg px-3 py-2 bg-white dark:bg-slate-800 dark:border-slate-600"
                                 placeholder="Yes, No, Maybe"
@@ -538,9 +824,6 @@ export default function ApplicationBuilder() {
                                 onChange={(e) => setOptionsInput(e.target.value)}
                             />
                         )}
-
-
-
                         <button
                             onClick={handleAddOrUpdate}
                             className="bg-blue-600 text-white px-4 py-2 rounded"
@@ -548,95 +831,182 @@ export default function ApplicationBuilder() {
                             {editingId ? "Save Field" : "Add Field"}
                         </button>
 
-                        {/* FIELD LIST */}
-                        <div className="space-y-2 max-h-[320px] overflow-y-auto pr-1 custom-scrollbar">
-                            {fields.map((f) => (
-                                <div
-                                    key={f.id}
-                                    className="flex justify-between border p-2 rounded bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700"
-                                >
-                                    <div>
-                                        {f.label}
-                                        <div className="text-xs text-slate-400">
-                                            {f.type}
-                                        </div>
-                                    </div>
-                                    <div className="flex gap-2">
-                                        <button onClick={() => handleEdit(f)}>
-                                            <Edit3 size={16} />
-                                        </button>
-                                        <button
-                                            onClick={() => handleDelete(f.id)}
-                                            className="text-red-500"
-                                        >
-                                            <Trash2 size={16} />
-                                        </button>
-                                    </div>
+                        {/* ================= FIELD LIST (SECTION-WISE) ================= */}
+                        <div className="space-y-4 max-h-[320px] overflow-y-auto pr-1 custom-scrollbar">
+
+                            {sections.map((section) => (
+                                <div key={section.id} className="space-y-2">
+                                    <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                                        {section.name}
+                                    </h3>
+
+                                    {section.fields.map((f) =>
+                                        renderDynamicField(f, {
+                                            onEdit: handleEdit,
+                                            onDelete: handleDelete,
+                                        })
+                                    )}
                                 </div>
                             ))}
+
+                            {/* UNSECTIONED FIELDS */}
+                            {/* {unsectionedFields.length > 0 && (
+                                <div className="border rounded-lg bg-yellow-50 dark:bg-yellow-900/20 border-yellow-300 dark:border-yellow-700">
+                                    <div className="px-3 py-2 border-b text-sm font-semibold text-yellow-700 dark:text-yellow-300">
+                                        Unsectioned Fields
+                                    </div>
+
+                                    <div className="space-y-2 p-2">
+                                        {unsectionedFields.map((f) => (
+                                            <div
+                                                key={f.id}
+                                                className="flex justify-between items-center border p-2 rounded bg-white dark:bg-slate-900"
+                                            >
+                                                <div>
+                                                    {f.label}
+                                                    <div className="text-xs text-slate-400">
+                                                        {f.type}
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex gap-2">
+                                                    <button onClick={() => handleEdit(f)}>
+                                                        <Edit3 size={16} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDelete(f.id)}
+                                                        className="text-red-500"
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )} */}
                         </div>
                     </div>
 
-                    {/* ================= RIGHT PREVIEW ================= */}
-                    <div className="border rounded-xl p-6 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700">
-                        <h2 className="text-lg font-semibold mb-4">Live Preview</h2>
+                    {/* ================= LIVE PREVIEW (SECTION-WISE) ================= */}
+                    <form className="border rounded-xl p-5 space-y-6 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700">
 
-                        <form className="space-y-4">
-                            {fields.map((f) => (
-                                <div key={f.id}>
-                                    <label className="block text-sm mb-1">
-                                        {f.label} {f.required && <span className="text-red-500">*</span>}
-                                    </label>
+                        {sections.map((section) => (
+                            <div key={section.id}>
+                                <h3 className="text-sm font-semibold mb-4 text-slate-700 dark:text-slate-200">
+                                    {section.name}
+                                </h3>
 
-                                    {/* TEXT / NUMBER / EMAIL */}
-                                    {["text", "number", "email"].includes(f.type) && (
-                                        <input
-                                            type={f.type}
-                                            placeholder={f.placeholder}
-                                            min={f.type === "number" ? f.validation?.min : undefined}
-                                            max={f.type === "number" ? f.validation?.max : undefined}
-                                            className="w-full border rounded px-3 py-2 ..."
-                                        />
-                                    )}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                    {section.fields.map((f) => {
+                                        const uiType = mapApiFieldTypeToUI(f.fieldType);
+                                        const isFullWidth = uiType === "range";
 
+                                        return (
+                                            <div
+                                                key={f.id}
+                                                className={isFullWidth ? "md:col-span-2" : ""}
+                                            >
+                                                <label className="block text-sm font-medium mb-2">
+                                                    {f.label}
+                                                    {f.isRequired && (
+                                                        <span className="text-red-500 ml-1">*</span>
+                                                    )}
+                                                </label>
 
-                                    {/* TEXTAREA */}
-                                    {f.type === "textarea" && (
-                                        <textarea
-                                            placeholder={f.placeholder}
-                                            className="w-full border rounded px-3 py-2 bg-white text-slate-900 border-slate-300 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600"
-                                        />
-                                    )}
+                                                {/* -------- RADIO -------- */}
+                                                {uiType === "radio" && (
+                                                    <div className="space-y-2 border rounded-lg p-3 bg-slate-50 dark:bg-slate-800">
+                                                        {f.options?.map((opt, i) => (
+                                                            <label
+                                                                key={i}
+                                                                className="flex items-center gap-2 text-sm cursor-pointer"
+                                                            >
+                                                                <input
+                                                                    type="radio"
+                                                                    name={f.id}
+                                                                    className="accent-blue-600"
+                                                                />
+                                                                <span>{opt}</span>
+                                                            </label>
+                                                        ))}
+                                                    </div>
+                                                )}
 
-                                    {/* SELECT */}
-                                    {f.type === "select" && (
-                                        <select className="w-full border rounded px-3 py-2 bg-white text-slate-900 border-slate-300 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600">
-                                            <option value="">Please Select</option>
-                                            {f.options?.map((o, i) => (
-                                                <option key={i} value={o}>
-                                                    {o}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    )}
+                                                {/* -------- CHECKBOX -------- */}
+                                                {uiType === "checkbox" && (
+                                                    <div className="space-y-2 border rounded-lg p-3 bg-slate-50 dark:bg-slate-800">
+                                                        {f.options?.map((opt, i) => (
+                                                            <label
+                                                                key={i}
+                                                                className="flex items-center gap-2 text-sm cursor-pointer"
+                                                            >
+                                                                <input
+                                                                    type="checkbox"
+                                                                    className="accent-blue-600"
+                                                                />
+                                                                <span>{opt}</span>
+                                                            </label>
+                                                        ))}
+                                                    </div>
+                                                )}
 
-                                    {/* FILE */}
-                                    {f.type === "file" && (
-                                        <input
-                                            type="file"
-                                            className="w-full border rounded px-3 py-2 bg-white text-slate-900 border-slate-300 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600"
-                                        />
-                                    )}
+                                                {/* -------- RANGE (FIXED) -------- */}
+                                                {uiType === "range" && (
+                                                    <div className="border rounded-lg p-4 bg-slate-50 dark:bg-slate-800 space-y-3">
+                                                        <input
+                                                            type="range"
+                                                            min={f.validation?.min ?? 0}
+                                                            max={f.validation?.max ?? 100}
+                                                            defaultValue={f.validation?.min ?? 0}
+                                                            className="w-full accent-blue-600"
+                                                        />
+
+                                                        <div className="flex justify-between text-xs text-slate-500">
+                                                            <span>Min: {f.validation?.min ?? 0}</span>
+                                                            <span>Max: {f.validation?.max ?? 100}</span>
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {/* -------- BASIC INPUTS -------- */}
+                                                {["text", "email", "number", "date"].includes(uiType) && (
+                                                    <input
+                                                        type={uiType}
+                                                        placeholder={f.placeholder || ""}
+                                                        className="w-full rounded-lg border px-3 py-2 text-sm bg-white dark:bg-slate-800 dark:border-slate-600"
+                                                    />
+                                                )}
+                                            </div>
+                                        );
+                                    })}
                                 </div>
-                            ))}
-                            <button
-                                type="button"
-                                className="bg-blue-600 text-white px-6 py-2 rounded"
-                            >
-                                Submit Application
-                            </button>
-                        </form>
-                    </div>
+                            </div>
+                        ))}
+
+                        {/* -------- UNSECTIONED -------- */}
+                        {unsectionedFields.length > 0 && (
+                            <div>
+                                <h3 className="text-sm font-semibold mb-4 text-slate-500">
+                                    Other Information
+                                </h3>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                    {unsectionedFields.map((f) => (
+                                        <div key={f.id}>
+                                            <label className="block text-sm mb-1">{f.label}</label>
+                                            <input
+                                                type={f.type}
+                                                className="w-full rounded-lg border px-3 py-2 text-sm"
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </form>
+
+
                 </div>
             )}
         </div>
