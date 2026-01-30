@@ -83,8 +83,11 @@ const TemplateCard: React.FC<{
     };
 
     return (
-        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
-            <div className="flex justify-between mb-4">
+        <div
+            className="group relative bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 p-2 shadow-sm transition-all duration-500 hover:shadow-2xl hover:shadow-indigo-100/50 dark:hover:shadow-indigo-900/40"
+        >
+              <div className="bg-slate-50 dark:bg-slate-800 rounded-[22px] p-6 h-full flex flex-col border border-transparent group-hover:border-white dark:group-hover:border-slate-700 group-hover:bg-white dark:group-hover:bg-slate-900 transition-all duration-500">
+            <div className="flex justify-between items-start mb-6">
                 <span className="text-xs px-3 py-1 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-400">
                     Version v{template.version}
                 </span>
@@ -115,10 +118,11 @@ const TemplateCard: React.FC<{
 
             <button
                 onClick={() => onManage(template)}
-                className="mt-5 w-full py-2 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 hover:bg-indigo-600 dark:hover:bg-indigo-500 transition"
+                className="py-4 rounded-2xl font-bold text-sm transition-all duration-300 flex items-center justify-center gap-2 mt-5 w-full bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 hover:bg-indigo-600 dark:hover:bg-indigo-500"
             >
                 Manage Template
             </button>
+        </div>
         </div>
     );
 };
@@ -149,7 +153,7 @@ const TemplateDetailsModal: React.FC<{
     const activeProduct = data?.products.find((p) => p.id === activeProductId);
 
     return (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[99999] bg-black/60 backdrop-blur-lg flex items-center justify-center p-4" style={{ backdropFilter: "blur(12px)" }}>
             <div className="bg-white dark:bg-slate-900 w-full max-w-5xl rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
 
                 {/* Header */}
@@ -281,6 +285,13 @@ export default function AdminTemplateList() {
 
     useEffect(() => {
         loadTemplates();
+    }, []);
+
+    useEffect(() => {
+        document.body.style.overflow = "hidden";
+        return () => {
+            document.body.style.overflow = "auto";
+        };
     }, []);
 
     return (

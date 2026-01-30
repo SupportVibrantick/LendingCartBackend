@@ -23,6 +23,15 @@ type ProductItem = {
     isActive: boolean;
 };
 
+type SectionItem = {
+    id: string;
+    name: string;
+    description?: string;
+    sortOrder: number;
+    isActive: boolean;
+    fields: any[];
+};
+
 function getAuthHeaders() {
     const token = sessionStorage.getItem("admin_token");
     return {
@@ -66,6 +75,7 @@ export default function ApplicationBuilder() {
     const [products, setProducts] = useState<ProductItem[]>([]);
     const [loadingProducts, setLoadingProducts] = useState(false);
     const [brokers, setBrokers] = useState<Broker[]>([]);
+    const [sections, setSections] = useState<SectionItem[]>([]);
     const [selectedBrokerId, setSelectedBrokerId] = useState("");
 
     const [optionsInput, setOptionsInput] = useState("");
@@ -74,6 +84,7 @@ export default function ApplicationBuilder() {
 
     const [selectedAppId, setSelectedAppId] = useState("");
     const [selectedProductId, setSelectedProductId] = useState("");
+    const [selectedSectionId, setSelectedSectionId] = useState("");
 
     const [fields, setFields] = useState<FormField[]>([]);
 
@@ -151,21 +162,63 @@ export default function ApplicationBuilder() {
             const json = await safeJson(res);
             if (!res.ok || json.success !== true) throw new Error(json.message);
 
-            const mapped: FormField[] = (json.data || []).map((f: any) => ({
-                id: f.fieldId || crypto.randomUUID(),
-                type: f.fieldType.toLowerCase(),
-                label: f.label,
-                placeholder: f.placeholder || "",
-                required: f.isRequired,
-                options: f.options ? String(f.options).split(",") : [],
-                validation: f.validation || {},
-            }));
+            const apiSections = json.data || [];
 
-            setFields(mapped);
+            setSections(apiSections);
+
+            // auto select first section
+            if (apiSections.length > 0) {
+                const first = apiSections[0];
+                setSelectedSectionId(first.id);
+
+                const mapped: FormField[] = (first.fields || []).map((f: any) => ({
+                    id: f.id,
+                    type: f.fieldType.toLowerCase(),
+                    label: f.label,
+                    placeholder: f.placeholder || "",
+                    required: f.isRequired,
+                    options: Array.isArray(f.options)
+                        ? f.options
+                        : f.options
+                            ? String(f.options).split(",")
+                            : [],
+                    validation: f.validation || {},
+                }));
+
+                setFields(mapped);
+            } else {
+                setSelectedSectionId("");
+                setFields([]);
+            }
+
         } catch (err: any) {
             toast.error(err.message || "Failed to load fields");
         }
     };
+
+    const handleSectionChange = (sectionId: string) => {
+        setSelectedSectionId(sectionId);
+
+        const section = sections.find((s) => s.id === sectionId);
+
+        const mapped: FormField[] = (section?.fields || []).map((f: any) => ({
+            id: f.id,
+            type: f.fieldType.toLowerCase(),
+            label: f.label,
+            placeholder: f.placeholder || "",
+            required: f.isRequired,
+            options: Array.isArray(f.options)
+                ? f.options
+                : f.options
+                    ? String(f.options).split(",")
+                    : [],
+            validation: f.validation || {},
+        }));
+
+        setFields(mapped);
+    };
+
+
 
     useEffect(() => {
         fetchBrokers();
@@ -196,6 +249,7 @@ export default function ApplicationBuilder() {
     /* ================= SAVE FIELD API ================= */
     async function saveFieldToServer(field: FormField) {
         const payload: any = {
+            sectionId: selectedSectionId,
             fieldKey: field.label
                 .toLowerCase()
                 .replace(/\s+/g, "_")
@@ -203,9 +257,9 @@ export default function ApplicationBuilder() {
             label: field.label,
             fieldType: field.type.toUpperCase(),
             isRequired: field.required,
+            brokerOrgId: selectedBrokerId,
+            sortOrder: fields.length + 1
         };
-        payload.brokerOrgId = selectedBrokerId;
-        payload.sortOrder = fields.length + 1;
 
         if (field.placeholder) payload.placeholder = field.placeholder;
         if (field.type === "select") payload.options = (field.options || []).join(",");
@@ -306,6 +360,7 @@ export default function ApplicationBuilder() {
         }
     };
 
+
     // const handleDelete = (id: string) => {
     //     alert("Delete API later");
     // };
@@ -373,6 +428,23 @@ export default function ApplicationBuilder() {
                         ))}
                     </select>
                 )}
+
+                {/* SECTION */}
+                {selectedProductId && sections.length > 0 && (
+                    <select
+                        className="border rounded-lg px-3 py-2 bg-white text-slate-900 border-slate-300 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600"
+                        value={selectedSectionId}
+                        onChange={(e) => handleSectionChange(e.target.value)}
+                    >
+                        <option value="">Select Section</option>
+                        {sections.map((s) => (
+                            <option key={s.id} value={s.id}>
+                                {s.name}
+                            </option>
+                        ))}
+                    </select>
+                )}
+
             </div>
 
             {!selectedAppId || !selectedProductId ? (

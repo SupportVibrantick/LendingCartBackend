@@ -55,7 +55,7 @@ interface FormState {
 export default function LenderProductAssign() {
   const [lenders, setLenders] = useState<Lender[]>([]);
   const [loanProducts, setLoanProducts] = useState<LoanProduct[]>([]);
-  
+
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [errors, setErrors] = useState<Errors>({});
   const [message, setMessage] = useState<MessageState | null>(null);
@@ -74,28 +74,25 @@ export default function LenderProductAssign() {
 
   /* ================= LOAD DATA ================= */
   useEffect(() => {
-  async function loadData() {
-    try {
-      const [lendersRes, productsRes] = await Promise.all([
-        api.get("/admin/lenders/read"),
-        api.get("/admin/loan-products/list"),
-      ]);
+    async function loadData() {
+      try {
+        const [lendersRes, productsRes] = await Promise.all([
+          api.get("/admin/lenders/read"),
+          api.get("/admin/loan-products/list"),
+        ]);
 
-      // LENDERS → paginated
-      setLenders(lendersRes.data?.data?.results ?? []);
+        // LENDERS → paginated
+        setLenders(lendersRes.data?.data?.results ?? []);
 
-      // PRODUCTS → direct array
-      setLoanProducts(productsRes.data?.data ?? []);
-
-    } catch (err) {
-      setMessage({ type: "error", text: "Failed to load data" });
+        // PRODUCTS → direct array
+        setLoanProducts(productsRes.data?.data ?? []);
+      } catch (err) {
+        setMessage({ type: "error", text: "Failed to load data" });
+      }
     }
-  }
 
-  loadData();
-}, []);
-
-
+    loadData();
+  }, []);
 
   /* ================= VALIDATION ================= */
   function validate(): Errors {
@@ -198,13 +195,20 @@ export default function LenderProductAssign() {
       return { ...prev, [key]: Array.from(set) };
     });
   }
-  
+
+  /* ================= UI ================= */
   return (
-    <div className="max-w-4xl mx-auto p-6 bg-white rounded-xl shadow">
+    <div className="max-w-4xl mx-auto p-6 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-xl shadow border border-slate-200 dark:border-slate-700">
       <h2 className="text-2xl font-semibold mb-4">Assign Product to Lender</h2>
 
       {message && (
-        <div className={`p-3 mb-4 rounded ${message.type === "error" ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"}`}>
+        <div
+          className={`p-3 mb-4 rounded ${
+            message.type === "error"
+              ? "bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-300"
+              : "bg-green-50 text-green-700 dark:bg-emerald-500/10 dark:text-emerald-300"
+          }`}
+        >
           {message.text}
         </div>
       )}
@@ -215,53 +219,122 @@ export default function LenderProductAssign() {
             <label className="block text-sm font-medium">Lender</label>
             <select
               value={form.lenderOrgId}
-              onChange={(e) => setForm({ ...form, lenderOrgId: e.target.value })}
-              className="mt-1 block w-full rounded-md border p-2"
+              onChange={(e) =>
+                setForm({ ...form, lenderOrgId: e.target.value })
+              }
+              className="mt-1 block w-full rounded-md border p-2 bg-white text-slate-900 border-slate-300 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600"
             >
               <option value="">Select lender</option>
               {lenders.map((l) => (
-                <option key={l.id} value={l.id}>{l.name}</option>
+                <option key={l.id} value={l.id}>
+                  {l.name}
+                </option>
               ))}
             </select>
-            {errors.lenderOrgId && <p className="text-xs text-red-600">{errors.lenderOrgId}</p>}
+            {errors.lenderOrgId && (
+              <p className="text-xs text-red-600 dark:text-red-400">
+                {errors.lenderOrgId}
+              </p>
+            )}
           </div>
 
           <div>
             <label className="block text-sm font-medium">Loan Product</label>
             <select
               value={form.loanProductCode}
-              onChange={(e) => setForm({ ...form, loanProductCode: e.target.value })}
-              className="mt-1 block w-full rounded-md border p-2"
+              onChange={(e) =>
+                setForm({ ...form, loanProductCode: e.target.value })
+              }
+              className="mt-1 block w-full rounded-md border p-2 bg-white text-slate-900 border-slate-300 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600"
             >
               <option value="">Select product</option>
               {loanProducts.map((p) => (
-                <option key={p.id} value={p.code}>{p.name} ({p.code})</option>
+                <option key={p.id} value={p.code}>
+                  {p.name} ({p.code})
+                </option>
               ))}
             </select>
-            {errors.loanProductCode && <p className="text-xs text-red-600">{errors.loanProductCode}</p>}
+            {errors.loanProductCode && (
+              <p className="text-xs text-red-600 dark:text-red-400">
+                {errors.loanProductCode}
+              </p>
+            )}
           </div>
         </div>
 
         <div className="grid grid-cols-4 gap-4">
           <div>
             <label className="block text-sm font-medium">Min Amount</label>
-            <input type="text" value={form.minLoanAmount} onChange={(e) => setForm({ ...form, minLoanAmount: e.target.value })} className="mt-1 block w-full rounded-md border p-2" placeholder="e.g. 50000" />
-            {errors.minLoanAmount && <p className="text-xs text-red-600">{errors.minLoanAmount}</p>}
+            <input
+              type="text"
+              value={form.minLoanAmount}
+              onChange={(e) =>
+                setForm({ ...form, minLoanAmount: e.target.value })
+              }
+              className="mt-1 block w-full rounded-md border p-2 bg-white text-slate-900 border-slate-300 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600"
+              placeholder="e.g. 50000"
+            />
+            {errors.minLoanAmount && (
+              <p className="text-xs text-red-600 dark:text-red-400">
+                {errors.minLoanAmount}
+              </p>
+            )}
           </div>
+
           <div>
             <label className="block text-sm font-medium">Max Amount</label>
-            <input type="text" value={form.maxLoanAmount} onChange={(e) => setForm({ ...form, maxLoanAmount: e.target.value })} className="mt-1 block w-full rounded-md border p-2" placeholder="e.g. 2500000" />
-            {errors.maxLoanAmount && <p className="text-xs text-red-600">{errors.maxLoanAmount}</p>}
+            <input
+              type="text"
+              value={form.maxLoanAmount}
+              onChange={(e) =>
+                setForm({ ...form, maxLoanAmount: e.target.value })
+              }
+              className="mt-1 block w-full rounded-md border p-2 bg-white text-slate-900 border-slate-300 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600"
+              placeholder="e.g. 2500000"
+            />
+            {errors.maxLoanAmount && (
+              <p className="text-xs text-red-600 dark:text-red-400">
+                {errors.maxLoanAmount}
+              </p>
+            )}
           </div>
+
           <div>
-            <label className="block text-sm font-medium">Min Term (months)</label>
-            <input type="number" value={form.minTermMonths} onChange={(e) => setForm({ ...form, minTermMonths: e.target.value })} className="mt-1 block w-full rounded-md border p-2" />
-            {errors.minTermMonths && <p className="text-xs text-red-600">{errors.minTermMonths}</p>}
+            <label className="block text-sm font-medium">
+              Min Term (months)
+            </label>
+            <input
+              type="number"
+              value={form.minTermMonths}
+              onChange={(e) =>
+                setForm({ ...form, minTermMonths: e.target.value })
+              }
+              className="mt-1 block w-full rounded-md border p-2 bg-white text-slate-900 border-slate-300 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600"
+            />
+            {errors.minTermMonths && (
+              <p className="text-xs text-red-600 dark:text-red-400">
+                {errors.minTermMonths}
+              </p>
+            )}
           </div>
+
           <div>
-            <label className="block text-sm font-medium">Max Term (months)</label>
-            <input type="number" value={form.maxTermMonths} onChange={(e) => setForm({ ...form, maxTermMonths: e.target.value })} className="mt-1 block w-full rounded-md border p-2" />
-            {errors.maxTermMonths && <p className="text-xs text-red-600">{errors.maxTermMonths}</p>}
+            <label className="block text-sm font-medium">
+              Max Term (months)
+            </label>
+            <input
+              type="number"
+              value={form.maxTermMonths}
+              onChange={(e) =>
+                setForm({ ...form, maxTermMonths: e.target.value })
+              }
+              className="mt-1 block w-full rounded-md border p-2 bg-white text-slate-900 border-slate-300 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600"
+            />
+            {errors.maxTermMonths && (
+              <p className="text-xs text-red-600 dark:text-red-400">
+                {errors.maxTermMonths}
+              </p>
+            )}
           </div>
         </div>
 
@@ -269,7 +342,16 @@ export default function LenderProductAssign() {
           <label className="block text-sm font-medium">Regions (toggle)</label>
           <div className="mt-2 flex flex-wrap gap-2">
             {["CA", "TX", "FL", "NY", "NJ"].map((r) => (
-              <button type="button" key={r} onClick={() => toggleChip("regionsSupported", r)} className={`px-3 py-1 rounded-full border ${form.regionsSupported.includes(r) ? "bg-blue-600 text-white" : "bg-white text-gray-700"}`}>
+              <button
+                type="button"
+                key={r}
+                onClick={() => toggleChip("regionsSupported", r)}
+                className={`px-3 py-1 rounded-full border ${
+                  form.regionsSupported.includes(r)
+                    ? "bg-blue-600 text-white border-blue-600"
+                    : "bg-white text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-600"
+                }`}
+              >
                 {r}
               </button>
             ))}
@@ -277,10 +359,21 @@ export default function LenderProductAssign() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium">Industries (toggle)</label>
+          <label className="block text-sm font-medium">
+            Industries (toggle)
+          </label>
           <div className="mt-2 flex flex-wrap gap-2">
             {["Retail", "Logistics", "Construction", "Healthcare"].map((i) => (
-              <button type="button" key={i} onClick={() => toggleChip("industriesSupported", i)} className={`px-3 py-1 rounded-full border ${form.industriesSupported.includes(i) ? "bg-blue-600 text-white" : "bg-white text-gray-700"}`}>
+              <button
+                type="button"
+                key={i}
+                onClick={() => toggleChip("industriesSupported", i)}
+                className={`px-3 py-1 rounded-full border ${
+                  form.industriesSupported.includes(i)
+                    ? "bg-blue-600 text-white border-blue-600"
+                    : "bg-white text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-600"
+                }`}
+              >
                 {i}
               </button>
             ))}
@@ -289,11 +382,21 @@ export default function LenderProductAssign() {
 
         <div className="flex items-center gap-4">
           <label className="flex items-center gap-2">
-            <input type="checkbox" checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.target.checked })} />
+            <input
+              type="checkbox"
+              checked={form.isActive}
+              onChange={(e) =>
+                setForm({ ...form, isActive: e.target.checked })
+              }
+            />
             <span className="text-sm">Active</span>
           </label>
 
-          <button type="submit" disabled={submitting} className="ml-auto px-4 py-2 rounded bg-indigo-600 text-white disabled:opacity-50">
+          <button
+            type="submit"
+            disabled={submitting}
+            className="ml-auto px-4 py-2 rounded bg-indigo-600 text-white disabled:opacity-50"
+          >
             {submitting ? "Assigning..." : "Assign Product"}
           </button>
         </div>

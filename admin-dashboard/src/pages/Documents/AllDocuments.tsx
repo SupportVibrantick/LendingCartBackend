@@ -41,11 +41,11 @@ function getAuthHeaders(): Record<string, string> {
 function statusClass(status?: string) {
   switch ((status || "").toUpperCase()) {
     case "ACTIVE":
-      return "bg-emerald-100 text-emerald-800 border-emerald-200";
+      return "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/30";
     case "INACTIVE":
-      return "bg-yellow-100 text-yellow-800 border-yellow-200";
+      return "bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-500/10 dark:text-yellow-300 dark:border-yellow-500/30";
     default:
-      return "bg-gray-100 text-gray-800 border-gray-200";
+      return "bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-500/10 dark:text-gray-300 dark:border-gray-500/30";
   }
 }
 
@@ -202,12 +202,14 @@ const AllDocuments = () => {
   /* ================= UI ================= */
 
   return (
-    <div className="px-6 py-6">
-      <h1 className="text-2xl font-semibold mb-6">All Documents</h1>
+    <div className="px-6 py-6 bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100 min-h-screen">
+      <h1 className="text-2xl font-semibold mb-6 text-slate-900 dark:text-slate-100">
+        All Documents
+      </h1>
 
       <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-6">
         {/* FORM */}
-        <div className="bg-white p-5 rounded-xl border">
+        <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-700">
           <h2 className="text-lg font-semibold mb-4">
             {editingId ? "Edit Document" : "Add Document"}
           </h2>
@@ -217,7 +219,7 @@ const AllDocuments = () => {
               value={form.code}
               onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))}
               disabled={!!editingId || saving}
-              className="w-full border px-3 py-2 rounded"
+              className="w-full border px-3 py-2 rounded bg-white text-slate-900 border-slate-300 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600"
             >
               <option value="">Select code</option>
               {DOCUMENT_CODES.map((c) => (
@@ -231,7 +233,7 @@ const AllDocuments = () => {
               value={form.name}
               onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
               placeholder="Name"
-              className="w-full border px-3 py-2 rounded"
+              className="w-full border px-3 py-2 rounded bg-white text-slate-900 border-slate-300 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600"
             />
 
             <textarea
@@ -241,7 +243,7 @@ const AllDocuments = () => {
               }
               rows={3}
               placeholder="Description"
-              className="w-full border px-3 py-2 rounded"
+              className="w-full border px-3 py-2 rounded bg-white text-slate-900 border-slate-300 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600"
             />
 
             <button
@@ -259,10 +261,10 @@ const AllDocuments = () => {
         </div>
 
         {/* TABLE */}
-        <div className="bg-white p-5 rounded-xl border">
+        <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-700">
           <table className="min-w-full text-sm">
             <thead>
-              <tr className="border-b text-gray-500 uppercase text-xs">
+              <tr className="border-b border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 uppercase text-xs">
                 <th className="py-2 text-left">Code</th>
                 <th className="py-2 text-left">Name</th>
                 <th className="py-2 text-left">Status</th>
@@ -273,13 +275,16 @@ const AllDocuments = () => {
             <tbody>
               {loadingList ? (
                 <tr>
-                  <td colSpan={5} className="py-6 text-center">
+                  <td colSpan={5} className="py-6 text-center text-slate-500 dark:text-slate-400">
                     Loading...
                   </td>
                 </tr>
               ) : (
                 documents.map((p) => (
-                  <tr key={p.id} className="border-b">
+                  <tr
+                    key={p.id}
+                    className="border-b border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800"
+                  >
                     <td className="py-3">{p.code}</td>
                     <td className="py-3">{p.name}</td>
                     <td className="py-3">
@@ -301,7 +306,7 @@ const AllDocuments = () => {
                     <td className="py-3 text-right">
                       <button
                         onClick={() => handleEdit(p)}
-                        className="h-8 w-8 inline-flex items-center justify-center border rounded-full"
+                        className="h-8 w-8 inline-flex items-center justify-center border border-slate-300 dark:border-slate-600 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
                       >
                         <MdModeEdit />
                       </button>
