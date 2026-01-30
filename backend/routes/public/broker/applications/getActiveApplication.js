@@ -4,7 +4,12 @@
 module.exports = async function getPublicActiveApplication(fastify) {
   fastify.get("/active", async (req, reply) => {
     const application = await fastify.prisma.brokerApplication.findFirst({
-      where: { isActive: true },
+      where: {
+        isActive: true,
+      },
+      orderBy: {
+        createdAt: "desc", //ensures latest active application
+      },
       include: {
         products: {
           where: { isActive: true },
@@ -31,7 +36,7 @@ module.exports = async function getPublicActiveApplication(fastify) {
                 options: true,
                 validation: true,
                 sortOrder: true,
-                sectionId: true, // 🔑 IMPORTANT
+                sectionId: true,
               },
             },
           },
