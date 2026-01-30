@@ -4,9 +4,7 @@
 module.exports = async function getPublicActiveApplication(fastify) {
   fastify.get("/active", async (req, reply) => {
     const application = await fastify.prisma.brokerApplication.findFirst({
-      where: {
-        isActive: true,
-      },
+      where: { isActive: true },
       include: {
         products: {
           where: { isActive: true },
@@ -14,21 +12,26 @@ module.exports = async function getPublicActiveApplication(fastify) {
             sections: {
               where: { isActive: true },
               orderBy: { sortOrder: "asc" },
-              include: {
-                fields: {
-                  orderBy: { sortOrder: "asc" },
-                  select: {
-                    id: true,
-                    fieldKey: true,
-                    label: true,
-                    fieldType: true,
-                    placeholder: true,
-                    isRequired: true,
-                    options: true,
-                    validation: true,
-                    sortOrder: true,
-                  },
-                },
+              select: {
+                id: true,
+                name: true,
+                description: true,
+                sortOrder: true,
+              },
+            },
+            fields: {
+              orderBy: { sortOrder: "asc" },
+              select: {
+                id: true,
+                fieldKey: true,
+                label: true,
+                fieldType: true,
+                placeholder: true,
+                isRequired: true,
+                options: true,
+                validation: true,
+                sortOrder: true,
+                sectionId: true, // 🔑 IMPORTANT
               },
             },
           },
@@ -56,17 +59,19 @@ module.exports = async function getPublicActiveApplication(fastify) {
             sectionName: section.name,
             description: section.description,
             sortOrder: section.sortOrder,
-            fields: section.fields.map((field) => ({
-              fieldId: field.id,
-              fieldKey: field.fieldKey,
-              label: field.label,
-              type: field.fieldType,
-              placeholder: field.placeholder,
-              required: field.isRequired,
-              options: field.options,
-              validation: field.validation,
-              sortOrder: field.sortOrder,
-            })),
+            fields: product.fields
+              .filter((field) => field.sectionId === section.id)
+              .map((field) => ({
+                fieldId: field.id,
+                fieldKey: field.fieldKey,
+                label: field.label,
+                type: field.fieldType,
+                placeholder: field.placeholder,
+                required: field.isRequired,
+                options: field.options,
+                validation: field.validation,
+                sortOrder: field.sortOrder,
+              })),
           })),
         })),
       },
