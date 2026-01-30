@@ -23,12 +23,17 @@ module.exports = async function createFromTemplate(fastify) {
       }
 
       const brokerApp = await tx.brokerApplication.create({
-        data: {
-          brokerOrgId,
-          name: template.name,
-          isActive: false,
-        },
-      });
+  data: {
+    brokerOrgId,
+    name: template.name,
+    isActive: false,
+
+    //KEY FLAGS FOR FRONTEND
+    createdFromTemplate: true,
+    templateId: template.id,
+  },
+});
+
 
       for (const product of template.products) {
         const brokerProduct = await tx.brokerApplicationProduct.create({

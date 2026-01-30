@@ -20,7 +20,7 @@ async function indexRoutes(fastify, options) {
   });
 
   fastify.register(publicBrokerApplications, {
-  prefix: "/public/broker/applications",
+  prefix: "/api/public/broker/applications",
 });
 
 
