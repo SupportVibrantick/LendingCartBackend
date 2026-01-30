@@ -15,7 +15,7 @@ module.exports = async function createFromTemplate(fastify) {
 
     try {
       const result = await fastify.prisma.$transaction(async (tx) => {
-        // 1️⃣ Fetch active template
+        //  Fetch active template
         const template = await tx.applicationTemplate.findFirst({
           where: {
             id: templateId,
@@ -35,7 +35,7 @@ module.exports = async function createFromTemplate(fastify) {
           throw new Error("Template not found or inactive");
         }
 
-        // 2️⃣ Generate broker application code
+        // Generate broker application code
         const baseCode = template.code;
         let code = baseCode;
         let counter = 1;
@@ -48,7 +48,7 @@ module.exports = async function createFromTemplate(fastify) {
           code = `${baseCode}-${counter++}`;
         }
 
-        // 3️⃣ Create broker application
+        // Create broker application
         const application = await tx.brokerApplication.create({
           data: {
             brokerOrgId,
@@ -58,7 +58,7 @@ module.exports = async function createFromTemplate(fastify) {
           },
         });
 
-        // 4️⃣ Copy products + fields
+        // Copy products + fields
         for (const product of template.products) {
           const appProduct = await tx.brokerApplicationProduct.create({
             data: {
