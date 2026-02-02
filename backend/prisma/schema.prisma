@@ -14,6 +14,7 @@ model Organization {
   status    OrganizationStatus
   email     String?
   phone     String?
+  lenderProfile LenderProfile?
   createdAt DateTime           @default(now()) @db.Timestamptz(6)
   updatedAt DateTime           @updatedAt @db.Timestamptz(6)
 
@@ -71,6 +72,32 @@ model UserAccount {
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
 
   @@map("user_accounts")
+}
+
+model LenderProfile {
+  id               String   @id @default(uuid()) @db.Uuid
+  lenderOrgId      String   @unique @db.Uuid
+
+  // DISCOVERY INFO (broker-facing)
+  summary          String?
+  loanTypes        LoanProductCode[]
+  minFunding       Decimal?  @db.Decimal(20, 2)
+  maxFunding       Decimal?  @db.Decimal(20, 2)
+  statesSupported  String?
+  industries       String?
+  fundingSpeedDays Int?
+
+  
+  profileStatus    LenderProfileStatus @default(DRAFT)
+
+  isVisible        Boolean   @default(false)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  lender Organization @relation(fields: [lenderOrgId], references: [id])
+
+  @@map("lender_profiles")
 }
 
 model Role {
@@ -899,7 +926,11 @@ model ApplicationSubmissionField {
   @@map("application_submission_fields")
 }
 
-
+enum LenderProfileStatus {
+  DRAFT        // created but not completed
+  INCOMPLETE   // partially filled
+  COMPLETED    // ready & visible to brokers
+}
 
 enum LeadStatus {
   NEW

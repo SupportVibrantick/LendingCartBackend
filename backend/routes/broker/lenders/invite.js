@@ -24,7 +24,7 @@ async function inviteLenderRoutes(fastify) {
 
       try {
         // ---------------------------
-        // Auth safety
+        // Auth safety (Broker only)
         // ---------------------------
         if (
           !req.user ||
@@ -51,15 +51,35 @@ async function inviteLenderRoutes(fastify) {
         }
 
         // ---------------------------
-        // Already connected?
+        // Validate lender organization
+        // IMPORTANT: prevents FK error
         // ---------------------------
-        const existingAccess = await prisma.brokerLenderAccess.findFirst({
+        const lenderOrg = await prisma.organization.findFirst({
           where: {
-            brokerOrgId,
-            lenderOrgId,
-            isActive: true,
+            id: lenderOrgId,
+            type: "LENDER",
+            isDeleted: false,
           },
         });
+
+        if (!lenderOrg) {
+          return reply.status(404).send({
+            success: false,
+            message: "Lender organization not found",
+          });
+        }
+
+        // ---------------------------
+        // Already connected?
+        // ---------------------------
+        const existingAccess =
+          await prisma.brokerLenderAccess.findFirst({
+            where: {
+              brokerOrgId,
+              lenderOrgId,
+              isActive: true,
+            },
+          });
 
         if (existingAccess) {
           return reply.status(409).send({
@@ -69,7 +89,7 @@ async function inviteLenderRoutes(fastify) {
         }
 
         // ---------------------------
-        // Create or reset invite
+        // Create or re-send invite
         // ---------------------------
         const invite = await prisma.brokerLenderInvite.upsert({
           where: {
@@ -94,13 +114,13 @@ async function inviteLenderRoutes(fastify) {
           data: {
             id: invite.id,
             lenderOrgId: invite.lenderOrgId,
+            brokerOrgId: invite.brokerOrgId,
             status: invite.status,
             createdAt: invite.createdAt,
           },
         });
       } catch (error) {
         req.log.error(error);
-
         return reply.status(500).send({
           success: false,
           message: "Server error while sending invite",
