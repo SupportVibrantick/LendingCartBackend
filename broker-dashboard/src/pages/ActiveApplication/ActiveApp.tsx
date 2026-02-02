@@ -1,32 +1,57 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
+const API_BASE =
+  import.meta.env.VITE_API_BASE || "http://localhost:4000";
+
+/* ================= ENUM ================= */
+
+export enum ApiFieldType {
+  TEXT = "TEXT",
+  TEXTAREA = "TEXTAREA",
+  NUMBER = "NUMBER",
+  EMAIL = "EMAIL",
+  DATE = "DATE",
+
+  SELECT = "SELECT",
+  RADIO = "RADIO",
+  CHECKBOX = "CHECKBOX",
+  CHECKBOX_GROUP = "CHECKBOX_GROUP",
+
+  FILE = "FILE",
+  RANGE = "RANGE",
+}
 
 /* ================= TYPES ================= */
 
-type Validation = {
-  min?: number;
-  max?: number;
+type ApiField = {
+  id: string;
+  label: string;
+  fieldKey: string;
+  fieldType: ApiFieldType;
+  placeholder?: string | null;
+  isRequired: boolean;
+  options?: string[] | null;
+  validation?: {
+    min?: number;
+    max?: number;
+  };
 };
 
-type Field = {
-  fieldId: string;
-  fieldKey: string;
-  label: string;
-  placeholder?: string | null;
-  type: "TEXT" | "NUMBER" | "EMAIL" | "FILE" | "TEXTAREA" | "SELECT";
-  required: boolean;
-  options: string[] | null;
-  validation?: Validation | null;
-  sortOrder?: number | null;
+type ApiSection = {
+  id: string;
+  name: string;
+  sortOrder?: number;
+  fields: ApiField[];
 };
 
 type Product = {
   productId: string;
   loanProductCode: string;
-  fields: Field[];
+  sections: ApiSection[];
+  unsectionedFields: ApiField[];
 };
+
 
 type ActiveApplicationResponse = {
   applicationId: string;
@@ -38,290 +63,359 @@ type ActiveApplicationResponse = {
 
 function getAuthHeaders() {
   const token = sessionStorage.getItem("broker_token");
-  return {
-    Authorization: `Bearer ${token}`,
-  };
+  return { Authorization: `Bearer ${token}` };
 }
 
-async function safeJson(res: Response) {
-  const text = await res.text();
-  try {
-    return JSON.parse(text);
-  } catch {
-    console.error("RAW RESPONSE:", text);
-    throw new Error("Invalid server response. Please login again.");
+function mapApiFieldTypeToUI(type: ApiFieldType) {
+  switch (type) {
+    case ApiFieldType.TEXT:
+      return "text";
+    case ApiFieldType.EMAIL:
+      return "email";
+    case ApiFieldType.NUMBER:
+      return "number";
+    case ApiFieldType.TEXTAREA:
+      return "textarea";
+    case ApiFieldType.SELECT:
+      return "select";
+    case ApiFieldType.RADIO:
+      return "radio";
+    case ApiFieldType.CHECKBOX:
+    case ApiFieldType.CHECKBOX_GROUP:
+      return "checkbox";
+    case ApiFieldType.FILE:
+      return "file";
+    case ApiFieldType.DATE:
+      return "date";
+    case ApiFieldType.RANGE:
+      return "range";
+    default:
+      return "text";
   }
+}
+
+/* ================= FIELD RENDERER ================= */
+
+function RenderActiveField({
+  field,
+  onChange,
+}: {
+  field: ApiField;
+  onChange: (key: string, value: any) => void;
+}) {
+  const uiType = mapApiFieldTypeToUI(field.fieldType);
+
+  /* RADIO */
+  if (uiType === "radio") {
+    return (
+      <div className="space-y-2 border rounded-lg p-3
+                bg-slate-50 border-slate-200
+                dark:bg-slate-800 dark:border-slate-700">
+        {field.options?.map((opt, i) => (
+          <label key={i} className="flex items-center gap-2 text-sm">
+            <input
+              type="radio"
+              name={field.fieldKey}
+              value={opt}
+              onChange={() => onChange(field.fieldKey, opt)}
+            />
+            {opt}
+          </label>
+        ))}
+      </div>
+    );
+  }
+
+  /* CHECKBOX GROUP */
+  if (uiType === "checkbox") {
+    return (
+      <div className="space-y-2 border rounded-lg p-3
+                bg-slate-50 border-slate-200
+                dark:bg-slate-800 dark:border-slate-700">
+        {field.options?.map((opt, i) => (
+          <label key={i} className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              onChange={(e) =>
+                onChange(`${field.fieldKey}.${opt}`, e.target.checked)
+              }
+            />
+            {opt}
+          </label>
+        ))}
+      </div>
+    );
+  }
+
+  /* RANGE */
+  if (uiType === "range") {
+    return (
+      <div className="space-y-2 border rounded-lg p-3
+                bg-slate-50 border-slate-200
+                dark:bg-slate-800 dark:border-slate-700">
+        <input
+          type="range"
+          min={field.validation?.min ?? 0}
+          max={field.validation?.max ?? 100}
+          onChange={(e) =>
+            onChange(field.fieldKey, Number(e.target.value))
+          }
+          className="flex justify-between text-xs
+                text-slate-500 dark:text-slate-400"
+        />
+        <div className="flex justify-between text-xs text-slate-500">
+          <span>{field.validation?.min ?? 0}</span>
+          <span>{field.validation?.max ?? 100}</span>
+        </div>
+      </div>
+    );
+  }
+
+  /* SELECT */
+  if (uiType === "select") {
+    return (
+      <select
+        className="w-full rounded-lg border px-3 py-2 text-sm
+           bg-white text-slate-900 border-slate-300
+           dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600"
+        onChange={(e) =>
+          onChange(field.fieldKey, e.target.value)
+        }
+      >
+        <option value="">
+          {field.placeholder || "Select"}
+        </option>
+        {field.options?.map((o, i) => (
+          <option key={i}>{o}</option>
+        ))}
+      </select>
+    );
+  }
+
+  /* TEXTAREA */
+  if (uiType === "textarea") {
+    return (
+      <textarea
+        rows={4}
+        placeholder={field.placeholder || ""}
+        className="w-full rounded-lg border px-3 py-2 text-sm
+           bg-white text-slate-900 border-slate-300
+           dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600"
+        onChange={(e) =>
+          onChange(field.fieldKey, e.target.value)
+        }
+      />
+    );
+  }
+
+  /* FILE */
+  if (uiType === "file") {
+    return (
+      <input
+        type="file"
+        className="w-full rounded-lg border px-3 py-2 text-sm
+           bg-white text-slate-900 border-slate-300
+           dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600"
+        onChange={(e) =>
+          onChange(
+            field.fieldKey,
+            e.target.files?.[0] || null
+          )
+        }
+      />
+    );
+  }
+
+  /* BASIC INPUT */
+  return (
+    <input
+      type={uiType}
+      placeholder={field.placeholder || ""}
+      className="w-full rounded-lg border px-3 py-2"
+      onChange={(e) =>
+        onChange(field.fieldKey, e.target.value)
+      }
+    />
+  );
 }
 
 /* ================= PAGE ================= */
 
-const ActiveApplication: React.FC = () => {
-  const [data, setData] = useState<ActiveApplicationResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [activeProductId, setActiveProductId] = useState<string>("");
+export default function ActiveApplication() {
+  const [data, setData] =
+    useState<ActiveApplicationResponse | null>(null);
+  const [activeProductId, setActiveProductId] =
+    useState("");
+  const [values, setValues] = useState<Record<string, any>>(
+    {}
+  );
 
-  const [formValues, setFormValues] = useState<Record<string, any>>({});
+  const handleChange = (key: string, value: any) => {
+    setValues(values)
+    setValues((p) => ({ ...p, [key]: value }));
+  };
 
-  /* ================= LOAD ACTIVE APPLICATION ================= */
 
-  const loadActiveApplication = async () => {
+
+  const load = async () => {
     try {
-      setLoading(true);
-
-      const res = await fetch(`${API_BASE}/broker/applications/active`, {
-        headers: getAuthHeaders(),
-      });
-
-      const json = await safeJson(res);
-
-      if (!res.ok || json.success !== true) {
-        throw new Error(json.message || "Failed to load active application");
-      }
-
-      const app = json.data as ActiveApplicationResponse;
-
-      // Clean + Deduplicate + Sort fields
-      const fixedProducts = app.products.map((p) => {
-        const uniqueMap = new Map<string, Field>();
-
-        (p.fields || []).forEach((f) => {
-          if (!uniqueMap.has(f.fieldId)) {
-            uniqueMap.set(f.fieldId, f);
-          }
-        });
-
-        let uniqueFields = Array.from(uniqueMap.values());
-
-        // sort if sortOrder exists
-        uniqueFields.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
-
-        return {
-          ...p,
-          fields: uniqueFields,
-        };
-      });
-
-      const fixedApp: ActiveApplicationResponse = {
-        ...app,
-        products: fixedProducts,
-      };
-
-      setData(fixedApp);
-
-      if (fixedApp.products.length > 0) {
-        setActiveProductId(fixedApp.products[0].productId);
-      }
-    } catch (err: any) {
-      toast.error(err.message || "Failed to load active application");
-    } finally {
-      setLoading(false);
+      const res = await fetch(
+        `${API_BASE}/broker/applications/active`,
+        { headers: getAuthHeaders() }
+      );
+      const json = await res.json();
+      if (!json.success) throw new Error(json.message);
+      setData(json.data);
+      setActiveProductId(json.data.products[0]?.productId);
+    } catch (e: any) {
+      toast.error(e.message);
     }
   };
 
   useEffect(() => {
-    loadActiveApplication();
+    load();
   }, []);
 
-  /* ================= HANDLERS ================= */
-
-  const handleChange = (key: string, value: any) => {
-    setFormValues((prev) => ({
-      ...prev,
-      [key]: value,
-    }));
-  };
-
-  const handleSubmit = () => {
-    console.log("FORM VALUES:", formValues);
-    toast.success("Form data collected in console");
-  };
-
-  /* ================= RENDER FIELD ================= */
-
-  const renderField = (field: Field) => {
-    const common =
-      "w-full rounded-lg border px-3 py-2 text-sm bg-white text-slate-900 border-slate-300 dark:bg-slate-900 dark:text-slate-100 dark:border-slate-700";
-
-    const placeholder = field.placeholder || "";
-
-    switch (field.type) {
-      case "NUMBER":
-        return (
-          <input
-            type="number"
-            className={common}
-            required={field.required}
-            min={field.validation?.min}
-            max={field.validation?.max}
-            placeholder={placeholder}
-            onChange={(e) =>
-              handleChange(field.fieldKey, Number(e.target.value))
-            }
-          />
-        );
-
-      case "TEXT":
-      case "EMAIL":
-        return (
-          <input
-            type="text"
-            className={common}
-            required={field.required}
-            placeholder={placeholder}
-            onChange={(e) => handleChange(field.fieldKey, e.target.value)}
-          />
-        );
-
-      case "FILE":
-        return (
-          <input
-            type="file"
-            className={common}
-            required={field.required}
-            onChange={(e) =>
-              handleChange(field.fieldKey, e.target.files?.[0] || null)
-            }
-          />
-        );
-
-      case "TEXTAREA":
-        return (
-          <textarea
-            className={common}
-            rows={4}
-            required={field.required}
-            placeholder={placeholder}
-            onChange={(e) => handleChange(field.fieldKey, e.target.value)}
-          />
-        );
-
-      case "SELECT":
-        return (
-          <select
-            className={common}
-            required={field.required}
-            onChange={(e) => handleChange(field.fieldKey, e.target.value)}
-          >
-            <option value="">
-              {placeholder || "Select"}
-            </option>
-            {field.options?.map((o, i) => (
-              <option key={i} value={o}>
-                {o}
-              </option>
-            ))}
-          </select>
-        );
-
-      default:
-        return (
-          <input
-            type="text"
-            className={common}
-            placeholder={placeholder}
-            onChange={(e) => handleChange(field.fieldKey, e.target.value)}
-          />
-        );
-    }
-  };
-
-
-  /* ================= UI ================= */
-
-  if (loading) {
-    return (
-      <div className="min-h-[60vh] flex items-center justify-center">
-        <div className="h-12 w-12 rounded-full border-4 border-slate-300 border-t-blue-600 animate-spin" />
-      </div>
-    );
-  }
-
-  if (!data) {
-    return (
-      <div className="p-6 text-sm text-red-500">
-        Failed to load active application
-      </div>
-    );
-  }
-
-  const activeProduct = data.products.find(
+  const product = data?.products.find(
     (p) => p.productId === activeProductId
   );
 
+  const hasNoFields =
+    (product?.sections?.every(s => s.fields.length === 0) ?? true) &&
+    ((product?.unsectionedFields?.length ?? 0) === 0);
+
+  if (!data) return null;
+
   return (
-    <div className="min-h-screen p-4 md:p-6 bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100">
-      {/* ================= HEADER ================= */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold">
-          {data.applicationName}
-        </h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400">
-          Fill customer details for selected product
-        </p>
-      </div>
+    <div className="p-6 min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100">
+      <h1 className="text-xl font-bold mb-4 text-slate-900 dark:text-slate-100">
+        {data.applicationName}
+      </h1>
 
-      {/* ================= PRODUCT SELECT ================= */}
-      <div className="mb-6 max-w-sm">
-        <label className="block text-sm font-medium mb-1">
-          Select Product
-        </label>
-        <select
-          value={activeProductId}
-          onChange={(e) => setActiveProductId(e.target.value)}
-          className="w-full rounded-lg border px-3 py-2 text-sm bg-white text-slate-900 border-slate-300 dark:bg-slate-900 dark:text-slate-100 dark:border-slate-700"
-        >
-          {data.products.map((p) => (
-            <option key={p.productId} value={p.productId}>
-              {p.loanProductCode}
-            </option>
-          ))}
-        </select>
-      </div>
+      <select
+        className="mb-6 border rounded px-3 py-2
+             bg-white text-slate-900 border-slate-300
+             dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600"
+        value={activeProductId}
+        onChange={(e) =>
+          setActiveProductId(e.target.value)
+        }
+      >
+        {data.products.map((p) => (
+          <option key={p.productId} value={p.productId}>
+            {p.loanProductCode}
+          </option>
+        ))}
+      </select>
 
-      {/* ================= FORM CARD ================= */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-5">
-        <h2 className="text-lg font-semibold mb-4">
-          {activeProduct?.loanProductCode} Application Form
-        </h2>
+      {hasNoFields && (
+        <div className="flex flex-col items-center justify-center py-16
+                  border-2 border-dashed rounded-xl
+                  border-amber-300 bg-amber-50
+                  dark:border-amber-600 dark:bg-amber-900/20">
 
-        {/* ================= EMPTY ================= */}
-        {(!activeProduct || activeProduct.fields.length === 0) && (
-          <div className="flex items-center gap-3 text-slate-400 text-sm">
-            📄 No fields configured for this product.
-          </div>
-        )}
-
-        {/* ================= FIELDS ================= */}
-        {activeProduct && activeProduct.fields.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {activeProduct.fields.map((field) => (
-              <div key={field.fieldId} className="space-y-1">
-                <label className="text-sm font-medium">
-                  {field.label}
-                  {field.required && (
-                    <span className="text-red-500 ml-1">*</span>
-                  )}
-                </label>
-                {renderField(field)}
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* ================= ACTION ================= */}
-        {activeProduct && activeProduct.fields.length > 0 && (
-          <div className="mt-6">
-            <button
-              onClick={handleSubmit}
-              className="bg-[#084e6b] hover:opacity-90 text-white px-6 py-2 rounded-lg text-sm"
+          {/* ICON */}
+          <div className="mb-4 flex h-14 w-14 items-center justify-center
+                    rounded-full bg-amber-100 text-amber-600
+                    dark:bg-amber-500/20 dark:text-amber-400">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-7 w-7"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
             >
-              Submit Application
-            </button>
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.6}
+                d="M12 9v4m0 4h.01M10.29 3.86l-7.4 12.8A1.5 1.5 0 004.17 19h15.66a1.5 1.5 0 001.28-2.34l-7.4-12.8a1.5 1.5 0 00-2.42 0z"
+              />
+            </svg>
+          </div>
+
+          {/* TITLE */}
+          <h3 className="text-sm font-semibold text-amber-800 dark:text-amber-300">
+            No Fields Configured
+          </h3>
+
+          {/* MESSAGE */}
+          <p className="mt-2 max-w-md text-center text-xs
+                  text-amber-700 dark:text-amber-400">
+            There are no form fields available for this product.
+            Please contact the administrator or configure fields from
+            the Application Builder.
+          </p>
+        </div>
+      )}
+
+
+      <form className="space-y-8 p-6 rounded-xl border
+                 bg-white border-slate-200
+                 dark:bg-slate-900 dark:border-slate-700">
+        {product?.sections.map((section) => (
+          <div key={section.id}>
+            <h3 className="text-sm font-semibold mb-3 text-slate-800 dark:text-slate-200">
+              {section.name}
+            </h3>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {section.fields.map((f) => (
+                <div key={f.id}>
+                  <label className="block text-sm font-medium mb-2
+                  text-slate-700 dark:text-slate-300">
+                    {f.label}
+                    {f.isRequired && (
+                      <span className="text-red-500 ml-1">*</span>
+                    )}
+                  </label>
+
+                  <RenderActiveField
+                    field={f}
+                    onChange={handleChange}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+
+        {(product?.unsectionedFields?.length ?? 0) > 0 && (
+          <div>
+            <h3 className="font-semibold mb-4">
+              Other Information
+            </h3>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {product && (product.unsectionedFields ?? []).map((f) => (
+                <div key={f.id}>
+                  <label className="block text-sm font-medium mb-2">
+                    {f.label}
+                    {f.isRequired && (
+                      <span className="text-red-500 ml-1">*</span>
+                    )}
+                  </label>
+
+                  <RenderActiveField
+                    field={f}
+                    onChange={handleChange}
+                  />
+                </div>
+              ))}
+
+            </div>
           </div>
         )}
-      </div>
+
+
+        {/* <button
+          type="button"
+          onClick={() => console.log(values)}
+          className="bg-blue-600 text-white px-6 py-2 rounded"
+        >
+          Submit Application
+        </button> */}
+      </form>
     </div>
   );
-};
-
-export default ActiveApplication;
+}
