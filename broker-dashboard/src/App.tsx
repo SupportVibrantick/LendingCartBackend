@@ -43,6 +43,7 @@ import InvitedLenders from "./pages/LenderInteraction/InvitedLenders";
 import MyLenders from "./pages/LenderInteraction/MyLenders";
 import Templates from "./pages/ApplicationBuilder/Templates";
 import AddSection from "./pages/ApplicationBuilder/AddSection";
+import SubmitApplications from "./pages/submitedApplications/SubmitApplication";
 
 export default function App() {
   return (
@@ -141,6 +142,12 @@ export default function App() {
               index
               path="/templates"
               element={<Templates />}
+            />
+
+            <Route
+              index
+              path="/submit-applications"
+              element={<SubmitApplications />}
             />
 
             <Route
