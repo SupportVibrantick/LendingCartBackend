@@ -8,7 +8,7 @@ module.exports = async function getPublicActiveApplication(fastify) {
         isActive: true,
       },
       orderBy: {
-        createdAt: "desc", //ensures latest active application
+        createdAt: "desc", // ensures latest active application
       },
       include: {
         products: {
@@ -56,10 +56,9 @@ module.exports = async function getPublicActiveApplication(fastify) {
       data: {
         applicationId: application.id,
         applicationName: application.name,
-        products: application.products.map((product) => ({
-          productId: product.id,
-          loanProductCode: product.loanProductCode,
-          sections: product.sections.map((section) => ({
+        products: application.products.map((product) => {
+          // SECTIONED FIELDS
+          const sections = product.sections.map((section) => ({
             sectionId: section.id,
             sectionName: section.name,
             description: section.description,
@@ -77,8 +76,30 @@ module.exports = async function getPublicActiveApplication(fastify) {
                 validation: field.validation,
                 sortOrder: field.sortOrder,
               })),
-          })),
-        })),
+          }));
+
+          // UNSECTIONED FIELDS
+          const unsectionedFields = product.fields
+            .filter((field) => field.sectionId === null)
+            .map((field) => ({
+              fieldId: field.id,
+              fieldKey: field.fieldKey,
+              label: field.label,
+              type: field.fieldType,
+              placeholder: field.placeholder,
+              required: field.isRequired,
+              options: field.options,
+              validation: field.validation,
+              sortOrder: field.sortOrder,
+            }));
+
+          return {
+            productId: product.id,
+            loanProductCode: product.loanProductCode,
+            sections,
+            unsectionedFields,
+          };
+        }),
       },
     });
   });
