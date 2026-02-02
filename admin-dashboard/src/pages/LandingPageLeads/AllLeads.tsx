@@ -27,17 +27,17 @@ const STATUS_OPTIONS: Lead["status"][] = [
 function statusClass(status: Lead["status"]) {
   switch (status) {
     case "NEW":
-      return "bg-blue-100 text-blue-800 border-blue-200";
+      return "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-500/30";
     case "CONTACTED":
-      return "bg-yellow-100 text-yellow-800 border-yellow-200";
+      return "bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-500/10 dark:text-yellow-300 dark:border-yellow-500/30";
     case "QUALIFIED":
-      return "bg-emerald-100 text-emerald-800 border-emerald-200";
+      return "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/30";
     case "CONVERTED":
-      return "bg-purple-100 text-purple-800 border-purple-200";
+      return "bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-500/10 dark:text-purple-300 dark:border-purple-500/30";
     case "NOT_INTERESTED":
-      return "bg-red-100 text-red-800 border-red-200";
+      return "bg-red-100 text-red-800 border-red-200 dark:bg-red-500/10 dark:text-red-300 dark:border-red-500/30";
     default:
-      return "bg-gray-100 text-gray-800 border-gray-200";
+      return "bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-500/10 dark:text-gray-300 dark:border-gray-500/30";
   }
 }
 
@@ -155,11 +155,13 @@ export default function AllLeads() {
   /* ================= UI ================= */
 
   return (
-    <div className="px-6 py-6">
+    <div className="px-6 py-6 bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100 min-h-screen">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-semibold">All Leads</h1>
-          <p className="text-sm text-gray-500">
+          <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">
+            All Leads
+          </h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
             Manage landing page leads and follow-ups
           </p>
         </div>
@@ -168,7 +170,7 @@ export default function AllLeads() {
           <select
             value={source}
             onChange={(e) => setSource(e.target.value as any)}
-            className="px-3 py-2 border rounded-md"
+            className="px-3 py-2 border rounded-md bg-white text-slate-900 border-slate-300 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600"
           >
             <option value="commercial-lending-mastery">
               Commercial Lending Mastery
@@ -180,25 +182,25 @@ export default function AllLeads() {
             placeholder="Search leads"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="px-3 py-2 border rounded-md"
+            className="px-3 py-2 border rounded-md bg-white text-slate-900 border-slate-300 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600"
           />
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border shadow-sm p-5">
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5">
         {loading ? (
-          <div className="py-16 text-center text-sm text-gray-500">
+          <div className="py-16 text-center text-sm text-slate-500 dark:text-slate-400">
             Loading leads...
           </div>
         ) : paginated.length === 0 ? (
-          <div className="py-16 text-center text-sm text-gray-500">
+          <div className="py-16 text-center text-sm text-slate-500 dark:text-slate-400">
             No leads found.
           </div>
         ) : (
           <div className="overflow-auto">
             <table className="min-w-full text-sm">
               <thead>
-                <tr className="border-b text-xs uppercase text-gray-500">
+                <tr className="border-b border-slate-200 dark:border-slate-700 text-xs uppercase text-slate-500 dark:text-slate-400">
                   <th className="py-2 text-left">Name</th>
                   <th className="py-2 text-left">Email</th>
                   <th className="py-2 text-left">Phone</th>
@@ -211,13 +213,16 @@ export default function AllLeads() {
 
               <tbody>
                 {paginated.map((l) => (
-                  <tr key={l.id} className="border-b hover:bg-gray-50">
+                  <tr
+                    key={l.id}
+                    className="border-b border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800"
+                  >
                     <td className="py-3">
                       {l.firstName} {l.lastName}
                     </td>
                     <td className="py-3">{l.email}</td>
                     <td className="py-3">{l.phone || "-"}</td>
-                    <td className="py-3 capitalize text-gray-600">
+                    <td className="py-3 capitalize text-slate-600 dark:text-slate-400">
                       {l.source}
                     </td>
                     <td className="py-3">
@@ -249,7 +254,7 @@ export default function AllLeads() {
                       <button
                         disabled={rowLoadingId === l.id}
                         onClick={() => deleteLead(l.id)}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-red-200 text-red-500 hover:bg-red-50"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-red-200 dark:border-red-500/30 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10"
                       >
                         <MdDelete />
                       </button>

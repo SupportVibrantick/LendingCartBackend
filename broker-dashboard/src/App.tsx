@@ -41,6 +41,8 @@ import ActiveApplication from "./pages/ActiveApplication/ActiveApp";
 import FindLenders from "./pages/LenderInteraction/FindLenders";
 import InvitedLenders from "./pages/LenderInteraction/InvitedLenders";
 import MyLenders from "./pages/LenderInteraction/MyLenders";
+import Templates from "./pages/ApplicationBuilder/Templates";
+import AddSection from "./pages/ApplicationBuilder/AddSection";
 
 export default function App() {
   return (
@@ -127,6 +129,18 @@ export default function App() {
               index
               path="/active-application"
               element={<ActiveApplication />}
+            />
+
+            <Route
+              index
+              path="/add-section"
+              element={<AddSection />}
+            />
+
+            <Route
+              index
+              path="/templates"
+              element={<Templates />}
             />
 
             <Route

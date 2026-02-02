@@ -32,7 +32,16 @@ import AllSuperadmin from "./pages/SuperAdmin/AllSuperAdmin";
 import LenderProductAssign from "./pages/LoanProducts/LenderAssignProduct";
 import AssignedProducts from "./pages/LoanProducts/AssignedProducts";
 import AllLeads from "./pages/LandingPageLeads/AllLeads";
-
+import ActiveApplication from "./pages/ActiveApplication/ActiveApp";
+import CreateApplication from "./pages/ApplicationBuilder/CreateApplication";
+import ApplicationBuilder from "./pages/ApplicationBuilder/Application";
+import LoanApplicationConfig from "./pages/ApplicationBuilder/LoanApplicationConfig";
+import CreateTemplate from "./pages/TemplateBuilder/CreateTemplate";
+import AllTemplates from "./pages/TemplateBuilder/AllTemplates";
+import AddLoanProduct from "./pages/TemplateBuilder/AddLoanProduct";
+import AddFields from "./pages/TemplateBuilder/AddFields";
+import AddSection from "./pages/TemplateBuilder/AddSection";
+import AddAppSection from "./pages/ApplicationBuilder/AddSection";
 
 export default function App() {
   return (
@@ -56,6 +65,16 @@ export default function App() {
 
             <Route index path="/all-brokers-organisation" element={<BrokersPage />} />
             <Route index path="/all-brokers-lenders" element={<BrokersLenders/>} />
+            <Route index path="/active-application" element={<ActiveApplication/>} />
+            <Route index path="/create-application" element={<CreateApplication/>} />
+            <Route index path="/application-builder" element={<ApplicationBuilder/>} />
+            <Route index path="/loan-application-config" element={<LoanApplicationConfig/>} />
+            <Route index path="/create-template" element={<CreateTemplate/>} />
+            <Route index path="/all-templates" element={<AllTemplates/>} />
+            <Route index path="/add-loan-product" element={<AddLoanProduct />} />
+            <Route index path="/add-fields" element={<AddFields />} />
+            <Route index path="/add-sections" element={<AddSection />} />
+            <Route index path="/add-app-sections" element={<AddAppSection />} />
             <Route index path="/all-lenders-organisation" element={<AllLendersPage/>} />
             <Route index path="/all-loan-products" element={<AllLoanProducts/>} />
             <Route index path="/lender-assigned-products" element={<LenderProductAssign/>} />

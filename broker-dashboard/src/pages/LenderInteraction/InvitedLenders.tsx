@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 /* ================= TYPES ================= */
 
@@ -7,6 +7,9 @@ type Invite = {
   lenderId: string;
   name: string;
   email: string;
+  phone: string;
+  profileImage?: string | null;
+  lenderStatus: "ACTIVE" | "INACTIVE";
   inviteStatus: "PENDING" | "ACCEPTED" | "REJECTED";
   invitedAt: string;
 };
@@ -18,68 +21,57 @@ type Stats = {
   rejected: number;
 };
 
-/* ================= DUMMY DATA ================= */
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
+const FALLBACK_AVATAR = "/broker-icon.jpg"; // public folder image
 
-const DUMMY_INVITED_LENDERS: Invite[] = [
-  {
-    inviteId: "1",
-    lenderId: "l1",
-    name: "HDFC Bank",
-    email: "support@hdfc.com",
-    inviteStatus: "PENDING",
-    invitedAt: new Date().toISOString(),
-  },
-  {
-    inviteId: "2",
-    lenderId: "l2",
-    name: "ICICI Bank",
-    email: "icici@bank.com",
-    inviteStatus: "ACCEPTED",
-    invitedAt: new Date(Date.now() - 86400000).toISOString(),
-  },
-  {
-    inviteId: "3",
-    lenderId: "l3",
-    name: "Axis Finance",
-    email: "axis@finance.com",
-    inviteStatus: "REJECTED",
-    invitedAt: new Date(Date.now() - 2 * 86400000).toISOString(),
-  },
-  {
-    inviteId: "4",
-    lenderId: "l4",
-    name: "Bajaj Finserv",
-    email: "bajaj@finserv.com",
-    inviteStatus: "PENDING",
-    invitedAt: new Date(Date.now() - 3 * 86400000).toISOString(),
-  },
-];
+function getAuthHeaders(): HeadersInit {
+  const token = sessionStorage.getItem("broker_token");
+  return {
+    "Content-Type": "application/json",
+    ...(token && { Authorization: `Bearer ${token}` }),
+  };
+}
 
 /* ================= PAGE ================= */
 
 export default function InvitedLenders() {
   const [invites, setInvites] = useState<Invite[]>([]);
+  const [stats, setStats] = useState<Stats>({
+    total: 0,
+    pending: 0,
+    accepted: 0,
+    rejected: 0,
+  });
   const [loading, setLoading] = useState(true);
 
-  /* ================= LOAD DUMMY DATA ================= */
+  /* ================= FETCH ================= */
 
   useEffect(() => {
-    setTimeout(() => {
-      setInvites(DUMMY_INVITED_LENDERS);
-      setLoading(false);
-    }, 600);
+    fetchInvites();
   }, []);
 
-  /* ================= STATS ================= */
+  async function fetchInvites() {
+    setLoading(true);
+    try {
+      const res = await fetch(
+        `${API_BASE}/broker/lenders/invites/list`,
+        { headers: getAuthHeaders() }
+      );
 
-  const stats: Stats = useMemo(() => {
-    const total = invites.length;
-    const pending = invites.filter((i) => i.inviteStatus === "PENDING").length;
-    const accepted = invites.filter((i) => i.inviteStatus === "ACCEPTED").length;
-    const rejected = invites.filter((i) => i.inviteStatus === "REJECTED").length;
+      const json = await res.json();
 
-    return { total, pending, accepted, rejected };
-  }, [invites]);
+      if (!res.ok || json.success !== true) {
+        throw new Error(json.message || "Failed to load invites");
+      }
+
+      setInvites(Array.isArray(json.data) ? json.data : []);
+      setStats(json.stats || { total: 0, pending: 0, accepted: 0, rejected: 0 });
+    } catch (err) {
+      console.error("Fetch invites failed:", err);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   function formatDateTime(date: string) {
     return new Date(date).toLocaleString("en-IN", {
@@ -104,32 +96,21 @@ export default function InvitedLenders() {
         </p>
       </div>
 
-      {/* Stats */}
+      {/* ================= STATS ================= */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        {[
-          { label: "Total", value: stats.total },
-          { label: "Pending", value: stats.pending },
-          { label: "Accepted", value: stats.accepted },
-          { label: "Rejected", value: stats.rejected },
-        ].map((s) => (
-          <div
-            key={s.label}
-            className="rounded-xl border p-4 bg-white
-            dark:bg-slate-900 dark:border-slate-700"
-          >
-            <p className="text-sm text-gray-500 dark:text-slate-400">
-              {s.label}
-            </p>
-            <p className="text-2xl font-semibold">{s.value}</p>
-          </div>
-        ))}
+        <StatBox label="Total" value={stats.total} variant="blue" />
+        <StatBox label="Pending" value={stats.pending} variant="yellow" />
+        <StatBox label="Accepted" value={stats.accepted} variant="green" />
+        <StatBox label="Rejected" value={stats.rejected} variant="red" />
       </div>
 
-      {/* Table */}
+      {/* ================= TABLE ================= */}
       <div className="rounded-xl border bg-white dark:bg-slate-900 dark:border-slate-700 overflow-hidden">
+
+        {/* Loading Skeleton */}
         {loading ? (
           <div className="p-8 space-y-3 animate-pulse">
-            {[1, 2, 3, 4].map((i) => (
+            {[1, 2, 3, 4, 5].map((i) => (
               <div
                 key={i}
                 className="h-4 rounded bg-gray-200 dark:bg-slate-700"
@@ -140,9 +121,12 @@ export default function InvitedLenders() {
           <table className="min-w-full text-sm">
             <thead className="bg-gray-100 dark:bg-slate-800">
               <tr className="text-xs uppercase text-gray-500 dark:text-slate-400">
+                <th className="p-4 text-left">Profile</th>
                 <th className="p-4 text-left">Lender Name</th>
                 <th className="p-4 text-left">Email</th>
-                <th className="p-4 text-left">Status</th>
+                <th className="p-4 text-left">Phone</th>
+                <th className="p-4 text-left">Lender Status</th>
+                <th className="p-4 text-left">Invite Status</th>
                 <th className="p-4 text-left">Invited At</th>
               </tr>
             </thead>
@@ -153,16 +137,45 @@ export default function InvitedLenders() {
                   key={i.inviteId}
                   className="border-t dark:border-slate-800 hover:bg-gray-50 dark:hover:bg-slate-800/40 transition"
                 >
+                  {/* PROFILE */}
+                  <td className="p-4">
+                    <img
+                      src={
+                        i.profileImage
+                          ? `${API_BASE}/public${i.profileImage}`
+                          : FALLBACK_AVATAR
+                      }
+                      onError={(e: any) => {
+                        e.currentTarget.src = FALLBACK_AVATAR;
+                      }}
+                      className="h-10 w-10 rounded-full object-cover border"
+                    />
+                  </td>
+
                   <td className="p-4 font-medium">{i.name}</td>
                   <td className="p-4">{i.email}</td>
+                  <td className="p-4">{i.phone}</td>
 
+                  {/* Lender Status */}
                   <td className="p-4">
                     <span
                       className={`px-2 py-1 rounded-full text-xs font-medium
-                        ${
-                          i.inviteStatus === "PENDING"
-                            ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-500/10 dark:text-yellow-300"
-                            : i.inviteStatus === "ACCEPTED"
+                        ${i.lenderStatus === "ACTIVE"
+                          ? "bg-green-100 text-green-700 dark:bg-green-500/10 dark:text-green-300"
+                          : "bg-gray-100 text-gray-700 dark:bg-gray-500/10 dark:text-gray-300"
+                        }`}
+                    >
+                      {i.lenderStatus}
+                    </span>
+                  </td>
+
+                  {/* Invite Status */}
+                  <td className="p-4">
+                    <span
+                      className={`px-2 py-1 rounded-full text-xs font-medium
+                        ${i.inviteStatus === "PENDING"
+                          ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-500/10 dark:text-yellow-300"
+                          : i.inviteStatus === "ACCEPTED"
                             ? "bg-green-100 text-green-700 dark:bg-green-500/10 dark:text-green-300"
                             : "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-300"
                         }`}
@@ -179,15 +192,35 @@ export default function InvitedLenders() {
 
               {invites.length === 0 && !loading && (
                 <tr>
-                  <td colSpan={4} className="p-10 text-center text-slate-500">
-                    <div className="flex flex-col items-center gap-2">
-                      <div className="text-4xl">🏦</div>
-                      <div className="font-medium text-slate-700 dark:text-slate-200">
+                  <td colSpan={7} className="p-10 text-center text-slate-500">
+                    <div className="flex flex-col items-center justify-center py-10 text-center">
+                      {/* Icon */}
+                      <div className="h-16 w-16 rounded-2xl bg-blue-100 dark:bg-blue-500/10 flex items-center justify-center text-blue-600 dark:text-blue-400 mb-4 shadow-sm">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-8 w-8"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={1.6}
+                            d="M3 7h18M3 12h18M3 17h18"
+                          />
+                        </svg>
+                      </div>
+
+                      {/* Title */}
+                      <h3 className="text-base font-semibold text-slate-800 dark:text-slate-100">
                         No Lender Invites Found
-                      </div>
-                      <div className="text-sm text-slate-400">
-                        You have not invited any lenders yet.
-                      </div>
+                      </h3>
+
+                      {/* Subtitle */}
+                      <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-sm">
+                        You haven’t invited any lenders yet. Once you send invites, they will appear here for tracking.
+                      </p>
                     </div>
                   </td>
                 </tr>
@@ -196,6 +229,32 @@ export default function InvitedLenders() {
           </table>
         )}
       </div>
+    </div>
+  );
+}
+
+/* ================= STAT BOX ================= */
+
+function StatBox({
+  label,
+  value,
+  variant,
+}: {
+  label: string;
+  value: number;
+  variant: "blue" | "yellow" | "green" | "red";
+}) {
+  const variants = {
+    blue: "bg-blue-500 text-white",
+    yellow: "bg-yellow-500 text-white",
+    green: "bg-green-500 text-white",
+    red: "bg-red-500 text-white",
+  };
+
+  return (
+    <div className={`rounded-xl p-4 shadow-md ${variants[variant]}`}>
+      <p className="text-sm opacity-90">{label}</p>
+      <p className="text-3xl font-bold">{value}</p>
     </div>
   );
 }

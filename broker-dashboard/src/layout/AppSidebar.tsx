@@ -18,7 +18,7 @@ import {
 import { useSidebar } from "../context/SidebarContext";
 // import GroupOutlinedIcon from '@mui/icons-material/GroupOutlined';
 // import GroupsOutlinedIcon from '@mui/icons-material/GroupsOutlined';
-import { FaHandHoldingUsd } from "react-icons/fa";
+// import { FaHandHoldingUsd } from "react-icons/fa";
 import { MdWeb } from "react-icons/md";
 import { FaAppStore } from "react-icons/fa6";
 import { MdOutlineDocumentScanner } from "react-icons/md";
@@ -42,22 +42,23 @@ const navItems: NavItem[] = [
     name: "Dashboard",
     path: "/"
   },
-  {
-    icon: <FaHandHoldingUsd />,
-    name: "Lenders",
-    subItems: [{ name: "Connected Lenders", path: "/all-connected-lenders" }, { name: "Lender Invites", path: "/all-lender-invites" }, { name: "Lender Products", path: "/all-lender-products" }]
-  },
+
+  // {
+  //   icon: <FaHandHoldingUsd />,
+  //   name: "Lenders",
+  //   subItems: [{ name: "Connected Lenders", path: "/all-connected-lenders" }, { name: "Lender Invites", path: "/all-lender-invites" }, { name: "Lender Products", path: "/all-lender-products" }]
+  // },
 
   {
     icon: <MdWeb />,
-    name: "White Label Settings",
+    name: "Website Builder",
     subItems: [{ name: "Config Website", path: "/broker-website-dashboard/config-website" }]
   },
 
   {
     icon: <FaAppStore />,
     name: "Application Builder",
-    subItems: [{ name: "Create Application", path: "/create-application" }, { name: "Loan Application Config", path: "/application-config" }, { name: "Application", path: "/application" },]
+    subItems: [{ name: "Create Application", path: "/create-application" }, { name: "Loan Application Config", path: "/application-config" }, { name: "Add Sections", path: "/add-section" }, { name: "Application Builder", path: "/application" }, { name: "Templates", path: "/templates" }]
   },
 
   {
