@@ -57,7 +57,7 @@ module.exports = async function getPublicActiveApplication(fastify) {
         applicationId: application.id,
         applicationName: application.name,
         products: application.products.map((product) => {
-          // sectioned fields
+          // SECTIONED FIELDS
           const sections = product.sections.map((section) => ({
             sectionId: section.id,
             sectionName: section.name,
@@ -78,35 +78,26 @@ module.exports = async function getPublicActiveApplication(fastify) {
               })),
           }));
 
-          // un-sectioned fields
-          const unSectionedFields = product.fields.filter(
-            (field) => !field.sectionId
-          );
-
-          if (unSectionedFields.length > 0) {
-            sections.push({
-              sectionId: null,
-              sectionName: "General",
-              description: null,
-              sortOrder: 999,
-              fields: unSectionedFields.map((field) => ({
-                fieldId: field.id,
-                fieldKey: field.fieldKey,
-                label: field.label,
-                type: field.fieldType,
-                placeholder: field.placeholder,
-                required: field.isRequired,
-                options: field.options,
-                validation: field.validation,
-                sortOrder: field.sortOrder,
-              })),
-            });
-          }
+          // UNSECTIONED FIELDS
+          const unsectionedFields = product.fields
+            .filter((field) => field.sectionId === null)
+            .map((field) => ({
+              fieldId: field.id,
+              fieldKey: field.fieldKey,
+              label: field.label,
+              type: field.fieldType,
+              placeholder: field.placeholder,
+              required: field.isRequired,
+              options: field.options,
+              validation: field.validation,
+              sortOrder: field.sortOrder,
+            }));
 
           return {
             productId: product.id,
             loanProductCode: product.loanProductCode,
             sections,
+            unsectionedFields,
           };
         }),
       },
