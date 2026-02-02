@@ -242,7 +242,7 @@ export default function ApplicationBuilder() {
     const [selectedProductId, setSelectedProductId] = useState("");
 
     const [sections, setSections] = useState<ApiSection[]>([]);
-    const [unsectionedFields, setUnsectionedFields] = useState<FormField[]>([]);
+    const [unsectionedFields, setUnsectionedFields] = useState<ApiField[]>([]);
 
     const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -310,17 +310,7 @@ export default function ApplicationBuilder() {
 
             setSections(data.sections || []);
 
-            setUnsectionedFields(
-                (data.unsectionedFields || []).map((f) => ({
-                    id: f.id,
-                    type: mapApiFieldTypeToUI(f.fieldType),
-                    label: f.label,
-                    placeholder: f.placeholder || "",
-                    required: f.isRequired,
-                    options: f.options || [],
-                    validation: f.validation || {},
-                }))
-            );
+            setUnsectionedFields(data.unsectionedFields || []);
 
         } catch (err: any) {
             toast.error(err.message || "Failed to load fields");
@@ -467,10 +457,6 @@ export default function ApplicationBuilder() {
 
     /* ================= ADD ================= */
     const handleAddOrUpdate = async () => {
-        if (!selectedSectionId) {
-            toast.error("Please provide section Id")
-            return;
-        }
         let finalOptions: string[] = [];
 
         if (["select", "radio", "checkbox"].includes(form.type)) {
@@ -647,7 +633,7 @@ export default function ApplicationBuilder() {
                         onChange={(e) => setSelectedSectionId(e.target.value)}
                     >
                         <option value="">
-                            {loadingSections ? "Loading sections..." : "Select Section"}
+                            {loadingSections ? "Loading sections..." : "Select Section (Optional)"}
                         </option>
 
                         {sections.map((s) => (
@@ -832,11 +818,11 @@ export default function ApplicationBuilder() {
                         </button>
 
                         {/* ================= FIELD LIST (SECTION-WISE) ================= */}
-                        <div className="space-y-4 max-h-[320px] overflow-y-auto pr-1 custom-scrollbar">
+                        <div className="space-y-4 max-h-[320px] overflow-y-auto pr-1 custom-scrollbar border rounded-lg bg-yellow-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700">
 
                             {sections.map((section) => (
                                 <div key={section.id} className="space-y-2">
-                                    <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                                    <h3 className="px-3 py-2 border-b text-sm font-semibold text-blue-900 dark:text-blue-300">
                                         {section.name}
                                     </h3>
 
@@ -848,9 +834,10 @@ export default function ApplicationBuilder() {
                                     )}
                                 </div>
                             ))}
-
+                        </div>
+                        <div className="space-y-4 max-h-[320px] overflow-y-auto pr-1 custom-scrollbar">
                             {/* UNSECTIONED FIELDS */}
-                            {/* {unsectionedFields.length > 0 && (
+                            {unsectionedFields.length > 0 && (
                                 <div className="border rounded-lg bg-yellow-50 dark:bg-yellow-900/20 border-yellow-300 dark:border-yellow-700">
                                     <div className="px-3 py-2 border-b text-sm font-semibold text-yellow-700 dark:text-yellow-300">
                                         Unsectioned Fields
@@ -865,14 +852,27 @@ export default function ApplicationBuilder() {
                                                 <div>
                                                     {f.label}
                                                     <div className="text-xs text-slate-400">
-                                                        {f.type}
+                                                         {mapApiFieldTypeToUI(f.fieldType)}
                                                     </div>
                                                 </div>
 
                                                 <div className="flex gap-2">
-                                                    <button onClick={() => handleEdit(f)}>
+                                                    <button
+                                                        onClick={() =>
+                                                            handleEdit({
+                                                                id: f.id,
+                                                                type: mapApiFieldTypeToUI(f.fieldType),
+                                                                label: f.label,
+                                                                placeholder: f.placeholder || "",
+                                                                required: f.isRequired,
+                                                                options: f.options || [],
+                                                                validation: f.validation || {},
+                                                            })
+                                                        }
+                                                    >
                                                         <Edit3 size={16} />
                                                     </button>
+
                                                     <button
                                                         onClick={() => handleDelete(f.id)}
                                                         className="text-red-500"
@@ -884,7 +884,7 @@ export default function ApplicationBuilder() {
                                         ))}
                                     </div>
                                 </div>
-                            )} */}
+                            )}
                         </div>
                     </div>
 
@@ -926,6 +926,7 @@ export default function ApplicationBuilder() {
                                                                     type="radio"
                                                                     name={f.id}
                                                                     className="accent-blue-600"
+                                                                    readOnly
                                                                 />
                                                                 <span>{opt}</span>
                                                             </label>
@@ -944,6 +945,7 @@ export default function ApplicationBuilder() {
                                                                 <input
                                                                     type="checkbox"
                                                                     className="accent-blue-600"
+                                                                    readOnly
                                                                 />
                                                                 <span>{opt}</span>
                                                             </label>
@@ -973,6 +975,7 @@ export default function ApplicationBuilder() {
                                                 {["text", "email", "number", "date"].includes(uiType) && (
                                                     <input
                                                         type={uiType}
+                                                        readOnly
                                                         placeholder={f.placeholder || ""}
                                                         className="w-full rounded-lg border px-3 py-2 text-sm bg-white dark:bg-slate-800 dark:border-slate-600"
                                                     />
@@ -985,6 +988,7 @@ export default function ApplicationBuilder() {
                         ))}
 
                         {/* -------- UNSECTIONED -------- */}
+                        {/* -------- UNSECTIONED (FIXED) -------- */}
                         {unsectionedFields.length > 0 && (
                             <div>
                                 <h3 className="text-sm font-semibold mb-4 text-slate-500">
@@ -992,18 +996,79 @@ export default function ApplicationBuilder() {
                                 </h3>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                                    {unsectionedFields.map((f) => (
-                                        <div key={f.id}>
-                                            <label className="block text-sm mb-1">{f.label}</label>
-                                            <input
-                                                type={f.type}
-                                                className="w-full rounded-lg border px-3 py-2 text-sm"
-                                            />
-                                        </div>
-                                    ))}
+                                    {unsectionedFields.map((f) => {
+                                        const uiType = mapApiFieldTypeToUI(f.fieldType);
+                                        const isFullWidth = uiType === "range";
+
+                                        return (
+                                            <div
+                                                key={f.id}
+                                                className={isFullWidth ? "md:col-span-2" : ""}
+                                            >
+                                                <label className="block text-sm font-medium mb-2">
+                                                    {f.label}
+                                                    {f.isRequired && (
+                                                        <span className="text-red-500 ml-1">*</span>
+                                                    )}
+                                                </label>
+
+                                                {/* RADIO */}
+                                                {uiType === "radio" && (
+                                                    <div className="space-y-2 border rounded-lg p-3 bg-slate-50 dark:bg-slate-800">
+                                                        {f.options?.map((opt, i) => (
+                                                            <label key={i} className="flex items-center gap-2 text-sm">
+                                                                <input type="radio" readOnly />
+                                                                <span>{opt}</span>
+                                                            </label>
+                                                        ))}
+                                                    </div>
+                                                )}
+
+                                                {/* CHECKBOX */}
+                                                {uiType === "checkbox" && (
+                                                    <div className="space-y-2 border rounded-lg p-3 bg-slate-50 dark:bg-slate-800">
+                                                        {f.options?.map((opt, i) => (
+                                                            <label key={i} className="flex items-center gap-2 text-sm">
+                                                                <input type="checkbox" readOnly />
+                                                                <span>{opt}</span>
+                                                            </label>
+                                                        ))}
+                                                    </div>
+                                                )}
+
+                                                {/* RANGE */}
+                                                {uiType === "range" && (
+                                                    <div className="border rounded-lg p-4 bg-slate-50 dark:bg-slate-800 space-y-3">
+                                                        <input
+                                                            type="range"
+                                                            min={f.validation?.min ?? 0}
+                                                            max={f.validation?.max ?? 100}
+                                                            defaultValue={f.validation?.min ?? 0}
+                                                            className="w-full accent-blue-600"
+                                                        />
+                                                        <div className="flex justify-between text-xs text-slate-500">
+                                                            <span>{f.validation?.min ?? 0}</span>
+                                                            <span>{f.validation?.max ?? 100}</span>
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {/* BASIC INPUT */}
+                                                {["text", "email", "number", "date"].includes(uiType) && (
+                                                    <input
+                                                        type={uiType}
+                                                        readOnly
+                                                        placeholder={f.placeholder || ""}
+                                                        className="w-full rounded-lg border px-3 py-2 text-sm bg-white dark:bg-slate-800"
+                                                    />
+                                                )}
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             </div>
                         )}
+
                     </form>
 
 
