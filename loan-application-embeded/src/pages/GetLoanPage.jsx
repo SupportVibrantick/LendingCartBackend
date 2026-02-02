@@ -1,4 +1,5 @@
 import React from "react";
+import SignatureCanvas from "react-signature-canvas";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 
@@ -26,6 +27,10 @@ export default function GetLoanPage() {
     const [products, setProducts] = useState([]);
     const [selectedProductId, setSelectedProductId] = useState("");
 
+    const [agreed, setAgreed] = useState(false);
+    const [borrowerSignName, setBorrowerSignName] = useState("");
+    const sigPadRef = React.useRef(null);
+
     const activeProduct = products.find(
         (p) => p.productId === selectedProductId
     );
@@ -47,7 +52,7 @@ export default function GetLoanPage() {
             setSelectedProductId("");
 
             const res = await fetch(
-                `${API_BASE}/public/broker/applications/active`,
+                `${API_BASE}/api/public/broker/applications/active`,
                 // { headers: getAuthHeaders() }
             );
 
@@ -201,6 +206,34 @@ export default function GetLoanPage() {
                                     <Select label="Credit Score Range" />
                                 </div>
 
+                                {
+                                    hasCoBorrower && (
+                                        <>
+                                            <SectionHeader title="Co-Applicant Information" />
+
+                                            <div className="p-6 space-y-6">
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                    <Input label="First Name" />
+                                                    <Input label="Last Name" />
+                                                    <Input label="Borrower Email" />
+                                                    <Input label="Cell Phone" placeholder="(___) ___-____" />
+                                                </div>
+
+                                                {/* ================= PERSONAL INFO ================= */}
+                                                <div className="bg-slate-100 dark:bg-slate-800/60 px-4 py-2 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-200">
+                                                    Personal Info
+                                                </div>
+
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                    {/* Credit Score */}
+                                                    <Select label="Credit Score Range" />
+                                                </div>
+                                            </div>
+
+                                        </>
+                                    )
+                                }
+
                                 {/* ================= PRODUCT DYNAMIC FIELDS ================= */}
                                 {activeProduct &&
                                     activeProduct.fields &&
@@ -229,11 +262,87 @@ export default function GetLoanPage() {
                         </>
                     )}
 
+                    {/* ================= TERMS & CONDITIONS ================= */}
+                    <SectionHeader title="Terms And Conditions" />
+
+                    <div className="p-6 space-y-6">
+                        {/* Terms text */}
+                        <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded text-sm text-slate-700 dark:text-slate-200 border">
+                            By submitting this application, you acknowledge that everything is true and
+                            correct to the best of your knowledge. If pre-approved, you authorize us to
+                            pull your credit report. Certain fees, like an appraisal fee may not be
+                            refundable in the event your loan does not close with us. Additionally you
+                            agree to let us send text messages to your cell phone if provided, you may
+                            opt out anytime replying with STOP.
+                        </div>
+
+                        {/* Agreement checkbox */}
+                        <label className="flex items-center gap-3 text-sm text-slate-700 dark:text-slate-300">
+                            <input
+                                type="checkbox"
+                                checked={agreed}
+                                onChange={(e) => setAgreed(e.target.checked)}
+                            />
+                            By checking this box I agree to the terms and conditions.*
+                        </label>
+
+                        {/* Borrower signature name */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+                            <Input
+                                label="Name of Borrower Signing:"
+                                value={borrowerSignName}
+                                onChange={(e) => setBorrowerSignName(e.target.value)}
+                            />
+
+                            <button
+                                type="button"
+                                onClick={() => sigPadRef.current?.clear()}
+                                className="bg-blue-500 text-white px-4 py-2 rounded w-fit mt-6"
+                            >
+                                Reset Signature
+                            </button>
+                        </div>
+
+                        {/* Signature pad */}
+                        <div className="border rounded-lg bg-slate-100 dark:bg-slate-800">
+                            <SignatureCanvas
+                                ref={sigPadRef}
+                                penColor="blue"
+                                canvasProps={{
+                                    width: 900,
+                                    height: 250,
+                                    className: "signatureCanvas w-full",
+                                }}
+                            />
+                        </div>
+
+                        <button
+                            type="button"
+                            onClick={() => sigPadRef.current?.undo()}
+                            className="text-sm px-3 py-1 bg-slate-300 dark:bg-slate-700 rounded"
+                        >
+                            Undo last stroke
+                        </button>
+
+                        {/* reCAPTCHA placeholder */}
+                        <div className="flex justify-center mt-6">
+                            <div className="border rounded p-4 flex items-center gap-4 bg-white">
+                                <input type="checkbox" />
+                                <span className="text-sm">I'm not a robot</span>
+                                <span className="text-xs text-slate-400">reCAPTCHA</span>
+                            </div>
+                        </div>
+                    </div>
+
                     {/* ================= FOOTER ================= */}
                     <div className="p-6 border-t border-slate-200 dark:border-slate-800 flex justify-end">
-                        <button className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-lg font-semibold text-sm shadow">
-                            Continue Application
+                        <button
+                            disabled={!agreed || !borrowerSignName || sigPadRef.current?.isEmpty()}
+                            className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-8 py-3 rounded-lg font-semibold text-sm shadow"
+                        >
+                            Submit
                         </button>
+
                     </div>
                 </div>
             </div>
