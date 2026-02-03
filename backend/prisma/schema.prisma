@@ -187,31 +187,79 @@ model LoanProduct {
   @@map("loan_products")
 }
 
+// model LenderProduct {
+//   id                         String                      @id @default(uuid()) @db.Uuid
+//   lenderOrgId                String                      @db.Uuid
+//   loanProductId              String?                     @db.Uuid
+//   loanProductCode            LoanProductCode
+//   minLoanAmount              Decimal?                    @db.Decimal(20, 2) 
+//   maxLoanAmount              Decimal?                    @db.Decimal(20, 2)
+//   minTermMonths              Int?
+//   maxTermMonths              Int?
+//   regionsSupported           String?
+//   industriesSupported        String?
+//   isActive                   Boolean                     @default(true)
+//   createdAt                  DateTime                    @default(now()) @db.Timestamptz(6)
+//   updatedAt                  DateTime                    @updatedAt @db.Timestamptz(6)
+//   applicationLenders         ApplicationLender[]
+//   eligibilityRuleSets        EligibilityRuleSet[]
+//   lenderDocumentRequirements LenderDocumentRequirement[]
+//   lender                     Organization                @relation(fields: [lenderOrgId], references: [id])
+//   loanProduct                LoanProduct?                @relation(fields: [loanProductId], references: [id])
+
+//   @@index([lenderOrgId])
+//   @@index([loanProductCode])
+//   @@index([loanProductId])
+//   @@map("lender_products")
+// }
+
+
 model LenderProduct {
-  id                         String                      @id @default(uuid()) @db.Uuid
-  lenderOrgId                String                      @db.Uuid
-  loanProductId              String?                     @db.Uuid
-  loanProductCode            LoanProductCode
-  minLoanAmount              Decimal?                    @db.Decimal(20, 2)
-  maxLoanAmount              Decimal?                    @db.Decimal(20, 2)
-  minTermMonths              Int?
-  maxTermMonths              Int?
-  regionsSupported           String?
-  industriesSupported        String?
-  isActive                   Boolean                     @default(true)
-  createdAt                  DateTime                    @default(now()) @db.Timestamptz(6)
-  updatedAt                  DateTime                    @updatedAt @db.Timestamptz(6)
+  id              String   @id @default(uuid()) @db.Uuid
+
+  lenderOrgId     String   @db.Uuid
+  loanProductId   String?  @db.Uuid
+  loanProductCode LoanProductCode
+
+  businessTypes   String?
+
+  minLoanAmount   Decimal? @db.Decimal(20, 2)
+  maxLoanAmount   Decimal? @db.Decimal(20, 2)
+
+  minTermMonths   Int?
+  maxTermMonths   Int?
+
+  minLtvPercent   Decimal? @db.Decimal(5, 2)
+  maxLtvPercent   Decimal? @db.Decimal(5, 2)
+
+  minCreditScore  Int?
+  minExperience   String?
+
+  interestRateRange String?
+
+  statesSupported String?
+
+  isActive        Boolean  @default(true)
+
+  createdAt       DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime @updatedAt @db.Timestamptz(6)
+
   applicationLenders         ApplicationLender[]
   eligibilityRuleSets        EligibilityRuleSet[]
   lenderDocumentRequirements LenderDocumentRequirement[]
-  lender                     Organization                @relation(fields: [lenderOrgId], references: [id])
-  loanProduct                LoanProduct?                @relation(fields: [loanProductId], references: [id])
 
+  lender      Organization @relation(fields: [lenderOrgId], references: [id])
+  loanProduct LoanProduct? @relation(fields: [loanProductId], references: [id])
+
+  @@unique([lenderOrgId, loanProductCode])
   @@index([lenderOrgId])
   @@index([loanProductCode])
   @@index([loanProductId])
   @@map("lender_products")
 }
+
+
+
 
 model BrokerLenderAccess {
   id          String             @id @default(uuid()) @db.Uuid
