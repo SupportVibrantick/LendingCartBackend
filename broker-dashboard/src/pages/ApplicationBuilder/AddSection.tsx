@@ -206,9 +206,6 @@ const AddSectionAdmin: React.FC = () => {
         }
     }, []);
 
-
-
-
     /* ================= EFFECTS ================= */
 
     useEffect(() => {
@@ -307,11 +304,10 @@ const AddSectionAdmin: React.FC = () => {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
                     {/* LEFT – FORM (UNCHANGED UI) */}
                     <div>
-                        
                         <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-xl border p-8 space-y-6">
-                               <h2 className="text-lg font-bold mb-4 text-slate-900 dark:text-white">
-                            Add Application Sections
-                        </h2>
+                            <h2 className="text-lg font-bold mb-4 text-slate-900 dark:text-white">
+                                Add Application Sections
+                            </h2>
                             <select
                                 className="w-full rounded-xl border px-3 py-2"
                                 value={selectedAppId}
@@ -431,7 +427,7 @@ const AddSectionAdmin: React.FC = () => {
                                         <th className="p-2 text-left border">Name</th>
                                         <th className="p-2 text-left border">Description</th>
                                         <th className="p-2 text-left border">Active</th>
-                                        <th className="p-2 text-center border">Action</th>
+                                        <th className="p-2 text-center border">Details</th>
                                     </tr>
                                 </thead>
 
