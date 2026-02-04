@@ -102,7 +102,7 @@ async function submitApplication(fastify) {
             data: {
               applicationId,
               applicationProductId,
-              status: "SUBMITTED",
+              status: "NEW",
             },
           });
 
