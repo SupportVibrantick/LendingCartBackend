@@ -1,5 +1,6 @@
 import { useEffect, useState, FormEvent } from "react";
 import axios, { AxiosError } from "axios";
+import toast from "react-hot-toast";
 
 /* ================= API ================= */
 const api = axios.create({
@@ -30,6 +31,11 @@ interface MessageState {
   text: string;
 }
 
+export type BusinessType = {
+  label: string;
+  value: string;
+};
+
 interface Errors {
   lenderOrgId?: string;
   loanProductCode?: string;
@@ -37,19 +43,142 @@ interface Errors {
   maxLoanAmount?: string;
   minTermMonths?: string;
   maxTermMonths?: string;
+  minLTV?: string;
+  maxLTV?: string;
+  minCreditScore?: string;
+  minimumExperience?: string;
+  typeOfBusiness?: string;
+  interestRateRange?: string;
+  states?: string;
 }
+
 
 interface FormState {
   lenderOrgId: string;
   loanProductCode: string;
+
+  // selections
+  loanTypes: string[];
+  typeOfBusiness: string[];
+  states: string[];
+
+  // amounts & terms
   minLoanAmount: string;
   maxLoanAmount: string;
   minTermMonths: string;
   maxTermMonths: string;
-  regionsSupported: string[];
-  industriesSupported: string[];
+
+  // new financial fields
+  minLTV: string;
+  maxLTV: string;
+  minCreditScore: string;
+  interestRateRange: string;
+  minimumExperience: string;
+
+  notes: string;
   isActive: boolean;
 }
+
+
+export const BUSINESS_TYPES: BusinessType[] = [
+  { label: "Hospitality", value: "HOSPITALITY" },
+  { label: "Hotels & Motels", value: "HOTELS_MOTELS" },
+  { label: "Resorts", value: "RESORTS" },
+  { label: "Restaurants & Bars", value: "RESTAURANTS_BARS" },
+  { label: "Cafes & Coffee Shops", value: "CAFES_COFFEE" },
+  { label: "Quick Service Restaurants (QSR)", value: "QSR" },
+  { label: "Catering Services", value: "CATERING" },
+  { label: "Nightclubs & Entertainment Venues", value: "NIGHTCLUBS" },
+
+  { label: "Healthcare Practices", value: "HEALTHCARE_PRACTICES" },
+  { label: "Medical Clinics", value: "MEDICAL_CLINICS" },
+  { label: "Dental Practices", value: "DENTAL_PRACTICES" },
+  { label: "Veterinary Clinics", value: "VETERINARY_CLINICS" },
+  { label: "Pharmacies", value: "PHARMACIES" },
+  { label: "Assisted Living", value: "ASSISTED_LIVING" },
+  { label: "Nursing Homes", value: "NURSING_HOMES" },
+  { label: "Senior Housing", value: "SENIOR_HOUSING" },
+  { label: "Mental Health Facilities", value: "MENTAL_HEALTH" },
+  { label: "Rehabilitation Centers", value: "REHAB_CENTERS" },
+
+  { label: "Retail", value: "RETAIL" },
+  { label: "Retail & E-commerce", value: "RETAIL_ECOMMERCE" },
+  { label: "E-commerce", value: "ECOMMERCE" },
+  { label: "Grocery Stores", value: "GROCERY_STORES" },
+  { label: "Convenience Stores", value: "CONVENIENCE_STORES" },
+  { label: "Gas Stations", value: "GAS_STATIONS" },
+  { label: "Liquor Stores", value: "LIQUOR_STORES" },
+  { label: "Apparel & Fashion Retail", value: "APPAREL_FASHION" },
+  { label: "Electronics Retail", value: "ELECTRONICS_RETAIL" },
+  { label: "Furniture & Home Goods", value: "FURNITURE_HOME" },
+  { label: "Specialty Retail", value: "SPECIALTY_RETAIL" },
+
+  { label: "Office / Professional Services", value: "PROFESSIONAL_SERVICES" },
+  { label: "Law Firms", value: "LAW_FIRMS" },
+  { label: "Accounting Firms", value: "ACCOUNTING_FIRMS" },
+  { label: "Consulting Firms", value: "CONSULTING_FIRMS" },
+  { label: "Insurance Agencies", value: "INSURANCE_AGENCIES" },
+  { label: "Real Estate Offices", value: "REAL_ESTATE_OFFICES" },
+  { label: "Marketing & Advertising Agencies", value: "MARKETING_AGENCIES" },
+  { label: "IT Services", value: "IT_SERVICES" },
+  { label: "Software & SaaS Companies", value: "SOFTWARE_SAAS" },
+
+  { label: "Industrial", value: "INDUSTRIAL" },
+  { label: "Manufacturing", value: "MANUFACTURING" },
+  { label: "Light Manufacturing", value: "LIGHT_MANUFACTURING" },
+  { label: "Heavy Manufacturing", value: "HEAVY_MANUFACTURING" },
+  { label: "Factories", value: "FACTORIES" },
+  { label: "Processing Plants", value: "PROCESSING_PLANTS" },
+  { label: "Assembly Facilities", value: "ASSEMBLY_FACILITIES" },
+
+  { label: "Transportation", value: "TRANSPORTATION" },
+  { label: "Logistics", value: "LOGISTICS" },
+  { label: "Warehousing", value: "WAREHOUSING" },
+  { label: "Distribution Centers", value: "DISTRIBUTION_CENTERS" },
+  { label: "Trucking Companies", value: "TRUCKING" },
+  { label: "Freight & Shipping", value: "FREIGHT_SHIPPING" },
+  { label: "Last-Mile Delivery", value: "LAST_MILE_DELIVERY" },
+
+  { label: "Construction", value: "CONSTRUCTION" },
+  { label: "General Contractors", value: "GENERAL_CONTRACTORS" },
+  { label: "Residential Construction", value: "RESIDENTIAL_CONSTRUCTION" },
+  { label: "Commercial Construction", value: "COMMERCIAL_CONSTRUCTION" },
+
+  { label: "Self-Storage", value: "SELF_STORAGE" },
+  { label: "Automotive", value: "AUTOMOTIVE" },
+  { label: "Auto Dealerships", value: "AUTO_DEALERSHIPS" },
+  { label: "Auto Repair & Service Centers", value: "AUTO_REPAIR" },
+  { label: "Car Washes", value: "CAR_WASHES" },
+
+  { label: "Property Management", value: "PROPERTY_MANAGEMENT" },
+  { label: "Multi-Family Operators", value: "MULTIFAMILY_OPERATORS" },
+  { label: "Single-Family Rental Operators", value: "SFR_OPERATORS" },
+
+  { label: "Financial Services", value: "FINANCIAL_SERVICES" },
+  { label: "Private Equity Firms", value: "PRIVATE_EQUITY" },
+  { label: "Investment Firms", value: "INVESTMENT_FIRMS" },
+  { label: "Mortgage Brokers", value: "MORTGAGE_BROKERS" },
+  { label: "Lending Companies", value: "LENDING_COMPANIES" },
+
+  { label: "Franchise Businesses", value: "FRANCHISE_BUSINESSES" },
+  { label: "Multi-Unit Operators", value: "MULTI_UNIT_OPERATORS" },
+
+  { label: "Agriculture & Farming", value: "AGRICULTURE" },
+  { label: "Food Processing", value: "FOOD_PROCESSING" },
+  { label: "Cold Storage", value: "COLD_STORAGE" },
+
+  { label: "Education Services", value: "EDUCATION_SERVICES" },
+  { label: "Training Centers", value: "TRAINING_CENTERS" },
+  { label: "Childcare & Daycare", value: "DAYCARE" },
+
+  { label: "Entertainment", value: "ENTERTAINMENT" },
+  { label: "Event Venues", value: "EVENT_VENUES" },
+  { label: "Gyms & Fitness Centers", value: "GYMS_FITNESS" },
+
+  { label: "Energy & Utilities", value: "ENERGY_UTILITIES" },
+  { label: "Renewable Energy", value: "RENEWABLE_ENERGY" },
+  { label: "Data Centers", value: "DATA_CENTERS" }
+];
 
 /* ================= COMPONENT ================= */
 export default function LenderProductAssign() {
@@ -63,14 +192,51 @@ export default function LenderProductAssign() {
   const [form, setForm] = useState<FormState>({
     lenderOrgId: "",
     loanProductCode: "",
+    loanTypes: [],
+    typeOfBusiness: [],
+    states: [],
+
     minLoanAmount: "",
     maxLoanAmount: "",
     minTermMonths: "",
     maxTermMonths: "",
-    regionsSupported: [],
-    industriesSupported: [],
+
+    minLTV: "",
+    maxLTV: "",
+    minCreditScore: "",
+    interestRateRange: "",
+    minimumExperience: "",
+
+    notes: "",
     isActive: true,
   });
+
+
+
+  const US_STATES = [
+    { code: "AL" }, { code: "AK" }, { code: "AZ" }, { code: "AR" },
+    { code: "CA" }, { code: "CO" }, { code: "CT" }, { code: "DE" },
+    { code: "FL" }, { code: "GA" }, { code: "HI" }, { code: "ID" },
+    { code: "IL" }, { code: "IN" }, { code: "IA" }, { code: "KS" },
+    { code: "KY" }, { code: "LA" }, { code: "ME" }, { code: "MD" },
+    { code: "MA" }, { code: "MI" }, { code: "MN" }, { code: "MS" },
+    { code: "MO" }, { code: "MT" }, { code: "NE" }, { code: "NV" },
+    { code: "NH" }, { code: "NJ" }, { code: "NM" }, { code: "NY" },
+    { code: "NC" }, { code: "ND" }, { code: "OH" }, { code: "OK" },
+    { code: "OR" }, { code: "PA" }, { code: "RI" }, { code: "SC" },
+    { code: "SD" }, { code: "TN" }, { code: "TX" }, { code: "UT" },
+    { code: "VT" }, { code: "VA" }, { code: "WA" }, { code: "WV" },
+    { code: "WI" }, { code: "WY" },
+  ];
+
+  const MINIMUM_EXPERIENCE = [
+    "0-1 projects",
+    "2-3 projects",
+    "4-5 projects",
+    "6-10 projects",
+    "10+ projects",
+    "No minimum",
+  ]
 
   /* ================= LOAD DATA ================= */
   useEffect(() => {
@@ -98,27 +264,38 @@ export default function LenderProductAssign() {
   function validate(): Errors {
     const e: Errors = {};
 
-    if (!form.lenderOrgId) e.lenderOrgId = "Please select a lender";
-    if (!form.loanProductCode) e.loanProductCode = "Please select a product";
+    // REQUIRED
+    if (!form.lenderOrgId) e.lenderOrgId = "Lender is required";
+
+    if (form.loanTypes.length === 0)
+      e.loanProductCode = "Select at least one loan type";
+    if (!form.interestRateRange)
+      e.interestRateRange = "Interest rate range required";
+
+    // AMOUNTS
+    if (!form.minLoanAmount) e.minLoanAmount = "Minimum amount required";
+    if (!form.maxLoanAmount) e.maxLoanAmount = "Maximum amount required";
 
     if (form.minLoanAmount && isNaN(Number(form.minLoanAmount)))
-      e.minLoanAmount = "Invalid amount";
+      e.minLoanAmount = "Invalid number";
 
     if (form.maxLoanAmount && isNaN(Number(form.maxLoanAmount)))
-      e.maxLoanAmount = "Invalid amount";
+      e.maxLoanAmount = "Invalid number";
 
     if (
       form.minLoanAmount &&
       form.maxLoanAmount &&
       Number(form.minLoanAmount) > Number(form.maxLoanAmount)
     )
-      e.maxLoanAmount = "Max must be ≥ Min";
+      e.maxLoanAmount = "Max must be greater than Min";
 
-    if (form.minTermMonths && isNaN(Number(form.minTermMonths)))
-      e.minTermMonths = "Invalid months";
+    // TYPE OF BUSINESS
+    if (form.typeOfBusiness.length === 0)
+      e.typeOfBusiness = "Select at least one business type";
 
-    if (form.maxTermMonths && isNaN(Number(form.maxTermMonths)))
-      e.maxTermMonths = "Invalid months";
+    // TERMS
+    if (!form.minTermMonths) e.minTermMonths = "Required";
+    if (!form.maxTermMonths) e.maxTermMonths = "Required";
 
     if (
       form.minTermMonths &&
@@ -127,8 +304,50 @@ export default function LenderProductAssign() {
     )
       e.maxTermMonths = "Max term must be ≥ Min term";
 
+    // MIN LTV
+    if (!form.minLTV)
+      e.minLTV = "Min LTV is required";
+    else if (isNaN(Number(form.minLTV)))
+      e.minLTV = "Invalid number";
+    else if (Number(form.minLTV) < 0 || Number(form.minLTV) > 100)
+      e.minLTV = "Must be between 0–100";
+
+    // MAX LTV
+    if (!form.maxLTV)
+      e.maxLTV = "Max LTV is required";
+    else if (isNaN(Number(form.maxLTV)))
+      e.maxLTV = "Invalid number";
+    else if (Number(form.maxLTV) < 0 || Number(form.maxLTV) > 100)
+      e.maxLTV = "Must be between 0–100";
+
+    // RELATION CHECK
+    if (
+      form.minLTV &&
+      form.maxLTV &&
+      Number(form.minLTV) > Number(form.maxLTV)
+    )
+      e.maxLTV = "Max LTV must be ≥ Min LTV";
+
+
+    // CREDIT SCORE
+    if (!form.minCreditScore)
+      e.minCreditScore = "Minimum credit score required";
+    else if (
+      Number(form.minCreditScore) < 300 ||
+      Number(form.minCreditScore) > 900
+    )
+      e.minCreditScore = "Score must be between 300–900";
+
+    if (form.states.length === 0)
+      e.states = "Select at least one state";
+
+    // EXPERIENCE
+    if (!form.minimumExperience)
+      e.minimumExperience = "Select minimum experience";
+
     return e;
   }
+
 
   /* ================= SUBMIT ================= */
   async function handleSubmit(e: FormEvent) {
@@ -138,40 +357,61 @@ export default function LenderProductAssign() {
 
     const v = validate();
     if (Object.keys(v).length) {
+      console.log(v)
       setErrors(v);
       return;
     }
 
     setSubmitting(true);
     try {
-      await api.post("/admin/lender-products/create", {
-        ...form,
-        minLoanAmount: form.minLoanAmount
-          ? Number(form.minLoanAmount)
-          : undefined,
-        maxLoanAmount: form.maxLoanAmount
-          ? Number(form.maxLoanAmount)
-          : undefined,
-        minTermMonths: form.minTermMonths
-          ? Number(form.minTermMonths)
-          : undefined,
-        maxTermMonths: form.maxTermMonths
-          ? Number(form.maxTermMonths)
-          : undefined,
-      });
+      const payload = {
+        lenderOrgId: form.lenderOrgId,
+
+        loanProductCodes: form.loanTypes,
+        businessTypes: form.typeOfBusiness,
+
+        minLoanAmount: Number(form.minLoanAmount),
+        maxLoanAmount: Number(form.maxLoanAmount),
+
+        minTermMonths: Number(form.minTermMonths),
+        maxTermMonths: Number(form.maxTermMonths),
+
+        minLtvPercent: Number(form.minLTV),
+        maxLtvPercent: Number(form.maxLTV),
+
+        minCreditScore: Number(form.minCreditScore),
+        minExperience: form.minimumExperience,
+
+        interestRateRange: form.interestRateRange,
+        statesSupported: form.states,
+
+        isActive: form.isActive,
+      };
+
+
+      await api.post("/admin/lender-products/create", payload);
 
       setMessage({
         type: "success",
         text: "Lender product assigned successfully",
       });
 
+      toast.success("Lender product assigned successfully");
+
       setForm((f) => ({
         ...f,
-        loanProductCode: "",
+        loanTypes: [],
+        typeOfBusiness: [],
+        states: [],
         minLoanAmount: "",
         maxLoanAmount: "",
-        regionsSupported: [],
-        industriesSupported: [],
+        minTermMonths: "",
+        maxTermMonths: "",
+        minLTV: "",
+        maxLTV: "",
+        minCreditScore: "",
+        interestRateRange: "",
+        minimumExperience: "",
       }));
     } catch (err) {
       const error = err as AxiosError<any>;
@@ -184,17 +424,6 @@ export default function LenderProductAssign() {
     }
   }
 
-  /* ================= TOGGLE ================= */
-  function toggleChip(
-    key: "regionsSupported" | "industriesSupported",
-    value: string
-  ) {
-    setForm((prev) => {
-      const set = new Set(prev[key]);
-      set.has(value) ? set.delete(value) : set.add(value);
-      return { ...prev, [key]: Array.from(set) };
-    });
-  }
 
   /* ================= UI ================= */
   return (
@@ -203,11 +432,10 @@ export default function LenderProductAssign() {
 
       {message && (
         <div
-          className={`p-3 mb-4 rounded ${
-            message.type === "error"
-              ? "bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-300"
-              : "bg-green-50 text-green-700 dark:bg-emerald-500/10 dark:text-emerald-300"
-          }`}
+          className={`p-3 mb-4 rounded ${message.type === "error"
+            ? "bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-300"
+            : "bg-green-50 text-green-700 dark:bg-emerald-500/10 dark:text-emerald-300"
+            }`}
         >
           {message.text}
         </div>
@@ -238,35 +466,133 @@ export default function LenderProductAssign() {
             )}
           </div>
 
-          <div>
-            <label className="block text-sm font-medium">Loan Product</label>
-            <select
-              value={form.loanProductCode}
-              onChange={(e) =>
-                setForm({ ...form, loanProductCode: e.target.value })
-              }
-              className="mt-1 block w-full rounded-md border p-2 bg-white text-slate-900 border-slate-300 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600"
-            >
-              <option value="">Select product</option>
-              {loanProducts.map((p) => (
-                <option key={p.id} value={p.code}>
-                  {p.name} ({p.code})
-                </option>
-              ))}
-            </select>
-            {errors.loanProductCode && (
-              <p className="text-xs text-red-600 dark:text-red-400">
-                {errors.loanProductCode}
-              </p>
-            )}
+
+        </div>
+
+        {/* ================= LOAN TYPES ================= */}
+        <div>
+          <label className="block text-sm font-medium mb-2">
+            Loan Types (select multiple)
+          </label>
+
+          {/* CHECKBOX LIST */}
+          <div className="border rounded-lg p-3 max-h-40 overflow-y-auto space-y-2
+                  bg-white dark:bg-slate-800
+                  border-slate-300 dark:border-slate-600">
+
+            {loanProducts.map((p) => (
+              <label
+                key={p.id}
+                className="flex items-center gap-2 text-sm cursor-pointer"
+              >
+                <input
+                  type="checkbox"
+                  checked={form.loanTypes.includes(p.code)}
+                  onChange={() =>
+                    setForm((prev) => {
+                      const set = new Set(prev.loanTypes);
+                      set.has(p.code) ? set.delete(p.code) : set.add(p.code);
+                      return { ...prev, loanTypes: Array.from(set) };
+                    })
+                  }
+                  className="accent-emerald-600"
+                />
+                {p.name}
+              </label>
+            ))}
           </div>
+          {errors.loanProductCode && (
+            <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+              {errors.loanProductCode}
+            </p>
+          )}
+
+          {/* SELECTED CHIPS */}
+          {form.loanTypes.length > 0 && (
+            <div className="flex flex-wrap gap-2 mt-3">
+              {form.loanTypes.map((t) => (
+                <span
+                  key={t}
+                  className="px-3 py-1 rounded-full text-xs font-medium
+                     bg-emerald-100 text-emerald-700
+                     dark:bg-emerald-500/15 dark:text-emerald-300"
+                >
+                  {t}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* ================= TYPE OF BUSINESS ================= */}
+        <div>
+          <label className="block text-sm font-medium mb-2">
+            Type of Business (select multiple)
+          </label>
+
+          {/* CHECKBOX LIST */}
+          <div
+            className="border rounded-lg p-3 max-h-52 overflow-y-auto space-y-2
+      bg-white dark:bg-slate-800
+      border-slate-300 dark:border-slate-600"
+          >
+            {BUSINESS_TYPES.map((bt) => (
+              <label
+                key={bt.value}
+                className="flex items-center gap-2 text-sm cursor-pointer"
+              >
+                <input
+                  type="checkbox"
+                  checked={form.typeOfBusiness.includes(bt.value)}
+                  onChange={() =>
+                    setForm((prev) => {
+                      const set = new Set(prev.typeOfBusiness);
+                      set.has(bt.value)
+                        ? set.delete(bt.value)
+                        : set.add(bt.value);
+                      return { ...prev, typeOfBusiness: Array.from(set) };
+                    })
+                  }
+                  className="accent-indigo-600"
+                />
+                {bt.label}
+              </label>
+            ))}
+          </div>
+
+          {/* SELECTED CHIPS */}
+          {form.typeOfBusiness.length > 0 && (
+            <div className="flex flex-wrap gap-2 mt-3">
+              {form.typeOfBusiness.map((val) => {
+                const label =
+                  BUSINESS_TYPES.find((b) => b.value === val)?.label || val;
+
+                return (
+                  <span
+                    key={val}
+                    className="px-3 py-1 rounded-full text-xs font-medium
+              bg-indigo-100 text-indigo-700
+              dark:bg-indigo-500/15 dark:text-indigo-300"
+                  >
+                    {label}
+                  </span>
+                );
+              })}
+            </div>
+
+          )}
+          {errors.typeOfBusiness && (
+            <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+              {errors.typeOfBusiness}
+            </p>
+          )}
         </div>
 
         <div className="grid grid-cols-4 gap-4">
           <div>
-            <label className="block text-sm font-medium">Min Amount</label>
+            <label className="block text-sm font-medium">Min Loan Amount</label>
             <input
-              type="text"
+              type="number"
               value={form.minLoanAmount}
               onChange={(e) =>
                 setForm({ ...form, minLoanAmount: e.target.value })
@@ -282,9 +608,9 @@ export default function LenderProductAssign() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium">Max Amount</label>
+            <label className="block text-sm font-medium">Max Loan Amount</label>
             <input
-              type="text"
+              type="number"
               value={form.maxLoanAmount}
               onChange={(e) =>
                 setForm({ ...form, maxLoanAmount: e.target.value })
@@ -335,63 +661,190 @@ export default function LenderProductAssign() {
                 {errors.maxTermMonths}
               </p>
             )}
+
           </div>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium">Regions (toggle)</label>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {["CA", "TX", "FL", "NY", "NJ"].map((r) => (
-              <button
-                type="button"
-                key={r}
-                onClick={() => toggleChip("regionsSupported", r)}
-                className={`px-3 py-1 rounded-full border ${
-                  form.regionsSupported.includes(r)
-                    ? "bg-blue-600 text-white border-blue-600"
-                    : "bg-white text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-600"
-                }`}
-              >
-                {r}
-              </button>
-            ))}
+        <div className="grid grid-cols-4 gap-4">
+          <div>
+            <label className="block text-sm font-medium">Min LTV %</label>
+            <input
+              type="number"
+              value={form.minLTV}
+              onChange={(e) =>
+                setForm({ ...form, minLTV: e.target.value })
+              }
+              className="mt-1 block w-full rounded-md border p-2
+      bg-white text-slate-900 border-slate-300
+      dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600"
+            />
+            {errors.minLTV && (
+              <p className="text-xs text-red-600 dark:text-red-400">
+                {errors.minLTV}
+              </p>
+            )}
           </div>
+
+
+          <div>
+            <label className="block text-sm font-medium">Max LTV %</label>
+            <input
+              type="number"
+              value={form.maxLTV}
+              onChange={(e) =>
+                setForm({ ...form, maxLTV: e.target.value })
+              }
+              className="mt-1 block w-full rounded-md border p-2
+      bg-white text-slate-900 border-slate-300
+      dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600"
+            />
+            {errors.maxLTV && (
+              <p className="text-xs text-red-600 dark:text-red-400">
+                {errors.maxLTV}
+              </p>
+            )}
+          </div>
+
+
+          <div>
+            <label className="block text-sm font-medium">
+              Min Credit Score
+            </label>
+            <input
+              type="number"
+              value={form.minCreditScore}
+              onChange={(e) =>
+                setForm({ ...form, minCreditScore: e.target.value })
+              }
+              className="mt-1 block w-full rounded-md border p-2 bg-white text-slate-900 border-slate-300 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600"
+            />
+            {errors.minCreditScore && (
+              <p className="text-xs text-red-600 dark:text-red-400">
+                {errors.minCreditScore}
+              </p>
+            )}
+
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium">
+              Minimum Experience
+            </label>
+
+            <select
+              value={form.minimumExperience}
+              onChange={(e) =>
+                setForm({ ...form, minimumExperience: e.target.value })
+              }
+              className="mt-1 block w-full rounded-md border p-2 text-sm
+      bg-white text-slate-900 border-slate-300
+      dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600"
+            >
+              <option value="">Select minimum experience</option>
+
+              {MINIMUM_EXPERIENCE.map((exp) => (
+                <option key={exp} value={exp}>
+                  {exp}
+                </option>
+              ))}
+            </select>
+            {errors.minimumExperience && (
+              <p className="text-xs text-red-600 dark:text-red-400">
+                {errors.minimumExperience}
+              </p>
+            )}
+          </div>
+
         </div>
 
         <div>
           <label className="block text-sm font-medium">
-            Industries (toggle)
+            Interest Rate Range
           </label>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {["Retail", "Logistics", "Construction", "Healthcare"].map((i) => (
-              <button
-                type="button"
-                key={i}
-                onClick={() => toggleChip("industriesSupported", i)}
-                className={`px-3 py-1 rounded-full border ${
-                  form.industriesSupported.includes(i)
-                    ? "bg-blue-600 text-white border-blue-600"
-                    : "bg-white text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-600"
-                }`}
-              >
-                {i}
-              </button>
-            ))}
+          <input
+            type="text"
+            value={form.interestRateRange}
+            placeholder="eg. 6.5% - 8.5%"
+            onChange={(e) =>
+              setForm({ ...form, interestRateRange: e.target.value })
+            }
+            className="mt-1 block w-full rounded-md border p-2 bg-white text-slate-900 border-slate-300 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600"
+          />
+          {errors.interestRateRange && (
+            <p className="text-xs text-red-600 dark:text-red-400">
+              {errors.interestRateRange}
+            </p>
+          )}
+        </div>
+        {/* ================= STATES ================= */}
+        <div>
+          <label className="block text-sm font-medium mb-2">States</label>
+
+          <div className="flex gap-2 mb-3">
+            <button
+              type="button"
+              onClick={() =>
+                setForm((f) => ({
+                  ...f,
+                  states: US_STATES.map((s) => s.code),
+                }))
+              }
+              className="px-3 py-1 text-sm rounded border
+                 bg-white border-slate-300
+                 dark:bg-slate-800 dark:border-slate-600"
+            >
+              Select All States
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setForm((f) => ({ ...f, states: [] }))}
+              className="px-3 py-1 text-sm rounded border
+                 bg-white border-slate-300
+                 dark:bg-slate-800 dark:border-slate-600"
+            >
+              Clear All
+            </button>
           </div>
+
+          <div
+            className="border rounded-lg p-3 max-h-52 overflow-y-auto
+               bg-white dark:bg-slate-800
+               border-slate-300 dark:border-slate-600"
+          >
+            <div className="grid grid-cols-4 gap-3 text-sm">
+              {US_STATES.map((s) => (
+                <label key={s.code} className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={form.states.includes(s.code)}
+                    onChange={() =>
+                      setForm((prev) => {
+                        const set = new Set(prev.states);
+                        set.has(s.code) ? set.delete(s.code) : set.add(s.code);
+                        return { ...prev, states: Array.from(set) };
+                      })
+                    }
+                    className="accent-indigo-600"
+                  />
+                  {s.code}
+                </label>
+              ))}
+            </div>
+
+          </div>
+          {errors.states && (
+            <p className="text-xs text-red-600 mt-2">
+              {errors.states}
+            </p>
+          )}
+
+          <p className="text-xs text-slate-500 mt-2">
+            {form.states.length} states selected
+          </p>
         </div>
 
         <div className="flex items-center gap-4">
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={form.isActive}
-              onChange={(e) =>
-                setForm({ ...form, isActive: e.target.checked })
-              }
-            />
-            <span className="text-sm">Active</span>
-          </label>
-
           <button
             type="submit"
             disabled={submitting}

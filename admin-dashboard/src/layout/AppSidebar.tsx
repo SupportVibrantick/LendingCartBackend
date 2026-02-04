@@ -25,6 +25,7 @@ import AdminPanelSettingsOutlinedIcon from '@mui/icons-material/AdminPanelSettin
 import CurrencyExchangeOutlinedIcon from '@mui/icons-material/CurrencyExchangeOutlined';
 import { PiSecurityCameraFill } from "react-icons/pi";
 import { GrDocumentText } from "react-icons/gr";
+import { RiExternalLinkLine } from "react-icons/ri";
 
 type NavItem = {
   name: string;
@@ -120,6 +121,16 @@ const navItems: NavItem[] = [
 ];
 
 const othersItems: NavItem[] = [
+  {
+    icon: <RiExternalLinkLine />,
+    name: "Broker Portal",
+    path: "https://broker-lendingcart.vibrantick.org/signin",
+  },
+  {
+    icon: <RiExternalLinkLine />,
+    name: "Lender Portal",
+    path: "https://lender-lendingcart.vibrantick.org/signin",
+  },
   // {
   //   icon: <PieChartIcon />,
   //   name: "Charts",
@@ -256,23 +267,41 @@ const AppSidebar: React.FC = () => {
             </button>
           ) : (
             nav.path && (
-              <Link
-                to={nav.path}
-                className={`menu-item group ${isActive(nav.path) ? "menu-item-active" : "menu-item-inactive"
-                  }`}
-              >
-                <span
-                  className={`menu-item-icon-size ${isActive(nav.path)
-                    ? "menu-item-icon-active"
-                    : "menu-item-icon-inactive"
+              nav.path.startsWith("http") ? (
+                <a
+                  href={nav.path}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="menu-item group menu-item-inactive"
+                >
+                  <span className="menu-item-icon-size menu-item-icon-inactive">
+                    {nav.icon}
+                  </span>
+                  {(isExpanded || isHovered || isMobileOpen) && (
+                    <span className="menu-item-text">{nav.name}</span>
+                  )}
+                </a>
+              ) : (
+                <Link
+                  to={nav.path}
+                  className={`menu-item group ${isActive(nav.path)
+                      ? "menu-item-active"
+                      : "menu-item-inactive"
                     }`}
                 >
-                  {nav.icon}
-                </span>
-                {(isExpanded || isHovered || isMobileOpen) && (
-                  <span className="menu-item-text">{nav.name}</span>
-                )}
-              </Link>
+                  <span
+                    className={`menu-item-icon-size ${isActive(nav.path)
+                        ? "menu-item-icon-active"
+                        : "menu-item-icon-inactive"
+                      }`}
+                  >
+                    {nav.icon}
+                  </span>
+                  {(isExpanded || isHovered || isMobileOpen) && (
+                    <span className="menu-item-text">{nav.name}</span>
+                  )}
+                </Link>
+              )
             )
           )}
           {nav.subItems && (isExpanded || isHovered || isMobileOpen) && (
@@ -355,14 +384,14 @@ const AppSidebar: React.FC = () => {
             <>
               <img
                 className="dark:hidden"
-                src="/bannerLogo.jpeg"
+                src="/ACOM_LOGO.jpeg"
                 alt="Logo"
                 width={150}
                 height={40}
               />
               <img
                 className="hidden dark:block"
-                src="/bannerLogo.jpeg"
+                src="/ACOM_LOGO.jpeg"
                 alt="Logo"
                 width={150}
                 height={40}
@@ -395,6 +424,7 @@ const AppSidebar: React.FC = () => {
                 )}
               </h2>
               {renderMenuItems(navItems, "main")}
+
             </div>
             <div className="">
               <h2
@@ -403,11 +433,11 @@ const AppSidebar: React.FC = () => {
                   : "justify-start"
                   }`}
               >
-                {/* {isExpanded || isHovered || isMobileOpen ? (
-                  "Others"
+                {isExpanded || isHovered || isMobileOpen ? (
+                  "Others Portals"
                 ) : (
-                  <HorizontaLDots />
-                )} */}
+                  <HorizontaLDots className="size-6" />
+                )}
               </h2>
               {renderMenuItems(othersItems, "others")}
             </div>

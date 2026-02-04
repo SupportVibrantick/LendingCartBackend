@@ -852,7 +852,7 @@ export default function ApplicationBuilder() {
                                                 <div>
                                                     {f.label}
                                                     <div className="text-xs text-slate-400">
-                                                         {mapApiFieldTypeToUI(f.fieldType)}
+                                                        {mapApiFieldTypeToUI(f.fieldType)}
                                                     </div>
                                                 </div>
 
@@ -953,6 +953,56 @@ export default function ApplicationBuilder() {
                                                     </div>
                                                 )}
 
+                                                {/* -------- SELECT -------- */}
+                                                {uiType === "select" && (
+                                                    <select
+                                                        disabled
+                                                        className="w-full rounded-lg border px-3 py-2 text-sm
+               bg-white text-slate-900 border-slate-300
+               dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600"
+                                                    >
+                                                        <option value="">
+                                                            {f.placeholder || "Select option"}
+                                                        </option>
+
+                                                        {f.options?.map((opt, i) => (
+                                                            <option key={i}>{opt}</option>
+                                                        ))}
+                                                    </select>
+                                                )}
+
+                                                {/* -------- FILE -------- */}
+                                                {uiType === "file" && (
+                                                    <div className="w-full rounded-lg border px-3 py-2 text-sm
+                  bg-slate-50 border-slate-300
+                  dark:bg-slate-800 dark:border-slate-600">
+                                                        <input
+                                                            type="file"
+                                                            disabled
+                                                            className="w-full text-xs text-slate-500
+                 file:mr-3 file:py-1 file:px-3
+                 file:rounded file:border-0
+                 file:bg-slate-200 file:text-slate-700
+                 dark:file:bg-slate-700 dark:file:text-slate-200"
+                                                        />
+                                                    </div>
+                                                )}
+
+                                                {/* -------- TEXTAREA -------- */}
+                                                {uiType === "textarea" && (
+                                                    <textarea
+                                                        rows={4}
+                                                        readOnly
+                                                        placeholder={f.placeholder || "Enter text"}
+                                                        className="w-full rounded-lg border px-3 py-2 text-sm
+               bg-white text-slate-900 border-slate-300
+               dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600
+               resize-none"
+                                                    />
+                                                )}
+
+
+
                                                 {/* -------- RANGE (FIXED) -------- */}
                                                 {uiType === "range" && (
                                                     <div className="border rounded-lg p-4 bg-slate-50 dark:bg-slate-800 space-y-3">
@@ -1036,6 +1086,55 @@ export default function ApplicationBuilder() {
                                                     </div>
                                                 )}
 
+                                                {/* -------- SELECT -------- */}
+                                                {uiType === "select" && (
+                                                    <select
+                                                        disabled
+                                                        className="w-full rounded-lg border px-3 py-2 text-sm
+               bg-white text-slate-900 border-slate-300
+               dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600"
+                                                    >
+                                                        <option value="">
+                                                            {f.placeholder || "Select option"}
+                                                        </option>
+
+                                                        {f.options?.map((opt, i) => (
+                                                            <option key={i}>{opt}</option>
+                                                        ))}
+                                                    </select>
+                                                )}
+
+                                                {/* -------- FILE -------- */}
+                                                {uiType === "file" && (
+                                                    <div className="w-full rounded-lg border px-3 py-2 text-sm
+                  bg-slate-50 border-slate-300
+                  dark:bg-slate-800 dark:border-slate-600">
+                                                        <input
+                                                            type="file"
+                                                            disabled
+                                                            className="w-full text-xs text-slate-500
+                 file:mr-3 file:py-1 file:px-3
+                 file:rounded file:border-0
+                 file:bg-slate-200 file:text-slate-700
+                 dark:file:bg-slate-700 dark:file:text-slate-200"
+                                                        />
+                                                    </div>
+                                                )}
+
+                                                {/* -------- TEXTAREA -------- */}
+                                                {uiType === "textarea" && (
+                                                    <textarea
+                                                        rows={4}
+                                                        readOnly
+                                                        placeholder={f.placeholder || "Enter text"}
+                                                        className="w-full rounded-lg border px-3 py-2 text-sm
+               bg-white text-slate-900 border-slate-300
+               dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600
+               resize-none"
+                                                    />
+                                                )}
+
+
                                                 {/* RANGE */}
                                                 {uiType === "range" && (
                                                     <div className="border rounded-lg p-4 bg-slate-50 dark:bg-slate-800 space-y-3">
@@ -1070,8 +1169,6 @@ export default function ApplicationBuilder() {
                         )}
 
                     </form>
-
-
                 </div>
             )}
         </div>

@@ -7,7 +7,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Mail,
-  UserPlus,
+  UserPlus
 } from "lucide-react";
 
 /* ================= TYPES ================= */
@@ -19,6 +19,9 @@ type Lender = {
   phone: string;
   status: "NOT_CONNECTED" | "CONNECTED";
   profileImage?: string | null;
+  minFunding: string;
+  maxFunding: string;
+  loanTypes: string[];
 };
 
 type Meta = {
@@ -77,10 +80,18 @@ export default function FindLenders() {
 
       setLenders(
         (json.data || []).map((l: any) => ({
-          ...l,
+          id: l.id,
+          name: l.name,
+          email: l.email,
+          phone: l.phone,
+          status: l.status,
           profileImage: l.profileImage || null,
+          loanTypes: l.lenderProfile?.loanTypes || [],
+          minFunding: l.lenderProfile?.minFunding || "",
+          maxFunding: l.lenderProfile?.maxFunding || "",
         }))
       );
+
       setMeta(json.meta || { page, limit, total: 0 });
     } catch (err) {
       console.error(err);
@@ -94,13 +105,37 @@ export default function FindLenders() {
     setHasSearched(true);
   }
 
-  function inviteLender(lenderId: string) {
+  async function inviteLender(lenderId: string) {
+    if (invitingId) return;
+
     setInvitingId(lenderId);
-    setTimeout(() => {
+
+    try {
+      const res = await fetch(
+        `${API_BASE}/broker/lenders/invite`,
+        {
+          method: "POST",
+          headers: getAuthHeaders(),
+          body: JSON.stringify({
+            lenderOrgId: lenderId,
+          }),
+        }
+      );
+
+      const json = await res.json();
+
+      if (!res.ok || json.success !== true) {
+        throw new Error(json.message || "Failed to send invitation");
+      }
       setLenders((prev) => prev.filter((l) => l.id !== lenderId));
+    } catch (err) {
+      console.error("Invite failed:", err);
+      alert("Failed to send invitation. Please try again.");
+    } finally {
       setInvitingId(null);
-    }, 800);
+    }
   }
+
 
   const totalPages = Math.max(1, Math.ceil(meta.total / meta.limit));
   const isSearchEmpty = q.trim() !== "" && lenders.length === 0 && !loading;
@@ -290,49 +325,82 @@ export default function FindLenders() {
 
         {/* --- CARDS GRID --- */}
         {!loading && !isTotalEmpty && !isSearchEmpty && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
             {lenders.map((l) => (
               <div
                 key={l.id}
-                className="group relative bg-white dark:bg-slate-900 rounded-[1rem] border border-slate-200 dark:border-slate-800 p-8 shadow-sm hover:shadow-2xl hover:shadow-blue-500/10 transition-all duration-300 hover:-translate-y-2"
+                className="group relative bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5 transition-all duration-300 hover:shadow-md"
               >
-                <div className="flex flex-col items-center text-center">
-                  <div className="relative mb-6">
-                    <img
-                      src={l.profileImage ? `${API_BASE}/public${l.profileImage}` : "/circle_logo.png"}
-                      onError={(e: any) => {
-                        e.currentTarget.src = "/circle_logo.png";
-                      }}
-                      className="h-24 w-24 rounded-full object-cover ring-4 ring-slate-50 dark:ring-slate-800 shadow-inner"
-                    />
-                    <div className="absolute -top-2 -right-2 bg-blue-600 text-white p-1.5 rounded-xl shadow-lg">
-                      <Building2 size={14} />
+                {/* Status Badge */}
+                <div className="absolute top-4 right-4 flex items-center gap-1.5 px-2 py-0.5 bg-green-50 dark:bg-green-500/10 rounded-full">
+                  <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
+                  <span className="text-[10px] font-bold text-green-600 dark:text-green-400 uppercase tracking-wider">Active</span>
+                </div>
+
+                <div className="flex gap-4">
+                  {/* Profile Image / Icon Section */}
+                  <div className="relative flex-shrink-0">
+                    <div className="h-14 w-14 rounded-xl overflow-hidden bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center border border-emerald-100 dark:border-emerald-500/20">
+                      {l.profileImage ? (
+                        <img
+                          src={`${API_BASE}/public${l.profileImage}`}
+                          className="h-full w-full object-cover"
+                          onError={(e: any) => (e.currentTarget.src = "/circle_logo.png")}
+                        />
+                      ) : (
+                        <Building2 size={24} className="text-emerald-600 dark:text-emerald-400" />
+                      )}
                     </div>
                   </div>
 
-                  <h3 className="text-md font-bold text-slate-900 dark:text-white group-hover:text-blue-600 transition-colors">
-                    {l.name}
-                  </h3>
+                  {/* Info Section */}
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white truncate group-hover:text-blue-600 transition-colors">
+                      {l.name}
+                    </h3>
+                    <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Lender Team</p>
 
-                  <div className="flex items-center gap-2 mt-2 text-slate-500 dark:text-slate-400">
-                    <Mail size={16} />
-                    <span className="text-xs font-medium truncate max-w-[200px]">{l.email}</span>
+                    <div className="mt-3 space-y-1.5">
+                      <div className="flex items-center gap-2 text-slate-500">
+                        <Mail size={14} className="flex-shrink-0" />
+                        <span className="text-[12px] truncate">{l.email}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300 font-semibold">
+                        <span className="text-sm">
+                          {l.minFunding ? `$${Number(l.minFunding).toLocaleString()}` : "$0"}
+                          {" - "}
+                          {l.maxFunding ? `$${Number(l.maxFunding).toLocaleString()}` : "N/A"}
+                        </span>
+                      </div>
+                    </div>
                   </div>
+                </div>
 
+                {/* Tags Section */}
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {l.loanTypes.slice(0, 3).map((t) => (
+                    <span
+                      key={t}
+                      className="px-2.5 py-1 rounded-md text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200/50 dark:border-slate-700/50"
+                    >
+                      {t}
+                    </span>
+                  ))}
+                </div>
+
+                {/* Action Buttons: Footer */}
+                <div className="mt-5 pt-4 border-t border-slate-100 dark:border-slate-800/50 flex items-center justify-between gap-3">
                   <button
                     onClick={() => inviteLender(l.id)}
                     disabled={invitingId === l.id}
-                    className="text-xs mt-8 w-full flex items-center justify-center gap-3 py-3.5 rounded-2xl font-bold tracking-wide transition-all
-                      bg-slate-950 dark:bg-white text-white dark:text-slate-950
-                      hover:bg-blue-600 dark:hover:bg-blue-500 hover:text-white
-                      disabled:opacity-50 active:scale-95 shadow-lg shadow-slate-200 dark:shadow-none"
+                    className="flex-1 max-w-[100%] flex items-center justify-center gap-2 py-2 rounded-lg text-[11px] font-bold tracking-tight bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 transition-all active:scale-95 shadow-sm shadow-blue-200 dark:shadow-none"
                   >
                     {invitingId === l.id ? (
-                      <RefreshCcw size={18} className="animate-spin" />
+                      <RefreshCcw size={14} className="animate-spin" />
                     ) : (
-                      <UserPlus size={18} />
+                      <UserPlus size={14} />
                     )}
-                    {invitingId === l.id ? "Processing..." : "Send Invitation"}
+                    {invitingId === l.id ? "Working..." : "Invite"}
                   </button>
                 </div>
               </div>
