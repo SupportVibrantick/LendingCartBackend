@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
+import { createPortal } from "react-dom";
 import {
     MapPin,
     Eye,
@@ -8,7 +9,6 @@ import {
     DollarSign,
     Loader2,
     TrendingUp,
-    ArrowRight,
 } from "lucide-react";
 
 /* ================= TYPES ================= */
@@ -54,6 +54,9 @@ export default function LoanApplicationsPage() {
     const [rows, setRows] = useState<TableRow[]>([]);
     const [loading, setLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
+    const [openSubmissionId, setOpenSubmissionId] = useState<string | null>(null);
+    const [submissionDetail, setSubmissionDetail] = useState<any>(null);
+    const [detailLoading, setDetailLoading] = useState(false);
 
     const newCount = rows.filter(
         r => r.status === "NEW" || r.status === "SUBMITTED"
@@ -102,6 +105,26 @@ export default function LoanApplicationsPage() {
   `;
     };
 
+    const fetchSubmissionDetail = async (submissionId: string) => {
+        try {
+            setDetailLoading(true);
+            setOpenSubmissionId(submissionId);
+
+            const res = await fetch(
+                `${API_BASE}/applications/submissions/${submissionId}`
+            );
+            const json = await res.json();
+
+            if (!json.success) throw new Error("Failed to load submission");
+
+            setSubmissionDetail(json.data);
+        } catch (err: any) {
+            toast.error(err.message || "Failed to load submission");
+        } finally {
+            setDetailLoading(false);
+        }
+    };
+
 
     const loadSubmissions = async () => {
         try {
@@ -141,6 +164,17 @@ export default function LoanApplicationsPage() {
     };
 
     useEffect(() => { loadSubmissions(); }, []);
+    useEffect(() => {
+        if (openSubmissionId) {
+            document.body.classList.add("modal-open");
+        } else {
+            document.body.classList.remove("modal-open");
+        }
+
+        return () => {
+            document.body.classList.remove("modal-open");
+        };
+    }, [openSubmissionId]);
 
     const filteredRows = rows.filter(
         (r) =>
@@ -155,7 +189,7 @@ export default function LoanApplicationsPage() {
             <header className="max-w-7xl mx-auto mb-10">
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
                     <div className="space-y-1">
-                        <h1 className="text-4xl font-extrabold tracking-tight bg-gradient-to-r from-slate-900 to-slate-600 dark:from-white dark:to-slate-400 bg-clip-text text-transparent">
+                        <h1 className="text-4xl font-extrabold tracking-tight bg-gradient-to-r from-slate-900 to-slate-600 dark:from-white dark:to-slate-400 bg-clip-text">
                             Loan Pipeline
                         </h1>
                         <p className="text-slate-500 dark:text-slate-400 font-medium">
@@ -228,10 +262,7 @@ export default function LoanApplicationsPage() {
                             </p>
                         </div>
                     </div>
-
                 </div>
-
-
             </header>
 
             {/* Main Table Container */}
@@ -297,10 +328,12 @@ export default function LoanApplicationsPage() {
                                         </td>
 
                                         <td className="px-6 py-5">
-                                            <button className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 rounded-xl hover:bg-blue-600 hover:text-white dark:hover:bg-blue-600 dark:hover:text-white transition-all active:scale-95 group/btn">
+                                            <button
+                                                onClick={() => fetchSubmissionDetail(row.submissionId)}
+                                                className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 rounded-xl hover:bg-blue-600 hover:text-white dark:hover:bg-blue-600 dark:hover:text-white transition-all active:scale-95"
+                                            >
                                                 <Eye className="w-3.5 h-3.5" />
                                                 View
-                                                <ArrowRight className="w-3.5 h-3.5 opacity-0 -translate-x-2 group-hover/btn:opacity-100 group-hover/btn:translate-x-0 transition-all" />
                                             </button>
                                         </td>
                                     </tr>
@@ -321,6 +354,111 @@ export default function LoanApplicationsPage() {
                         </tbody>
                     </table>
                 </div>
+                {openSubmissionId && createPortal(
+                    <div className=" fixed inset-0 z-50
+                                            bg-black/40 dark:bg-black/70
+                                            backdrop-blur-[1px]
+                                            flex items-center justify-center p-4">
+                        <div className="bg-white dark:bg-slate-900
+                                            text-slate-900 dark:text-slate-100
+                                            rounded-2xl
+                                            w-full max-w-3xl max-h-[90vh]
+                                            overflow-y-auto
+                                            shadow-xl dark:shadow-black/40">
+
+                            {/* HEADER */}
+                            <div className="flex items-center justify-between px-6 py-4 border-b dark:border-slate-800">
+                                <div>
+                                    <h2 className="font-bold text-lg">Application Details</h2>
+                                    {/* <p className="text-xs text-slate-500">
+                                        Submission ID: {openSubmissionId}
+                                    </p> */}
+                                </div>
+                                <button
+                                    onClick={() => {
+                                        setOpenSubmissionId(null);
+                                        setSubmissionDetail(null);
+                                    }}
+                                    className="text-slate-400 hover:text-red-500 text-xl"
+                                >
+                                    ✕
+                                </button>
+                            </div>
+
+                            {/* BODY */}
+                            <div className="p-6 space-y-6">
+                                {detailLoading ? (
+                                    <p className="text-center text-slate-500">Loading…</p>
+                                ) : submissionDetail ? (
+                                    (() => {
+                                        const signatureField = submissionDetail.fields?.find(
+                                            (f: any) => f.fieldKey === "borrowerSignature"
+                                        );
+
+                                        return (
+                                            <>
+                                                {/* META */}
+                                                <div className="grid grid-cols-2 gap-4 text-sm">
+                                                    <div>
+                                                        <b>Status:</b> {submissionDetail.status}
+                                                    </div>
+                                                    <div>
+                                                        <b>Submitted At:</b>{" "}
+                                                        {new Date(submissionDetail.submittedAt).toLocaleString()}
+                                                    </div>
+                                                </div>
+
+                                                {/* ALL FIELDS (EXCEPT SIGNATURE) */}
+                                                <div className="border rounded-xl divide-y dark:border-slate-800">
+                                                    {submissionDetail.fields
+                                                        .filter((f: any) => f.fieldKey !== "borrowerSignature")
+                                                        .map((f: any, i: number) => {
+                                                            const parsedValue = parseValue(f.value);
+
+                                                            return (
+                                                                <div
+                                                                    key={i}
+                                                                    className="p-4 flex justify-between gap-4"
+                                                                >
+                                                                    <div className="text-sm font-medium text-slate-600 dark:text-slate-400">
+                                                                        {f.fieldKey || f.fieldId}
+                                                                    </div>
+                                                                    <div className="text-sm font-mono break-all text-right">
+                                                                        {String(parsedValue)}
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                </div>
+
+                                                {/* DIGITAL SIGNATURE (ALWAYS LAST) */}
+                                                {signatureField && (
+                                                    <div className="mt-8">
+                                                        <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                                                            Digital Signature
+                                                        </h3>
+
+                                                        <div className=" border border-slate-200 dark:border-slate-700
+  rounded-xl p-4
+  bg-white dark:bg-slate-900">
+                                                            <img
+                                                                src={parseValue(signatureField.value)}
+                                                                alt="Digital Signature"
+                                                                className="max-w-full bg-white rounded-lg"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </>
+                                        );
+                                    })()
+                                ) : null}
+                            </div>
+
+                        </div>
+                    </div>,
+                    document.body
+                )}
             </div>
         </div>
     );
