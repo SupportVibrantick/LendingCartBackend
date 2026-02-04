@@ -3,13 +3,17 @@ module.exports = async function viewSubmission(fastify) {
     const { submissionId } = req.params;
 
     /* ===============================
-       FETCH SUBMISSION
+       FETCH SUBMISSION + MAP BUILDER
     =============================== */
     const submission =
       await fastify.prisma.applicationSubmission.findUnique({
         where: { id: submissionId },
         include: {
-          fields: true,
+          fields: {
+            include: {
+              builderField: true, //  works once relation exists
+            },
+          },
         },
       });
 
@@ -21,7 +25,7 @@ module.exports = async function viewSubmission(fastify) {
     }
 
     /* ===============================
-       FORMAT RESPONSE
+       FORMAT RESPONSE (CORRECT)
     =============================== */
     return reply.send({
       success: true,
@@ -31,10 +35,18 @@ module.exports = async function viewSubmission(fastify) {
         applicationProductId: submission.applicationProductId,
         status: submission.status,
         submittedAt: submission.createdAt,
-        fields: submission.fields.map(f => ({
+        fields: submission.fields.map((f) => ({
           fieldId: f.fieldId,
-          fieldKey: f.fieldKey,
+
+          // always prefer builder (latest)
+          fieldKey: f.builderField?.fieldKey ?? f.fieldKey,
+          label: f.builderField?.label ?? "Deleted Field",
+          type: f.builderField?.fieldType ?? null,
+          options: f.builderField?.options ?? null,
+
+          //  already parsed by Prisma
           value: f.value,
+
           source: f.source,
         })),
       },

@@ -78,7 +78,7 @@ module.exports = async function listFields(fastify) {
     return reply.send({
       success: true,
       data: {
-        applicationId: product.brokerApplicationId, // ✅ added
+        applicationId: product.brokerApplicationId, //  added
         productId: product.id,
         sections: sections.map(section => ({
           id: section.id,
