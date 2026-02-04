@@ -523,8 +523,10 @@ model BrokerApplicationProductField {
   validation Json?
   sortOrder  Int?
 
+  submissions ApplicationSubmissionField[]
+  
   applicationProduct BrokerApplicationProduct @relation(fields: [applicationProductId], references: [id])
-
+  
   @@index([applicationProductId])
   @@map("broker_application_product_fields")
 }
@@ -961,18 +963,21 @@ model ApplicationSubmission {
 model ApplicationSubmissionField {
   id            String   @id @default(uuid()) @db.Uuid
   submissionId  String   @db.Uuid
-  fieldId       String?  @db.Uuid   // dynamic field
-  fieldKey      String?              // static field
+  fieldId       String?  @db.Uuid
+  fieldKey      String?
   value         Json
-  source        String               // DYNAMIC | STATIC
+  source        String
   createdAt     DateTime @default(now())
 
   submission ApplicationSubmission @relation(fields: [submissionId], references: [id])
+
+  builderField BrokerApplicationProductField? @relation(fields: [fieldId], references: [id])
 
   @@index([submissionId])
   @@index([fieldId])
   @@map("application_submission_fields")
 }
+
 
 enum LenderProfileStatus {
   DRAFT        // created but not completed
