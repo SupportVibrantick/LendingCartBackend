@@ -721,7 +721,7 @@ export default function ApplicationBuilder() {
                             <option value="checkbox">checkbox</option>
                             <option value="radio">Radio</option>
                             <option value="range">Range</option>
-                            <option value="file">File Upload</option>
+                            {/* <option value="file">File Upload</option> */}
                         </select>
 
                         <input
