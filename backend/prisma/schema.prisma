@@ -1130,6 +1130,9 @@ enum LoanProductCode {
   PAYDAY_LOAN
   BNPL
 
+  BRIDGE
+  CONSTRUCTION
+
   /* ================= FALLBACK ================= */
   CUSTOM
 }
