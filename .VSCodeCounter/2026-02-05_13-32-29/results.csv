@@ -1,0 +1,980 @@
+"filename", "language", "JavaScript", "JSON", "TypeScript", "Markdown", "HTML", "JavaScript JSX", "TypeScript JSX", "PostCSS", "JSON with Comments", "SVG", "Pug", "Prisma", "comment", "blank", "total"
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\LICENSE.md", "Markdown", 0, 0, 0, 17, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 22
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\README.md", "Markdown", 0, 0, 0, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 66, 193
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\eslint.config.js", "JavaScript", 27, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 29
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\index.html", "HTML", 0, 0, 0, 0, 11, 0, 0, 0, 0, 0, 0, 0, 1, 1, 13
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\package-lock.json", "JSON", 0, 5810, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 5811
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\package.json", "JSON", 0, 75, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 76
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\postcss.config.js", "JavaScript", 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 6
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\public\images\brand\brand-01.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0, 0, 1, 7
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\public\images\brand\brand-02.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 0, 0, 0, 1, 11
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\public\images\brand\brand-03.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 1, 6
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\public\images\brand\brand-04.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 26, 0, 0, 0, 1, 27
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\public\images\brand\brand-05.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0, 0, 1, 7
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\public\images\brand\brand-06.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 1, 5
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\public\images\brand\brand-07.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 1, 5
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\public\images\brand\brand-08.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, 0, 0, 0, 1, 8
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\public\images\brand\brand-09.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 1, 6
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\public\images\brand\brand-10.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0, 0, 1, 7
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\public\images\brand\brand-11.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 1, 5
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\public\images\brand\brand-12.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 1, 5
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\public\images\brand\brand-13.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 1, 6
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\public\images\brand\brand-14.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0, 0, 1, 7
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\public\images\brand\brand-15.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 1, 5
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\public\images\country\country-01.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 0, 0, 0, 1, 16
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\public\images\country\country-02.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 12, 0, 0, 0, 1, 13
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\public\images\country\country-03.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 17, 0, 0, 0, 1, 18
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\public\images\country\country-04.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 23, 0, 0, 0, 1, 24
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\public\images\country\country-05.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 12, 0, 0, 0, 1, 13
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\public\images\country\country-06.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 11, 0, 0, 0, 1, 12
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\public\images\country\country-07.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 12, 0, 0, 0, 1, 13
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\public\images\country\country-08.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 11, 0, 0, 0, 1, 12
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\public\images\error\404-dark.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 1, 21
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\public\images\error\404.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 1, 21
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\public\images\error\500-dark.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 24, 0, 0, 0, 1, 25
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\public\images\error\500.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 24, 0, 0, 0, 1, 25
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\public\images\error\503-dark.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 26, 0, 0, 0, 1, 27
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\public\images\error\503.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 26, 0, 0, 0, 1, 27
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\public\images\error\maintenance-dark.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 1, 6
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\public\images\error\maintenance.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 1, 6
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\public\images\error\success-dark.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 1, 4
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\public\images\error\success.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 1, 4
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\public\images\icons\file-image-dark.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 1, 4
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\public\images\icons\file-image.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 1, 4
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\public\images\icons\file-pdf-dark.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 1, 4
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\public\images\icons\file-pdf.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 1, 4
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\public\images\icons\file-video-dark.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0, 0, 1, 7
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\public\images\icons\file-video.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0, 0, 1, 7
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\public\images\logo\auth-logo.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 53, 0, 0, 0, 1, 54
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\public\images\logo\logo-dark.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 53, 0, 0, 0, 1, 54
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\public\images\logo\logo-icon.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 44, 0, 0, 0, 1, 45
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\public\images\logo\logo.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 53, 0, 0, 0, 1, 54
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\public\images\shape\grid-01.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 71, 0, 0, 0, 1, 72
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\public\images\task\google-drive.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 21, 0, 0, 0, 1, 22
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\public\images\task\pdf.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 0, 0, 0, 1, 11
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\public\images\video-thumb\youtube-icon-84.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 1, 5
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\App.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 103, 0, 0, 0, 0, 0, 8, 12, 123
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\Utils\ToastProvider\ToastProvider.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 17, 0, 0, 0, 0, 0, 0, 3, 20
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\components\UserProfile\UserAddressCard.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 122, 0, 0, 0, 0, 0, 1, 10, 133
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\components\UserProfile\UserInfoCard.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 166, 0, 0, 0, 0, 0, 1, 18, 185
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\components\UserProfile\UserMetaCard.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 222, 0, 0, 0, 0, 0, 1, 14, 237
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\components\auth\RequireAuth.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 13, 0, 0, 0, 0, 0, 6, 5, 24
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\components\auth\SignInForm.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 148, 0, 0, 0, 0, 0, 10, 24, 182
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\components\auth\SignUpForm.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 182, 0, 0, 0, 0, 0, 6, 3, 191
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\components\charts\bar\BarChartOne.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 95, 0, 0, 0, 0, 0, 0, 3, 98
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\components\charts\line\LineChartOne.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 117, 0, 0, 0, 0, 0, 0, 4, 121
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\components\common\ChartTab.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 39, 0, 0, 0, 0, 0, 0, 7, 46
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\components\common\ComponentCard.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 33, 0, 0, 0, 0, 0, 2, 4, 39
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\components\common\GridShape.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 12, 0, 0, 0, 0, 0, 0, 1, 13
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\components\common\PageBreadCrumb.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 48, 0, 0, 0, 0, 0, 0, 4, 52
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\components\common\PageMeta.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 17, 0, 0, 0, 0, 0, 0, 4, 21
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\components\common\ScrollToTop.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 13, 0, 0, 0, 0, 0, 0, 4, 17
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\components\common\ThemeToggleButton.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 39, 0, 0, 0, 0, 0, 0, 3, 42
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\components\common\ThemeTogglerTwo.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 39, 0, 0, 0, 0, 0, 0, 2, 41
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\components\ecommerce\CountryMap.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 89, 0, 0, 0, 0, 0, 2, 4, 95
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\components\ecommerce\DemographicCard.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 107, 0, 0, 0, 0, 0, 0, 8, 115
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\components\ecommerce\EcommerceMetrics.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 98, 0, 0, 0, 0, 0, 4, 17, 119
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\components\ecommerce\MonthlySalesChart.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 136, 0, 0, 0, 0, 0, 0, 6, 142
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\components\ecommerce\MonthlyTarget.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 189, 0, 0, 0, 0, 0, 0, 10, 199
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\components\ecommerce\RecentOrders.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 197, 0, 0, 0, 0, 0, 5, 7, 209
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\components\ecommerce\StatisticsChart.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 133, 0, 0, 0, 0, 0, 0, 5, 138
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\components\form\Form.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 4, 24
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\components\form\Label.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 24, 0, 0, 0, 0, 0, 0, 4, 28
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\components\form\MultiSelect.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 233, 0, 0, 0, 0, 0, 0, 17, 250
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\components\form\Select.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 55, 0, 0, 0, 0, 0, 3, 7, 65
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\components\form\date-picker.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 54, 0, 0, 0, 0, 0, 0, 7, 61
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\components\form\form-elements\CheckboxComponents.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 35, 0, 0, 0, 0, 0, 0, 2, 37
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\components\form\form-elements\DefaultInputs.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 110, 0, 0, 0, 0, 0, 1, 5, 116
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\components\form\form-elements\DropZone.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 64, 0, 0, 0, 0, 0, 5, 8, 77
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\components\form\form-elements\FileInputExample.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 19, 0, 0, 0, 0, 0, 0, 3, 22
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\components\form\form-elements\InputGroup.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 53, 0, 0, 0, 0, 0, 0, 2, 55
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\components\form\form-elements\InputStates.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 65, 0, 0, 0, 0, 0, 4, 5, 74
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\components\form\form-elements\RadioButtons.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 40, 0, 0, 0, 0, 0, 0, 3, 43
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\components\form\form-elements\SelectInputs.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 49, 0, 0, 0, 0, 0, 0, 3, 52
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\components\form\form-elements\TextAreaInput.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 36, 0, 0, 0, 0, 0, 3, 4, 43
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\components\form\form-elements\ToggleSwitch.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 39, 0, 0, 0, 0, 0, 0, 2, 41
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\components\form\group-input\PhoneInput.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 127, 0, 0, 0, 0, 0, 3, 11, 141
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\components\form\input\Checkbox.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 79, 0, 0, 0, 0, 0, 0, 4, 83
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\components\form\input\FileInput.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 15, 0, 0, 0, 0, 0, 0, 4, 19
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\components\form\input\InputField.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 76, 0, 0, 0, 0, 0, 0, 7, 83
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\components\form\input\Radio.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 61, 0, 0, 0, 0, 0, 0, 3, 64
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\components\form\input\RadioSm.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 52, 0, 0, 0, 0, 0, 3, 3, 58
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\components\form\input\TextArea.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 57, 0, 0, 0, 0, 0, 0, 7, 64
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\components\form\switch\Switch.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 66, 0, 0, 0, 0, 0, 0, 7, 73
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\components\header\Header.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 153, 0, 0, 0, 0, 0, 7, 9, 169
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\components\header\NotificationDropdown.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 351, 0, 0, 0, 0, 0, 2, 28, 381
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\components\header\UserDropdown.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 198, 0, 0, 0, 0, 0, 6, 11, 215
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\components\tables\BasicTables\BasicTableOne.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 214, 0, 0, 0, 0, 0, 3, 6, 223
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\components\ui\alert\Alert.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 134, 0, 0, 0, 0, 0, 2, 9, 145
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\components\ui\avatar\Avatar.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 47, 0, 0, 0, 0, 0, 2, 7, 56
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\components\ui\badge\Badge.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 67, 0, 0, 0, 0, 0, 3, 8, 78
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\components\ui\button\Button.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 48, 0, 0, 0, 0, 0, 2, 6, 56
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\components\ui\dropdown\Dropdown.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 40, 0, 0, 0, 0, 0, 0, 7, 47
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\components\ui\dropdown\DropdownItem.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 41, 0, 0, 0, 0, 0, 0, 6, 47
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\components\ui\images\ResponsiveImage.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 13, 0, 0, 0, 0, 0, 0, 1, 14
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\components\ui\images\ThreeColumnImageGrid.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 27, 0, 0, 0, 0, 0, 0, 3, 30
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\components\ui\images\TwoColumnImageGrid.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 2, 22
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\components\ui\modal\index.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 84, 0, 0, 0, 0, 0, 0, 11, 95
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\components\ui\table\index.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 43, 0, 0, 0, 0, 0, 10, 12, 65
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\components\ui\videos\AspectRatioVideo.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 24, 0, 0, 0, 0, 0, 0, 3, 27
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\components\ui\videos\FourIsToThree.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\components\ui\videos\OneIsToOne.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\components\ui\videos\SixteenIsToNine.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\components\ui\videos\TwentyOneIsToNine.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\context\SidebarContext.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 72, 0, 0, 0, 0, 0, 0, 12, 84
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\context\ThemeContext.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 46, 0, 0, 0, 0, 0, 1, 12, 59
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\hooks\useGoBack.ts", "TypeScript", 0, 0, 13, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 18
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\hooks\useModal.ts", "TypeScript", 0, 0, 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 12
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\icons\alert-hexa.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 1, 4
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\icons\alert.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 0, 0, 0, 1, 16
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\icons\angle-down.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 12, 0, 0, 0, 1, 13
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\icons\angle-left.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 3
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\icons\angle-right.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 3
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\icons\angle-up.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 13, 0, 0, 0, 0, 13
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\icons\arrow-down.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 0, 0, 0, 0, 15
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\icons\arrow-right.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 0, 0, 0, 0, 15
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\icons\arrow-up.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 0, 0, 0, 1, 16
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\icons\audio.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 0, 0, 0, 0, 15
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\icons\bolt.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 0, 0, 0, 0, 15
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\icons\box-cube.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\icons\box-line.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\icons\box.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\icons\calendar.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 13, 0, 0, 0, 0, 13
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\icons\calender-line.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 3
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\icons\chat.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 1, 4
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\icons\check-circle.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 0, 0, 0, 1, 16
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\icons\check-line.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 0, 0, 0, 0, 15
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\icons\chevron-down.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 4, 7
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\icons\chevron-left.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 0, 0, 0, 1, 16
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\icons\chevron-up.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 1, 4
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\icons\close-line.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 0, 14
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\icons\close.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 16, 0, 0, 0, 0, 16
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\icons\copy.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\icons\docs.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\icons\dollar-line.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\icons\download.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 0, 0, 0, 0, 15
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\icons\envelope.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\icons\eye-close.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 13, 0, 0, 0, 1, 14
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\icons\eye.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 13, 0, 0, 0, 1, 14
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\icons\file.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 0, 0, 0, 0, 15
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\icons\folder.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 12, 0, 0, 0, 1, 13
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\icons\grid.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\icons\group.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\icons\horizontal-dots.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\icons\index.ts", "TypeScript", 0, 0, 114, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 116
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\icons\info-error.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\icons\info-hexa.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 1, 4
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\icons\info.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 3
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\icons\list.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\icons\lock.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 18, 0, 0, 0, 1, 19
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\icons\mail-line.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\icons\moredot.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 0, 14
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\icons\page.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\icons\paper-plane.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\icons\pencil.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\icons\pie-chart.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\icons\plug-in.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\icons\plus.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 0, 0, 0, 0, 15
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\icons\shooting-star.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\icons\table.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\icons\task-icon.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\icons\time.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\icons\trash.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 13, 0, 0, 0, 0, 13
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\icons\user-circle.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 4, 7
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\icons\user-line.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\icons\videos.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\index.css", "PostCSS", 0, 0, 0, 0, 0, 0, 0, 688, 0, 0, 0, 0, 11, 81, 780
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\layout\AppHeader.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 154, 0, 0, 0, 0, 0, 5, 16, 175
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\layout\AppLayout.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 34, 0, 0, 0, 0, 0, 0, 5, 39
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\layout\AppSidebar.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 364, 0, 0, 0, 0, 0, 73, 16, 453
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\layout\Backdrop.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 12, 0, 0, 0, 0, 0, 0, 5, 17
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\layout\SidebarWidget.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 23, 0, 0, 0, 0, 0, 0, 1, 24
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\main.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 17, 0, 0, 0, 0, 0, 0, 2, 19
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\pages\ActiveApplication\ActiveApp.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 319, 0, 0, 0, 0, 0, 14, 60, 393
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\pages\AdminLogs\AdminLogs.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 336, 0, 0, 0, 0, 0, 9, 35, 380
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\pages\ApplicationBuilder\AddSection.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 221, 0, 0, 0, 0, 0, 17, 46, 284
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\pages\ApplicationBuilder\Application.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 563, 0, 0, 0, 0, 0, 33, 97, 693
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\pages\ApplicationBuilder\CreateApplication.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 324, 0, 0, 0, 0, 0, 8, 53, 385
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\pages\ApplicationBuilder\LoanApplicationConfig.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 250, 0, 0, 0, 0, 0, 15, 50, 315
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\pages\AuthPages\AuthPageLayout.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 38, 0, 0, 0, 0, 0, 1, 2, 41
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\pages\AuthPages\SignIn.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 16, 0, 0, 0, 0, 0, 0, 2, 18
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\pages\AuthPages\SignUp.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 16, 0, 0, 0, 0, 0, 0, 2, 18
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\pages\Blank.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 24, 0, 0, 0, 0, 0, 0, 3, 27
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\pages\Brokers\AllBrokerAdmin.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 399, 0, 0, 0, 0, 0, 16, 56, 471
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\pages\Brokers\AllBrokers.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 1000, 0, 0, 0, 0, 0, 18, 97, 1115
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\pages\Brokers\BrokersLenders.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 341, 0, 0, 0, 0, 0, 16, 43, 400
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\pages\Brokers\EditBrokerModal.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 101, 0, 0, 0, 0, 0, 3, 17, 121
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\pages\Calendar.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 268, 0, 0, 0, 0, 0, 3, 14, 285
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\pages\Charts\BarChart.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 2, 22
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\pages\Charts\LineChart.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 2, 22
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\pages\Dashboard\Home.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 35, 0, 0, 0, 0, 0, 0, 7, 42
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\pages\Documents\AllDocuments.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 278, 0, 0, 0, 0, 0, 9, 39, 326
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\pages\Forms\FormElements.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 39, 0, 0, 0, 0, 0, 0, 2, 41
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\pages\LandingPageLeads\AllLeads.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 231, 0, 0, 0, 0, 0, 7, 34, 272
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\pages\Lenders\AllLenders.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 1093, 0, 0, 0, 0, 0, 18, 120, 1231
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\pages\Lenders\EditLenderModal.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 159, 0, 0, 0, 0, 0, 6, 16, 181
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\pages\LoanProducts\AllLoanProducts.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 419, 0, 0, 0, 0, 0, 21, 49, 489
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\pages\LoanProducts\AssignedProducts.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 285, 0, 0, 0, 0, 0, 14, 28, 327
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\pages\LoanProducts\LenderAssignProduct.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 717, 0, 0, 0, 0, 0, 28, 115, 860
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\pages\ManageUser\AddUser.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 214, 0, 0, 0, 0, 0, 10, 27, 251
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\pages\ManageUser\AllUser.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 234, 0, 0, 0, 0, 0, 12, 24, 270
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\pages\OtherPage\NotFound.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 39, 0, 0, 0, 0, 0, 1, 5, 45
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\pages\Settings\SettingSideBar.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 128, 0, 0, 0, 0, 0, 3, 12, 143
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\pages\SuperAdmin\AllSuperAdmin.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 445, 0, 0, 0, 0, 0, 22, 51, 518
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\pages\Tables\BasicTables.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 2, 22
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\pages\TemplateBuilder\AddFields.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 296, 0, 0, 0, 0, 0, 13, 51, 360
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\pages\TemplateBuilder\AddLoanProduct.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 218, 0, 0, 0, 0, 0, 11, 42, 271
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\pages\TemplateBuilder\AddSection.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 211, 0, 0, 0, 0, 0, 14, 41, 266
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\pages\TemplateBuilder\AllTemplates.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 287, 0, 0, 0, 0, 0, 8, 46, 341
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\pages\TemplateBuilder\CreateTemplate.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 148, 0, 0, 0, 0, 0, 7, 26, 181
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\pages\UiElements\Alerts.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 81, 0, 0, 0, 0, 0, 0, 2, 83
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\pages\UiElements\Avatars.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 121, 0, 0, 0, 0, 0, 1, 2, 124
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\pages\UiElements\Badges.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 168, 0, 0, 0, 0, 0, 2, 2, 172
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\pages\UiElements\Buttons.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 110, 0, 0, 0, 0, 0, 7, 2, 119
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\pages\UiElements\Images.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 28, 0, 0, 0, 0, 0, 0, 2, 30
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\pages\UiElements\Videos.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 36, 0, 0, 0, 0, 0, 0, 2, 38
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\pages\UserProfiles.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 26, 0, 0, 0, 0, 0, 0, 2, 28
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\svg.d.ts", "TypeScript", 0, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 7
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\src\vite-env.d.ts", "TypeScript", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 2
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\tsconfig.app.json", "JSON", 0, 22, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 3, 27
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\tsconfig.json", "JSON with Comments", 0, 0, 0, 0, 0, 0, 0, 0, 7, 0, 0, 0, 0, 1, 8
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\tsconfig.node.json", "JSON", 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 3, 25
+"d:\Vibrantick\November 2025\LendingCart\admin-dashboard\vite.config.ts", "TypeScript", 0, 0, 15, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 19
+"d:\Vibrantick\November 2025\LendingCart\backend\app.js", "JavaScript", 176, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 33, 224
+"d:\Vibrantick\November 2025\LendingCart\backend\config\openfga.js", "JavaScript", 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 3, 12
+"d:\Vibrantick\November 2025\LendingCart\backend\config\prisma.js", "JavaScript", 15, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 5, 24
+"d:\Vibrantick\November 2025\LendingCart\backend\middleware\authMiddleware.js", "JavaScript", 85, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 14, 102
+"d:\Vibrantick\November 2025\LendingCart\backend\middleware\fgaMiddleware.js", "JavaScript", 26, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 13, 6, 45
+"d:\Vibrantick\November 2025\LendingCart\backend\package-lock.json", "JSON", 0, 6399, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 6400
+"d:\Vibrantick\November 2025\LendingCart\backend\package.json", "JSON", 0, 53, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 54
+"d:\Vibrantick\November 2025\LendingCart\backend\plugins\dbPlugin.js", "JavaScript", 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 11
+"d:\Vibrantick\November 2025\LendingCart\backend\plugins\verifyBroker.js", "JavaScript", 11, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 14
+"d:\Vibrantick\November 2025\LendingCart\backend\plugins\verifyLender.js", "JavaScript", 14, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 16
+"d:\Vibrantick\November 2025\LendingCart\backend\plugins\verifySuperAdmin.js", "JavaScript", 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 13
+"d:\Vibrantick\November 2025\LendingCart\backend\prisma\client.js", "JavaScript", 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 14
+"d:\Vibrantick\November 2025\LendingCart\backend\prisma\schema.prisma", "Prisma", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 961, 58, 197, 1216
+"d:\Vibrantick\November 2025\LendingCart\backend\prisma\seed.js", "JavaScript", 103, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 17, 125
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\LandingPagesLeads\ClmLandingPage\delete.js", "JavaScript", 13, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 16
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\LandingPagesLeads\ClmLandingPage\index.js", "JavaScript", 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 9
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\LandingPagesLeads\ClmLandingPage\list.js", "JavaScript", 22, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 26
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\LandingPagesLeads\ClmLandingPage\status.js", "JavaScript", 18, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 22
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\LandingPagesLeads\CommercialLendingMastery\delete.js", "JavaScript", 13, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 16
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\LandingPagesLeads\CommercialLendingMastery\index.js", "JavaScript", 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 10
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\LandingPagesLeads\CommercialLendingMastery\list.js", "JavaScript", 22, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 26
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\LandingPagesLeads\CommercialLendingMastery\status.js", "JavaScript", 18, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 22
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\LandingPagesLeads\index.js", "JavaScript", 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 10
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\adminUsers\create.js", "JavaScript", 56, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 17, 75
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\adminUsers\index.js", "JavaScript", 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 3, 14
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\adminUsers\read.js", "JavaScript", 38, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 9, 52
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\applications\activeApplication.js", "JavaScript", 66, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 5, 75
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\applications\createApplication.js", "JavaScript", 46, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 8, 56
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\applications\createFromTemplate.js", "JavaScript", 57, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 11, 69
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\applications\fields\addField.js", "JavaScript", 121, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 24, 26, 171
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\applications\fields\deleteField.js", "JavaScript", 37, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 9, 55
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\applications\fields\listFields.js", "JavaScript", 48, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 9, 66
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\applications\fields\updateField.js", "JavaScript", 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 11
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\applications\index.js", "JavaScript", 21, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 16, 6, 43
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\applications\listApplications.js", "JavaScript", 18, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 21
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\applications\products\addProduct.js", "JavaScript", 54, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 10, 69
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\applications\products\listProducts.js", "JavaScript", 29, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 6, 37
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\applications\products\removeProduct.js", "JavaScript", 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 6, 40
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\applications\sections\allSections.js", "JavaScript", 49, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 8, 66
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\applications\sections\createSection.js", "JavaScript", 47, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 11, 73
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\applications\sections\index.js", "JavaScript", 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 8
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\applications\templates\activateTemplate.js", "JavaScript", 17, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 21
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\applications\templates\createTemplate.js", "JavaScript", 38, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 46
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\applications\templates\fields\createField.js", "JavaScript", 37, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 9, 55
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\applications\templates\fields\index.js", "JavaScript", 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 2, 9
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\applications\templates\index.js", "JavaScript", 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 2, 17
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\applications\templates\listTemplate.js", "JavaScript", 35, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 2, 41
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\applications\templates\products\createProduct.js", "JavaScript", 31, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 7, 41
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\applications\templates\products\index.js", "JavaScript", 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 4, 19
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\applications\templates\sections\allSections.js", "JavaScript", 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 4, 39
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\applications\templates\sections\createSections.js", "JavaScript", 25, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 6, 37
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\applications\templates\sections\index.js", "JavaScript", 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 8
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\applications\templates\updateTemplate.js", "JavaScript", 86, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 14, 108
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\applications\updateApplicationStatus.js", "JavaScript", 29, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 6, 37
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\auth\index.js", "JavaScript", 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 1, 8
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\auth\login.js", "JavaScript", 102, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 12, 117
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\auth\me.js", "JavaScript", 63, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, 8, 78
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\auth\register.js", "JavaScript", 70, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 9, 80
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\brokers\create.js", "JavaScript", 167, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 17, 34, 218
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\brokers\index.js", "JavaScript", 11, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 14
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\brokers\read.js", "JavaScript", 261, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, 30, 298
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\brokers\status.js", "JavaScript", 185, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 17, 31, 233
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\brokers\update.js", "JavaScript", 171, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 14, 199
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\documentTypes\create.js", "JavaScript", 67, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 13, 12, 92
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\documentTypes\index.js", "JavaScript", 11, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 14
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\documentTypes\list.js", "JavaScript", 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 6, 69
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\documentTypes\toggleStatus.js", "JavaScript", 56, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 9, 68
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\documentTypes\update.js", "JavaScript", 56, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 9, 68
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\index.js", "JavaScript", 43, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, 7, 57
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\lenderProducts\create.js", "JavaScript", 118, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 19, 27, 164
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\lenderProducts\index.js", "JavaScript", 11, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 14
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\lenderProducts\list.js", "JavaScript", 44, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 8, 56
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\lenderProducts\toggleStatus.js", "JavaScript", 41, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 6, 48
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\lenderProducts\update.js", "JavaScript", 54, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 9, 64
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\lenders\create.js", "JavaScript", 226, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 29, 37, 292
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\lenders\index.js", "JavaScript", 11, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 14
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\lenders\read.js", "JavaScript", 242, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 28, 17, 287
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\lenders\status.js", "JavaScript", 282, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 25, 34, 341
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\lenders\update.js", "JavaScript", 179, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 18, 28, 225
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\loanProducts\create.js", "JavaScript", 37, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 8, 48
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\loanProducts\index.js", "JavaScript", 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 9
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\loanProducts\read.js", "JavaScript", 19, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 21
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\loanProducts\status.js", "JavaScript", 23, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 28
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\loanProducts\update.js", "JavaScript", 23, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 28
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\logs\logs.js", "JavaScript", 91, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 10, 107
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\admin\stats\index.js", "JavaScript", 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 6, 74
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\broker\applications\activeApplication.js", "JavaScript", 108, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 8, 120
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\broker\applications\createApplication.js", "JavaScript", 40, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 8, 49
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\broker\applications\createFromTemplate.js", "JavaScript", 86, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, 12, 105
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\broker\applications\fields\addField.js", "JavaScript", 150, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 27, 23, 200
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\broker\applications\fields\deleteField.js", "JavaScript", 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 10
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\broker\applications\fields\listFields.js", "JavaScript", 93, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 7, 115
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\broker\applications\fields\updateField.js", "JavaScript", 150, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 21, 27, 198
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\broker\applications\index.js", "JavaScript", 19, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 13, 4, 36
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\broker\applications\listApplications.js", "JavaScript", 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 11
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\broker\applications\products\addProduct.js", "JavaScript", 36, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 7, 47
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\broker\applications\products\listProducts.js", "JavaScript", 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 10
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\broker\applications\products\removeProduct.js", "JavaScript", 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 12
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\broker\applications\sections\allSections.js", "JavaScript", 43, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 5, 57
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\broker\applications\sections\createSections.js", "JavaScript", 59, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 9, 78
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\broker\applications\sections\deleteSections.js", "JavaScript", 45, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 6, 60
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\broker\applications\sections\index.js", "JavaScript", 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 7
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\broker\applications\sections\updadteSections.js", "JavaScript", 70, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 9, 89
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\broker\applications\updateApplication.js", "JavaScript", 56, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 8, 66
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\broker\applications\updateApplicationStatus.js", "JavaScript", 17, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 21
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\broker\auth\index.js", "JavaScript", 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 3, 13
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\broker\auth\login.js", "JavaScript", 118, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 24, 14, 156
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\broker\auth\me.js", "JavaScript", 61, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 7, 72
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\broker\auth\register.js", "JavaScript", 114, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 20, 143
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\broker\index.js", "JavaScript", 43, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 21, 14, 78
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\broker\lenders\acceptInvite.js", "JavaScript", 59, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 8, 70
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\broker\lenders\connected.js", "JavaScript", 49, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 6, 58
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\broker\lenders\find.js", "JavaScript", 138, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 24, 20, 182
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\broker\lenders\index.js", "JavaScript", 12, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 14
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\broker\lenders\invite.js", "JavaScript", 104, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 19, 11, 134
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\broker\lenders\inviteList.js", "JavaScript", 88, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 18, 12, 118
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\broker\lenders\invites.js", "JavaScript", 49, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 6, 58
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\broker\lenders\products.js", "JavaScript", 70, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 8, 83
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\broker\lenders\rejectInvite.js", "JavaScript", 50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 8, 61
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\broker\lenders\status.js", "JavaScript", 98, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 16, 11, 125
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\broker\templates\getTemplateDetails.js", "JavaScript", 39, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 4, 46
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\broker\templates\index.js", "JavaScript", 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 2, 12
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\broker\templates\listTemplates.js", "JavaScript", 34, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 3, 38
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\broker\websiteBuilder\index.js", "JavaScript", 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 2, 10
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\broker\websiteBuilder\pages\getPageByType.js", "JavaScript", 89, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, 8, 104
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\broker\websiteBuilder\pages\getPages.js", "JavaScript", 47, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 7, 60
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\broker\websiteBuilder\pages\index.js", "JavaScript", 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 2, 12
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\broker\websiteBuilder\pages\savePage.js", "JavaScript", 93, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 9, 110
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\broker\websiteBuilder\pages\togglePage.js", "JavaScript", 82, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 10, 100
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\broker\websiteBuilder\website\getWebsite.js", "JavaScript", 52, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 6, 64
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\broker\websiteBuilder\website\index.js", "JavaScript", 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 2, 10
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\broker\websiteBuilder\website\publishWebsite.js", "JavaScript", 46, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 7, 59
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\broker\whiteLabelSettings\getSettings.js", "JavaScript", 58, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 11, 11, 80
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\broker\whiteLabelSettings\index.js", "JavaScript", 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 9
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\broker\whiteLabelSettings\updateSettings.js", "JavaScript", 79, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 13, 102
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\common\documentTypes\index.js", "JavaScript", 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 4
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\common\documentTypes\listActive.js", "JavaScript", 29, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 32
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\common\loanProducts\index.js", "JavaScript", 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 8
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\common\loanProducts\loanProducts.js", "JavaScript", 27, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 33
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\index.js", "JavaScript", 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 9, 43
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\lender\auth\index.js", "JavaScript", 11, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 13
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\lender\auth\login.js", "JavaScript", 101, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 18, 12, 131
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\lender\auth\me.js", "JavaScript", 83, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 9, 96
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\lender\auth\register.js", "JavaScript", 98, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 16, 119
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\lender\auth\updateProfile.js", "JavaScript", 160, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 12, 21, 193
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\lender\broker\find.js", "JavaScript", 105, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 10, 130
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\lender\broker\index.js", "JavaScript", 13, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 16
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\lender\broker\invite.js", "JavaScript", 89, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 10, 114
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\lender\broker\inviteList.js", "JavaScript", 75, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 8, 98
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\lender\broker\list.js", "JavaScript", 69, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 9, 92
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\lender\broker\status.js", "JavaScript", 88, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 10, 113
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\lender\documentConfig\create.js", "JavaScript", 119, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 15, 143
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\lender\documentConfig\index.js", "JavaScript", 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 15
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\lender\documentConfig\list.js", "JavaScript", 57, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 6, 68
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\lender\documentConfig\update.js", "JavaScript", 91, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 17, 116
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\lender\eligibility\createRule.js", "JavaScript", 82, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, 9, 98
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\lender\eligibility\createRuleSet.js", "JavaScript", 85, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 11, 105
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\lender\eligibility\index.js", "JavaScript", 19, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 4, 33
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\lender\eligibility\listAllRuleSets.js", "JavaScript", 54, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 57
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\lender\eligibility\listRuleSets.js", "JavaScript", 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 7, 72
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\lender\eligibility\listRules.js", "JavaScript", 62, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 7, 74
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\lender\eligibility\updateRule.js", "JavaScript", 59, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 7, 72
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\lender\eligibility\updateRuleSet.js", "JavaScript", 84, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, 13, 104
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\lender\index.js", "JavaScript", 39, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 20, 12, 71
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\lender\loanProduct\create.js", "JavaScript", 120, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 18, 16, 154
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\lender\loanProduct\index.js", "JavaScript", 11, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 17
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\lender\loanProduct\list.js", "JavaScript", 25, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 29
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\lender\loanProduct\toggleStatus.js", "JavaScript", 68, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 12, 7, 87
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\lender\loanProduct\update.js", "JavaScript", 117, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 17, 149
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\public\LandingPagesLeads\ClmLandingPage\create.js", "JavaScript", 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 37
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\public\LandingPagesLeads\ClmLandingPage\index.js", "JavaScript", 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 4
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\public\LandingPagesLeads\CommercialLendingMastery\create.js", "JavaScript", 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 4, 37
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\public\LandingPagesLeads\CommercialLendingMastery\index.js", "JavaScript", 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 4
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\public\LandingPagesLeads\index.js", "JavaScript", 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 10
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\public\broker\applications\getActiveApplication.js", "JavaScript", 97, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 5, 107
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\public\broker\applications\getProductFields.js", "JavaScript", 27, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 31
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\public\broker\applications\index.js", "JavaScript", 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 1, 12
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\public\broker\applications\listSubmissions.js", "JavaScript", 22, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 2, 27
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\public\broker\applications\submitApplication.js", "JavaScript", 104, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 24, 18, 146
+"d:\Vibrantick\November 2025\LendingCart\backend\routes\public\broker\applications\viewSubmission.js", "JavaScript", 41, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 7, 56
+"d:\Vibrantick\November 2025\LendingCart\backend\schemas\admin\adminUsers\create.schema.js", "JavaScript", 22, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 6, 29
+"d:\Vibrantick\November 2025\LendingCart\backend\schemas\admin\brokers\create.schema.js", "JavaScript", 11, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 15
+"d:\Vibrantick\November 2025\LendingCart\backend\schemas\admin\documentTypes\create.schema.js", "JavaScript", 13, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 16
+"d:\Vibrantick\November 2025\LendingCart\backend\schemas\admin\documentTypes\status.schema.js", "JavaScript", 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 11
+"d:\Vibrantick\November 2025\LendingCart\backend\schemas\admin\documentTypes\update.schema.js", "JavaScript", 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 12
+"d:\Vibrantick\November 2025\LendingCart\backend\schemas\admin\lenderProducts\create.schema.js", "JavaScript", 30, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 14, 46
+"d:\Vibrantick\November 2025\LendingCart\backend\schemas\admin\lenderProducts\update.schema.js", "JavaScript", 11, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 3, 15
+"d:\Vibrantick\November 2025\LendingCart\backend\schemas\admin\lenders\create.schema.js", "JavaScript", 12, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 5, 19
+"d:\Vibrantick\November 2025\LendingCart\backend\schemas\admin\loanProducts\create.schema.js", "JavaScript", 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 8
+"d:\Vibrantick\November 2025\LendingCart\backend\schemas\admin\loanProducts\status.schema.js", "JavaScript", 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 6
+"d:\Vibrantick\November 2025\LendingCart\backend\schemas\admin\loanProducts\update.schema.js", "JavaScript", 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 7
+"d:\Vibrantick\November 2025\LendingCart\backend\schemas\admin\login\add.schema.js", "JavaScript", 11, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 3, 15
+"d:\Vibrantick\November 2025\LendingCart\backend\schemas\admin\login\login.schema.js", "JavaScript", 17, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 4, 22
+"d:\Vibrantick\November 2025\LendingCart\backend\schemas\broker\auth\login.schema.js", "JavaScript", 19, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 23
+"d:\Vibrantick\November 2025\LendingCart\backend\schemas\broker\auth\register.schema.js", "JavaScript", 51, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, 9, 67
+"d:\Vibrantick\November 2025\LendingCart\backend\schemas\document\upload.schema.js", "JavaScript", 11, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 3, 15
+"d:\Vibrantick\November 2025\LendingCart\backend\schemas\lender\documentConfig\create.schema.js", "JavaScript", 13, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 19
+"d:\Vibrantick\November 2025\LendingCart\backend\schemas\lender\documentConfig\update.schema.js", "JavaScript", 11, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 14
+"d:\Vibrantick\November 2025\LendingCart\backend\schemas\lender\eligibility\create.schema.js", "JavaScript", 22, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 9, 33
+"d:\Vibrantick\November 2025\LendingCart\backend\schemas\lender\eligibility\createRuleSet.schema.js", "JavaScript", 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 8
+"d:\Vibrantick\November 2025\LendingCart\backend\schemas\lender\eligibility\update.schema.js", "JavaScript", 21, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 24
+"d:\Vibrantick\November 2025\LendingCart\backend\schemas\lender\eligibility\updateRuleSet.schema.js", "JavaScript", 11, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 14
+"d:\Vibrantick\November 2025\LendingCart\backend\schemas\lender\loanProduct\create.schema.js", "JavaScript", 24, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 27
+"d:\Vibrantick\November 2025\LendingCart\backend\schemas\lender\loanProduct\update.schema.js", "JavaScript", 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 26
+"d:\Vibrantick\November 2025\LendingCart\backend\schemas\loan\loanApplication.schema.js", "JavaScript", 27, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 5, 33
+"d:\Vibrantick\November 2025\LendingCart\backend\services\authService.js", "JavaScript", 18, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 6, 25
+"d:\Vibrantick\November 2025\LendingCart\backend\services\eligibility\evaluateRule.js", "JavaScript", 31, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 8, 45
+"d:\Vibrantick\November 2025\LendingCart\backend\services\eligibility\evaluateRuleSet.js", "JavaScript", 21, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 6, 32
+"d:\Vibrantick\November 2025\LendingCart\backend\services\eligibility\operator.js", "JavaScript", 34, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 13, 48
+"d:\Vibrantick\November 2025\LendingCart\backend\services\fgaService.js", "JavaScript", 34, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 12, 7, 53
+"d:\Vibrantick\November 2025\LendingCart\backend\services\kafka\email\consumer.js", "JavaScript", 86, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 16, 110
+"d:\Vibrantick\November 2025\LendingCart\backend\services\kafka\email\producer.js", "JavaScript", 89, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 14, 109
+"d:\Vibrantick\November 2025\LendingCart\backend\services\logger\contextLogger.js", "JavaScript", 46, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 10, 61
+"d:\Vibrantick\November 2025\LendingCart\backend\services\mail.js", "JavaScript", 52, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 13, 69
+"d:\Vibrantick\November 2025\LendingCart\backend\templates\admin\broker\create.html", "HTML", 0, 0, 0, 0, 104, 0, 0, 0, 0, 0, 0, 0, 8, 20, 132
+"d:\Vibrantick\November 2025\LendingCart\backend\templates\admin\lender\create.html", "HTML", 0, 0, 0, 0, 131, 0, 0, 0, 0, 0, 0, 0, 0, 23, 154
+"d:\Vibrantick\November 2025\LendingCart\backend\utils\loadTemplate.js", "JavaScript", 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 11, 46
+"d:\Vibrantick\November 2025\LendingCart\backend\utils\password.js", "JavaScript", 12, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 4, 17
+"d:\Vibrantick\November 2025\LendingCart\backend\views\error.pug", "Pug", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 0, 0, 1, 10
+"d:\Vibrantick\November 2025\LendingCart\backend\views\index.pug", "Pug", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 68, 0, 0, 13, 81
+"d:\Vibrantick\November 2025\LendingCart\backend\views\layout.pug", "Pug", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 23, 0, 0, 0, 23
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\LICENSE.md", "Markdown", 0, 0, 0, 17, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 22
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\README.md", "Markdown", 0, 0, 0, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 66, 193
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\eslint.config.js", "JavaScript", 27, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 29
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\index.html", "HTML", 0, 0, 0, 0, 11, 0, 0, 0, 0, 0, 0, 0, 1, 1, 13
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\package-lock.json", "JSON", 0, 5868, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 5869
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\package.json", "JSON", 0, 77, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 78
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\postcss.config.js", "JavaScript", 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 6
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\public\images\brand\brand-01.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0, 0, 1, 7
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\public\images\brand\brand-02.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 0, 0, 0, 1, 11
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\public\images\brand\brand-03.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 1, 6
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\public\images\brand\brand-04.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 26, 0, 0, 0, 1, 27
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\public\images\brand\brand-05.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0, 0, 1, 7
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\public\images\brand\brand-06.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 1, 5
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\public\images\brand\brand-07.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 1, 5
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\public\images\brand\brand-08.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, 0, 0, 0, 1, 8
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\public\images\brand\brand-09.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 1, 6
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\public\images\brand\brand-10.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0, 0, 1, 7
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\public\images\brand\brand-11.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 1, 5
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\public\images\brand\brand-12.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 1, 5
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\public\images\brand\brand-13.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 1, 6
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\public\images\brand\brand-14.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0, 0, 1, 7
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\public\images\brand\brand-15.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 1, 5
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\public\images\country\country-01.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 0, 0, 0, 1, 16
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\public\images\country\country-02.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 12, 0, 0, 0, 1, 13
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\public\images\country\country-03.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 17, 0, 0, 0, 1, 18
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\public\images\country\country-04.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 23, 0, 0, 0, 1, 24
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\public\images\country\country-05.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 12, 0, 0, 0, 1, 13
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\public\images\country\country-06.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 11, 0, 0, 0, 1, 12
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\public\images\country\country-07.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 12, 0, 0, 0, 1, 13
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\public\images\country\country-08.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 11, 0, 0, 0, 1, 12
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\public\images\error\404-dark.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 1, 21
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\public\images\error\404.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 1, 21
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\public\images\error\500-dark.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 24, 0, 0, 0, 1, 25
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\public\images\error\500.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 24, 0, 0, 0, 1, 25
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\public\images\error\503-dark.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 26, 0, 0, 0, 1, 27
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\public\images\error\503.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 26, 0, 0, 0, 1, 27
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\public\images\error\maintenance-dark.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 1, 6
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\public\images\error\maintenance.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 1, 6
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\public\images\error\success-dark.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 1, 4
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\public\images\error\success.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 1, 4
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\public\images\icons\file-image-dark.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 1, 4
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\public\images\icons\file-image.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 1, 4
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\public\images\icons\file-pdf-dark.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 1, 4
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\public\images\icons\file-pdf.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 1, 4
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\public\images\icons\file-video-dark.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0, 0, 1, 7
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\public\images\icons\file-video.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0, 0, 1, 7
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\public\images\logo\auth-logo.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 53, 0, 0, 0, 1, 54
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\public\images\logo\logo-dark.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 53, 0, 0, 0, 1, 54
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\public\images\logo\logo-icon.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 44, 0, 0, 0, 1, 45
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\public\images\logo\logo.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 53, 0, 0, 0, 1, 54
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\public\images\shape\grid-01.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 71, 0, 0, 0, 1, 72
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\public\images\task\google-drive.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 21, 0, 0, 0, 1, 22
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\public\images\task\pdf.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 0, 0, 0, 1, 11
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\public\images\video-thumb\youtube-icon-84.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 1, 5
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\App.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 183, 0, 0, 0, 0, 0, 9, 28, 220
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\Utils\ToastProvider\ToastProvider.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 17, 0, 0, 0, 0, 0, 0, 3, 20
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\UserProfile\UserAddressCard.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 122, 0, 0, 0, 0, 0, 1, 10, 133
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\UserProfile\UserInfoCard.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 166, 0, 0, 0, 0, 0, 1, 18, 185
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\UserProfile\UserMetaCard.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 213, 0, 0, 0, 0, 0, 11, 40, 264
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\auth\RequireAuth.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 13, 0, 0, 0, 0, 0, 6, 5, 24
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\auth\SignInForm.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 165, 0, 0, 0, 0, 0, 10, 38, 213
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\auth\SignUpForm.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 181, 0, 0, 0, 0, 0, 3, 39, 223
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\broker-site\SiteFooter.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 11, 0, 0, 0, 0, 0, 0, 2, 13
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\broker-site\SiteLayout.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 43, 0, 0, 0, 0, 0, 1, 6, 50
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\broker-site\SiteNavbar.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 57, 0, 0, 0, 0, 0, 2, 8, 67
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\broker-site\sections\FundedDealsMap.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 61, 0, 0, 0, 0, 0, 5, 8, 74
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\broker-site\sections\HeroSection.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 109, 0, 0, 0, 0, 0, 8, 12, 129
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\broker-site\sections\HowItWorksSection.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 61, 0, 0, 0, 0, 0, 7, 9, 77
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\broker-site\sections\ProductsSection.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 38, 0, 0, 0, 0, 0, 5, 7, 50
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\broker-site\sections\Reviews.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 128, 0, 0, 0, 0, 0, 7, 14, 149
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\broker-site\sections\StatsSection.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 58, 0, 0, 0, 0, 0, 5, 7, 70
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\broker-site\sections\WhyChooseUs.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 28, 0, 0, 0, 0, 0, 0, 5, 33
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\charts\bar\BarChartOne.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 95, 0, 0, 0, 0, 0, 0, 3, 98
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\charts\line\LineChartOne.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 117, 0, 0, 0, 0, 0, 0, 4, 121
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\common\ChartTab.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 39, 0, 0, 0, 0, 0, 0, 7, 46
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\common\ComponentCard.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 33, 0, 0, 0, 0, 0, 2, 4, 39
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\common\GridShape.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 12, 0, 0, 0, 0, 0, 0, 1, 13
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\common\PageBreadCrumb.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 48, 0, 0, 0, 0, 0, 0, 4, 52
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\common\PageMeta.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 17, 0, 0, 0, 0, 0, 0, 4, 21
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\common\ScrollToTop.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 13, 0, 0, 0, 0, 0, 0, 4, 17
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\common\ThemeToggleButton.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 39, 0, 0, 0, 0, 0, 0, 3, 42
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\common\ThemeTogglerTwo.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 39, 0, 0, 0, 0, 0, 0, 2, 41
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\ecommerce\CountryMap.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 89, 0, 0, 0, 0, 0, 2, 4, 95
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\ecommerce\DemographicCard.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 107, 0, 0, 0, 0, 0, 0, 8, 115
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\ecommerce\EcommerceMetrics.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 98, 0, 0, 0, 0, 0, 4, 17, 119
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\ecommerce\MonthlySalesChart.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 136, 0, 0, 0, 0, 0, 0, 6, 142
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\ecommerce\MonthlyTarget.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 189, 0, 0, 0, 0, 0, 0, 10, 199
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\ecommerce\RecentOrders.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 197, 0, 0, 0, 0, 0, 5, 7, 209
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\ecommerce\StatisticsChart.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 133, 0, 0, 0, 0, 0, 0, 5, 138
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\editor\SidePanel.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 2, 10
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\form\Form.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 4, 24
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\form\Label.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 24, 0, 0, 0, 0, 0, 0, 4, 28
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\form\MultiSelect.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 233, 0, 0, 0, 0, 0, 0, 17, 250
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\form\Select.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 55, 0, 0, 0, 0, 0, 3, 7, 65
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\form\date-picker.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 54, 0, 0, 0, 0, 0, 0, 7, 61
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\form\form-elements\CheckboxComponents.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 35, 0, 0, 0, 0, 0, 0, 2, 37
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\form\form-elements\DefaultInputs.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 110, 0, 0, 0, 0, 0, 1, 5, 116
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\form\form-elements\DropZone.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 64, 0, 0, 0, 0, 0, 5, 8, 77
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\form\form-elements\FileInputExample.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 19, 0, 0, 0, 0, 0, 0, 3, 22
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\form\form-elements\InputGroup.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 53, 0, 0, 0, 0, 0, 0, 2, 55
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\form\form-elements\InputStates.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 65, 0, 0, 0, 0, 0, 4, 5, 74
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\form\form-elements\RadioButtons.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 40, 0, 0, 0, 0, 0, 0, 3, 43
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\form\form-elements\SelectInputs.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 49, 0, 0, 0, 0, 0, 0, 3, 52
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\form\form-elements\TextAreaInput.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 36, 0, 0, 0, 0, 0, 3, 4, 43
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\form\form-elements\ToggleSwitch.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 39, 0, 0, 0, 0, 0, 0, 2, 41
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\form\group-input\PhoneInput.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 127, 0, 0, 0, 0, 0, 3, 11, 141
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\form\input\Checkbox.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 79, 0, 0, 0, 0, 0, 0, 4, 83
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\form\input\FileInput.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 15, 0, 0, 0, 0, 0, 0, 4, 19
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\form\input\InputField.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 76, 0, 0, 0, 0, 0, 0, 7, 83
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\form\input\Radio.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 61, 0, 0, 0, 0, 0, 0, 3, 64
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\form\input\RadioSm.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 52, 0, 0, 0, 0, 0, 3, 3, 58
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\form\input\TextArea.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 57, 0, 0, 0, 0, 0, 0, 7, 64
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\form\switch\Switch.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 66, 0, 0, 0, 0, 0, 0, 7, 73
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\header\Header.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 153, 0, 0, 0, 0, 0, 7, 9, 169
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\header\NotificationDropdown.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 351, 0, 0, 0, 0, 0, 2, 28, 381
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\header\UserDropdown.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 197, 0, 0, 0, 0, 0, 6, 11, 214
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\tables\BasicTables\BasicTableOne.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 214, 0, 0, 0, 0, 0, 3, 6, 223
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\ui\alert\Alert.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 134, 0, 0, 0, 0, 0, 2, 9, 145
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\ui\avatar\Avatar.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 47, 0, 0, 0, 0, 0, 2, 7, 56
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\ui\badge\Badge.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 67, 0, 0, 0, 0, 0, 3, 8, 78
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\ui\button\Button.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 48, 0, 0, 0, 0, 0, 2, 6, 56
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\ui\dropdown\Dropdown.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 40, 0, 0, 0, 0, 0, 0, 7, 47
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\ui\dropdown\DropdownItem.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 41, 0, 0, 0, 0, 0, 0, 6, 47
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\ui\images\ResponsiveImage.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 13, 0, 0, 0, 0, 0, 0, 1, 14
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\ui\images\ThreeColumnImageGrid.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 27, 0, 0, 0, 0, 0, 0, 3, 30
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\ui\images\TwoColumnImageGrid.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 2, 22
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\ui\modal\index.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 84, 0, 0, 0, 0, 0, 0, 11, 95
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\ui\table\index.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 43, 0, 0, 0, 0, 0, 10, 12, 65
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\ui\videos\AspectRatioVideo.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 24, 0, 0, 0, 0, 0, 0, 3, 27
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\ui\videos\FourIsToThree.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\ui\videos\OneIsToOne.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\ui\videos\SixteenIsToNine.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\components\ui\videos\TwentyOneIsToNine.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\context\SidebarContext.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 72, 0, 0, 0, 0, 0, 0, 12, 84
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\context\ThemeContext.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 46, 0, 0, 0, 0, 0, 1, 12, 59
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\hooks\useGoBack.ts", "TypeScript", 0, 0, 13, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 18
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\hooks\useModal.ts", "TypeScript", 0, 0, 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 12
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\icons\alert-hexa.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 1, 4
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\icons\alert.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 0, 0, 0, 1, 16
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\icons\angle-down.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 12, 0, 0, 0, 1, 13
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\icons\angle-left.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 3
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\icons\angle-right.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 3
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\icons\angle-up.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 13, 0, 0, 0, 0, 13
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\icons\arrow-down.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 0, 0, 0, 0, 15
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\icons\arrow-right.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 0, 0, 0, 0, 15
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\icons\arrow-up.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 0, 0, 0, 1, 16
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\icons\audio.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 0, 0, 0, 0, 15
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\icons\bolt.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 0, 0, 0, 0, 15
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\icons\box-cube.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\icons\box-line.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\icons\box.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\icons\calendar.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 13, 0, 0, 0, 0, 13
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\icons\calender-line.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 3
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\icons\chat.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 1, 4
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\icons\check-circle.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 0, 0, 0, 1, 16
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\icons\check-line.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 0, 0, 0, 0, 15
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\icons\chevron-down.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 4, 7
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\icons\chevron-left.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 0, 0, 0, 1, 16
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\icons\chevron-up.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 1, 4
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\icons\close-line.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 0, 14
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\icons\close.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 16, 0, 0, 0, 0, 16
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\icons\copy.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\icons\docs.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\icons\dollar-line.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\icons\download.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 0, 0, 0, 0, 15
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\icons\envelope.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\icons\eye-close.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 13, 0, 0, 0, 1, 14
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\icons\eye.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 13, 0, 0, 0, 1, 14
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\icons\file.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 0, 0, 0, 0, 15
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\icons\folder.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 12, 0, 0, 0, 1, 13
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\icons\grid.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\icons\group.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\icons\horizontal-dots.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\icons\index.ts", "TypeScript", 0, 0, 114, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 116
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\icons\info-error.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\icons\info-hexa.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 1, 4
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\icons\info.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 3
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\icons\list.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\icons\lock.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 18, 0, 0, 0, 1, 19
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\icons\mail-line.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\icons\moredot.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 0, 14
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\icons\page.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\icons\paper-plane.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\icons\pencil.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\icons\pie-chart.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\icons\plug-in.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\icons\plus.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 0, 0, 0, 0, 15
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\icons\shooting-star.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\icons\table.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\icons\task-icon.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\icons\time.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\icons\trash.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 13, 0, 0, 0, 0, 13
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\icons\user-circle.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 4, 7
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\icons\user-line.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\icons\videos.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\index.css", "PostCSS", 0, 0, 0, 0, 0, 0, 0, 788, 0, 0, 0, 0, 37, 114, 939
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\layout\AppHeader.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 148, 0, 0, 0, 0, 0, 54, 32, 234
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\layout\AppLayout.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 33, 0, 0, 0, 0, 0, 0, 5, 38
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\layout\AppSidebar.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 307, 0, 0, 0, 0, 0, 110, 22, 439
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\layout\Backdrop.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 12, 0, 0, 0, 0, 0, 0, 5, 17
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\layout\SidebarWidget.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 23, 0, 0, 0, 0, 0, 0, 1, 24
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\main.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 17, 0, 0, 0, 0, 0, 0, 2, 19
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\pages\ActiveApplication\ActiveApp.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 350, 0, 0, 0, 0, 0, 22, 50, 422
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\pages\AdminLogs\AdminLogs.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 336, 0, 0, 0, 0, 0, 9, 35, 380
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\pages\ApplicationBuilder\AddSection.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 369, 0, 0, 0, 0, 0, 43, 63, 475
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\pages\ApplicationBuilder\Application.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 960, 0, 0, 0, 0, 0, 54, 163, 1177
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\pages\ApplicationBuilder\CreateApplication.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 218, 0, 0, 0, 0, 0, 7, 40, 265
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\pages\ApplicationBuilder\LoanApplicationConfig.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 292, 0, 0, 0, 0, 0, 20, 63, 375
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\pages\ApplicationBuilder\Templates.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 196, 0, 0, 0, 0, 0, 14, 34, 244
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\pages\AuthPages\AuthPageLayout.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 38, 0, 0, 0, 0, 0, 1, 2, 41
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\pages\AuthPages\SignIn.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 16, 0, 0, 0, 0, 0, 0, 2, 18
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\pages\AuthPages\SignUp.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 16, 0, 0, 0, 0, 0, 0, 2, 18
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\pages\Blank.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 24, 0, 0, 0, 0, 0, 0, 3, 27
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\pages\Brokers\AllBrokerAdmin.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 399, 0, 0, 0, 0, 0, 16, 56, 471
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\pages\Brokers\AllBrokers.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 1000, 0, 0, 0, 0, 0, 18, 97, 1115
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\pages\Brokers\BrokersLenders.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 341, 0, 0, 0, 0, 0, 16, 43, 400
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\pages\Brokers\EditBrokerModal.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 101, 0, 0, 0, 0, 0, 3, 17, 121
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\pages\Calendar.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 268, 0, 0, 0, 0, 0, 3, 14, 285
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\pages\Charts\BarChart.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 2, 22
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\pages\Charts\LineChart.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 2, 22
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\pages\Dashboard\Home.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 35, 0, 0, 0, 0, 0, 0, 7, 42
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\pages\Documents\AllDocuments.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 383, 0, 0, 0, 0, 0, 57, 52, 492
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\pages\Forms\FormElements.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 39, 0, 0, 0, 0, 0, 0, 2, 41
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\pages\LenderInteraction\FindLenders.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 369, 0, 0, 0, 0, 0, 21, 52, 442
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\pages\LenderInteraction\InvitedLenders.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 215, 0, 0, 0, 0, 0, 15, 31, 261
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\pages\LenderInteraction\MyLenders.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 224, 0, 0, 0, 0, 0, 37, 47, 308
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\pages\Lenders\ConnectedLenders.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 212, 0, 0, 0, 0, 0, 39, 47, 298
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\pages\Lenders\LenderInvites.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 314, 0, 0, 0, 0, 0, 25, 51, 390
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\pages\Lenders\LenderProducts.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 294, 0, 0, 0, 0, 0, 17, 42, 353
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\pages\Lenders\MessageBox.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 43, 0, 0, 0, 0, 0, 0, 5, 48
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\pages\LoanProducts\AllLoanProducts.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 419, 0, 0, 0, 0, 0, 21, 49, 489
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\pages\LoanProducts\AssignedProducts.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 149, 0, 0, 0, 0, 0, 12, 19, 180
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\pages\LoanProducts\LenderAssignProduct.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 253, 0, 0, 0, 0, 0, 9, 42, 304
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\pages\ManageUser\AddUser.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 214, 0, 0, 0, 0, 0, 10, 27, 251
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\pages\ManageUser\AllUser.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 234, 0, 0, 0, 0, 0, 12, 24, 270
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\pages\OtherPage\NotFound.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 39, 0, 0, 0, 0, 0, 1, 5, 45
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\pages\Settings\SettingSideBar.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 128, 0, 0, 0, 0, 0, 3, 12, 143
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\pages\SuperAdmin\AllSuperAdmin.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 445, 0, 0, 0, 0, 0, 22, 51, 518
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\pages\Tables\BasicTables.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 2, 22
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\pages\UiElements\Alerts.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 81, 0, 0, 0, 0, 0, 0, 2, 83
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\pages\UiElements\Avatars.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 121, 0, 0, 0, 0, 0, 1, 2, 124
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\pages\UiElements\Badges.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 168, 0, 0, 0, 0, 0, 2, 2, 172
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\pages\UiElements\Buttons.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 110, 0, 0, 0, 0, 0, 7, 2, 119
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\pages\UiElements\Images.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 28, 0, 0, 0, 0, 0, 0, 2, 30
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\pages\UiElements\Videos.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 36, 0, 0, 0, 0, 0, 0, 2, 38
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\pages\UserProfiles.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 22, 0, 0, 0, 0, 0, 4, 2, 28
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\pages\submitedApplications\SubmitApplication.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 274, 0, 0, 0, 0, 0, 15, 38, 327
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\pages\website-builder\ConfigWebsite.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 116, 0, 0, 0, 0, 0, 2, 4, 122
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\pages\website-builder\SitePreview.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 9, 0, 0, 0, 0, 0, 0, 2, 11
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\pages\website-builder\editor\EditorPanel.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 146, 0, 0, 0, 0, 0, 5, 16, 167
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\pages\website-builder\editor\tabs\AboutTab.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 192, 0, 0, 0, 0, 0, 9, 22, 223
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\pages\website-builder\editor\tabs\BrandingTab.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 171, 0, 0, 0, 0, 0, 9, 17, 197
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\pages\website-builder\editor\tabs\ContactTab.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 149, 0, 0, 0, 0, 0, 7, 18, 174
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\pages\website-builder\editor\tabs\FooterTab.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 58, 0, 0, 0, 0, 0, 2, 8, 68
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\pages\website-builder\editor\tabs\HomeTab.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 100, 0, 0, 0, 0, 0, 4, 11, 115
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\pages\website-builder\editor\tabs\HowItWorksTab.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 189, 0, 0, 0, 0, 0, 8, 19, 216
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\pages\website-builder\editor\tabs\ProductsTab.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 111, 0, 0, 0, 0, 0, 5, 13, 129
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\pages\website-builder\editor\tabs\WhyChooseUsTab.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 74, 0, 0, 0, 0, 0, 4, 11, 89
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\pages\website-builder\preview\AboutPage.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 84, 0, 0, 0, 0, 0, 6, 10, 100
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\pages\website-builder\preview\ContactPage.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 219, 0, 0, 0, 0, 0, 6, 28, 253
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\pages\website-builder\preview\GetLoanPreview.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 344, 0, 0, 0, 0, 0, 17, 54, 415
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\svg.d.ts", "TypeScript", 0, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 7
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\types\siteBuilder.ts", "TypeScript", 0, 0, 61, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 71
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\src\vite-env.d.ts", "TypeScript", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 2
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\tsconfig.app.json", "JSON", 0, 22, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 3, 27
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\tsconfig.json", "JSON with Comments", 0, 0, 0, 0, 0, 0, 0, 0, 7, 0, 0, 0, 0, 1, 8
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\tsconfig.node.json", "JSON", 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 3, 25
+"d:\Vibrantick\November 2025\LendingCart\broker-dashboard\vite.config.ts", "TypeScript", 0, 0, 15, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 19
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\LICENSE.md", "Markdown", 0, 0, 0, 17, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 22
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\README.md", "Markdown", 0, 0, 0, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 66, 193
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\eslint.config.js", "JavaScript", 27, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 29
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\index.html", "HTML", 0, 0, 0, 0, 11, 0, 0, 0, 0, 0, 0, 0, 1, 1, 13
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\package-lock.json", "JSON", 0, 5789, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 5790
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\package.json", "JSON", 0, 75, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 76
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\postcss.config.js", "JavaScript", 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 6
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\public\images\brand\brand-01.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0, 0, 1, 7
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\public\images\brand\brand-02.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 0, 0, 0, 1, 11
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\public\images\brand\brand-03.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 1, 6
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\public\images\brand\brand-04.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 26, 0, 0, 0, 1, 27
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\public\images\brand\brand-05.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0, 0, 1, 7
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\public\images\brand\brand-06.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 1, 5
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\public\images\brand\brand-07.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 1, 5
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\public\images\brand\brand-08.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, 0, 0, 0, 1, 8
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\public\images\brand\brand-09.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 1, 6
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\public\images\brand\brand-10.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0, 0, 1, 7
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\public\images\brand\brand-11.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 1, 5
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\public\images\brand\brand-12.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 1, 5
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\public\images\brand\brand-13.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 1, 6
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\public\images\brand\brand-14.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0, 0, 1, 7
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\public\images\brand\brand-15.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 1, 5
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\public\images\country\country-01.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 0, 0, 0, 1, 16
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\public\images\country\country-02.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 12, 0, 0, 0, 1, 13
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\public\images\country\country-03.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 17, 0, 0, 0, 1, 18
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\public\images\country\country-04.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 23, 0, 0, 0, 1, 24
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\public\images\country\country-05.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 12, 0, 0, 0, 1, 13
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\public\images\country\country-06.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 11, 0, 0, 0, 1, 12
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\public\images\country\country-07.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 12, 0, 0, 0, 1, 13
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\public\images\country\country-08.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 11, 0, 0, 0, 1, 12
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\public\images\error\404-dark.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 1, 21
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\public\images\error\404.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 1, 21
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\public\images\error\500-dark.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 24, 0, 0, 0, 1, 25
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\public\images\error\500.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 24, 0, 0, 0, 1, 25
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\public\images\error\503-dark.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 26, 0, 0, 0, 1, 27
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\public\images\error\503.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 26, 0, 0, 0, 1, 27
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\public\images\error\maintenance-dark.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 1, 6
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\public\images\error\maintenance.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 1, 6
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\public\images\error\success-dark.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 1, 4
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\public\images\error\success.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 1, 4
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\public\images\icons\file-image-dark.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 1, 4
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\public\images\icons\file-image.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 1, 4
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\public\images\icons\file-pdf-dark.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 1, 4
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\public\images\icons\file-pdf.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 1, 4
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\public\images\icons\file-video-dark.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0, 0, 1, 7
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\public\images\icons\file-video.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0, 0, 1, 7
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\public\images\logo\auth-logo.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 53, 0, 0, 0, 1, 54
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\public\images\logo\logo-dark.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 53, 0, 0, 0, 1, 54
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\public\images\logo\logo-icon.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 44, 0, 0, 0, 1, 45
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\public\images\logo\logo.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 53, 0, 0, 0, 1, 54
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\public\images\shape\grid-01.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 71, 0, 0, 0, 1, 72
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\public\images\task\google-drive.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 21, 0, 0, 0, 1, 22
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\public\images\task\pdf.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 0, 0, 0, 1, 11
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\public\images\video-thumb\youtube-icon-84.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 1, 5
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\App.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 87, 0, 0, 0, 0, 0, 13, 15, 115
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\Utils\ToastProvider\ToastProvider.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 17, 0, 0, 0, 0, 0, 0, 3, 20
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\components\UserProfile\UserAddressCard.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 122, 0, 0, 0, 0, 0, 1, 10, 133
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\components\UserProfile\UserInfoCard.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 166, 0, 0, 0, 0, 0, 1, 18, 185
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\components\UserProfile\UserMetaCard.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 211, 0, 0, 0, 0, 0, 11, 40, 262
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\components\auth\RequireAuth.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 13, 0, 0, 0, 0, 0, 6, 5, 24
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\components\auth\SignInForm.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 148, 0, 0, 0, 0, 0, 10, 24, 182
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\components\auth\SignUpForm.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 221, 0, 0, 0, 0, 0, 9, 10, 240
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\components\charts\bar\BarChartOne.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 95, 0, 0, 0, 0, 0, 0, 3, 98
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\components\charts\line\LineChartOne.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 117, 0, 0, 0, 0, 0, 0, 4, 121
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\components\common\ChartTab.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 39, 0, 0, 0, 0, 0, 0, 7, 46
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\components\common\ComponentCard.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 33, 0, 0, 0, 0, 0, 2, 4, 39
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\components\common\GridShape.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 12, 0, 0, 0, 0, 0, 0, 1, 13
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\components\common\PageBreadCrumb.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 48, 0, 0, 0, 0, 0, 0, 4, 52
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\components\common\PageMeta.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 17, 0, 0, 0, 0, 0, 0, 4, 21
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\components\common\ScrollToTop.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 13, 0, 0, 0, 0, 0, 0, 4, 17
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\components\common\ThemeToggleButton.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 39, 0, 0, 0, 0, 0, 0, 3, 42
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\components\common\ThemeTogglerTwo.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 39, 0, 0, 0, 0, 0, 0, 2, 41
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\components\ecommerce\CountryMap.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 89, 0, 0, 0, 0, 0, 2, 4, 95
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\components\ecommerce\DemographicCard.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 107, 0, 0, 0, 0, 0, 0, 8, 115
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\components\ecommerce\EcommerceMetrics.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 98, 0, 0, 0, 0, 0, 4, 17, 119
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\components\ecommerce\MonthlySalesChart.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 136, 0, 0, 0, 0, 0, 0, 6, 142
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\components\ecommerce\MonthlyTarget.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 189, 0, 0, 0, 0, 0, 0, 10, 199
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\components\ecommerce\RecentOrders.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 197, 0, 0, 0, 0, 0, 5, 7, 209
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\components\ecommerce\StatisticsChart.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 133, 0, 0, 0, 0, 0, 0, 5, 138
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\components\form\Form.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 4, 24
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\components\form\Label.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 24, 0, 0, 0, 0, 0, 0, 4, 28
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\components\form\MultiSelect.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 233, 0, 0, 0, 0, 0, 0, 17, 250
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\components\form\Select.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 55, 0, 0, 0, 0, 0, 3, 7, 65
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\components\form\date-picker.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 54, 0, 0, 0, 0, 0, 0, 7, 61
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\components\form\form-elements\CheckboxComponents.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 35, 0, 0, 0, 0, 0, 0, 2, 37
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\components\form\form-elements\DefaultInputs.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 110, 0, 0, 0, 0, 0, 1, 5, 116
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\components\form\form-elements\DropZone.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 64, 0, 0, 0, 0, 0, 5, 8, 77
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\components\form\form-elements\FileInputExample.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 19, 0, 0, 0, 0, 0, 0, 3, 22
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\components\form\form-elements\InputGroup.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 53, 0, 0, 0, 0, 0, 0, 2, 55
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\components\form\form-elements\InputStates.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 65, 0, 0, 0, 0, 0, 4, 5, 74
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\components\form\form-elements\RadioButtons.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 40, 0, 0, 0, 0, 0, 0, 3, 43
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\components\form\form-elements\SelectInputs.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 49, 0, 0, 0, 0, 0, 0, 3, 52
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\components\form\form-elements\TextAreaInput.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 36, 0, 0, 0, 0, 0, 3, 4, 43
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\components\form\form-elements\ToggleSwitch.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 39, 0, 0, 0, 0, 0, 0, 2, 41
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\components\form\group-input\PhoneInput.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 127, 0, 0, 0, 0, 0, 3, 11, 141
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\components\form\input\Checkbox.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 79, 0, 0, 0, 0, 0, 0, 4, 83
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\components\form\input\FileInput.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 15, 0, 0, 0, 0, 0, 0, 4, 19
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\components\form\input\InputField.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 76, 0, 0, 0, 0, 0, 0, 7, 83
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\components\form\input\Radio.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 61, 0, 0, 0, 0, 0, 0, 3, 64
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\components\form\input\RadioSm.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 52, 0, 0, 0, 0, 0, 3, 3, 58
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\components\form\input\TextArea.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 57, 0, 0, 0, 0, 0, 0, 7, 64
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\components\form\switch\Switch.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 66, 0, 0, 0, 0, 0, 0, 7, 73
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\components\header\Header.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 153, 0, 0, 0, 0, 0, 7, 9, 169
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\components\header\NotificationDropdown.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 351, 0, 0, 0, 0, 0, 2, 28, 381
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\components\header\UserDropdown.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 204, 0, 0, 0, 0, 0, 5, 12, 221
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\components\tables\BasicTables\BasicTableOne.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 214, 0, 0, 0, 0, 0, 3, 6, 223
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\components\ui\alert\Alert.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 134, 0, 0, 0, 0, 0, 2, 9, 145
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\components\ui\avatar\Avatar.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 47, 0, 0, 0, 0, 0, 2, 7, 56
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\components\ui\badge\Badge.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 67, 0, 0, 0, 0, 0, 3, 8, 78
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\components\ui\button\Button.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 48, 0, 0, 0, 0, 0, 2, 6, 56
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\components\ui\dropdown\Dropdown.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 40, 0, 0, 0, 0, 0, 0, 7, 47
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\components\ui\dropdown\DropdownItem.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 41, 0, 0, 0, 0, 0, 0, 6, 47
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\components\ui\images\ResponsiveImage.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 13, 0, 0, 0, 0, 0, 0, 1, 14
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\components\ui\images\ThreeColumnImageGrid.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 27, 0, 0, 0, 0, 0, 0, 3, 30
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\components\ui\images\TwoColumnImageGrid.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 2, 22
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\components\ui\modal\index.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 84, 0, 0, 0, 0, 0, 0, 11, 95
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\components\ui\table\index.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 43, 0, 0, 0, 0, 0, 10, 12, 65
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\components\ui\videos\AspectRatioVideo.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 24, 0, 0, 0, 0, 0, 0, 3, 27
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\components\ui\videos\FourIsToThree.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\components\ui\videos\OneIsToOne.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\components\ui\videos\SixteenIsToNine.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\components\ui\videos\TwentyOneIsToNine.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\context\SidebarContext.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 72, 0, 0, 0, 0, 0, 0, 12, 84
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\context\ThemeContext.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 46, 0, 0, 0, 0, 0, 1, 12, 59
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\hooks\useGoBack.ts", "TypeScript", 0, 0, 13, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 18
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\hooks\useModal.ts", "TypeScript", 0, 0, 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 12
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\icons\alert-hexa.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 1, 4
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\icons\alert.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 0, 0, 0, 1, 16
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\icons\angle-down.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 12, 0, 0, 0, 1, 13
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\icons\angle-left.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 3
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\icons\angle-right.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 3
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\icons\angle-up.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 13, 0, 0, 0, 0, 13
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\icons\arrow-down.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 0, 0, 0, 0, 15
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\icons\arrow-right.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 0, 0, 0, 0, 15
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\icons\arrow-up.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 0, 0, 0, 1, 16
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\icons\audio.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 0, 0, 0, 0, 15
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\icons\bolt.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 0, 0, 0, 0, 15
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\icons\box-cube.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\icons\box-line.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\icons\box.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\icons\calendar.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 13, 0, 0, 0, 0, 13
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\icons\calender-line.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 3
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\icons\chat.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 1, 4
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\icons\check-circle.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 0, 0, 0, 1, 16
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\icons\check-line.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 0, 0, 0, 0, 15
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\icons\chevron-down.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 4, 7
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\icons\chevron-left.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 0, 0, 0, 1, 16
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\icons\chevron-up.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 1, 4
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\icons\close-line.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 0, 14
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\icons\close.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 16, 0, 0, 0, 0, 16
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\icons\copy.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\icons\docs.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\icons\dollar-line.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\icons\download.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 0, 0, 0, 0, 15
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\icons\envelope.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\icons\eye-close.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 13, 0, 0, 0, 1, 14
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\icons\eye.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 13, 0, 0, 0, 1, 14
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\icons\file.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 0, 0, 0, 0, 15
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\icons\folder.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 12, 0, 0, 0, 1, 13
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\icons\grid.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\icons\group.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\icons\horizontal-dots.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\icons\index.ts", "TypeScript", 0, 0, 114, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 116
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\icons\info-error.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\icons\info-hexa.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 1, 4
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\icons\info.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 3
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\icons\list.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\icons\lock.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 18, 0, 0, 0, 1, 19
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\icons\mail-line.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\icons\moredot.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 0, 14
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\icons\page.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\icons\paper-plane.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\icons\pencil.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\icons\pie-chart.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\icons\plug-in.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\icons\plus.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 0, 0, 0, 0, 15
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\icons\shooting-star.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\icons\table.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\icons\task-icon.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\icons\time.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\icons\trash.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 13, 0, 0, 0, 0, 13
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\icons\user-circle.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 4, 7
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\icons\user-line.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\icons\videos.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 15
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\index.css", "PostCSS", 0, 0, 0, 0, 0, 0, 0, 698, 0, 0, 0, 0, 13, 83, 794
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\layout\AppHeader.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 198, 0, 0, 0, 0, 0, 6, 31, 235
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\layout\AppLayout.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 34, 0, 0, 0, 0, 0, 0, 5, 39
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\layout\AppSidebar.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 301, 0, 0, 0, 0, 0, 97, 17, 415
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\layout\Backdrop.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 12, 0, 0, 0, 0, 0, 0, 5, 17
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\layout\SidebarWidget.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 23, 0, 0, 0, 0, 0, 0, 1, 24
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\main.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 17, 0, 0, 0, 0, 0, 0, 2, 19
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\pages\AdminLogs\AdminLogs.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 336, 0, 0, 0, 0, 0, 9, 35, 380
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\pages\AuthPages\AuthPageLayout.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 38, 0, 0, 0, 0, 0, 1, 2, 41
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\pages\AuthPages\SignIn.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 16, 0, 0, 0, 0, 0, 0, 2, 18
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\pages\AuthPages\SignUp.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 16, 0, 0, 0, 0, 0, 0, 2, 18
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\pages\Blank.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 24, 0, 0, 0, 0, 0, 0, 3, 27
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\pages\Brokers\BrokerInvites.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 153, 0, 0, 0, 0, 0, 3, 19, 175
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\pages\Brokers\FindBroker.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 204, 0, 0, 0, 0, 0, 8, 28, 240
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\pages\Brokers\MyBroker.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 249, 0, 0, 0, 0, 0, 13, 34, 296
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\pages\Calendar.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 268, 0, 0, 0, 0, 0, 3, 14, 285
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\pages\Charts\BarChart.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 2, 22
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\pages\Charts\LineChart.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 2, 22
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\pages\Dashboard\Home.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 35, 0, 0, 0, 0, 0, 0, 7, 42
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\pages\Documents\AllDocuments.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 549, 0, 0, 0, 0, 0, 22, 102, 673
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\pages\Eligibility Engine\AllBrokerAdmin.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 399, 0, 0, 0, 0, 0, 16, 56, 471
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\pages\Eligibility Engine\AllRuleSets.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 357, 0, 0, 0, 0, 0, 123, 68, 548
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\pages\Eligibility Engine\AllRules.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 352, 0, 0, 0, 0, 0, 10, 59, 421
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\pages\Eligibility Engine\CreateRule.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 467, 0, 0, 0, 0, 0, 36, 61, 564
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\pages\Eligibility Engine\EditRuleModal.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 175, 0, 0, 0, 0, 0, 8, 22, 205
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\pages\Eligibility Engine\EditRuleSetModal.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 190, 0, 0, 0, 0, 0, 4, 21, 215
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\pages\Forms\FormElements.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 39, 0, 0, 0, 0, 0, 0, 2, 41
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\pages\Lenders\AllLenders.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1068, 104, 1172
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\pages\LoanProducts\AllLoanProducts.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 717, 0, 0, 0, 0, 0, 14, 93, 824
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\pages\LoanProducts\AssignedProducts.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 149, 0, 0, 0, 0, 0, 12, 19, 180
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\pages\LoanProducts\EditLoanProductModal.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 200, 0, 0, 0, 0, 0, 4, 27, 231
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\pages\LoanProducts\LenderAssignProduct.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 253, 0, 0, 0, 0, 0, 9, 42, 304
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\pages\ManageUser\AddUser.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 214, 0, 0, 0, 0, 0, 10, 27, 251
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\pages\ManageUser\AllUser.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 234, 0, 0, 0, 0, 0, 12, 24, 270
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\pages\OtherPage\NotFound.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 39, 0, 0, 0, 0, 0, 1, 5, 45
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\pages\Settings\SettingSideBar.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 128, 0, 0, 0, 0, 0, 3, 12, 143
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\pages\SuperAdmin\AllSuperAdmin.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 445, 0, 0, 0, 0, 0, 22, 51, 518
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\pages\Tables\BasicTables.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 2, 22
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\pages\UiElements\Alerts.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 81, 0, 0, 0, 0, 0, 0, 2, 83
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\pages\UiElements\Avatars.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 121, 0, 0, 0, 0, 0, 1, 2, 124
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\pages\UiElements\Badges.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 168, 0, 0, 0, 0, 0, 2, 2, 172
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\pages\UiElements\Buttons.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 110, 0, 0, 0, 0, 0, 7, 2, 119
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\pages\UiElements\Images.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 28, 0, 0, 0, 0, 0, 0, 2, 30
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\pages\UiElements\Videos.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 36, 0, 0, 0, 0, 0, 0, 2, 38
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\pages\UserProfiles.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 409, 0, 0, 0, 0, 0, 22, 69, 500
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\svg.d.ts", "TypeScript", 0, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 7
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\src\vite-env.d.ts", "TypeScript", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 2
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\tsconfig.app.json", "JSON", 0, 22, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 3, 27
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\tsconfig.json", "JSON with Comments", 0, 0, 0, 0, 0, 0, 0, 0, 7, 0, 0, 0, 0, 1, 8
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\tsconfig.node.json", "JSON", 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 3, 25
+"d:\Vibrantick\November 2025\LendingCart\lending-dashboard\vite.config.ts", "TypeScript", 0, 0, 15, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 19
+"d:\Vibrantick\November 2025\LendingCart\loan-application-embeded\README.md", "Markdown", 0, 0, 0, 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 17
+"d:\Vibrantick\November 2025\LendingCart\loan-application-embeded\eslint.config.js", "JavaScript", 28, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 30
+"d:\Vibrantick\November 2025\LendingCart\loan-application-embeded\index.html", "HTML", 0, 0, 0, 0, 13, 0, 0, 0, 0, 0, 0, 0, 0, 1, 14
+"d:\Vibrantick\November 2025\LendingCart\loan-application-embeded\package-lock.json", "JSON", 0, 3578, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 3579
+"d:\Vibrantick\November 2025\LendingCart\loan-application-embeded\package.json", "JSON", 0, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 33
+"d:\Vibrantick\November 2025\LendingCart\loan-application-embeded\public\vite.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1
+"d:\Vibrantick\November 2025\LendingCart\loan-application-embeded\src\App.css", "PostCSS", 0, 0, 0, 0, 0, 0, 0, 37, 0, 0, 0, 0, 0, 6, 43
+"d:\Vibrantick\November 2025\LendingCart\loan-application-embeded\src\App.jsx", "JavaScript JSX", 0, 0, 0, 0, 0, 37, 0, 0, 0, 0, 0, 0, 5, 7, 49
+"d:\Vibrantick\November 2025\LendingCart\loan-application-embeded\src\assets\react.svg", "SVG", 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1
+"d:\Vibrantick\November 2025\LendingCart\loan-application-embeded\src\index.css", "PostCSS", 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1
+"d:\Vibrantick\November 2025\LendingCart\loan-application-embeded\src\main.jsx", "JavaScript JSX", 0, 0, 0, 0, 0, 10, 0, 0, 0, 0, 0, 0, 0, 2, 12
+"d:\Vibrantick\November 2025\LendingCart\loan-application-embeded\src\pages\GetLoanPage.jsx", "JavaScript JSX", 0, 0, 0, 0, 0, 726, 0, 0, 0, 0, 0, 0, 191, 102, 1019
+"d:\Vibrantick\November 2025\LendingCart\loan-application-embeded\vite.config.js", "JavaScript", 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 8
+"Total", "-", 10721, 27882, 529, 441, 281, 773, 48254, 2212, 21, 4205, 100, 961, 4703, 8595, 109678
