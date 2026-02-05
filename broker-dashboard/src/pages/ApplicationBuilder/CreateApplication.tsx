@@ -32,8 +32,9 @@ async function safeJson(res: Response) {
 const CreateApplication: React.FC = () => {
     const [items, setItems] = useState<AppItem[]>([]);
     const [loading, setLoading] = useState(false);
+    const [editingId, setEditingId] = useState<string | null>(null);
 
-    const [, setEditingId] = useState<string | null>(null);
+
     const [form, setForm] = useState({
         name: "",
         isActive: true,
@@ -76,28 +77,64 @@ const CreateApplication: React.FC = () => {
             return;
         }
 
-        const loadingToast = toast.loading("Creating application...");
+        const loadingToast = toast.loading(
+            editingId ? "Updating application..." : "Creating application..."
+        );
 
         try {
-            const res = await fetch(`${API_BASE}/broker/applications`, {
-                method: "POST",
-                headers: getAuthHeaders(),
-                body: JSON.stringify({ name: form.name }),
-            });
+            let res: Response;
+
+            /* ===== UPDATE MODE ===== */
+            if (editingId) {
+                res = await fetch(
+                    `${API_BASE}/broker/applications/${editingId}`,
+                    {
+                        method: "PUT",
+                        headers: getAuthHeaders(),
+                        body: JSON.stringify({ name: form.name }),
+                    }
+                );
+            }
+
+            /* ===== CREATE MODE ===== */
+            else {
+                res = await fetch(`${API_BASE}/broker/applications`, {
+                    method: "POST",
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({ name: form.name }),
+                });
+            }
 
             const json = await safeJson(res);
 
             if (!res.ok || json.success !== true) {
-                throw new Error(json.message || "Create failed");
+                throw new Error(
+                    json.message || (editingId ? "Update failed" : "Create failed")
+                );
             }
 
-            toast.success("Application created successfully");
+            toast.success(
+                editingId
+                    ? "Application updated successfully"
+                    : "Application created successfully"
+            );
+
+            /* Reset edit mode */
+            setEditingId(null);
+
+            /* Reset form */
             setForm({ name: "", isActive: true });
 
+            /* Reload list */
             loadApplications();
         } catch (err: any) {
-            console.error("CREATE ERROR:", err);
-            toast.error(err.message || "Could not create application");
+            console.error("SUBMIT ERROR:", err);
+            toast.error(
+                err.message ||
+                (editingId
+                    ? "Could not update application"
+                    : "Could not create application")
+            );
         } finally {
             toast.dismiss(loadingToast);
         }
@@ -106,10 +143,16 @@ const CreateApplication: React.FC = () => {
     /* ================= EDIT ================= */
     const handleEdit = (item: AppItem) => {
         setEditingId(item.id);
+
         setForm({
             name: item.name,
             isActive: item.isActive,
         });
+    };
+
+    const handleCancelEdit = () => {
+        setEditingId(null);
+        setForm({ name: "", isActive: true });
     };
 
     /* ================= TOGGLE STATUS ================= */
@@ -163,7 +206,7 @@ const CreateApplication: React.FC = () => {
                 {/* LEFT */}
                 <div className="bg-white dark:bg-slate-900 border dark:border-slate-700 rounded-xl p-5">
                     <h2 className="text-lg font-semibold mb-4">
-                        Create Application
+                        {editingId ? "Update Application" : "Create Application"}
                     </h2>
 
                     <form onSubmit={handleSubmit} className="space-y-4">
@@ -181,13 +224,27 @@ const CreateApplication: React.FC = () => {
                             />
                         </div>
 
-                        <button
-                            type="submit"
-                            className="bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-2 rounded-md"
-                        >
-                            Create Application
-                        </button>
+                        <div className="flex gap-2">
+                            <button
+                                type="submit"
+                                className="bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-2 rounded-md"
+                            >
+                                {editingId ? "Update Application" : "Create Application"}
+                            </button>
+
+                            {editingId && (
+                                <button
+                                    type="button"
+                                    onClick={handleCancelEdit}
+                                    className="border border-gray-300 text-gray-700 text-sm px-4 py-2 rounded-md dark:text-white dark:bg-gray-700 hover:dark:bg-gray-800"
+                                >
+                                    Create New
+                                </button>
+                            )}
+                        </div>
+
                     </form>
+
                 </div>
 
                 {/* RIGHT */}
