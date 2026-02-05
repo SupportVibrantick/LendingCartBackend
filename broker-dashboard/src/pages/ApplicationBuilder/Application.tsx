@@ -185,7 +185,7 @@ function renderDynamicField(
         <div className="flex justify-between items-center border p-2 rounded bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700">
             {/* LEFT INFO */}
             <div>
-                <div className="font-medium text-slate-900 dark:text-slate-100">
+                <div className="font-medium text-sm text-slate-900 dark:text-slate-100">
                     {field.label}
                 </div>
                 <div className="text-xs text-slate-400">
@@ -210,7 +210,7 @@ function renderDynamicField(
                     }
                     className="text-slate-600 hover:text-blue-600"
                 >
-                    <Edit3 size={16} />
+                    <Edit3 size={12} />
                 </button>
 
                 <button
@@ -218,7 +218,7 @@ function renderDynamicField(
                     onClick={() => actions?.onDelete?.(field.id)}
                     className="text-red-500 hover:text-red-600"
                 >
-                    <Trash2 size={16} />
+                    <Trash2 size={12} />
                 </button>
             </div>
         </div>
@@ -581,6 +581,48 @@ export default function ApplicationBuilder() {
         }
     };
 
+    const handleDeleteSection = async (sectionId: string) => {
+         const token = sessionStorage.getItem("broker_token");
+        if (!selectedProductId || !selectedAppId) return;
+
+        const result = await Swal.fire({
+            title: "Delete Section?",
+            text: "This section and all its fields will be removed.",
+            icon: "warning",
+            showCancelButton: true,
+            confirmButtonText: "Yes, delete it",
+            confirmButtonColor: "#dc2626",
+        });
+
+        if (!result.isConfirmed) return;
+
+        try {
+            const res = await fetch(
+                `${API_BASE}/broker/applications/products/${selectedProductId}/sections/${sectionId}`,
+                {
+                    method: "DELETE",
+                    headers:  {
+                        Authorization: `Bearer ${token}`,
+                    }
+                }
+            );
+
+            const json = await safeJson(res);
+
+            if (!res.ok || json.success !== true) {
+                throw new Error(json.message || "Failed to delete section");
+            }
+
+            toast.success("Section deleted successfully");
+
+            loadSections(selectedProductId);
+            loadFields(selectedProductId);
+            setSelectedSectionId("");
+
+        } catch (err: any) {
+            toast.error(err.message || "Failed to delete section");
+        }
+    };
 
     /* ================= UI ================= */
 
@@ -818,13 +860,23 @@ export default function ApplicationBuilder() {
                         </button>
 
                         {/* ================= FIELD LIST (SECTION-WISE) ================= */}
-                        <div className="space-y-4 max-h-[320px] overflow-y-auto pr-1 custom-scrollbar border rounded-lg bg-yellow-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700">
+                        <div className="space-y-4 max-h-[760px] overflow-y-auto pr-1 custom-scrollbar border rounded-lg bg-yellow-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700">
 
                             {sections.map((section) => (
                                 <div key={section.id} className="space-y-2">
-                                    <h3 className="px-3 py-2 border-b text-sm font-semibold text-blue-900 dark:text-blue-300">
-                                        {section.name}
-                                    </h3>
+                                    <div className="flex justify-between items-center px-3 py-2 border-b">
+                                        <h3 className="text-[14px] font-semibold text-blue-900 dark:text-blue-300">
+                                            {section.name}
+                                        </h3>
+
+                                        <button
+                                            onClick={() => handleDeleteSection(section.id)}
+                                            className="text-red-500 hover:text-red-600"
+                                        >
+                                            <Trash2 size={15} />
+                                        </button>
+                                    </div>
+
 
                                     {section.fields.map((f) =>
                                         renderDynamicField(f, {

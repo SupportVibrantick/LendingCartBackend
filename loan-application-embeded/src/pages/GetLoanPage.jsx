@@ -2,6 +2,7 @@ import React from "react";
 import SignatureCanvas from "react-signature-canvas";
 import { useEffect, useState, useRef } from "react";
 import toast from "react-hot-toast";
+import ReCAPTCHA from "react-google-recaptcha";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
@@ -83,6 +84,7 @@ export default function GetLoanPage() {
     const [applicationId, setApplicationId] = useState("");
     const [signatureHistory, setSignatureHistory] = useState([]);
     const [errors, setErrors] = useState({});
+    const [recaptchaToken, setRecaptchaToken] = useState(null);
 
     const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const activeProduct = products.find(
@@ -97,6 +99,7 @@ export default function GetLoanPage() {
         setSignatureData("");
         setHasCoBorrower(false);
         setAgreed(false);
+        setRecaptchaToken(null);
 
         // signature canvas clear
         if (sigPadRef.current) {
@@ -162,6 +165,12 @@ export default function GetLoanPage() {
             if (!agreed) {
                 newErrors.agreedToTerms = "Please accept terms and conditions";
             }
+
+            if (!recaptchaToken) {
+                toast.error("Please verify reCAPTCHA");
+                return;
+            }
+
 
             /* ================= STATIC VALIDATION ================= */
 
@@ -328,9 +337,10 @@ export default function GetLoanPage() {
             const payload = {
                 applicationId,
                 applicationProductId: activeProduct.productId,
+                recaptchaToken,
                 fields,
             };
-            
+
             console.log("FINAL JSON PAYLOAD:", payload);
 
             /* ================= API CALL ================= */
@@ -1221,10 +1231,12 @@ export default function GetLoanPage() {
 
                             {/* reCAPTCHA placeholder */}
                             <div className="flex justify-center mt-6">
-                                <div className="border rounded p-4 flex items-center gap-4 bg-white">
-                                    <input type="checkbox" />
-                                    <span className="text-sm">I'm not a robot</span>
-                                    <span className="text-xs text-slate-400">reCAPTCHA</span>
+                                <div className="flex justify-center mt-6">
+                                    <ReCAPTCHA
+                                        sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY}
+                                        onChange={(token) => setRecaptchaToken(token)}
+                                        onExpired={() => setRecaptchaToken(null)}
+                                    />
                                 </div>
                             </div>
                         </div>
@@ -1237,6 +1249,7 @@ export default function GetLoanPage() {
                                     !borrowerSignName ||
                                     !agreed ||
                                     isBroker === null ||
+                                    !recaptchaToken ||
                                     !sigPadRef.current ||
                                     sigPadRef.current.isEmpty()
                                 }
@@ -1264,6 +1277,18 @@ function SectionHeader({ title }) {
 }
 
 function Input({ label, placeholder = "", value, onChange, type = "text", error }) {
+
+    const handleChange = (e) => {
+        const val = e.target.value;
+
+        // Negative block for number inputs
+        if (type === "number" && val !== "" && Number(val) < 0) {
+            return;
+        }
+
+        onChange(e);
+    };
+
     return (
         <div>
             <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
@@ -1273,8 +1298,10 @@ function Input({ label, placeholder = "", value, onChange, type = "text", error 
             <input
                 type={type}
                 value={value || ""}
-                onChange={onChange}
+                onChange={handleChange}
                 placeholder={placeholder}
+                min={type === "number" ? 0 : undefined}
+                onWheel={(e) => e.target.blur()}
                 className="text-sm mt-1 w-full border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 bg-white dark:bg-slate-800 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             {error && (
@@ -1312,158 +1339,6 @@ function Radio({ label, checked, onChange, name = "radio" }) {
         </label>
     );
 }
-
-// const renderField = (field, dynamicValues, setDynamicValues) => {
-//     const common =
-//         "w-full rounded-lg border px-3 py-2 text-sm bg-white text-slate-900 border-slate-300 dark:bg-slate-900 dark:text-slate-100 dark:border-slate-700";
-
-//     const value = dynamicValues[field.fieldId] ?? "";
-//     const placeholder = field.placeholder || "";
-
-//     /* ---------- RANGE ---------- */
-//     if (field.type === "RANGE") {
-//         const min = field.validation?.min ?? 0;
-//         const max = field.validation?.max ?? 100;
-
-//         return (
-//             <div className="space-y-2">
-//                 <input
-//                     type="range"
-//                     min={min}
-//                     max={max}
-//                     value={value || min}
-//                     onChange={(e) =>
-//                         setDynamicValues((p) => ({
-//                             ...p,
-//                             [field.fieldId]: Number(e.target.value),
-//                         }))
-//                     }
-//                     className="w-full accent-blue-600"
-//                 />
-//                 <div className="flex justify-between text-xs text-slate-500">
-//                     <span>{min}</span>
-//                     <span className="font-medium text-slate-700 dark:text-slate-200">
-//                         {value || min}
-//                     </span>
-//                     <span>{max}</span>
-//                 </div>
-//             </div>
-//         );
-//     }
-
-//     /* ---------- RADIO ---------- */
-//     if (field.type === "RADIO") {
-//         return (
-//             <div className="space-y-2 bg-slate-50 dark:bg-slate-800 border rounded-lg p-3">
-//                 {field.options?.map((opt, i) => (
-//                     <label key={i} className="flex items-center gap-2 text-sm">
-//                         <input
-//                             type="radio"
-//                             name={field.fieldId}
-//                             checked={value === opt}
-//                             onChange={() =>
-//                                 setDynamicValues((p) => ({
-//                                     ...p,
-//                                     [field.fieldId]: opt,
-//                                 }))
-//                             }
-//                         />
-//                         {opt}
-//                     </label>
-//                 ))}
-//             </div>
-//         );
-//     }
-
-//     /* ---------- CHECKBOX GROUP ---------- */
-//     if (field.type === "CHECKBOX_GROUP") {
-//         const selected = Array.isArray(value) ? value : [];
-
-//         return (
-//             <div className="space-y-2 bg-slate-50 dark:bg-slate-800 border rounded-lg p-3">
-//                 {field.options?.map((opt, i) => (
-//                     <label key={i} className="flex items-center gap-2 text-sm">
-//                         <input
-//                             type="checkbox"
-//                             checked={selected.includes(opt)}
-//                             onChange={(e) =>
-//                                 setDynamicValues((p) => ({
-//                                     ...p,
-//                                     [field.fieldId]: e.target.checked
-//                                         ? [...selected, opt]
-//                                         : selected.filter((x) => x !== opt),
-//                                 }))
-//                             }
-//                         />
-//                         {opt}
-//                     </label>
-//                 ))}
-//             </div>
-//         );
-//     }
-
-//     /* ---------- NUMBER ---------- */
-//     if (field.type === "NUMBER") {
-//         return (
-//             <input
-//                 type="number"
-//                 value={value}
-//                 onChange={(e) =>
-//                     setDynamicValues((p) => ({
-//                         ...p,
-//                         [field.fieldId]: e.target.value,
-//                     }))
-//                 }
-//                 className={common}
-//                 placeholder={placeholder}
-//             />
-//         );
-//     }
-
-//     /* ---------- TEXT / EMAIL ---------- */
-//     if (field.type === "TEXT" || field.type === "EMAIL") {
-//         return (
-//             <input
-//                 type={field.type === "EMAIL" ? "email" : "text"}
-//                 value={value}
-//                 onChange={(e) =>
-//                     setDynamicValues((p) => ({
-//                         ...p,
-//                         [field.fieldId]: e.target.value,
-//                     }))
-//                 }
-//                 className={common}
-//                 placeholder={placeholder}
-//             />
-//         );
-//     }
-
-//     /* ---------- SELECT ---------- */
-//     if (field.type === "SELECT") {
-//         return (
-//             <select
-//                 value={value}
-//                 onChange={(e) =>
-//                     setDynamicValues((p) => ({
-//                         ...p,
-//                         [field.fieldId]: e.target.value,
-//                     }))
-//                 }
-//                 className={common}
-//             >
-//                 <option value="">Select</option>
-//                 {field.options?.map((o, i) => (
-//                     <option key={i} value={o}>
-//                         {o}
-//                     </option>
-//                 ))}
-//             </select>
-//         );
-//     }
-
-//     return <input className={common} />;
-// };
-
 
 const renderField = (field, dynamicValues, setDynamicValues) => {
     const base =
@@ -1509,11 +1384,21 @@ const renderField = (field, dynamicValues, setDynamicValues) => {
                 type="number"
                 value={value}
                 placeholder={placeholder}
-                min={field.validation?.min}
+                min={field.validation?.min ?? 0}
                 max={field.validation?.max}
-                onChange={(e) =>
-                    setDynamicValues((p) => ({ ...p, [field.fieldId]: e.target.value }))
-                }
+                onWheel={(e) => e.target.blur()}
+                onChange={(e) => {
+
+                    const val = e.target.value;
+
+                    // Negative block
+                    if (val !== "" && Number(val) < 0) return;
+
+                    setDynamicValues((p) => ({
+                        ...p,
+                        [field.fieldId]: val,
+                    }));
+                }}
                 className={base}
             />
         );
