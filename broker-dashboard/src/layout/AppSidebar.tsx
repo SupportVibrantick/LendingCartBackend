@@ -68,15 +68,17 @@ const navItems: NavItem[] = [
   },
 
   {
+    icon: <MdOutlineDocumentScanner />,
+    name: "Submitted Applications",
+    path: "/submit-applications"
+  },
+
+  {
     icon: <FaUsersBetweenLines />,
     name: "Lender Interactions",
     subItems: [{ name: "My Lenders", path: "/my-lenders" }, { name: "Invited Lenders", path: "/invited-lenders" }, { name: "Find Lenders", path: "/find-lenders" },]
   },
-  // {
-  //   icon: <GroupOutlinedIcon />,
-  //   name: "Manage User",
-  //   subItems: [{ name: "Add User", path: "/add-user" },{ name: "All User", path: "/all-user" }],
-  // },
+
   // {
   //   icon: <AccountBalanceOutlinedIcon />,
   //   name: "Manage Lenders",
@@ -369,14 +371,14 @@ const AppSidebar: React.FC = () => {
             <>
               <img
                 className="dark:hidden"
-                src="/bannerLogo.jpeg"
+                src="/ACOM_LOGO.jpeg"
                 alt="Logo"
                 width={150}
                 height={40}
               />
               <img
                 className="hidden dark:block"
-                src="/bannerLogo.jpeg"
+                src="/ACOM_LOGO.jpeg"
                 alt="Logo"
                 width={150}
                 height={40}
