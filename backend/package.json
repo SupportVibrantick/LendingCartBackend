@@ -10,6 +10,7 @@
     "dev": "nodemon ./bin/www",
     "start": "node ./bin/www",
     "migrations": "prisma migrate dev --name init",
+    "migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "seed": "node prisma/seed.js"
   },
