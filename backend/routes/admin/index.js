@@ -45,7 +45,7 @@ module.exports = async function adminRoutes(fastify, opts) {
     instance.register(lenderProducts,{prefix:"/lender-products"});
     instance.register(adminUserRoutes,{prefix:"/admin-user"});
     instance.register(documentTypes, { prefix: "/document-types" });
-instance.register(applicationRoutes, {
+    instance.register(applicationRoutes, {
       prefix: "/applications",
     });
     instance.register(landingPagesLeads, {

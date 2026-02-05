@@ -3,6 +3,7 @@ module.exports = async function addField(fastify) {
     const { productId } = req.params;
 
     const {
+      sectionId,
       fieldKey,
       label,
       placeholder,
@@ -16,7 +17,6 @@ module.exports = async function addField(fastify) {
     /* ===============================
        1. HARD VALIDATIONS
     =============================== */
-
     if (!fieldKey || !label || !fieldType) {
       return reply.code(400).send({
         success: false,
@@ -26,89 +26,172 @@ module.exports = async function addField(fastify) {
 
     /* ===============================
        2. FIELD TYPE VALIDATION
+       (EXPLICIT & SAFE)
     =============================== */
-
     const allowedFieldTypes = [
+      // BASIC
       "TEXT",
       "TEXTAREA",
       "NUMBER",
       "EMAIL",
+      "PHONE",
+      "PASSWORD",
       "DATE",
+      "TIME",
+      "DATETIME",
+
+      // SELECTION
       "SELECT",
-      "FILE",
+      "MULTI_SELECT",
+      "RADIO",
+      "CHECKBOX",
+      "CHECKBOX_GROUP",
+
+      // BOOLEAN
       "BOOLEAN",
+      "TOGGLE",
+
+      // FILE / MEDIA
+      "FILE",
+      "FILE_MULTIPLE",
+      "IMAGE",
+      "SIGNATURE",
+
+      // NUMERIC SPECIAL
+      "CURRENCY",
+      "PERCENTAGE",
+      "SLIDER",
+      "RANGE",
+
+      // LOCATION
+      "COUNTRY",
+      "STATE",
+      "CITY",
+      "ZIPCODE",
+      "ADDRESS",
+      "GEOLOCATION",
+
+      // BUSINESS / FINANCE
+      "SSN",
+      "PAN",
+      "GST",
+      "EIN",
+      "TAN",
+      "IFSC",
+      "BANK_ACCOUNT",
+
+      // ADVANCED
+      "AUTOCOMPLETE",
+      "TAGS",
+      "RICH_TEXT",
+      "OTP",
+      "CAPTCHA",
     ];
 
     if (!allowedFieldTypes.includes(fieldType)) {
       return reply.code(400).send({
         success: false,
-        message: "Invalid fieldType",
+        message: `Invalid fieldType: ${fieldType}`,
       });
     }
 
     /* ===============================
-       3. NORMALIZE OPTIONS (SELECT)
+       3. VERIFY SECTION (IF PROVIDED)
     =============================== */
+    if (sectionId) {
+      const section =
+        await fastify.prisma.brokerApplicationSection.findFirst({
+          where: {
+            id: sectionId,
+            applicationProductId: productId,
+            isActive: true,
+          },
+          select: { id: true },
+        });
+
+      if (!section) {
+        return reply.code(404).send({
+          success: false,
+          message: "Section not found for this product",
+        });
+      }
+    }
+
+    /* ===============================
+       4. OPTION-BASED TYPES
+    =============================== */
+    const optionBasedTypes = [
+      "SELECT",
+      "MULTI_SELECT",
+      "RADIO",
+      "CHECKBOX_GROUP",
+      "AUTOCOMPLETE",
+    ];
 
     let normalizedOptions = null;
 
-    if (fieldType === "SELECT") {
+    if (optionBasedTypes.includes(fieldType)) {
       if (!options) {
         return reply.code(400).send({
           success: false,
-          message: "SELECT field requires options",
+          message: `${fieldType} field requires options`,
         });
       }
 
       normalizedOptions =
-        typeof options === "string"
-          ? options.split(",").map(o => o.trim()).filter(Boolean)
-          : Array.isArray(options)
+        Array.isArray(options)
           ? options
+          : typeof options === "string"
+          ? options.split(",").map(o => o.trim()).filter(Boolean)
           : null;
 
       if (!normalizedOptions || normalizedOptions.length === 0) {
         return reply.code(400).send({
           success: false,
-          message: "Invalid dropdown options",
+          message: "Invalid options",
         });
       }
     }
 
     /* ===============================
-       4. PLACEHOLDER RULE
+       5. PLACEHOLDER SUPPORT
     =============================== */
-
-    const allowedPlaceholderTypes = [
+    const placeholderSupportedTypes = [
       "TEXT",
       "TEXTAREA",
       "NUMBER",
       "EMAIL",
+      "PHONE",
+      "PASSWORD",
+      "CURRENCY",
+      "PERCENTAGE",
     ];
 
-    const normalizedPlaceholder = allowedPlaceholderTypes.includes(fieldType)
-      ? placeholder || null
-      : null;
+    const normalizedPlaceholder =
+      placeholderSupportedTypes.includes(fieldType)
+        ? placeholder || null
+        : null;
 
     /* ===============================
-       5. SAVE FIELD
+       6. SAVE FIELD
     =============================== */
+    const field =
+      await fastify.prisma.brokerApplicationProductField.create({
+        data: {
+          applicationProductId: productId,
+          sectionId: sectionId || null,
+          fieldKey,
+          label,
+          fieldType,
+          placeholder: normalizedPlaceholder,
+          isRequired: Boolean(isRequired),
+          options: normalizedOptions,
+          validation: validation || {},
+          sortOrder: sortOrder ?? null,
+        },
+      });
 
-    const field = await fastify.prisma.brokerApplicationProductField.create({
-      data: {
-        applicationProductId: productId,
-        fieldKey,
-        label,
-        fieldType,
-        placeholder: normalizedPlaceholder,
-        isRequired: Boolean(isRequired),
-        options: normalizedOptions,
-        validation: validation || {},
-        sortOrder: sortOrder ?? null,
-      },
-    });
-
-    reply.send({
+    return reply.code(201).send({
       success: true,
       data: field,
     });

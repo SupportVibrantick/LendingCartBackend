@@ -4,6 +4,7 @@ module.exports = async function addField(fastify) {
     const { brokerOrgId } = req.body;
 
     const {
+      sectionId,
       fieldKey,
       label,
       placeholder,
@@ -29,23 +30,23 @@ module.exports = async function addField(fastify) {
        1. HARD VALIDATIONS
     =============================== */
 
-    if (!fieldKey || !label || !fieldType) {
+    if (!sectionId || !fieldKey || !label || !fieldType) {
       return reply.code(400).send({
         success: false,
-        message: "fieldKey, label and fieldType are required",
+        message: "sectionId, fieldKey, label and fieldType are required",
       });
     }
 
     /* ===============================
-       2. VERIFY OWNERSHIP (ADMIN SAFETY)
+       2. VERIFY PRODUCT OWNERSHIP
     =============================== */
 
     const product = await fastify.prisma.brokerApplicationProduct.findFirst({
       where: {
         id: productId,
         brokerApplication: {
-  brokerOrgId,
-},
+          brokerOrgId,
+        },
       },
       select: { id: true },
     });
@@ -58,7 +59,26 @@ module.exports = async function addField(fastify) {
     }
 
     /* ===============================
-       3. FIELD TYPE VALIDATION
+       3. VERIFY SECTION BELONGS TO PRODUCT
+    =============================== */
+
+    const section = await fastify.prisma.brokerApplicationSection.findFirst({
+      where: {
+        id: sectionId,
+        applicationProductId: productId,
+      },
+      select: { id: true },
+    });
+
+    if (!section) {
+      return reply.code(400).send({
+        success: false,
+        message: "Invalid sectionId for this product",
+      });
+    }
+
+    /* ===============================
+       4. FIELD TYPE VALIDATION
     =============================== */
 
     const allowedFieldTypes = [
@@ -80,7 +100,7 @@ module.exports = async function addField(fastify) {
     }
 
     /* ===============================
-       4. NORMALIZE OPTIONS (SELECT)
+       5. NORMALIZE OPTIONS (SELECT)
     =============================== */
 
     let normalizedOptions = null;
@@ -109,7 +129,7 @@ module.exports = async function addField(fastify) {
     }
 
     /* ===============================
-       5. PLACEHOLDER RULE
+       6. PLACEHOLDER RULE
     =============================== */
 
     const allowedPlaceholderTypes = [
@@ -124,12 +144,13 @@ module.exports = async function addField(fastify) {
       : null;
 
     /* ===============================
-       6. SAVE FIELD
+       7. SAVE FIELD (UNDER SECTION)
     =============================== */
 
     const field = await fastify.prisma.brokerApplicationProductField.create({
       data: {
         applicationProductId: productId,
+        sectionId,
         fieldKey,
         label,
         fieldType,

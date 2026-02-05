@@ -9,7 +9,7 @@ async function lenderMeRoutes(fastify) {
       preHandler: fastify.authenticate,
       schema: {
         tags: ["Lender -> Auth"],
-        summary: "Get logged-in lender user profile",
+        summary: "Get logged-in lender user + lender profile",
       },
     },
     async (request, reply) => {
@@ -21,7 +21,11 @@ async function lenderMeRoutes(fastify) {
         const user = await prisma.userAccount.findUnique({
           where: { id: userId },
           include: {
-            organization: true,
+            organization: {
+              include: {
+                lenderProfile: true, // 👈 IMPORTANT
+              },
+            },
             roles: {
               include: { role: true },
             },
@@ -35,21 +39,46 @@ async function lenderMeRoutes(fastify) {
           });
         }
 
+        const lenderProfile = user.organization?.lenderProfile || null;
+
         return reply.send({
           ok: true,
           data: {
-            id: user.id,
-            email: user.email,
-            name: `${user.firstName} ${user.lastName}`,
-            profileImage: user.profileImage || null, 
-            status: user.status,
+            user: {
+              id: user.id,
+              email: user.email,
+              firstName: user.firstName,
+              lastName: user.lastName,
+              name: `${user.firstName || ""} ${user.lastName || ""}`.trim(),
+              profileImage: user.profileImage || null,
+              status: user.status,
+              roles: user.roles.map((r) => r.role.name),
+            },
+
             organization: {
               id: user.organization.id,
               name: user.organization.name,
               type: user.organization.type,
               status: user.organization.status,
             },
-            roles: user.roles.map((r) => r.role.name),
+
+            lenderProfile: lenderProfile
+              ? {
+                  summary: lenderProfile.summary,
+                  loanTypes: lenderProfile.loanTypes,
+                  minFunding: lenderProfile.minFunding,
+                  maxFunding: lenderProfile.maxFunding,
+                  statesSupported: lenderProfile.statesSupported,
+                  industries: lenderProfile.industries,
+                  fundingSpeedDays: lenderProfile.fundingSpeedDays,
+                  profileStatus: lenderProfile.profileStatus,
+                  isVisible: lenderProfile.isVisible,
+                  updatedAt: lenderProfile.updatedAt,
+                }
+              : {
+                  profileStatus: "DRAFT",
+                  isVisible: false,
+                },
           },
         });
       } catch (err) {

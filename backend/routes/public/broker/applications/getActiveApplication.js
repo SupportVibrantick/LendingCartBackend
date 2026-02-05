@@ -7,10 +7,23 @@ module.exports = async function getPublicActiveApplication(fastify) {
       where: {
         isActive: true,
       },
+      orderBy: {
+        createdAt: "desc", // ensures latest active application
+      },
       include: {
         products: {
           where: { isActive: true },
           include: {
+            sections: {
+              where: { isActive: true },
+              orderBy: { sortOrder: "asc" },
+              select: {
+                id: true,
+                name: true,
+                description: true,
+                sortOrder: true,
+              },
+            },
             fields: {
               orderBy: { sortOrder: "asc" },
               select: {
@@ -23,6 +36,7 @@ module.exports = async function getPublicActiveApplication(fastify) {
                 options: true,
                 validation: true,
                 sortOrder: true,
+                sectionId: true,
               },
             },
           },
@@ -42,21 +56,50 @@ module.exports = async function getPublicActiveApplication(fastify) {
       data: {
         applicationId: application.id,
         applicationName: application.name,
-        products: application.products.map((product) => ({
-          productId: product.id,
-          loanProductCode: product.loanProductCode,
-          fields: product.fields.map((field) => ({
-            fieldId: field.id,
-            fieldKey: field.fieldKey,
-            label: field.label,
-            type: field.fieldType,
-            placeholder: field.placeholder,
-            required: field.isRequired,
-            options: field.options,
-            validation: field.validation,
-            sortOrder: field.sortOrder,
-          })),
-        })),
+        products: application.products.map((product) => {
+          // SECTIONED FIELDS
+          const sections = product.sections.map((section) => ({
+            sectionId: section.id,
+            sectionName: section.name,
+            description: section.description,
+            sortOrder: section.sortOrder,
+            fields: product.fields
+              .filter((field) => field.sectionId === section.id)
+              .map((field) => ({
+                fieldId: field.id,
+                fieldKey: field.fieldKey,
+                label: field.label,
+                type: field.fieldType,
+                placeholder: field.placeholder,
+                required: field.isRequired,
+                options: field.options,
+                validation: field.validation,
+                sortOrder: field.sortOrder,
+              })),
+          }));
+
+          // UNSECTIONED FIELDS
+          const unsectionedFields = product.fields
+            .filter((field) => field.sectionId === null)
+            .map((field) => ({
+              fieldId: field.id,
+              fieldKey: field.fieldKey,
+              label: field.label,
+              type: field.fieldType,
+              placeholder: field.placeholder,
+              required: field.isRequired,
+              options: field.options,
+              validation: field.validation,
+              sortOrder: field.sortOrder,
+            }));
+
+          return {
+            productId: product.id,
+            loanProductCode: product.loanProductCode,
+            sections,
+            unsectionedFields,
+          };
+        }),
       },
     });
   });

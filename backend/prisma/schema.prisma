@@ -14,6 +14,7 @@ model Organization {
   status    OrganizationStatus
   email     String?
   phone     String?
+  lenderProfile LenderProfile?
   createdAt DateTime           @default(now()) @db.Timestamptz(6)
   updatedAt DateTime           @updatedAt @db.Timestamptz(6)
 
@@ -56,6 +57,7 @@ model UserAccount {
   createdAt                  DateTime                    @default(now()) @db.Timestamptz(6)
   updatedAt                  DateTime                    @updatedAt @db.Timestamptz(6)
   uploadedDocs               ApplicationDocumentUpload[] @relation("UploadedByUser")
+  applicationTemplates       ApplicationTemplate[]
   applicationSent            ApplicationLender[]         @relation("SentByUser")
   changedApplicationStatuses ApplicationStatusHistory[]  @relation("ChangedByUser")
   auditLogs                  AuditLog[]                  @relation("UserAuditLogs")
@@ -70,6 +72,32 @@ model UserAccount {
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
 
   @@map("user_accounts")
+}
+
+model LenderProfile {
+  id               String   @id @default(uuid()) @db.Uuid
+  lenderOrgId      String   @unique @db.Uuid
+
+  // DISCOVERY INFO (broker-facing)
+  summary          String?
+  loanTypes        LoanProductCode[]
+  minFunding       Decimal?  @db.Decimal(20, 2)
+  maxFunding       Decimal?  @db.Decimal(20, 2)
+  statesSupported  String?
+  industries       String?
+  fundingSpeedDays Int?
+
+  
+  profileStatus    LenderProfileStatus @default(DRAFT)
+
+  isVisible        Boolean   @default(false)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  lender Organization @relation(fields: [lenderOrgId], references: [id])
+
+  @@map("lender_profiles")
 }
 
 model Role {
@@ -159,31 +187,79 @@ model LoanProduct {
   @@map("loan_products")
 }
 
+// model LenderProduct {
+//   id                         String                      @id @default(uuid()) @db.Uuid
+//   lenderOrgId                String                      @db.Uuid
+//   loanProductId              String?                     @db.Uuid
+//   loanProductCode            LoanProductCode
+//   minLoanAmount              Decimal?                    @db.Decimal(20, 2) 
+//   maxLoanAmount              Decimal?                    @db.Decimal(20, 2)
+//   minTermMonths              Int?
+//   maxTermMonths              Int?
+//   regionsSupported           String?
+//   industriesSupported        String?
+//   isActive                   Boolean                     @default(true)
+//   createdAt                  DateTime                    @default(now()) @db.Timestamptz(6)
+//   updatedAt                  DateTime                    @updatedAt @db.Timestamptz(6)
+//   applicationLenders         ApplicationLender[]
+//   eligibilityRuleSets        EligibilityRuleSet[]
+//   lenderDocumentRequirements LenderDocumentRequirement[]
+//   lender                     Organization                @relation(fields: [lenderOrgId], references: [id])
+//   loanProduct                LoanProduct?                @relation(fields: [loanProductId], references: [id])
+
+//   @@index([lenderOrgId])
+//   @@index([loanProductCode])
+//   @@index([loanProductId])
+//   @@map("lender_products")
+// }
+
+
 model LenderProduct {
-  id                         String                      @id @default(uuid()) @db.Uuid
-  lenderOrgId                String                      @db.Uuid
-  loanProductId              String?                     @db.Uuid
-  loanProductCode            LoanProductCode
-  minLoanAmount              Decimal?                    @db.Decimal(20, 2)
-  maxLoanAmount              Decimal?                    @db.Decimal(20, 2)
-  minTermMonths              Int?
-  maxTermMonths              Int?
-  regionsSupported           String?
-  industriesSupported        String?
-  isActive                   Boolean                     @default(true)
-  createdAt                  DateTime                    @default(now()) @db.Timestamptz(6)
-  updatedAt                  DateTime                    @updatedAt @db.Timestamptz(6)
+  id              String   @id @default(uuid()) @db.Uuid
+
+  lenderOrgId     String   @db.Uuid
+  loanProductId   String?  @db.Uuid
+  loanProductCode LoanProductCode
+
+  businessTypes   String?
+
+  minLoanAmount   Decimal? @db.Decimal(20, 2)
+  maxLoanAmount   Decimal? @db.Decimal(20, 2)
+
+  minTermMonths   Int?
+  maxTermMonths   Int?
+
+  minLtvPercent   Decimal? @db.Decimal(5, 2)
+  maxLtvPercent   Decimal? @db.Decimal(5, 2)
+
+  minCreditScore  Int?
+  minExperience   String?
+
+  interestRateRange String?
+
+  statesSupported String?
+
+  isActive        Boolean  @default(true)
+
+  createdAt       DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime @updatedAt @db.Timestamptz(6)
+
   applicationLenders         ApplicationLender[]
   eligibilityRuleSets        EligibilityRuleSet[]
   lenderDocumentRequirements LenderDocumentRequirement[]
-  lender                     Organization                @relation(fields: [lenderOrgId], references: [id])
-  loanProduct                LoanProduct?                @relation(fields: [loanProductId], references: [id])
 
+  lender      Organization @relation(fields: [lenderOrgId], references: [id])
+  loanProduct LoanProduct? @relation(fields: [loanProductId], references: [id])
+
+  @@unique([lenderOrgId, loanProductCode])
   @@index([lenderOrgId])
   @@index([loanProductCode])
   @@index([loanProductId])
   @@map("lender_products")
 }
+
+
+
 
 model BrokerLenderAccess {
   id          String             @id @default(uuid()) @db.Uuid
@@ -402,9 +478,10 @@ model BrokerApplication {
   id          String  @id @default(uuid()) @db.Uuid
   brokerOrgId String  @db.Uuid
   name        String
-  code        String?  @unique
+  code        String? @unique
   isActive    Boolean @default(false)
 
+  createdFromTemplate Boolean @default(false)
   createdAt DateTime @default(now()) @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @db.Timestamptz(6)
 
@@ -421,7 +498,7 @@ model BrokerApplicationProduct {
   brokerApplicationId String          @db.Uuid
   loanProductCode     LoanProductCode
   isActive            Boolean         @default(true)
-
+  sections BrokerApplicationSection[]
   fields BrokerApplicationProductField[]
 
   brokerApplication BrokerApplication @relation(fields: [brokerApplicationId], references: [id])
@@ -435,21 +512,44 @@ model BrokerApplicationProductField {
   id                   String @id @default(uuid()) @db.Uuid
   applicationProductId String @db.Uuid
 
-  fieldKey   String
-  label      String
+  fieldKey    String
+  label       String
   placeholder String?
-  fieldType  FieldType
-  isRequired Boolean   @default(false)
-
+  fieldType   FieldType
+  isRequired  Boolean   @default(false)
+  sectionId String? @db.Uuid
+  section   BrokerApplicationSection? @relation(fields: [sectionId], references: [id])
   options    Json?
   validation Json?
   sortOrder  Int?
 
+  submissions ApplicationSubmissionField[]
+  
   applicationProduct BrokerApplicationProduct @relation(fields: [applicationProductId], references: [id])
-
+  
   @@index([applicationProductId])
   @@map("broker_application_product_fields")
 }
+
+model BrokerApplicationSection {
+  id                    String   @id @default(uuid()) @db.Uuid
+  applicationProductId  String   @db.Uuid
+
+  name        String
+  description String?
+  sortOrder   Int
+  isActive    Boolean   @default(true)
+
+  fields BrokerApplicationProductField[]
+
+  applicationProduct BrokerApplicationProduct @relation(fields: [applicationProductId], references: [id])
+
+  @@index([applicationProductId])
+  @@unique([applicationProductId, name])
+  @@map("broker_application_sections")
+}
+
+
 
 model LoanApplicationField {
   id              String          @id @default(uuid()) @db.Uuid
@@ -770,6 +870,121 @@ model ClmLandingPageLead {
   @@map("clm_landing_page_leads")
 }
 
+model ApplicationTemplate {
+  id          String  @id @default(uuid()) @db.Uuid
+  name        String
+  code        String  @unique
+  description String?
+  isActive    Boolean @default(false)
+
+  // optional future-proofing
+  version   Int     @default(1)
+  isDefault Boolean @default(false)
+
+  createdByUserId String?  @db.Uuid
+  createdAt       DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime @updatedAt @db.Timestamptz(6)
+
+  products ApplicationTemplateProduct[]
+
+  createdBy UserAccount? @relation(fields: [createdByUserId], references: [id])
+
+  @@map("application_templates")
+}
+
+model ApplicationTemplateProduct {
+  id                    String          @id @default(uuid()) @db.Uuid
+  applicationTemplateId String          @db.Uuid
+  loanProductCode       LoanProductCode
+  isActive              Boolean         @default(true)
+  sections ApplicationTemplateSection[]
+  fields ApplicationTemplateProductField[]
+
+  applicationTemplate ApplicationTemplate @relation(fields: [applicationTemplateId], references: [id])
+
+  @@unique([applicationTemplateId, loanProductCode])
+  @@index([loanProductCode])
+  @@map("application_template_products")
+}
+
+model ApplicationTemplateProductField {
+  id                           String @id @default(uuid()) @db.Uuid
+  applicationTemplateProductId String @db.Uuid
+
+  fieldKey    String
+  label       String
+  placeholder String?
+  fieldType   FieldType
+  isRequired  Boolean   @default(false)
+
+  options    Json?
+  validation Json?
+  sortOrder  Int?
+
+  applicationTemplateProduct ApplicationTemplateProduct @relation(fields: [applicationTemplateProductId], references: [id])
+  sectionId String? @db.Uuid
+  section   ApplicationTemplateSection? @relation(fields: [sectionId], references: [id])
+  @@index([applicationTemplateProductId,sectionId])
+  @@map("application_template_product_fields")
+}
+
+model ApplicationTemplateSection {
+  id                         String   @id @default(uuid()) @db.Uuid
+  applicationTemplateProductId String   @db.Uuid
+
+  name        String           // "Personal Information"
+  description String?
+  sortOrder   Int
+  isActive    Boolean          @default(true)
+
+  fields ApplicationTemplateProductField[]
+
+  applicationTemplateProduct ApplicationTemplateProduct @relation(fields: [applicationTemplateProductId], references: [id])
+
+  @@index([applicationTemplateProductId])
+  @@unique([applicationTemplateProductId, name])
+  @@map("application_template_sections")
+}
+
+model ApplicationSubmission {
+  id                   String   @id @default(uuid()) @db.Uuid
+  applicationId        String   @db.Uuid
+  applicationProductId String   @db.Uuid
+  status               String
+  createdAt            DateTime @default(now())
+  
+  fields ApplicationSubmissionField[]
+
+  @@index([applicationId])
+  @@index([applicationProductId])
+  @@map("application_submissions")
+}
+
+model ApplicationSubmissionField {
+  id            String   @id @default(uuid()) @db.Uuid
+  submissionId  String   @db.Uuid
+  fieldId       String?  @db.Uuid
+  fieldKey      String?
+  value         Json
+  source        String
+  createdAt     DateTime @default(now())
+
+  submission ApplicationSubmission @relation(fields: [submissionId], references: [id])
+
+  builderField BrokerApplicationProductField? @relation(fields: [fieldId], references: [id])
+
+  @@index([submissionId])
+  @@index([fieldId])
+  @@map("application_submission_fields")
+}
+
+
+enum LenderProfileStatus {
+  DRAFT        // created but not completed
+  INCOMPLETE   // partially filled
+  COMPLETED    // ready & visible to brokers
+}
+
 enum LeadStatus {
   NEW
   CONTACTED
@@ -923,12 +1138,78 @@ enum BrokerLenderSource {
 }
 
 enum FieldType {
-  TEXT
-  TEXTAREA
-  NUMBER
-  EMAIL
-  DATE
-  SELECT
-  FILE
-  BOOLEAN
+  // ─────────────────────────
+  // BASIC INPUTS
+  // ─────────────────────────
+  TEXT            // name, city, company
+  TEXTAREA        // address, description
+  NUMBER          // amount, revenue
+  EMAIL           // email
+  PHONE           // phone / mobile
+  PASSWORD        // password fields
+  DATE            // date picker
+  TIME            // time picker
+  DATETIME        // date + time picker
+
+  // ─────────────────────────
+  // SELECTION INPUTS
+  // ─────────────────────────
+  SELECT          // dropdown (single)
+  MULTI_SELECT    // dropdown (multiple)
+  RADIO           // radio buttons
+  CHECKBOX        // single checkbox (yes/no)
+  CHECKBOX_GROUP  // multiple checkboxes
+
+  // ─────────────────────────
+  // BOOLEAN / TOGGLE
+  // ─────────────────────────
+  BOOLEAN         // true/false
+  TOGGLE          // switch UI (on/off)
+
+  // ─────────────────────────
+  // FILE / MEDIA
+  // ─────────────────────────
+  FILE            // single file upload
+  FILE_MULTIPLE   // multiple file upload
+  IMAGE           // image upload
+  SIGNATURE       // signature pad
+
+  // ─────────────────────────
+  // NUMERIC SPECIALIZED
+  // ─────────────────────────
+  CURRENCY        // money (₹, $, etc.)
+  PERCENTAGE      // %
+  SLIDER          // range slider
+  RANGE           // min-max range
+
+  // ─────────────────────────
+  // ADDRESS / LOCATION
+  // ─────────────────────────
+  COUNTRY
+  STATE
+  CITY
+  ZIPCODE
+  ADDRESS         // structured address
+  GEOLOCATION     // lat/long picker
+
+  // ─────────────────────────
+  // BUSINESS / FINANCE
+  // ─────────────────────────
+  SSN             // social security
+  PAN             // PAN card
+  GST             // GST number
+  EIN             // employer ID
+  TAN             // tax account
+  IFSC            // bank IFSC
+  BANK_ACCOUNT
+
+  // ─────────────────────────
+  // ADVANCED / UX
+  // ─────────────────────────
+  AUTOCOMPLETE    // search-based select
+  TAGS            // tag input
+  RICH_TEXT       // WYSIWYG editor
+  OTP             // one-time password
+  CAPTCHA         // captcha field
 }
+

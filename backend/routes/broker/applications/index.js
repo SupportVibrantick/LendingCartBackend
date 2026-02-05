@@ -16,7 +16,9 @@ async function brokerApplicationsRoutes(fastify) {
   fastify.register(require("./products/addProduct"));
   fastify.register(require("./products/listProducts"));
   fastify.register(require("./products/removeProduct"));
-
+fastify.register(require("./sections"), {
+    prefix: "/products/:productId/sections",
+  });
   // ─────────────────────────────────────────────
   // Application → Product Fields
   // ─────────────────────────────────────────────
@@ -24,6 +26,9 @@ async function brokerApplicationsRoutes(fastify) {
   fastify.register(require("./fields/updateField"));
   fastify.register(require("./fields/deleteField"));
   fastify.register(require("./fields/listFields"));
+
+  fastify.register(require("./createFromTemplate"));
+
 }
 
 module.exports = brokerApplicationsRoutes;

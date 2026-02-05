@@ -791,3 +791,46 @@ span.flatpickr-weekday,
 body.swal2-shown > *:not(.swal2-container) {
   pointer-events: none;
 }
+
+
+.menu-item-active {
+  background-color: #0F766E;
+  color: white;
+}
+
+.menu-item-inactive {
+  color: white;
+}
+
+.menu-item-inactive:hover {
+  background-color: #0F766E;
+}
+
+.menu-dropdown-item-active {
+  background-color: #0F766E;
+  color: white;
+}
+
+.menu-dropdown-item-inactive {
+  color: white;
+}
+
+.menu-dropdown-item-inactive:hover {
+  background-color: #0F766E;
+}
+
+.menu-item-icon-active {
+  color: white !important;
+}
+
+.menu-item-icon-inactive {
+  color: white !important;
+}
+
+/* For MUI icons & react-icons */
+.menu-item-icon-active svg,
+.menu-item-icon-inactive svg {
+  fill: white;
+  color: white;
+}
+

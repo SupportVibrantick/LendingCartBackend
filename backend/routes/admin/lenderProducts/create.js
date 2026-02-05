@@ -11,15 +11,16 @@ async function createLenderProductRoutes(fastify) {
     {
       schema: {
         tags: ["Admin -> Lender Products"],
-        summary: "Assign loan product to a lender",
+        summary: "Assign multiple loan products to a lender",
         body: { type: "object" },
       },
     },
     async (request, reply) => {
       const prisma = fastify.prisma;
+
       try {
         // ---------------------------
-        // Validate body via Zod
+        // Validate request body
         // ---------------------------
         const parsed = createLenderProductSchema.safeParse(request.body);
 
@@ -34,10 +35,14 @@ async function createLenderProductRoutes(fastify) {
         const data = parsed.data;
 
         // ---------------------------
-        // Validate lender organization
+        // Validate lender org
         // ---------------------------
         const lenderOrg = await prisma.organization.findFirst({
-          where: { id: data.lenderOrgId, type: "LENDER", isDeleted: { not: true } },
+          where: {
+            id: data.lenderOrgId,
+            type: "LENDER",
+            isDeleted: { not: true },
+          },
         });
 
         if (!lenderOrg) {
@@ -48,46 +53,49 @@ async function createLenderProductRoutes(fastify) {
         }
 
         // ---------------------------
-        // Validate that product exists
+        // Fetch loan products
         // ---------------------------
-        const loanProduct = await prisma.loanProduct.findFirst({
-          where: { code: data.loanProductCode, isActive: true },
-        });
-
-        if (!loanProduct) {
-          return reply.status(404).send({
-            success: false,
-            message: "Loan product not found.",
-          });
-        }
-
-        // ---------------------------
-        // Prevent duplicate mapping
-        // ---------------------------
-        const existing = await prisma.lenderProduct.findFirst({
+        const loanProducts = await prisma.loanProduct.findMany({
           where: {
-            lenderOrgId: data.lenderOrgId,
-            loanProductCode: data.loanProductCode,
+            code: { in: data.loanProductCodes },
+            isActive: true,
           },
         });
 
-        if (existing) {
-          return reply.status(409).send({
+        if (loanProducts.length !== data.loanProductCodes.length) {
+          return reply.status(404).send({
             success: false,
-            message: "This lender already has this product assigned.",
+            message: "One or more loan products not found or inactive.",
           });
         }
 
         // ---------------------------
-        // Create lender product mapping
+        // Existing mappings
         // ---------------------------
-        const result = await prisma.lenderProduct.create({
-          data: {
+        const existing = await prisma.lenderProduct.findMany({
+          where: {
             lenderOrgId: data.lenderOrgId,
-            loanProductId: loanProduct.id,
-            loanProductCode: data.loanProductCode,
+            loanProductCode: { in: data.loanProductCodes },
+          },
+          select: { loanProductCode: true },
+        });
 
-            // DECIMAL FIELDS → Prisma.Decimal
+        const existingCodes = new Set(
+          existing.map((e) => e.loanProductCode)
+        );
+
+        // ---------------------------
+        // Prepare create payload
+        // ---------------------------
+        const createPayload = loanProducts
+          .filter((p) => !existingCodes.has(p.code))
+          .map((product) => ({
+            lenderOrgId: data.lenderOrgId,
+            loanProductId: product.id,
+            loanProductCode: product.code,
+
+            businessTypes: data.businessTypes?.join(",") ?? null,
+
             minLoanAmount: data.minLoanAmount
               ? new Prisma.Decimal(data.minLoanAmount)
               : null,
@@ -96,34 +104,56 @@ async function createLenderProductRoutes(fastify) {
               ? new Prisma.Decimal(data.maxLoanAmount)
               : null,
 
-            // INTEGER FIELDS
             minTermMonths: data.minTermMonths ?? null,
             maxTermMonths: data.maxTermMonths ?? null,
 
-            // ARRAYS → JSON STRING
-            regionsSupported: data.regionsSupported
-              ? JSON.stringify(data.regionsSupported)
+            minLtvPercent: data.minLtvPercent
+              ? new Prisma.Decimal(data.minLtvPercent)
               : null,
 
-            industriesSupported: data.industriesSupported
-              ? JSON.stringify(data.industriesSupported)
+            maxLtvPercent: data.maxLtvPercent
+              ? new Prisma.Decimal(data.maxLtvPercent)
               : null,
+
+            minCreditScore: data.minCreditScore ?? null,
+            minExperience: data.minExperience ?? null,
+
+            interestRateRange: data.interestRateRange ?? null,
+
+            statesSupported: data.statesSupported?.join(",") ?? null,
 
             isActive: data.isActive ?? true,
-          },
-        });
+          }));
+
+        if (!createPayload.length) {
+          return reply.status(409).send({
+            success: false,
+            message: "All loan products are already assigned to this lender.",
+          });
+        }
+
+        // ---------------------------
+        // Create records (transaction)
+        // ---------------------------
+        const created = await prisma.$transaction(
+          createPayload.map((d) =>
+            prisma.lenderProduct.create({ data: d })
+          )
+        );
 
         return reply.status(201).send({
           success: true,
-          message: "Lender product mapping created successfully.",
-          data: result,
+          message: "Lender products created successfully.",
+          createdCount: created.length,
+          skippedLoanProductCodes: [...existingCodes],
+          data: created,
         });
       } catch (error) {
-        adminLogs.error("LenderProduct create failed", error);
- 
+        adminLogs.error("LenderProduct bulk create failed", error);
+
         return reply.status(500).send({
           success: false,
-          message: "Server error while creating lender product",
+          message: "Server error while creating lender products",
         });
       }
     }

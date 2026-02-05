@@ -5,6 +5,7 @@ async function findBrokerLendersRoutes(fastify) {
   fastify.get(
     "/",
     {
+      preHandler: fastify.authenticate,
       schema: {
         tags: ["Broker -> Lenders"],
         summary: "Find lenders",
@@ -16,9 +17,9 @@ async function findBrokerLendersRoutes(fastify) {
       const prisma = fastify.prisma;
 
       try {
-        // ---------------------------
-        // Auth safety
-        // ---------------------------
+        /* ===============================
+           1. AUTH / BROKER GUARD
+        =============================== */
         if (!req.user || !req.user.organizationId) {
           return reply.status(403).send({
             success: false,
@@ -44,17 +45,17 @@ async function findBrokerLendersRoutes(fastify) {
 
         const brokerOrgId = brokerOrg.id;
 
-        // ---------------------------
-        // Pagination & search
-        // ---------------------------
+        /* ===============================
+           2. PAGINATION & SEARCH
+        =============================== */
         const q = req.query.q || "";
         const page = Number(req.query.page) || 1;
         const limit = Number(req.query.limit) || 10;
         const skip = (page - 1) * limit;
 
-        // ---------------------------
-        // Connected lenders
-        // ---------------------------
+        /* ===============================
+           3. CONNECTED LENDERS
+        =============================== */
         const connected = await prisma.brokerLenderAccess.findMany({
           where: {
             brokerOrgId,
@@ -67,16 +68,22 @@ async function findBrokerLendersRoutes(fastify) {
 
         const connectedLenderIds = connected.map(c => c.lenderOrgId);
 
-        // ---------------------------
-        // Search lenders
-        // ---------------------------
+        /* ===============================
+           4. SEARCH FILTER
+        =============================== */
         const where = {
           type: "LENDER",
           status: "ACTIVE",
           isDeleted: { not: true },
+
+          lenderProfile: {
+            isVisible: true, //  only show visible lenders
+          },
+
           ...(connectedLenderIds.length && {
             id: { notIn: connectedLenderIds },
           }),
+
           ...(q && {
             name: {
               contains: q,
@@ -85,6 +92,9 @@ async function findBrokerLendersRoutes(fastify) {
           }),
         };
 
+        /* ===============================
+           5. QUERY
+        =============================== */
         const [lenders, total] = await Promise.all([
           prisma.organization.findMany({
             where,
@@ -95,12 +105,26 @@ async function findBrokerLendersRoutes(fastify) {
               phone: true,
               createdAt: true,
 
-              // ⭐ get admin profile image
+              //  lender discovery profile
+              lenderProfile: {
+                select: {
+                  summary: true,
+                  loanTypes: true,
+                  minFunding: true,
+                  maxFunding: true,
+                  statesSupported: true,
+                  industries: true,
+                  fundingSpeedDays: true,
+                  profileStatus: true,
+                },
+              },
+
+              //  admin profile image
               users: {
                 select: {
                   profileImage: true,
                 },
-                take: 1, // first admin user
+                take: 1,
               },
             },
             orderBy: { createdAt: "desc" },
@@ -110,9 +134,9 @@ async function findBrokerLendersRoutes(fastify) {
           prisma.organization.count({ where }),
         ]);
 
-        // ---------------------------
-        // Response
-        // ---------------------------
+        /* ===============================
+           6. RESPONSE
+        =============================== */
         return reply.send({
           success: true,
           meta: { page, limit, total },
@@ -124,8 +148,21 @@ async function findBrokerLendersRoutes(fastify) {
               : null,
             phone: l.phone,
 
-            // ⭐ profile image
             profileImage: l.users[0]?.profileImage || null,
+
+            //  lender discovery info
+            lenderProfile: l.lenderProfile
+              ? {
+                  summary: l.lenderProfile.summary,
+                  loanTypes: l.lenderProfile.loanTypes,
+                  minFunding: l.lenderProfile.minFunding,
+                  maxFunding: l.lenderProfile.maxFunding,
+                  statesSupported: l.lenderProfile.statesSupported,
+                  industries: l.lenderProfile.industries,
+                  fundingSpeedDays: l.lenderProfile.fundingSpeedDays,
+                  profileStatus: l.lenderProfile.profileStatus,
+                }
+              : null,
 
             status: "NOT_CONNECTED",
           })),
