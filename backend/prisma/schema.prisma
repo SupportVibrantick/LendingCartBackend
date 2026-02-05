@@ -1030,6 +1030,7 @@ enum ClientEntityType {
 
 enum LoanProductCode {
   /* ================= SBA / GOVERNMENT ================= */
+  SBA
   SBA_7A
   SBA_504
   SBA_EXPRESS
