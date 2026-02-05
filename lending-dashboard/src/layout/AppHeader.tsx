@@ -6,12 +6,11 @@ import { ThemeToggleButton } from "../components/common/ThemeToggleButton";
 import NotificationDropdown from "../components/header/NotificationDropdown";
 import UserDropdown from "../components/header/UserDropdown";
 
-
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001";
 
 function getAuthHeaders(): Record<string, string> {
   try {
-    let token = sessionStorage.getItem("lender_token");
+    const token = sessionStorage.getItem("lender_token");
     if (token) {
       return {
         "Content-Type": "application/json",
@@ -74,15 +73,11 @@ const AppHeader: React.FC = () => {
   const toTitleCase = (value?: string) =>
     value
       ? value
-        .toLowerCase()
-        .split(" ")
-        .map(
-          (w) => w.charAt(0).toUpperCase() + w.slice(1)
-        )
-        .join(" ")
+          .toLowerCase()
+          .split(" ")
+          .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+          .join(" ")
       : "";
-
-
 
   useEffect(() => {
     fetchAuthUser();
@@ -99,25 +94,28 @@ const AppHeader: React.FC = () => {
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, []);
-
   useEffect(() => {
-    const updateTime = () => {
+    const updateDateTime = () => {
       const now = new Date();
 
-      const formatted = now
-        .toLocaleTimeString(undefined, {
-          hour: "numeric",
-          minute: "2-digit",
-          hour12: true,
-        })
-        .replace(" AM", "")
-        .replace(" PM", "");
+      const day = now.getDate();
+      const month = now.toLocaleString("en-US", { month: "short" });
+      const year = now.getFullYear();
+
+      const time = now.toLocaleTimeString(undefined, {
+        hour: "2-digit",
+        minute: "2-digit",
+        // second: "2-digit",
+      });
+
+      const formatted = `${day} ${month} ${year}   ,        ${time}`;
 
       setTime(formatted);
     };
 
-    updateTime();
-    const interval = setInterval(updateTime, 1000);
+    updateDateTime();
+    const interval = setInterval(updateDateTime, 1000);
+
     return () => clearInterval(interval);
   }, []);
 
@@ -197,19 +195,19 @@ const AppHeader: React.FC = () => {
             </svg>
           </button>
 
-
           <div className="hidden lg:block">
             <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
               Welcome{" "}
               <span className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                {toTitleCase(user?.name)}
+                {toTitleCase(user?.user?.name)}
               </span>
             </h1>
           </div>
         </div>
         <div
-          className={`${isApplicationMenuOpen ? "flex" : "hidden"
-            } items-center justify-between w-full gap-4 px-5 py-4 lg:flex shadow-theme-md lg:justify-end lg:px-0 lg:shadow-none`}
+          className={`${
+            isApplicationMenuOpen ? "flex" : "hidden"
+          } items-center justify-between w-full gap-4 px-5 py-4 lg:flex shadow-theme-md lg:justify-end lg:px-0 lg:shadow-none`}
         >
           <div className="flex items-center gap-2 2xsm:gap-3">
             <div className="flex items-center gap-2">
