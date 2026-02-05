@@ -1,14 +1,61 @@
 const fp = require("fastify-plugin");
+const axios = require("axios");
 
 /**
  * Public submit application API
  * - No auth
  * - Fully dynamic field support
+ * - Google reCAPTCHA protection
  * - Defensive validation
  */
 async function submitApplication(fastify) {
   fastify.post("/submit", async (req, reply) => {
-    const { applicationId, applicationProductId, fields } = req.body;
+    const {
+      applicationId,
+      applicationProductId,
+      fields,
+      captchaToken,
+    } = req.body;
+
+    /* ===============================
+       0. CAPTCHA VALIDATION
+    =============================== */
+    if (!captchaToken) {
+      return reply.code(400).send({
+        success: false,
+        message: "Captcha token is required",
+      });
+    }
+
+    try {
+      const captchaRes = await axios.post(
+        "https://www.google.com/recaptcha/api/siteverify",
+        null,
+        {
+          params: {
+            secret: process.env.RECAPTCHA_SECRET_KEY,
+            response: captchaToken,
+          },
+        }
+      );
+
+      if (
+        !captchaRes.data.success ||
+        (captchaRes.data.score !== undefined &&
+          captchaRes.data.score < 0.5)
+      ) {
+        return reply.code(403).send({
+          success: false,
+          message: "Captcha verification failed",
+        });
+      }
+    } catch (err) {
+      fastify.log.error("Captcha verification error", err);
+      return reply.code(500).send({
+        success: false,
+        message: "Captcha verification failed",
+      });
+    }
 
     /* ===============================
        1. BASIC PAYLOAD VALIDATION
@@ -39,9 +86,7 @@ async function submitApplication(fastify) {
             },
           },
         },
-        select: {
-          id: true,
-        },
+        select: { id: true },
       });
 
     if (!application) {
@@ -56,9 +101,7 @@ async function submitApplication(fastify) {
     =============================== */
     const productFields =
       await fastify.prisma.brokerApplicationProductField.findMany({
-        where: {
-          applicationProductId,
-        },
+        where: { applicationProductId },
       });
 
     const fieldMap = new Map(
