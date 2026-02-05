@@ -49,15 +49,106 @@ function statusClass(status?: string) {
 
 // keep options in sync with Prisma enum LoanProductCode
 const LOAN_PRODUCT_CODES: { value: string; label: string }[] = [
-  { value: "SBA", label: "SBA" },
-  { value: "USDA", label: "USDA" },
-  { value: "BRIDGE", label: "Bridge" },
-  { value: "DSCR", label: "DSCR" },
-  { value: "CONSTRUCTION", label: "Construction" },
-  { value: "EQUIPMENT", label: "Equipment" },
-  { value: "ASSET_BASED", label: "Asset Based" },
-  { value: "AR_AP", label: "AR/AP" },
-  { value: "PO_FINANCE", label: "PO Finance" },
+
+  /* ================= SBA / GOVERNMENT ================= */
+  { value: "SBA_7A", label: "SBA 7(a) Loan" },
+  { value: "SBA_504", label: "SBA 504 Loan" },
+  { value: "SBA_EXPRESS", label: "SBA Express Loan" },
+  { value: "SBA_CAPLINES", label: "SBA CAPLines" },
+  { value: "SBA_MICROLOAN", label: "SBA Microloan" },
+  { value: "SBA_DISASTER", label: "SBA Disaster Loan" },
+  { value: "SBA_EXPORT", label: "SBA Export Loan" },
+  { value: "VA_BUSINESS", label: "VA Business Loan" },
+
+  /* ================= USDA ================= */
+  { value: "USDA_BUSINESS", label: "USDA Business Loan" },
+  { value: "USDA_RURAL_DEVELOPMENT", label: "USDA Rural Development Loan" },
+  { value: "USDA_FARM_OWNERSHIP", label: "USDA Farm Ownership Loan" },
+  { value: "USDA_FARM_OPERATING", label: "USDA Farm Operating Loan" },
+
+  /* ================= COMMERCIAL REAL ESTATE ================= */
+  { value: "CRE_PURCHASE", label: "Commercial Real Estate Purchase" },
+  { value: "CRE_REFINANCE", label: "Commercial Real Estate Refinance" },
+  { value: "CRE_CASH_OUT", label: "Commercial Cash-Out Refinance" },
+  { value: "OWNER_OCCUPIED_CRE", label: "Owner-Occupied Commercial Real Estate" },
+  { value: "INVESTOR_CRE", label: "Investor Commercial Real Estate" },
+  { value: "CMBS", label: "CMBS Loan" },
+
+  /* ================= CONSTRUCTION ================= */
+  { value: "GROUND_UP_CONSTRUCTION", label: "Ground Up Construction" },
+  { value: "CONSTRUCTION_TO_PERM", label: "Construction to Permanent" },
+  { value: "COMMERCIAL_CONSTRUCTION", label: "Commercial Construction Loan" },
+  { value: "LAND_DEVELOPMENT", label: "Land Development Loan" },
+  { value: "LAND_ACQUISITION", label: "Land Acquisition Loan" },
+
+  /* ================= RESIDENTIAL / MORTGAGE ================= */
+  { value: "CONVENTIONAL_MORTGAGE", label: "Conventional Mortgage" },
+  { value: "FHA_LOAN", label: "FHA Loan" },
+  { value: "VA_HOME_LOAN", label: "VA Home Loan" },
+  { value: "USDA_HOME_LOAN", label: "USDA Home Loan" },
+  { value: "NON_QM", label: "Non-QM Mortgage" },
+  { value: "JUMBO_LOAN", label: "Jumbo Mortgage Loan" },
+  { value: "REVERSE_MORTGAGE", label: "Reverse Mortgage" },
+
+  /* ================= RESIDENTIAL INVESTMENT ================= */
+  { value: "DSCR_RENTAL", label: "DSCR Rental Loan" },
+  { value: "FIX_AND_FLIP", label: "Fix & Flip Loan" },
+  { value: "BRIDGE_REALESTATE", label: "Real Estate Bridge Loan" },
+  { value: "HARD_MONEY", label: "Hard Money Loan" },
+  { value: "RENTAL_PORTFOLIO", label: "Rental Portfolio Loan" },
+
+  /* ================= BUSINESS ================= */
+  { value: "BUSINESS_TERM", label: "Business Term Loan" },
+  { value: "WORKING_CAPITAL", label: "Working Capital Loan" },
+  { value: "BUSINESS_LINE_OF_CREDIT", label: "Business Line of Credit" },
+  { value: "STARTUP_FINANCING", label: "Startup Business Loan" },
+  { value: "SMALL_BUSINESS_LOAN", label: "Small Business Loan" },
+
+  /* ================= EQUIPMENT / AUTO ================= */
+  { value: "EQUIPMENT_FINANCE", label: "Equipment Financing" },
+  { value: "EQUIPMENT_LEASE", label: "Equipment Leasing" },
+  { value: "COMMERCIAL_AUTO", label: "Commercial Vehicle Loan" },
+  { value: "FLEET_FINANCE", label: "Fleet Financing" },
+  { value: "HEAVY_EQUIPMENT", label: "Heavy Equipment Loan" },
+
+  /* ================= ASSET BASED / TRADE ================= */
+  { value: "ASSET_BASED_LENDING", label: "Asset Based Lending" },
+  { value: "ACCOUNTS_RECEIVABLE", label: "Accounts Receivable Financing" },
+  { value: "INVOICE_FACTORING", label: "Invoice Factoring" },
+  { value: "PURCHASE_ORDER", label: "Purchase Order Financing" },
+  { value: "INVENTORY_FINANCE", label: "Inventory Financing" },
+  { value: "TRADE_FINANCE", label: "Trade Finance" },
+
+  /* ================= ALT / PRIVATE CREDIT ================= */
+  { value: "MERCHANT_CASH_ADVANCE", label: "Merchant Cash Advance" },
+  { value: "REVENUE_BASED_FINANCE", label: "Revenue Based Financing" },
+  { value: "PRIVATE_CREDIT", label: "Private Credit Loan" },
+  { value: "MEZZANINE_FINANCE", label: "Mezzanine Financing" },
+  { value: "VENTURE_DEBT", label: "Venture Debt" },
+
+  /* ================= FRANCHISE / INDUSTRY ================= */
+  { value: "FRANCHISE_FINANCE", label: "Franchise Financing" },
+  { value: "HOTEL_FINANCE", label: "Hotel Financing" },
+  { value: "RESTAURANT_FINANCE", label: "Restaurant Financing" },
+  { value: "MEDICAL_PRACTICE", label: "Medical Practice Financing" },
+  { value: "DENTAL_PRACTICE", label: "Dental Practice Financing" },
+  { value: "LAW_FIRM_FINANCE", label: "Law Firm Financing" },
+
+  /* ================= AGRICULTURE ================= */
+  { value: "AGRICULTURE_OPERATING", label: "Agriculture Operating Loan" },
+  { value: "FARM_EQUIPMENT", label: "Farm Equipment Loan" },
+  { value: "FARM_REAL_ESTATE", label: "Farm Real Estate Loan" },
+  { value: "LIVESTOCK_LOAN", label: "Livestock Loan" },
+
+  /* ================= CONSUMER ================= */
+  { value: "PERSONAL_LOAN", label: "Personal Loan" },
+  { value: "AUTO_LOAN", label: "Auto Loan" },
+  { value: "STUDENT_LOAN", label: "Student Loan" },
+  { value: "STUDENT_LOAN_REFINANCE", label: "Student Loan Refinance" },
+  { value: "HELOC", label: "Home Equity Line of Credit" },
+  { value: "HOME_EQUITY", label: "Home Equity Loan" },
+  { value: "PAYDAY_LOAN", label: "Payday Loan" },
+  { value: "BNPL", label: "Buy Now Pay Later (BNPL)" },
 ];
 
 const AllLoanProducts: React.FC = () => {
@@ -342,8 +433,8 @@ const AllLoanProducts: React.FC = () => {
                     ? "Saving..."
                     : "Creating..."
                   : editingProductId
-                  ? "Save Changes"
-                  : "Create Product"}
+                    ? "Save Changes"
+                    : "Create Product"}
               </button>
 
               {editingProductId && (
@@ -443,15 +534,15 @@ const AllLoanProducts: React.FC = () => {
                           disabled={togglingId === p.id}
                           className={`inline-flex items-center px-3 py-1 rounded-full border text-xs cursor-pointer
                                       ${statusClass(
-                                        p.isActive ? "ACTIVE" : "INACTIVE"
-                                      )}
+                            p.isActive ? "ACTIVE" : "INACTIVE"
+                          )}
                                       disabled:opacity-60 disabled:cursor-not-allowed`}
                         >
                           {togglingId === p.id
                             ? "Updating..."
                             : p.isActive
-                            ? "ACTIVE"
-                            : "INACTIVE"}
+                              ? "ACTIVE"
+                              : "INACTIVE"}
                         </button>
                       </td>
 
@@ -470,7 +561,7 @@ const AllLoanProducts: React.FC = () => {
                             <MdModeEdit />
                           </button>
 
-                         
+
                         </div>
                       </td>
                     </tr>

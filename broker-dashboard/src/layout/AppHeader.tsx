@@ -169,7 +169,7 @@ const AppHeader: React.FC = () => {
               alt="Logo"
             />
             <img
-              className="hidden dark:block"
+              className="hidden dark:block w-45 h-12"
               src="/ACOM_LOGO.jpeg"
               alt="Logo"
             />

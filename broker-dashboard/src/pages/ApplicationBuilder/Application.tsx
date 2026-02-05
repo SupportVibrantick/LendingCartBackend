@@ -172,6 +172,7 @@ async function safeJson(res: Response) {
     }
 }
 
+
 function renderDynamicField(
     field: ApiField,
     actions?: {
@@ -237,6 +238,9 @@ export default function ApplicationBuilder() {
     const [optionsInput, setOptionsInput] = useState("");
     // const [minVal, setMinVal] = useState("");
     // const [maxVal, setMaxVal] = useState("");
+    const [editingSectionId, setEditingSectionId] = useState<string | null>(null);
+    const [editingSectionName, setEditingSectionName] = useState("");
+    const [showSectionModal, setShowSectionModal] = useState(false);
 
     const [selectedAppId, setSelectedAppId] = useState("");
     const [selectedProductId, setSelectedProductId] = useState("");
@@ -360,6 +364,19 @@ export default function ApplicationBuilder() {
         if (selectedProductId) loadFields(selectedProductId);
     }, [selectedProductId]);
 
+    useEffect(() => {
+        if (showSectionModal) {
+            document.body.style.overflow = "hidden";
+        } else {
+            document.body.style.overflow = "auto";
+        }
+
+        return () => {
+            document.body.style.overflow = "auto";
+        };
+    }, [showSectionModal]);
+
+
     function mapUITypeToApi(type: FieldType): ApiFieldType {
         switch (type) {
             case "select":
@@ -397,7 +414,7 @@ export default function ApplicationBuilder() {
     /* ================= SAVE FIELD API ================= */
     async function saveFieldToServer(field: FormField) {
         const payload: any = {
-            sectionId: selectedSectionId,
+
             fieldKey: field.label
                 .toLowerCase()
                 .replace(/\s+/g, "_")
@@ -418,22 +435,30 @@ export default function ApplicationBuilder() {
         }
 
         if (field.placeholder) payload.placeholder = field.placeholder;
-        // if (field.type === "select") payload.options = (field.options || []).join(",");
 
         if (field.type === "number" && field.validation) {
             payload.validation = {};
-            if (field.validation.min !== undefined) payload.validation.min = field.validation.min;
-            if (field.validation.max !== undefined) payload.validation.max = field.validation.max;
+            if (field.validation.min !== undefined)
+                payload.validation.min = field.validation.min;
+            if (field.validation.max !== undefined)
+                payload.validation.max = field.validation.max;
         }
 
-        const res = await fetch(
-            `${API_BASE}/broker/applications/products/${selectedProductId}/fields`,
-            {
-                method: "POST",
-                headers: getAuthHeaders(),
-                body: JSON.stringify(payload),
-            }
-        );
+        /* ================= UPDATE MODE ================= */
+        if (!editingId)
+            payload.sectionId = selectedSectionId
+
+        const url = editingId
+            ? `${API_BASE}/broker/applications/products/${selectedProductId}/fields/${editingId}`
+            : `${API_BASE}/broker/applications/products/${selectedProductId}/fields`;
+
+        const method = editingId ? "PATCH" : "POST";
+
+        const res = await fetch(url, {
+            method,
+            headers: getAuthHeaders(),
+            body: JSON.stringify(payload),
+        });
 
         const json = await safeJson(res);
         if (!res.ok || json.success !== true) throw new Error(json.message);
@@ -582,7 +607,7 @@ export default function ApplicationBuilder() {
     };
 
     const handleDeleteSection = async (sectionId: string) => {
-         const token = sessionStorage.getItem("broker_token");
+        const token = sessionStorage.getItem("broker_token");
         if (!selectedProductId || !selectedAppId) return;
 
         const result = await Swal.fire({
@@ -601,7 +626,7 @@ export default function ApplicationBuilder() {
                 `${API_BASE}/broker/applications/products/${selectedProductId}/sections/${sectionId}`,
                 {
                     method: "DELETE",
-                    headers:  {
+                    headers: {
                         Authorization: `Bearer ${token}`,
                     }
                 }
@@ -621,6 +646,47 @@ export default function ApplicationBuilder() {
 
         } catch (err: any) {
             toast.error(err.message || "Failed to delete section");
+        }
+    };
+
+    const handleEditSection = (section: ApiSection) => {
+        setEditingSectionId(section.id);
+        setEditingSectionName(section.name);
+        setShowSectionModal(true);
+    };
+
+    const handleUpdateSection = async () => {
+        if (!editingSectionId || !editingSectionName.trim()) {
+            toast.error("Section name required");
+            return;
+        }
+
+        try {
+            const res = await fetch(
+                `${API_BASE}/broker/applications/products/${selectedProductId}/sections/${editingSectionId}`,
+                {
+                    method: "PUT",
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({ name: editingSectionName }),
+                }
+            );
+
+            const json = await safeJson(res);
+
+            if (!res.ok || json.success !== true) {
+                throw new Error(json.message || "Failed to update section");
+            }
+
+            toast.success("Section updated successfully");
+
+            setShowSectionModal(false);
+            setEditingSectionId(null);
+            setEditingSectionName("");
+
+            loadSections(selectedProductId);
+
+        } catch (err: any) {
+            toast.error(err.message || "Failed to update section");
         }
     };
 
@@ -869,12 +935,21 @@ export default function ApplicationBuilder() {
                                             {section.name}
                                         </h3>
 
-                                        <button
-                                            onClick={() => handleDeleteSection(section.id)}
-                                            className="text-red-500 hover:text-red-600"
-                                        >
-                                            <Trash2 size={15} />
-                                        </button>
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={() => handleEditSection(section)}
+                                                className="text-blue-500 hover:text-blue-600"
+                                            >
+                                                <Edit3 size={15} />
+                                            </button>
+
+                                            <button
+                                                onClick={() => handleDeleteSection(section.id)}
+                                                className="text-red-500 hover:text-red-600"
+                                            >
+                                                <Trash2 size={15} />
+                                            </button>
+                                        </div>
                                     </div>
 
 
@@ -1223,6 +1298,51 @@ export default function ApplicationBuilder() {
                     </form>
                 </div>
             )}
+
+            {showSectionModal && (
+                <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+                    <div className="
+            bg-white dark:bg-[#0F172B]
+            p-6
+            rounded-xl
+            w-[420px]
+            space-y-4
+            shadow-default
+            border border-stroke dark:border-strokedark
+        ">
+                        <h3 className="text-lg font-semibold text-black dark:text-white">
+                            Update Section Name
+                        </h3>
+
+                        <input
+                            className="w-full border rounded px-3 py-2
+                bg-white dark:bg-[#1D293D]
+                border-stroke dark:border-strokedark
+                text-black dark:text-white"
+                            value={editingSectionName}
+                            onChange={(e) => setEditingSectionName(e.target.value)}
+                        />
+
+                        <div className="flex justify-end gap-2">
+                            <button
+                                onClick={() => setShowSectionModal(false)}
+                                className="border px-4 py-2 rounded"
+                            >
+                                Cancel
+                            </button>
+
+                            <button
+                                onClick={handleUpdateSection}
+                                className="bg-blue-600 text-white px-4 py-2 rounded"
+                            >
+                                Update
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
         </div>
+
     );
 }
