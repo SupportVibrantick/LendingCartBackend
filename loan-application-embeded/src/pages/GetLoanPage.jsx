@@ -337,7 +337,7 @@ export default function GetLoanPage() {
             const payload = {
                 applicationId,
                 applicationProductId: activeProduct.productId,
-                recaptchaToken,
+                captchaToken: recaptchaToken,
                 fields,
             };
 
