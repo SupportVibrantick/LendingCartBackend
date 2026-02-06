@@ -2,6 +2,27 @@ import React, { useEffect, useMemo, useState } from "react";
 import { MdModeEdit } from "react-icons/md";
 import { TiPlus } from "react-icons/ti";
 import EditBrokerModal from "./EditBrokerModal"; // adjust path if needed
+import Swal from "sweetalert2";
+Swal.mixin({
+  customClass: {
+    popup: "swal-high-z",
+  },
+});
+
+import {
+  RefreshCcw,
+  Search,
+  Building2,
+  SearchX,
+  ChevronLeft,
+  ChevronRight,
+  Mail,
+  // UserPlus,
+  Users,
+  UserCheck,
+  Activity,
+  // Filter,
+} from "lucide-react";
 
 type Broker = {
   id: string;
@@ -10,6 +31,7 @@ type Broker = {
   phone: string;
   status?: string;
   createdAt?: string;
+  profileImage?: string | null;
 };
 
 type Admin = {
@@ -115,6 +137,7 @@ export default function BrokersPage() {
         phone: o.phone ?? "",
         status: o.status ?? "UNKNOWN",
         createdAt: o.createdAt ?? null,
+        profileImage: o.profileImage || null,
       }));
 
       setBrokers(normalized);
@@ -150,7 +173,7 @@ export default function BrokersPage() {
       !form.adminPassword.trim()
     ) {
       setFormError(
-        "Please fill required fields: organization name, organization email, admin email and password."
+        "Please fill required fields: organization name, organization email, admin email and password.",
       );
       return;
     }
@@ -247,10 +270,10 @@ export default function BrokersPage() {
             email: updated.email,
             phone: updated.phone,
           }),
-        }
+        },
       );
 
-      const json = await res.json().catch(() => ({} as any));
+      const json = await res.json().catch(() => ({}) as any);
 
       if (res.ok && json?.data?.organization) {
         const org = json.data.organization;
@@ -265,8 +288,8 @@ export default function BrokersPage() {
                   status: org.status ?? b.status,
                   createdAt: org.createdAt ?? b.createdAt,
                 }
-              : b
-          )
+              : b,
+          ),
         );
       } else if (!res.ok) {
         console.error("Broker update error:", json);
@@ -282,11 +305,22 @@ export default function BrokersPage() {
     const cur = (broker.status || "INACTIVE").toUpperCase();
     const next = cur === "ACTIVE" ? "INACTIVE" : "ACTIVE";
 
+    const result = await Swal.fire({
+      title: "Change Status?",
+      text: `Do you want to mark this Broker as ${next}?`,
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonColor: "#2563eb",
+      cancelButtonColor: "#6b7280",
+      confirmButtonText: "Yes, change it",
+    });
+    if (!result.isConfirmed) return;
+
     const prevStatus = broker.status;
 
     // optimistic update in UI
     setBrokers((prev) =>
-      prev.map((b) => (b.id === broker.id ? { ...b, status: next } : b))
+      prev.map((b) => (b.id === broker.id ? { ...b, status: next } : b)),
     );
     setRowLoadingId(broker.id);
 
@@ -321,33 +355,45 @@ export default function BrokersPage() {
         throw new Error(`Status update failed: ${res.status}`);
       }
 
-      const json = await res.json().catch(() => ({} as any));
+      Swal.fire({
+        icon: "success",
+        title: "Updated!",
+        text: `Broker is now ${next}`,
+        timer: 1300,
+        showConfirmButton: false,
+      });
+
+      const json = await res.json().catch(() => ({}) as any);
 
       if (json?.data) {
         if (json.data.status) {
           const serverStatus = json.data.status;
           setBrokers((prev) =>
             prev.map((b) =>
-              b.id === broker.id ? { ...b, status: serverStatus } : b
-            )
+              b.id === broker.id ? { ...b, status: serverStatus } : b,
+            ),
           );
         } else if (json.data.organization?.status) {
           const orgStatus = json.data.organization.status;
           setBrokers((prev) =>
             prev.map((b) =>
-              b.id === broker.id ? { ...b, status: orgStatus } : b
-            )
+              b.id === broker.id ? { ...b, status: orgStatus } : b,
+            ),
           );
         }
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("changeStatusFor error:", err);
       setBrokers((prev) =>
         prev.map((b) =>
-          b.id === broker.id ? { ...b, status: prevStatus } : b
-        )
+          b.id === broker.id ? { ...b, status: prevStatus } : b,
+        ),
       );
-      alert("Failed to update status. Please try again.");
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: err?.message || "Failed to update status. Try again.",
+      });
     } finally {
       setRowLoadingId(null);
     }
@@ -370,7 +416,7 @@ export default function BrokersPage() {
 
       if (!res.ok) throw new Error(`Failed to load admins: ${res.status}`);
 
-      const json = await res.json().catch(() => ({} as any));
+      const json = await res.json().catch(() => ({}) as any);
 
       const adminList = json?.data?.admins || [];
       const normalized: Admin[] = (
@@ -437,14 +483,14 @@ export default function BrokersPage() {
       )
     ) {
       return alert(
-        "Please provide at least one field to update (first name / last name / email)."
+        "Please provide at least one field to update (first name / last name / email).",
       );
     }
 
     setAdminSaving(true);
 
     setAdmins((prev) =>
-      prev.map((p) => (p.id === adminId ? { ...p, ...adminEditForm } : p))
+      prev.map((p) => (p.id === adminId ? { ...p, ...adminEditForm } : p)),
     );
 
     try {
@@ -465,18 +511,18 @@ export default function BrokersPage() {
               email: adminEditForm.email,
             },
           }),
-        }
+        },
       );
 
       if (!res.ok) {
         throw new Error(`Save failed: ${res.status}`);
       }
 
-      const json = await res.json().catch(() => ({} as any));
+      const json = await res.json().catch(() => ({}) as any);
       if (json && json.data && json.data.admin) {
         const serverAdmin = json.data.admin;
         setAdmins((prev) =>
-          prev.map((p) => (p.id === adminId ? { ...p, ...serverAdmin } : p))
+          prev.map((p) => (p.id === adminId ? { ...p, ...serverAdmin } : p)),
         );
       }
 
@@ -493,502 +539,572 @@ export default function BrokersPage() {
     }
   };
 
+  const activeBrokers = useMemo(
+    () => brokers.filter((l) => l.status === "ACTIVE").length,
+    [brokers],
+  );
+
+  const totalBrokers = brokers.length;
+
+  const isSearchEmpty =
+    query.trim() !== "" && filtered.length === 0 && !loading;
+  const isTotalEmpty = query.trim() === "" && total === 0 && !loading;
+
   return (
-    <div className="px-4 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8 text-gray-900 dark:text-gray-100">
+    <div className="min-h-screen bg-gray-50 dark:bg-slate-950 px-4 py-8 sm:px-6 lg:px-8 transition-colors duration-300">
       {/* Header + controls */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">
-            All Brokers
-          </h1>
-          <p className="text-xs sm:text-sm text-gray-500 mt-1 dark:text-slate-400">
-            Manage broker organizations and their admins.
-          </p>
-        </div>
+      <div className="max-w-7xl mx-auto">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+              All Brokers
+            </h1>
+            <p className="text-slate-500 dark:text-slate-400 mt-2 text-sm">
+              Manage broker organizations and their admins.
+            </p>
+          </div>
 
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
-          <div className="flex flex-1 sm:flex-none items-center gap-2">
-            <input
-              placeholder="Search by name, email, phone or status"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              className="flex-1 px-3 py-2 border rounded-md text-sm sm:text-base
-                         focus:outline-none focus:ring-1 focus:ring-blue-500
-                         border-gray-300 bg-white text-gray-900
-                         dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100
-                         placeholder-gray-400 dark:placeholder-slate-400"
-              aria-label="Search brokers"
-            />
-            <select
-              value={pageSize}
-              onChange={(e) => setPageSize(Number(e.target.value))}
-              className="px-2 py-2 border rounded-md bg-white text-gray-900 text-sm
-                         border-gray-300
-                         dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
-              aria-label="Page size"
+          <div className="flex items-center gap-3">
+            <button
+              onClick={fetchBrokers}
+              disabled={loading}
+              className="group flex items-center justify-center w-10 h-10 rounded-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-all active:scale-95 disabled:opacity-50"
+              title="Refresh List"
             >
-              <option value={5}>5 / page</option>
-              <option value={10}>10 / page</option>
-              <option value={20}>20 / page</option>
-            </select>
+              <RefreshCcw
+                size={18}
+                className={`${loading ? "animate-spin" : "group-hover:rotate-180 transition-transform duration-500"} text-blue-600`}
+              />
+            </button>
+            <button
+              onClick={openAdd}
+              className="inline-flex items-center whitespace-nowrap px-4 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-500/20 active:scale-95 transition-all"
+            >
+              <TiPlus className="mr-2 text-lg" />
+              Add Broker
+            </button>
           </div>
-
-          <button
-            onClick={openAdd}
-            className="inline-flex items-center justify-center sm:justify-start whitespace-nowrap px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm sm:text-base"
-            type="button"
-            aria-label="Add Broker"
-          >
-            <TiPlus className="mr-2" />
-            Add Broker
-          </button>
         </div>
-      </div>
 
-      {/* Table */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 sm:p-5 dark:bg-slate-900 dark:border-slate-700">
-        {loading ? (
-          <div className="py-12 sm:py-16 text-center text-sm text-gray-500 dark:text-slate-400">
-            Loading brokers...
+        {/* ================= STATS CARDS ================= */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
+          {/* TOTAL Brokers */}
+          <div className="bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20 p-5 rounded-2xl flex items-center gap-4">
+            <div className="p-3 rounded-xl bg-indigo-100 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400">
+              <Users className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+                Total Brokers
+              </p>
+              <p className="text-2xl font-extrabold text-indigo-700 dark:text-indigo-300">
+                {totalBrokers}
+              </p>
+            </div>
           </div>
-        ) : total === 0 ? (
-          <div className="py-12 sm:py-16 text-center text-sm text-gray-500 dark:text-slate-400">
-            No brokers found.
+
+          {/* Total Volume */}
+          <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 p-5 rounded-2xl flex items-center gap-4">
+            <div className="p-3 rounded-xl bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400">
+              <UserCheck className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-red-600 dark:text-red-400">
+                Total Volume
+              </p>
+              <p className="text-2xl font-extrabold text-red-700 dark:text-red-300">
+                0
+              </p>
+            </div>
+          </div>
+
+          {/* STATUS NAME (ACTIVE Brokers) */}
+          <div className="bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 p-5 rounded-2xl flex items-center gap-4">
+            <div className="p-3 rounded-xl bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400">
+              <Activity className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                Active Lenders
+              </p>
+              <p className="text-2xl font-extrabold text-emerald-700 dark:text-emerald-300">
+                {activeBrokers}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* ================= SEARCH & FILTER BAR ================= */}
+        <div className="mb-8 p-2 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl shadow-slate-200/50 dark:shadow-none flex flex-col md:flex-row items-center gap-4">
+          <div className="relative flex-1 w-full">
+            <Search
+              size={20}
+              className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+            />
+            <input
+              value={query}
+              onChange={(e) => {
+                setCurrentPage(1);
+                setQuery(e.target.value);
+              }}
+              placeholder="Search by name, email, phone or status..."
+              className="text-sm w-full pl-12 pr-4 py-2 bg-transparent border-none focus:ring-2 focus:ring-blue-500/20 rounded-xl text-slate-700 dark:text-slate-200 placeholder:text-slate-400"
+            />
+          </div>
+
+          <div className="hidden md:block h-8 w-px bg-slate-200 dark:bg-slate-800"></div>
+
+          <div className="flex items-center gap-2 pr-4">
+            <span className="text-sm font-medium text-slate-500 dark:text-slate-400 whitespace-nowrap">
+              View:
+            </span>
+
+            <div className="relative">
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setCurrentPage(1);
+                  setPageSize(Number(e.target.value));
+                }}
+                className="
+                            appearance-none
+                            px-3 py-2 pr-8
+                            rounded-xl text-sm font-semibold
+                            bg-white dark:bg-slate-800
+                            text-slate-900 dark:text-slate-100
+                            border border-slate-200 dark:border-slate-700
+                            hover:bg-slate-50 dark:hover:bg-slate-700
+                            focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500
+                            transition cursor-pointer
+                        "
+              >
+                <option value={6}>6 / page</option>
+                <option value={9}>9 / page</option>
+                <option value={12}>12 / page</option>
+                <option value={20}>20 / page</option>
+              </select>
+
+              <svg
+                className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 9l-7 7-7-7"
+                />
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        {/* ================= CONTENT GRID ================= */}
+        {loading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div
+                key={i}
+                className="h-72 rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 animate-pulse overflow-hidden"
+              >
+                <div className="h-2/3 bg-slate-100 dark:bg-slate-800/50"></div>
+                <div className="p-6 space-y-3">
+                  <div className="h-4 w-1/2 bg-slate-200 dark:bg-slate-700 rounded"></div>
+                  <div className="h-4 w-full bg-slate-200 dark:bg-slate-700 rounded"></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : isTotalEmpty ? (
+          <div className="py-24 flex flex-col items-center text-center bg-white dark:bg-slate-900 rounded-3xl border border-dashed border-slate-300 dark:border-slate-700 shadow-sm">
+            <div className="w-24 h-24 rounded-3xl bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center mb-6">
+              <Building2
+                size={48}
+                className="text-blue-600 dark:text-blue-400"
+              />
+            </div>
+            <h3 className="text-2xl font-bold text-slate-900 dark:text-white">
+              No Broker Found
+            </h3>
+            <p className="text-slate-500 dark:text-slate-400 mt-2 max-w-sm">
+              Get started by adding a new Broker to the platform.
+            </p>
+            <button
+              onClick={openAdd}
+              className="mt-6 px-6 py-2 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 transition"
+            >
+              Add Broker
+            </button>
+          </div>
+        ) : isSearchEmpty ? (
+          <div className="py-24 flex flex-col items-center text-center bg-white dark:bg-slate-900 rounded-3xl border border-dashed border-orange-300 dark:border-orange-700/50 shadow-sm">
+            <div className="w-24 h-24 rounded-3xl bg-orange-50 dark:bg-orange-900/20 flex items-center justify-center mb-6">
+              <SearchX
+                size={48}
+                className="text-orange-600 dark:text-orange-400"
+              />
+            </div>
+            <h3 className="text-2xl font-bold text-slate-900 dark:text-white">
+              No Results Found
+            </h3>
+            <p className="text-slate-500 dark:text-slate-400 mt-2 max-w-sm">
+              We couldn't find any Broker matching "
+              <span className="font-semibold text-orange-600">{query}</span>".
+            </p>
+            <button
+              onClick={() => setQuery("")}
+              className="mt-6 text-sm font-bold text-blue-600 hover:underline"
+            >
+              Clear search
+            </button>
           </div>
         ) : (
-          <>
-            <div className="-mx-4 sm:mx-0 overflow-x-auto">
-              <table className="min-w-full text-xs sm:text-sm">
-                <thead>
-                  <tr className="border-b border-gray-100 dark:border-slate-700 text-[11px] sm:text-xs text-gray-500 dark:text-slate-400 uppercase tracking-wide">
-                    <th className="py-2 pl-4 pr-4 text-left sm:pl-0">
-                      Organization
-                    </th>
-                    <th className="py-2 pr-4 text-left hidden sm:table-cell">
-                      Email
-                    </th>
-                    <th className="py-2 pr-4 text-left hidden md:table-cell">
-                      Phone
-                    </th>
-                    <th className="py-2 pr-4 text-left hidden md:table-cell">
-                      Status
-                    </th>
-                    <th className="py-2 pr-4 text-left hidden lg:table-cell">
-                      Created
-                    </th>
-                    <th className="py-2 pr-4 text-right w-24 sm:w-32">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {paginated.map((b) => {
-                    const isLoading = rowLoadingId === b.id;
-                    return (
-                      <tr
-                        key={b.id}
-                        className="border-b border-gray-100 last:border-0 hover:bg-gray-50/40
-                                   dark:border-slate-800 dark:hover:bg-slate-800/60"
-                      >
-                        {/* Organization + mobile details */}
-                        <td className="py-3 pl-4 pr-4 text-gray-900 whitespace-nowrap align-top sm:pl-0 dark:text-gray-100">
-                          <button
-                            onClick={() => openAdminsFor(b)}
-                            className="text-left underline text-blue-600 hover:text-blue-800
-                                       dark:text-blue-300 dark:hover:text-blue-200 break-words"
-                            aria-label={`View admins for ${b.name}`}
-                          >
-                            {b.name}
-                          </button>
-
-                          {/* Extra info for small screens (stacked) */}
-                          <div className="mt-1 space-y-0.5 text-[11px] text-gray-500 sm:hidden dark:text-slate-300">
-                            <div>
-                              <span className="font-medium">Email:</span>{" "}
-                              {b.email || "-"}
-                            </div>
-                            <div>
-                              <span className="font-medium">Phone:</span>{" "}
-                              {b.phone || "-"}
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium">Status:</span>
-                              <span
-                                className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] ${statusClass(
-                                  b.status
-                                )}`}
-                              >
-                                {b.status ?? "UNKNOWN"}
-                              </span>
-                            </div>
-                            {b.createdAt && (
-                              <div>
-                                <span className="font-medium">Created:</span>{" "}
-                                {new Date(b.createdAt).toLocaleDateString()}
-                              </div>
-                            )}
-                          </div>
-                        </td>
-
-                        {/* Desktop / tablet columns */}
-                        <td className="py-3 pr-4 text-gray-600 whitespace-nowrap hidden sm:table-cell dark:text-slate-300">
-                          {b.email}
-                        </td>
-                        <td className="py-3 pr-4 text-gray-600 whitespace-nowrap hidden md:table-cell dark:text-slate-300">
-                          {b.phone}
-                        </td>
-
-                        <td className="py-3 pr-4 whitespace-nowrap hidden md:table-cell">
-                          <button
-                            onClick={() => !isLoading && changeStatusFor(b)}
-                            disabled={isLoading}
-                            className={`inline-flex items-center gap-2 px-3 py-1 text-[11px] font-medium rounded-full border ${statusClass(
-                              b.status
-                            )} disabled:opacity-60`}
-                            title="Click to change status"
-                            aria-label={`Change status for ${b.name}`}
-                          >
-                            {isLoading ? (
-                              <svg
-                                className="h-3 w-3 animate-spin"
-                                viewBox="0 0 24 24"
-                              >
-                                <circle
-                                  cx="12"
-                                  cy="12"
-                                  r="10"
-                                  stroke="currentColor"
-                                  strokeWidth="3"
-                                  fill="none"
-                                  className="opacity-25"
-                                ></circle>
-                                <path
-                                  fill="currentColor"
-                                  className="opacity-75"
-                                  d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
-                                />
-                              </svg>
-                            ) : null}
-                            <span>{b.status ?? "UNKNOWN"}</span>
-                          </button>
-                        </td>
-
-                        <td className="py-3 pr-4 text-gray-600 whitespace-nowrap hidden lg:table-cell dark:text-slate-300">
-                          {b.createdAt
-                            ? new Date(b.createdAt).toLocaleDateString()
-                            : "-"}
-                        </td>
-
-                        {/* Actions */}
-                        <td className="py-3 pr-4 align-top">
-                          <div className="flex items-center justify-end gap-1 sm:gap-2">
-                            <button
-                              disabled={isLoading}
-                              onClick={() => openEditModal(b)}
-                              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100 hover:text-gray-800 disabled:opacity-40
-                                         dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
-                              aria-label={`Edit ${b.name}`}
-                            >
-                              <MdModeEdit />
-                            </button>
-
-                            <button
-                              onClick={() => openAdminsFor(b)}
-                              disabled={isLoading}
-                              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100 disabled:opacity-40
-                                         dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-                              aria-label={`More actions for ${b.name}`}
-                              title="More actions"
-                            >
-                              <span className="text-lg leading-none select-none sm:text-xl">
-                                ⋮
-                              </span>
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Pagination */}
-            <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs sm:text-sm">
-              <div className="text-gray-600 dark:text-slate-300">
-                Showing{" "}
-                <span className="font-medium">
-                  {(currentPage - 1) * pageSize + 1}
-                </span>{" "}
-                -{" "}
-                <span className="font-medium">
-                  {Math.min(currentPage * pageSize, total)}
-                </span>{" "}
-                of <span className="font-medium">{total}</span>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => gotoPage(currentPage - 1)}
-                  disabled={currentPage === 1}
-                  className="px-3 py-1 border rounded-md disabled:opacity-40 text-xs sm:text-sm
-                             border-gray-300 bg-white text-gray-800
-                             dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                >
-                  Prev
-                </button>
-
-                <div className="flex items-center gap-1">
-                  {Array.from({ length: Math.min(totalPages, 5) }).map(
-                    (_, i) => {
-                      const half = Math.floor(5 / 2);
-                      let start = 1;
-                      if (totalPages <= 5) start = 1;
-                      else if (currentPage <= half + 1) start = 1;
-                      else if (currentPage >= totalPages - half)
-                        start = totalPages - 4;
-                      else start = currentPage - half;
-
-                      const page = start + i;
-                      if (page > totalPages) return null;
-                      return (
-                        <button
-                          key={page}
-                          onClick={() => gotoPage(page)}
-                          className={`px-2 sm:px-3 py-1 rounded-md text-xs sm:text-sm ${
-                            page === currentPage
-                              ? "bg-blue-600 text-white"
-                              : "border border-gray-300 bg-white text-gray-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                          }`}
-                        >
-                          {page}
-                        </button>
-                      );
-                    }
-                  )}
-                </div>
-
-                <button
-                  onClick={() => gotoPage(currentPage + 1)}
-                  disabled={currentPage === totalPages}
-                  className="px-3 py-1 border rounded-md disabled:opacity-40 text-xs sm:text-sm
-                             border-gray-300 bg-white text-gray-800
-                             dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                >
-                  Next
-                </button>
-              </div>
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* Add Broker Modal */}
-      {isAddOpen && (
-        <div className="fixed inset-0 z-[500000] flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
-          <div className="bg-white rounded-xl p-4 sm:p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-lg dark:bg-slate-900 dark:border dark:border-slate-700">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">
-                Create Broker
-              </h2>
-              <button
-                onClick={() => setIsAddOpen(false)}
-                className="text-gray-500 hover:text-gray-800 dark:text-slate-400 dark:hover:text-slate-200 text-sm sm:text-base"
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+            {paginated.map((l) => (
+              <div
+                key={l.id}
+                className="group relative bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5 transition-all duration-300 hover:shadow-md"
               >
-                Close
-              </button>
-            </div>
-
-            <form
-              onSubmit={handleSubmit}
-              className="grid grid-cols-1 md:grid-cols-2 gap-3"
-            >
-              <label className="block">
-                <span className="text-sm text-gray-700 dark:text-slate-200">
-                  Organization Name
-                </span>
-                <input
-                  value={form.organizationName}
-                  onChange={(e) =>
-                    setForm({ ...form, organizationName: e.target.value })
-                  }
-                  className="w-full px-3 py-2 mt-1 border rounded-md text-sm
-                             border-gray-300 bg-white text-gray-900
-                             dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
-                />
-              </label>
-
-              <label className="block">
-                <span className="text-sm text-gray-700 dark:text-slate-200">
-                  Organization Email
-                </span>
-                <input
-                  value={form.organizationEmail}
-                  onChange={(e) =>
-                    setForm({ ...form, organizationEmail: e.target.value })
-                  }
-                  className="w-full px-3 py-2 mt-1 border rounded-md text-sm
-                             border-gray-300 bg-white text-gray-900
-                             dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
-                />
-              </label>
-
-              <label className="block">
-                <span className="text-sm text-gray-700 dark:text-slate-200">
-                  Organization Phone
-                </span>
-                <input
-                  value={form.organizationPhone}
-                  onChange={(e) =>
-                    setForm({ ...form, organizationPhone: e.target.value })
-                  }
-                  className="w-full px-3 py-2 mt-1 border rounded-md text-sm
-                             border-gray-300 bg-white text-gray-900
-                             dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
-                />
-              </label>
-
-              <label className="block">
-                <span className="text-sm text-gray-700 dark:text-slate-200">
-                  Admin First Name
-                </span>
-                <input
-                  value={form.adminFirstName}
-                  onChange={(e) =>
-                    setForm({ ...form, adminFirstName: e.target.value })
-                  }
-                  className="w-full px-3 py-2 mt-1 border rounded-md text-sm
-                             border-gray-300 bg-white text-gray-900
-                             dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
-                />
-              </label>
-
-              <label className="block">
-                <span className="text-sm text-gray-700 dark:text-slate-200">
-                  Admin Last Name
-                </span>
-                <input
-                  value={form.adminLastName}
-                  onChange={(e) =>
-                    setForm({ ...form, adminLastName: e.target.value })
-                  }
-                  className="w-full px-3 py-2 mt-1 border rounded-md text-sm
-                             border-gray-300 bg-white text-gray-900
-                             dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
-                />
-              </label>
-
-              <label className="block">
-                <span className="text-sm text-gray-700 dark:text-slate-200">
-                  Admin Email
-                </span>
-                <input
-                  value={form.adminEmail}
-                  onChange={(e) =>
-                    setForm({ ...form, adminEmail: e.target.value })
-                  }
-                  className="w-full px-3 py-2 mt-1 border rounded-md text-sm
-                             border-gray-300 bg-white text-gray-900
-                             dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
-                />
-              </label>
-
-              <label className="block">
-                <span className="text-sm text-gray-700 dark:text-slate-200">
-                  Admin Password
-                </span>
-                <input
-                  type="password"
-                  value={form.adminPassword}
-                  onChange={(e) =>
-                    setForm({ ...form, adminPassword: e.target.value })
-                  }
-                  className="w-full px-3 py-2 mt-1 border rounded-md text-sm
-                             border-gray-300 bg-white text-gray-900
-                             dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
-                />
-              </label>
-
-              {formError && (
-                <div className="text-sm text-red-600 col-span-1 md:col-span-2">
-                  {formError}
+                {/* STATUS */}
+                <div className="absolute top-4 right-4">
+                  <button
+                    onClick={() => !rowLoadingId && changeStatusFor(l)}
+                    disabled={!!rowLoadingId}
+                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border uppercase tracking-wider ${statusClass(
+                      l.status,
+                    )}`}
+                  >
+                    {l.status === "ACTIVE" && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    )}
+                    {l.status}
+                  </button>
                 </div>
-              )}
 
-              <div className="col-span-1 md:col-span-2 flex flex-col sm:flex-row justify-end gap-2 sm:gap-3 mt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsAddOpen(false)}
-                  className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md
-                             dark:text-slate-200 dark:hover:bg-slate-800"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-70"
-                >
-                  {submitting ? "Creating..." : "Create Broker"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+                <div className="flex gap-4">
+                  {/* Image */}
+                  <div className="relative flex-shrink-0">
+                    <div className="h-14 w-14 rounded-xl overflow-hidden bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center border border-emerald-100 dark:border-emerald-500/20">
+                      {l.profileImage ? (
+                        <img
+                          src={`${API_BASE}/public${l.profileImage}`}
+                          className="h-full w-full object-cover"
+                          onError={(e: any) =>
+                            (e.currentTarget.src = "/circle_logo.png")
+                          }
+                          alt={l.name}
+                        />
+                      ) : (
+                        <Building2
+                          size={24}
+                          className="text-emerald-600 dark:text-emerald-400"
+                        />
+                      )}
+                    </div>
+                  </div>
 
-      {/* Edit Broker Modal */}
-      {editingBroker && (
-        <EditBrokerModal
-          isOpen={Boolean(editingBroker)}
-          broker={editingBroker}
-          onClose={() => setEditingBroker(null)}
-          onSave={handleEditSave}
-        />
-      )}
-
-      {/* Admins Modal */}
-      {showAdminsFor && (
-        <div className="fixed inset-0 z-[600000] flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
-          <div className="bg-white rounded-xl p-4 sm:p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-lg dark:bg-slate-900 dark:border dark:border-slate-700">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">
-                Admins for {showAdminsFor.name}
-              </h2>
-              <button
-                onClick={closeAdmins}
-                className="text-gray-500 hover:text-gray-800 dark:text-slate-400 dark:hover:text-slate-200 text-sm sm:text-base"
-              >
-                Close
-              </button>
-            </div>
-
-            <div>
-              {loadingAdmins ? (
-                <div className="py-8 text-center text-gray-500 dark:text-slate-400 text-sm">
-                  Loading admins...
-                </div>
-              ) : adminsError ? (
-                <div className="py-8 text-center text-red-600 dark:text-red-400 text-sm">
-                  {adminsError}
-                </div>
-              ) : admins.length === 0 ? (
-                <div className="py-8 text-center text-gray-500 dark:text-slate-400 text-sm">
-                  No admins found for this broker.
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {admins.map((a, idx) => (
-                    <div
-                      key={a.id ?? idx}
-                      className="border rounded p-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3
-                                 border-gray-200 bg-white
-                                 dark:border-slate-700 dark:bg-slate-900"
+                  {/* Info */}
+                  <div className="flex-1 min-w-0 pr-16">
+                    <h3
+                      className="text-base font-bold text-slate-900 dark:text-white truncate group-hover:text-blue-600 transition-colors cursor-pointer"
+                      onClick={() => openAdminsFor(l)}
                     >
-                      {/* left: details / edit fields */}
-                      <div className="flex-1">
+                      {l.name}
+                    </h3>
+                    {/* <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+                      {l.brokerName
+                        ? `Broker: ${l.brokerName}`
+                        : "No Broker Assigned"}
+                    </p> */}
+
+                    <div className="mt-3 space-y-1.5">
+                      <div className="flex items-center gap-2 text-slate-500">
+                        <Mail size={14} className="flex-shrink-0" />
+                        <span className="text-[12px] truncate">{l.email}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-slate-500">
+                        <span className="text-[12px] truncate">{l.phone}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Actions Footer */}
+                <div className="mt-5 pt-4 border-t border-slate-100 dark:border-slate-800/50 flex items-center justify-between gap-2">
+                  <span className="text-[10px] uppercase font-bold text-slate-400">
+                    Created:{" "}
+                    {l.createdAt
+                      ? new Date(l.createdAt).toLocaleDateString()
+                      : "-"}
+                  </span>
+
+                  <div className="flex items-center gap-1">
+                    <button
+                      disabled={!!rowLoadingId}
+                      onClick={() => openEditModal(l)}
+                      className="p-2 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors"
+                      title="Edit Lender"
+                    >
+                      <MdModeEdit size={16} />
+                    </button>
+                    {/* <button
+                      disabled={!!rowLoadingId}
+                      onClick={() => han(l)}
+                      className="p-2 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+                      title="Delete Lender"
+                    >
+                      {rowLoadingId === l.id ? (
+                        <RefreshCcw size={16} className="animate-spin" />
+                      ) : (
+                        <MdDelete size={16} />
+                      )}
+                    </button> */}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* ================= PAGINATION ================= */}
+        {!loading && totalPages > 1 && (
+          <div className="mt-12 flex flex-col sm:flex-row items-center justify-between gap-6 border-t border-slate-200 dark:border-slate-800 pt-8">
+            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+              Showing{" "}
+              <span className="text-slate-900 dark:text-white">
+                Page {currentPage}
+              </span>{" "}
+              of {totalPages}
+            </p>
+
+            <div className="flex items-center gap-3">
+              <button
+                disabled={currentPage === 1}
+                onClick={() => gotoPage(currentPage - 1)}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm font-bold disabled:opacity-40 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all shadow-sm"
+              >
+                <ChevronLeft size={18} />
+                Prev
+              </button>
+
+              <button
+                disabled={currentPage === totalPages}
+                onClick={() => gotoPage(currentPage + 1)}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm font-bold disabled:opacity-40 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all shadow-sm"
+              >
+                Next
+                <ChevronRight size={18} />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Add Broker Modal */}
+        {isAddOpen && (
+          <div className="fixed inset-0 z-[500000] flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+            <div className="bg-white rounded-xl p-4 sm:p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-lg dark:bg-slate-900 dark:border dark:border-slate-700">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">
+                  Create Broker
+                </h2>
+                <button
+                  onClick={() => setIsAddOpen(false)}
+                  className="text-gray-500 hover:text-gray-800 dark:text-slate-400 dark:hover:text-slate-200 text-sm sm:text-base"
+                >
+                  Close
+                </button>
+              </div>
+
+              <form
+                onSubmit={handleSubmit}
+                className="grid grid-cols-1 md:grid-cols-2 gap-3"
+              >
+                <label className="block">
+                  <span className="text-sm text-gray-700 dark:text-slate-200">
+                    Organization Name
+                  </span>
+                  <input
+                    value={form.organizationName}
+                    onChange={(e) =>
+                      setForm({ ...form, organizationName: e.target.value })
+                    }
+                    className="w-full px-3 py-2 mt-1 border rounded-md text-sm
+                             border-gray-300 bg-white text-gray-900
+                             dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="text-sm text-gray-700 dark:text-slate-200">
+                    Organization Email
+                  </span>
+                  <input
+                    value={form.organizationEmail}
+                    onChange={(e) =>
+                      setForm({ ...form, organizationEmail: e.target.value })
+                    }
+                    className="w-full px-3 py-2 mt-1 border rounded-md text-sm
+                             border-gray-300 bg-white text-gray-900
+                             dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="text-sm text-gray-700 dark:text-slate-200">
+                    Organization Phone
+                  </span>
+                  <input
+                    value={form.organizationPhone}
+                    onChange={(e) =>
+                      setForm({ ...form, organizationPhone: e.target.value })
+                    }
+                    className="w-full px-3 py-2 mt-1 border rounded-md text-sm
+                             border-gray-300 bg-white text-gray-900
+                             dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="text-sm text-gray-700 dark:text-slate-200">
+                    Admin First Name
+                  </span>
+                  <input
+                    value={form.adminFirstName}
+                    onChange={(e) =>
+                      setForm({ ...form, adminFirstName: e.target.value })
+                    }
+                    className="w-full px-3 py-2 mt-1 border rounded-md text-sm
+                             border-gray-300 bg-white text-gray-900
+                             dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="text-sm text-gray-700 dark:text-slate-200">
+                    Admin Last Name
+                  </span>
+                  <input
+                    value={form.adminLastName}
+                    onChange={(e) =>
+                      setForm({ ...form, adminLastName: e.target.value })
+                    }
+                    className="w-full px-3 py-2 mt-1 border rounded-md text-sm
+                             border-gray-300 bg-white text-gray-900
+                             dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="text-sm text-gray-700 dark:text-slate-200">
+                    Admin Email
+                  </span>
+                  <input
+                    value={form.adminEmail}
+                    onChange={(e) =>
+                      setForm({ ...form, adminEmail: e.target.value })
+                    }
+                    className="w-full px-3 py-2 mt-1 border rounded-md text-sm
+                             border-gray-300 bg-white text-gray-900
+                             dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="text-sm text-gray-700 dark:text-slate-200">
+                    Admin Password
+                  </span>
+                  <input
+                    type="password"
+                    value={form.adminPassword}
+                    onChange={(e) =>
+                      setForm({ ...form, adminPassword: e.target.value })
+                    }
+                    className="w-full px-3 py-2 mt-1 border rounded-md text-sm
+                             border-gray-300 bg-white text-gray-900
+                             dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
+                  />
+                </label>
+
+                {formError && (
+                  <div className="text-sm text-red-600 col-span-1 md:col-span-2">
+                    {formError}
+                  </div>
+                )}
+
+                <div className="col-span-1 md:col-span-2 flex flex-col sm:flex-row justify-end gap-2 sm:gap-3 mt-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsAddOpen(false)}
+                    className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md
+                             dark:text-slate-200 dark:hover:bg-slate-800"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className="px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-70"
+                  >
+                    {submitting ? "Creating..." : "Create Broker"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Edit Broker Modal */}
+        {editingBroker && (
+          <EditBrokerModal
+            isOpen={Boolean(editingBroker)}
+            broker={editingBroker}
+            onClose={() => setEditingBroker(null)}
+            onSave={handleEditSave}
+          />
+        )}
+
+        {/* Admins Modal */}
+        {showAdminsFor && (
+          <div className="fixed inset-0 z-600000 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+            <div className="bg-white rounded-xl p-6 w-full max-w-2xl shadow-lg dark:bg-slate-900 dark:border dark:border-slate-700">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Admins for {showAdminsFor.name}
+                </h2>
+                <button
+                  onClick={closeAdmins}
+                  className="text-gray-500 hover:text-gray-800 dark:text-slate-400 dark:hover:text-slate-200"
+                >
+                  Close
+                </button>
+              </div>
+
+              <div>
+                {loadingAdmins ? (
+                  <div className="py-8 text-center text-gray-500 dark:text-slate-400">
+                    Loading admins...
+                  </div>
+                ) : adminsError ? (
+                  <div className="py-8 text-center text-red-600 dark:text-red-400">
+                    {adminsError}
+                  </div>
+                ) : admins.length === 0 ? (
+                  <div className="py-8 text-center text-gray-500 dark:text-slate-400">
+                    No admins found for this broker.
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {admins.map((a, idx) => (
+                      <div
+                        key={a.id ?? idx}
+                        className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-4 transition hover:shadow-sm"
+                      >
                         {editingAdminId === a.id ? (
-                          <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+                          /* ===== EDIT MODE ===== */
+                          <div className="grid grid-cols-1 md:grid-cols-5 gap-3 items-center">
                             <input
                               value={adminEditForm.firstName || ""}
                               onChange={(e) =>
@@ -997,11 +1113,14 @@ export default function BrokersPage() {
                                   firstName: e.target.value,
                                 })
                               }
-                              className="px-2 py-1 border rounded text-sm
-                                         border-gray-300 bg-white text-gray-900
-                                         dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
                               placeholder="First name"
+                              className="col-span-1 px-3 py-2 rounded-lg border text-sm
+            border-slate-300 dark:border-slate-600
+            bg-white dark:bg-slate-900
+            text-slate-900 dark:text-white
+            focus:ring-2 focus:ring-blue-500/30"
                             />
+
                             <input
                               value={adminEditForm.lastName || ""}
                               onChange={(e) =>
@@ -1010,11 +1129,14 @@ export default function BrokersPage() {
                                   lastName: e.target.value,
                                 })
                               }
-                              className="px-2 py-1 border rounded text-sm
-                                         border-gray-300 bg-white text-gray-900
-                                         dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
                               placeholder="Last name"
+                              className="col-span-1 px-3 py-2 rounded-lg border text-sm
+            border-slate-300 dark:border-slate-600
+            bg-white dark:bg-slate-900
+            text-slate-900 dark:text-white
+            focus:ring-2 focus:ring-blue-500/30"
                             />
+
                             <input
                               value={adminEditForm.email || ""}
                               onChange={(e) =>
@@ -1023,11 +1145,14 @@ export default function BrokersPage() {
                                   email: e.target.value,
                                 })
                               }
-                              className="px-2 py-1 border rounded text-sm col-span-1 md:col-span-1
-                                         border-gray-300 bg-white text-gray-900
-                                         dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
                               placeholder="Email"
+                              className="col-span-2 px-3 py-2 rounded-lg border text-sm
+            border-slate-300 dark:border-slate-600
+            bg-white dark:bg-slate-900
+            text-slate-900 dark:text-white
+            focus:ring-2 focus:ring-blue-500/30"
                             />
+
                             <input
                               value={adminEditForm.phone || ""}
                               onChange={(e) =>
@@ -1036,79 +1161,97 @@ export default function BrokersPage() {
                                   phone: e.target.value,
                                 })
                               }
-                              className="px-2 py-1 border rounded text-sm
-                                         border-gray-300 bg-white text-gray-900
-                                         dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
                               placeholder="Phone"
+                              className="col-span-1 px-3 py-2 rounded-lg border text-sm
+            border-slate-300 dark:border-slate-600
+            bg-white dark:bg-slate-900
+            text-slate-900 dark:text-white
+            focus:ring-2 focus:ring-blue-500/30"
                             />
+
+                            <div className="col-span-full flex justify-end gap-2 mt-2">
+                              <button
+                                onClick={cancelEditAdmin}
+                                disabled={adminSaving}
+                                className="px-4 py-2 rounded-lg border text-sm font-semibold
+              border-slate-300 dark:border-slate-600
+              text-slate-700 dark:text-slate-200
+              hover:bg-slate-100 dark:hover:bg-slate-700 transition"
+                              >
+                                Cancel
+                              </button>
+
+                              <button
+                                onClick={saveAdminEdit}
+                                disabled={adminSaving}
+                                className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold
+              hover:bg-blue-700 transition disabled:opacity-70"
+                              >
+                                {adminSaving ? "Saving..." : "Save Changes"}
+                              </button>
+                            </div>
                           </div>
                         ) : (
-                          <div>
-                            <div className="font-medium text-gray-900 dark:text-gray-100 text-sm">
-                              {(a.firstName || "") +
-                                (a.lastName ? ` ${a.lastName}` : "") || "—"}
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            {/* LEFT SIDE - AVATAR + INFO */}
+                            <div className="flex items-center gap-4 flex-1 min-w-0">
+                              {/* Avatar initials */}
+                              <div className="h-12 w-12 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-sm uppercase shrink-0">
+                                {a.firstName?.[0] || "A"}
+                                {a.lastName?.[0] || ""}
+                              </div>
+
+                              {/* Name & email */}
+                              <div className="min-w-0">
+                                <p className="font-semibold text-slate-900 dark:text-white truncate">
+                                  {a.firstName || "—"} {a.lastName || ""}
+                                </p>
+                                <p className="text-sm text-slate-500 dark:text-slate-400 truncate">
+                                  {a.email || "No email"}
+                                </p>
+                              </div>
                             </div>
-                            <div className="text-xs sm:text-sm text-gray-600 dark:text-slate-300">
-                              {a.email || "-"}
+
+                            {/* RIGHT SIDE - PHONE + ACTION */}
+                            <div className="flex items-center gap-3">
+                              <span
+                                className="px-3 py-1 rounded-full text-xs font-semibold
+        bg-slate-100 dark:bg-slate-800
+        text-slate-600 dark:text-slate-300"
+                              >
+                                {a.phone || "No phone"}
+                              </span>
+
+                              <button
+                                onClick={() => startEditAdmin(a)}
+                                className="px-4 py-2 rounded-lg text-sm font-semibold
+          bg-blue-600 text-white
+          hover:bg-blue-700 active:scale-95 transition"
+                              >
+                                Edit
+                              </button>
                             </div>
                           </div>
                         )}
                       </div>
+                    ))}
+                  </div>
+                )}
+              </div>
 
-                      {/* right: phone + actions */}
-                      <div className="flex items-center gap-2 justify-between md:justify-end">
-                        <div className="text-xs sm:text-sm text-gray-600 dark:text-slate-300">
-                          {a.phone || "-"}
-                        </div>
-
-                        {editingAdminId === a.id ? (
-                          <>
-                            <button
-                              onClick={saveAdminEdit}
-                              disabled={adminSaving}
-                              className="px-3 py-1 bg-blue-600 text-white rounded-md disabled:opacity-70 text-xs sm:text-sm"
-                            >
-                              {adminSaving ? "Saving..." : "Save"}
-                            </button>
-                            <button
-                              onClick={cancelEditAdmin}
-                              disabled={adminSaving}
-                              className="px-3 py-1 border rounded-md text-xs sm:text-sm
-                                         border-gray-300 bg-white text-gray-800
-                                         dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                            >
-                              Cancel
-                            </button>
-                          </>
-                        ) : (
-                          <button
-                            onClick={() => startEditAdmin(a)}
-                            className="px-2 py-1 border rounded-md text-xs sm:text-sm
-                                       border-gray-300 bg-white text-gray-800
-                                       dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                          >
-                            Edit
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="mt-4 flex justify-end">
-              <button
-                onClick={closeAdmins}
-                className="px-4 py-2 bg-gray-100 rounded-md text-sm
+              <div className="mt-4 flex justify-end">
+                <button
+                  onClick={closeAdmins}
+                  className="px-4 py-2 bg-gray-100 rounded-md text-sm
                            dark:bg-slate-800 dark:text-slate-100"
-              >
-                Close
-              </button>
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
