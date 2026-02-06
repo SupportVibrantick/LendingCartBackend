@@ -26,6 +26,7 @@ import CurrencyExchangeOutlinedIcon from "@mui/icons-material/CurrencyExchangeOu
 import { PiSecurityCameraFill } from "react-icons/pi";
 import { GrDocumentText } from "react-icons/gr";
 import { RiExternalLinkLine } from "react-icons/ri";
+import ContactsOutlinedIcon from "@mui/icons-material/ContactsOutlined";
 
 type NavItem = {
   name: string;
@@ -94,17 +95,17 @@ const navItems: NavItem[] = [
   {
     icon: <GrDocumentText />,
     name: "Document Type",
-    subItems: [{ name: "All Documents", path: "/all-documents" }],
+    path: "/all-documents",
   },
   {
     icon: <AdminPanelSettingsOutlinedIcon />,
     name: "Admin Users",
-    subItems: [{ name: "All Admins", path: "/all-super-admins" }],
+    path: "/all-super-admins",
   },
   {
-    icon: <AdminPanelSettingsOutlinedIcon />,
+    icon: <ContactsOutlinedIcon />,
     name: "All Leads",
-    subItems: [{ name: "All leads", path: "/all-landing-pages-leads" }],
+    path: "/all-landing-pages-leads",
   },
   {
     icon: <PiSecurityCameraFill />,
