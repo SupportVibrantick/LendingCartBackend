@@ -4,12 +4,14 @@ import {
   ArrowUpIcon,
   BoxIconLine,
   GroupIcon,
+  UserIcon,
 } from "../../icons";
 import Badge from "../ui/badge/Badge";
 
 type AdminStats = {
   brokers: number;
   lenders: number;
+  customers: number;
 };
 
 // Same as other pages: base URL from env
@@ -52,6 +54,7 @@ export default function EcommerceMetrics() {
           setStats({
             brokers: orgs.brokers ?? 0,
             lenders: orgs.lenders ?? 0,
+            customers: orgs.customers ?? 0, // Assuming customers field exists
           });
         }
       } catch (err) {
@@ -67,9 +70,32 @@ export default function EcommerceMetrics() {
 
   const brokersCount = stats?.brokers ?? 0;
   const lendersCount = stats?.lenders ?? 0;
+  const customersCount = stats?.customers ?? 0;
 
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:gap-6">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 md:gap-6">
+      {/* <!-- Metric Item Start --> */}
+      <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6">
+        <div className="flex items-center justify-center w-12 h-12 bg-gray-100 rounded-xl dark:bg-gray-800">
+          <BoxIconLine className="text-gray-800 size-6 dark:text-white/90" />
+        </div>
+        <div className="flex items-end justify-between mt-5">
+          <div>
+            <span className="text-sm text-gray-500 dark:text-gray-400">
+              Total Lenders
+            </span>
+            <h4 className="mt-2 font-bold text-gray-800 text-title-sm dark:text-white/90">
+              {lendersCount.toLocaleString()}
+            </h4>
+          </div>
+
+          <Badge color="error">
+            <ArrowDownIcon />
+            9.05%
+          </Badge>
+        </div>
+      </div>
+
       {/* <!-- Metric Item Start --> */}
       <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6">
         <div className="flex items-center justify-center w-12 h-12 bg-gray-100 rounded-xl dark:bg-gray-800">
@@ -95,21 +121,21 @@ export default function EcommerceMetrics() {
       {/* <!-- Metric Item Start --> */}
       <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6">
         <div className="flex items-center justify-center w-12 h-12 bg-gray-100 rounded-xl dark:bg-gray-800">
-          <BoxIconLine className="text-gray-800 size-6 dark:text-white/90" />
+          <UserIcon className="text-gray-800 size-6 dark:text-white/90" />
         </div>
+
         <div className="flex items-end justify-between mt-5">
           <div>
             <span className="text-sm text-gray-500 dark:text-gray-400">
-              Total Lenders
+              Total Customer
             </span>
             <h4 className="mt-2 font-bold text-gray-800 text-title-sm dark:text-white/90">
-              {lendersCount.toLocaleString()}
+              {customersCount.toLocaleString()}
             </h4>
           </div>
-
-          <Badge color="error">
-            <ArrowDownIcon />
-            9.05%
+          <Badge color="success">
+            <ArrowUpIcon />
+            5.12%
           </Badge>
         </div>
       </div>

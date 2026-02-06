@@ -936,3 +936,18 @@ span.flatpickr-weekday,
 .menu-dropdown-badge-inactive {
   @apply bg-slate-700 text-slate-300;
 }
+
+
+body.modal-open header,
+body.modal-open .app-header,
+body.modal-open [data-header] {
+  display: none !important;
+}
+
+body.modal-open .tailadmin-header {
+  display: none !important;
+}
+
+body.modal-open {
+  overflow: hidden;
+}

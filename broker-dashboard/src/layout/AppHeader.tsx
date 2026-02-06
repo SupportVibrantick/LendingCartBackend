@@ -6,27 +6,26 @@ import { ThemeToggleButton } from "../components/common/ThemeToggleButton";
 import NotificationDropdown from "../components/header/NotificationDropdown";
 import UserDropdown from "../components/header/UserDropdown";
 
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001";
 
-// const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001";
-
-// function getAuthHeaders(): Record<string, string> {
-//   try {
-//     let token = sessionStorage.getItem("lender_token");
-//     if (token) {
-//       return {
-//         "Content-Type": "application/json",
-//         Authorization: `Bearer ${token}`,
-//       };
-//     }
-//   } catch {
-//     /* ignore */
-//   }
-//   return { "Content-Type": "application/json" };
-// }
+function getAuthHeaders(): Record<string, string> {
+  try {
+    const token = sessionStorage.getItem("broker_token");
+    if (token) {
+      return {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      };
+    }
+  } catch {
+    /* ignore */
+  }
+  return { "Content-Type": "application/json" };
+}
 
 const AppHeader: React.FC = () => {
   const [isApplicationMenuOpen, setApplicationMenuOpen] = useState(false);
-  // const [user, setUser] = useState<any | null>(null);
+  const [user, setUser] = useState<any | null>(null);
   const [time, setTime] = useState("");
 
   const { isMobileOpen, toggleSidebar, toggleMobileSidebar } = useSidebar();
@@ -45,47 +44,43 @@ const AppHeader: React.FC = () => {
 
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // const fetchAuthUser = async () => {
-  //   try {
-  //     const res = await fetch(`${API_BASE}/lender/auth/me`, {
-  //       method: "GET",
-  //       headers: getAuthHeaders(),
-  //     });
+  const fetchAuthUser = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/broker/auth/me`, {
+        method: "GET",
+        headers: getAuthHeaders(),
+      });
 
-  //     if (!res.ok) {
-  //       console.error("Failed to load user:", res.status);
-  //       return;
-  //     }
+      if (!res.ok) {
+        console.error("Failed to load user:", res.status);
+        return;
+      }
 
-  //     const json = await res.json();
+      const json = await res.json();
 
-  //     if (json?.success === false) {
-  //       console.error("Failed to load user:", json.message);
-  //       return;
-  //     }
+      if (json?.success === false) {
+        console.error("Failed to load user:", json.message);
+        return;
+      }
 
-  //     const user = json.data ?? json;
-  //     setUser(user);
-  //   } catch (err) {
-  //     console.error("Failed to load user:", err);
-  //   }
-  // };
+      const user = json.data ?? json;
+      setUser(user);
+    } catch (err) {
+      console.error("Failed to load user:", err);
+    }
+  };
 
-  // const toTitleCase = (value?: string) =>
-  //   value
-  //     ? value
-  //       .toLowerCase()
-  //       .split(" ")
-  //       .map(
-  //         (w) => w.charAt(0).toUpperCase() + w.slice(1)
-  //       )
-  //       .join(" ")
-  //     : "";
-
-
+  const toTitleCase = (value?: string) =>
+    value
+      ? value
+          .toLowerCase()
+          .split(" ")
+          .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+          .join(" ")
+      : "";
 
   useEffect(() => {
-    // fetchAuthUser();
+    fetchAuthUser();
     const handleKeyDown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key === "k") {
         event.preventDefault();
@@ -101,23 +96,29 @@ const AppHeader: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const updateTime = () => {
+    const updateDateTime = () => {
       const now = new Date();
 
-      const formatted = now.toLocaleTimeString(undefined, {
-        hour: "numeric",
+      const day = now.getDate();
+      const month = now.toLocaleString("en-US", { month: "short" });
+      const year = now.getFullYear();
+
+      const time = now.toLocaleTimeString(undefined, {
+        hour: "2-digit",
         minute: "2-digit",
-        hour12: true,
+        // second: "2-digit",
       });
+
+      const formatted = `${day} ${month} ${year}   ,        ${time}`;
 
       setTime(formatted);
     };
 
-    updateTime();
-    const interval = setInterval(updateTime, 1000);
+    updateDateTime();
+    const interval = setInterval(updateDateTime, 1000);
+
     return () => clearInterval(interval);
   }, []);
-
 
   return (
     <header className="sticky top-0 flex w-full bg-white border-gray-200 z-99999 dark:border-gray-800 dark:bg-gray-900 lg:border-b">
@@ -169,7 +170,7 @@ const AppHeader: React.FC = () => {
               alt="Logo"
             />
             <img
-              className="hidden dark:block"
+              className="hidden dark:block w-45 h-12"
               src="/ACOM_LOGO.jpeg"
               alt="Logo"
             />
@@ -195,20 +196,19 @@ const AppHeader: React.FC = () => {
             </svg>
           </button>
 
-
           <div className="hidden lg:block">
             <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
               Welcome{" "}
               <span className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                {/* {toTitleCase(user?.name)} */}
-                Broker
+                {toTitleCase(user?.user?.name)}
               </span>
             </h1>
           </div>
         </div>
         <div
-          className={`${isApplicationMenuOpen ? "flex" : "hidden"
-            } items-center justify-between w-full gap-4 px-5 py-4 lg:flex shadow-theme-md lg:justify-end lg:px-0 lg:shadow-none`}
+          className={`${
+            isApplicationMenuOpen ? "flex" : "hidden"
+          } items-center justify-between w-full gap-4 px-5 py-4 lg:flex shadow-theme-md lg:justify-end lg:px-0 lg:shadow-none`}
         >
           <div className="flex items-center gap-2 2xsm:gap-3">
             <div className="flex items-center gap-2">
