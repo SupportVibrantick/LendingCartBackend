@@ -819,3 +819,12 @@ span.flatpickr-weekday,
   fill: white;
   color: white;
 }
+
+
+.swal-high-z {
+  z-index: 1000000 !important;
+}
+
+.swal2-container {
+  z-index: 1000000 !important;
+}
