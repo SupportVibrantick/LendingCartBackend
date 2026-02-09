@@ -52,23 +52,22 @@ interface Errors {
   states?: string;
 }
 
-
 interface FormState {
   lenderOrgId: string;
   loanProductCode: string;
 
-  // selections
   loanTypes: string[];
   typeOfBusiness: string[];
   states: string[];
 
-  // amounts & terms
+  equipmentTypes: string[];
+  otherEquipmentExplanation?: string;
+
   minLoanAmount: string;
   maxLoanAmount: string;
   minTermMonths: string;
   maxTermMonths: string;
 
-  // new financial fields
   minLTV: string;
   maxLTV: string;
   minCreditScore: string;
@@ -78,8 +77,6 @@ interface FormState {
   notes: string;
   isActive: boolean;
 }
-
-
 export const BUSINESS_TYPES: BusinessType[] = [
   { label: "Hospitality", value: "HOSPITALITY" },
   { label: "Hotels & Motels", value: "HOTELS_MOTELS" },
@@ -177,7 +174,54 @@ export const BUSINESS_TYPES: BusinessType[] = [
 
   { label: "Energy & Utilities", value: "ENERGY_UTILITIES" },
   { label: "Renewable Energy", value: "RENEWABLE_ENERGY" },
-  { label: "Data Centers", value: "DATA_CENTERS" }
+  { label: "Data Centers", value: "DATA_CENTERS" },
+  { label: "Other (Please Explain)", value: "OTHER" },
+];
+
+export const EQUIPMENT_TYPES = [
+  {
+    label:
+      "Industrial Equipment (CNC machines, lathes, milling machines, generators, air compressors, welding equipment)",
+    value: "INDUSTRIAL_EQUIPMENT",
+  },
+  {
+    label:
+      "Transportation Equipment (Tractor trucks, trailers, dump trucks, delivery vans, fleet vehicles)",
+    value: "TRANSPORTATION_EQUIPMENT",
+  },
+  {
+    label:
+      "Construction & Agriculture Equipment (Cranes, excavators, forklifts, loaders, tractors, agricultural machinery)",
+    value: "CONSTRUCTION_AGRICULTURE_EQUIPMENT",
+  },
+  {
+    label:
+      "Medical Equipment (Imaging machines MRI/CT, dental chairs, hospital beds)",
+    value: "MEDICAL_EQUIPMENT",
+  },
+  {
+    label:
+      "IT & Office Equipment (Computers, servers, printers, phone systems)",
+    value: "IT_OFFICE_EQUIPMENT",
+  },
+  {
+    label:
+      "Restaurant/Food Service Equipment (Commercial ovens, refrigerators, food processing machinery)",
+    value: "RESTAURANT_EQUIPMENT",
+  },
+  {
+    label: "Landscaping & Snow Removal Equipment (Chippers, plows, mowers)",
+    value: "LANDSCAPING_EQUIPMENT",
+  },
+  {
+    label:
+      "Specialty Equipment (Car washes, vending machines, sanitation equipment)",
+    value: "SPECIALTY_EQUIPMENT",
+  },
+  {
+    label: "Other (Please Explain)",
+    value: "OTHER",
+  },
 ];
 
 /* ================= COMPONENT ================= */
@@ -196,6 +240,9 @@ export default function LenderProductAssign() {
     typeOfBusiness: [],
     states: [],
 
+    equipmentTypes: [],
+    otherEquipmentExplanation: "",
+
     minLoanAmount: "",
     maxLoanAmount: "",
     minTermMonths: "",
@@ -211,22 +258,57 @@ export default function LenderProductAssign() {
     isActive: true,
   });
 
-
-
   const US_STATES = [
-    { code: "AL" }, { code: "AK" }, { code: "AZ" }, { code: "AR" },
-    { code: "CA" }, { code: "CO" }, { code: "CT" }, { code: "DE" },
-    { code: "FL" }, { code: "GA" }, { code: "HI" }, { code: "ID" },
-    { code: "IL" }, { code: "IN" }, { code: "IA" }, { code: "KS" },
-    { code: "KY" }, { code: "LA" }, { code: "ME" }, { code: "MD" },
-    { code: "MA" }, { code: "MI" }, { code: "MN" }, { code: "MS" },
-    { code: "MO" }, { code: "MT" }, { code: "NE" }, { code: "NV" },
-    { code: "NH" }, { code: "NJ" }, { code: "NM" }, { code: "NY" },
-    { code: "NC" }, { code: "ND" }, { code: "OH" }, { code: "OK" },
-    { code: "OR" }, { code: "PA" }, { code: "RI" }, { code: "SC" },
-    { code: "SD" }, { code: "TN" }, { code: "TX" }, { code: "UT" },
-    { code: "VT" }, { code: "VA" }, { code: "WA" }, { code: "WV" },
-    { code: "WI" }, { code: "WY" },
+    { code: "AL" },
+    { code: "AK" },
+    { code: "AZ" },
+    { code: "AR" },
+    { code: "CA" },
+    { code: "CO" },
+    { code: "CT" },
+    { code: "DE" },
+    { code: "FL" },
+    { code: "GA" },
+    { code: "HI" },
+    { code: "ID" },
+    { code: "IL" },
+    { code: "IN" },
+    { code: "IA" },
+    { code: "KS" },
+    { code: "KY" },
+    { code: "LA" },
+    { code: "ME" },
+    { code: "MD" },
+    { code: "MA" },
+    { code: "MI" },
+    { code: "MN" },
+    { code: "MS" },
+    { code: "MO" },
+    { code: "MT" },
+    { code: "NE" },
+    { code: "NV" },
+    { code: "NH" },
+    { code: "NJ" },
+    { code: "NM" },
+    { code: "NY" },
+    { code: "NC" },
+    { code: "ND" },
+    { code: "OH" },
+    { code: "OK" },
+    { code: "OR" },
+    { code: "PA" },
+    { code: "RI" },
+    { code: "SC" },
+    { code: "SD" },
+    { code: "TN" },
+    { code: "TX" },
+    { code: "UT" },
+    { code: "VT" },
+    { code: "VA" },
+    { code: "WA" },
+    { code: "WV" },
+    { code: "WI" },
+    { code: "WY" },
   ];
 
   const MINIMUM_EXPERIENCE = [
@@ -236,7 +318,7 @@ export default function LenderProductAssign() {
     "6-10 projects",
     "10+ projects",
     "No minimum",
-  ]
+  ];
 
   /* ================= LOAD DATA ================= */
   useEffect(() => {
@@ -293,6 +375,19 @@ export default function LenderProductAssign() {
     if (form.typeOfBusiness.length === 0)
       e.typeOfBusiness = "Select at least one business type";
 
+    if (isEquipmentFinanceSelected) {
+      if (form.equipmentTypes.length === 0) {
+        e.loanProductCode = "Select at least one equipment type";
+      }
+
+      if (
+        form.equipmentTypes.includes("OTHER") &&
+        !form.otherEquipmentExplanation
+      ) {
+        e.loanProductCode = "Please explain other equipment type";
+      }
+    }
+
     // TERMS
     if (!form.minTermMonths) e.minTermMonths = "Required";
     if (!form.maxTermMonths) e.maxTermMonths = "Required";
@@ -305,29 +400,20 @@ export default function LenderProductAssign() {
       e.maxTermMonths = "Max term must be ≥ Min term";
 
     // MIN LTV
-    if (!form.minLTV)
-      e.minLTV = "Min LTV is required";
-    else if (isNaN(Number(form.minLTV)))
-      e.minLTV = "Invalid number";
+    if (!form.minLTV) e.minLTV = "Min LTV is required";
+    else if (isNaN(Number(form.minLTV))) e.minLTV = "Invalid number";
     else if (Number(form.minLTV) < 0 || Number(form.minLTV) > 100)
       e.minLTV = "Must be between 0–100";
 
     // MAX LTV
-    if (!form.maxLTV)
-      e.maxLTV = "Max LTV is required";
-    else if (isNaN(Number(form.maxLTV)))
-      e.maxLTV = "Invalid number";
+    if (!form.maxLTV) e.maxLTV = "Max LTV is required";
+    else if (isNaN(Number(form.maxLTV))) e.maxLTV = "Invalid number";
     else if (Number(form.maxLTV) < 0 || Number(form.maxLTV) > 100)
       e.maxLTV = "Must be between 0–100";
 
     // RELATION CHECK
-    if (
-      form.minLTV &&
-      form.maxLTV &&
-      Number(form.minLTV) > Number(form.maxLTV)
-    )
+    if (form.minLTV && form.maxLTV && Number(form.minLTV) > Number(form.maxLTV))
       e.maxLTV = "Max LTV must be ≥ Min LTV";
-
 
     // CREDIT SCORE
     if (!form.minCreditScore)
@@ -338,8 +424,7 @@ export default function LenderProductAssign() {
     )
       e.minCreditScore = "Score must be between 300–900";
 
-    if (form.states.length === 0)
-      e.states = "Select at least one state";
+    if (form.states.length === 0) e.states = "Select at least one state";
 
     // EXPERIENCE
     if (!form.minimumExperience)
@@ -347,7 +432,6 @@ export default function LenderProductAssign() {
 
     return e;
   }
-
 
   /* ================= SUBMIT ================= */
   async function handleSubmit(e: FormEvent) {
@@ -357,7 +441,7 @@ export default function LenderProductAssign() {
 
     const v = validate();
     if (Object.keys(v).length) {
-      console.log(v)
+      console.log(v);
       setErrors(v);
       return;
     }
@@ -369,6 +453,14 @@ export default function LenderProductAssign() {
 
         loanProductCodes: form.loanTypes,
         businessTypes: form.typeOfBusiness,
+
+        equipmentTypes: isEquipmentFinanceSelected
+          ? form.equipmentTypes
+          : undefined,
+
+        otherEquipmentExplanation: isEquipmentFinanceSelected
+          ? form.otherEquipmentExplanation
+          : undefined,
 
         minLoanAmount: Number(form.minLoanAmount),
         maxLoanAmount: Number(form.maxLoanAmount),
@@ -387,7 +479,6 @@ export default function LenderProductAssign() {
 
         isActive: form.isActive,
       };
-
 
       await api.post("/admin/lender-products/create", payload);
 
@@ -424,6 +515,28 @@ export default function LenderProductAssign() {
     }
   }
 
+  const isEquipmentFinanceSelected =
+    form.loanTypes.includes("EQUIPMENT_FINANCE");
+
+  const isBusinessTypeRequired =
+    form.loanTypes.includes("SBA_7A") ||
+    form.loanTypes.includes("ACCOUNTS_RECEIVABLE");
+
+  useEffect(() => {
+    if (!isBusinessTypeRequired) {
+      setForm((f) => ({
+        ...f,
+        typeOfBusiness: [],
+      }));
+    }
+  }, [isBusinessTypeRequired]);
+
+  function formatLoanLabel(text: string) {
+    return text
+      .replace(/_/g, " ") // SBA_7A → SBA 7A
+      .toUpperCase() // everything → CAPS
+      .trim();
+  }
 
   /* ================= UI ================= */
   return (
@@ -432,10 +545,11 @@ export default function LenderProductAssign() {
 
       {message && (
         <div
-          className={`p-3 mb-4 rounded ${message.type === "error"
-            ? "bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-300"
-            : "bg-green-50 text-green-700 dark:bg-emerald-500/10 dark:text-emerald-300"
-            }`}
+          className={`p-3 mb-4 rounded ${
+            message.type === "error"
+              ? "bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-300"
+              : "bg-green-50 text-green-700 dark:bg-emerald-500/10 dark:text-emerald-300"
+          }`}
         >
           {message.text}
         </div>
@@ -465,8 +579,6 @@ export default function LenderProductAssign() {
               </p>
             )}
           </div>
-
-
         </div>
 
         {/* ================= LOAN TYPES ================= */}
@@ -476,10 +588,11 @@ export default function LenderProductAssign() {
           </label>
 
           {/* CHECKBOX LIST */}
-          <div className="border rounded-lg p-3 max-h-40 overflow-y-auto space-y-2
+          <div
+            className="border rounded-lg p-3 max-h-40 overflow-y-auto space-y-2
                   bg-white dark:bg-slate-800
-                  border-slate-300 dark:border-slate-600">
-
+                  border-slate-300 dark:border-slate-600"
+          >
             {loanProducts.map((p) => (
               <label
                 key={p.id}
@@ -495,9 +608,9 @@ export default function LenderProductAssign() {
                       return { ...prev, loanTypes: Array.from(set) };
                     })
                   }
-                  className="accent-emerald-600"
+                  className="accent-emerald-600 "
                 />
-                {p.name}
+                {formatLoanLabel(p.name)}
               </label>
             ))}
           </div>
@@ -513,11 +626,11 @@ export default function LenderProductAssign() {
               {form.loanTypes.map((t) => (
                 <span
                   key={t}
-                  className="px-3 py-1 rounded-full text-xs font-medium
+                  className="px-3 py-1 rounded-full uppercase text-xs font-medium
                      bg-emerald-100 text-emerald-700
                      dark:bg-emerald-500/15 dark:text-emerald-300"
                 >
-                  {t}
+                  {formatLoanLabel(t)}
                 </span>
               ))}
             </div>
@@ -525,68 +638,120 @@ export default function LenderProductAssign() {
         </div>
 
         {/* ================= TYPE OF BUSINESS ================= */}
-        <div>
-          <label className="block text-sm font-medium mb-2">
-            Type of Business (select multiple)
-          </label>
+        {isBusinessTypeRequired && (
+          <div>
+            <label className="block text-sm font-medium mb-2">
+              Type of Business (select multiple)
+            </label>
 
-          {/* CHECKBOX LIST */}
-          <div
-            className="border rounded-lg p-3 max-h-52 overflow-y-auto space-y-2
+            <div
+              className="border rounded-lg p-3 max-h-52 overflow-y-auto space-y-2
       bg-white dark:bg-slate-800
       border-slate-300 dark:border-slate-600"
-          >
-            {BUSINESS_TYPES.map((bt) => (
-              <label
-                key={bt.value}
-                className="flex items-center gap-2 text-sm cursor-pointer"
-              >
-                <input
-                  type="checkbox"
-                  checked={form.typeOfBusiness.includes(bt.value)}
-                  onChange={() =>
-                    setForm((prev) => {
-                      const set = new Set(prev.typeOfBusiness);
-                      set.has(bt.value)
-                        ? set.delete(bt.value)
-                        : set.add(bt.value);
-                      return { ...prev, typeOfBusiness: Array.from(set) };
-                    })
-                  }
-                  className="accent-indigo-600"
-                />
-                {bt.label}
-              </label>
-            ))}
-          </div>
-
-          {/* SELECTED CHIPS */}
-          {form.typeOfBusiness.length > 0 && (
-            <div className="flex flex-wrap gap-2 mt-3">
-              {form.typeOfBusiness.map((val) => {
-                const label =
-                  BUSINESS_TYPES.find((b) => b.value === val)?.label || val;
-
-                return (
-                  <span
-                    key={val}
-                    className="px-3 py-1 rounded-full text-xs font-medium
-              bg-indigo-100 text-indigo-700
-              dark:bg-indigo-500/15 dark:text-indigo-300"
-                  >
-                    {label}
-                  </span>
-                );
-              })}
+            >
+              {BUSINESS_TYPES.map((bt) => (
+                <label
+                  key={bt.value}
+                  className="flex items-start gap-2 text-sm cursor-pointer"
+                >
+                  <input
+                    type="checkbox"
+                    checked={form.typeOfBusiness.includes(bt.value)}
+                    onChange={() =>
+                      setForm((prev) => {
+                        const set = new Set(prev.typeOfBusiness);
+                        set.has(bt.value)
+                          ? set.delete(bt.value)
+                          : set.add(bt.value);
+                        return { ...prev, typeOfBusiness: Array.from(set) };
+                      })
+                    }
+                    className="accent-indigo-600 mt-1"
+                  />
+                  {bt.label}
+                </label>
+              ))}
             </div>
 
-          )}
-          {errors.typeOfBusiness && (
-            <p className="text-xs text-red-600 dark:text-red-400 mt-1">
-              {errors.typeOfBusiness}
-            </p>
-          )}
-        </div>
+            {/* OTHER BUSINESS EXPLANATION */}
+            {form.typeOfBusiness.includes("OTHER") && (
+              <div className="mt-3">
+                <input
+                  type="text"
+                  placeholder="Please explain other business type"
+                  value={form.notes}
+                  onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                  className="w-full rounded-md border p-2
+            bg-white text-slate-900 border-slate-300
+            dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600"
+                />
+              </div>
+            )}
+
+            {errors.typeOfBusiness && (
+              <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                {errors.typeOfBusiness}
+              </p>
+            )}
+          </div>
+        )}
+
+        {isEquipmentFinanceSelected && (
+          <div>
+            <label className="block text-sm font-medium mb-2">
+              Equipment Types (select multiple)
+            </label>
+
+            <div
+              className="border rounded-lg p-3 space-y-2
+      bg-white dark:bg-slate-800
+      border-slate-300 dark:border-slate-600"
+            >
+              {EQUIPMENT_TYPES.map((eq) => (
+                <label
+                  key={eq.value}
+                  className="flex items-start gap-2 text-sm cursor-pointer"
+                >
+                  <input
+                    type="checkbox"
+                    checked={form.equipmentTypes.includes(eq.value)}
+                    onChange={() =>
+                      setForm((prev) => {
+                        const set = new Set(prev.equipmentTypes);
+                        set.has(eq.value)
+                          ? set.delete(eq.value)
+                          : set.add(eq.value);
+                        return { ...prev, equipmentTypes: Array.from(set) };
+                      })
+                    }
+                    className="accent-indigo-600 mt-1"
+                  />
+                  {eq.label}
+                </label>
+              ))}
+            </div>
+
+            {/* OTHER EXPLANATION */}
+            {form.equipmentTypes.includes("OTHER") && (
+              <div className="mt-3">
+                <input
+                  type="text"
+                  placeholder="Please explain other equipment"
+                  value={form.otherEquipmentExplanation}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      otherEquipmentExplanation: e.target.value,
+                    })
+                  }
+                  className="w-full rounded-md border p-2
+            bg-white text-slate-900 border-slate-300
+            dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600"
+                />
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="grid grid-cols-4 gap-4">
           <div>
@@ -661,7 +826,6 @@ export default function LenderProductAssign() {
                 {errors.maxTermMonths}
               </p>
             )}
-
           </div>
         </div>
 
@@ -671,9 +835,7 @@ export default function LenderProductAssign() {
             <input
               type="number"
               value={form.minLTV}
-              onChange={(e) =>
-                setForm({ ...form, minLTV: e.target.value })
-              }
+              onChange={(e) => setForm({ ...form, minLTV: e.target.value })}
               className="mt-1 block w-full rounded-md border p-2
       bg-white text-slate-900 border-slate-300
       dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600"
@@ -685,15 +847,12 @@ export default function LenderProductAssign() {
             )}
           </div>
 
-
           <div>
             <label className="block text-sm font-medium">Max LTV %</label>
             <input
               type="number"
               value={form.maxLTV}
-              onChange={(e) =>
-                setForm({ ...form, maxLTV: e.target.value })
-              }
+              onChange={(e) => setForm({ ...form, maxLTV: e.target.value })}
               className="mt-1 block w-full rounded-md border p-2
       bg-white text-slate-900 border-slate-300
       dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600"
@@ -704,7 +863,6 @@ export default function LenderProductAssign() {
               </p>
             )}
           </div>
-
 
           <div>
             <label className="block text-sm font-medium">
@@ -723,7 +881,6 @@ export default function LenderProductAssign() {
                 {errors.minCreditScore}
               </p>
             )}
-
           </div>
 
           <div>
@@ -754,7 +911,6 @@ export default function LenderProductAssign() {
               </p>
             )}
           </div>
-
         </div>
 
         <div>
@@ -831,12 +987,9 @@ export default function LenderProductAssign() {
                 </label>
               ))}
             </div>
-
           </div>
           {errors.states && (
-            <p className="text-xs text-red-600 mt-2">
-              {errors.states}
-            </p>
+            <p className="text-xs text-red-600 mt-2">{errors.states}</p>
           )}
 
           <p className="text-xs text-slate-500 mt-2">
