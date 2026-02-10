@@ -287,7 +287,7 @@ export default function LoanApplicationsPage() {
                   .filter(Boolean)
                   .join(", "),
                 country: getFieldValue(fields, "country") || "USA",
-                amount: Number(getFieldValue(fields, "loanAmount") || 0),
+                amount: Number(getFieldValue(fields, "loan_amount") || 0),
                 status: item.status,
                 date: item.submittedOn,
               };
@@ -543,7 +543,7 @@ export default function LoanApplicationsPage() {
                 className="bg-white dark:bg-slate-900
                                             text-slate-900 dark:text-slate-100
                                             rounded-2xl
-                                            w-full max-w-3xl max-h-[90vh]
+                                            w-full max-w-7xl max-h-[90vh]
                                             overflow-y-auto
                                             shadow-xl dark:shadow-black/40"
               >
@@ -567,7 +567,7 @@ export default function LoanApplicationsPage() {
                 </div>
 
                 {/* BODY */}
-                <div className="p-6 space-y-6">
+                <div className="p-6 space-y-8">
                   {detailLoading ? (
                     <p className="text-center text-slate-500">Loading…</p>
                   ) : submissionDetail ? (
@@ -576,71 +576,79 @@ export default function LoanApplicationsPage() {
                         (f: any) => f.fieldKey === "borrowerSignature",
                       );
 
+                      const submittedDate = new Date(submissionDetail.submittedAt);
+                      const formattedDate = submittedDate.toLocaleDateString();
+                      const formattedTime = submittedDate.toLocaleTimeString();
+
                       return (
                         <>
-                          {/* META */}
-                          <div className="grid grid-cols-2 gap-4 text-sm">
-                            <div>
-                              <b>Status:</b> {submissionDetail.status}
-                            </div>
-                            <div>
-                              <b>Submitted At:</b>{" "}
-                              {new Date(
-                                submissionDetail.submittedAt,
-                              ).toLocaleString()}
-                            </div>
+                          {/* STATUS */}
+                          <div className="text-sm font-medium">
+                            <span className="font-semibold">Status:</span>{" "}
+                            {submissionDetail.status}
                           </div>
 
                           {/* ALL FIELDS (EXCEPT SIGNATURE) */}
-                          <div className="border rounded-xl divide-y dark:border-slate-800">
-                            {submissionDetail.fields
-                              .filter(
-                                (f: any) => f.fieldKey !== "borrowerSignature",
-                              )
-                              .map((f: any, i: number) => {
-                                const parsedValue = parseValue(f.value);
+                          <div className="border rounded-xl dark:border-slate-800 p-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                              {submissionDetail.fields
+                                .filter((f: any) => f.fieldKey !== "borrowerSignature")
+                                .map((f: any, i: number) => {
+                                  const parsedValue = parseValue(f.value);
 
-                                return (
-                                  <div
-                                    key={i}
-                                    className="p-4 flex justify-between gap-4"
-                                  >
-                                    <div className="text-sm font-medium text-slate-600 dark:text-slate-400">
-                                      {f.fieldKey || f.fieldId}
+                                  return (
+                                    <div key={i} className="space-y-1">
+                                      {/* LABEL */}
+                                      <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+                                        {f.label || f.fieldKey}
+                                      </label>
+
+                                      {/* VALUE */}
+                                      <div className="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-sm font-medium text-slate-800 dark:text-slate-200 break-words">
+                                        {parsedValue !== undefined && parsedValue !== ""
+                                          ? String(parsedValue)
+                                          : "-"}
+                                      </div>
                                     </div>
-                                    <div className="text-sm font-mono break-all text-right">
-                                      {String(parsedValue)}
-                                    </div>
-                                  </div>
-                                );
-                              })}
+                                  );
+                                })}
+                            </div>
                           </div>
 
-                          {/* DIGITAL SIGNATURE (ALWAYS LAST) */}
+                          {/* DIGITAL SIGNATURE */}
                           {signatureField && (
-                            <div className="mt-8">
-                              <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                            <div className="text-center space-y-3">
+                              <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
                                 Digital Signature
                               </h3>
 
-                              <div
-                                className=" border border-slate-200 dark:border-slate-700
-  rounded-xl p-4
-  bg-white dark:bg-slate-900"
-                              >
+                              <div className="flex justify-center">
                                 <img
                                   src={parseValue(signatureField.value)}
                                   alt="Digital Signature"
-                                  className="max-w-full bg-white rounded-lg"
+                                  className="h-45 object-contain border border-slate-200 dark:border-slate-700 rounded-lg bg-white p-2"
                                 />
                               </div>
                             </div>
                           )}
+
+                          {/* SUBMITTED DATE & TIME (LAST) */}
+                          <div className="border-t pt-6 text-sm text-slate-600 dark:text-slate-400 flex justify-between">
+                            <div>
+                              <span className="font-semibold">Submitted Date:</span>{" "}
+                              {formattedDate}
+                            </div>
+                            <div>
+                              <span className="font-semibold">Submitted Time:</span>{" "}
+                              {formattedTime}
+                            </div>
+                          </div>
                         </>
                       );
                     })()
                   ) : null}
                 </div>
+
               </div>
             </div>,
             document.body,
