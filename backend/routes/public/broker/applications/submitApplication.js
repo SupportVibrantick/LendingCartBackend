@@ -1,17 +1,11 @@
 const fp = require("fastify-plugin");
 const axios = require("axios");
+const { randomUUID } = require("crypto");
 
-/**
- * Public submit application API
- * - No auth
- * - Fully dynamic field support
- * - Google reCAPTCHA protection
- * - Defensive validation
- */
 async function submitApplication(fastify) {
   fastify.post("/submit", async (req, reply) => {
     const {
-      applicationId,
+      applicationId: brokerApplicationId, // template ID
       applicationProductId,
       fields,
       captchaToken,
@@ -58,13 +52,9 @@ async function submitApplication(fastify) {
     }
 
     /* ===============================
-       1. BASIC PAYLOAD VALIDATION
+       1. BASIC VALIDATION
     =============================== */
-    if (
-      !applicationId ||
-      !applicationProductId ||
-      !Array.isArray(fields)
-    ) {
+    if (!brokerApplicationId || !applicationProductId || !Array.isArray(fields)) {
       return reply.code(400).send({
         success: false,
         message: "Invalid payload structure",
@@ -72,12 +62,12 @@ async function submitApplication(fastify) {
     }
 
     /* ===============================
-       2. VERIFY ACTIVE APPLICATION + PRODUCT
+       2. VERIFY TEMPLATE
     =============================== */
-    const application =
+    const brokerApplication =
       await fastify.prisma.brokerApplication.findFirst({
         where: {
-          id: applicationId,
+          id: brokerApplicationId,
           isActive: true,
           products: {
             some: {
@@ -86,10 +76,13 @@ async function submitApplication(fastify) {
             },
           },
         },
-        select: { id: true },
+        select: {
+          id: true,
+          brokerOrgId: true,
+        },
       });
 
-    if (!application) {
+    if (!brokerApplication) {
       return reply.code(404).send({
         success: false,
         message: "Active application or product not found",
@@ -97,7 +90,7 @@ async function submitApplication(fastify) {
     }
 
     /* ===============================
-       3. FETCH DYNAMIC PRODUCT FIELDS
+       3. FETCH PRODUCT FIELDS
     =============================== */
     const productFields =
       await fastify.prisma.brokerApplicationProductField.findMany({
@@ -114,9 +107,7 @@ async function submitApplication(fastify) {
     for (const field of productFields) {
       if (!field.isRequired) continue;
 
-      const submitted = fields.find(
-        (f) => f.fieldId === field.id
-      );
+      const submitted = fields.find((f) => f.fieldId === field.id);
 
       const isEmpty =
         !submitted ||
@@ -136,44 +127,71 @@ async function submitApplication(fastify) {
     }
 
     /* ===============================
-       5. CREATE SUBMISSION (TRANSACTION)
+       5. TRANSACTION
     =============================== */
-    const result = await fastify.prisma.$transaction(
-      async (tx) => {
-        const submission =
-          await tx.applicationSubmission.create({
-            data: {
-              applicationId,
-              applicationProductId,
-              status: "NEW",
-            },
-          });
+    const result = await fastify.prisma.$transaction(async (tx) => {
+      
+      // Example: Extract email + name from fields
+      const emailField = fields.find(f => f.fieldKey === "email");
+      const nameField = fields.find(f => f.fieldKey === "full_name");
 
-        const submissionFields = fields.map((f) => {
-          const isDynamic =
-            f.fieldId && fieldMap.has(f.fieldId);
-
-          return {
-            submissionId: submission.id,
-            fieldId: isDynamic ? f.fieldId : null,
-            fieldKey: f.fieldKey || null,
-            value: JSON.stringify(f.value ?? null),
-            source: isDynamic ? "DYNAMIC" : "STATIC",
-          };
-        });
-
-        if (submissionFields.length > 0) {
-          await tx.applicationSubmissionField.createMany({
-            data: submissionFields,
-          });
-        }
-
-        return submission;
+      if (!emailField?.value) {
+        throw new Error("Email is required to create client");
       }
-    );
+
+      // Create or reuse client
+      const client = await tx.client.upsert({
+        where: { email: emailField.value },
+        update: {},
+        create: {
+          id: randomUUID(),
+          email: emailField.value,
+          fullName: nameField?.value || "Unknown Applicant",
+        },
+      });
+
+      // Create loan application
+      const loanApplication = await tx.loanApplication.create({
+        data: {
+          id: randomUUID(),
+          applicationNumber: `APP-${Date.now()}`,
+          brokerOrgId: brokerApplication.brokerOrgId,
+          clientId: client.id,
+          loanProductCode: "DRAFT", // use correct enum
+          status: "SUBMITTED",
+          updatedAt: new Date(),
+        },
+      });
+
+      // Create submission
+      const submission = await tx.applicationSubmission.create({
+        data: {
+          applicationId: loanApplication.id,
+          applicationProductId,
+          status: "NEW",
+        },
+      });
+
+      // Create fields
+      const submissionFields = fields.map((f) => ({
+        submissionId: submission.id,
+        fieldId: f.fieldId && fieldMap.has(f.fieldId) ? f.fieldId : null,
+        fieldKey: f.fieldKey || null,
+        value: JSON.stringify(f.value ?? null),
+        source: f.fieldId ? "DYNAMIC" : "STATIC",
+      }));
+
+      if (submissionFields.length > 0) {
+        await tx.applicationSubmissionField.createMany({
+          data: submissionFields,
+        });
+      }
+
+      return submission;
+    });
 
     /* ===============================
-       6. SUCCESS RESPONSE
+       6. SUCCESS
     =============================== */
     return reply.code(201).send({
       success: true,
