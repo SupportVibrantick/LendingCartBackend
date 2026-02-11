@@ -8,7 +8,7 @@ module.exports = async function findEligibleLenders(fastify) {
       const prisma = fastify.prisma;
 
       /* =====================================================
-         1. FETCH SUBMISSION + APPLICATION
+         1. FETCH SUBMISSION
       ===================================================== */
 
       const submission = await prisma.applicationSubmission.findUnique({
@@ -35,38 +35,22 @@ module.exports = async function findEligibleLenders(fastify) {
         });
       }
 
-      /* =====================================================
-         2. EXTRACT BORROWER DATA (NO CONVERSION)
-      ===================================================== */
-
       const getFieldValue = (key) =>
         submission.fields.find((f) => f.fieldKey === key)?.value;
 
-      // Loan Amount
       const loanAmount =
         Number(getFieldValue("amountRequested")) ||
-        Number(getFieldValue("loan_amount_requested")) ||
         Number(application.amountRequested) ||
         null;
 
-      /* ===============================
-         TERM (TAKE AS IS - NO CONVERSION)
-      =============================== */
-
-      // Exact term in months
       const termMonths =
         Number(getFieldValue("requested_term_months")) || null;
 
-      // Range support (TAKE EXACT VALUES)
       const borrowerMinTerm =
         Number(getFieldValue("minTermMonths")) || null;
 
       const borrowerMaxTerm =
         Number(getFieldValue("maxTermMonths")) || null;
-
-      /* ===============================
-         CREDIT SCORE
-      =============================== */
 
       let creditScore =
         Number(getFieldValue("credit_score")) ||
@@ -84,7 +68,7 @@ module.exports = async function findEligibleLenders(fastify) {
       const { loanProductCode } = application;
 
       /* =====================================================
-         3. FETCH ACTIVE LENDER PRODUCTS
+         2. FETCH LENDER PRODUCTS WITH FULL PROFILE
       ===================================================== */
 
       const lenderProducts = await prisma.lenderProduct.findMany({
@@ -101,13 +85,23 @@ module.exports = async function findEligibleLenders(fastify) {
           lender: {
             include: {
               lenderProfile: true,
+              users: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  email: true,
+                  profileImage: true,
+                },
+                take: 1,
+              },
             },
           },
         },
       });
 
       /* =====================================================
-         4. ELIGIBILITY CHECK (DIRECT COMPARISON)
+         3. ELIGIBILITY CHECK
       ===================================================== */
 
       const evaluatedLenders = lenderProducts.map((lp) => {
@@ -116,40 +110,35 @@ module.exports = async function findEligibleLenders(fastify) {
         const minLoan = lp.minLoanAmount
           ? Number(lp.minLoanAmount)
           : null;
+
         const maxLoan = lp.maxLoanAmount
           ? Number(lp.maxLoanAmount)
           : null;
 
-        /* ---------- LOAN CHECK ---------- */
+        /* ---------- LOAN ---------- */
 
         if (loanAmount) {
-          if (minLoan && loanAmount < minLoan) {
+          if (minLoan && loanAmount < minLoan)
             reasons.push(`Loan amount below minimum (${minLoan})`);
-          }
 
-          if (maxLoan && loanAmount > maxLoan) {
+          if (maxLoan && loanAmount > maxLoan)
             reasons.push(`Loan amount exceeds maximum (${maxLoan})`);
-          }
         }
 
-        /* ---------- TERM CHECK ---------- */
+        /* ---------- TERM ---------- */
 
-        // Case 1: Exact term provided
         if (termMonths) {
-          if (lp.minTermMonths && termMonths < lp.minTermMonths) {
+          if (lp.minTermMonths && termMonths < lp.minTermMonths)
             reasons.push(
               `Term below minimum (${lp.minTermMonths} months)`
             );
-          }
 
-          if (lp.maxTermMonths && termMonths > lp.maxTermMonths) {
+          if (lp.maxTermMonths && termMonths > lp.maxTermMonths)
             reasons.push(
               `Term exceeds maximum (${lp.maxTermMonths} months)`
             );
-          }
         }
 
-        // Case 2: Range provided
         if (borrowerMinTerm || borrowerMaxTerm) {
           if (
             borrowerMinTerm &&
@@ -175,38 +164,45 @@ module.exports = async function findEligibleLenders(fastify) {
         /* ---------- CREDIT SCORE ---------- */
 
         if (creditScore && lp.minCreditScore) {
-          if (creditScore < lp.minCreditScore) {
+          if (creditScore < lp.minCreditScore)
             reasons.push(
               `Credit score below minimum (${lp.minCreditScore})`
             );
-          }
         }
 
-        const isEligible = reasons.length === 0;
+        const lender = lp.lender;
 
         return {
-          lenderOrgId: lp.lenderOrgId,
-          lenderName: lp.lender.name,
+          lenderOrgId: lender.id,
+          lenderName: lender.name,
+          lenderEmail: lender.email,
+          lenderPhone: lender.phone,
+
+          profileImage:
+            lender.users[0]?.profileImage || null,
+
+          lenderProfile: lender.lenderProfile || null,
+
           lenderProductId: lp.id,
           loanProductCode: lp.loanProductCode,
+
           fundingRange: {
             min: minLoan,
             max: maxLoan,
           },
+
           terms: {
             minMonths: lp.minTermMonths,
             maxMonths: lp.maxTermMonths,
           },
+
           minCreditScore: lp.minCreditScore,
           interestRateRange: lp.interestRateRange,
-          eligible: isEligible,
+
+          eligible: reasons.length === 0,
           rejectionReasons: reasons,
         };
       });
-
-      /* =====================================================
-         5. SPLIT RESULTS
-      ===================================================== */
 
       const eligibleLenders = evaluatedLenders.filter(
         (l) => l.eligible
@@ -217,7 +213,7 @@ module.exports = async function findEligibleLenders(fastify) {
       );
 
       /* =====================================================
-         6. FINAL RESPONSE
+         4. FINAL RESPONSE
       ===================================================== */
 
       return reply.send({
