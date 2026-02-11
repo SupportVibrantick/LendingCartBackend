@@ -7,15 +7,15 @@ module.exports = async function findEligibleLenders(fastify) {
       const { submissionId } = req.params;
       const prisma = fastify.prisma;
 
-      /* ===============================
-         1. FETCH SUBMISSION
-      =============================== */
+      /* =====================================================
+         1. FETCH SUBMISSION + APPLICATION
+      ===================================================== */
 
       const submission = await prisma.applicationSubmission.findUnique({
         where: { id: submissionId },
         include: {
           application: true,
-          fields: true, // VERY IMPORTANT
+          fields: true,
         },
       });
 
@@ -35,34 +35,46 @@ module.exports = async function findEligibleLenders(fastify) {
         });
       }
 
-      /* ===============================
-         2. EXTRACT VALUES FROM FIELDS
-      =============================== */
+      /* =====================================================
+         2. EXTRACT & NORMALIZE BORROWER DATA
+      ===================================================== */
 
-      const getFieldValue = (key) => {
-        return submission.fields.find((f) => f.fieldKey === key)?.value;
-      };
+      const getFieldValue = (key) =>
+        submission.fields.find((f) => f.fieldKey === key)?.value;
 
+      // Loan Amount (dynamic or fallback to application)
       const loanAmount =
         Number(getFieldValue("amountRequested")) ||
-        Number(getFieldValue("loan_amount_requested"));
+        Number(getFieldValue("loan_amount_requested")) ||
+        Number(application.amountRequested) ||
+        null;
 
+      // Term (support both months and years)
       const termYears = Number(getFieldValue("requested_term_years"));
-      const termMonths = termYears ? termYears * 12 : null;
+      const termMonthsDirect = Number(getFieldValue("requested_term_months"));
 
-      const creditScore = Number(getFieldValue("credit_score")); // ensure this exists
+      let termMonths = null;
+      if (termMonthsDirect) {
+        termMonths = termMonthsDirect;
+      } else if (termYears) {
+        termMonths = termYears * 12;
+      }
+
+      const creditScore =
+        Number(getFieldValue("credit_score")) ||
+        Number(application.creditScore) ||
+        null;
 
       const { loanProductCode } = application;
 
-      /* ===============================
+      /* =====================================================
          3. FETCH ACTIVE LENDER PRODUCTS
-      =============================== */
+      ===================================================== */
 
       const lenderProducts = await prisma.lenderProduct.findMany({
         where: {
           isActive: true,
           loanProductCode,
-
           lender: {
             type: "LENDER",
             status: "ACTIVE",
@@ -78,77 +90,118 @@ module.exports = async function findEligibleLenders(fastify) {
         },
       });
 
-      /* ===============================
-         4. MANUAL ELIGIBILITY CHECK
-      =============================== */
+      /* =====================================================
+         4. EVALUATE ELIGIBILITY WITH REASONS
+      ===================================================== */
 
-      const eligibleLenders = lenderProducts.filter((lp) => {
-        // Loan Amount Check
-        if (
-          loanAmount &&
-          ((lp.minLoanAmount && loanAmount < Number(lp.minLoanAmount)) ||
-            (lp.maxLoanAmount && loanAmount > Number(lp.maxLoanAmount)))
-        ) {
-          return false;
+      const evaluatedLenders = lenderProducts.map((lp) => {
+        const reasons = [];
+
+        const minLoan = lp.minLoanAmount
+          ? Number(lp.minLoanAmount)
+          : null;
+        const maxLoan = lp.maxLoanAmount
+          ? Number(lp.maxLoanAmount)
+          : null;
+
+        // LOAN AMOUNT CHECK
+        if (loanAmount) {
+          if (minLoan && loanAmount < minLoan) {
+            reasons.push(
+              `Loan amount below minimum (${minLoan})`
+            );
+          }
+
+          if (maxLoan && loanAmount > maxLoan) {
+            reasons.push(
+              `Loan amount exceeds maximum (${maxLoan})`
+            );
+          }
         }
 
-        // Term Check
-        if (
-          termMonths &&
-          ((lp.minTermMonths && termMonths < lp.minTermMonths) ||
-            (lp.maxTermMonths && termMonths > lp.maxTermMonths))
-        ) {
-          return false;
+        // TERM CHECK
+        if (termMonths) {
+          if (lp.minTermMonths && termMonths < lp.minTermMonths) {
+            reasons.push(
+              `Term below minimum (${lp.minTermMonths} months)`
+            );
+          }
+
+          if (lp.maxTermMonths && termMonths > lp.maxTermMonths) {
+            reasons.push(
+              `Term exceeds maximum (${lp.maxTermMonths} months)`
+            );
+          }
         }
 
-        // Credit Score Check
-        if (
-          creditScore &&
-          lp.minCreditScore &&
-          creditScore < lp.minCreditScore
-        ) {
-          return false;
+        // CREDIT SCORE CHECK
+        if (creditScore && lp.minCreditScore) {
+          if (creditScore < lp.minCreditScore) {
+            reasons.push(
+              `Credit score below minimum (${lp.minCreditScore})`
+            );
+          }
         }
 
-        return true;
+        const isEligible = reasons.length === 0;
+
+        return {
+          lenderOrgId: lp.lenderOrgId,
+          lenderName: lp.lender.name,
+          lenderProductId: lp.id,
+          loanProductCode: lp.loanProductCode,
+
+          fundingRange: {
+            min: minLoan,
+            max: maxLoan,
+          },
+
+          terms: {
+            minMonths: lp.minTermMonths,
+            maxMonths: lp.maxTermMonths,
+          },
+
+          minCreditScore: lp.minCreditScore,
+          interestRateRange: lp.interestRateRange,
+
+          eligible: isEligible,
+          rejectionReasons: isEligible ? [] : reasons,
+        };
       });
 
-      /* ===============================
-         5. FORMAT RESPONSE
-      =============================== */
+      /* =====================================================
+         5. SPLIT ELIGIBLE / REJECTED
+      ===================================================== */
 
-      const lenders = eligibleLenders.map((lp) => ({
-        lenderOrgId: lp.lenderOrgId,
-        lenderName: lp.lender.name,
-        lenderProductId: lp.id,
-        loanProductCode: lp.loanProductCode,
+      const eligibleLenders = evaluatedLenders.filter(
+        (l) => l.eligible
+      );
 
-        fundingRange: {
-          min: lp.minLoanAmount,
-          max: lp.maxLoanAmount,
-        },
+      const rejectedLenders = evaluatedLenders.filter(
+        (l) => !l.eligible
+      );
 
-        terms: {
-          minMonths: lp.minTermMonths,
-          maxMonths: lp.maxTermMonths,
-        },
-
-        minCreditScore: lp.minCreditScore,
-
-        interestRateRange: lp.interestRateRange,
-      }));
-
-      /* ===============================
-         6. RESPONSE
-      =============================== */
+      /* =====================================================
+         6. FINAL RESPONSE
+      ===================================================== */
 
       return reply.send({
         success: true,
         data: {
           submissionId,
           applicationId: application.id,
-          totalEligibleLenders: lenders.length,
-          lenders,
+
+          borrowerData: {
+            loanAmount,
+            termMonths,
+            creditScore,
+          },
+
+          totalEligibleLenders: eligibleLenders.length,
+          totalRejectedLenders: rejectedLenders.length,
+
+          eligibleLenders,
+          rejectedLenders,
         },
       });
     }
