@@ -36,13 +36,13 @@ module.exports = async function findEligibleLenders(fastify) {
       }
 
       /* =====================================================
-         2. EXTRACT & NORMALIZE BORROWER DATA
+         2. EXTRACT BORROWER DATA (NO CONVERSION)
       ===================================================== */
 
       const getFieldValue = (key) =>
         submission.fields.find((f) => f.fieldKey === key)?.value;
 
-      // LOAN AMOUNT
+      // Loan Amount
       const loanAmount =
         Number(getFieldValue("amountRequested")) ||
         Number(getFieldValue("loan_amount_requested")) ||
@@ -50,42 +50,22 @@ module.exports = async function findEligibleLenders(fastify) {
         null;
 
       /* ===============================
-         TERM LOGIC (VERY IMPORTANT FIX)
+         TERM (TAKE AS IS - NO CONVERSION)
       =============================== */
 
-      let termMonths = null;
+      // Exact term in months
+      const termMonths =
+        Number(getFieldValue("requested_term_months")) || null;
 
-      // Case 1: loan_term like "10 Years"
-      const loanTermLabel = getFieldValue("loan_term");
-      if (loanTermLabel) {
-        const years = parseInt(loanTermLabel);
-        if (!isNaN(years)) {
-          termMonths = years * 12;
-        }
-      }
+      // Range support (TAKE EXACT VALUES)
+      const borrowerMinTerm =
+        Number(getFieldValue("minTermMonths")) || null;
 
-      // Case 2: requested_term_months
-      if (!termMonths) {
-        const directMonths = Number(
-          getFieldValue("requested_term_months")
-        );
-        if (directMonths) termMonths = directMonths;
-      }
-
-      // Case 3: requested_term_years
-      if (!termMonths) {
-        const termYears = Number(
-          getFieldValue("requested_term_years")
-        );
-        if (termYears) termMonths = termYears * 12;
-      }
-
-      // Case 4: minTermMonths + maxTermMonths (range support)
-      const borrowerMinTerm = Number(getFieldValue("minTermMonths")) || null;
-      const borrowerMaxTerm = Number(getFieldValue("maxTermMonths")) || null;
+      const borrowerMaxTerm =
+        Number(getFieldValue("maxTermMonths")) || null;
 
       /* ===============================
-         CREDIT SCORE FIX
+         CREDIT SCORE
       =============================== */
 
       let creditScore =
@@ -93,7 +73,6 @@ module.exports = async function findEligibleLenders(fastify) {
         Number(application.creditScore) ||
         null;
 
-      // If using creditScoreRange like "740-799"
       if (!creditScore) {
         const range = getFieldValue("creditScoreRange");
         if (range && typeof range === "string") {
@@ -128,7 +107,7 @@ module.exports = async function findEligibleLenders(fastify) {
       });
 
       /* =====================================================
-         4. EVALUATE ELIGIBILITY
+         4. ELIGIBILITY CHECK (DIRECT COMPARISON)
       ===================================================== */
 
       const evaluatedLenders = lenderProducts.map((lp) => {
@@ -141,7 +120,7 @@ module.exports = async function findEligibleLenders(fastify) {
           ? Number(lp.maxLoanAmount)
           : null;
 
-        /* ---------- LOAN AMOUNT CHECK ---------- */
+        /* ---------- LOAN CHECK ---------- */
 
         if (loanAmount) {
           if (minLoan && loanAmount < minLoan) {
@@ -155,6 +134,7 @@ module.exports = async function findEligibleLenders(fastify) {
 
         /* ---------- TERM CHECK ---------- */
 
+        // Case 1: Exact term provided
         if (termMonths) {
           if (lp.minTermMonths && termMonths < lp.minTermMonths) {
             reasons.push(
@@ -169,14 +149,16 @@ module.exports = async function findEligibleLenders(fastify) {
           }
         }
 
-        // Range-based term support
-        if (!termMonths && (borrowerMinTerm || borrowerMaxTerm)) {
+        // Case 2: Range provided
+        if (borrowerMinTerm || borrowerMaxTerm) {
           if (
             borrowerMinTerm &&
             lp.maxTermMonths &&
             borrowerMinTerm > lp.maxTermMonths
           ) {
-            reasons.push("Requested term range not supported");
+            reasons.push(
+              "Requested minimum term exceeds lender maximum"
+            );
           }
 
           if (
@@ -184,11 +166,13 @@ module.exports = async function findEligibleLenders(fastify) {
             lp.minTermMonths &&
             borrowerMaxTerm < lp.minTermMonths
           ) {
-            reasons.push("Requested term range not supported");
+            reasons.push(
+              "Requested maximum term below lender minimum"
+            );
           }
         }
 
-        /* ---------- CREDIT SCORE CHECK ---------- */
+        /* ---------- CREDIT SCORE ---------- */
 
         if (creditScore && lp.minCreditScore) {
           if (creditScore < lp.minCreditScore) {
@@ -205,27 +189,23 @@ module.exports = async function findEligibleLenders(fastify) {
           lenderName: lp.lender.name,
           lenderProductId: lp.id,
           loanProductCode: lp.loanProductCode,
-
           fundingRange: {
             min: minLoan,
             max: maxLoan,
           },
-
           terms: {
             minMonths: lp.minTermMonths,
             maxMonths: lp.maxTermMonths,
           },
-
           minCreditScore: lp.minCreditScore,
           interestRateRange: lp.interestRateRange,
-
           eligible: isEligible,
-          rejectionReasons: isEligible ? [] : reasons,
+          rejectionReasons: reasons,
         };
       });
 
       /* =====================================================
-         5. SPLIT ELIGIBLE / REJECTED
+         5. SPLIT RESULTS
       ===================================================== */
 
       const eligibleLenders = evaluatedLenders.filter(
@@ -245,7 +225,6 @@ module.exports = async function findEligibleLenders(fastify) {
         data: {
           submissionId,
           applicationId: application.id,
-
           borrowerData: {
             loanAmount,
             termMonths,
@@ -253,10 +232,8 @@ module.exports = async function findEligibleLenders(fastify) {
             borrowerMaxTerm,
             creditScore,
           },
-
           totalEligibleLenders: eligibleLenders.length,
           totalRejectedLenders: rejectedLenders.length,
-
           eligibleLenders,
           rejectedLenders,
         },
