@@ -70,6 +70,11 @@ module.exports = async function brokerRoutes(fastify, opts) {
     prefix: "/website-builder",
     });
 
+    fastify.register(
+  require("./lenderDiscovery"),
+  { prefix: "/lender-discovery" }
+);
+
     // Later extensions
     // instance.register(documentRoutes, { prefix: "/documents" });
     // instance.register(applicationRoutes, { prefix: "/applications" });

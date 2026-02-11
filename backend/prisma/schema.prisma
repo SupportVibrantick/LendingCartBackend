@@ -467,7 +467,7 @@ model LoanApplication {
   brokerOrg            Organization                     @relation("BrokerLoanApplications", fields: [brokerOrgId], references: [id])
   brokerUser           UserAccount?                     @relation("BrokerUserLoanApplications", fields: [brokerUserId], references: [id])
   client               Client                           @relation(fields: [clientId], references: [id])
-
+  submissions ApplicationSubmission[]
   @@index([brokerOrgId])
   @@index([clientId])
   @@index([loanProductCode])
@@ -638,16 +638,25 @@ model ApplicationDocumentUpload {
 }
 
 model ApplicationRuleEvaluation {
-  id                String                  @id @default(uuid()) @db.Uuid
-  loanApplicationId String                  @db.Uuid
-  ruleSetId         String?                 @db.Uuid
+  id                String   @id @default(uuid()) @db.Uuid
+
+  loanApplicationId String   @db.Uuid
+  submissionId      String   @db.Uuid
+  ruleSetId         String?  @db.Uuid
+
   result            String
-  evaluatedAt       DateTime                @default(now()) @db.Timestamptz(6)
-  loanApplication   LoanApplication         @relation(fields: [loanApplicationId], references: [id])
-  ruleSet           EligibilityRuleSet?     @relation(fields: [ruleSetId], references: [id])
+  evaluatedAt       DateTime @default(now()) @db.Timestamptz(6)
+
+  loanApplication   LoanApplication @relation(fields: [loanApplicationId], references: [id])
+
+  submission        ApplicationSubmission @relation(fields: [submissionId], references: [id])
+
+  ruleSet           EligibilityRuleSet? @relation(fields: [ruleSetId], references: [id])
+
   results           ApplicationRuleResult[]
 
   @@index([loanApplicationId])
+  @@index([submissionId])
   @@index([ruleSetId])
   @@map("application_rule_evaluations")
 }
@@ -972,8 +981,10 @@ model ApplicationSubmission {
   applicationProductId String   @db.Uuid
   status               String
   createdAt            DateTime @default(now())
-  
-  fields ApplicationSubmissionField[]
+
+  application     LoanApplication @relation(fields: [applicationId], references: [id])
+  fields          ApplicationSubmissionField[]
+  ruleEvaluations ApplicationRuleEvaluation[]
 
   @@index([applicationId])
   @@index([applicationProductId])
