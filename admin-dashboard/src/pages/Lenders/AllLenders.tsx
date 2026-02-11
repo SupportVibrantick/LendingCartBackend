@@ -22,6 +22,7 @@ Swal.mixin({
     popup: "swal-high-z",
   },
 });
+import { Eye, EyeOff } from "lucide-react";
 
 type Lender = {
   id: any;
@@ -68,6 +69,7 @@ export default function AllLendersPage() {
   const [lenders, setLenders] = useState<Lender[]>([]);
   const [loading, setLoading] = useState(false);
   const [rowLoadingId, setRowLoadingId] = useState<any | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [form, setForm] = useState({
@@ -647,6 +649,17 @@ export default function AllLendersPage() {
     query.trim() !== "" && filtered.length === 0 && !loading;
   const isTotalEmpty = query.trim() === "" && total === 0 && !loading;
 
+  const InfoTip = ({ text }: { text: string }) => (
+    <div className="relative group cursor-pointer">
+      <span className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+        ⓘ
+      </span>
+      <div className="absolute left-1/2 top-full z-50 mt-2 hidden w-64 -translate-x-1/2 rounded-md bg-gray-900 px-3 py-2 text-xs text-white shadow-lg group-hover:block">
+        {text}
+      </div>
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-slate-950 px-4 py-8 sm:px-6 lg:px-8 transition-colors duration-300">
       <div className="max-w-7xl mx-auto">
@@ -1002,6 +1015,7 @@ export default function AllLendersPage() {
         {isAddOpen && (
           <div className="fixed inset-0 z-500000 flex items-center justify-center bg-black/40 backdrop-blur-sm">
             <div className="bg-white rounded-xl p-6 w-full max-w-2xl shadow-lg dark:bg-slate-900 dark:border dark:border-slate-700">
+              {/* HEADER */}
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
                   Create Lender
@@ -1014,163 +1028,219 @@ export default function AllLendersPage() {
                 </button>
               </div>
 
-              <form
-                onSubmit={handleSubmit}
-                className="grid grid-cols-1 md:grid-cols-2 gap-3"
-              >
-                <label className="block">
-                  <span className="text-sm text-gray-700 dark:text-slate-200">
-                    Organization Name
-                  </span>
-                  <input
-                    value={form.organizationName}
-                    onChange={(e) =>
-                      setForm({ ...form, organizationName: e.target.value })
-                    }
-                    className="w-full px-3 py-2 mt-1 border rounded-md
-                             border-gray-300 bg-white text-gray-900
-                             dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
-                  />
-                </label>
-
-                <label className="block">
-                  <span className="text-sm text-gray-700 dark:text-slate-200">
-                    Organization Email
-                  </span>
-                  <input
-                    value={form.organizationEmail}
-                    onChange={(e) =>
-                      setForm({ ...form, organizationEmail: e.target.value })
-                    }
-                    className="w-full px-3 py-2 mt-1 border rounded-md
-                             border-gray-300 bg-white text-gray-900
-                             dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
-                  />
-                </label>
-
-                <label className="block">
-                  <span className="text-sm text-gray-700 dark:text-slate-200">
-                    Organization Phone
-                  </span>
-                  <input
-                    value={form.organizationPhone}
-                    onChange={(e) =>
-                      setForm({ ...form, organizationPhone: e.target.value })
-                    }
-                    className="w-full px-3 py-2 mt-1 border rounded-md
-                             border-gray-300 bg-white text-gray-900
-                             dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
-                  />
-                </label>
-
-                <label className="block">
-                  <span className="text-sm text-gray-700 dark:text-slate-200">
-                    Admin First Name
-                  </span>
-                  <input
-                    value={form.adminFirstName}
-                    onChange={(e) =>
-                      setForm({ ...form, adminFirstName: e.target.value })
-                    }
-                    className="w-full px-3 py-2 mt-1 border rounded-md
-                             border-gray-300 bg-white text-gray-900
-                             dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
-                  />
-                </label>
-
-                <label className="block">
-                  <span className="text-sm text-gray-700 dark:text-slate-200">
-                    Admin Last Name
-                  </span>
-                  <input
-                    value={form.adminLastName}
-                    onChange={(e) =>
-                      setForm({ ...form, adminLastName: e.target.value })
-                    }
-                    className="w-full px-3 py-2 mt-1 border rounded-md
-                             border-gray-300 bg-white text-gray-900
-                             dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
-                  />
-                </label>
-
-                <label className="block">
-                  <span className="text-sm text-gray-700 dark:text-slate-200">
-                    Admin Email
-                  </span>
-                  <input
-                    value={form.adminEmail}
-                    onChange={(e) =>
-                      setForm({ ...form, adminEmail: e.target.value })
-                    }
-                    className="w-full px-3 py-2 mt-1 border rounded-md
-                             border-gray-300 bg-white text-gray-900
-                             dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
-                  />
-                </label>
-
-                <label className="block">
-                  <span className="text-sm text-gray-700 dark:text-slate-200">
-                    Admin Password
-                  </span>
-                  <input
-                    type="password"
-                    value={form.adminPassword}
-                    onChange={(e) =>
-                      setForm({ ...form, adminPassword: e.target.value })
-                    }
-                    className="w-full px-3 py-2 mt-1 border rounded-md
-                             border-gray-300 bg-white text-gray-900
-                             dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
-                  />
-                </label>
-
-                {/* 🔹 Optional Broker dropdown */}
-                <label className="block md:col-span-2">
-                  <span className="text-sm text-gray-700 dark:text-slate-200">
-                    Assign Broker (optional)
-                  </span>
-                  <select
-                    value={form.brokerOrgId}
-                    onChange={(e) =>
-                      setForm({ ...form, brokerOrgId: e.target.value })
-                    }
-                    className="w-full px-3 py-2 mt-1 border rounded-md bg-white text-gray-900
-                             border-gray-300
-                             dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
-                  >
-                    <option value="">No broker (none)</option>
-                    {loadingBrokers && (
-                      <option value="" disabled>
-                        Loading brokers...
-                      </option>
-                    )}
-                    {!loadingBrokers &&
-                      brokers.map((b) => (
-                        <option key={b.id} value={b.id}>
-                          {b.name}
-                          {b.email ? ` (${b.email})` : ""}
-                        </option>
-                      ))}
-                  </select>
-                  {brokersError && (
-                    <div className="text-xs text-red-500 mt-1">
-                      {brokersError}
-                    </div>
-                  )}
-                </label>
-
-                {formError && (
-                  <div className="text-sm text-red-600 col-span-2">
-                    {formError}
+              <form onSubmit={handleSubmit} className="space-y-5">
+                {/* ================= ORGANIZATION SECTION ================= */}
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <h3 className="font-semibold text-gray-800 dark:text-gray-100">
+                      Organization Details
+                    </h3>
+                    <InfoTip text="Basic information about the lender organization." />
                   </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <label className="block">
+                      <span className="text-sm text-gray-700 dark:text-slate-200">
+                        Organization Name
+                      </span>
+                      <input
+                        value={form.organizationName}
+                        onChange={(e) =>
+                          setForm({ ...form, organizationName: e.target.value })
+                        }
+                        className="w-full px-3 py-2 mt-1 border rounded-md
+                  border-gray-300 bg-white text-gray-900
+                  dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
+                      />
+                    </label>
+
+                    <label className="block">
+                      <span className="text-sm text-gray-700 dark:text-slate-200">
+                        Organization Email
+                      </span>
+                      <input
+                        value={form.organizationEmail}
+                        onChange={(e) =>
+                          setForm({
+                            ...form,
+                            organizationEmail: e.target.value,
+                          })
+                        }
+                        className="w-full px-3 py-2 mt-1 border rounded-md
+                  border-gray-300 bg-white text-gray-900
+                  dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
+                      />
+                    </label>
+
+                    <label className="block md:col-span-1">
+                      <span className="text-sm text-gray-700 dark:text-slate-200">
+                        Organization Phone
+                      </span>
+                      <input
+                        value={form.organizationPhone}
+                        onChange={(e) =>
+                          setForm({
+                            ...form,
+                            organizationPhone: e.target.value,
+                          })
+                        }
+                        className="w-full px-3 py-2 mt-1 border rounded-md
+                  border-gray-300 bg-white text-gray-900
+                  dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
+                      />
+                    </label>
+                  </div>
+                </div>
+
+                {/* ================= ADMIN SECTION ================= */}
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <h3 className="font-semibold text-gray-800 dark:text-gray-100">
+                      Admin Details
+                    </h3>
+                    <InfoTip text="Admin user who will manage this lender." />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {/* First + Last Name parallel */}
+                    <label className="block">
+                      <span className="text-sm text-gray-700 dark:text-slate-200">
+                        Admin First Name
+                      </span>
+                      <input
+                        value={form.adminFirstName}
+                        onChange={(e) =>
+                          setForm({ ...form, adminFirstName: e.target.value })
+                        }
+                        className="w-full px-3 py-2 mt-1 border rounded-md
+                  border-gray-300 bg-white text-gray-900
+                  dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
+                      />
+                    </label>
+
+                    <label className="block">
+                      <span className="text-sm text-gray-700 dark:text-slate-200">
+                        Admin Last Name
+                      </span>
+                      <input
+                        value={form.adminLastName}
+                        onChange={(e) =>
+                          setForm({ ...form, adminLastName: e.target.value })
+                        }
+                        className="w-full px-3 py-2 mt-1 border rounded-md
+                  border-gray-300 bg-white text-gray-900
+                  dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
+                      />
+                    </label>
+
+                    {/* Email + Password parallel */}
+                    <label className="block">
+                      <span className="text-sm text-gray-700 dark:text-slate-200">
+                        Admin Email
+                      </span>
+                      <input
+                        value={form.adminEmail}
+                        onChange={(e) =>
+                          setForm({ ...form, adminEmail: e.target.value })
+                        }
+                        className="w-full px-3 py-2 mt-1 border rounded-md
+                  border-gray-300 bg-white text-gray-900
+                  dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
+                      />
+                    </label>
+
+                    <label className="block">
+                      <span className="text-sm text-gray-700 dark:text-slate-200">
+                        Admin Password
+                      </span>
+
+                      <div className="relative">
+                        <input
+                          type={showPassword ? "text" : "password"}
+                          value={form.adminPassword}
+                          onChange={(e) =>
+                            setForm({ ...form, adminPassword: e.target.value })
+                          }
+                          className="w-full px-3 py-2 mt-1 border rounded-md pr-10
+        border-gray-300 bg-white text-gray-900
+        dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
+                        />
+
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2
+        text-gray-500 hover:text-gray-700
+        dark:text-slate-400 dark:hover:text-slate-200"
+                        >
+                          {showPassword ? (
+                            <EyeOff size={18} />
+                          ) : (
+                            <Eye size={18} />
+                          )}
+                        </button>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
+                {/* ================= BROKER SECTION ================= */}
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <h3 className="font-semibold text-gray-800 dark:text-gray-100">
+                      Broker Assignment
+                    </h3>
+                    <InfoTip text="Optional broker assignment for this lender." />
+                  </div>
+
+                  <label className="block">
+                    <span className="text-sm text-gray-700 dark:text-slate-200">
+                      Assign Broker (optional)
+                    </span>
+                    <select
+                      value={form.brokerOrgId}
+                      onChange={(e) =>
+                        setForm({ ...form, brokerOrgId: e.target.value })
+                      }
+                      className="w-full px-3 py-2 mt-1 border rounded-md bg-white text-gray-900
+                border-gray-300
+                dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
+                    >
+                      <option value="">No broker (none)</option>
+                      {loadingBrokers && (
+                        <option value="" disabled>
+                          Loading brokers...
+                        </option>
+                      )}
+                      {!loadingBrokers &&
+                        brokers.map((b) => (
+                          <option key={b.id} value={b.id}>
+                            {b.name}
+                            {b.email ? ` (${b.email})` : ""}
+                          </option>
+                        ))}
+                    </select>
+
+                    {brokersError && (
+                      <div className="text-xs text-red-500 mt-1">
+                        {brokersError}
+                      </div>
+                    )}
+                  </label>
+                </div>
+
+                {/* ================= ERRORS ================= */}
+                {formError && (
+                  <div className="text-sm text-red-600">{formError}</div>
                 )}
 
-                <div className="col-span-2 flex justify-end gap-3 mt-2">
+                {/* ================= ACTIONS ================= */}
+                <div className="flex justify-end gap-3 pt-3">
                   <button
                     type="button"
                     onClick={() => setIsAddOpen(false)}
                     className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md
-                             dark:text-slate-200 dark:hover:bg-slate-800"
+              dark:text-slate-200 dark:hover:bg-slate-800"
                   >
                     Cancel
                   </button>
