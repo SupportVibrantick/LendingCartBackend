@@ -1,5 +1,3 @@
-// broker/lenderDiscovery/sendToLenders.js
-
 module.exports = async function sendToLenders(fastify) {
   fastify.post(
     "/applications/:applicationId/submissions/:submissionId/send-to-lenders",
@@ -23,12 +21,11 @@ module.exports = async function sendToLenders(fastify) {
     async (req, reply) => {
       const prisma = fastify.prisma;
       const { applicationId, submissionId } = req.params;
-      const lenderProductIds = req.body?.lenderProductIds;
+      const { lenderProductIds } = req.body;
 
-      /* =========================================
-         1️⃣ AUTH VALIDATION (CONSISTENT STYLE)
-      ========================================= */
-
+      /* =====================================================
+         1️⃣ AUTHORIZATION
+      ===================================================== */
       if (!req.user || req.user.orgType !== "BROKER") {
         return reply.code(403).send({
           success: false,
@@ -40,10 +37,9 @@ module.exports = async function sendToLenders(fastify) {
       const brokerOrgId = req.user.organizationId;
 
       try {
-        /* =========================================
-           2️⃣ FETCH APPLICATION + OWNERSHIP CHECK
-        ========================================= */
-
+        /* =====================================================
+           2️⃣ FETCH APPLICATION
+        ===================================================== */
         const application = await prisma.loanApplication.findUnique({
           where: { id: applicationId },
         });
@@ -69,10 +65,9 @@ module.exports = async function sendToLenders(fastify) {
           });
         }
 
-        /* =========================================
-           3️⃣ VERIFY SUBMISSION
-        ========================================= */
-
+        /* =====================================================
+           3️⃣ VERIFY SUBMISSION BELONGS TO APPLICATION
+        ===================================================== */
         const submission = await prisma.applicationSubmission.findUnique({
           where: { id: submissionId },
         });
@@ -84,26 +79,18 @@ module.exports = async function sendToLenders(fastify) {
           });
         }
 
-        /* =========================================
-           4️⃣ FETCH VALID LENDER PRODUCTS
-        ========================================= */
-
+        /* =====================================================
+           4️⃣ VALIDATE LENDER PRODUCTS (OPEN MARKETPLACE MODE)
+        ===================================================== */
         const lenderProducts = await prisma.lenderProduct.findMany({
           where: {
             id: { in: lenderProductIds },
             isActive: true,
             loanProductCode: application.loanProductCode,
-
             lender: {
               type: "LENDER",
               status: "ACTIVE",
               isDeleted: false,
-              brokerLenderAccessAsLender: {
-                some: {
-                  brokerOrgId,
-                  isActive: true,
-                },
-              },
             },
           },
         });
@@ -112,18 +99,18 @@ module.exports = async function sendToLenders(fastify) {
           return reply.code(400).send({
             success: false,
             message:
-              "One or more lender products are invalid or not accessible",
+              "One or more lender products are invalid, inactive, or incompatible with this loan type",
           });
         }
 
-        /* =========================================
+        /* =====================================================
            5️⃣ TRANSACTION
-        ========================================= */
-
+        ===================================================== */
         const results = await prisma.$transaction(async (tx) => {
           const processed = [];
 
           for (const lp of lenderProducts) {
+            // Prevent duplicate sending
             const existing = await tx.applicationLender.findFirst({
               where: {
                 loanApplicationId: applicationId,
@@ -158,12 +145,15 @@ module.exports = async function sendToLenders(fastify) {
             });
           }
 
+          // If at least one lender was newly sent → move status
           const sentNow = processed.some((r) => r.status === "SENT");
 
           if (sentNow) {
             await tx.loanApplication.update({
               where: { id: applicationId },
-              data: { status: "IN_REVIEW" },
+              data: {
+                status: "IN_REVIEW",
+              },
             });
 
             await tx.applicationStatusHistory.create({
@@ -180,6 +170,9 @@ module.exports = async function sendToLenders(fastify) {
           return processed;
         });
 
+        /* =====================================================
+           6️⃣ SUCCESS RESPONSE
+        ===================================================== */
         return reply.send({
           success: true,
           message: "Submission processed successfully",
@@ -192,7 +185,15 @@ module.exports = async function sendToLenders(fastify) {
           },
         });
       } catch (error) {
-        fastify.log.error(error);
+        fastify.log.error(
+          {
+            error: error.message,
+            applicationId,
+            submissionId,
+            brokerOrgId,
+          },
+          "Error sending to lenders"
+        );
 
         return reply.code(500).send({
           success: false,
