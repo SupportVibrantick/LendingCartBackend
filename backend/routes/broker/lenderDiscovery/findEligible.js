@@ -1,4 +1,5 @@
 // broker/lenderDiscovery/findEligible.js
+
 module.exports = async function findEligibleLenders(fastify) {
   fastify.get(
     "/applications/submissions/:submissionId/eligible",
@@ -7,16 +8,14 @@ module.exports = async function findEligibleLenders(fastify) {
       const prisma = fastify.prisma;
 
       /* ===============================
-         1. FETCH SUBMISSION + APPLICATION
+         1. FETCH SUBMISSION
       =============================== */
+
       const submission = await prisma.applicationSubmission.findUnique({
         where: { id: submissionId },
         include: {
-          application: {
-            include: {
-              financials: true,
-            },
-          },
+          application: true,
+          fields: true, // VERY IMPORTANT
         },
       });
 
@@ -36,121 +35,113 @@ module.exports = async function findEligibleLenders(fastify) {
         });
       }
 
-      const { loanProductCode, amountRequested } = application;
+      /* ===============================
+         2. EXTRACT VALUES FROM FIELDS
+      =============================== */
+
+      const getFieldValue = (key) => {
+        return submission.fields.find((f) => f.fieldKey === key)?.value;
+      };
+
+      const loanAmount =
+        Number(getFieldValue("amountRequested")) ||
+        Number(getFieldValue("loan_amount_requested"));
+
+      const termYears = Number(getFieldValue("requested_term_years"));
+      const termMonths = termYears ? termYears * 12 : null;
+
+      const creditScore = Number(getFieldValue("credit_score")); // ensure this exists
+
+      const { loanProductCode } = application;
 
       /* ===============================
-         2. DISCOVER LENDER PRODUCTS
-         (NO BROKER CONNECTION REQUIRED)
+         3. FETCH ACTIVE LENDER PRODUCTS
       =============================== */
+
       const lenderProducts = await prisma.lenderProduct.findMany({
         where: {
           isActive: true,
           loanProductCode,
 
-          AND: [
-            amountRequested
-              ? {
-                  OR: [
-                    { minLoanAmount: null },
-                    { minLoanAmount: { lte: amountRequested } },
-                  ],
-                }
-              : {},
-
-            amountRequested
-              ? {
-                  OR: [
-                    { maxLoanAmount: null },
-                    { maxLoanAmount: { gte: amountRequested } },
-                  ],
-                }
-              : {},
-          ],
-
           lender: {
             type: "LENDER",
             status: "ACTIVE",
             isDeleted: false,
-            lenderProfile: {
-              isVisible: true,
-              profileStatus: "COMPLETED",
-            },
           },
         },
-
         include: {
           lender: {
             include: {
               lenderProfile: true,
             },
           },
-          eligibilityRuleSets: {
-            include: {
-              applicationRuleEvaluations: {
-                where: {
-                  submissionId,
-                },
-                include: {
-                  results: true,
-                },
-              },
-            },
-          },
         },
       });
 
       /* ===============================
-         3. FORMAT RESPONSE
+         4. MANUAL ELIGIBILITY CHECK
       =============================== */
-      const lenders = lenderProducts.map((lp) => {
-        const profile = lp.lender.lenderProfile;
 
-        const evaluation =
-          lp.eligibilityRuleSets?.[0]?.applicationRuleEvaluations?.[0] ?? null;
+      const eligibleLenders = lenderProducts.filter((lp) => {
+        // Loan Amount Check
+        if (
+          loanAmount &&
+          ((lp.minLoanAmount && loanAmount < Number(lp.minLoanAmount)) ||
+            (lp.maxLoanAmount && loanAmount > Number(lp.maxLoanAmount)))
+        ) {
+          return false;
+        }
 
-        return {
-          lenderOrgId: lp.lenderOrgId,
-          lenderName: lp.lender.name,
+        // Term Check
+        if (
+          termMonths &&
+          ((lp.minTermMonths && termMonths < lp.minTermMonths) ||
+            (lp.maxTermMonths && termMonths > lp.maxTermMonths))
+        ) {
+          return false;
+        }
 
-          lenderProductId: lp.id,
-          loanProductCode: lp.loanProductCode,
+        // Credit Score Check
+        if (
+          creditScore &&
+          lp.minCreditScore &&
+          creditScore < lp.minCreditScore
+        ) {
+          return false;
+        }
 
-          fundingRange: {
-            min: lp.minLoanAmount,
-            max: lp.maxLoanAmount,
-          },
-
-          terms: {
-            minMonths: lp.minTermMonths,
-            maxMonths: lp.maxTermMonths,
-          },
-
-          interestRateRange: lp.interestRateRange,
-
-          profile: {
-            summary: profile?.summary,
-            fundingSpeedDays: profile?.fundingSpeedDays,
-          },
-
-          eligibility: evaluation
-            ? {
-                status: evaluation.result,
-                rules: evaluation.results.map((r) => ({
-                  passed: r.passed,
-                  message: r.message,
-                  value: r.fieldValue,
-                })),
-              }
-            : {
-                status: "NOT_EVALUATED",
-                rules: [],
-              },
-        };
+        return true;
       });
 
       /* ===============================
-         4. RESPONSE
+         5. FORMAT RESPONSE
       =============================== */
+
+      const lenders = eligibleLenders.map((lp) => ({
+        lenderOrgId: lp.lenderOrgId,
+        lenderName: lp.lender.name,
+        lenderProductId: lp.id,
+        loanProductCode: lp.loanProductCode,
+
+        fundingRange: {
+          min: lp.minLoanAmount,
+          max: lp.maxLoanAmount,
+        },
+
+        terms: {
+          minMonths: lp.minTermMonths,
+          maxMonths: lp.maxTermMonths,
+        },
+
+        minCreditScore: lp.minCreditScore,
+
+        interestRateRange: lp.interestRateRange,
+      }));
+
+      /* ===============================
+         6. RESPONSE
+      =============================== */
+
       return reply.send({
         success: true,
         data: {
