@@ -9,13 +9,13 @@ import {
   DollarSign,
   Loader2,
   TrendingUp,
-  RefreshCcw,
+  // RefreshCcw,
   Building2,
   SearchX,
   ChevronLeft,
   ChevronRight,
-  Mail,
-  UserPlus,
+  // Mail,
+  // UserPlus,
 } from "lucide-react";
 
 /* ================= TYPES ================= */
@@ -47,13 +47,19 @@ type TableRow = {
 type Lender = {
   id: string;
   name: string;
-  email: string;
-  phone: string;
-  status: "NOT_CONNECTED" | "CONNECTED";
+  email?: string;
+  phone?: string;
   profileImage?: string | null;
+  loanProductCode: string;
   minFunding: string;
   maxFunding: string;
-  loanTypes: string[];
+  minMonths: number;
+  maxMonths: number;
+  interestRateRange: string;
+  fundingSpeedDays?: number;
+  summary?: string;
+  eligibilityStatus: string;
+  lenderProductId: string;
 };
 
 type LenderMeta = {
@@ -63,7 +69,7 @@ type LenderMeta = {
 };
 
 /* ================= HELPERS ================= */
-const API_BASE = "https://api-lendingcart.vibrantick.org/api/public/broker";
+const API_BASE = "https://api-lendingcart.vibrantick.org";
 
 const parseValue = (val: string): any => {
   try {
@@ -91,13 +97,18 @@ export default function LoanApplicationsPage() {
   const [rows, setRows] = useState<TableRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [openSubmissionId, setOpenSubmissionId] = useState<string | null>(null);
+  const [viewSubmissionId, setViewSubmissionId] = useState<string | null>(null);
+  const [lenderSubmissionId, setLenderSubmissionId] = useState<string | null>(null);
   const [submissionDetail, setSubmissionDetail] = useState<any>(null);
   const [detailLoading, setDetailLoading] = useState(false);
 
   // Find Lenders Modal State
   const [findLenderModalOpen, setFindLenderModalOpen] = useState(false);
   const [lenders, setLenders] = useState<Lender[]>([]);
+  const [borrowerSummary, setBorrowerSummary] = useState<any>(null);
+  const [sendingId, setSendingId] = useState<string | null>(null);
+  const [sentLenders, setSentLenders] = useState<Record<string, boolean>>({});
+  // const [applicationId, setApplicationId] = useState<string | null>(null);
   const [lenderMeta, setLenderMeta] = useState<LenderMeta>({
     page: 1,
     limit: 10,
@@ -107,7 +118,23 @@ export default function LoanApplicationsPage() {
   const [lenderSearchQ, setLenderSearchQ] = useState("");
   const [lenderPage, setLenderPage] = useState(1);
   const [lenderLimit, setLenderLimit] = useState(6);
-  const [invitingId, setInvitingId] = useState<string | null>(null);
+  const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
+
+  const formatFieldKey = (key: string | null | undefined) => {
+    if (!key) return "";
+
+    return key
+      // camelCase → camel Case
+      .replace(/([a-z])([A-Z])/g, "$1 $2")
+      // snake_case → snake case
+      .replace(/_/g, " ")
+      // multiple spaces remove
+      .replace(/\s+/g, " ")
+      // trim
+      .trim()
+      // capitalize each word
+      .replace(/\b\w/g, (char) => char.toUpperCase());
+  };
 
   const newCount = rows.filter(
     (r) => r.status === "NEW" || r.status === "SUBMITTED",
@@ -154,10 +181,10 @@ export default function LoanApplicationsPage() {
   const fetchSubmissionDetail = async (submissionId: string) => {
     try {
       setDetailLoading(true);
-      setOpenSubmissionId(submissionId);
+      setViewSubmissionId(submissionId);
 
       const res = await fetch(
-        `${API_BASE}/applications/submissions/${submissionId}`,
+        `${API_BASE}/api/public/broker/applications/submissions/${submissionId}`,
       );
       const json = await res.json();
 
@@ -173,81 +200,134 @@ export default function LoanApplicationsPage() {
 
   /* ================= LENDER FETCHING ================= */
   const fetchLenders = async () => {
-    setLenderLoading(true);
-    try {
-      const params = new URLSearchParams({
-        page: String(lenderPage),
-        limit: String(lenderLimit),
-        ...(lenderSearchQ && { q: lenderSearchQ }),
-      });
+    if (!lenderSubmissionId) return;
 
-      // Note: API_BASE already includes /broker, so we append /lenders
+    setLenderLoading(true);
+
+    try {
       const res = await fetch(
-        `${import.meta.env.VITE_API_BASE}/broker/lenders?${params.toString()}`,
+        `${API_BASE}/broker/lender-discovery/applications/submissions/${lenderSubmissionId}/eligible`,
         {
           headers: getAuthHeaders(),
-        },
+          method: "GET"
+        }
       );
 
       const json = await res.json();
+
       if (!res.ok || json.success !== true) {
-        // If API_BASE structure is different, handle it?
-        // Assuming SubmitApplication's API_BASE (.../broker) + /lenders works.
-        throw new Error(json.message || "Failed to load lenders");
+        throw new Error(json.message || "Failed to load eligible lenders");
       }
 
+      const data = json.data;
+      setBorrowerSummary(data.borrowerData);
+
       setLenders(
-        (json.data || []).map((l: any) => ({
-          id: l.id,
-          name: l.name,
-          email: l.email,
-          phone: l.phone,
-          status: l.status,
-          profileImage: l.profileImage || null,
-          loanTypes: l.lenderProfile?.loanTypes || [],
-          minFunding: l.lenderProfile?.minFunding || "",
-          maxFunding: l.lenderProfile?.maxFunding || "",
-        })),
+        (data.eligibleLenders || []).map((l: any) => ({
+          id: l.lenderOrgId,
+          name: l.lenderName,
+          email: l.lenderEmail,
+          phone: l.lenderPhone,
+          profileImage: l.profileImage
+            ? `${API_BASE}/public/${l.profileImage}`
+            : null,
+          loanProductCode: l.loanProductCode,
+          minFunding: l.fundingRange?.min,
+          maxFunding: l.fundingRange?.max,
+          minMonths: l.terms?.minMonths,
+          maxMonths: l.terms?.maxMonths,
+          interestRateRange: l.interestRateRange,
+          fundingSpeedDays: l.lenderProfile?.fundingSpeedDays,
+          summary: l.lenderProfile?.summary,
+          eligibilityStatus: l.eligible ? "Eligible" : "Rejected",
+          lenderProductId: l.lenderProductId,
+        }))
       );
 
-      setLenderMeta(
-        json.meta || { page: lenderPage, limit: lenderLimit, total: 0 },
-      );
+      setSubmissionDetail({
+        applicationId: data.applicationId,
+      });
+
+      setLenderMeta({
+        page: 1,
+        limit: data.eligibleLenders?.length || 0,
+        total: data.totalEligibleLenders,
+      });
+
     } catch (err: any) {
       console.error(err);
-      // toast.error(err.message || "Failed to load lenders");
+      toast.error(err.message || "Failed to load eligible lenders");
     } finally {
       setLenderLoading(false);
     }
   };
 
-  const inviteLender = async (lenderId: string) => {
-    if (invitingId) return;
-    setInvitingId(lenderId);
+  const sendToLender = async (lenderProductId: string) => {
+    if (!lenderSubmissionId || !borrowerSummary) return;
 
     try {
-      const res = await fetch(`${API_BASE}/lenders/invite`, {
-        method: "POST",
-        headers: getAuthHeaders(),
-        body: JSON.stringify({
-          lenderOrgId: lenderId,
-        }),
-      });
+      setSendingId(lenderProductId);
+
+      const res = await fetch(
+        `${API_BASE}/broker/lender-discovery/applications/${submissionDetail?.applicationId}/submissions/${lenderSubmissionId}/send-to-lenders`,
+        {
+          method: "POST",
+          headers: getAuthHeaders(),
+          body: JSON.stringify({
+            lenderProductIds: [lenderProductId],
+          }),
+        }
+      );
 
       const json = await res.json();
 
-      if (!res.ok || json.success !== true) {
-        throw new Error(json.message || "Failed to send invitation");
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Failed to send");
       }
-      toast.success("Invitation sent successfully!");
-      // setLenders((prev) => prev.filter((l) => l.id !== lenderId)); // Optional: remove or update status
+
+      toast.success("Submission processed successfully");
+
+
+      setSentLenders((prev) => ({
+        ...prev,
+        [lenderProductId]: true,
+      }));
+
+
     } catch (err: any) {
-      console.error("Invite failed:", err);
-      toast.error("Failed to send invitation. Please try again.");
+      toast.error(err.message || "Failed to send");
     } finally {
-      setInvitingId(null);
+      setSendingId(null);
     }
   };
+
+  // const inviteLender = async (lenderId: string) => {
+  //   if (invitingId) return;
+  //   setInvitingId(lenderId);
+
+  //   try {
+  //     const res = await fetch(`${API_BASE}/lenders/invite`, {
+  //       method: "POST",
+  //       headers: getAuthHeaders(),
+  //       body: JSON.stringify({
+  //         lenderOrgId: lenderId,
+  //       }),
+  //     });
+
+  //     const json = await res.json();
+
+  //     if (!res.ok || json.success !== true) {
+  //       throw new Error(json.message || "Failed to send invitation");
+  //     }
+  //     toast.success("Invitation sent successfully!");
+  //     // setLenders((prev) => prev.filter((l) => l.id !== lenderId)); // Optional: remove or update status
+  //   } catch (err: any) {
+  //     console.error("Invite failed:", err);
+  //     toast.error("Failed to send invitation. Please try again.");
+  //   } finally {
+  //     setInvitingId(null);
+  //   }
+  // };
 
   useEffect(() => {
     if (findLenderModalOpen) {
@@ -258,7 +338,7 @@ export default function LoanApplicationsPage() {
   const loadSubmissions = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`${API_BASE}/applications/submissions`);
+      const res = await fetch(`${API_BASE}/api/public/broker/applications/submissions`);
       const json = await res.json();
       if (!json.success) throw new Error("Failed to load submissions");
 
@@ -267,7 +347,7 @@ export default function LoanApplicationsPage() {
           async (item: SubmissionListItem): Promise<TableRow | null> => {
             try {
               const detailRes = await fetch(
-                `${API_BASE}/applications/submissions/${item.submissionId}`,
+                `${API_BASE}/api/public/broker/applications/submissions/${item.submissionId}`,
               );
               const detailJson = await detailRes.json();
               if (!detailJson.success) return null;
@@ -287,7 +367,7 @@ export default function LoanApplicationsPage() {
                   .filter(Boolean)
                   .join(", "),
                 country: getFieldValue(fields, "country") || "USA",
-                amount: Number(getFieldValue(fields, "loan_amount") || 0),
+                amount: Number(getFieldValue(fields, "amountRequested") || 0),
                 status: item.status,
                 date: item.submittedOn,
               };
@@ -309,7 +389,7 @@ export default function LoanApplicationsPage() {
     loadSubmissions();
   }, []);
   useEffect(() => {
-    if (openSubmissionId || findLenderModalOpen) {
+    if (viewSubmissionId || findLenderModalOpen) {
       document.body.classList.add("modal-open");
     } else {
       document.body.classList.remove("modal-open");
@@ -318,7 +398,7 @@ export default function LoanApplicationsPage() {
     return () => {
       document.body.classList.remove("modal-open");
     };
-  }, [openSubmissionId, findLenderModalOpen]);
+  }, [viewSubmissionId, findLenderModalOpen]);
 
   const filteredRows = rows.filter(
     (r) =>
@@ -474,7 +554,7 @@ export default function LoanApplicationsPage() {
                       <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
                         <MapPin className="w-3.5 h-3.5" />
                         <span className="text-sm font-medium">
-                          {row.cityState || "Global"}
+                          {row.cityState.toUpperCase() || "Global"}
                         </span>
                       </div>
                     </td>
@@ -494,7 +574,10 @@ export default function LoanApplicationsPage() {
                     </td>
                     <td className="px-6 py-5">
                       <button
-                        onClick={() => setFindLenderModalOpen(true)}
+                        onClick={() => {
+                          setLenderSubmissionId(row.submissionId);
+                          setFindLenderModalOpen(true);
+                        }}
                         className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 rounded-xl hover:bg-blue-600 hover:text-white dark:hover:bg-blue-600 dark:hover:text-white transition-all active:scale-95 mt-2"
                       >
                         <Search className="w-3.5 h-3.5" />
@@ -531,7 +614,8 @@ export default function LoanApplicationsPage() {
             </tbody>
           </table>
         </div>
-        {openSubmissionId &&
+
+        {viewSubmissionId &&
           createPortal(
             <div
               className=" fixed inset-0 z-50
@@ -557,7 +641,7 @@ export default function LoanApplicationsPage() {
                   </div>
                   <button
                     onClick={() => {
-                      setOpenSubmissionId(null);
+                      setViewSubmissionId(null);
                       setSubmissionDetail(null);
                     }}
                     className="text-slate-400 hover:text-red-500 text-xl"
@@ -583,6 +667,7 @@ export default function LoanApplicationsPage() {
                       return (
                         <>
                           {/* STATUS */}
+
                           <div className="text-sm font-medium">
                             <span className="font-semibold">Status:</span>{" "}
                             {submissionDetail.status}
@@ -600,7 +685,7 @@ export default function LoanApplicationsPage() {
                                     <div key={i} className="space-y-1">
                                       {/* LABEL */}
                                       <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
-                                        {f.label || f.fieldKey}
+                                        {formatFieldKey(f.fieldKey)}
                                       </label>
 
                                       {/* VALUE */}
@@ -705,6 +790,40 @@ export default function LoanApplicationsPage() {
                     </select>
                   </div>
 
+                  {borrowerSummary && borrowerSummary.loanAmount && borrowerSummary.borrowerMinTerm && borrowerSummary.borrowerMaxTerm && borrowerSummary.creditScore && (
+                    <div className="mb-6 bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 p-4 rounded-xl">
+                      <div className="text-sm font-semibold text-blue-700 dark:text-blue-400 mb-2">
+                        Borrower Summary
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                        <div>
+                          <span className="font-semibold">Loan Amount:</span>
+                          <div>
+                            ${Number(borrowerSummary.loanAmount).toLocaleString()}
+                          </div>
+                        </div>
+
+                        <div>
+                          <span className="font-semibold">Term:</span>
+                          <div>
+                            {borrowerSummary.borrowerMinTerm} -{" "}
+                            {borrowerSummary.borrowerMaxTerm} months
+                          </div>
+                        </div>
+
+                        <div>
+                          <span className="font-semibold">Credit Score:</span>
+                          <div>{borrowerSummary.creditScore}</div>
+                        </div>
+
+                        <div>
+                          <span className="font-semibold">Eligible Lenders:</span>
+                          <div>{lenderMeta.total}</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Loading */}
                   {lenderLoading && (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -740,96 +859,128 @@ export default function LoanApplicationsPage() {
                           key={l.id}
                           className="group relative bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5 transition-all duration-300 hover:shadow-md"
                         >
-                          {/* Status Badge */}
-                          <div className="absolute top-4 right-4 flex items-center gap-1.5 px-2 py-0.5 bg-green-50 dark:bg-green-500/10 rounded-full">
-                            <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
-                            <span className="text-[10px] font-bold text-green-600 dark:text-green-400 uppercase tracking-wider">
-                              Active
-                            </span>
-                          </div>
+                          {/* Header */}
+                          <div className="flex items-start justify-between mb-3">
 
-                          <div className="flex gap-4">
-                            <div className="relative flex-shrink-0">
-                              <div className="h-14 w-14 rounded-xl overflow-hidden bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center border border-emerald-100 dark:border-emerald-500/20">
-                                {l.profileImage ? (
+                            <div className="flex items-center gap-3">
+
+                              {/* Profile Image / Fallback Icon */}
+                              <div className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center 
+                    bg-slate-100 dark:bg-slate-800 
+                    border border-slate-200 dark:border-slate-700">
+
+                                {l.profileImage && !imageErrors[l.id] ? (
                                   <img
-                                    src={`${API_BASE.replace("/broker", "")}${l.profileImage}`}
-                                    className="h-full w-full object-cover"
-                                    onError={(e: any) =>
-                                      (e.currentTarget.src = "/circle_logo.png")
+                                    src={l.profileImage}
+                                    alt={l.name}
+                                    className="w-full h-full object-cover"
+                                    onError={() =>
+                                      setImageErrors((prev) => ({
+                                        ...prev,
+                                        [l.id]: true,
+                                      }))
                                     }
                                   />
                                 ) : (
-                                  <Building2
-                                    size={24}
-                                    className="text-emerald-600 dark:text-emerald-400"
-                                  />
+                                  <Building2 className="w-6 h-6 text-slate-500 dark:text-slate-400" />
                                 )}
+
                               </div>
-                            </div>
 
-                            <div className="flex-1 min-w-0">
-                              <h3 className="text-base font-bold text-slate-900 dark:text-white truncate group-hover:text-blue-600 transition-colors">
-                                {l.name}
-                              </h3>
-                              <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
-                                Lender Team
-                              </p>
-
-                              <div className="mt-3 space-y-1.5">
-                                <div className="flex items-center gap-2 text-slate-500">
-                                  <Mail size={14} className="flex-shrink-0" />
-                                  <span className="text-[12px] truncate">
-                                    {l.email}
-                                  </span>
-                                </div>
-                                <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300 font-semibold">
-                                  <span className="text-sm">
-                                    {l.minFunding
-                                      ? `$${Number(l.minFunding).toLocaleString()}`
-                                      : "$0"}
-                                    {" - "}
-                                    {l.maxFunding
-                                      ? `$${Number(l.maxFunding).toLocaleString()}`
-                                      : "N/A"}
-                                  </span>
+                              {/* Name + Email */}
+                              <div>
+                                <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                                  {l.name}
+                                </h3>
+                                <div className="text-xs text-slate-500 dark:text-slate-400">
+                                  {l.email || "No email available"}
                                 </div>
                               </div>
+
                             </div>
-                          </div>
 
-                          <div className="mt-4 flex flex-wrap gap-2">
-                            {l.loanTypes.slice(0, 3).map((t) => (
-                              <span
-                                key={t}
-                                className="px-2.5 py-1 rounded-md text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200/50 dark:border-slate-700/50"
-                              >
-                                {t}
-                              </span>
-                            ))}
-                          </div>
-
-                          <div className="mt-5 pt-4 border-t border-slate-100 dark:border-slate-800/50 flex items-center justify-between gap-3">
-                            <button
-                              onClick={() => inviteLender(l.id)}
-                              disabled={invitingId === l.id}
-                              className="flex-1 max-w-[100%] flex items-center justify-center gap-2 py-2 rounded-lg text-[11px] font-bold tracking-tight bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 transition-all active:scale-95 shadow-sm shadow-blue-200 dark:shadow-none"
+                            {/* Eligibility Badge */}
+                            <span
+                              className={`text-xs font-bold px-2 py-1 rounded-full ${l.eligibilityStatus === "Eligible"
+                                ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400"
+                                : "bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400"
+                                }`}
                             >
-                              {invitingId === l.id ? (
-                                <RefreshCcw
-                                  size={14}
-                                  className="animate-spin"
-                                />
-                              ) : (
-                                <UserPlus size={14} />
-                              )}
-                              {invitingId === l.id ? "Working..." : "Invite"}
-                            </button>
+                              {l.eligibilityStatus}
+                            </span>
+
                           </div>
+
+                          {/* Loan Product */}
+                          <div className="text-sm font-semibold text-slate-600 dark:text-slate-400 mb-3">
+                            Product: {l.loanProductCode}
+                          </div>
+
+                          {/* Funding Range */}
+                          <div className="text-sm font-medium text-slate-800 dark:text-slate-200">
+                            Funding:
+                            {" "}
+                            ${Number(l.minFunding).toLocaleString()} - ${Number(l.maxFunding).toLocaleString()}
+                          </div>
+
+                          {/* Terms */}
+                          <div className="text-sm mt-1 text-slate-600 dark:text-slate-400">
+                            Term:
+                            {" "}
+                            {l.minMonths} - {l.maxMonths} months
+                          </div>
+
+                          {/* Interest */}
+                          <div className="text-sm mt-1 text-slate-600 dark:text-slate-400">
+                            Interest:
+                            {" "}
+                            {l.interestRateRange}
+                          </div>
+
+                          {/* Funding Speed */}
+                          <div className="text-sm mt-1 text-slate-600 dark:text-slate-400">
+                            Funding Speed:
+                            {" "}
+                            {l.fundingSpeedDays} Days
+                          </div>
+
+                          {/* Send Button */}
+                          <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-800">
+
+                            <button
+                              disabled={
+                                sendingId === l.lenderProductId ||
+                                sentLenders[l.lenderProductId]
+                              }
+                              onClick={() => sendToLender(l.lenderProductId)}
+                              className={`w-full py-2 rounded-lg text-sm font-semibold transition-all
+      ${sentLenders[l.lenderProductId]
+                                  ? "bg-emerald-500 text-white cursor-not-allowed"
+                                  : "bg-blue-600 hover:bg-blue-700 text-white"
+                                }
+      disabled:opacity-60 disabled:cursor-not-allowed
+    `}
+                            >
+                              {sendingId === l.lenderProductId ? (
+                                <div className="flex items-center justify-center gap-2">
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                  Sending...
+                                </div>
+                              ) : sentLenders[l.lenderProductId] ? (
+                                "Sent"
+                              ) : (
+                                "Send to Lender"
+                              )}
+                            </button>
+
+                          </div>
+
                         </div>
                       ))}
                     </div>
                   )}
+
+
 
                   {/* Pagination */}
                   {!lenderLoading && lenderMeta.total > lenderLimit && (
