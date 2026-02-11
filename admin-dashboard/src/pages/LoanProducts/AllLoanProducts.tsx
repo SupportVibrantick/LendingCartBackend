@@ -1,5 +1,6 @@
 // src/pages/LoanProducts/AllLoanProducts.tsx
 import React, { useEffect, useState } from "react";
+import toast from "react-hot-toast";
 import { MdModeEdit } from "react-icons/md";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001";
@@ -224,7 +225,7 @@ const AllLoanProducts: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.code || !form.name) {
-      alert("Code and Name are required.");
+      toast.error("Code and Name are required.");
       return;
     }
 
@@ -248,7 +249,7 @@ const AllLoanProducts: React.FC = () => {
         const json = await res.json();
         if (!res.ok || !json.success) {
           console.error("Failed to update product:", json.message || res.status);
-          alert(json.message || "Failed to update product");
+          toast.error(json.message || "Failed to update product");
           return;
         }
       } else {
@@ -266,7 +267,7 @@ const AllLoanProducts: React.FC = () => {
         const json = await res.json();
         if (!res.ok || !json.success) {
           console.error("Failed to create product:", json.message || res.status);
-          alert(json.message || "Failed to create product");
+          toast.error(json.message || "Failed to create product");
           return;
         }
       }
@@ -309,7 +310,7 @@ const AllLoanProducts: React.FC = () => {
           "Failed to update product status:",
           json.message || res.status
         );
-        alert(json.message || "Failed to update product status");
+        toast.error(json.message || "Failed to update product status");
         return;
       }
 
@@ -320,8 +321,6 @@ const AllLoanProducts: React.FC = () => {
       setTogglingId(null);
     }
   };
-
-
 
   // ===== Effects =====
   useEffect(() => {
