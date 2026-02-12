@@ -42,6 +42,7 @@ import AddLoanProduct from "./pages/TemplateBuilder/AddLoanProduct";
 import AddFields from "./pages/TemplateBuilder/AddFields";
 import AddSection from "./pages/TemplateBuilder/AddSection";
 import AddAppSection from "./pages/ApplicationBuilder/AddSection";
+import LoanPipeline from "./pages/LoanPipeline/LoanPipeline";
 
 export default function App() {
   return (
@@ -80,6 +81,7 @@ export default function App() {
             <Route index path="/lender-assigned-products" element={<LenderProductAssign/>} />
             <Route index path="/assigned-products" element={<AssignedProducts/>} />
             <Route index path="/all-super-admins" element={<AllSuperadmin/>} />
+            <Route index path="/loan-pipeline" element={<LoanPipeline/>} />
 
             <Route index path="/all-documents" element={<AllDocuments/>} />
             <Route index path="/all-landing-pages-leads" element={<AllLeads/>} />
