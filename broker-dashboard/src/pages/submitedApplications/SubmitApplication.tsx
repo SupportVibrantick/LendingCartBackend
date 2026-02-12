@@ -2,464 +2,1144 @@ import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { createPortal } from "react-dom";
 import {
-    MapPin,
-    Eye,
-    Search,
-    FileText,
-    DollarSign,
-    Loader2,
-    TrendingUp,
+  MapPin,
+  Eye,
+  Search,
+  FileText,
+  DollarSign,
+  Loader2,
+  // TrendingUp,
+  // RefreshCcw,
+  Building2,
+  SearchX,
+  ChevronLeft,
+  ChevronRight,
+  CheckCircle,
+  // Mail,
+  // UserPlus,
 } from "lucide-react";
+
+import Swal from "sweetalert2";
 
 /* ================= TYPES ================= */
 type SubmissionListItem = {
-    submissionId: string;
-    status: string;
-    submittedOn: string;
+  submissionId: string;
+  status: string;
+  submittedOn: string;
 };
 
 type SubmissionField = {
-    fieldId: string | null;
-    fieldKey: string | null;
-    value: string;
-    source: "STATIC" | "DYNAMIC";
+  fieldId: string | null;
+  fieldKey: string | null;
+  value: string;
+  source: "STATIC" | "DYNAMIC";
 };
 
 type TableRow = {
-    submissionId: string;
-    borrowerName: string;
-    company: string;
-    loanType: string;
-    cityState: string;
-    country: string;
-    amount: number;
-    status: string;
-    date: string;
+  submissionId: string;
+  borrowerName: string;
+  company: string;
+  loanType: string;
+  cityState: string;
+  country: string;
+  amount: number;
+  status: string;
+  date: string;
+};
+
+type Lender = {
+  id: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  profileImage?: string | null;
+  loanProductCode: string;
+  minFunding: string;
+  maxFunding: string;
+  minMonths: number;
+  maxMonths: number;
+  interestRateRange: string;
+  fundingSpeedDays?: number;
+  summary?: string;
+  eligibilityStatus: string;
+  lenderProductId: string;
 };
 
 /* ================= HELPERS ================= */
-const API_BASE = "https://api-lendingcart.vibrantick.org/api/public/broker";
+const API_BASE = "https://api-lendingcart.vibrantick.org";
 
 const parseValue = (val: string): any => {
-    try { return JSON.parse(val); } catch { return val; }
+  try {
+    return JSON.parse(val);
+  } catch {
+    return val;
+  }
 };
 
 const getFieldValue = (fields: SubmissionField[], key: string): any => {
-    const field = fields.find((f) => f.fieldKey === key || f.fieldId === key);
-    return field ? parseValue(field.value) : undefined;
+  const field = fields.find((f) => f.fieldKey === key || f.fieldId === key);
+  return field ? parseValue(field.value) : undefined;
 };
+
+function getAuthHeaders(): HeadersInit {
+  const token = sessionStorage.getItem("broker_token");
+  return {
+    "Content-Type": "application/json",
+    ...(token && { Authorization: `Bearer ${token}` }),
+  };
+}
 
 /* ================= COMPONENT ================= */
 export default function LoanApplicationsPage() {
-    const [rows, setRows] = useState<TableRow[]>([]);
-    const [loading, setLoading] = useState(false);
-    const [searchTerm, setSearchTerm] = useState("");
-    const [openSubmissionId, setOpenSubmissionId] = useState<string | null>(null);
-    const [submissionDetail, setSubmissionDetail] = useState<any>(null);
-    const [detailLoading, setDetailLoading] = useState(false);
+  const [rows, setRows] = useState<TableRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [viewSubmissionId, setViewSubmissionId] = useState<string | null>(null);
+  const [lenderSubmissionId, setLenderSubmissionId] = useState<string | null>(null);
+  const [submissionDetail, setSubmissionDetail] = useState<any>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
 
-    const newCount = rows.filter(
-        r => r.status === "NEW" || r.status === "SUBMITTED"
-    ).length;
+  // Find Lenders Modal State
+  const [findLenderModalOpen, setFindLenderModalOpen] = useState(false);
+  const [lenders, setLenders] = useState<Lender[]>([]);
+  const [borrowerSummary, setBorrowerSummary] = useState<any>(null);
+  const [sendingId, setSendingId] = useState<string | null>(null);
+  const [sentLenders, setSentLenders] = useState<Record<string, boolean>>({});
+  const [lenderLoading, setLenderLoading] = useState(false);
+  const [lenderSearchQ, setLenderSearchQ] = useState("");
+  const [lenderPage, setLenderPage] = useState(1);
+  const [lenderLimit, setLenderLimit] = useState(6);
+  const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
+  const [applicationId, setApplicationId] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const rowsPerPage = 8;
 
-    const fundedCount = rows.filter(
-        r => r.status === "FUNDED"
-    ).length;
+  const formatFieldKey = (key: string | null | undefined) => {
+    if (!key) return "";
 
-    const totalVolume = rows.reduce(
-        (sum, r) => sum + r.amount,
-        0
-    );
+    return key
+      // camelCase → camel Case
+      .replace(/([a-z])([A-Z])/g, "$1 $2")
+      // snake_case → snake case
+      .replace(/_/g, " ")
+      // multiple spaces remove
+      .replace(/\s+/g, " ")
+      // trim
+      .trim()
+      // capitalize each word
+      .replace(/\b\w/g, (char) => char.toUpperCase());
+  };
 
-    const getStatusColor = (status: string) => {
-        const s = status.toLowerCase();
+  const getStatusColor = (status: string) => {
+    const s = status?.toLowerCase();
+    switch (s) {
+      case 'new':
+        return 'bg-blue-500/10 border-blue-500/20 text-blue-600 dark:text-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.1)]';
+      case 'pending':
+        return 'bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.1)]';
+      case 'submitted':
+        return 'bg-indigo-500/10 border-indigo-500/20 text-indigo-600 dark:text-indigo-400 shadow-[0_0_15px_rgba(99,102,241,0.1)]';
+      case 'approved':
+        return 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.1)]';
+      default:
+        return 'bg-slate-500/10 border-slate-500/20 text-slate-600 dark:text-slate-400';
+    }
+  };
 
-        /* NEW */
-        if (s === "new") {
-            return `
-      bg-blue-50 text-blue-700 border-blue-200
-      dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20
-    `;
+  const newCount = rows.filter(
+    (r) => r.status === "NEW" || r.status === "SUBMITTED",
+  ).length;
+
+  const approvedCount = rows.filter((r) => r.status === "APPROVED").length;
+
+  const totalVolume = rows.reduce((sum, r) => sum + r.amount, 0);
+
+
+  const fetchSubmissionDetail = async (submissionId: string) => {
+    try {
+      setDetailLoading(true);
+      setViewSubmissionId(submissionId);
+
+      const res = await fetch(
+        `${API_BASE}/api/public/broker/applications/submissions/${submissionId}`,
+      );
+      const json = await res.json();
+
+      if (!json.success) throw new Error("Failed to load submission");
+
+      setSubmissionDetail(json.data);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to load submission");
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  /* ================= LENDER FETCHING ================= */
+  const fetchLenders = async () => {
+    if (!lenderSubmissionId) return;
+
+    setLenderPage(1);
+    setLenders([]);
+    setBorrowerSummary(null);
+    setSentLenders({});
+    setImageErrors({});
+
+    setLenderLoading(true);
+
+    try {
+      const res = await fetch(
+        `${API_BASE}/broker/lender-discovery/applications/submissions/${lenderSubmissionId}/eligible`,
+        {
+          headers: getAuthHeaders(),
+          method: "GET"
         }
+      );
 
-        /* FUNDED */
-        if (s === "funded") {
-            return `
-      bg-emerald-50 text-emerald-700 border-emerald-200
-      dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20
-    `;
+      const json = await res.json();
+
+      if (!res.ok || json.success !== true) {
+        throw new Error(json.message || "Failed to load eligible lenders");
+      }
+
+      const data = json.data;
+      setBorrowerSummary(data.borrowerData);
+
+      setLenders(
+        (data.eligibleLenders || []).map((l: any) => ({
+          id: l.lenderOrgId,
+          name: l.lenderName,
+          email: l.lenderEmail,
+          phone: l.lenderPhone,
+          profileImage: l.profileImage
+            ? `${API_BASE}/public/${l.profileImage}`
+            : null,
+          loanProductCode: l.loanProductCode,
+          minFunding: l.fundingRange?.min,
+          maxFunding: l.fundingRange?.max,
+          minMonths: l.terms?.minMonths,
+          maxMonths: l.terms?.maxMonths,
+          interestRateRange: l.interestRateRange,
+          fundingSpeedDays: l.lenderProfile?.fundingSpeedDays,
+          summary: l.lenderProfile?.summary,
+          eligibilityStatus: l.eligible ? "Eligible" : "Rejected",
+          lenderProductId: l.lenderProductId,
+        }))
+      );
+
+      setApplicationId(data.applicationId);
+
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Failed to load eligible lenders");
+    } finally {
+      setLenderLoading(false);
+    }
+  };
+
+  const sendToLender = async (lenderProductId: string) => {
+    if (!lenderSubmissionId || !applicationId) return;
+
+    try {
+      setSendingId(lenderProductId);
+
+      const res = await fetch(
+        `${API_BASE}/broker/lender-discovery/applications/${applicationId}/submissions/${lenderSubmissionId}/send-to-lenders`,
+        {
+          method: "POST",
+          headers: getAuthHeaders(),
+          body: JSON.stringify({
+            lenderProductIds: [lenderProductId],
+          }),
         }
+      );
 
-        /* SUBMITTED TO LENDERS */
-        if (s.includes("submitted")) {
-            return `
-      bg-purple-50 text-purple-700 border-purple-200
-      dark:bg-purple-500/10 dark:text-purple-400 dark:border-purple-500/20
-    `;
-        }
+      const json = await res.json();
 
-        /* FALLBACK */
-        return `
-    bg-slate-50 text-slate-700 border-slate-200
-    dark:bg-slate-500/10 dark:text-slate-400 dark:border-slate-500/20
-  `;
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Failed to send");
+      }
+
+      toast.success("Submission processed successfully");
+
+
+      setSentLenders((prev) => ({
+        ...prev,
+        [lenderProductId]: true,
+      }));
+
+      setRows((prevRows) =>
+        prevRows.map((row) =>
+          row.submissionId === lenderSubmissionId
+            ? { ...row, status: "SENT" }
+            : row
+        )
+      );
+
+    } catch (err: any) {
+      toast.error(err.message || "Failed to send");
+    } finally {
+      setSendingId(null);
+    }
+  };
+
+  useEffect(() => {
+    if (findLenderModalOpen && lenderSubmissionId) {
+      fetchLenders();
+    }
+  }, [findLenderModalOpen, lenderSubmissionId]);
+
+
+  const loadSubmissions = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch(`${API_BASE}/api/public/broker/applications/submissions`);
+      const json = await res.json();
+      if (!json.success) throw new Error("Failed to load submissions");
+
+      const detailedRows = await Promise.all(
+        json.data.map(
+          async (item: SubmissionListItem): Promise<TableRow | null> => {
+            try {
+              const detailRes = await fetch(
+                `${API_BASE}/api/public/broker/applications/submissions/${item.submissionId}`,
+              );
+              const detailJson = await detailRes.json();
+              if (!detailJson.success) return null;
+
+              const fields = detailJson.data.fields;
+              return {
+                submissionId: item.submissionId,
+                borrowerName:
+                  `${getFieldValue(fields, "borrowerFirstName") || ""} ${getFieldValue(fields, "borrowerLastName") || ""}`.trim(),
+                company: getFieldValue(fields, "companyName") || "Individual",
+                loanType:
+                  getFieldValue(fields, "loanProductCode") || "General Loan",
+                cityState: [
+                  getFieldValue(fields, "city"),
+                  getFieldValue(fields, "state"),
+                ]
+                  .filter(Boolean)
+                  .join(", "),
+                country: getFieldValue(fields, "country") || "USA",
+                amount: Number(getFieldValue(fields, "amountRequested") || 0),
+                status: item.status,
+                date: item.submittedOn,
+              };
+            } catch {
+              return null;
+            }
+          },
+        ),
+      );
+      setRows(detailedRows.filter((r): r is TableRow => r !== null));
+    } catch (err: any) {
+      toast.error(err.message || "Something went wrong");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadSubmissions();
+  }, []);
+  useEffect(() => {
+    if (viewSubmissionId || findLenderModalOpen) {
+      document.body.classList.add("modal-open");
+    } else {
+      document.body.classList.remove("modal-open");
+    }
+
+    return () => {
+      document.body.classList.remove("modal-open");
     };
+  }, [viewSubmissionId, findLenderModalOpen]);
 
-    const fetchSubmissionDetail = async (submissionId: string) => {
-        try {
-            setDetailLoading(true);
-            setOpenSubmissionId(submissionId);
+  const filteredRows = rows.filter(
+    (r) =>
+      r.borrowerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      r.company.toLowerCase().includes(searchTerm.toLowerCase()),
+  );
 
-            const res = await fetch(
-                `${API_BASE}/applications/submissions/${submissionId}`
-            );
-            const json = await res.json();
+  const filteredLenders = lenders.filter(
+    (l) =>
+      l.name.toLowerCase().includes(lenderSearchQ.toLowerCase()) ||
+      l.email?.toLowerCase().includes(lenderSearchQ.toLowerCase())
+  );
 
-            if (!json.success) throw new Error("Failed to load submission");
+  const totalPages = Math.ceil(filteredRows.length / rowsPerPage);
 
-            setSubmissionDetail(json.data);
-        } catch (err: any) {
-            toast.error(err.message || "Failed to load submission");
-        } finally {
-            setDetailLoading(false);
-        }
-    };
+  const paginatedRows = filteredRows.slice(
+    (currentPage - 1) * rowsPerPage,
+    currentPage * rowsPerPage
+  );
 
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(totalPages);
+    }
+  }, [totalPages, currentPage]);
 
-    const loadSubmissions = async () => {
-        try {
-            setLoading(true);
-            const res = await fetch(`${API_BASE}/applications/submissions`);
-            const json = await res.json();
-            if (!json.success) throw new Error("Failed to load submissions");
+  useEffect(() => {
+    const tableTop = document.querySelector(".applications-table-top");
+    tableTop?.scrollIntoView({ behavior: "smooth" });
+  }, [currentPage]);
 
-            const detailedRows = await Promise.all(
-                json.data.map(async (item: SubmissionListItem): Promise<TableRow | null> => {
-                    try {
-                        const detailRes = await fetch(`${API_BASE}/applications/submissions/${item.submissionId}`);
-                        const detailJson = await detailRes.json();
-                        if (!detailJson.success) return null;
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
 
-                        const fields = detailJson.data.fields;
-                        return {
-                            submissionId: item.submissionId,
-                            borrowerName: `${getFieldValue(fields, "borrowerFirstName") || ""} ${getFieldValue(fields, "borrowerLastName") || ""}`.trim(),
-                            company: getFieldValue(fields, "companyName") || "Individual",
-                            loanType: getFieldValue(fields, "loanProductCode") || "General Loan",
-                            cityState: [getFieldValue(fields, "city"), getFieldValue(fields, "state")].filter(Boolean).join(", "),
-                            country: getFieldValue(fields, "country") || "USA",
-                            amount: Number(getFieldValue(fields, "loanAmount") || 0),
-                            status: item.status,
-                            date: item.submittedOn,
-                        };
-                    } catch { return null; }
-                })
-            );
-            setRows(detailedRows.filter((r): r is TableRow => r !== null));
-        } catch (err: any) {
-            toast.error(err.message || "Something went wrong");
-        } finally {
-            setLoading(false);
-        }
-    };
+  return (
+    <div className="min-h-screen bg-slate-50 dark:bg-[#0b1120] p-4 md:p-10 text-slate-900 dark:text-slate-100 selection:bg-blue-100 dark:selection:bg-blue-900/30">
+      {/* Header Area */}
+      <header className="max-w-7xl mx-auto mb-10">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+          <div className="space-y-1">
+            <h2 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-slate-900 to-slate-600 dark:from-white dark:to-slate-400 bg-clip-text">
+              Loan Pipeline
+            </h2>
+            <p className="text-slate-500 dark:text-slate-400 font-medium">
+              You have{" "}
+              <span className="text-blue-600 dark:text-blue-400">
+                {filteredRows.length} active
+              </span>{" "}
+              applications today.
+            </p>
+          </div>
 
-    useEffect(() => { loadSubmissions(); }, []);
-    useEffect(() => {
-        if (openSubmissionId) {
-            document.body.classList.add("modal-open");
-        } else {
-            document.body.classList.remove("modal-open");
-        }
+          <div className="flex items-center gap-3">
+            <div className="relative group">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+              <input
+                placeholder="Search by name or company..."
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 pr-4 py-2.5 w-full md:w-80 rounded-xl text-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none"
+              />
+            </div>
+            <button
+              onClick={loadSubmissions}
+              className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-blue-500 transition-all shadow-sm active:scale-95"
+            >
+              <Loader2
+                className={`w-5 h-5 text-slate-600 dark:text-slate-400 ${loading ? "animate-spin text-blue-500" : ""}`}
+              />
+            </button>
+          </div>
+        </div>
 
-        return () => {
-            document.body.classList.remove("modal-open");
-        };
-    }, [openSubmissionId]);
+        {/* Quick Status Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
+          {/* TOTAL VOLUME - Indigo Gradient */}
+          <div className="group relative overflow-hidden bg-gradient-to-br from-indigo-600 to-indigo-700 p-6 rounded-2xl shadow-lg shadow-indigo-200 dark:shadow-none hover:shadow-indigo-500/40 hover:-translate-y-1 transition-all duration-300">
+            {/* Subtle Decorative Circle */}
+            <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/10 rounded-full group-hover:scale-125 transition-transform duration-500" />
 
-    const filteredRows = rows.filter(
-        (r) =>
-            r.borrowerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            r.company.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+            <div className="relative flex items-center gap-5">
+              <div className="p-4 rounded-xl bg-white/20 backdrop-blur-md text-white shadow-sm">
+                <DollarSign className="w-6 h-6 stroke-[2.5px]" />
+              </div>
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-indigo-100/80 mb-1">
+                  Total Volume
+                </p>
+                <h3 className="text-2xl font-black text-white tracking-tight">
+                  ${totalVolume.toLocaleString()}
+                </h3>
+              </div>
+            </div>
+          </div>
 
-    return (
-        <div className="min-h-screen bg-slate-50 dark:bg-[#0b1120] p-4 md:p-10 text-slate-900 dark:text-slate-100 selection:bg-blue-100 dark:selection:bg-blue-900/30">
+          {/* NEW APPLICATIONS - Blue Gradient */}
+          <div className="group relative overflow-hidden bg-gradient-to-br from-blue-600 to-blue-700 p-6 rounded-2xl shadow-lg shadow-blue-200 dark:shadow-none hover:shadow-blue-500/40 hover:-translate-y-1 transition-all duration-300">
+            <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/10 rounded-full group-hover:scale-125 transition-transform duration-500" />
 
-            {/* Header Area */}
-            <header className="max-w-7xl mx-auto mb-10">
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-                    <div className="space-y-1">
-                        <h1 className="text-4xl font-extrabold tracking-tight bg-gradient-to-r from-slate-900 to-slate-600 dark:from-white dark:to-slate-400 bg-clip-text">
-                            Loan Pipeline
-                        </h1>
-                        <p className="text-slate-500 dark:text-slate-400 font-medium">
-                            You have <span className="text-blue-600 dark:text-blue-400">{filteredRows.length} active</span> applications today.
-                        </p>
-                    </div>
+            <div className="relative flex items-center gap-5">
+              <div className="p-4 rounded-xl bg-white/20 backdrop-blur-md text-white shadow-sm">
+                <FileText className="w-6 h-6 stroke-[2.5px]" />
+              </div>
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-blue-100/80 mb-1">
+                  New Applications
+                </p>
+                <h3 className="text-2xl font-black text-white tracking-tight">
+                  {newCount}
+                </h3>
+              </div>
+            </div>
+          </div>
 
-                    <div className="flex items-center gap-3">
-                        <div className="relative group">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
-                            <input
-                                placeholder="Search by name or company..."
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="pl-10 pr-4 py-2.5 w-full md:w-80 rounded-xl text-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none"
-                            />
+          {/* APPROVED - Emerald Gradient */}
+          <div className="group relative overflow-hidden bg-gradient-to-br from-emerald-600 to-emerald-700 p-6 rounded-2xl shadow-lg shadow-emerald-200 dark:shadow-none hover:shadow-emerald-500/40 hover:-translate-y-1 transition-all duration-300">
+
+            <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/10 rounded-full group-hover:scale-125 transition-transform duration-500" />
+
+            <div className="relative flex items-center gap-5">
+              <div className="p-4 rounded-xl bg-white/20 backdrop-blur-md text-white shadow-sm">
+                <CheckCircle className="w-6 h-6 stroke-[2.5px]" />
+              </div>
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-emerald-100/80 mb-1">
+                  Approved
+                </p>
+                <h3 className="text-2xl font-black text-white tracking-tight">
+                  {approvedCount}
+                </h3>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </header>
+
+      {/* Main Table Container */}
+      <div className="max-w-7xl mx-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-xl shadow-slate-200/50 dark:shadow-none overflow-hidden">
+        <div className="w-full bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+          <div className="overflow-x-auto applications-table-top">
+            <table className="w-full border-separate border-spacing-0">
+              <thead>
+                <tr className="bg-slate-50/50 dark:bg-slate-800/40">
+                  {[
+                    { label: "Borrower", width: "w-[280px]" },
+                    { label: "Loan Info", width: "w-[150px]" },
+                    { label: "Location", width: "w-[180px]" },
+                    { label: "Amount", width: "w-[140px]" },
+                    { label: "Status", width: "w-[130px]" },
+                    { label: "Lenders", width: "w-[140px]" },
+                    { label: "Action", width: "w-[80px]" },
+                  ].map((h) => (
+                    <th
+                      key={h.label}
+                      className={`${h.width} px-6 py-4 text-left text-[12px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800`}
+                    >
+                      {h.label}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {loading ? (
+                  /* Professional Skeleton Loader */
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <tr key={i}>
+                      <td colSpan={7} className="px-6 py-5">
+                        <div className="flex items-center gap-3 animate-pulse">
+                          <div className="h-10 w-10 rounded-lg bg-slate-100 dark:bg-slate-800" />
+                          <div className="space-y-2">
+                            <div className="h-3 w-32 bg-slate-100 dark:bg-slate-800 rounded" />
+                            <div className="h-2 w-20 bg-slate-50 dark:bg-slate-900 rounded" />
+                          </div>
                         </div>
-                        <button
-                            onClick={loadSubmissions}
-                            className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-blue-500 transition-all shadow-sm active:scale-95"
+                      </td>
+                    </tr>
+                  ))
+                ) : filteredRows.length > 0 ? (
+                  paginatedRows.map((row) => (
+                    <tr
+                      key={row.submissionId}
+                      className="group hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors duration-150"
+                    >
+                      {/* Borrower - High Emphasis */}
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-700 dark:text-slate-300 font-bold shadow-sm">
+                            {row.borrowerName?.charAt(0) || "U"}
+                          </div>
+                          <div className="flex flex-col min-w-0">
+                            <span className="font-semibold text-[14px] text-slate-900 dark:text-slate-100 truncate">
+                              {row.borrowerName || "Untitled Applicant"}
+                            </span>
+                            <span className="text-[12px] text-slate-500 dark:text-slate-500 flex items-center gap-1">
+                              <FileText className="w-3 h-3" />
+                              {row.company}
+                            </span>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Loan Info - Medium Emphasis */}
+                      <td className="px-6 py-4">
+                        <span className="text-[13px] font-medium text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/50 px-2 py-1 rounded">
+                          {row.loanType}
+                        </span>
+                      </td>
+
+                      {/* Location */}
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400">
+                          <MapPin className="w-4 h-4 text-slate-400" />
+                          <span className="text-[12px] leading-none">
+                            {row.cityState.toUpperCase() || "GLOBAL"}
+                          </span>
+                        </div>
+                      </td>
+
+                      {/* Amount - Monospace for numbers */}
+                      <td className="px-6 py-4">
+                        <span className="font-mono text-[14px] font-semibold text-slate-800 dark:text-slate-200">
+                          ${row.amount.toLocaleString()}
+                        </span>
+                      </td>
+
+                      {/* Status - Dynamic Vibrant Badges */}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span
+                          className={`
+      inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider 
+      border backdrop-blur-md transition-all duration-500 group-hover:scale-105
+      ${getStatusColor(row.status)}
+    `}
                         >
-                            <Loader2 className={`w-5 h-5 text-slate-600 dark:text-slate-400 ${loading ? "animate-spin text-blue-500" : ""}`} />
+                          {/* Animated Status Indicator Dot */}
+                          <span className="relative flex h-2 w-2">
+                            <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-40 bg-current`}></span>
+                            <span className={`relative inline-flex rounded-full h-2 w-2 bg-current shadow-[0_0_8px_rgba(255,255,255,0.5)]`}></span>
+                          </span>
+
+                          {row.status}
+                        </span>
+                      </td>
+
+                      {/* Lenders Button */}
+                      <td className="px-6 py-4 whitespace-nowrap min-w-[160px]">
+                        <button
+                          onClick={() => {
+                            setLenderSubmissionId(row.submissionId);
+                            setFindLenderModalOpen(true);
+                          }}
+                          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 w-full text-[12px] font-bold tracking-tight text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500 rounded-xl transition-all shadow-md shadow-blue-500/25 active:scale-[0.97] group/btn"
+                        >
+                          <Search className="w-4 h-4 stroke-[2.5px] group-hover/btn:scale-110 transition-transform" />
+                          <span className="whitespace-nowrap">Find Lender</span>
                         </button>
-                    </div>
+                      </td>
+
+                      {/* Action - Clean & Subtle */}
+                      <td className="px-6 py-4 text-center">
+                        <button
+                          onClick={() => fetchSubmissionDetail(row.submissionId)}
+                          className="p-2 rounded-lg bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-500/20 transition-all"
+                        >
+                          <Eye size={16} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  /* Professional Empty State */
+                  <tr>
+                    <td colSpan={7} className="px-6 py-20 text-center">
+                      <div className="flex flex-col items-center max-w-[240px] mx-auto">
+                        <div className="w-12 h-12 bg-slate-50 dark:bg-slate-800 rounded-xl flex items-center justify-center mb-4">
+                          <Search className="w-6 h-6 text-slate-300" />
+                        </div>
+                        <h3 className="text-[15px] font-bold text-slate-900 dark:text-slate-100">No matching records</h3>
+                        <p className="text-[13px] text-slate-500 mt-1">Try adjusting your filters to find what you're looking for.</p>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+            {/* ================= APPLICATION PAGINATION ================= */}
+            {filteredRows.length > rowsPerPage && (
+              <div className="flex flex-col md:flex-row items-center justify-between gap-4 px-6 py-4 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+
+                {/* Showing Info */}
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  Showing{" "}
+                  <span className="font-semibold text-slate-700 dark:text-slate-200">
+                    {(currentPage - 1) * rowsPerPage + 1}
+                  </span>{" "}
+                  to{" "}
+                  <span className="font-semibold text-slate-700 dark:text-slate-200">
+                    {Math.min(currentPage * rowsPerPage, filteredRows.length)}
+                  </span>{" "}
+                  of{" "}
+                  <span className="font-semibold text-slate-700 dark:text-slate-200">
+                    {filteredRows.length}
+                  </span>{" "}
+                  results
+                </p>
+
+                {/* Controls */}
+                <div className="flex items-center gap-2">
+
+                  {/* Previous */}
+                  <button
+                    disabled={currentPage === 1}
+                    onClick={() => setCurrentPage((p) => p - 1)}
+                    className="p-2 rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-40 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                  >
+                    <ChevronLeft size={16} />
+                  </button>
+
+                  {/* Page Numbers */}
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`px-3 py-1 text-sm rounded-lg transition
+            ${currentPage === page
+                          ? "bg-blue-600 text-white"
+                          : "border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800"
+                        }
+          `}
+                    >
+                      {page}
+                    </button>
+                  ))}
+
+                  {/* Next */}
+                  <button
+                    disabled={currentPage === totalPages}
+                    onClick={() => setCurrentPage((p) => p + 1)}
+                    className="p-2 rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-40 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                  >
+                    <ChevronRight size={16} />
+                  </button>
                 </div>
+              </div>
+            )}
+          </div>
+        </div>
 
-                {/* Quick Status Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
-
-                    {/* TOTAL VOLUME */}
-                    <div className="bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20 p-5 rounded-2xl flex items-center gap-4">
-                        <div className="p-3 rounded-xl bg-indigo-100 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400">
-                            <DollarSign className="w-5 h-5" />
-                        </div>
-                        <div>
-                            <p className="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
-                                Total Volume
-                            </p>
-                            <p className="text-2xl font-extrabold text-indigo-700 dark:text-indigo-300">
-                                ${totalVolume.toLocaleString()}
-                            </p>
-                        </div>
-                    </div>
-
-                    {/* NEW APPLICATIONS */}
-                    <div className="bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 p-5 rounded-2xl flex items-center gap-4">
-                        <div className="p-3 rounded-xl bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400">
-                            <FileText className="w-5 h-5" />
-                        </div>
-                        <div>
-                            <p className="text-xs font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">
-                                New Applications
-                            </p>
-                            <p className="text-3xl font-extrabold text-blue-700 dark:text-blue-300">
-                                {newCount}
-                            </p>
-                        </div>
-                    </div>
-
-                    {/* FUNDED APPLICATIONS */}
-                    <div className="bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 p-5 rounded-2xl flex items-center gap-4">
-                        <div className="p-3 rounded-xl bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400">
-                            <TrendingUp className="w-5 h-5" />
-                        </div>
-                        <div>
-                            <p className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
-                                Funded
-                            </p>
-                            <p className="text-3xl font-extrabold text-emerald-700 dark:text-emerald-300">
-                                {fundedCount}
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            </header>
-
-            {/* Main Table Container */}
-            <div className="max-w-7xl mx-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-xl shadow-slate-200/50 dark:shadow-none overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="w-full border-collapse">
-                        <thead className="bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
-                            <tr>
-                                {["Borrower", "Loan Type", "Location", "Amount", "Status", "Action"].map((h) => (
-                                    <th key={h} className="px-6 py-5 text-left text-[11px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">
-                                        {h}
-                                    </th>
-                                ))}
-                            </tr>
-                        </thead>
-
-                        <tbody className="divide-y divide-slate-50 dark:divide-slate-800/50">
-                            {loading ? (
-                                /* Skeleton Loading State */
-                                Array.from({ length: 5 }).map((_, i) => (
-                                    <tr key={i} className="animate-pulse">
-                                        <td colSpan={6} className="px-6 py-8"><div className="h-4 bg-slate-100 dark:bg-slate-800 rounded-full w-full"></div></td>
-                                    </tr>
-                                ))
-                            ) : filteredRows.length > 0 ? (
-                                filteredRows.map((row) => (
-                                    <tr key={row.submissionId} className="group hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-all duration-200">
-                                        <td className="px-6 py-5">
-                                            <div className="font-bold text-slate-800 dark:text-slate-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                                                {row.borrowerName || "Untitled Applicant"}
-                                            </div>
-                                            <div className="flex items-center gap-1.5 text-xs text-slate-400 mt-0.5">
-                                                <FileText className="w-3 h-3" />
-                                                {row.company}
-                                            </div>
-                                        </td>
-
-                                        <td className="px-6 py-5">
-                                            <span className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-tighter rounded-lg bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-500/20">
-                                                {row.loanType}
-                                            </span>
-                                        </td>
-
-                                        <td className="px-6 py-5">
-                                            <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
-                                                <MapPin className="w-3.5 h-3.5" />
-                                                <span className="text-sm font-medium">{row.cityState || "Global"}</span>
-                                            </div>
-                                        </td>
-
-                                        <td className="px-6 py-5 font-mono font-bold text-slate-700 dark:text-slate-300">
-                                            ${row.amount.toLocaleString()}
-                                        </td>
-
-                                        <td className="px-6 py-5">
-                                            <span
-                                                className={`px-3 py-1 rounded-full text-[11px] font-bold border whitespace-nowrap ${getStatusColor(
-                                                    row.status
-                                                )}`}
-                                            >
-                                                {row.status}
-                                            </span>
-                                        </td>
-
-                                        <td className="px-6 py-5">
-                                            <button
-                                                onClick={() => fetchSubmissionDetail(row.submissionId)}
-                                                className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 rounded-xl hover:bg-blue-600 hover:text-white dark:hover:bg-blue-600 dark:hover:text-white transition-all active:scale-95"
-                                            >
-                                                <Eye className="w-3.5 h-3.5" />
-                                                View
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))
-                            ) : (
-                                /* Empty State */
-                                <tr>
-                                    <td colSpan={6} className="px-6 py-24 text-center">
-                                        <div className="flex flex-col items-center justify-center space-y-3">
-                                            <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-full">
-                                                <Search className="w-8 h-8 text-slate-300 dark:text-slate-600" />
-                                            </div>
-                                            <p className="text-slate-500 dark:text-slate-400 font-medium">No applications found matching your criteria</p>
-                                        </div>
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-                {openSubmissionId && createPortal(
-                    <div className=" fixed inset-0 z-50
+        {viewSubmissionId &&
+          createPortal(
+            <div
+              className=" fixed inset-0 z-50
                                             bg-black/40 dark:bg-black/70
                                             backdrop-blur-[1px]
-                                            flex items-center justify-center p-4">
-                        <div className="bg-white dark:bg-slate-900
+                                            flex items-center justify-center p-4"
+            >
+              <div
+                className="bg-white dark:bg-slate-900
                                             text-slate-900 dark:text-slate-100
                                             rounded-2xl
-                                            w-full max-w-3xl max-h-[90vh]
+                                            w-full max-w-7xl max-h-[90vh]
                                             overflow-y-auto
-                                            shadow-xl dark:shadow-black/40">
+                                            shadow-xl dark:shadow-black/40"
+              >
+                {/* HEADER */}
+                <div className="sticky top-0 z-10 bg-white dark:bg-slate-900 flex items-center justify-between px-6 py-4 border-b dark:border-slate-800">
+                  <div>
+                    <h2 className="font-bold text-lg">Application Details</h2>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setViewSubmissionId(null);
+                      setSubmissionDetail(null);
+                    }}
+                    className="text-slate-400 hover:text-red-500 text-xl"
+                  >
+                    ✕
+                  </button>
+                </div>
 
-                            {/* HEADER */}
-                            <div className="flex items-center justify-between px-6 py-4 border-b dark:border-slate-800">
-                                <div>
-                                    <h2 className="font-bold text-lg">Application Details</h2>
-                                    {/* <p className="text-xs text-slate-500">
-                                        Submission ID: {openSubmissionId}
-                                    </p> */}
+                {/* BODY */}
+                <div className="p-6 space-y-8">
+                  {detailLoading ? (
+                    <p className="text-center text-slate-500">Loading…</p>
+                  ) : submissionDetail ? (
+                    (() => {
+                      const signatureField = submissionDetail.fields?.find(
+                        (f: any) => f.fieldKey === "borrowerSignature",
+                      );
+
+                      const submittedDate = new Date(submissionDetail.submittedAt);
+                      const formattedDate = submittedDate.toLocaleDateString();
+                      const formattedTime = submittedDate.toLocaleTimeString();
+
+                      return (
+                        <>
+                          {/* STATUS */}
+
+                          <div className="text-sm font-medium">
+                            <span className="font-semibold">Status:</span>{" "}
+                            {submissionDetail.status}
+                          </div>
+
+                          {/* ALL FIELDS (EXCEPT SIGNATURE) */}
+                          <div className="border rounded-xl dark:border-slate-800 p-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                              {submissionDetail.fields
+                                .filter((f: any) => f.fieldKey !== "borrowerSignature")
+                                .map((f: any, i: number) => {
+                                  const parsedValue = parseValue(f.value);
+
+                                  return (
+                                    <div key={i} className="space-y-1">
+                                      {/* LABEL */}
+                                      <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+                                        {formatFieldKey(f.fieldKey)}
+                                      </label>
+
+                                      {/* VALUE */}
+                                      <div className="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-sm font-medium text-slate-800 dark:text-slate-200 break-words">
+                                        {parsedValue !== undefined && parsedValue !== ""
+                                          ? String(parsedValue)
+                                          : "-"}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                            </div>
+                          </div>
+
+                          {/* DIGITAL SIGNATURE */}
+                          {signatureField && (
+                            <div className="text-center space-y-4">
+
+                              <h3 className="
+      text-sm font-semibold 
+      text-slate-700 
+      dark:text-slate-300
+      transition-colors duration-300
+    ">
+                                Digital Signature
+                              </h3>
+
+                              <div className="flex justify-center">
+                                <div className="
+        bg-white 
+        dark:bg-slate-800/70
+        border border-slate-200 
+        dark:border-slate-700
+        rounded-xl 
+        p-4 
+        shadow-sm 
+        transition-colors duration-300
+      ">
+                                  <img
+                                    src={parseValue(signatureField.value)}
+                                    alt="Digital Signature"
+                                    className="h-40 object-contain"
+                                  />
                                 </div>
-                                <button
-                                    onClick={() => {
-                                        setOpenSubmissionId(null);
-                                        setSubmissionDetail(null);
-                                    }}
-                                    className="text-slate-400 hover:text-red-500 text-xl"
-                                >
-                                    ✕
-                                </button>
+                              </div>
+
                             </div>
+                          )}
 
-                            {/* BODY */}
-                            <div className="p-6 space-y-6">
-                                {detailLoading ? (
-                                    <p className="text-center text-slate-500">Loading…</p>
-                                ) : submissionDetail ? (
-                                    (() => {
-                                        const signatureField = submissionDetail.fields?.find(
-                                            (f: any) => f.fieldKey === "borrowerSignature"
-                                        );
-
-                                        return (
-                                            <>
-                                                {/* META */}
-                                                <div className="grid grid-cols-2 gap-4 text-sm">
-                                                    <div>
-                                                        <b>Status:</b> {submissionDetail.status}
-                                                    </div>
-                                                    <div>
-                                                        <b>Submitted At:</b>{" "}
-                                                        {new Date(submissionDetail.submittedAt).toLocaleString()}
-                                                    </div>
-                                                </div>
-
-                                                {/* ALL FIELDS (EXCEPT SIGNATURE) */}
-                                                <div className="border rounded-xl divide-y dark:border-slate-800">
-                                                    {submissionDetail.fields
-                                                        .filter((f: any) => f.fieldKey !== "borrowerSignature")
-                                                        .map((f: any, i: number) => {
-                                                            const parsedValue = parseValue(f.value);
-
-                                                            return (
-                                                                <div
-                                                                    key={i}
-                                                                    className="p-4 flex justify-between gap-4"
-                                                                >
-                                                                    <div className="text-sm font-medium text-slate-600 dark:text-slate-400">
-                                                                        {f.fieldKey || f.fieldId}
-                                                                    </div>
-                                                                    <div className="text-sm font-mono break-all text-right">
-                                                                        {String(parsedValue)}
-                                                                    </div>
-                                                                </div>
-                                                            );
-                                                        })}
-                                                </div>
-
-                                                {/* DIGITAL SIGNATURE (ALWAYS LAST) */}
-                                                {signatureField && (
-                                                    <div className="mt-8">
-                                                        <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                                                            Digital Signature
-                                                        </h3>
-
-                                                        <div className=" border border-slate-200 dark:border-slate-700
-  rounded-xl p-4
-  bg-white dark:bg-slate-900">
-                                                            <img
-                                                                src={parseValue(signatureField.value)}
-                                                                alt="Digital Signature"
-                                                                className="max-w-full bg-white rounded-lg"
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </>
-                                        );
-                                    })()
-                                ) : null}
+                          {/* SUBMITTED DATE & TIME (LAST) */}
+                          <div className="border-t pt-6 text-sm text-slate-600 dark:text-slate-400 flex justify-between">
+                            <div>
+                              <span className="font-semibold">Submitted Date:</span>{" "}
+                              {formattedDate}
                             </div>
+                            <div>
+                              <span className="font-semibold">Submitted Time:</span>{" "}
+                              {formattedTime}
+                            </div>
+                          </div>
+                        </>
+                      );
+                    })()
+                  ) : null}
+                </div>
 
+              </div>
+            </div>,
+            document.body,
+          )}
+
+        {/* FIND LENDERS MODAL */}
+        {findLenderModalOpen &&
+          createPortal(
+            <div className="fixed inset-0 z-50 bg-black/40 dark:bg-black/70 backdrop-blur-[1px] flex items-center justify-center p-4">
+              <div className="bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 rounded-2xl w-full max-w-6xl max-h-[90vh] overflow-y-auto shadow-xl dark:shadow-black/40 flex flex-col">
+                {/* HEADER */}
+                <div className="flex items-center justify-between px-6 py-4 border-b dark:border-slate-800 shrink-0">
+                  <div>
+                    <h2 className="font-bold text-lg">Find Lenders</h2>
+                    <p className="text-xs text-slate-500">
+                      Connect with verified lenders
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setFindLenderModalOpen(false);
+                      setLenders([]);
+                      setBorrowerSummary(null);
+                      setSentLenders({});
+                      setImageErrors({});
+                      setApplicationId(null);
+                    }}
+                    className="text-slate-400 hover:text-red-500 text-xl"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                {/* CONTENT */}
+                <div className="p-6 overflow-y-auto bg-gray-50 dark:bg-slate-950">
+                  {/* Filters */}
+                  <div className="mb-6 flex flex-col md:flex-row gap-4">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <input
+                        value={lenderSearchQ}
+                        onChange={(e) => {
+                          setLenderPage(1);
+                          setLenderSearchQ(e.target.value);
+                        }}
+                        placeholder="Search lenders by name or email..."
+                        className="w-full pl-10 pr-4 py-2 rounded-xl text-sm border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                      />
+                    </div>
+                    <select
+                      value={lenderLimit}
+                      onChange={(e) => {
+                        setLenderPage(1);
+                        setLenderLimit(Number(e.target.value));
+                      }}
+                      className="px-4 py-2 rounded-xl text-sm border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900"
+                    >
+                      <option value={6}>6 / page</option>
+                      <option value={9}>9 / page</option>
+                      <option value={12}>12 / page</option>
+                    </select>
+                  </div>
+
+                  {borrowerSummary && borrowerSummary.loanAmount && borrowerSummary.borrowerMinTerm && borrowerSummary.borrowerMaxTerm && borrowerSummary.creditScore && (
+                    <div className="mb-6 bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 p-4 rounded-xl">
+                      <div className="text-sm font-semibold text-blue-700 dark:text-blue-400 mb-2">
+                        Borrower Summary
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                        <div>
+                          <span className="font-semibold">Loan Amount:</span>
+                          <div>
+                            ${Number(borrowerSummary.loanAmount).toLocaleString()}
+                          </div>
                         </div>
-                    </div>,
-                    document.body
-                )}
-            </div>
-        </div>
-    );
+
+                        <div>
+                          <span className="font-semibold">Term:</span>
+                          <div>
+                            {borrowerSummary.borrowerMinTerm} -{" "}
+                            {borrowerSummary.borrowerMaxTerm} months
+                          </div>
+                        </div>
+
+                        <div>
+                          <span className="font-semibold">Credit Score:</span>
+                          <div>{borrowerSummary.creditScore}</div>
+                        </div>
+
+                        <div>
+                          <span className="font-semibold">Eligible Lenders:</span>
+                          <div>{lenders.length}</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Loading */}
+                  {lenderLoading && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {[1, 2, 3].map((i) => (
+                        <div
+                          key={i}
+                          className="h-64 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 animate-pulse"
+                        />
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Empty State */}
+                  {!lenderLoading && lenders.length === 0 && (
+                    <div className="text-center py-10">
+                      <div className="w-16 h-16 mx-auto bg-slate-100 dark:bg-slate-900 rounded-full flex items-center justify-center mb-4">
+                        <SearchX className="w-8 h-8 text-slate-400" />
+                      </div>
+                      <h3 className="font-bold text-slate-700 dark:text-slate-300">
+                        No lenders found
+                      </h3>
+                      <p className="text-sm text-slate-500">
+                        Try adjusting your search terms
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Lenders Grid */}
+                  {!lenderLoading && lenders.length > 0 && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {filteredLenders
+                        .slice((lenderPage - 1) * lenderLimit, lenderPage * lenderLimit)
+                        .map((l) => (
+                          <div
+                            key={l.id}
+                            className="group relative bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5 transition-all duration-300 hover:shadow-md"
+                          >
+                            {/* Header */}
+                            <div className="flex items-start justify-between mb-3">
+
+                              <div className="flex items-center gap-3">
+
+                                {/* Profile Image / Fallback Icon */}
+                                <div className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center 
+                    bg-slate-100 dark:bg-slate-800 
+                    border border-slate-200 dark:border-slate-700">
+
+                                  {l.profileImage && !imageErrors[l.id] ? (
+                                    <img
+                                      src={l.profileImage}
+                                      alt={l.name}
+                                      className="w-full h-full object-cover"
+                                      onError={() =>
+                                        setImageErrors((prev) => ({
+                                          ...prev,
+                                          [l.id]: true,
+                                        }))
+                                      }
+                                    />
+                                  ) : (
+                                    <Building2 className="w-6 h-6 text-slate-500 dark:text-slate-400" />
+                                  )}
+
+                                </div>
+
+                                {/* Name + Email */}
+                                <div>
+                                  <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                                    {l.name}
+                                  </h3>
+                                  <div className="text-xs text-slate-500 dark:text-slate-400">
+                                    {l.email || "No email available"}
+                                  </div>
+                                </div>
+
+                              </div>
+
+                              {/* Eligibility Badge */}
+                              <span
+                                className={`text-xs font-bold px-2 py-1 rounded-full ${l.eligibilityStatus === "Eligible"
+                                  ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400"
+                                  : "bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400"
+                                  }`}
+                              >
+                                {l.eligibilityStatus}
+                              </span>
+
+                            </div>
+
+                            {/* Loan Product */}
+                            <div className="text-sm font-semibold text-slate-600 dark:text-slate-400 mb-3">
+                              Product: {l.loanProductCode}
+                            </div>
+
+                            {/* Funding Range */}
+                            <div className="text-sm font-medium text-slate-800 dark:text-slate-200">
+                              Funding:
+                              {" "}
+                              ${Number(l.minFunding).toLocaleString()} - ${Number(l.maxFunding).toLocaleString()}
+                            </div>
+
+                            {/* Terms */}
+                            <div className="text-sm mt-1 text-slate-600 dark:text-slate-400">
+                              Term:
+                              {" "}
+                              {l.minMonths} - {l.maxMonths} months
+                            </div>
+
+                            {/* Interest */}
+                            <div className="text-sm mt-1 text-slate-600 dark:text-slate-400">
+                              Interest:
+                              {" "}
+                              {l.interestRateRange}
+                            </div>
+
+                            {/* Funding Speed */}
+                            <div className="text-sm mt-1 text-slate-600 dark:text-slate-400">
+                              Funding Speed:
+                              {" "}
+                              {l.fundingSpeedDays} Days
+                            </div>
+
+                            {/* Send Button */}
+                            <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-800">
+
+                              <button
+                                disabled={
+                                  sendingId === l.lenderProductId ||
+                                  sentLenders[l.lenderProductId]
+                                }
+                                onClick={async () => {
+                                  const result = await Swal.fire({
+                                    title: "Send to Lender?",
+                                    text: `Are you sure you want to send this application to ${l.name}?`,
+                                    icon: "question",
+                                    showCancelButton: true,
+                                    confirmButtonColor: "#2563eb",
+                                    cancelButtonColor: "#d33",
+                                    confirmButtonText: "Yes, Send",
+                                    cancelButtonText: "Cancel",
+                                  });
+
+                                  if (result.isConfirmed) {
+                                    sendToLender(l.lenderProductId);
+                                  }
+                                }}
+                                className={`w-full py-2 rounded-lg text-sm font-semibold transition-all
+      ${sentLenders[l.lenderProductId]
+                                    ? "bg-emerald-500 text-white cursor-not-allowed"
+                                    : "bg-blue-600 hover:bg-blue-700 text-white"
+                                  }
+      disabled:opacity-60 disabled:cursor-not-allowed
+    `}
+                              >
+                                {sendingId === l.lenderProductId ? (
+                                  <div className="flex items-center justify-center gap-2">
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    Sending...
+                                  </div>
+                                ) : sentLenders[l.lenderProductId] ? (
+                                  "Sent"
+                                ) : (
+                                  "Send to Lender"
+                                )}
+                              </button>
+
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  )}
+
+                  {/* Pagination */}
+                  {!lenderLoading && filteredLenders.length > lenderLimit && (
+                    <div className="mt-8 flex items-center justify-between border-t border-slate-200 dark:border-slate-800 pt-4">
+                      <p className="text-xs text-slate-500">
+                        Page {lenderPage} of {Math.ceil(filteredLenders.length / lenderLimit)}
+                      </p>
+                      <div className="flex gap-2">
+                        <button
+                          disabled={lenderPage === 1}
+                          onClick={() => setLenderPage((p) => p - 1)}
+                          className="p-2 rounded-lg border dark:border-slate-800 disabled:opacity-30 hover:bg-slate-100 dark:hover:bg-slate-800"
+                        >
+                          <ChevronLeft size={16} />
+                        </button>
+                        <button
+                          disabled={
+                            lenderPage >=
+                            Math.ceil(filteredLenders.length / lenderLimit)
+                          }
+                          onClick={() => setLenderPage((p) => p + 1)}
+                          className="p-2 rounded-lg border dark:border-slate-800 disabled:opacity-30 hover:bg-slate-100 dark:hover:bg-slate-800"
+                        >
+                          <ChevronRight size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>,
+            document.body,
+          )}
+      </div>
+    </div>
+  );
 }

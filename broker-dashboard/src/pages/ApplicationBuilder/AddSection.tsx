@@ -22,6 +22,7 @@ type SectionField = {
     id: string;
     fieldKey: string;
     label: string;
+    placeholder: string;
     fieldType: string;
     isRequired: boolean;
 };
@@ -66,6 +67,8 @@ const AddSectionAdmin: React.FC = () => {
     const [applications, setApplications] = useState<AppItem[]>([]);
     const [products, setProducts] = useState<ProductItem[]>([]);
     // const [sections, setSections] = useState<ApplicationSection[]>([]);
+    const [selectedSection, setSelectedSection] = useState<ApplicationSection | null>(null);
+    const [showModal, setShowModal] = useState(false);
 
     const [selectedAppId, setSelectedAppId] = useState("");
     const [selectedProductId, setSelectedProductId] = useState("");
@@ -298,18 +301,18 @@ const AddSectionAdmin: React.FC = () => {
     /* ================= UI ================= */
 
     return (
-        <div className="min-h-screen bg-[#F8FAFC] dark:bg-slate-950 py-20 px-6">
+        <div className="min-h-screen bg-gray-2 dark:bg-boxdark-2 py-10 px-6">
 
             <div className="max-w-7xl mx-auto">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
                     {/* LEFT – FORM (UNCHANGED UI) */}
                     <div>
-                        <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-xl border p-8 space-y-6">
+                        <div className="bg-white dark:bg-[#0F172B] rounded-xl shadow-default border dark:border-slate-700 dark:border-strokedark p-8 space-y-6">
                             <h2 className="text-lg font-bold mb-4 text-slate-900 dark:text-white">
                                 Add Application Sections
                             </h2>
                             <select
-                                className="w-full rounded-xl border px-3 py-2"
+                                className="w-full rounded-lg border border-stroke bg-transparent px-5 py-3 outline-none focus:border-primary dark:border-strokedark dark:bg-form-input dark:focus:border-primary"
                                 value={selectedAppId}
                                 onChange={(e) => setSelectedAppId(e.target.value)}
                             >
@@ -325,7 +328,7 @@ const AddSectionAdmin: React.FC = () => {
 
                             {selectedAppId && (
                                 <select
-                                    className="w-full rounded-xl border px-3 py-2"
+                                    className="w-full rounded-lg bg-transparent px-5 py-3 outline-none border dark:border-slate-700"
                                     value={selectedProductId}
                                     onChange={(e) => setSelectedProductId(e.target.value)}
                                 >
@@ -344,7 +347,7 @@ const AddSectionAdmin: React.FC = () => {
                                 value={name}
                                 onChange={(e) => setName(e.target.value)}
                                 placeholder="Section Name"
-                                className="w-full rounded-xl border px-3 py-2"
+                                className="w-full rounded-lg border border-stroke bg-transparent px-5 py-3 outline-none focus:border-primary dark:border-strokedark dark:bg-form-input dark:focus:border-primary"
                             />
 
                             <textarea
@@ -352,14 +355,14 @@ const AddSectionAdmin: React.FC = () => {
                                 value={description}
                                 onChange={(e) => setDescription(e.target.value)}
                                 placeholder="Description"
-                                className="w-full rounded-xl border px-3 py-2"
+                                className="w-full rounded-lg border border-stroke bg-transparent px-5 py-3 outline-none focus:border-primary dark:border-strokedark dark:bg-form-input dark:focus:border-primary"
                             />
 
                             <input
                                 type="number"
                                 value={sortOrder}
                                 onChange={(e) => setSortOrder(Number(e.target.value))}
-                                className="w-full rounded-xl border px-3 py-2"
+                                className="w-full rounded-lg border border-stroke bg-transparent px-5 py-3 outline-none focus:border-primary dark:border-strokedark dark:bg-form-input dark:focus:border-primary"
                             />
 
                             <button
@@ -375,7 +378,7 @@ const AddSectionAdmin: React.FC = () => {
 
                     {/* RIGHT – TABLE */}
                     {/* ================= RIGHT – TABLE ================= */}
-                    <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-xl border p-6">
+                    <div className="bg-white dark:bg-[#0F172B] rounded-xl shadow-default border border-stroke dark:border-strokedark p-6">
                         <h2 className="text-lg font-bold mb-4 text-slate-900 dark:text-white">
                             Application Sections
                         </h2>
@@ -416,38 +419,43 @@ const AddSectionAdmin: React.FC = () => {
 
                         {/* ===== TABLE ===== */}
                         {loadingTableSections ? (
-                            <div className="flex items-center gap-2 text-slate-500">
+                            <div className="flex items-center gap-2 text-slate-500 dark:text-white">
                                 <Loader2 className="animate-spin" size={16} />
                                 Loading sections...
                             </div>
                         ) : (
                             <table className="w-full text-sm border-collapse">
                                 <thead>
-                                    <tr className="bg-slate-100 dark:bg-slate-800">
-                                        <th className="p-2 text-left border">Name</th>
-                                        <th className="p-2 text-left border">Description</th>
-                                        <th className="p-2 text-left border">Active</th>
-                                        <th className="p-2 text-center border">Details</th>
+                                    <tr className="bg-gray-2 dark:bg-meta-4">
+                                        <th className="px-4 py-3 text-left font-medium text-black dark:text-white border border-stroke dark:border-strokedark">Name</th>
+                                        <th className="px-4 py-3 text-left font-medium text-black dark:text-white border border-stroke dark:border-strokedark">Description</th>
+                                        <th className="px-4 py-3 text-left font-medium text-black dark:text-white border border-stroke dark:border-strokedark">Active</th>
+                                        <th className="px-4 py-3 text-left font-medium text-black dark:text-white border border-stroke dark:border-strokedark">Details</th>
                                     </tr>
                                 </thead>
 
                                 <tbody>
                                     {tableSections.map((s) => (
-                                        <tr key={s.id} className="hover:bg-slate-50 dark:hover:bg-slate-800">
-                                            <td className="p-2 border font-medium">{s.name}</td>
-                                            <td className="p-2 border text-slate-500">
+                                        <tr key={s.id} className="border-b border-stroke dark:border-strokedark hover:bg-gray-1 dark:hover:bg-meta-4">
+                                            <td className="px-4 py-3 text-black dark:text-white">{s.name}</td>
+                                            <td className="px-4 py-3 text-body dark:text-white">
                                                 {s.description || "-"}
                                             </td>
                                             <td className="p-2 border">
                                                 {s.isActive ? (
-                                                    <span className="text-green-600 font-semibold">Yes</span>
+                                                    <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Yes</span>
                                                 ) : (
-                                                    <span className="text-red-500 font-semibold">No</span>
+                                                    <span className="text-red-600 dark:text-red-400 font-semibold">No</span>
                                                 )}
                                             </td>
                                             <td className="p-2 border text-center">
-                                                {/* 👁 ACTION ICON – LOGIC LATER */}
-                                                <button className="text-slate-600 hover:text-indigo-600">
+                                                <button
+                                                    onClick={() => {
+                                                        setSelectedSection(s);
+                                                        setShowModal(true);
+                                                    }}
+                                                    className="text-slate-600 hover:text-indigo-600 text-lg"
+                                                >
                                                     👁
                                                 </button>
                                             </td>
@@ -467,6 +475,84 @@ const AddSectionAdmin: React.FC = () => {
                     </div>
                 </div>
             </div>
+            {/* ================= SECTION DETAILS MODAL ================= */}
+            {showModal && selectedSection && (
+                <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+                    <div className="bg-white dark:bg-slate-900 w-[700px] max-h-[80vh] overflow-y-auto rounded-2xl shadow-2xl p-6 space-y-6 relative">
+
+                        {/* Close Button */}
+                        <button
+                            onClick={() => setShowModal(false)}
+                            className="absolute top-3 right-4 text-xl text-slate-500 hover:text-red-500"
+                        >
+                            ✕
+                        </button>
+
+                        <h3 className="text-xl font-bold text-slate-900 dark:text-white">
+                            {selectedSection.name}
+                        </h3>
+
+                        {selectedSection.description && (
+                            <p className="text-slate-500 dark:text-slate-400">
+                                {selectedSection.description}
+                            </p>
+                        )}
+
+                        <div className="space-y-4">
+                            {selectedSection.fields.map((field) => (
+                                <div
+                                    key={field.id}
+                                    className="border rounded-xl p-4 bg-slate-50 dark:bg-slate-800"
+                                >
+                                    <div className="flex justify-between items-center mb-2">
+                                        <div>
+                                            <p className="font-semibold text-slate-800 dark:text-white">
+                                                {field.label}
+                                            </p>
+                                            <p className="text-xs text-slate-500">
+                                                Placeholder: {field?.placeholder?.trim() || `Enter ${field.label}`}
+                                            </p>
+                                        </div>
+
+                                        <span className="text-xs px-2 py-1 rounded bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300">
+                                            {field.fieldType}
+                                        </span>
+                                    </div>
+
+                                    <div className="text-sm text-slate-600 dark:text-slate-300">
+                                        Required:{" "}
+                                        {field.isRequired ? (
+                                            <span className="text-green-600 font-semibold">Yes</span>
+                                        ) : (
+                                            <span className="text-red-500 font-semibold">No</span>
+                                        )}
+                                    </div>
+
+                                    {/* Show Options if exist */}
+                                    {"options" in field && (field as any).options && (
+                                        <div className="mt-3">
+                                            <p className="text-xs font-semibold text-slate-500 mb-1">
+                                                Options:
+                                            </p>
+                                            <div className="flex flex-wrap gap-2">
+                                                {(field as any).options.map((opt: string, i: number) => (
+                                                    <span
+                                                        key={i}
+                                                        className="px-2 py-1 text-xs rounded-full bg-slate-200 dark:bg-slate-700"
+                                                    >
+                                                        {opt}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
+
         </div>
     );
 };

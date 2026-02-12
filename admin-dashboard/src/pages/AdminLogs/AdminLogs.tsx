@@ -135,9 +135,8 @@ const AdminLogs: React.FC = () => {
     const q = query.trim().toLowerCase();
     if (!q) return logs;
     return logs.filter((log) => {
-      const actorName = `${log.actorUser?.firstName || ""} ${
-        log.actorUser?.lastName || ""
-      }`.trim();
+      const actorName = `${log.actorUser?.firstName || ""} ${log.actorUser?.lastName || ""
+        }`.trim();
       return (
         log.action.toLowerCase().includes(q) ||
         log.entityType.toLowerCase().includes(q) ||
@@ -235,9 +234,8 @@ const AdminLogs: React.FC = () => {
                 </thead>
                 <tbody>
                   {filtered.map((log) => {
-                    const actorName = `${log.actorUser?.firstName || ""} ${
-                      log.actorUser?.lastName || ""
-                    }`.trim();
+                    const actorName = `${log.actorUser?.firstName || ""} ${log.actorUser?.lastName || ""
+                      }`.trim();
                     return (
                       <tr
                         key={log.id}
@@ -345,11 +343,10 @@ const AdminLogs: React.FC = () => {
                         <button
                           key={page}
                           onClick={() => gotoPage(page)}
-                          className={`px-3 py-1 rounded-md ${
-                            page === currentPage
+                          className={`px-3 py-1 rounded-md ${page === currentPage
                               ? "bg-blue-600 text-white"
                               : "border border-gray-300 bg-white text-gray-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                          }`}
+                            }`}
                         >
                           {page}
                         </button>

@@ -834,3 +834,6 @@ body.swal2-shown > *:not(.swal2-container) {
   color: white;
 }
 
+.modal-open {
+  overflow: hidden;
+}

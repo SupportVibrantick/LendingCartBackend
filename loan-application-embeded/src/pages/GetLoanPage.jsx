@@ -32,11 +32,11 @@ export const CREDIT_SCORE_RANGES = [
 ];
 
 export const PERSONAL_CREDIT_SCORE_OPTIONS = [
-    { value: "poor", label: "Poor (300 – 579)" },
-    { value: "fair", label: "Fair (580 – 669)" },
-    { value: "good", label: "Good (670 – 739)" },
-    { value: "very_good", label: "Very Good (740 – 799)" },
-    { value: "excellent", label: "Excellent (800 – 850)" },
+    { value: "300–579", label: "Poor (300 – 579)" },
+    { value: "580–669", label: "Fair (580 – 669)" },
+    { value: "670–739", label: "Good (670 – 739)" },
+    { value: "740–799", label: "Very Good (740 – 799)" },
+    { value: "800–850", label: "Excellent (800 – 850)" },
 ];
 
 const STATES = [
@@ -180,9 +180,12 @@ export default function GetLoanPage() {
                 "email",
                 "phone",
                 "companyName",
-                "city",
-                "loanAmount",
-                "state",
+                "brokerCity",
+                "brokerLoanAmount",
+                "brokerState",
+                "minTermMonths",
+                "maxTermMonths",
+                "creditScoreRange"
             ];
 
             const REQUIRED_BORROWER_FIELDS = [
@@ -192,6 +195,11 @@ export default function GetLoanPage() {
                 "borrowerCellPhone",
                 "citizenship",
                 "creditScoreRange",
+                "borrowerCity",
+                "borrowerLoanAmount",
+                "borrowerState",
+                "minTermMonths",
+                "maxTermMonths",
             ];
 
             const REQUIRED_COBORROWER_FIELDS = [
@@ -208,6 +216,10 @@ export default function GetLoanPage() {
                         newErrors[key] = "This field is required";
                     }
                 });
+
+                if (!staticValues.creditScoreRange) {
+                    newErrors.creditScoreRange = "This field is required";
+                }
             }
 
             if (isBroker === false) {
@@ -247,6 +259,16 @@ export default function GetLoanPage() {
                 newErrors.coBorrowerEmail = "Please enter a valid email address";
             }
 
+            if (
+                staticValues.minTermMonths &&
+                staticValues.maxTermMonths &&
+                Number(staticValues.minTermMonths) >
+                Number(staticValues.maxTermMonths)
+            ) {
+                newErrors.maxTermMonths =
+                    "Maximum term must be greater than minimum term";
+            }
+
             /* ================= DYNAMIC VALIDATION ================= */
 
             const allDynamicFields = [
@@ -259,7 +281,6 @@ export default function GetLoanPage() {
 
                 if (!field.required) return;
 
-                // FILE ko abhi ignore kar rahe hain
                 if (field.type === "FILE") return;
 
                 if (value === undefined || value === "") {
@@ -284,16 +305,39 @@ export default function GetLoanPage() {
 
             setErrors({});
 
+            const normalizedStaticValues = { ...staticValues };
+
+            // Remove ALL raw role-specific fields first
+            delete normalizedStaticValues.brokerLoanAmount;
+            delete normalizedStaticValues.brokerState;
+            delete normalizedStaticValues.brokerCity;
+
+            delete normalizedStaticValues.borrowerLoanAmount;
+            delete normalizedStaticValues.borrowerState;
+            delete normalizedStaticValues.borrowerCity;
+
+            if (isBroker === true) {
+                normalizedStaticValues.amountRequested = staticValues.brokerLoanAmount;
+                normalizedStaticValues.state = staticValues.brokerState;
+                normalizedStaticValues.city = staticValues.brokerCity;
+            } else {
+                normalizedStaticValues.amountRequested = staticValues.borrowerLoanAmount;
+                normalizedStaticValues.state = staticValues.borrowerState;
+                normalizedStaticValues.city = staticValues.borrowerCity;
+            }
+
+
             /* ================= BUILD JSON PAYLOAD ================= */
 
             const fields = [];
 
             // static fields
-            Object.entries(staticValues).forEach(([fieldKey, value]) => {
+            Object.entries(normalizedStaticValues).forEach(([fieldKey, value]) => {
                 if (value !== "" && value !== undefined) {
                     fields.push({ fieldKey, value });
                 }
             });
+
 
             // borrower signature name
             fields.push({
@@ -400,16 +444,36 @@ export default function GetLoanPage() {
                                     label="Yes"
                                     checked={isBroker === true}
                                     onChange={() => {
-                                        setIsBroker(true)
-                                        setStaticValues(p => ({ ...p, isBroker: true }));
+                                        setIsBroker(true);
+                                        setStaticValues(p => ({
+                                            ...p,
+                                            isBroker: true,
+                                            // reset borrower fields
+                                            borrowerLoanAmount: "",
+                                            borrowerState: "",
+
+                                            // initialize broker fields
+                                            brokerLoanAmount: "",
+                                            brokerState: "",
+                                        }));
                                     }}
                                 />
                                 <Radio
                                     label="No"
                                     checked={isBroker === false}
                                     onChange={() => {
-                                        setIsBroker(false)
-                                        setStaticValues(p => ({ ...p, isBroker: false }));
+                                        setIsBroker(false);
+                                        setStaticValues(p => ({
+                                            ...p,
+                                            isBroker: false,
+                                            // reset borrower fields
+                                            borrowerLoanAmount: "",
+                                            borrowerState: "",
+
+                                            // initialize broker fields
+                                            brokerLoanAmount: "",
+                                            brokerState: "",
+                                        }));
                                     }}
                                 />
                             </div>
@@ -660,6 +724,51 @@ export default function GetLoanPage() {
                                                 </option>
                                             ))}
                                         </Select>
+
+                                        <Input
+                                            label="Minimum Loan Term (Months)"
+                                            placeholder="e.g. 12"
+                                            type="number"
+                                            value={staticValues.minTermMonths}
+                                            onChange={(e) =>
+                                                setStaticValues(p => ({ ...p, minTermMonths: e.target.value }))
+                                            }
+                                            error={errors.minTermMonths}
+                                        />
+
+                                        <Input
+                                            label="Maximum Loan Term (Months)"
+                                            placeholder="e.g. 60"
+                                            type="number"
+                                            value={staticValues.maxTermMonths}
+                                            onChange={(e) =>
+                                                setStaticValues(p => ({ ...p, maxTermMonths: e.target.value }))
+                                            }
+                                            error={errors.maxTermMonths}
+                                        />
+
+                                    </div>
+
+
+                                    <div className="h-px bg-slate-200 dark:bg-slate-700" />
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <Input label="Loan Amount" placeholder="Enter Loan Amount" value={staticValues.borrowerLoanAmount} onChange={(e) => setStaticValues(p => ({ ...p, borrowerLoanAmount: e.target.value }))} type="number" error={errors.borrowerLoanAmount} />
+                                        <Input label="City" placeholder="Enter City" value={staticValues.borrowerCity} onChange={(e) => setStaticValues(p => ({ ...p, borrowerCity: e.target.value }))} error={errors.borrowerCity} />
+                                        <Select
+                                            label="State"
+                                            value={staticValues.borrowerState || ""}
+                                            onChange={(e) => setStaticValues(p => ({ ...p, borrowerState: e.target.value }))}
+                                            error={errors.borrowerState}
+                                        >
+                                            <option value="">- Select State -</option>
+                                            {STATES.map((state, i) => (
+                                                <option key={i} value={state}>
+                                                    {state}
+                                                </option>
+                                            ))}
+                                        </Select>
+
                                     </div>
                                 </div>
 
@@ -741,13 +850,13 @@ export default function GetLoanPage() {
                                     <Input label="First Name" placeholder="Enter First Name" value={staticValues.firstName} onChange={(e) => setStaticValues(p => ({ ...p, firstName: e.target.value }))} error={errors.firstName} />
                                     <Input label="Last Name" placeholder="Enter Last Name" value={staticValues.lastName} onChange={(e) => setStaticValues(p => ({ ...p, lastName: e.target.value }))} error={errors.lastName} />
                                     <Input label="Company Name" placeholder="Enter Company Name" value={staticValues.companyName} onChange={(e) => setStaticValues(p => ({ ...p, companyName: e.target.value }))} error={errors.companyName} />
-                                    <Input label="City" placeholder="Enter City" value={staticValues.city} onChange={(e) => setStaticValues(p => ({ ...p, city: e.target.value }))} error={errors.city} />
-                                    <Input label="Loan Amount" placeholder="Enter Loan Amount" value={staticValues.loanAmount} onChange={(e) => setStaticValues(p => ({ ...p, loanAmount: e.target.value }))} type="number" error={errors.loanAmount} />
+                                    <Input label="City" placeholder="Enter City" value={staticValues.brokerCity} onChange={(e) => setStaticValues(p => ({ ...p, brokerCity: e.target.value }))} error={errors.brokerCity} />
+                                    <Input label="Loan Amount" placeholder="Enter Loan Amount" value={staticValues.brokerLoanAmount} onChange={(e) => setStaticValues(p => ({ ...p, brokerLoanAmount: e.target.value }))} type="number" error={errors.brokerLoanAmount} />
                                     <Select
                                         label="State"
-                                        value={staticValues.state || ""}
-                                        onChange={(e) => setStaticValues(p => ({ ...p, state: e.target.value }))}
-                                        error={errors.state}
+                                        value={staticValues.brokerState || ""}
+                                        onChange={(e) => setStaticValues(p => ({ ...p, brokerState: e.target.value }))}
+                                        error={errors.brokerState}
                                     >
                                         <option value="">- Select State -</option>
                                         {STATES.map((state, i) => (
@@ -756,6 +865,28 @@ export default function GetLoanPage() {
                                             </option>
                                         ))}
                                     </Select>
+
+                                    <Input
+                                        label="Minimum Loan Term (Months)"
+                                        placeholder="e.g. 12"
+                                        type="number"
+                                        value={staticValues.minTermMonths}
+                                        onChange={(e) =>
+                                            setStaticValues(p => ({ ...p, minTermMonths: e.target.value }))
+                                        }
+                                        error={errors.minTermMonths}
+                                    />
+
+                                    <Input
+                                        label="Maximum Loan Term (Months)"
+                                        placeholder="e.g. 60"
+                                        type="number"
+                                        value={staticValues.maxTermMonths}
+                                        onChange={(e) =>
+                                            setStaticValues(p => ({ ...p, maxTermMonths: e.target.value }))
+                                        }
+                                        error={errors.maxTermMonths}
+                                    />
 
                                 </div>
 
@@ -940,6 +1071,7 @@ export default function GetLoanPage() {
                                         label="Credit Score Range"
                                         value={staticValues.creditScoreRange || ""}
                                         onChange={(e) => setStaticValues(p => ({ ...p, creditScoreRange: e.target.value }))}
+                                        error={errors.creditScoreRange}
                                     >
                                         <option value="">- Select Credit Score Range -</option>
                                         {CREDIT_SCORE_RANGES.map((score) => (
@@ -960,7 +1092,7 @@ export default function GetLoanPage() {
                                                     <Input label="First Name" value={staticValues.coBorrowerFirstName}
                                                         onChange={(e) =>
                                                             setStaticValues(p => ({ ...p, coBorrowerFirstName: e.target.value }))
-                                                        } error={errors.borrowerFirstName} />
+                                                        } error={errors.coBorrowerFirstName} />
                                                     <Input label="Last Name" value={staticValues.coBorrowerLastName}
                                                         onChange={(e) =>
                                                             setStaticValues(p => ({ ...p, coBorrowerLastName: e.target.value }))
