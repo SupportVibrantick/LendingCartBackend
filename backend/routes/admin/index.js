@@ -1,14 +1,15 @@
 // backend/routes/admin/index.js
 const brokerRoutes = require("./brokers");
 const lendersRoutes = require("./lenders");
-const logsRoutes = require("./logs/logs.js"); 
-const statsRoutes = require("./stats"); 
+const logsRoutes = require("./logs/logs.js");
+const statsRoutes = require("./stats");
 const loanProductsRoutes = require("./loanProducts");
 const lenderProducts = require("./lenderProducts");
 const adminUserRoutes = require("./adminUsers");
 const documentTypes = require("./documentTypes");
 const landingPagesLeads = require("./LandingPagesLeads");
 const applicationRoutes = require("./applications");
+const loanPipelineRoutes = require("./loanPipeLine");
 
 // Registers auth sub-router under /admin/auth
 module.exports = async function adminRoutes(fastify, opts) {
@@ -17,11 +18,10 @@ module.exports = async function adminRoutes(fastify, opts) {
 
   // Protected routes
   fastify.register(async function rolesGroup(instance, opts) {
-
     instance.register(require("../../plugins/verifySuperAdmin"));
     // Combine both middlewares in one preHandler
     instance.addHook("preHandler", async (req, reply) => {
-      // Allow Swagger UI requests to pass without token 
+      // Allow Swagger UI requests to pass without token
       if (
         req.url.startsWith("/docs") ||
         req.url.startsWith("/swagger") ||
@@ -41,16 +41,19 @@ module.exports = async function adminRoutes(fastify, opts) {
     instance.register(lendersRoutes, { prefix: "/lenders" });
     instance.register(logsRoutes, { prefix: "/logs" });
     instance.register(statsRoutes, { prefix: "/stats" });
-    instance.register(loanProductsRoutes,{prefix:"/loan-products"});
-    instance.register(lenderProducts,{prefix:"/lender-products"});
-    instance.register(adminUserRoutes,{prefix:"/admin-user"});
+    instance.register(loanProductsRoutes, { prefix: "/loan-products" });
+    instance.register(lenderProducts, { prefix: "/lender-products" });
+    instance.register(adminUserRoutes, { prefix: "/admin-user" });
     instance.register(documentTypes, { prefix: "/document-types" });
     instance.register(applicationRoutes, {
       prefix: "/applications",
     });
     instance.register(landingPagesLeads, {
-  prefix: "/landing-page-leads",
-});
+      prefix: "/landing-page-leads",
+    });
 
+    instance.register(loanPipelineRoutes, {
+      prefix: "/loan-pipeline",
+    });
   });
 };
