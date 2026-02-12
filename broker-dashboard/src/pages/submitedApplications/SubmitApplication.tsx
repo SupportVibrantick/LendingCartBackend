@@ -380,10 +380,10 @@ export default function LoanApplicationsPage() {
     }
   }, [totalPages, currentPage]);
 
-  useEffect(() => {
-    const tableTop = document.querySelector(".applications-table-top");
-    tableTop?.scrollIntoView({ behavior: "smooth" });
-  }, [currentPage]);
+  // useEffect(() => {
+  //   const tableTop = document.querySelector(".applications-table-top");
+  //   tableTop?.scrollIntoView({ behavior: "smooth" });
+  // }, [currentPage]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -628,13 +628,46 @@ export default function LoanApplicationsPage() {
                 ) : (
                   /* Professional Empty State */
                   <tr>
-                    <td colSpan={7} className="px-6 py-20 text-center">
-                      <div className="flex flex-col items-center max-w-[240px] mx-auto">
-                        <div className="w-12 h-12 bg-slate-50 dark:bg-slate-800 rounded-xl flex items-center justify-center mb-4">
-                          <Search className="w-6 h-6 text-slate-300" />
+                    <td colSpan={7} className="px-6 py-24 text-center align-middle">
+                      <div className="flex flex-col items-center max-w-xs mx-auto">
+
+                        {/* Icon */}
+                        <div
+                          className={`
+          w-14 h-14 
+          rounded-2xl 
+          flex items-center justify-center 
+          mb-5
+          border
+          ${rows.length === 0
+                              ? "bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/20"
+                              : "bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700"
+                            }
+        `}
+                        >
+                          {rows.length === 0 ? (
+                            <span className="text-red-500 dark:text-red-400 text-2xl font-bold">
+                              ✕
+                            </span>
+                          ) : (
+                            <Search className="w-6 h-6 text-slate-400 dark:text-slate-500" />
+                          )}
                         </div>
-                        <h3 className="text-[15px] font-bold text-slate-900 dark:text-slate-100">No matching records</h3>
-                        <p className="text-[13px] text-slate-500 mt-1">Try adjusting your filters to find what you're looking for.</p>
+
+                        {/* Title */}
+                        <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">
+                          {rows.length === 0
+                            ? "Currently you have no loan applications"
+                            : "No applications found"}
+                        </h3>
+
+                        {/* Subtext */}
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
+                          {rows.length === 0
+                            ? "Once applications are submitted, they will appear here."
+                            : "Try adjusting your search terms and try again."}
+                        </p>
+
                       </div>
                     </td>
                   </tr>
