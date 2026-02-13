@@ -37,6 +37,11 @@ async function listAllApplications(fastify) {
                 name: true,
               },
             },
+            submissions: {
+              include: {
+                fields: true,
+              },
+            },
             applicationLenders: {
               include: {
                 lender: {
@@ -55,25 +60,41 @@ async function listAllApplications(fastify) {
           },
         });
 
-        const formatted = applications.map((app) => ({
-          applicationId: app.id,
-          applicationNumber: app.applicationNumber,
-          loanProductCode: app.loanProductCode,
-          amountRequested: app.amountRequested,
-          status: app.status,
-          createdAt: app.createdAt,
+        const formatted = applications.map((app) => {
+          let amountRequested = null;
 
-          client: app.client,
-          broker: app.brokerOrg,
+          if (app.submissions?.length) {
+            const fields = app.submissions[0].fields || [];
 
-          lenders: app.applicationLenders.map((al) => ({
-            lenderOrgId: al.lenderOrgId,
-            lenderName: al.lender?.name,
-            lenderProduct: al.lenderProduct?.loanProductCode,
-            lenderStatus: al.status,
-            sentAt: al.sentAt,
-          })),
-        }));
+            const getField = (key) =>
+              fields.find((f) => f.fieldKey === key)?.value;
+
+            amountRequested =
+              Number(getField("loan_amount_requested")) ||
+              Number(getField("amountRequested")) ||
+              null;
+          }
+
+          return {
+            applicationId: app.id,
+            applicationNumber: app.applicationNumber,
+            loanProductCode: app.loanProductCode,
+            amountRequested,
+            status: app.status,
+            createdAt: app.createdAt,
+
+            client: app.client,
+            broker: app.brokerOrg,
+
+            lenders: app.applicationLenders.map((al) => ({
+              lenderOrgId: al.lenderOrgId,
+              lenderName: al.lender?.name,
+              lenderProduct: al.lenderProduct?.loanProductCode,
+              lenderStatus: al.status,
+              sentAt: al.sentAt,
+            })),
+          };
+        });
 
         return reply.send({
           success: true,
@@ -82,6 +103,7 @@ async function listAllApplications(fastify) {
         });
       } catch (error) {
         fastify.log.error(error);
+
         return reply.status(500).send({
           success: false,
           message: "Server error",
