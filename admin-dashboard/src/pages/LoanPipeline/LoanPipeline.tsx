@@ -13,17 +13,27 @@ import {
 } from "lucide-react";
 
 /* ================= TYPES ================= */
+type LenderItem = {
+    lenderOrgId: string;
+    lenderName: string;
+    lenderProduct: string;
+    lenderStatus: string;
+    sentAt: string;
+};
+
 type TableRow = {
-    applicationLenderId: string;
+    applicationId: string;
     applicationNumber: string;
     borrowerName: string;
     entityType: string;
     loanType: string;
-    amount: number;
-    lenderStatus: string;
+    amount: number | null;
     applicationStatus: string;
-    sentAt: string;
     brokerName: string;
+    lenderStatus: string;
+    sentAt: string | null;
+    lenders: LenderItem[];
+    createdAt: string;
 };
 
 /* ================= HELPERS ================= */
@@ -61,9 +71,8 @@ const getApplicationStatusColor = (status: string) => {
     }
 };
 
-
 function getAuthHeaders(): HeadersInit {
-    const token = sessionStorage.getItem("lender_token");
+    const token = sessionStorage.getItem("admin_token");
     return {
         "Content-Type": "application/json",
         ...(token && { Authorization: `Bearer ${token}` }),
@@ -78,6 +87,7 @@ export default function LoanPipeline() {
     const [viewSubmissionId, setViewSubmissionId] = useState<string | null>(null);
     const [submissionDetail, setSubmissionDetail] = useState<any>(null);
     const [detailLoading, setDetailLoading] = useState(false);
+    // const [selectedLenders, setSelectedLenders] = useState<LenderItem[] | null>(null);
 
     // Find Lenders Modal State
     const [currentPage, setCurrentPage] = useState(1);
@@ -122,19 +132,20 @@ export default function LoanPipeline() {
         (r) => r.applicationStatus === "APPROVED"
     ).length;
 
-    const totalVolume = rows.reduce((sum, r) => sum + r.amount, 0);
+    const totalVolume = rows.reduce(
+        (sum, r) => sum + (r.amount ?? 0),
+        0
+    );
 
 
-    const fetchLenderApplicationDetail = async (applicationLenderId: string) => {
+    const fetchApplicationDetail = async (applicationId: string) => {
         try {
             setDetailLoading(true);
-            setViewSubmissionId(applicationLenderId);
+            setViewSubmissionId(applicationId);
 
             const res = await fetch(
-                `${API_BASE}/lender/loan-pipeline/${applicationLenderId}`,
-                {
-                    headers: getAuthHeaders(),
-                }
+                `${API_BASE}/admin/loan-pipeline/${applicationId}`,
+                { headers: getAuthHeaders() }
             );
 
             const json = await res.json();
@@ -153,15 +164,14 @@ export default function LoanPipeline() {
         }
     };
 
+
     const loadSubmissions = async () => {
         try {
             setLoading(true);
 
             const res = await fetch(
-                `${API_BASE}/lender/loan-pipeline`,
-                {
-                    headers: getAuthHeaders(), // lender_token use hoga
-                }
+                `${API_BASE}/admin/loan-pipeline`,
+                { headers: getAuthHeaders() }
             );
 
             const json = await res.json();
@@ -170,18 +180,24 @@ export default function LoanPipeline() {
                 throw new Error(json.message || "Failed to load loan pipeline");
             }
 
-            const mappedRows: TableRow[] = json.data.map((item: any) => ({
-                applicationLenderId: item.applicationLenderId,
-                applicationNumber: item.applicationNumber,
-                borrowerName: item.client?.legalName || "N/A",
-                entityType: item.client?.entityType || "-",
-                loanType: item.loanProductCode,
-                amount: Number(item.amountRequested || 0),
-                lenderStatus: item.lenderStatus,
-                applicationStatus: item.applicationStatus,
-                sentAt: item.sentAt,
-                brokerName: item.broker?.name || "-",
-            }));
+            const mappedRows: TableRow[] = json.data.map((item: any) => {
+                const lender = item.lenders?.[0]; // first lender
+
+                return {
+                    applicationId: item.applicationId,
+                    applicationNumber: item.applicationNumber,
+                    borrowerName: item.client?.legalName || "N/A",
+                    entityType: item.client?.entityType || "-",
+                    loanType: item.loanProductCode,
+                    amount: item.amountRequested ? Number(item.amountRequested) : null,
+                    applicationStatus: item.status,
+                    brokerName: item.broker?.name || "-",
+                    lenderStatus: lender?.lenderStatus || "-",
+                    sentAt: lender?.sentAt || null,
+                    createdAt: item.createdAt,
+                    lenders: item.lenders || [],
+                };
+            });
 
             setRows(mappedRows);
 
@@ -191,7 +207,6 @@ export default function LoanPipeline() {
             setLoading(false);
         }
     };
-
 
     useEffect(() => {
         loadSubmissions();
@@ -342,7 +357,8 @@ export default function LoanPipeline() {
                                         { label: "Amount", width: "w-[160px]" },
                                         { label: "Broker", width: "w-[180px]" },
                                         { label: "Application Status", width: "w-[160px]" },
-                                        { label: "Received At", width: "w-[180px]" },
+                                        { label: "Created At", width: "w-[180px]" },
+
                                         { label: "Actions", width: "w-[120px]" },
                                     ].map((h) => (
                                         <th
@@ -374,7 +390,7 @@ export default function LoanPipeline() {
                                 ) : paginatedRows.length > 0 ? (
                                     paginatedRows.map((row) => (
                                         <tr
-                                            key={row.applicationLenderId}
+                                            key={row.applicationId}
                                             className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors"
                                         >
 
@@ -384,6 +400,7 @@ export default function LoanPipeline() {
                                                     {row.applicationNumber}
                                                 </span>
                                             </td>
+
                                             {/* Borrower */}
                                             <td className="px-6 py-4">
                                                 <div className="flex flex-col">
@@ -406,7 +423,7 @@ export default function LoanPipeline() {
                                             {/* Amount */}
                                             <td className="px-6 py-4">
                                                 <span className="font-mono text-sm font-semibold text-slate-800 dark:text-slate-200">
-                                                    {row.amount > 0
+                                                    {row.amount
                                                         ? `$${row.amount.toLocaleString()}`
                                                         : "-"}
                                                 </span>
@@ -433,14 +450,14 @@ export default function LoanPipeline() {
 
                                             {/* Sent Date */}
                                             <td className="px-6 py-4 text-sm text-slate-500">
-                                                {new Date(row.sentAt).toLocaleDateString()}
+                                                {new Date(row.createdAt).toLocaleDateString()}
                                             </td>
 
                                             {/* Actions */}
                                             <td className="px-6 py-4">
                                                 <button
                                                     onClick={() =>
-                                                        fetchLenderApplicationDetail(row.applicationLenderId)
+                                                        fetchApplicationDetail(row.applicationId)
                                                     }
                                                     className="p-2 rounded-lg bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-500/20 transition-all"
                                                 >
@@ -575,7 +592,6 @@ export default function LoanPipeline() {
     border border-slate-200 dark:border-slate-800
     transition-colors duration-300
 ">
-
                                         {/* HEADER */}
                                         <div className="
     sticky top-0 z-10 
@@ -607,12 +623,15 @@ export default function LoanPipeline() {
 
                                                 {/* BASIC INFO */}
                                                 <div className="grid md:grid-cols-3 gap-6">
-                                                    <InfoCard label="Application #" value={submissionDetail.loanApplication?.applicationNumber} />
+                                                    <InfoCard label="Application #" value={submissionDetail.applicationNumber} />
                                                     <InfoCard label="Status" value={submissionDetail.status} />
-                                                    <InfoCard label="Loan Product" value={submissionDetail.loanApplication?.loanProductCode} />
-                                                    <InfoCard label="Borrower" value={submissionDetail.loanApplication?.client?.legalName} />
-                                                    <InfoCard label="Entity Type" value={submissionDetail.loanApplication?.client?.entityType} />
-                                                    <InfoCard label="Broker" value={submissionDetail.loanApplication?.brokerOrg?.name} />
+                                                    <InfoCard label="Loan Product" value={submissionDetail.loanProductCode} />
+                                                    <InfoCard label="Borrower" value={submissionDetail.client?.legalName} />
+                                                    <InfoCard label="Entity Type" value={submissionDetail.client?.entityType} />
+                                                    <InfoCard label="Broker" value={submissionDetail.brokerOrg?.name} />
+                                                    <InfoCard label="Amount" value={`$${Number(submissionDetail.amountRequested).toLocaleString()}`} />
+                                                    <InfoCard label="Term (Months)" value={submissionDetail.termMonthsRequested} />
+                                                    <InfoCard label="Purpose" value={submissionDetail.purpose} />
                                                 </div>
 
                                                 {/* SUBMISSION FIELDS */}
@@ -623,7 +642,7 @@ export default function LoanPipeline() {
 
                                                     {(() => {
                                                         const fields =
-                                                            submissionDetail.loanApplication?.submissions?.[0]?.fields || [];
+                                                            submissionDetail.submissions?.[0]?.fields || [];
 
                                                         const normalFields = fields.filter(
                                                             (f: any) => f.fieldKey !== "borrowerSignature"

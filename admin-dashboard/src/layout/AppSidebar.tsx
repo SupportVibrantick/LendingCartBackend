@@ -27,6 +27,7 @@ import { PiSecurityCameraFill } from "react-icons/pi";
 import { GrDocumentText } from "react-icons/gr";
 import { RiExternalLinkLine } from "react-icons/ri";
 import ContactsOutlinedIcon from "@mui/icons-material/ContactsOutlined";
+import { TrendingUp } from "lucide-react";
 
 type NavItem = {
   name: string;
@@ -90,6 +91,12 @@ const navItems: NavItem[] = [
       { name: "Lender Assigned Products", path: "/lender-assigned-products" },
       { name: "Assigned Products", path: "/assigned-products" },
     ],
+  },
+
+    {
+    icon: <TrendingUp />,
+    name: "Loan Pipeline",
+    path: "/loan-pipeline"
   },
 
   {
