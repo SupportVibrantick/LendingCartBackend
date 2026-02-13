@@ -92,7 +92,7 @@ export default function LoanPipeline() {
 
     // Find Lenders Modal State
     const [currentPage, setCurrentPage] = useState(1);
-    const rowsPerPage = 8;
+    const rowsPerPage = 6;
 
     const InfoCard = ({ label, value }: { label: string; value: any }) => (
         <div className="
@@ -726,7 +726,7 @@ export default function LoanPipeline() {
                                                                                 src={signatureField.value}
                                                                                 alt="Signature"
                                                                                 className="h-28 object-contain"
-                                                                            />
+                                                                            />  
                                                                         </div>
                                                                     </div>
                                                                 )}
