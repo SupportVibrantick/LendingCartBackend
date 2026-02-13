@@ -332,22 +332,25 @@ export default function LoanPipeline() {
             <div className="max-w-7xl mx-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-xl shadow-slate-200/50 dark:shadow-none overflow-hidden">
                 <div className="w-full bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
                     <div className="overflow-x-auto loan-table-top">
-                        <table className="w-full border-separate border-spacing-0">
+                        <table className="min-w-[1100px] w-full border-separate border-spacing-0">
                             <thead>
                                 <tr className="bg-slate-50/50 dark:bg-slate-800/40">
                                     {[
-                                        { label: "Application #", width: "min-w-[180px]" },
+                                        { label: "Application Id", width: "min-w-[180px]" },
                                         { label: "Borrower", width: "w-[220px]" },
-                                        { label: "Loan Type", width: "w-[150px]" },
+                                        { label: "Loan Type", width: "w-[130px]" },
                                         { label: "Amount", width: "w-[160px]" },
                                         { label: "Broker", width: "w-[180px]" },
-                                        { label: "Application Status", width: "w-[160px]" },
+                                        { label: "Application Status", width: "w-[180px]" },
                                         { label: "Received At", width: "w-[180px]" },
                                         { label: "Actions", width: "w-[120px]" },
                                     ].map((h) => (
                                         <th
                                             key={h.label}
-                                            className={`${h.width} px-6 py-4 text-left text-[12px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800`}
+                                            className={`${h.width} px-6 py-4 text-[12px] font-semibold uppercase tracking-wider whitespace-nowrap text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800 ${h.label === "Loan Type" || h.label === "Application Status"
+                                                ? "text-center"
+                                                : "text-left"
+                                                }`}
                                         >
                                             {h.label}
                                         </th>
@@ -387,10 +390,10 @@ export default function LoanPipeline() {
                                             {/* Borrower */}
                                             <td className="px-6 py-4">
                                                 <div className="flex flex-col">
-                                                    <span className="font-semibold text-slate-900 dark:text-slate-100">
+                                                    <span className="font-semibold text-slate-900 dark:text-slate-100 text-sm">
                                                         {row.borrowerName}
                                                     </span>
-                                                    <span className="text-xs text-slate-500">
+                                                    <span className="text-[10px] text-slate-500">
                                                         {row.entityType}
                                                     </span>
                                                 </div>
@@ -412,7 +415,6 @@ export default function LoanPipeline() {
                                                 </span>
                                             </td>
 
-
                                             {/* Broker */}
                                             <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">
                                                 {row.brokerName}
@@ -422,14 +424,15 @@ export default function LoanPipeline() {
                                             <td className="px-6 py-4">
                                                 <span
                                                     className={`
-      px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide
-      ${getApplicationStatusColor(row.applicationStatus)}
-    `}
+                                                    inline-flex items-center whitespace-nowrap
+                                                    px-3 py-1 rounded-full
+                                                    text-xs font-bold uppercase tracking-wide
+                                                    ${getApplicationStatusColor(row.applicationStatus)}
+                                                `}
                                                 >
                                                     {row.applicationStatus?.replace("_", " ") || "-"}
                                                 </span>
                                             </td>
-
 
                                             {/* Sent Date */}
                                             <td className="px-6 py-4 text-sm text-slate-500">
@@ -447,7 +450,6 @@ export default function LoanPipeline() {
                                                     <Eye size={16} />
                                                 </button>
                                             </td>
-
                                         </tr>
                                     ))
                                 ) : (
@@ -459,16 +461,16 @@ export default function LoanPipeline() {
                                                 {/* Icon */}
                                                 <div
                                                     className={`
-          w-14 h-14 
-          rounded-2xl 
-          flex items-center justify-center 
-          mb-5
-          border
-          ${rows.length === 0
+                                                        w-14 h-14 
+                                                        rounded-2xl 
+                                                        flex items-center justify-center 
+                                                        mb-5
+                                                        border
+                                                        ${rows.length === 0
                                                             ? "bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/20"
                                                             : "bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700"
                                                         }
-        `}
+                                                    `}
                                                 >
                                                     {rows.length === 0 ? (
                                                         <span className="text-red-500 dark:text-red-400 text-2xl font-bold">
@@ -492,11 +494,9 @@ export default function LoanPipeline() {
                                                         ? "Once applications are submitted, they will appear here."
                                                         : "Try adjusting your search terms and try again."}
                                                 </p>
-
                                             </div>
                                         </td>
                                     </tr>
-
                                 )}
                             </tbody>
                         </table>
@@ -523,13 +523,12 @@ export default function LoanPipeline() {
 
                                 {/* Controls */}
                                 <div className="flex items-center gap-2">
-
                                     {/* Previous */}
                                     <button
                                         disabled={currentPage === 1}
                                         onClick={() => setCurrentPage((p) => p - 1)}
                                         className="p-2 rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-40 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
-                                    >
+                                    > 
                                         <ChevronLeft size={16} />
                                     </button>
 
@@ -539,11 +538,11 @@ export default function LoanPipeline() {
                                             key={page}
                                             onClick={() => setCurrentPage(page)}
                                             className={`px-3 py-1 text-sm rounded-lg transition
-                        ${currentPage === page
+                                            ${currentPage === page
                                                     ? "bg-blue-600 text-white"
                                                     : "border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800"
                                                 }
-                    `}
+                                    `}
                                         >
                                             {page}
                                         </button>
@@ -566,24 +565,23 @@ export default function LoanPipeline() {
                             createPortal(
                                 <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/40 dark:bg-black/70 backdrop-blur-sm p-4 transition-colors duration-300">
                                     <div className="
-    bg-white 
-    dark:bg-[#0f172a] 
-    text-slate-900 
-    dark:text-slate-100
-    w-full max-w-5xl max-h-[90vh] overflow-y-auto 
-    rounded-2xl shadow-2xl 
-    border border-slate-200 dark:border-slate-800
-    transition-colors duration-300
-">
-
+                                        bg-white 
+                                        dark:bg-[#0f172a] 
+                                        text-slate-900 
+                                        dark:text-slate-100
+                                        w-full max-w-5xl max-h-[90vh] overflow-y-auto 
+                                        rounded-2xl shadow-2xl 
+                                        border border-slate-200 dark:border-slate-800
+                                        transition-colors duration-300
+                                    ">
                                         {/* HEADER */}
                                         <div className="
-    sticky top-0 z-10 
-    bg-white/95 dark:bg-[#0f172a]/95 
-    backdrop-blur-md
-    flex items-center justify-between px-6 py-4 
-    border-b border-slate-200 dark:border-slate-800
-">
+                                                sticky top-0 z-10 
+                                                bg-white/95 dark:bg-[#0f172a]/95 
+                                                backdrop-blur-md
+                                                flex items-center justify-between px-6 py-4 
+                                                border-b border-slate-200 dark:border-slate-800
+                                            ">
                                             <h2 className="text-lg font-bold">
                                                 Application Details
                                             </h2>
@@ -607,7 +605,7 @@ export default function LoanPipeline() {
 
                                                 {/* BASIC INFO */}
                                                 <div className="grid md:grid-cols-3 gap-6">
-                                                    <InfoCard label="Application #" value={submissionDetail.loanApplication?.applicationNumber} />
+                                                    <InfoCard label="Application Id" value={submissionDetail.loanApplication?.applicationNumber} />
                                                     <InfoCard label="Status" value={submissionDetail.status} />
                                                     <InfoCard label="Loan Product" value={submissionDetail.loanApplication?.loanProductCode} />
                                                     <InfoCard label="Borrower" value={submissionDetail.loanApplication?.client?.legalName} />
@@ -664,11 +662,11 @@ export default function LoanPipeline() {
                                                                         </p>
 
                                                                         <div className="
-    bg-white dark:bg-slate-800
-    p-4 rounded-xl 
-    border border-slate-200 dark:border-slate-700
-    shadow-sm
-">
+                                                                                bg-white dark:bg-slate-800
+                                                                                p-4 rounded-xl 
+                                                                                border border-slate-200 dark:border-slate-700
+                                                                                shadow-sm
+                                                                            ">
                                                                             <img
                                                                                 src={signatureField.value}
                                                                                 alt="Signature"
@@ -687,13 +685,8 @@ export default function LoanPipeline() {
                                 </div>,
                                 document.body
                             )}
-
                     </div>
-
                 </div>
-
-
-
             </div>
         </div>
     );
