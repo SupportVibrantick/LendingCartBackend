@@ -52,9 +52,7 @@ async function getAdminApplicationDetails(fastify) {
           fields.find((f) => f.fieldKey === key)?.value;
 
         // Prefer dynamic value first
-        amountRequested =
-          Number(getField("loan_amount_requested")) ||
-          Number(getField("amountRequested")) ||
+        amountRequested = Number(getField("amountRequested")) ||
           null;
 
         minTermMonths = Number(getField("minTermMonths")) || null;
