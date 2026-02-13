@@ -69,9 +69,7 @@ async function listAllApplications(fastify) {
             const getField = (key) =>
               fields.find((f) => f.fieldKey === key)?.value;
 
-            amountRequested =
-              Number(getField("loan_amount_requested")) ||
-              Number(getField("amountRequested")) ||
+            amountRequested = Number(getField("amountRequested")) ||
               null;
           }
 
