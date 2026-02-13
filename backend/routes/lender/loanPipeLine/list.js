@@ -42,14 +42,7 @@ async function listSubmittedApplications(fastify) {
           },
           include: {
             loanApplication: {
-              select: {
-                id: true,
-                applicationNumber: true,
-                loanProductCode: true,
-                amountRequested: true,
-                termMonthsRequested: true,
-                status: true,
-                createdAt: true,
+              include: {
                 client: {
                   select: {
                     id: true,
@@ -63,6 +56,12 @@ async function listSubmittedApplications(fastify) {
                     name: true,
                   },
                 },
+                submissions: {
+                  take: 1, // only first submission
+                  include: {
+                    fields: true,
+                  },
+                },
               },
             },
           },
@@ -71,27 +70,50 @@ async function listSubmittedApplications(fastify) {
         // ----------------------------------
         // 3️⃣ FORMAT RESPONSE
         // ----------------------------------
-        const formatted = applications.map((item) => ({
-          applicationLenderId: item.id,
-          lenderStatus: item.status,
-          sentAt: item.sentAt,
+        const formatted = applications.map((item) => {
+          const app = item.loanApplication;
 
-          applicationId: item.loanApplication.id,
-          applicationNumber:
-            item.loanApplication.applicationNumber,
-          loanProductCode:
-            item.loanApplication.loanProductCode,
-          amountRequested:
-            item.loanApplication.amountRequested,
-          termMonthsRequested:
-            item.loanApplication.termMonthsRequested,
-          applicationStatus:
-            item.loanApplication.status,
-          createdAt: item.loanApplication.createdAt,
+          let amountRequested = null;
+          let termMonthsRequested = null;
 
-          client: item.loanApplication.client,
-          broker: item.loanApplication.brokerOrg,
-        }));
+          if (app.submissions?.length) {
+            const fields = app.submissions[0].fields || [];
+
+            const getField = (key) =>
+              fields.find((f) => f.fieldKey === key)?.value;
+
+            amountRequested = Number(getField("amountRequested")) || null;
+
+            const minTerm = Number(getField("minTermMonths"));
+            const maxTerm = Number(getField("maxTermMonths"));
+            const termYears = Number(getField("requested_term_years"));
+
+            if (maxTerm) {
+              termMonthsRequested = maxTerm;
+            } else if (termYears) {
+              termMonthsRequested = termYears * 12;
+            } else if (minTerm) {
+              termMonthsRequested = minTerm;
+            }
+          }
+
+          return {
+            applicationLenderId: item.id,
+            lenderStatus: item.status,
+            sentAt: item.sentAt,
+
+            applicationId: app.id,
+            applicationNumber: app.applicationNumber,
+            loanProductCode: app.loanProductCode,
+            amountRequested,
+            termMonthsRequested,
+            applicationStatus: app.status,
+            createdAt: app.createdAt,
+
+            client: app.client,
+            broker: app.brokerOrg,
+          };
+        });
 
         return reply.send({
           success: true,
@@ -106,7 +128,7 @@ async function listSubmittedApplications(fastify) {
           message: "Server error while fetching applications",
         });
       }
-    }
+    },
   );
 }
 
