@@ -501,7 +501,7 @@ export default function LoanApplicationsPage() {
                   {[
                     { label: "Borrower", width: "w-[280px]" },
                     { label: "Loan Info", width: "w-[150px]" },
-                    { label: "Location", width: "w-[180px]" },
+                    { label: "Location", width: "w-[190px]" },
                     { label: "Amount", width: "w-[140px]" },
                     { label: "Status", width: "w-[130px]" },
                     { label: "Lenders", width: "w-[140px]" },
@@ -565,12 +565,30 @@ export default function LoanApplicationsPage() {
                       </td>
 
                       {/* Location */}
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400">
-                          <MapPin className="w-4 h-4 text-slate-400" />
-                          <span className="text-[12px] leading-none">
-                            {row.cityState.toUpperCase() || "GLOBAL"}
-                          </span>
+                      <td className="px-6 py-4 min-w-[200px]">
+                        <div className="flex items-start gap-3">
+
+                          {/* Fixed Icon Wrapper */}
+                          <div className="w-5 h-5 flex items-center justify-center shrink-0 mt-[2px]">
+                            <MapPin
+                              className="w-3 h-3 text-slate-500 dark:text-slate-400"
+                              strokeWidth={2.5}
+                            />
+                          </div>
+
+                          {/* Location Text */}
+                          <div className="leading-tight">
+                            <div className="text-[13px] font-medium text-slate-700 dark:text-slate-300">
+                              {row.cityState || "Global"}
+                            </div>
+
+                            {row.country && (
+                              <div className="text-[11px] text-slate-400 uppercase tracking-wide">
+                                {row.country}
+                              </div>
+                            )}
+                          </div>
+
                         </div>
                       </td>
 

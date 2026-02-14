@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { MdModeEdit } from "react-icons/md";
+import { FiAlertCircle } from "react-icons/fi";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001";
 
@@ -254,8 +255,8 @@ const AllDocuments = () => {
               {saving
                 ? "Saving..."
                 : editingId
-                ? "Save Changes"
-                : "Create Document"}
+                  ? "Save Changes"
+                  : "Create Document"}
             </button>
           </form>
         </div>
@@ -275,8 +276,32 @@ const AllDocuments = () => {
             <tbody>
               {loadingList ? (
                 <tr>
-                  <td colSpan={5} className="py-6 text-center text-slate-500 dark:text-slate-400">
+                  <td colSpan={5} className="py-10 text-center text-slate-500 dark:text-slate-400">
                     Loading...
+                  </td>
+                </tr>
+              ) : documents.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="py-16 text-center">
+                    <div className="flex flex-col items-center justify-center">
+
+                      {/* Icon Circle */}
+                      <div className="w-16 h-16 rounded-full bg-red-100 dark:bg-red-500/10 flex items-center justify-center mb-4 border border-red-200 dark:border-red-500/20">
+                        <FiAlertCircle className="text-red-500 dark:text-red-400 text-3xl" />
+                      </div>
+
+                      {/* Title */}
+                      <h3 className="text-lg font-semibold text-red-600 dark:text-red-400">
+                        No Documents Found
+                      </h3>
+
+                      {/* Subtitle */}
+                      <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 max-w-sm">
+                        There are currently no document types available.
+                        Please create a new document to get started.
+                      </p>
+
+                    </div>
                   </td>
                 </tr>
               ) : (
@@ -298,8 +323,8 @@ const AllDocuments = () => {
                         {togglingId === p.id
                           ? "Updating..."
                           : p.isActive
-                          ? "ACTIVE"
-                          : "INACTIVE"}
+                            ? "ACTIVE"
+                            : "INACTIVE"}
                       </button>
                     </td>
                     <td className="py-3">{formatDate(p.createdAt)}</td>

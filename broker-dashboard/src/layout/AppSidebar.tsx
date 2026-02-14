@@ -22,7 +22,9 @@ import { useSidebar } from "../context/SidebarContext";
 import { MdWeb } from "react-icons/md";
 import { FaAppStore } from "react-icons/fa6";
 import { MdOutlineDocumentScanner } from "react-icons/md";
-import { FaUsersBetweenLines } from "react-icons/fa6";
+import { FaUsersBetweenLines, FaUserGroup } from "react-icons/fa6";
+import { PiSecurityCameraFill } from "react-icons/pi";
+
 // import AccountBalanceOutlinedIcon from '@mui/icons-material/AccountBalanceOutlined';
 // import AdminPanelSettingsOutlinedIcon from '@mui/icons-material/AdminPanelSettingsOutlined';
 // import CurrencyExchangeOutlinedIcon from '@mui/icons-material/CurrencyExchangeOutlined';
@@ -74,10 +76,22 @@ const navItems: NavItem[] = [
   },
 
   {
+    icon: <FaUserGroup />,
+    name: "User Management",
+    subItems: [{ name: "Loan Officer", path: "/loan-officer" }]
+  },
+
+  {
     icon: <FaUsersBetweenLines />,
     name: "Lender Interactions",
     subItems: [{ name: "My Lenders", path: "/my-lenders" }, { name: "Invited Lenders", path: "/invited-lenders" }, { name: "Find Lenders", path: "/find-lenders" },]
   },
+
+    {
+      icon: <PiSecurityCameraFill />,
+      name: "Dashboard Logs",
+      path: "/admin-logs",
+    },
 
   // {
   //   icon: <AccountBalanceOutlinedIcon />,
@@ -363,31 +377,30 @@ const AppSidebar: React.FC = () => {
       onMouseLeave={() => setIsHovered(false)}
     >
       <div
-  className={`py-8 flex ${
-    !isExpanded && !isHovered ? "lg:justify-center" : "justify-start"
-  }`}
->
-  <Link to="/">
-    {isExpanded || isHovered || isMobileOpen ? (
-      <div className="bg-white px-3 py-2 rounded">
-        <img
-          src="/ACOM_LOGO.png"
-          alt="Logo"
-          width={217}
-          height={53}
-          className="object-contain"
-        />
+        className={`py-8 flex ${!isExpanded && !isHovered ? "lg:justify-center" : "justify-start"
+          }`}
+      >
+        <Link to="/">
+          {isExpanded || isHovered || isMobileOpen ? (
+            <div className="bg-white px-3 py-2 rounded">
+              <img
+                src="/ACOM_LOGO.png"
+                alt="Logo"
+                width={217}
+                height={53}
+                className="object-contain"
+              />
+            </div>
+          ) : (
+            <img
+              src="/images/logo/logo-icon.svg"
+              alt="Logo"
+              width={32}
+              height={32}
+            />
+          )}
+        </Link>
       </div>
-    ) : (
-      <img
-        src="/images/logo/logo-icon.svg"
-        alt="Logo"
-        width={32}
-        height={32}
-      />
-    )}
-  </Link>
-</div>
       <div className="flex flex-col overflow-y-auto duration-300 ease-linear no-scrollbar">
         <nav className="mb-6">
           <div className="flex flex-col gap-4">

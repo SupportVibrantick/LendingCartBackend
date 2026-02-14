@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { createPortal } from "react-dom";
+import { Eye } from "lucide-react";
 
 /* ================= API ================= */
 const api = axios.create({
@@ -208,11 +209,14 @@ const AssignedProducts: React.FC = () => {
                           setViewId(a.id);
                           fetchAssignmentDetail(a.id);
                         }}
-                        className="text-blue-600 hover:text-blue-800
-                                   dark:text-blue-400 dark:hover:text-blue-300"
+                        className="group p-2 rounded-lg 
+               bg-blue-50 hover:bg-blue-100 
+               dark:bg-blue-500/10 dark:hover:bg-blue-500/20
+               transition-all duration-200"
                         title="View details"
                       >
-                        👁️
+                        <Eye className="w-4 h-4 text-blue-600 dark:text-blue-400 
+                    group-hover:scale-110 transition-transform" />
                       </button>
                     </td>
                   </tr>
