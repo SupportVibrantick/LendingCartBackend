@@ -1,4 +1,4 @@
-// backend/routes/broker/users/delete.js
+const { logAudit } = require("../../../services/logger/auditLogger");
 
 module.exports = async function deleteBrokerUser(fastify) {
   fastify.delete(
@@ -79,33 +79,43 @@ module.exports = async function deleteBrokerUser(fastify) {
            3️⃣ PERMANENT DELETE (TRANSACTION)
         ================================= */
 
-        await prisma.$transaction([
-          prisma.userRole.deleteMany({
-            where: { userId: id },
-          }),
-          prisma.userAccount.delete({
-            where: { id },
-          }),
-        ]);
+       await prisma.$transaction([
+  prisma.userRole.deleteMany({
+    where: { userId: id },
+  }),
+  prisma.brokerUserProfile.deleteMany({
+    where: { userId: id },
+  }),
+  prisma.userAccount.delete({
+    where: { id },
+  }),
+]);
 
         /* ================================
-           4️⃣ AUDIT LOG
+           4️⃣ AUDIT LOG (Central Logger)
         ================================= */
 
-        await prisma.auditLog.create({
-          data: {
-            actorUserId: req.user.id,
-            actorOrgId: brokerOrgId,
-            entityType: "UserAccount",
-            entityId: id,
-            action: "PERMANENT_DELETE_USER",
-          },
+        await logAudit({
+          prisma,
+          req,
+          dashboard: "BROKER",
+          category: "USER_MANAGEMENT",
+          entityType: "UserAccount",
+          entityId: id,
+          action: "PERMANENT_DELETE_USER",
+          oldValue: {
+            email: user.email,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            roles: user.roles.map(r => r.role.name)
+          }
         });
 
         return reply.send({
           success: true,
           message: "User permanently deleted",
         });
+
       } catch (error) {
         fastify.log.error(
           { error: error.message, userId: id },

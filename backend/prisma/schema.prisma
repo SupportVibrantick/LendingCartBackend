@@ -844,21 +844,46 @@ model Notification {
   @@map("notifications")
 }
 
+enum DashboardType {
+  BROKER
+  LENDER
+  PLATFORM
+}
+
+enum LogCategory {
+  SECURITY
+  USER_MANAGEMENT
+  APPLICATION
+  REVIEW
+  SYSTEM
+}
+
 model AuditLog {
   id           String        @id @default(uuid()) @db.Uuid
   actorUserId  String?       @db.Uuid
   actorOrgId   String?       @db.Uuid
+
+  dashboard    DashboardType
+  category     LogCategory
+
   entityType   String
   entityId     String
   action       String
+
   oldValueJson String?
   newValueJson String?
+
+  ipAddress    String?
+  userAgent    String?
+
   createdAt    DateTime      @default(now()) @db.Timestamptz(6)
+
   actorOrg     Organization? @relation("OrgAuditLogs", fields: [actorOrgId], references: [id])
   actorUser    UserAccount?  @relation("UserAuditLogs", fields: [actorUserId], references: [id])
 
-  @@index([actorUserId])
   @@index([actorOrgId])
+  @@index([dashboard])
+  @@index([createdAt])
   @@map("audit_logs")
 }
 

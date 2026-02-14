@@ -1,6 +1,8 @@
-// backend/routes/broker/users/create.js
-
 const bcrypt = require("bcrypt");
+const path = require("path");
+const fs = require("fs");
+const { pipeline } = require("stream/promises");
+const { logAudit } = require("../../../services/logger/auditLogger");
 
 module.exports = async function createBrokerUser(fastify) {
   fastify.post(
@@ -9,52 +11,14 @@ module.exports = async function createBrokerUser(fastify) {
       schema: {
         tags: ["Broker -> Users"],
         summary: "Create Loan Officer with full profile",
-        body: {
-          type: "object",
-          required: [
-            "email",
-            "confirmEmail",
-            "password",
-            "confirmPassword",
-            "firstName",
-            "lastName"
-          ],
-          properties: {
-            email: { type: "string", format: "email" },
-            confirmEmail: { type: "string", format: "email" },
-            password: { type: "string", minLength: 8 },
-            confirmPassword: { type: "string", minLength: 8 },
-            firstName: { type: "string" },
-            lastName: { type: "string" },
-            phone: { type: "string" },
-            allowedToLogin: { type: "boolean" },
-
-            // Profile fields
-            company: { type: "string" },
-            tollFree: { type: "string" },
-            tollFreeExt: { type: "string" },
-            serviceProvider: { type: "string" },
-            address: { type: "string" },
-            suite: { type: "string" },
-            city: { type: "string" },
-            state: { type: "string" },
-            zipCode: { type: "string" },
-            agentType: { type: "string" },
-            licenseNumber: { type: "string" },
-            preferredComm: { type: "string" },
-            website: { type: "string" },
-            avatarUrl: { type: "string" }
-          }
-        }
+        consumes: ["multipart/form-data"]
       }
     },
     async (req, reply) => {
       const prisma = fastify.prisma;
 
       try {
-        /* =====================================================
-           1️⃣ AUTHORIZATION
-        ===================================================== */
+        /* ================= AUTHORIZATION ================= */
 
         if (!req.user || req.user.orgType !== "BROKER") {
           return reply.code(403).send({
@@ -72,9 +36,50 @@ module.exports = async function createBrokerUser(fastify) {
 
         const brokerOrgId = req.user.organizationId;
 
-        /* =====================================================
-           2️⃣ VALIDATION
-        ===================================================== */
+        /* ================= MULTIPART PARSE ================= */
+
+        const parts = req.parts();
+        const fields = {};
+        let avatarPath = null;
+
+        for await (const part of parts) {
+          if (part.type === "file") {
+            if (part.fieldname === "avatar") {
+              const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+
+              if (!allowedTypes.includes(part.mimetype)) {
+                return reply.code(400).send({
+                  success: false,
+                  message: "Invalid image type. Only jpg, png, webp allowed."
+                });
+              }
+
+              const uploadDir = path.join(
+                process.cwd(),
+                "public/broker/loanofficer"
+              );
+
+              if (!fs.existsSync(uploadDir)) {
+                fs.mkdirSync(uploadDir, { recursive: true });
+              }
+
+              const fileName =
+                Date.now() +
+                "-" +
+                part.filename.replace(/\s+/g, "_");
+
+              const filePath = path.join(uploadDir, fileName);
+
+              await pipeline(part.file, fs.createWriteStream(filePath));
+
+              avatarPath = `/public/broker/loanofficer/${fileName}`;
+            }
+          } else {
+            fields[part.fieldname] = part.value;
+          }
+        }
+
+        /* ================= VALIDATION ================= */
 
         const {
           email,
@@ -84,7 +89,7 @@ module.exports = async function createBrokerUser(fastify) {
           firstName,
           lastName,
           phone,
-          allowedToLogin = true,
+          allowedToLogin,
           company,
           tollFree,
           tollFreeExt,
@@ -97,9 +102,15 @@ module.exports = async function createBrokerUser(fastify) {
           agentType,
           licenseNumber,
           preferredComm,
-          website,
-          avatarUrl
-        } = req.body;
+          website
+        } = fields;
+
+        if (!email || !confirmEmail || !password || !confirmPassword || !firstName || !lastName) {
+          return reply.code(400).send({
+            success: false,
+            message: "Required fields missing"
+          });
+        }
 
         if (email !== confirmEmail) {
           return reply.code(400).send({
@@ -126,30 +137,24 @@ module.exports = async function createBrokerUser(fastify) {
           });
         }
 
-        /* =====================================================
-           3️⃣ HASH PASSWORD
-        ===================================================== */
+        /* ================= HASH PASSWORD ================= */
 
         const passwordHash = await bcrypt.hash(password, 10);
 
-        /* =====================================================
-           4️⃣ FETCH ROLE
-        ===================================================== */
+        /* ================= FETCH ROLE ================= */
 
         const roleRecord = await prisma.role.findFirst({
           where: { name: "BROKER_OFFICER" }
         });
 
         if (!roleRecord) {
-          return reply.code(400).send({
+          return reply.code(500).send({
             success: false,
             message: "Role configuration error"
           });
         }
 
-        /* =====================================================
-           5️⃣ TRANSACTION CREATE USER + PROFILE
-        ===================================================== */
+        /* ================= TRANSACTION ================= */
 
         const newUser = await prisma.$transaction(async (tx) => {
           const user = await tx.userAccount.create({
@@ -160,7 +165,7 @@ module.exports = async function createBrokerUser(fastify) {
               lastName,
               phone,
               organizationId: brokerOrgId,
-              status: allowedToLogin ? "ACTIVE" : "DISABLED"
+              status: allowedToLogin === "false" ? "DISABLED" : "ACTIVE"
             }
           });
 
@@ -187,35 +192,31 @@ module.exports = async function createBrokerUser(fastify) {
               licenseNumber,
               preferredComm,
               website,
-              avatarUrl
+              avatarUrl: avatarPath
             }
           });
 
           return user;
         });
 
-        /* =====================================================
-           6️⃣ AUDIT LOG
-        ===================================================== */
+        /* ================= AUDIT LOG ================= */
 
-        await prisma.auditLog.create({
-          data: {
-            actorUserId: req.user.id,
-            actorOrgId: brokerOrgId,
-            entityType: "UserAccount",
-            entityId: newUser.id,
-            action: "CREATE_BROKER_OFFICER",
-            newValueJson: JSON.stringify({
-              email,
-              firstName,
-              lastName
-            })
+        await logAudit({
+          prisma,
+          req,
+          dashboard: "BROKER",
+          category: "USER_MANAGEMENT",
+          entityType: "UserAccount",
+          entityId: newUser.id,
+          action: "CREATE_BROKER_OFFICER",
+          newValue: {
+            email,
+            firstName,
+            lastName
           }
         });
 
-        /* =====================================================
-           7️⃣ SUCCESS RESPONSE
-        ===================================================== */
+        /* ================= SUCCESS ================= */
 
         return reply.code(201).send({
           success: true,
@@ -230,7 +231,10 @@ module.exports = async function createBrokerUser(fastify) {
         });
 
       } catch (error) {
-        fastify.log.error(error);
+        fastify.log.error({
+          error: error.message,
+          stack: error.stack
+        });
 
         return reply.code(500).send({
           success: false,
