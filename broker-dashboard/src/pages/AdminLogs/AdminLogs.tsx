@@ -1,37 +1,24 @@
 // src/admin/Pages/AdminLogs.tsx
 import React, { useEffect, useMemo, useState } from "react";
 
-type ActorUser = {
+type BrokerLog = {
   id: string;
-  email: string;
-  firstName?: string;
-  lastName?: string;
-};
-
-type ActorOrg = {
-  id: string;
-  name: string;
-};
-
-type AdminLog = {
-  id: string;
-  actorUserId: string;
-  actorOrgId: string;
+  category: string;
+  action: string;
   entityType: string;
   entityId: string;
-  action: string;
-  oldValueJson?: string | null;
-  newValueJson?: string | null;
-  createdAt?: string;
-  actorUser?: ActorUser | null;
-  actorOrg?: ActorOrg | null;
+  performedBy: string | null;
+  ipAddress: string;
+  createdAt: string;
+  oldValue?: any;
+  newValue?: any;
 };
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001";
 
 function getAuthHeaders(): Record<string, string> {
   try {
-    const token = sessionStorage.getItem("admin_token");
+    const token = sessionStorage.getItem("broker_token");
     if (token) {
       return {
         "Content-Type": "application/json",
@@ -56,19 +43,6 @@ function actionClass(action: string) {
   return "bg-gray-100 text-gray-800 border-gray-200 dark:bg-slate-600/30 dark:text-slate-100 dark:border-slate-500";
 }
 
-function safePretty(jsonStr?: string | null): string {
-  if (!jsonStr) return "-";
-  try {
-    const obj = JSON.parse(jsonStr);
-    if (!obj || typeof obj !== "object") return jsonStr;
-    return Object.entries(obj)
-      .map(([k, v]) => `${k}: ${String(v)}`)
-      .join(", ");
-  } catch {
-    return jsonStr;
-  }
-}
-
 function formatDateTime(value?: string) {
   if (!value) return "-";
   const d = new Date(value);
@@ -77,7 +51,7 @@ function formatDateTime(value?: string) {
 }
 
 const AdminLogs: React.FC = () => {
-  const [logs, setLogs] = useState<AdminLog[]>([]);
+  const [logs, setLogs] = useState<BrokerLog[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -93,7 +67,7 @@ const AdminLogs: React.FC = () => {
     setError(null);
     try {
       const res = await fetch(
-        `${API_BASE}/admin/logs/?page=${page}&limit=${limit}`,
+        `${API_BASE}/broker/logs?page=${page}&limit=${limit}`,
         {
           method: "GET",
           headers: getAuthHeaders(),
@@ -105,13 +79,10 @@ const AdminLogs: React.FC = () => {
       }
 
       const json = await res.json();
-      const list: AdminLog[] = json.data || json.logs || [];
+
+      const list: BrokerLog[] = json.data || [];
       setLogs(list);
-      if (typeof json.total === "number") {
-        setServerTotal(json.total);
-      } else {
-        setServerTotal(list.length);
-      }
+      setServerTotal(json.total || list.length);
     } catch (err: any) {
       console.error("fetchLogs error:", err);
       setError(err?.message || "Failed to load logs");
@@ -120,6 +91,7 @@ const AdminLogs: React.FC = () => {
       setLoading(false);
     }
   }
+
 
   useEffect(() => {
     fetchLogs(currentPage, pageSize);
@@ -134,21 +106,24 @@ const AdminLogs: React.FC = () => {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return logs;
+
     return logs.filter((log) => {
-      const actorName = `${log.actorUser?.firstName || ""} ${
-        log.actorUser?.lastName || ""
-      }`.trim();
       return (
         log.action.toLowerCase().includes(q) ||
+        log.category.toLowerCase().includes(q) ||
         log.entityType.toLowerCase().includes(q) ||
-        (log.actorUser?.email || "").toLowerCase().includes(q) ||
-        actorName.toLowerCase().includes(q) ||
-        (log.actorOrg?.name || "").toLowerCase().includes(q) ||
-        (log.oldValueJson || "").toLowerCase().includes(q) ||
-        (log.newValueJson || "").toLowerCase().includes(q)
+        log.entityId.toLowerCase().includes(q) ||
+        (log.ipAddress || "").toLowerCase().includes(q) ||
+        JSON.stringify(log.oldValue || {})
+          .toLowerCase()
+          .includes(q) ||
+        JSON.stringify(log.newValue || {})
+          .toLowerCase()
+          .includes(q)
       );
     });
   }, [logs, query]);
+
 
   const totalOnPage = filtered.length;
   const totalOverall = serverTotal ?? totalOnPage;
@@ -169,10 +144,11 @@ const AdminLogs: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
-            Admin Activity Logs
+            Broker Activity Logs
           </h1>
+
           <p className="text-sm text-gray-500 mt-1 dark:text-slate-400">
-            View audit logs for admin actions across brokers and lenders.
+            View audit logs for broker actions and system events.
           </p>
         </div>
 
@@ -224,82 +200,62 @@ const AdminLogs: React.FC = () => {
               <table className="min-w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-100 text-xs text-gray-500 uppercase tracking-wide dark:border-slate-700 dark:text-slate-400">
-                    <th className="py-2 pr-4 text-left">Time</th>
-                    <th className="py-2 pr-4 text-left">Action</th>
-                    <th className="py-2 pr-4 text-left">Entity</th>
-                    <th className="py-2 pr-4 text-left">Old Value</th>
-                    <th className="py-2 pr-4 text-left">New Value</th>
-                    <th className="py-2 pr-4 text-left">Actor</th>
-                    <th className="py-2 pr-4 text-left">Actor Org</th>
+                    <th>Time</th>
+                    <th>Category</th>
+                    <th>Action</th>
+                    <th>Entity</th>
+                    <th>Old Value</th>
+                    <th>New Value</th>
+                    <th>IP Address</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((log) => {
-                    const actorName = `${log.actorUser?.firstName || ""} ${
-                      log.actorUser?.lastName || ""
-                    }`.trim();
-                    return (
-                      <tr
-                        key={log.id}
-                        className="border-b border-gray-100 last:border-0 hover:bg-gray-50/40 dark:border-slate-800 dark:hover:bg-slate-800/60"
-                      >
-                        <td className="py-3 pr-4 text-gray-600 whitespace-nowrap dark:text-slate-300">
-                          {formatDateTime(log.createdAt)}
-                        </td>
+                  {filtered.map((log) => (
+                    <tr key={log.id} className="border-b">
+                      <td>{formatDateTime(log.createdAt)}</td>
 
-                        <td className="py-3 pr-4 whitespace-nowrap">
-                          <span
-                            className={`inline-flex items-center px-3 py-1 rounded-full border text-xs font-medium ${actionClass(
-                              log.action
-                            )}`}
-                          >
-                            {log.action}
+                      <td>
+                        <span className="text-xs font-medium text-indigo-600">
+                          {log.category}
+                        </span>
+                      </td>
+
+                      <td>
+                        <span className={`inline-flex px-3 py-1 rounded-full text-xs font-medium border ${actionClass(log.action)}`}>
+                          {log.action}
+                        </span>
+                      </td>
+
+                      <td>
+                        <div className="flex flex-col text-xs">
+                          <span className="font-medium">{log.entityType}</span>
+                          <span className="text-gray-500 truncate max-w-xs">
+                            {log.entityId}
                           </span>
-                        </td>
+                        </div>
+                      </td>
 
-                        <td className="py-3 pr-4 text-gray-600 whitespace-nowrap dark:text-slate-300">
-                          <div className="flex flex-col text-xs">
-                            <span className="font-medium text-gray-800 dark:text-slate-100">
-                              {log.entityType}
-                            </span>
-                            <span className="text-[11px] text-gray-500 dark:text-slate-400 truncate max-w-xs">
-                              {log.entityId}
-                            </span>
-                          </div>
-                        </td>
+                      <td className="text-xs max-w-xs break-words">
+                        {log.oldValue
+                          ? Object.entries(log.oldValue)
+                            .map(([k, v]) => `${k}: ${String(v)}`)
+                            .join(", ")
+                          : "-"}
+                      </td>
 
-                        <td className="py-3 pr-4 text-gray-600 align-top text-xs max-w-xs break-words dark:text-slate-300">
-                          {safePretty(log.oldValueJson)}
-                        </td>
+                      <td className="text-xs max-w-xs break-words">
+                        {log.newValue
+                          ? Object.entries(log.newValue)
+                            .map(([k, v]) => `${k}: ${String(v)}`)
+                            .join(", ")
+                          : "-"}
+                      </td>
 
-                        <td className="py-3 pr-4 text-gray-600 align-top text-xs max-w-xs break-words dark:text-slate-300">
-                          {safePretty(log.newValueJson)}
-                        </td>
-
-                        <td className="py-3 pr-4 text-gray-600 text-xs dark:text-slate-300">
-                          <div className="flex flex-col">
-                            <span className="font-medium text-gray-800 dark:text-slate-100">
-                              {actorName || "Admin User"}
-                            </span>
-                            <span className="text-[11px] text-gray-500 dark:text-slate-400">
-                              {log.actorUser?.email || "-"}
-                            </span>
-                          </div>
-                        </td>
-
-                        <td className="py-3 pr-4 text-gray-600 text-xs dark:text-slate-300">
-                          <div className="flex flex-col">
-                            <span className="font-medium text-gray-800 dark:text-slate-100">
-                              {log.actorOrg?.name || "-"}
-                            </span>
-                            <span className="text-[11px] text-gray-500 dark:text-slate-400">
-                              {log.actorOrg?.id || ""}
-                            </span>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                      <td className="text-xs text-gray-500">
+                        {log.ipAddress}
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
@@ -345,11 +301,10 @@ const AdminLogs: React.FC = () => {
                         <button
                           key={page}
                           onClick={() => gotoPage(page)}
-                          className={`px-3 py-1 rounded-md ${
-                            page === currentPage
-                              ? "bg-blue-600 text-white"
-                              : "border border-gray-300 bg-white text-gray-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                          }`}
+                          className={`px-3 py-1 rounded-md ${page === currentPage
+                            ? "bg-blue-600 text-white"
+                            : "border border-gray-300 bg-white text-gray-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                            }`}
                         >
                           {page}
                         </button>

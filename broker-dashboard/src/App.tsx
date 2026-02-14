@@ -44,6 +44,7 @@ import MyLenders from "./pages/LenderInteraction/MyLenders";
 import Templates from "./pages/ApplicationBuilder/Templates";
 import AddSection from "./pages/ApplicationBuilder/AddSection";
 import SubmitApplications from "./pages/submitedApplications/SubmitApplication";
+import LoanOfficer from "./pages/UserManagement/LoanOfficer";
 
 export default function App() {
   return (
@@ -173,6 +174,8 @@ export default function App() {
             <Route index path="/all-documents" element={<AllDocuments />} />
 
             <Route index path="/admin-logs" element={<AdminLogs />} />
+
+            <Route index path="/loan-officer" element={<LoanOfficer />} />
 
             {/* Others Page */}
             <Route path="/profile" element={<UserProfiles />} />

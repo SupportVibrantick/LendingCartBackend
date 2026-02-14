@@ -10,6 +10,7 @@ import {
     ChevronLeft,
     ChevronRight,
     CheckCircle,
+    Building2,
 } from "lucide-react";
 
 /* ================= TYPES ================= */
@@ -87,11 +88,11 @@ export default function LoanPipeline() {
     const [viewSubmissionId, setViewSubmissionId] = useState<string | null>(null);
     const [submissionDetail, setSubmissionDetail] = useState<any>(null);
     const [detailLoading, setDetailLoading] = useState(false);
-    // const [selectedLenders, setSelectedLenders] = useState<LenderItem[] | null>(null);
+    const [viewLenders, setViewLenders] = useState<LenderItem[] | null>(null);
 
     // Find Lenders Modal State
     const [currentPage, setCurrentPage] = useState(1);
-    const rowsPerPage = 8;
+    const rowsPerPage = 6;
 
     const InfoCard = ({ label, value }: { label: string; value: any }) => (
         <div className="
@@ -242,7 +243,7 @@ export default function LoanPipeline() {
     // }, [currentPage]);
 
     return (
-        <div className="min-h-screen bg-slate-50 dark:bg-[#0b1120] p-4 md:p-10 text-slate-900 dark:text-slate-100 selection:bg-blue-100 dark:selection:bg-blue-900/30">
+        <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-[#0b1120] p-4 md:p-10 text-slate-900 dark:text-slate-100 selection:bg-blue-100 dark:selection:bg-blue-900/30">
             {/* Header Area */}
             <header className="max-w-7xl mx-auto mb-10">
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
@@ -346,24 +347,29 @@ export default function LoanPipeline() {
             {/* Main Table Container */}
             <div className="max-w-7xl mx-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-xl shadow-slate-200/50 dark:shadow-none overflow-hidden">
                 <div className="w-full bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-                    <div className="overflow-x-auto loan-table-top">
-                        <table className="w-full border-separate border-spacing-0">
+                    <div className="w-full overflow-x-auto overflow-y-hidden custom-scrollbar">
+                        <table className="min-w-[1150px] w-full border-separate border-spacing-0">
                             <thead>
                                 <tr className="bg-slate-50/50 dark:bg-slate-800/40">
                                     {[
-                                        { label: "Application #", width: "min-w-[180px]" },
+                                        { label: "Application Id", width: "min-w-[180px]" },
                                         { label: "Borrower", width: "w-[220px]" },
                                         { label: "Loan Type", width: "w-[150px]" },
                                         { label: "Amount", width: "w-[160px]" },
                                         { label: "Broker", width: "w-[180px]" },
-                                        { label: "Application Status", width: "w-[160px]" },
+                                        { label: "Application Status", width: "w-[170px]" },
                                         { label: "Created At", width: "w-[180px]" },
-
+                                        { label: "Lenders", width: "w-[120px]" },
                                         { label: "Actions", width: "w-[120px]" },
                                     ].map((h) => (
                                         <th
                                             key={h.label}
-                                            className={`${h.width} px-6 py-4 text-left text-[12px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800`}
+                                            className={`${h.width} px-6 py-4 text-[12px] font-semibold uppercase tracking-wider whitespace-nowrap text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800 ${h.label === "Application Status" ||
+                                                h.label === "Loan Type" ||
+                                                h.label === "Created At"
+                                                ? "text-center"
+                                                : "text-left"
+                                                }`}
                                         >
                                             {h.label}
                                         </th>
@@ -393,7 +399,6 @@ export default function LoanPipeline() {
                                             key={row.applicationId}
                                             className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors"
                                         >
-
                                             {/* Application Number */}
                                             <td className="px-6 py-4 font-mono text-sm whitespace-nowrap align-middle">
                                                 <span className="inline-block min-w-[160px]">
@@ -404,10 +409,10 @@ export default function LoanPipeline() {
                                             {/* Borrower */}
                                             <td className="px-6 py-4">
                                                 <div className="flex flex-col">
-                                                    <span className="font-semibold text-slate-900 dark:text-slate-100">
+                                                    <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
                                                         {row.borrowerName}
                                                     </span>
-                                                    <span className="text-xs text-slate-500">
+                                                    <span className="text-[10px] text-slate-500">
                                                         {row.entityType}
                                                     </span>
                                                 </div>
@@ -429,7 +434,6 @@ export default function LoanPipeline() {
                                                 </span>
                                             </td>
 
-
                                             {/* Broker */}
                                             <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">
                                                 {row.brokerName}
@@ -437,24 +441,59 @@ export default function LoanPipeline() {
 
                                             {/* Application Status */}
                                             <td className="px-6 py-4">
-                                                <span
-                                                    className={`
-      px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide
-      ${getApplicationStatusColor(row.applicationStatus)}
-    `}
-                                                >
-                                                    {row.applicationStatus?.replace("_", " ") || "-"}
-                                                </span>
+                                                <div className="flex justify-center">
+                                                    <span
+                                                        className={`
+                                                                                inline-flex items-center whitespace-nowrap
+                                                                                px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide
+                                                                                ${getApplicationStatusColor(row.applicationStatus)}
+                                                                            `}
+                                                    >
+                                                        {row.applicationStatus?.replace("_", " ") || "-"}
+                                                    </span>
+                                                </div>
                                             </td>
-
 
                                             {/* Sent Date */}
                                             <td className="px-6 py-4 text-sm text-slate-500">
                                                 {new Date(row.createdAt).toLocaleDateString()}
                                             </td>
 
+                                            {/* Lenders Button */}
+                                            <td className="px-6 py-4 text-center">
+                                                <button
+                                                    onClick={() => setViewLenders(row.lenders)}
+                                                    className="
+                                                                relative
+                                                                inline-flex items-center justify-center
+                                                                w-9 h-9
+                                                                rounded-lg
+                                                                bg-indigo-50 dark:bg-indigo-500/10 
+                                                                text-indigo-600 dark:text-indigo-400 
+                                                                hover:bg-indigo-100 dark:hover:bg-indigo-500/20 
+                                                                transition-all
+                                                                "
+                                                >
+                                                    <Building2 size={16} />
+
+                                                    {/* Count Badge */}
+                                                    {row.lenders.length > 0 && (
+                                                        <span className="
+                                                                absolute -top-1 -right-1
+                                                                text-[10px]
+                                                                px-1.5 py-0.5
+                                                                rounded-full
+                                                                bg-indigo-600 text-white
+                                                                dark:bg-indigo-500
+                                                            ">
+                                                            {row.lenders.length}
+                                                        </span>
+                                                    )}
+                                                </button>
+                                            </td>
+
                                             {/* Actions */}
-                                            <td className="px-6 py-4">
+                                            <td className="px-6 py-4 whitespace-nowrap">
                                                 <button
                                                     onClick={() =>
                                                         fetchApplicationDetail(row.applicationId)
@@ -464,7 +503,6 @@ export default function LoanPipeline() {
                                                     <Eye size={16} />
                                                 </button>
                                             </td>
-
                                         </tr>
                                     ))
                                 ) : (
@@ -472,20 +510,19 @@ export default function LoanPipeline() {
                                     <tr>
                                         <td colSpan={7} className="px-6 py-24 text-center align-middle">
                                             <div className="flex flex-col items-center max-w-xs mx-auto">
-
                                                 {/* Icon */}
                                                 <div
                                                     className={`
-          w-14 h-14 
-          rounded-2xl 
-          flex items-center justify-center 
-          mb-5
-          border
-          ${rows.length === 0
+                                                        w-14 h-14 
+                                                        rounded-2xl 
+                                                        flex items-center justify-center 
+                                                        mb-5
+                                                        border
+                                                        ${rows.length === 0
                                                             ? "bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/20"
                                                             : "bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700"
                                                         }
-        `}
+                                                    `}
                                                 >
                                                     {rows.length === 0 ? (
                                                         <span className="text-red-500 dark:text-red-400 text-2xl font-bold">
@@ -513,7 +550,6 @@ export default function LoanPipeline() {
                                             </div>
                                         </td>
                                     </tr>
-
                                 )}
                             </tbody>
                         </table>
@@ -540,7 +576,6 @@ export default function LoanPipeline() {
 
                                 {/* Controls */}
                                 <div className="flex items-center gap-2">
-
                                     {/* Previous */}
                                     <button
                                         disabled={currentPage === 1}
@@ -556,11 +591,11 @@ export default function LoanPipeline() {
                                             key={page}
                                             onClick={() => setCurrentPage(page)}
                                             className={`px-3 py-1 text-sm rounded-lg transition
-                        ${currentPage === page
+                                            ${currentPage === page
                                                     ? "bg-blue-600 text-white"
                                                     : "border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800"
                                                 }
-                    `}
+                                    `}
                                         >
                                             {page}
                                         </button>
@@ -583,23 +618,23 @@ export default function LoanPipeline() {
                             createPortal(
                                 <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/40 dark:bg-black/70 backdrop-blur-sm p-4 transition-colors duration-300">
                                     <div className="
-    bg-white 
-    dark:bg-[#0f172a] 
-    text-slate-900 
-    dark:text-slate-100
-    w-full max-w-5xl max-h-[90vh] overflow-y-auto 
-    rounded-2xl shadow-2xl 
-    border border-slate-200 dark:border-slate-800
-    transition-colors duration-300
-">
+                                        bg-white 
+                                        dark:bg-[#0f172a] 
+                                        text-slate-900 
+                                        dark:text-slate-100
+                                        w-full max-w-5xl max-h-[90vh] overflow-y-auto 
+                                        rounded-2xl shadow-2xl 
+                                        border border-slate-200 dark:border-slate-800
+                                        transition-colors duration-300
+                                    ">
                                         {/* HEADER */}
                                         <div className="
-    sticky top-0 z-10 
-    bg-white/95 dark:bg-[#0f172a]/95 
-    backdrop-blur-md
-    flex items-center justify-between px-6 py-4 
-    border-b border-slate-200 dark:border-slate-800
-">
+                                                sticky top-0 z-10 
+                                                bg-white/95 dark:bg-[#0f172a]/95 
+                                                backdrop-blur-md
+                                                flex items-center justify-between px-6 py-4 
+                                                border-b border-slate-200 dark:border-slate-800
+                                            ">
                                             <h2 className="text-lg font-bold">
                                                 Application Details
                                             </h2>
@@ -620,10 +655,9 @@ export default function LoanPipeline() {
                                             </div>
                                         ) : submissionDetail ? (
                                             <div className="p-6 space-y-8">
-
                                                 {/* BASIC INFO */}
                                                 <div className="grid md:grid-cols-3 gap-6">
-                                                    <InfoCard label="Application #" value={submissionDetail.applicationNumber} />
+                                                    <InfoCard label="Application Id" value={submissionDetail.applicationNumber} />
                                                     <InfoCard label="Status" value={submissionDetail.status} />
                                                     <InfoCard label="Loan Product" value={submissionDetail.loanProductCode} />
                                                     <InfoCard label="Borrower" value={submissionDetail.client?.legalName} />
@@ -683,16 +717,16 @@ export default function LoanPipeline() {
                                                                         </p>
 
                                                                         <div className="
-    bg-white dark:bg-slate-800
-    p-4 rounded-xl 
-    border border-slate-200 dark:border-slate-700
-    shadow-sm
-">
+                                                                                    bg-white dark:bg-slate-800
+                                                                                    p-4 rounded-xl 
+                                                                                    border border-slate-200 dark:border-slate-700
+                                                                                    shadow-sm
+                                                                                ">
                                                                             <img
                                                                                 src={signatureField.value}
                                                                                 alt="Signature"
                                                                                 className="h-28 object-contain"
-                                                                            />
+                                                                            />  
                                                                         </div>
                                                                     </div>
                                                                 )}
@@ -707,12 +741,75 @@ export default function LoanPipeline() {
                                 document.body
                             )}
 
+                        {/* ================= LENDERS MODAL ================= */}
+                        {viewLenders &&
+                            createPortal(
+                                <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/40 dark:bg-black/70 backdrop-blur-sm p-4">
+                                    <div className="bg-white dark:bg-[#0f172a] w-full max-w-2xl rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800">
+
+                                        {/* HEADER */}
+                                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800">
+                                            <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">
+                                                Lenders
+                                            </h2>
+                                            <button
+                                                onClick={() => setViewLenders(null)}
+                                                className="text-sm px-3 py-1 rounded-lg bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400"
+                                            >
+                                                Close
+                                            </button>
+                                        </div>
+
+                                        {/* BODY */}
+                                        <div className="p-6 space-y-4 max-h-[400px] overflow-y-auto">
+                                            {viewLenders.length === 0 ? (
+                                                <p className="text-sm text-slate-500 text-center">
+                                                    No lenders assigned.
+                                                </p>
+                                            ) : (
+                                                viewLenders.map((lender) => (
+                                                    <div
+                                                        key={lender.lenderOrgId}
+                                                        className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800"
+                                                    >
+                                                        <div className="flex justify-between items-center flex-wrap gap-3">
+
+                                                            {/* Left */}
+                                                            <div>
+                                                                <p className="font-semibold text-slate-900 dark:text-slate-100">
+                                                                    {lender.lenderName}
+                                                                </p>
+                                                                <p className="text-xs text-slate-500">
+                                                                    Product: {lender.lenderProduct}
+                                                                </p>
+                                                            </div>
+
+                                                            {/* Right */}
+                                                            <div className="text-right">
+                                                                <span
+                                                                    className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide
+                                                                    ${getApplicationStatusColor(lender.lenderStatus)}`}
+                                                                >
+                                                                    {lender.lenderStatus}
+                                                                </span>
+
+                                                                <p className="text-xs text-slate-500 mt-1">
+                                                                    {lender.sentAt
+                                                                        ? new Date(lender.sentAt).toLocaleString()
+                                                                        : "-"}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>,
+                                document.body
+                            )}
                     </div>
-
                 </div>
-
-
-
             </div>
         </div>
     );

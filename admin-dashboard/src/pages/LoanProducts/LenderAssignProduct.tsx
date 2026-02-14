@@ -430,6 +430,24 @@ export default function LenderProductAssign() {
     if (!form.minimumExperience)
       e.minimumExperience = "Select minimum experience";
 
+    // EXTRA SAFETY: No negative values allowed
+    const numericFields: (keyof FormState)[] = [
+      "minLoanAmount",
+      "maxLoanAmount",
+      "minTermMonths",
+      "maxTermMonths",
+      "minLTV",
+      "maxLTV",
+      "minCreditScore",
+    ];
+
+    numericFields.forEach((field) => {
+      const value = Number(form[field]);
+      if (form[field] && value < 0) {
+        e[field as keyof Errors] = "Value cannot be negative";
+      }
+    });
+
     return e;
   }
 
@@ -538,6 +556,15 @@ export default function LenderProductAssign() {
       .trim();
   }
 
+  function handleNumberChange(field: keyof FormState, value: string) {
+    if (value === "" || Number(value) >= 0) {
+      setForm((prev) => ({
+        ...prev,
+        [field]: value,
+      }));
+    }
+  }
+
   /* ================= UI ================= */
   return (
     <div className="max-w-4xl mx-auto p-6 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-xl shadow border border-slate-200 dark:border-slate-700">
@@ -545,11 +572,10 @@ export default function LenderProductAssign() {
 
       {message && (
         <div
-          className={`p-3 mb-4 rounded ${
-            message.type === "error"
-              ? "bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-300"
-              : "bg-green-50 text-green-700 dark:bg-emerald-500/10 dark:text-emerald-300"
-          }`}
+          className={`p-3 mb-4 rounded ${message.type === "error"
+            ? "bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-300"
+            : "bg-green-50 text-green-700 dark:bg-emerald-500/10 dark:text-emerald-300"
+            }`}
         >
           {message.text}
         </div>
@@ -758,9 +784,11 @@ export default function LenderProductAssign() {
             <label className="block text-sm font-medium">Min Loan Amount</label>
             <input
               type="number"
+              min="0"
+              onWheel={(e) => (e.target as HTMLInputElement).blur()}
               value={form.minLoanAmount}
               onChange={(e) =>
-                setForm({ ...form, minLoanAmount: e.target.value })
+                handleNumberChange("minLoanAmount", e.target.value)
               }
               className="mt-1 block w-full rounded-md border p-2 bg-white text-slate-900 border-slate-300 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600"
               placeholder="e.g. 50000"
@@ -776,9 +804,11 @@ export default function LenderProductAssign() {
             <label className="block text-sm font-medium">Max Loan Amount</label>
             <input
               type="number"
+              min="0"
+              onWheel={(e) => (e.target as HTMLInputElement).blur()}
               value={form.maxLoanAmount}
               onChange={(e) =>
-                setForm({ ...form, maxLoanAmount: e.target.value })
+                handleNumberChange("maxLoanAmount", e.target.value)
               }
               className="mt-1 block w-full rounded-md border p-2 bg-white text-slate-900 border-slate-300 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600"
               placeholder="e.g. 2500000"
@@ -796,9 +826,11 @@ export default function LenderProductAssign() {
             </label>
             <input
               type="number"
+              min="0"
+              onWheel={(e) => (e.target as HTMLInputElement).blur()}
               value={form.minTermMonths}
               onChange={(e) =>
-                setForm({ ...form, minTermMonths: e.target.value })
+                handleNumberChange("minTermMonths", e.target.value)
               }
               className="mt-1 block w-full rounded-md border p-2 bg-white text-slate-900 border-slate-300 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600"
             />
@@ -815,9 +847,11 @@ export default function LenderProductAssign() {
             </label>
             <input
               type="number"
+              min="0"
+              onWheel={(e) => (e.target as HTMLInputElement).blur()}
               value={form.maxTermMonths}
               onChange={(e) =>
-                setForm({ ...form, maxTermMonths: e.target.value })
+                handleNumberChange("maxTermMonths", e.target.value)
               }
               className="mt-1 block w-full rounded-md border p-2 bg-white text-slate-900 border-slate-300 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600"
             />
@@ -834,8 +868,10 @@ export default function LenderProductAssign() {
             <label className="block text-sm font-medium">Min LTV %</label>
             <input
               type="number"
+              min="0"
+              onWheel={(e) => (e.target as HTMLInputElement).blur()}
               value={form.minLTV}
-              onChange={(e) => setForm({ ...form, minLTV: e.target.value })}
+              onChange={(e) => handleNumberChange("minLTV", e.target.value)}
               className="mt-1 block w-full rounded-md border p-2
       bg-white text-slate-900 border-slate-300
       dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600"
@@ -851,8 +887,10 @@ export default function LenderProductAssign() {
             <label className="block text-sm font-medium">Max LTV %</label>
             <input
               type="number"
+              min="0"
+              onWheel={(e) => (e.target as HTMLInputElement).blur()}
               value={form.maxLTV}
-              onChange={(e) => setForm({ ...form, maxLTV: e.target.value })}
+              onChange={(e) => handleNumberChange("maxLTV", e.target.value)}
               className="mt-1 block w-full rounded-md border p-2
       bg-white text-slate-900 border-slate-300
       dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600"
@@ -870,9 +908,11 @@ export default function LenderProductAssign() {
             </label>
             <input
               type="number"
+              min="0"
+              onWheel={(e) => (e.target as HTMLInputElement).blur()}
               value={form.minCreditScore}
               onChange={(e) =>
-                setForm({ ...form, minCreditScore: e.target.value })
+                handleNumberChange("minCreditScore", e.target.value)
               }
               className="mt-1 block w-full rounded-md border p-2 bg-white text-slate-900 border-slate-300 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600"
             />
