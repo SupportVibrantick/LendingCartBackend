@@ -8,15 +8,15 @@ datasource db {
 }
 
 model Organization {
-  id        String             @id @default(uuid()) @db.Uuid
-  name      String
-  type      OrganizationType
-  status    OrganizationStatus
-  email     String?
-  phone     String?
+  id            String             @id @default(uuid()) @db.Uuid
+  name          String
+  type          OrganizationType
+  status        OrganizationStatus
+  email         String?
+  phone         String?
   lenderProfile LenderProfile?
-  createdAt DateTime           @default(now()) @db.Timestamptz(6)
-  updatedAt DateTime           @updatedAt @db.Timestamptz(6)
+  createdAt     DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime           @updatedAt @db.Timestamptz(6)
 
   brokerApplications BrokerApplication[]
 
@@ -66,31 +66,57 @@ model UserAccount {
   brokerLoanApplications     LoanApplication[]           @relation("BrokerUserLoanApplications")
   organization               Organization?               @relation(fields: [organizationId], references: [id])
   roles                      UserRole[]
-
+  brokerProfile              BrokerUserProfile?
   // soft-delete fields (additive, non-breaking)
-  isDeleted Boolean?  @default(false) @map("is_deleted")
-  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+  isDeleted                  Boolean?                    @default(false) @map("is_deleted")
+  deletedAt                  DateTime?                   @map("deleted_at") @db.Timestamptz(6)
 
   @@map("user_accounts")
 }
 
+model BrokerUserProfile {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @unique @db.Uuid
+
+  company         String?
+  tollFree        String?
+  tollFreeExt     String?
+  serviceProvider String?
+  address         String?
+  suite           String?
+  city            String?
+  state           String?
+  zipCode         String?
+  agentType       String?
+  licenseNumber   String?
+  preferredComm   String?
+  website         String?
+  avatarUrl       String?
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  user UserAccount @relation(fields: [userId], references: [id])
+
+  @@map("broker_user_profiles")
+}
+
 model LenderProfile {
-  id               String   @id @default(uuid()) @db.Uuid
-  lenderOrgId      String   @unique @db.Uuid
+  id          String @id @default(uuid()) @db.Uuid
+  lenderOrgId String @unique @db.Uuid
 
   // DISCOVERY INFO (broker-facing)
   summary          String?
   loanTypes        LoanProductCode[]
-  minFunding       Decimal?  @db.Decimal(20, 2)
-  maxFunding       Decimal?  @db.Decimal(20, 2)
+  minFunding       Decimal?          @db.Decimal(20, 2)
+  maxFunding       Decimal?          @db.Decimal(20, 2)
   statesSupported  String?
   industries       String?
   fundingSpeedDays Int?
 
-  
-  profileStatus    LenderProfileStatus @default(DRAFT)
+  profileStatus LenderProfileStatus @default(DRAFT)
 
-  isVisible        Boolean   @default(false)
+  isVisible Boolean @default(false)
 
   createdAt DateTime @default(now()) @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @db.Timestamptz(6)
@@ -213,36 +239,35 @@ model LoanProduct {
 //   @@map("lender_products")
 // }
 
-
 model LenderProduct {
-  id              String   @id @default(uuid()) @db.Uuid
+  id String @id @default(uuid()) @db.Uuid
 
-  lenderOrgId     String   @db.Uuid
-  loanProductId   String?  @db.Uuid
+  lenderOrgId     String          @db.Uuid
+  loanProductId   String?         @db.Uuid
   loanProductCode LoanProductCode
 
-  businessTypes   String?
+  businessTypes String?
 
-  minLoanAmount   Decimal? @db.Decimal(20, 2)
-  maxLoanAmount   Decimal? @db.Decimal(20, 2)
+  minLoanAmount Decimal? @db.Decimal(20, 2)
+  maxLoanAmount Decimal? @db.Decimal(20, 2)
 
-  minTermMonths   Int?
-  maxTermMonths   Int?
+  minTermMonths Int?
+  maxTermMonths Int?
 
-  minLtvPercent   Decimal? @db.Decimal(5, 2)
-  maxLtvPercent   Decimal? @db.Decimal(5, 2)
+  minLtvPercent Decimal? @db.Decimal(5, 2)
+  maxLtvPercent Decimal? @db.Decimal(5, 2)
 
-  minCreditScore  Int?
-  minExperience   String?
+  minCreditScore Int?
+  minExperience  String?
 
   interestRateRange String?
 
   statesSupported String?
 
-  isActive        Boolean  @default(true)
+  isActive Boolean @default(true)
 
-  createdAt       DateTime @default(now()) @db.Timestamptz(6)
-  updatedAt       DateTime @updatedAt @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
 
   applicationLenders         ApplicationLender[]
   eligibilityRuleSets        EligibilityRuleSet[]
@@ -257,9 +282,6 @@ model LenderProduct {
   @@index([loanProductId])
   @@map("lender_products")
 }
-
-
-
 
 model BrokerLenderAccess {
   id          String             @id @default(uuid()) @db.Uuid
@@ -467,7 +489,8 @@ model LoanApplication {
   brokerOrg            Organization                     @relation("BrokerLoanApplications", fields: [brokerOrgId], references: [id])
   brokerUser           UserAccount?                     @relation("BrokerUserLoanApplications", fields: [brokerUserId], references: [id])
   client               Client                           @relation(fields: [clientId], references: [id])
-  submissions ApplicationSubmission[]
+  submissions          ApplicationSubmission[]
+
   @@index([brokerOrgId])
   @@index([clientId])
   @@index([loanProductCode])
@@ -481,9 +504,9 @@ model BrokerApplication {
   code        String? @unique
   isActive    Boolean @default(false)
 
-  createdFromTemplate Boolean @default(false)
-  createdAt DateTime @default(now()) @db.Timestamptz(6)
-  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+  createdFromTemplate Boolean  @default(false)
+  createdAt           DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime @updatedAt @db.Timestamptz(6)
 
   products BrokerApplicationProduct[]
 
@@ -494,12 +517,12 @@ model BrokerApplication {
 }
 
 model BrokerApplicationProduct {
-  id                  String          @id @default(uuid()) @db.Uuid
-  brokerApplicationId String          @db.Uuid
+  id                  String                          @id @default(uuid()) @db.Uuid
+  brokerApplicationId String                          @db.Uuid
   loanProductCode     LoanProductCode
-  isActive            Boolean         @default(true)
-  sections BrokerApplicationSection[]
-  fields BrokerApplicationProductField[]
+  isActive            Boolean                         @default(true)
+  sections            BrokerApplicationSection[]
+  fields              BrokerApplicationProductField[]
 
   brokerApplication BrokerApplication @relation(fields: [brokerApplicationId], references: [id])
 
@@ -516,40 +539,38 @@ model BrokerApplicationProductField {
   label       String
   placeholder String?
   fieldType   FieldType
-  isRequired  Boolean   @default(false)
-  sectionId String? @db.Uuid
-  section   BrokerApplicationSection? @relation(fields: [sectionId], references: [id])
-  options    Json?
-  validation Json?
-  sortOrder  Int?
+  isRequired  Boolean                   @default(false)
+  sectionId   String?                   @db.Uuid
+  section     BrokerApplicationSection? @relation(fields: [sectionId], references: [id])
+  options     Json?
+  validation  Json?
+  sortOrder   Int?
 
   submissions ApplicationSubmissionField[]
-  
+
   applicationProduct BrokerApplicationProduct @relation(fields: [applicationProductId], references: [id])
-  
+
   @@index([applicationProductId])
   @@map("broker_application_product_fields")
 }
 
 model BrokerApplicationSection {
-  id                    String   @id @default(uuid()) @db.Uuid
-  applicationProductId  String   @db.Uuid
+  id                   String @id @default(uuid()) @db.Uuid
+  applicationProductId String @db.Uuid
 
   name        String
   description String?
   sortOrder   Int
-  isActive    Boolean   @default(true)
+  isActive    Boolean @default(true)
 
   fields BrokerApplicationProductField[]
 
   applicationProduct BrokerApplicationProduct @relation(fields: [applicationProductId], references: [id])
 
-  @@index([applicationProductId])
   @@unique([applicationProductId, name])
+  @@index([applicationProductId])
   @@map("broker_application_sections")
 }
-
-
 
 model LoanApplicationField {
   id              String          @id @default(uuid()) @db.Uuid
@@ -638,22 +659,22 @@ model ApplicationDocumentUpload {
 }
 
 model ApplicationRuleEvaluation {
-  id                String   @id @default(uuid()) @db.Uuid
+  id String @id @default(uuid()) @db.Uuid
 
-  loanApplicationId String   @db.Uuid
-  submissionId      String   @db.Uuid
-  ruleSetId         String?  @db.Uuid
+  loanApplicationId String  @db.Uuid
+  submissionId      String  @db.Uuid
+  ruleSetId         String? @db.Uuid
 
-  result            String
-  evaluatedAt       DateTime @default(now()) @db.Timestamptz(6)
+  result      String
+  evaluatedAt DateTime @default(now()) @db.Timestamptz(6)
 
-  loanApplication   LoanApplication @relation(fields: [loanApplicationId], references: [id])
+  loanApplication LoanApplication @relation(fields: [loanApplicationId], references: [id])
 
-  submission        ApplicationSubmission @relation(fields: [submissionId], references: [id])
+  submission ApplicationSubmission @relation(fields: [submissionId], references: [id])
 
-  ruleSet           EligibilityRuleSet? @relation(fields: [ruleSetId], references: [id])
+  ruleSet EligibilityRuleSet? @relation(fields: [ruleSetId], references: [id])
 
-  results           ApplicationRuleResult[]
+  results ApplicationRuleResult[]
 
   @@index([loanApplicationId])
   @@index([submissionId])
@@ -898,7 +919,6 @@ model AdminManualLead {
   @@map("admin_manual_leads")
 }
 
-
 model ApplicationTemplate {
   id          String  @id @default(uuid()) @db.Uuid
   name        String
@@ -922,12 +942,12 @@ model ApplicationTemplate {
 }
 
 model ApplicationTemplateProduct {
-  id                    String          @id @default(uuid()) @db.Uuid
-  applicationTemplateId String          @db.Uuid
+  id                    String                            @id @default(uuid()) @db.Uuid
+  applicationTemplateId String                            @db.Uuid
   loanProductCode       LoanProductCode
-  isActive              Boolean         @default(true)
-  sections ApplicationTemplateSection[]
-  fields ApplicationTemplateProductField[]
+  isActive              Boolean                           @default(true)
+  sections              ApplicationTemplateSection[]
+  fields                ApplicationTemplateProductField[]
 
   applicationTemplate ApplicationTemplate @relation(fields: [applicationTemplateId], references: [id])
 
@@ -950,28 +970,29 @@ model ApplicationTemplateProductField {
   validation Json?
   sortOrder  Int?
 
-  applicationTemplateProduct ApplicationTemplateProduct @relation(fields: [applicationTemplateProductId], references: [id])
-  sectionId String? @db.Uuid
-  section   ApplicationTemplateSection? @relation(fields: [sectionId], references: [id])
-  @@index([applicationTemplateProductId,sectionId])
+  applicationTemplateProduct ApplicationTemplateProduct  @relation(fields: [applicationTemplateProductId], references: [id])
+  sectionId                  String?                     @db.Uuid
+  section                    ApplicationTemplateSection? @relation(fields: [sectionId], references: [id])
+
+  @@index([applicationTemplateProductId, sectionId])
   @@map("application_template_product_fields")
 }
 
 model ApplicationTemplateSection {
-  id                         String   @id @default(uuid()) @db.Uuid
-  applicationTemplateProductId String   @db.Uuid
+  id                           String @id @default(uuid()) @db.Uuid
+  applicationTemplateProductId String @db.Uuid
 
-  name        String           // "Personal Information"
+  name        String // "Personal Information"
   description String?
   sortOrder   Int
-  isActive    Boolean          @default(true)
+  isActive    Boolean @default(true)
 
   fields ApplicationTemplateProductField[]
 
   applicationTemplateProduct ApplicationTemplateProduct @relation(fields: [applicationTemplateProductId], references: [id])
 
-  @@index([applicationTemplateProductId])
   @@unique([applicationTemplateProductId, name])
+  @@index([applicationTemplateProductId])
   @@map("application_template_sections")
 }
 
@@ -982,7 +1003,7 @@ model ApplicationSubmission {
   status               String
   createdAt            DateTime @default(now())
 
-  application     LoanApplication @relation(fields: [applicationId], references: [id])
+  application     LoanApplication              @relation(fields: [applicationId], references: [id])
   fields          ApplicationSubmissionField[]
   ruleEvaluations ApplicationRuleEvaluation[]
 
@@ -992,13 +1013,13 @@ model ApplicationSubmission {
 }
 
 model ApplicationSubmissionField {
-  id            String   @id @default(uuid()) @db.Uuid
-  submissionId  String   @db.Uuid
-  fieldId       String?  @db.Uuid
-  fieldKey      String?
-  value         Json
-  source        String
-  createdAt     DateTime @default(now())
+  id           String   @id @default(uuid()) @db.Uuid
+  submissionId String   @db.Uuid
+  fieldId      String?  @db.Uuid
+  fieldKey     String?
+  value        Json
+  source       String
+  createdAt    DateTime @default(now())
 
   submission ApplicationSubmission @relation(fields: [submissionId], references: [id])
 
@@ -1009,11 +1030,10 @@ model ApplicationSubmissionField {
   @@map("application_submission_fields")
 }
 
-
 enum LenderProfileStatus {
-  DRAFT        // created but not completed
-  INCOMPLETE   // partially filled
-  COMPLETED    // ready & visible to brokers
+  DRAFT // created but not completed
+  INCOMPLETE // partially filled
+  COMPLETED // ready & visible to brokers
 }
 
 enum LeadStatus {
@@ -1060,7 +1080,9 @@ enum ClientEntityType {
 }
 
 enum LoanProductCode {
-  /* ================= SBA / GOVERNMENT ================= */
+  /**
+   * ================= SBA / GOVERNMENT =================
+   */
   SBA
   SBA_7A
   SBA_504
@@ -1071,13 +1093,17 @@ enum LoanProductCode {
   SBA_EXPORT
   VA_BUSINESS
 
-  /* ================= USDA ================= */
+  /**
+   * ================= USDA =================
+   */
   USDA_BUSINESS
   USDA_RURAL_DEVELOPMENT
   USDA_FARM_OWNERSHIP
   USDA_FARM_OPERATING
 
-  /* ================= COMMERCIAL REAL ESTATE ================= */
+  /**
+   * ================= COMMERCIAL REAL ESTATE =================
+   */
   CRE_PURCHASE
   CRE_REFINANCE
   CRE_CASH_OUT
@@ -1085,14 +1111,18 @@ enum LoanProductCode {
   INVESTOR_CRE
   CMBS
 
-  /* ================= CONSTRUCTION ================= */
+  /**
+   * ================= CONSTRUCTION =================
+   */
   GROUND_UP_CONSTRUCTION
   CONSTRUCTION_TO_PERM
   COMMERCIAL_CONSTRUCTION
   LAND_DEVELOPMENT
   LAND_ACQUISITION
 
-  /* ================= RESIDENTIAL / MORTGAGE ================= */
+  /**
+   * ================= RESIDENTIAL / MORTGAGE =================
+   */
   CONVENTIONAL_MORTGAGE
   FHA_LOAN
   VA_HOME_LOAN
@@ -1103,28 +1133,36 @@ enum LoanProductCode {
   HELOC
   HOME_EQUITY
 
-  /* ================= RESIDENTIAL INVESTMENT ================= */
+  /**
+   * ================= RESIDENTIAL INVESTMENT =================
+   */
   DSCR_RENTAL
   FIX_AND_FLIP
   BRIDGE_REALESTATE
   HARD_MONEY
   RENTAL_PORTFOLIO
 
-  /* ================= BUSINESS ================= */
+  /**
+   * ================= BUSINESS =================
+   */
   BUSINESS_TERM
   WORKING_CAPITAL
   BUSINESS_LINE_OF_CREDIT
   STARTUP_FINANCING
   SMALL_BUSINESS_LOAN
 
-  /* ================= EQUIPMENT / AUTO ================= */
+  /**
+   * ================= EQUIPMENT / AUTO =================
+   */
   EQUIPMENT_FINANCE
   EQUIPMENT_LEASE
   COMMERCIAL_AUTO
   FLEET_FINANCE
   HEAVY_EQUIPMENT
 
-  /* ================= ASSET BASED / TRADE ================= */
+  /**
+   * ================= ASSET BASED / TRADE =================
+   */
   ASSET_BASED_LENDING
   ACCOUNTS_RECEIVABLE
   INVOICE_FACTORING
@@ -1132,14 +1170,18 @@ enum LoanProductCode {
   INVENTORY_FINANCE
   TRADE_FINANCE
 
-  /* ================= ALT / PRIVATE CREDIT ================= */
+  /**
+   * ================= ALT / PRIVATE CREDIT =================
+   */
   MERCHANT_CASH_ADVANCE
   REVENUE_BASED_FINANCE
   PRIVATE_CREDIT
   MEZZANINE_FINANCE
   VENTURE_DEBT
 
-  /* ================= FRANCHISE / INDUSTRY ================= */
+  /**
+   * ================= FRANCHISE / INDUSTRY =================
+   */
   FRANCHISE_FINANCE
   HOTEL_FINANCE
   RESTAURANT_FINANCE
@@ -1147,13 +1189,17 @@ enum LoanProductCode {
   DENTAL_PRACTICE
   LAW_FIRM_FINANCE
 
-  /* ================= AGRICULTURE ================= */
+  /**
+   * ================= AGRICULTURE =================
+   */
   AGRICULTURE_OPERATING
   FARM_EQUIPMENT
   FARM_REAL_ESTATE
   LIVESTOCK_LOAN
 
-  /* ================= CONSUMER ================= */
+  /**
+   * ================= CONSUMER =================
+   */
   PERSONAL_LOAN
   AUTO_LOAN
   STUDENT_LOAN
@@ -1164,7 +1210,9 @@ enum LoanProductCode {
   BRIDGE
   CONSTRUCTION
 
-  /* ================= FALLBACK ================= */
+  /**
+   * ================= FALLBACK =================
+   */
   CUSTOM
 }
 
@@ -1269,46 +1317,46 @@ enum FieldType {
   // ─────────────────────────
   // BASIC INPUTS
   // ─────────────────────────
-  TEXT            // name, city, company
-  TEXTAREA        // address, description
-  NUMBER          // amount, revenue
-  EMAIL           // email
-  PHONE           // phone / mobile
-  PASSWORD        // password fields
-  DATE            // date picker
-  TIME            // time picker
-  DATETIME        // date + time picker
+  TEXT // name, city, company
+  TEXTAREA // address, description
+  NUMBER // amount, revenue
+  EMAIL // email
+  PHONE // phone / mobile
+  PASSWORD // password fields
+  DATE // date picker
+  TIME // time picker
+  DATETIME // date + time picker
 
   // ─────────────────────────
   // SELECTION INPUTS
   // ─────────────────────────
-  SELECT          // dropdown (single)
-  MULTI_SELECT    // dropdown (multiple)
-  RADIO           // radio buttons
-  CHECKBOX        // single checkbox (yes/no)
-  CHECKBOX_GROUP  // multiple checkboxes
+  SELECT // dropdown (single)
+  MULTI_SELECT // dropdown (multiple)
+  RADIO // radio buttons
+  CHECKBOX // single checkbox (yes/no)
+  CHECKBOX_GROUP // multiple checkboxes
 
   // ─────────────────────────
   // BOOLEAN / TOGGLE
   // ─────────────────────────
-  BOOLEAN         // true/false
-  TOGGLE          // switch UI (on/off)
+  BOOLEAN // true/false
+  TOGGLE // switch UI (on/off)
 
   // ─────────────────────────
   // FILE / MEDIA
   // ─────────────────────────
-  FILE            // single file upload
-  FILE_MULTIPLE   // multiple file upload
-  IMAGE           // image upload
-  SIGNATURE       // signature pad
+  FILE // single file upload
+  FILE_MULTIPLE // multiple file upload
+  IMAGE // image upload
+  SIGNATURE // signature pad
 
   // ─────────────────────────
   // NUMERIC SPECIALIZED
   // ─────────────────────────
-  CURRENCY        // money (₹, $, etc.)
-  PERCENTAGE      // %
-  SLIDER          // range slider
-  RANGE           // min-max range
+  CURRENCY // money (₹, $, etc.)
+  PERCENTAGE // %
+  SLIDER // range slider
+  RANGE // min-max range
 
   // ─────────────────────────
   // ADDRESS / LOCATION
@@ -1317,27 +1365,26 @@ enum FieldType {
   STATE
   CITY
   ZIPCODE
-  ADDRESS         // structured address
-  GEOLOCATION     // lat/long picker
+  ADDRESS // structured address
+  GEOLOCATION // lat/long picker
 
   // ─────────────────────────
   // BUSINESS / FINANCE
   // ─────────────────────────
-  SSN             // social security
-  PAN             // PAN card
-  GST             // GST number
-  EIN             // employer ID
-  TAN             // tax account
-  IFSC            // bank IFSC
+  SSN // social security
+  PAN // PAN card
+  GST // GST number
+  EIN // employer ID
+  TAN // tax account
+  IFSC // bank IFSC
   BANK_ACCOUNT
 
   // ─────────────────────────
   // ADVANCED / UX
   // ─────────────────────────
-  AUTOCOMPLETE    // search-based select
-  TAGS            // tag input
-  RICH_TEXT       // WYSIWYG editor
-  OTP             // one-time password
-  CAPTCHA         // captcha field
+  AUTOCOMPLETE // search-based select
+  TAGS // tag input
+  RICH_TEXT // WYSIWYG editor
+  OTP // one-time password
+  CAPTCHA // captcha field
 }
-
