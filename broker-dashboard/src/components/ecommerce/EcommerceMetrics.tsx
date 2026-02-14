@@ -1,21 +1,17 @@
-import { ReactNode, useEffect, useState } from "react";
+import { useEffect, useState, ReactNode } from "react";
 import {
-  ArrowDownIcon,
-  ArrowUpIcon,
-  BoxIconLine,
-  GroupIcon,
-} from "../../icons";
+  FileText,
+  Send,
+  Clock,
+  CheckCircle,
+  XCircle,
+  BadgeDollarSign,
+  RotateCcw,
+  DollarSign,
+  Building2,
+} from "lucide-react";
 
-interface StatCardProps {
-  title: string;
-  value: string | number;
-  icon: ReactNode;
-  trend: {
-    value: string;
-    isUp: boolean;
-  };
-  colorScheme: "blue" | "purple" | "emerald" | "orange";
-}
+/* ================= TYPES ================= */
 
 interface BrokerStats {
   totalApplications: number;
@@ -29,73 +25,90 @@ interface BrokerStats {
   uniqueLendersAccessed: number;
 }
 
-/* ================= STAT CARD COMPONENT ================= */
+interface StatCardProps {
+  title: string;
+  value: string | number;
+  icon: ReactNode;
+  colorScheme: "blue" | "purple" | "green" | "orange";
+}
 
-const StatCard = ({
-  title,
-  value,
-  icon,
-  trend,
-  colorScheme,
-}: StatCardProps) => {
+/* ================= STAT CONFIG ================= */
+
+const STAT_CONFIG = {
+  totalApplications: {
+    label: "Total Applications",
+    icon: <FileText className="w-6 h-6 text-white" />,
+    color: "blue",
+  },
+  totalSubmitted: {
+    label: "Total Submitted",
+    icon: <Send className="w-6 h-6 text-white" />,
+    color: "purple",
+  },
+  totalInReview: {
+    label: "In Review",
+    icon: <Clock className="w-6 h-6 text-white" />,
+    color: "orange",
+  },
+  totalApproved: {
+    label: "Total Approved",
+    icon: <CheckCircle className="w-6 h-6 text-white" />,
+    color: "green",
+  },
+  totalDeclined: {
+    label: "Total Declined",
+    icon: <XCircle className="w-6 h-6 text-white" />,
+    color: "orange",
+  },
+  totalFunded: {
+    label: "Total Funded",
+    icon: <BadgeDollarSign className="w-6 h-6 text-white" />,
+    color: "green",
+  },
+  totalWithdrawn: {
+    label: "Total Withdrawn",
+    icon: <RotateCcw className="w-6 h-6 text-white" />,
+    color: "purple",
+  },
+  totalVolumeFunded: {
+    label: "Total Funded Volume",
+    icon: <DollarSign className="w-6 h-6 text-white" />,
+    color: "blue",
+    isCurrency: true,
+  },
+  uniqueLendersAccessed: {
+    label: "Unique Lenders",
+    icon: <Building2 className="w-6 h-6 text-white" />,
+    color: "green",
+  },
+};
+
+/* ================= STAT CARD ================= */
+
+const StatCard = ({ title, value, icon, colorScheme }: StatCardProps) => {
   const themes = {
-    blue: {
-      bg: "bg-gradient-to-br from-blue-600 to-blue-700 shadow-blue-200",
-      iconBox: "bg-white/20 text-white border-white/30",
-      badge: "bg-white/20 text-white border-none",
-    },
-    purple: {
-      bg: "bg-gradient-to-br from-indigo-600 to-purple-700 shadow-indigo-200",
-      iconBox: "bg-white/20 text-white border-white/30",
-      badge: "bg-white/20 text-white border-none",
-    },
-    emerald: {
-      bg: "bg-gradient-to-br from-emerald-500 to-teal-600 shadow-emerald-200",
-      iconBox: "bg-white/20 text-white border-white/30",
-      badge: "bg-white/20 text-white border-none",
-    },
-    orange: {
-      bg: "bg-gradient-to-br from-orange-500 to-red-600 shadow-orange-200",
-      iconBox: "bg-white/20 text-white border-white/30",
-      badge: "bg-white/20 text-white border-none",
-    },
+    blue: "bg-gradient-to-r from-blue-600 to-blue-700",
+    purple: "bg-gradient-to-r from-indigo-600 to-purple-600",
+    green: "bg-gradient-to-r from-emerald-600 to-green-600",
+    orange: "bg-gradient-to-r from-orange-500 to-red-500",
   };
-
-  const style = themes[colorScheme];
 
   return (
     <div
-      className={`group relative overflow-hidden rounded-[24px] p-6 transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl ${style.bg} border border-white/10`}
+      className={`relative overflow-hidden rounded-2xl px-6 py-5 text-white shadow-xl ${themes[colorScheme]}`}
     >
-      <div className="absolute -right-6 -bottom-6 h-32 w-32 rounded-full bg-white/10 blur-2xl" />
+      <div className="absolute -right-10 top-1/2 -translate-y-1/2 w-32 h-32 bg-white/10 rounded-full blur-2xl" />
 
-      <div className="relative z-10 flex flex-col gap-6">
-        <div className="flex items-center justify-between">
-          <div
-            className={`flex h-12 w-12 items-center justify-center rounded-2xl border backdrop-blur-md ${style.iconBox}`}
-          >
-            {icon}
-          </div>
-
-          <div
-            className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold backdrop-blur-md ${style.badge}`}
-          >
-            {trend.isUp ? (
-              <ArrowUpIcon className="size-3" />
-            ) : (
-              <ArrowDownIcon className="size-3" />
-            )}
-            {trend.value}
-          </div>
+      <div className="relative flex items-center gap-4">
+        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/20 backdrop-blur-md">
+          {icon}
         </div>
 
         <div>
-          <p className="text-xs font-bold uppercase tracking-[0.1em] text-white/80">
+          <p className="text-xs uppercase tracking-wider opacity-80">
             {title}
           </p>
-          <h4 className="mt-1 text-3xl font-black tracking-tight text-white">
-            {value}
-          </h4>
+          <h3 className="text-3xl font-bold mt-1">{value}</h3>
         </div>
       </div>
     </div>
@@ -142,41 +155,30 @@ export default function EcommerceMetrics() {
     fetchStats();
   }, []);
 
-  const statItems: StatCardProps[] = [
-    {
-      title: "Total Applications",
-      value: loading ? "..." : stats?.totalApplications ?? 0,
-      icon: <GroupIcon className="size-6 text-white" />,
-      colorScheme: "blue",
-      trend: { value: "Live", isUp: true },
-    },
-    {
-      title: "Submitted",
-      value: loading ? "..." : stats?.totalSubmitted ?? 0,
-      icon: <BoxIconLine className="size-6 text-white" />,
-      colorScheme: "purple",
-      trend: { value: "Current", isUp: true },
-    },
-    {
-      title: "Funded Volume",
-      value: loading
-        ? "..."
-        : `$${(stats?.totalVolumeFunded ?? 0).toLocaleString()}`,
-      icon: <BoxIconLine className="size-6 text-white" />,
-      colorScheme: "emerald",
-      trend: { value: "Live", isUp: true },
-    },
-    {
-      title: "Unique Lenders",
-      value: loading ? "..." : stats?.uniqueLendersAccessed ?? 0,
-      icon: <BoxIconLine className="size-6 text-white" />,
-      colorScheme: "orange",
-      trend: { value: "Active", isUp: true },
-    },
-  ];
+  const statItems = stats
+    ? Object.entries(STAT_CONFIG).map(([key, config]) => {
+        const rawValue = stats[key as keyof BrokerStats] ?? 0;
+
+        const value =
+          "isCurrency" in config && config.isCurrency
+            ? `$${Number(rawValue).toLocaleString()}`
+            : rawValue;
+
+        return {
+          title: config.label,
+          value: loading ? "..." : value,
+          icon: config.icon,
+          colorScheme: config.color as
+            | "blue"
+            | "purple"
+            | "green"
+            | "orange",
+        };
+      })
+    : [];
 
   return (
-    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 px-2 py-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
       {statItems.map((item, index) => (
         <StatCard key={index} {...item} />
       ))}
