@@ -1,30 +1,26 @@
-// backend/prisma/seed.js
 const { PrismaClient } = require("@prisma/client");
 const bcrypt = require("bcryptjs");
 
 const prisma = new PrismaClient();
+const PASSWORD = "Password@123";
 
-async function ensureRoles(roleNames = []) {
-  const created = [];
-  for (const name of roleNames) {
-    const existing = await prisma.role.findFirst({ where: { name } });
-    if (!existing) {
-      const r = await prisma.role.create({
-        data: { name, description: `${name} role seeded` },
-      });
-      created.push(r);
-      console.log(`✅ Created role: ${name} (${r.id})`);
-    } else {
-      console.log(`ℹ️  Role exists: ${name} (${existing.id})`);
-    }
-  }
-  return created;
+function section(title) {
+  console.log("\n=================================================");
+  console.log(`🚀 ${title}`);
+  console.log("=================================================\n");
 }
 
 async function main() {
-  console.log("▶️  Starting seed...");
+  section("STARTING CLEAN ENTERPRISE SEED");
 
-  const rolesToSeed = [
+  const passwordHash = await bcrypt.hash(PASSWORD, 10);
+
+  /* ======================================================
+     1. ROLES
+  ====================================================== */
+  section("Creating Roles");
+
+  const roleNames = [
     "PLATFORM_ADMIN",
     "PLATFORM_SUPPORT",
     "BROKER_ADMIN",
@@ -34,89 +30,294 @@ async function main() {
     "CLIENT_USER",
   ];
 
-  const orgName = process.env.SEED_ADMIN_ORG_NAME || "LendingCart Platform";
-  const orgEmail = process.env.SEED_ADMIN_ORG_EMAIL || "platform@lendingcart.local";
+  const roleMap = {};
 
-  const adminEmail = process.env.SEED_ADMIN_EMAIL || "admin@lendingcart.local";
-  const adminPassword = process.env.SEED_ADMIN_PASSWORD || "admin@123";
-  const hashed = await bcrypt.hash(adminPassword, 10);
+  for (const name of roleNames) {
+    const role = await prisma.role.create({
+      data: { name, description: `${name} role` },
+    });
+    roleMap[name] = role.id;
+    console.log(`✅ Role: ${name}`);
+  }
 
-  // 1) Seed roles
-  console.log("📦 Seeding roles...");
-  await ensureRoles(rolesToSeed);
+  /* ======================================================
+     2. PLATFORM
+  ====================================================== */
+  section("Creating Platform");
 
-  // 2) Find or create Organization
-  let organization = await prisma.organization.findFirst({
-    where: { name: orgName },
+  const platform = await prisma.organization.create({
+    data: {
+      name: "LendingCart Platform",
+      type: "PLATFORM",
+      status: "ACTIVE",
+      email: "platform@lendingcart.com",
+    },
   });
 
-  if (!organization) {
-    organization = await prisma.organization.create({
+  const platformAdmin = await prisma.userAccount.create({
+    data: {
+      email: "admin@lendingcart.com",
+      passwordHash,
+      firstName: "Platform",
+      lastName: "Admin",
+      organizationId: platform.id,
+    },
+  });
+
+  await prisma.userRole.create({
+    data: {
+      userId: platformAdmin.id,
+      roleId: roleMap["PLATFORM_ADMIN"],
+    },
+  });
+
+  console.log("✅ Platform + Admin Created");
+
+  /* ======================================================
+     3. LOAN PRODUCTS
+  ====================================================== */
+  section("Creating Loan Products");
+
+  const loanProducts = [
+    { code: "SBA_7A", name: "SBA 7A Loan" },
+    { code: "CRE_PURCHASE", name: "Commercial Purchase" },
+    { code: "WORKING_CAPITAL", name: "Working Capital" },
+  ];
+
+  for (const lp of loanProducts) {
+    await prisma.loanProduct.create({ data: lp });
+    console.log(`✅ Loan Product: ${lp.code}`);
+  }
+
+  /* ======================================================
+     4. DOCUMENT TYPES
+  ====================================================== */
+  section("Creating Document Types");
+
+  const docTypes = [];
+
+  for (const code of ["BANK_STATEMENT", "TAX_RETURN", "ID_PROOF"]) {
+    const dt = await prisma.documentType.create({
+      data: { name: code, code },
+    });
+    docTypes.push(dt);
+    console.log(`✅ Document Type: ${code}`);
+  }
+
+  /* ======================================================
+     5. BROKERS + LOAN OFFICERS
+  ====================================================== */
+  section("Creating Brokers + Loan Officers");
+
+  const brokers = [];
+
+  for (let i = 1; i <= 3; i++) {
+    const org = await prisma.organization.create({
       data: {
-        name: orgName,
-        type: "PLATFORM",
+        name: `Broker Org ${i}`,
+        type: "BROKER",
         status: "ACTIVE",
-        email: orgEmail,
       },
     });
-    console.log("✅ Created organization:", organization.id);
-  } else {
-    console.log("ℹ️  Found existing organization:", organization.id);
-  }
 
-  // 3) Upsert admin user by unique email (UserAccount.email is unique in schema)
-  const admin = await prisma.userAccount.upsert({
-    where: { email: adminEmail },
-    update: {
-      passwordHash: hashed,
-      status: "ACTIVE",
-      organizationId: organization.id,
-      firstName: "Admin",
-      lastName: "User",
-    },
-    create: {
-      email: adminEmail,
-      passwordHash: hashed,
-      status: "ACTIVE",
-      firstName: "Admin",
-      lastName: "User",
-      organizationId: organization.id,
-    },
-  });
+    // Broker Admin
+    const admin = await prisma.userAccount.create({
+      data: {
+        email: `broker${i}@test.com`,
+        passwordHash,
+        firstName: "Broker",
+        lastName: `Admin${i}`,
+        organizationId: org.id,
+      },
+    });
 
-  console.log("✅ Admin user upserted:", admin.id);
-
-  // 4) Ensure PLATFORM_ADMIN role exists and link user -> role via UserRole if not already linked
-  const platformAdminRole = await prisma.role.findFirst({ where: { name: "PLATFORM_ADMIN" } });
-  if (!platformAdminRole) {
-    throw new Error("PLATFORM_ADMIN role not found after seeding.");
-  }
-
-  const existingUserRole = await prisma.userRole.findFirst({
-    where: { userId: admin.id, roleId: platformAdminRole.id },
-  });
-
-  if (!existingUserRole) {
     await prisma.userRole.create({
       data: {
         userId: admin.id,
-        roleId: platformAdminRole.id,
+        roleId: roleMap["BROKER_ADMIN"],
       },
     });
-    console.log(`✅ Linked user ${admin.id} -> role ${platformAdminRole.name}`);
-  } else {
-    console.log(`ℹ️  User ${admin.id} already has role ${platformAdminRole.name}`);
+
+    // Loan Officers
+    for (let j = 1; j <= 2; j++) {
+      const officer = await prisma.userAccount.create({
+        data: {
+          email: `broker${i}_officer${j}@test.com`,
+          passwordHash,
+          firstName: "Loan",
+          lastName: `Officer${j}`,
+          organizationId: org.id,
+        },
+      });
+
+      await prisma.userRole.create({
+        data: {
+          userId: officer.id,
+          roleId: roleMap["BROKER_OFFICER"],
+        },
+      });
+
+      console.log(`   ➜ Loan Officer ${j} created`);
+    }
+
+    await prisma.brokerWhiteLabelSetting.create({
+      data: {
+        brokerOrgId: org.id,
+        brandName: `BrokerBrand${i}`,
+        primaryColor: "#000000",
+      },
+    });
+
+    await prisma.affiliateLink.create({
+      data: {
+        brokerOrgId: org.id,
+        code: `AFFILIATE_${i}`,
+        targetType: "BROKER_SIGNUP",
+        commissionType: "PERCENTAGE",
+        commissionValue: 5,
+      },
+    });
+
+    brokers.push(org);
+
+    console.log(`✅ Broker ${i} Created`);
   }
 
-  console.log("\n🎉 Seed finished.");
-  console.log(`Organization: ${organization.name} (${organization.id})`);
-  console.log(`Admin Email: ${admin.email}`);
-  console.log(`Admin Password (plaintext): ${adminPassword}`);
+  /* ======================================================
+     6. LENDERS + UNDERWRITERS
+  ====================================================== */
+  section("Creating Lenders + Underwriters");
+
+  const lenders = [];
+
+  for (let i = 1; i <= 3; i++) {
+    const org = await prisma.organization.create({
+      data: {
+        name: `Lender Org ${i}`,
+        type: "LENDER",
+        status: "ACTIVE",
+      },
+    });
+
+    const admin = await prisma.userAccount.create({
+      data: {
+        email: `lender${i}@test.com`,
+        passwordHash,
+        firstName: "Lender",
+        lastName: `Admin${i}`,
+        organizationId: org.id,
+      },
+    });
+
+    await prisma.userRole.create({
+      data: {
+        userId: admin.id,
+        roleId: roleMap["LENDER_ADMIN"],
+      },
+    });
+
+    for (let j = 1; j <= 2; j++) {
+      const underwriter = await prisma.userAccount.create({
+        data: {
+          email: `lender${i}_uw${j}@test.com`,
+          passwordHash,
+          firstName: "Under",
+          lastName: `Writer${j}`,
+          organizationId: org.id,
+        },
+      });
+
+      await prisma.userRole.create({
+        data: {
+          userId: underwriter.id,
+          roleId: roleMap["LENDER_UNDERWRITER"],
+        },
+      });
+    }
+
+    const lenderProduct = await prisma.lenderProduct.create({
+      data: {
+        lenderOrgId: org.id,
+        loanProductCode: "SBA_7A",
+        minLoanAmount: 50000,
+        maxLoanAmount: 2000000,
+      },
+    });
+
+    lenders.push({ org, lenderProduct });
+
+    console.log(`✅ Lender ${i} Created`);
+  }
+
+  /* ======================================================
+     7. CLIENTS + APPLICATIONS
+  ====================================================== */
+  section("Creating Clients + Applications");
+
+  for (const broker of brokers) {
+    for (let i = 1; i <= 3; i++) {
+      const client = await prisma.client.create({
+        data: {
+          primaryBrokerOrgId: broker.id,
+          legalName: `Client ${i}`,
+          entityType: "COMPANY",
+        },
+      });
+
+      const app = await prisma.loanApplication.create({
+        data: {
+          applicationNumber: `APP-${broker.id.slice(0, 4)}-${i}`,
+          brokerOrgId: broker.id,
+          clientId: client.id,
+          loanProductCode: "SBA_7A",
+          amountRequested: 250000,
+        },
+      });
+
+      await prisma.applicationFinancial.create({
+        data: {
+          loanApplicationId: app.id,
+          annualRevenue: 400000,
+          netIncome: 100000,
+        },
+      });
+
+      const sent = await prisma.applicationLender.create({
+        data: {
+          loanApplicationId: app.id,
+          lenderOrgId: lenders[0].org.id,
+          lenderProductId: lenders[0].lenderProduct.id,
+        },
+      });
+
+      const review = await prisma.lenderReview.create({
+        data: {
+          applicationLenderId: sent.id,
+          reviewStatus: "APPROVED",
+          approvedAmount: 240000,
+        },
+      });
+
+      await prisma.lenderCondition.create({
+        data: {
+          lenderReviewId: review.id,
+          description: "Provide updated bank statement",
+        },
+      });
+
+      console.log(`   ➜ Application Created`);
+    }
+  }
+
+  section("SEED COMPLETED SUCCESSFULLY");
+
+  console.log("\n🔐 Default Password For All Users:");
+  console.log(PASSWORD);
 }
 
 main()
   .catch((e) => {
-    console.error("Seed failed:", e);
+    console.error("❌ SEED FAILED:", e);
     process.exit(1);
   })
   .finally(async () => {
