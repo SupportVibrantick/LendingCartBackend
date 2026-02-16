@@ -1,4 +1,4 @@
-import { useEffect, useState, ReactNode } from "react";
+import { ReactNode } from "react";
 import {
   FileText,
   Send,
@@ -8,12 +8,11 @@ import {
   BadgeDollarSign,
   RotateCcw,
   DollarSign,
-  Building2,
 } from "lucide-react";
 
 /* ================= TYPES ================= */
 
-interface BrokerStats {
+export interface BrokerStats {
   totalApplications: number;
   totalSubmitted: number;
   totalInReview: number;
@@ -23,6 +22,11 @@ interface BrokerStats {
   totalWithdrawn: number;
   totalVolumeFunded: number;
   uniqueLendersAccessed: number;
+}
+
+interface Props {
+  stats: BrokerStats | null;
+  loading: boolean;
 }
 
 interface StatCardProps {
@@ -76,12 +80,7 @@ const STAT_CONFIG = {
     color: "blue",
     isCurrency: true,
   },
-  uniqueLendersAccessed: {
-    label: "Unique Lenders",
-    icon: <Building2 className="w-6 h-6 text-white" />,
-    color: "green",
-  },
-};
+} as const;
 
 /* ================= STAT CARD ================= */
 
@@ -117,65 +116,37 @@ const StatCard = ({ title, value, icon, colorScheme }: StatCardProps) => {
 
 /* ================= MAIN COMPONENT ================= */
 
-export default function EcommerceMetrics() {
-  const [stats, setStats] = useState<BrokerStats | null>(null);
-  const [loading, setLoading] = useState(false);
+export default function EcommerceMetrics({ stats, loading }: Props) {
+  if (loading) {
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <div
+            key={i}
+            className="h-28 rounded-2xl bg-gray-200 animate-pulse dark:bg-gray-800"
+          />
+        ))}
+      </div>
+    );
+  }
 
-  const API_BASE = import.meta.env.VITE_API_BASE || "";
+  if (!stats) return null;
 
-  const getHeaders = () => {
-    const token = sessionStorage.getItem("broker_token");
+  const statItems = Object.entries(STAT_CONFIG).map(([key, config]) => {
+    const rawValue = stats[key as keyof BrokerStats] ?? 0;
+
+    const value =
+      "isCurrency" in config && config.isCurrency
+        ? `$${Number(rawValue).toLocaleString()}`
+        : rawValue;
+
     return {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      title: config.label,
+      value,
+      icon: config.icon,
+      colorScheme: config.color,
     };
-  };
-
-  const fetchStats = async () => {
-    try {
-      setLoading(true);
-
-      const res = await fetch(`${API_BASE}/broker/stats`, {
-        headers: getHeaders(),
-      });
-
-      const json = await res.json();
-
-      if (json.success) {
-        setStats(json.data);
-      }
-    } catch (err) {
-      console.error("Stats error:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchStats();
-  }, []);
-
-  const statItems = stats
-    ? Object.entries(STAT_CONFIG).map(([key, config]) => {
-        const rawValue = stats[key as keyof BrokerStats] ?? 0;
-
-        const value =
-          "isCurrency" in config && config.isCurrency
-            ? `$${Number(rawValue).toLocaleString()}`
-            : rawValue;
-
-        return {
-          title: config.label,
-          value: loading ? "..." : value,
-          icon: config.icon,
-          colorScheme: config.color as
-            | "blue"
-            | "purple"
-            | "green"
-            | "orange",
-        };
-      })
-    : [];
+  });
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">

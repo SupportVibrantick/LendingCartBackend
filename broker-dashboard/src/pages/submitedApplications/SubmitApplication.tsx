@@ -130,21 +130,31 @@ export default function LoanApplicationsPage() {
       .replace(/\b\w/g, (char) => char.toUpperCase());
   };
 
-  const getStatusColor = (status: string) => {
-    const s = status?.toLowerCase();
-    switch (s) {
-      case 'new':
-        return 'bg-blue-500/10 border-blue-500/20 text-blue-600 dark:text-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.1)]';
-      case 'pending':
-        return 'bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.1)]';
-      case 'submitted':
-        return 'bg-indigo-500/10 border-indigo-500/20 text-indigo-600 dark:text-indigo-400 shadow-[0_0_15px_rgba(99,102,241,0.1)]';
-      case 'approved':
-        return 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.1)]';
-      default:
-        return 'bg-slate-500/10 border-slate-500/20 text-slate-600 dark:text-slate-400';
-    }
-  };
+ const getStatusColor = (status: string) => {
+  const s = status?.toLowerCase();
+
+  switch (s) {
+    case "new":
+      return "bg-blue-500/10 border-blue-500/20 text-blue-600 dark:text-blue-400";
+
+    case "pending":
+      return "bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400";
+
+    case "submitted":
+    case "sent":
+      return "bg-indigo-500/10 border-indigo-500/20 text-indigo-600 dark:text-indigo-400";
+
+    case "approved":
+      return "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400";
+
+    case "declined":
+      return "bg-red-500/10 border-red-500/20 text-red-600 dark:text-red-400";
+
+    default:
+      return "bg-slate-500/10 border-slate-500/20 text-slate-600 dark:text-slate-400";
+  }
+};
+
 
   const newCount = rows.filter(
     (r) => r.status === "NEW" || r.status === "SUBMITTED",
@@ -614,7 +624,7 @@ export default function LoanApplicationsPage() {
                             <span className={`relative inline-flex rounded-full h-2 w-2 bg-current shadow-[0_0_8px_rgba(255,255,255,0.5)]`}></span>
                           </span>
 
-                          {row.status}
+                        {row.status === "DECLINED" ? "REJECTED" : row.status}
                         </span>
                       </td>
 
