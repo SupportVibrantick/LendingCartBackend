@@ -131,7 +131,7 @@ const basicFields: {
     ];
 
 const inputStyle =
-    "w-full px-4 py-2.5 rounded-lg border border-slate-200 bg-slate-50 transition-all outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600";
+    "w-full px-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 transition-all outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600";
 
 export default function LoanOfficersPage() {
     const [officers, setOfficers] = useState<LoanOfficer[]>([]);
@@ -193,7 +193,6 @@ export default function LoanOfficersPage() {
             setTogglingId(null);
         }
     };
-
 
     const getHeaders = () => {
         const token = sessionStorage.getItem("broker_token");
@@ -272,7 +271,6 @@ export default function LoanOfficersPage() {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         const phoneRegex = /^[0-9]{8,15}$/;
         const zipRegex = /^[0-9]{4,10}$/;
-        const urlRegex = /^(https?:\/\/)?([\w\d-]+\.)+\w{2,}(\/.*)?$/;
 
         // Required Fields (avatar NOT included)
         const requiredFields: (keyof FormState)[] = [
@@ -339,9 +337,14 @@ export default function LoanOfficersPage() {
         }
 
         // Website validation
-        if (form.website && !urlRegex.test(form.website)) {
-            newErrors.website = "Invalid website URL";
+        if (form.website) {
+            try {
+                new URL(form.website.startsWith("http") ? form.website : `https://${form.website}`);
+            } catch {
+                newErrors.website = "Invalid website URL";
+            }
         }
+
 
         return newErrors;
     };
@@ -371,7 +374,7 @@ export default function LoanOfficersPage() {
                 if (!value) return;
 
                 if (key === "avatarFile" && value instanceof File) {
-                    formData.append("avatarUrl", value);
+                    formData.append("avatar", value);
                 }
                 else if (key !== "avatarPreview") {
                     formData.append(key, String(value));
@@ -419,6 +422,11 @@ export default function LoanOfficersPage() {
             cancelButtonColor: "#6b7280",
             confirmButtonText: "Yes, Delete",
             cancelButtonText: "Cancel",
+            background: "#1e293b",
+            color: "#e2e8f0",
+            customClass: {
+                container: "swal-high-zindex"
+            }
         });
 
         if (!result.isConfirmed) return;
@@ -436,6 +444,11 @@ export default function LoanOfficersPage() {
                 icon: "success",
                 timer: 1500,
                 showConfirmButton: false,
+                background: "#1e293b",
+                color: "#e2e8f0",
+                customClass: {
+                    container: "swal-high-zindex"
+                }
             });
 
             fetchOfficers();
@@ -449,16 +462,19 @@ export default function LoanOfficersPage() {
     };
 
     const InfoItem = ({ label, value }: { label: string; value: any }) => (
-        <div>
-            <p className="text-slate-500">{label}</p>
-            <p className="font-semibold text-slate-800">
+        <div className="space-y-1">
+            <p className="text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wide">
+                {label}
+            </p>
+            <p className="font-medium text-slate-800 dark:text-slate-200 break-words">
                 {value || "-"}
             </p>
         </div>
     );
 
+
     return (
-        <div className="p-6">
+        <div className="p-6 bg-gray-50 dark:bg-slate-900 min-h-screen transition-colors">
             {/* Header + Controls */}
             <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8 gap-4">
 
@@ -469,7 +485,7 @@ export default function LoanOfficersPage() {
       bg-clip-text text-transparent">
                         Loan Officers
                     </h1>
-                    <p className="text-sm text-gray-500 mt-1">
+                    <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">
                         Manage and monitor all your loan officers in one place
                     </p>
                 </div>
@@ -480,11 +496,13 @@ export default function LoanOfficersPage() {
                     <div className="relative w-72">
                         <input
                             placeholder="Search loan officers..."
-                            className="w-full border border-gray-300 
-        focus:border-indigo-500 focus:ring-2 
-        focus:ring-indigo-200 
-        rounded-xl py-2.5 pl-10 pr-10 
-        outline-none transition-all"
+                            className="w-full border border-gray-300 dark:border-slate-600
+bg-white dark:bg-slate-800
+text-gray-800 dark:text-slate-200
+focus:border-indigo-500 focus:ring-2
+focus:ring-indigo-200 dark:focus:ring-indigo-500/30
+rounded-xl py-2.5 pl-10 pr-10
+outline-none transition-all"
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                         />
@@ -529,10 +547,20 @@ export default function LoanOfficersPage() {
             </div>
 
             {/* Table */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+            <div className="bg-white dark:bg-slate-800
+rounded-2xl shadow-sm
+border border-gray-200 dark:border-slate-700
+overflow-hidden transition-colors">
+
                 <table className="w-full text-sm">
-                    <thead className="bg-gradient-to-r from-indigo-50 to-purple-50">
-                        <tr className="text-gray-600 uppercase text-xs tracking-wider">
+
+                    {/* Header */}
+                    <thead className="bg-gradient-to-r 
+    from-indigo-50 to-purple-50
+    dark:from-slate-800 dark:to-slate-800
+    border-b border-gray-200 dark:border-slate-700">
+
+                        <tr className="text-gray-600 dark:text-slate-400 uppercase text-xs tracking-wider">
                             <th className="p-4 text-left">Name</th>
                             <th className="p-4 text-left">Email</th>
                             <th className="p-4 text-left">Phone</th>
@@ -542,10 +570,13 @@ export default function LoanOfficersPage() {
                         </tr>
                     </thead>
 
-                    <tbody className="divide-y divide-gray-100">
+                    {/* Body */}
+                    <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
+
                         {loading ? (
                             <tr>
-                                <td colSpan={6} className="p-10 text-center text-gray-400">
+                                <td colSpan={6}
+                                    className="p-10 text-center text-gray-400 dark:text-slate-500">
                                     Loading...
                                 </td>
                             </tr>
@@ -553,14 +584,17 @@ export default function LoanOfficersPage() {
                             <tr>
                                 <td colSpan={6} className="p-10">
                                     <div className="flex flex-col items-center justify-center text-center space-y-4">
-                                        <div className="bg-indigo-100 text-indigo-600 rounded-full p-4">
+                                        <div className="bg-indigo-100 dark:bg-indigo-900/30 
+              text-indigo-600 dark:text-indigo-400 
+              rounded-full p-4">
                                             <Users size={32} />
                                         </div>
+
                                         <div>
-                                            <p className="text-lg font-semibold text-gray-700">
+                                            <p className="text-lg font-semibold text-gray-700 dark:text-slate-200">
                                                 No Loan Officers Found
                                             </p>
-                                            <p className="text-sm text-gray-500 mt-1">
+                                            <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">
                                                 Try adjusting your search or create a new loan officer.
                                             </p>
                                         </div>
@@ -571,21 +605,28 @@ export default function LoanOfficersPage() {
                             officers.map((o) => (
                                 <tr
                                     key={o.id}
-                                    className="hover:bg-indigo-50/40 transition-all duration-200"
-                                >
+                                    className="hover:bg-indigo-50/40 
+            dark:hover:bg-slate-700/40 
+            transition-all duration-200">
+                                    {/* Name */}
                                     <td className="p-4">
                                         <div className="flex items-center gap-3">
 
                                             {/* Avatar */}
-                                            <div className="h-10 w-10 rounded-full overflow-hidden bg-slate-100 border flex-shrink-0">
+                                            <div className="h-12 w-12 rounded-full overflow-hidden
+                bg-slate-100 dark:bg-slate-700
+                border border-gray-200 dark:border-slate-600
+                flex-shrink-0">
                                                 {o.profile?.avatarUrl ? (
                                                     <img
-                                                        src={o.profile.avatarUrl}
+                                                        src={`${API_BASE}${o.profile?.avatarUrl}`}
                                                         alt="avatar"
                                                         className="h-full w-full object-cover"
                                                     />
                                                 ) : (
-                                                    <div className="h-full w-full flex items-center justify-center text-xs font-semibold text-slate-500">
+                                                    <div className="h-full w-full flex items-center justify-center
+                    text-xs font-semibold
+                    text-slate-500 dark:text-slate-300">
                                                         {o.firstName?.charAt(0)}
                                                         {o.lastName?.charAt(0)}
                                                     </div>
@@ -594,23 +635,27 @@ export default function LoanOfficersPage() {
 
                                             {/* Name + Role */}
                                             <div>
-                                                <p className="font-semibold text-gray-800">
+                                                <p className="font-semibold text-gray-800 dark:text-slate-200">
                                                     {o.firstName} {o.lastName}
                                                 </p>
-                                                <p className="text-xs text-gray-500">
+                                                <p className="text-xs text-gray-500 dark:text-slate-400">
                                                     {o.profile?.agentType || "-"}
                                                 </p>
                                             </div>
-
                                         </div>
                                     </td>
 
-                                    <td className="p-4 text-gray-600">{o.email}</td>
+                                    {/* Email */}
+                                    <td className="p-4 text-gray-600 dark:text-slate-300">
+                                        {o.email}
+                                    </td>
 
-                                    <td className="p-4 text-gray-600">
+                                    {/* Phone */}
+                                    <td className="p-4 text-gray-600 dark:text-slate-300">
                                         {o.phone || "-"}
                                     </td>
 
+                                    {/* Status */}
                                     <td className="p-4">
                                         <span
                                             onClick={() =>
@@ -619,45 +664,49 @@ export default function LoanOfficersPage() {
                                             }
                                             className={`px-3 py-1 rounded-full text-xs font-medium cursor-pointer transition-all duration-200
                 ${o.status === "ACTIVE"
-                                                    ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
-                                                    : "bg-red-100 text-red-600 hover:bg-red-200"
+                                                    ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400"
+                                                    : "bg-red-100 text-red-600 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400"
                                                 }
                 ${togglingId === o.id ? "opacity-50 cursor-not-allowed" : ""}
               `}
                                         >
                                             {togglingId === o.id ? "Updating..." : o.status}
                                         </span>
-                                    </td>
+                                    </td> 
 
-                                    <td className="p-4 text-gray-500">
+                                    {/* Created */}
+                                    <td className="p-4 text-gray-500 dark:text-slate-400">
                                         {new Date(o.createdAt).toLocaleDateString()}
                                     </td>
+
+                                    {/* Actions */}
                                     <td className="p-4 text-right space-x-2">
 
-                                        {/* View Button */}
+                                        {/* View */}
                                         <button
                                             onClick={() => setViewOfficer(o)}
                                             className="inline-flex items-center justify-center 
-        h-9 w-9 rounded-lg 
-        bg-blue-50 hover:bg-blue-100 
-        text-blue-600 
-        transition-all duration-200"
+                h-9 w-9 rounded-lg
+                bg-blue-50 hover:bg-blue-100
+                dark:bg-blue-900/30 dark:hover:bg-blue-900/50
+                text-blue-600 dark:text-blue-400
+                transition-all duration-200"
                                         >
                                             <Eye size={16} />
                                         </button>
 
-                                        {/* Delete Button */}
+                                        {/* Delete */}
                                         <button
                                             onClick={() => handleDelete(o.id)}
                                             className="inline-flex items-center justify-center 
-        h-9 w-9 rounded-lg 
-        bg-red-50 hover:bg-red-100 
-        text-red-600 
-        transition-all duration-200"
+                h-9 w-9 rounded-lg
+                bg-red-50 hover:bg-red-100
+                dark:bg-red-900/30 dark:hover:bg-red-900/50
+                text-red-600 dark:text-red-400
+                transition-all duration-200"
                                         >
                                             <Trash2 size={16} />
                                         </button>
-
                                     </td>
                                 </tr>
                             ))
@@ -667,547 +716,623 @@ export default function LoanOfficersPage() {
             </div>
 
             {/* Pagination */}
-            {totalPages > 1 && (
-                <div className="flex items-center justify-between mt-6">
+            {
+                totalPages > 1 && (
+                    <div className="flex items-center justify-between mt-6">
+                        <p className="text-sm text-slate-500 dark:text-slate-400">
+                            Page <span className="font-semibold text-slate-700 dark:text-slate-200">{page}</span> of{" "}
+                            <span className="font-semibold text-slate-700 dark:text-slate-200">{totalPages}</span>
+                        </p>
 
-                    <p className="text-sm text-slate-500">
-                        Page <span className="font-semibold">{page}</span> of{" "}
-                        <span className="font-semibold">{totalPages}</span>
-                    </p>
-
-                    <div className="flex gap-2">
-
-                        <button
-                            disabled={page === 1 || loading}
-                            onClick={() => setPage((p) => Math.max(p - 1, 1))}
-                            className="px-4 py-2 rounded-lg border bg-white 
-                hover:bg-slate-100 disabled:opacity-50 
-                disabled:cursor-not-allowed transition"
-                        >
-                            Prev
-                        </button>
-
-                        <button
-                            disabled={page === totalPages || loading}
-                            onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
-                            className="px-4 py-2 rounded-lg border bg-white 
-                hover:bg-slate-100 disabled:opacity-50 
-                disabled:cursor-not-allowed transition"
-                        >
-                            Next
-                        </button>
-
-                    </div>
-                </div>
-            )}
-
-            {showModal && (
-                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[273797737392739] p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col animate-in fade-in zoom-in duration-200">
-
-                        {/* Header */}
-                        <div className="flex justify-between items-center p-6 border-b bg-slate-50/50">
-                            <div>
-                                <h2 className="text-xl font-bold text-slate-800">Create Loan Officer</h2>
-                                <p className="text-sm text-slate-500">Fill in the details to register a new officer in the system.</p>
-                            </div>
+                        <div className="flex gap-2">
                             <button
-                                type="button"
-                                onClick={() => setShowModal(false)}
-                                className="p-2 rounded-full hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors"
+                                disabled={page === 1 || loading}
+                                onClick={() => setPage((p) => Math.max(p - 1, 1))}
+                                className="px-4 py-2 rounded-lg border
+            border-gray-200 dark:border-slate-600
+            bg-white dark:bg-slate-800
+            text-slate-700 dark:text-slate-200
+            hover:bg-slate-100 dark:hover:bg-slate-700
+            disabled:opacity-50
+            disabled:cursor-not-allowed
+            transition-colors"
                             >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="6 18L18 6M6 6l12 12" />
-                                </svg>
+                                Prev
                             </button>
+
+                            <button
+                                disabled={page === totalPages || loading}
+                                onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
+                                className="
+            px-4 py-2 rounded-lg border
+            border-gray-200 dark:border-slate-600
+            bg-white dark:bg-slate-800
+            text-slate-700 dark:text-slate-200
+            hover:bg-slate-100 dark:hover:bg-slate-700
+            disabled:opacity-50
+            disabled:cursor-not-allowed
+            transition-colors
+          "
+                            >
+                                Next
+                            </button>
+
                         </div>
+                    </div>
+                )
+            }
 
-                        {/* Scrollable Form Body */}
-                        <form onSubmit={handleCreate} className="overflow-y-auto p-6 space-y-8 custom-scrollbar">
+            {
+                showModal && (
+                    <div className="fixed inset-0 bg-slate-900/60 dark:bg-black/80 backdrop-blur-md flex items-center justify-center z-[273797737392739] p-4 transition-colors">
+                        <div className="bg-white dark:bg-slate-800
+rounded-2xl shadow-2xl
+border border-gray-200 dark:border-slate-700
+transition-colors w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col animate-in fade-in zoom-in duration-200">
 
-                            {/* Section: Basic Info */}
-                            <section>
-                                {/* Avatar Upload */}
-                                <div className="space-y-4 md:col-span-2 mt-4">
-                                    <label className="block text-sm font-medium text-slate-700">
-                                        Profile Picture
-                                    </label>
+                            {/* Header */}
+                            <div className="flex justify-between items-center p-6 
+border-b border-gray-200 dark:border-slate-700
+bg-slate-50/60 dark:bg-slate-800">
 
-                                    <div className="flex items-center gap-6">
-                                        {/* Preview Container */}
-                                        <div className="relative group">
-                                            <div className="h-24 w-24 rounded-full overflow-hidden bg-slate-100 border-2 border-slate-200 shadow-sm transition-all group-hover:border-blue-400">
-                                                {form.avatarPreview ? (
-                                                    <img
-                                                        src={form.avatarPreview}
-                                                        alt="Avatar Preview"
-                                                        className="h-full w-full object-cover"
+                                <div>
+                                    <h2 className="text-xl font-bold text-slate-800 dark:text-slate-200">
+                                        Create Loan Officer
+                                    </h2>
+                                    <p className="text-sm text-slate-500 dark:text-slate-400">
+                                        Fill in the details to register a new officer in the system.
+                                    </p>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    onClick={() => setShowModal(false)}
+                                    className="p-2 rounded-full
+    hover:bg-red-50 dark:hover:bg-red-900/30
+    text-slate-400 dark:text-slate-500
+    hover:text-red-600 dark:hover:text-red-400
+    transition-colors"
+                                >
+                                    ✕
+                                </button>
+                            </div>
+
+                            {/* Scrollable Form Body */}
+                            <form onSubmit={handleCreate} className="overflow-y-auto p-6 space-y-8 custom-scrollbar">
+
+                                {/* Section: Basic Info */}
+                                <section>
+                                    {/* Avatar Upload */}
+                                    <div className="space-y-4 md:col-span-2 mt-4">
+                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+                                            Profile Picture
+                                        </label>
+
+                                        <div className="flex items-center gap-6">
+                                            {/* Preview Container */}
+                                            <div className="relative group">
+                                                <div className="h-24 w-24 rounded-full overflow-hidden
+bg-slate-100 dark:bg-slate-700
+border-2 border-slate-200 dark:border-slate-600
+shadow-sm transition-all group-hover:border-blue-400">
+                                                    {form.avatarPreview ? (
+                                                        <img
+                                                            src={form.avatarPreview}
+                                                            alt="Avatar Preview"
+                                                            className="h-full w-full object-cover"
+                                                        />
+                                                    ) : (
+                                                        <div className="flex flex-col items-center justify-center h-full text-slate-400 dark:text-slate-300">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                                            </svg>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {/* Controls */}
+                                            <div className="flex flex-col gap-2">
+                                                <label className="cursor-pointer inline-flex items-center px-4 py-2
+bg-white dark:bg-slate-700
+border border-slate-300 dark:border-slate-600
+rounded-lg text-sm font-semibold
+text-slate-700 dark:text-slate-200
+hover:bg-slate-50 dark:hover:bg-slate-600
+hover:border-slate-400 dark:hover:border-slate-500
+transition-all active:scale-95 shadow-sm">
+                                                    <span>Change Photo</span>
+                                                    <input
+                                                        type="file"
+                                                        accept="image/*"
+                                                        className="hidden" // Hides the ugly default input
+                                                        onChange={(e) => {
+                                                            const file = e.target.files?.[0];
+                                                            if (!file) return;
+
+                                                            if (file.size > 2 * 1024 * 1024) {
+                                                                toast.error("Image must be under 2MB");
+                                                                return;
+                                                            }
+
+                                                            if (!file.type.startsWith("image/")) {
+                                                                toast.error("Only image files allowed");
+                                                                return;
+                                                            }
+
+                                                            setForm((prev) => ({
+                                                                ...prev,
+                                                                avatarFile: file,
+                                                                avatarPreview: URL.createObjectURL(file),
+                                                            }));
+                                                        }}
                                                     />
-                                                ) : (
-                                                    <div className="flex flex-col items-center justify-center h-full text-slate-400">
-                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                                        </svg>
-                                                    </div>
-                                                )}
+                                                </label>
+                                                <p className="text-xs text-slate-500 dark:text-slate-400">
+                                                    JPG, GIF or PNG. Max size 2MB.
+                                                </p>
                                             </div>
                                         </div>
-
-                                        {/* Controls */}
-                                        <div className="flex flex-col gap-2">
-                                            <label className="cursor-pointer inline-flex items-center px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-400 transition-all active:scale-95 shadow-sm">
-                                                <span>Change Photo</span>
-                                                <input
-                                                    type="file"
-                                                    accept="image/*"
-                                                    className="hidden" // Hides the ugly default input
-                                                    onChange={(e) => {
-                                                        const file = e.target.files?.[0];
-                                                        if (!file) return;
-
-                                                        if (file.size > 2 * 1024 * 1024) {
-                                                            toast.error("Image must be under 2MB");
-                                                            return;
-                                                        }
-
-                                                        if (!file.type.startsWith("image/")) {
-                                                            toast.error("Only image files allowed");
-                                                            return;
-                                                        }
-
-                                                        setForm((prev) => ({
-                                                            ...prev,
-                                                            avatarFile: file,
-                                                            avatarPreview: URL.createObjectURL(file),
-                                                        }));
-                                                    }}
-                                                />
-                                            </label>
-                                            <p className="text-xs text-slate-500">
-                                                JPG, GIF or PNG. Max size 2MB.
-                                            </p>
-                                        </div>
                                     </div>
-                                </div>
-                                <div className="flex items-center gap-2 mb-4 mt-4">
-                                    <div className="h-8 w-1 bg-indigo-600 rounded-full"></div>
-                                    <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500">Basic Information</h3>
-                                </div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                                    {basicFields.map((field) => (
-                                        <div key={field.key} className="space-y-1">
-                                            <label className="text-sm font-semibold text-slate-700 ml-1">
-                                                {field.label}
-                                            </label>
+                                    <div className="flex items-center gap-2 mb-4 mt-4">
+                                        <div className="h-8 w-1 bg-indigo-600 rounded-full"></div>
+                                        <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Basic Information</h3>
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                                        {basicFields.map((field) => (
+                                            <div key={field.key} className="space-y-1">
+                                                <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 ml-1">
+                                                    {field.label}
+                                                </label>
 
-                                            <input
-                                                type={field.type || "text"}
-                                                placeholder={field.placeholder}
-                                                className={`w-full px-4 py-2.5 rounded-lg border 
+                                                <input
+                                                    type={field.type || "text"}
+                                                    placeholder={field.placeholder}
+                                                    className={`w-full px-4 py-2.5 rounded-lg border 
       bg-slate-50 transition-all outline-none
       focus:ring-2 focus:ring-indigo-500/20 
-      focus:border-indigo-600
+      focus:border-indigo-600 dark:border-slate-600 dark:bg-slate-700 text-slate-800 dark:text-slate-200
       ${errors[field.key]
-                                                        ? "border-red-500 bg-red-50"
-                                                        : "border-slate-200"
-                                                    }`}
-                                                value={form[field.key] as string}
-                                                onChange={(e) => updateField(field.key, e.target.value)}
-                                            />
+                                                            ? "border-red-500 bg-red-50"
+                                                            : "border-slate-200"
+                                                        }`}
+                                                    value={form[field.key] as string}
+                                                    onChange={(e) => updateField(field.key, e.target.value)}
+                                                />
 
-                                            {errors[field.key] && (
-                                                <p className="text-xs font-medium text-red-500 mt-1 ml-1">
-                                                    {errors[field.key]}
-                                                </p>
-                                            )}
+                                                {errors[field.key] && (
+                                                    <p className="text-xs font-medium text-red-500 mt-1 ml-1">
+                                                        {errors[field.key]}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        ))}
+
+                                        <div className="space-y-1 md:col-span-2">
+                                            <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 ml-1">Agent Type</label>
+                                            <select
+                                                className="w-full px-4 py-2.5 rounded-lg border border-slate-200 bg-slate-100 transition-all outline-none text-slate-500 dark:text-slate-400 cursor-not-allowed dark:border-slate-600 dark:bg-slate-700"
+                                                value={form.agentType}
+                                                disabled
+                                            >
+                                                <option value="Loan Officer">Loan Officer</option>
+                                                <option value="Senior Loan Officer">Senior Loan Officer</option>
+                                                <option value="Manager">Manager</option>
+                                            </select>
                                         </div>
-                                    ))}
-
-                                    <div className="space-y-1 md:col-span-2">
-                                        <label className="text-sm font-semibold text-slate-700 ml-1">Agent Type</label>
-                                        <select
-                                            className="w-full px-4 py-2.5 rounded-lg border border-slate-200 bg-slate-100 transition-all outline-none text-slate-500 cursor-not-allowed"
-                                            value={form.agentType}
-                                            disabled
-                                        >
-                                            <option value="Loan Officer">Loan Officer</option>
-                                            <option value="Senior Loan Officer">Senior Loan Officer</option>
-                                            <option value="Manager">Manager</option>
-                                        </select>
                                     </div>
-                                </div>
-                            </section>
+                                </section>
 
-                            {/* Section: Company Info */}
-                            <section>
-                                <div className="flex items-center gap-2 mb-4">
-                                    <div className="h-8 w-1 bg-emerald-500 rounded-full"></div>
-                                    <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500">Company Details</h3>
-                                </div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="space-y-1 md:col-span-2">
-                                        <label className="text-sm font-semibold text-slate-700 ml-1">
-                                            Company
-                                        </label>
-
-                                        <input
-                                            className={`${inputStyle} ${errors.company ? "border-red-500 bg-red-50" : ""
-                                                }`}
-                                            value={form.company}
-                                            onChange={(e) => updateField("company", e.target.value)}
-                                        />
-
-                                        {errors.company && (
-                                            <p className="text-xs text-red-500 mt-1">{errors.company}</p>
-                                        )}
+                                {/* Section: Company Info */}
+                                <section>
+                                    <div className="flex items-center gap-2 mb-4">
+                                        <div className="h-8 w-1 bg-emerald-500 rounded-full"></div>
+                                        <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Company Details</h3>
                                     </div>
-                                    <div className="space-y-1">
-                                        <label className="text-sm font-semibold text-slate-700 ml-1">
-                                            Service Provider
-                                        </label>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="space-y-1 md:col-span-2">
+                                            <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 ml-1">
+                                                Company
+                                            </label>
 
-                                        <select
-                                            className={`${inputStyle} ${errors.serviceProvider ? "border-red-500 bg-red-50" : ""
-                                                }`}
-                                            value={form.serviceProvider}
-                                            onChange={(e) => updateField("serviceProvider", e.target.value)}
-                                        >
-                                            <option value="">Select</option>
-                                            <option value="Internal">Internal</option>
-                                            <option value="External">External</option>
-                                            <option value="Partner">Partner</option>
-                                        </select>
-
-                                        {errors.serviceProvider && (
-                                            <p className="text-xs text-red-500 mt-1">
-                                                {errors.serviceProvider}
-                                            </p>
-                                        )}
-                                    </div>
-
-                                    <div className="grid grid-cols-3 gap-2">
-                                        <div className="col-span-2 space-y-1">
-                                            <label className="text-sm font-semibold text-slate-700 ml-1">Toll Free</label>
                                             <input
-                                                className={`${inputStyle} ${errors.tollFree ? "border-red-500 bg-red-50" : ""
+                                                className={`${inputStyle} ${errors.company ? "border-red-500 bg-red-50" : ""
                                                     }`}
-                                                value={form.tollFree}
-                                                onChange={(e) => updateField("tollFree", e.target.value)}
+                                                value={form.company}
+                                                onChange={(e) => updateField("company", e.target.value)}
                                             />
 
-                                            {errors.tollFree && (
-                                                <p className="text-xs text-red-500 mt-1">
-                                                    {errors.tollFree}
-                                                </p>
+                                            {errors.company && (
+                                                <p className="text-xs text-red-500 mt-1">{errors.company}</p>
                                             )}
                                         </div>
                                         <div className="space-y-1">
-                                            <label className="text-sm font-semibold text-slate-700 ml-1">
-                                                Ext
+                                            <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 ml-1">
+                                                Service Provider
                                             </label>
 
-                                            <input
-                                                className={`${inputStyle} ${errors.tollFreeExt ? "border-red-500 bg-red-50" : ""
+                                            <select
+                                                className={`${inputStyle} ${errors.serviceProvider ? "border-red-500 bg-red-50" : ""
                                                     }`}
-                                                value={form.tollFreeExt}
-                                                onChange={(e) => updateField("tollFreeExt", e.target.value)}
-                                            />
+                                                value={form.serviceProvider}
+                                                onChange={(e) => updateField("serviceProvider", e.target.value)}
+                                            >
+                                                <option value="">Select</option>
+                                                <option value="Internal">Internal</option>
+                                                <option value="External">External</option>
+                                                <option value="Partner">Partner</option>
+                                            </select>
 
-                                            {errors.tollFreeExt && (
+                                            {errors.serviceProvider && (
                                                 <p className="text-xs text-red-500 mt-1">
-                                                    {errors.tollFreeExt}
+                                                    {errors.serviceProvider}
                                                 </p>
                                             )}
                                         </div>
+
+                                        <div className="grid grid-cols-3 gap-2">
+                                            <div className="col-span-2 space-y-1">
+                                                <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 ml-1">Toll Free</label>
+                                                <input
+                                                    className={`${inputStyle} ${errors.tollFree ? "border-red-500 bg-red-50" : ""
+                                                        }`}
+                                                    value={form.tollFree}
+                                                    onChange={(e) => updateField("tollFree", e.target.value)}
+                                                />
+
+                                                {errors.tollFree && (
+                                                    <p className="text-xs text-red-500 mt-1">
+                                                        {errors.tollFree}
+                                                    </p>
+                                                )}
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 ml-1">
+                                                    Ext
+                                                </label>
+
+                                                <input
+                                                    className={`${inputStyle} ${errors.tollFreeExt ? "border-red-500 bg-red-50" : ""
+                                                        }`}
+                                                    value={form.tollFreeExt}
+                                                    onChange={(e) => updateField("tollFreeExt", e.target.value)}
+                                                />
+
+                                                {errors.tollFreeExt && (
+                                                    <p className="text-xs text-red-500 mt-1">
+                                                        {errors.tollFreeExt}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </div>
                                     </div>
-                                </div>
-                            </section>
+                                </section>
 
-                            {/* Address Section */}
-                            <section>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {/* Address Section */}
+                                <section>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
-                                    <div className="space-y-1 md:col-span-2">
-                                        <label className="text-sm font-semibold text-slate-700">
-                                            Address
-                                        </label>
+                                        <div className="space-y-1 md:col-span-2">
+                                            <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                                                Address
+                                            </label>
 
-                                        <input
-                                            className={`${inputStyle} ${errors.address ? "border-red-500 bg-red-50" : ""
-                                                }`}
-                                            value={form.address}
-                                            onChange={(e) => updateField("address", e.target.value)}
-                                        />
+                                            <input
+                                                className={`${inputStyle} ${errors.address ? "border-red-500 bg-red-50" : ""
+                                                    }`}
+                                                value={form.address}
+                                                onChange={(e) => updateField("address", e.target.value)}
+                                            />
 
-                                        {errors.address && (
-                                            <p className="text-xs text-red-500 mt-1">
-                                                {errors.address}
-                                            </p>
-                                        )}
-                                    </div>
-
-                                    <div className="space-y-1">
-                                        <label className="text-sm font-semibold text-slate-700">
-                                            Suite
-                                        </label>
-
-                                        <input
-                                            className={`${inputStyle} ${errors.suite ? "border-red-500 bg-red-50" : ""
-                                                }`}
-                                            value={form.suite}
-                                            onChange={(e) => updateField("suite", e.target.value)}
-                                        />
-
-                                        {errors.suite && (
-                                            <p className="text-xs text-red-500 mt-1">
-                                                {errors.suite}
-                                            </p>
-                                        )}
-                                    </div>
-
-                                    <div className="space-y-1">
-                                        <label className="text-sm font-semibold text-slate-700">City</label>
-                                        <input
-                                            className={`${inputStyle} ${errors.city ? "border-red-500 bg-red-50" : ""
-                                                }`}
-                                            value={form.city}
-                                            onChange={(e) => updateField("city", e.target.value)}
-                                        />
-
-                                        {errors.city && (
-                                            <p className="text-xs text-red-500 mt-1">
-                                                {errors.city}
-                                            </p>
-                                        )}
-                                    </div>
-
-                                    <div className="space-y-1">
-                                        <label className="text-sm font-semibold text-slate-700">State</label>
-                                        <select
-                                            className={`${inputStyle} ${errors.state ? "border-red-500 bg-red-50" : ""
-                                                }`}
-                                            value={form.state}
-                                            onChange={(e) => updateField("state", e.target.value)}
-                                        >
-                                            <option value="">Select State</option>
-                                            {US_STATES.map((s) => (
-                                                <option key={s.code} value={s.code}>
-                                                    {s.name}
-                                                </option>
-                                            ))}
-                                        </select>
-
-                                        {errors.state && (
-                                            <p className="text-xs text-red-500 mt-1">
-                                                {errors.state}
-                                            </p>
-                                        )}
-                                    </div>
-
-                                    <div className="space-y-1">
-                                        <label className="text-sm font-semibold text-slate-700">Zip Code</label>
-                                        <input
-                                            className={`${inputStyle} ${errors.zipCode ? "border-red-500 bg-red-50" : ""
-                                                }`}
-                                            value={form.zipCode}
-                                            onChange={(e) => updateField("zipCode", e.target.value)}
-                                        />
-
-                                        {errors.zipCode && (
-                                            <p className="text-xs text-red-500 mt-1">
-                                                {errors.zipCode}
-                                            </p>
-                                        )}
-                                    </div>
-
-                                    <div className="space-y-1">
-                                        <label className="text-sm font-semibold text-slate-700">Preferred Communication</label>
-                                        <select
-                                            className={inputStyle}
-                                            value={form.preferredComm}
-                                            onChange={(e) => setForm({ ...form, preferredComm: e.target.value })}
-                                        >
-                                            <option value="EMAIL">Email</option>
-                                            <option value="PHONE">Phone</option>
-                                        </select>
-                                    </div>
-
-                                    <div className="space-y-1 md:col-span-2">
-                                        <label className="text-sm font-semibold text-slate-700">Website</label>
-                                        <input
-                                            className={`${inputStyle} ${errors.website ? "border-red-500 bg-red-50" : ""
-                                                }`}
-                                            value={form.website}
-                                            onChange={(e) => updateField("website", e.target.value)}
-                                        />
-
-                                        {errors.website && (
-                                            <p className="text-xs text-red-500 mt-1">
-                                                {errors.website}
-                                            </p>
-                                        )}
-                                    </div>
-
-                                </div>
-                            </section>
-
-                            {/* Footer Controls */}
-                            <div className="bg-slate-50 -mx-6 -mb-6 p-6 flex flex-col md:flex-row items-center justify-between gap-4 mt-8">
-                                <label className="flex items-center gap-3 cursor-pointer group">
-                                    <div className="relative">
-                                        <input
-                                            type="checkbox"
-                                            className="sr-only peer"
-                                            checked={form.allowedToLogin}
-                                            onChange={(e) => setForm({ ...form, allowedToLogin: e.target.checked })}
-                                        />
-                                        <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
-                                    </div>
-                                    <span className="text-sm font-medium text-slate-600 group-hover:text-slate-900 transition-colors">Allow user to login</span>
-                                </label>
-
-                                <div className="flex gap-3 w-full md:w-auto">
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowModal(false)}
-                                        className="flex-1 md:flex-none px-6 py-2.5 text-slate-600 font-semibold hover:bg-slate-200 rounded-lg transition-colors"
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        disabled={creating}
-                                        className={`relative flex-1 md:flex-none px-8 py-3 
-    rounded-xl font-semibold text-white
-    bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600
-    hover:from-indigo-700 hover:via-purple-700 hover:to-indigo-700
-    shadow-lg shadow-indigo-200
-    transition-all duration-300
-    active:scale-[0.97]
-    disabled:opacity-60 disabled:cursor-not-allowed
-    overflow-hidden`}
-                                    >
-                                        <span className="relative z-10 flex items-center justify-center gap-2">
-                                            {creating && (
-                                                <svg
-                                                    className="animate-spin h-4 w-4"
-                                                    xmlns="http://www.w3.org/2000/svg"
-                                                    fill="none"
-                                                    viewBox="0 0 24 24"
-                                                >
-                                                    <circle
-                                                        className="opacity-25"
-                                                        cx="12"
-                                                        cy="12"
-                                                        r="10"
-                                                        stroke="currentColor"
-                                                        strokeWidth="4"
-                                                    ></circle>
-                                                    <path
-                                                        className="opacity-75"
-                                                        fill="currentColor"
-                                                        d="M4 12a8 8 0 018-8v8H4z"
-                                                    ></path>
-                                                </svg>
+                                            {errors.address && (
+                                                <p className="text-xs text-red-500 mt-1">
+                                                    {errors.address}
+                                                </p>
                                             )}
-                                            {creating ? "Creating Officer..." : "Create Officer"}
-                                        </span>
+                                        </div>
 
-                                        {/* Shine Effect */}
-                                        <span className="absolute inset-0 bg-white/10 opacity-0 hover:opacity-20 transition-opacity duration-300"></span>
-                                    </button>
+                                        <div className="space-y-1">
+                                            <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                                                Suite
+                                            </label>
+
+                                            <input
+                                                className={`${inputStyle} ${errors.suite ? "border-red-500 bg-red-50" : ""
+                                                    }`}
+                                                value={form.suite}
+                                                onChange={(e) => updateField("suite", e.target.value)}
+                                            />
+
+                                            {errors.suite && (
+                                                <p className="text-xs text-red-500 mt-1">
+                                                    {errors.suite}
+                                                </p>
+                                            )}
+                                        </div>
+
+                                        <div className="space-y-1">
+                                            <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">City</label>
+                                            <input
+                                                className={`${inputStyle} ${errors.city ? "border-red-500 bg-red-50" : ""
+                                                    }`}
+                                                value={form.city}
+                                                onChange={(e) => updateField("city", e.target.value)}
+                                            />
+
+                                            {errors.city && (
+                                                <p className="text-xs text-red-500 mt-1">
+                                                    {errors.city}
+                                                </p>
+                                            )}
+                                        </div>
+
+                                        <div className="space-y-1">
+                                            <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">State</label>
+                                            <select
+                                                className={`${inputStyle} ${errors.state ? "border-red-500 bg-red-50" : ""
+                                                    }`}
+                                                value={form.state}
+                                                onChange={(e) => updateField("state", e.target.value)}
+                                            >
+                                                <option value="">Select State</option>
+                                                {US_STATES.map((s) => (
+                                                    <option key={s.code} value={s.code}>
+                                                        {s.name}
+                                                    </option>
+                                                ))}
+                                            </select>
+
+                                            {errors.state && (
+                                                <p className="text-xs text-red-500 mt-1">
+                                                    {errors.state}
+                                                </p>
+                                            )}
+                                        </div>
+
+                                        <div className="space-y-1">
+                                            <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Zip Code</label>
+                                            <input
+                                                className={`${inputStyle} ${errors.zipCode ? "border-red-500 bg-red-50" : ""
+                                                    }`}
+                                                value={form.zipCode}
+                                                onChange={(e) => updateField("zipCode", e.target.value)}
+                                            />
+
+                                            {errors.zipCode && (
+                                                <p className="text-xs text-red-500 mt-1">
+                                                    {errors.zipCode}
+                                                </p>
+                                            )}
+                                        </div>
+
+                                        <div className="space-y-1">
+                                            <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Preferred Communication</label>
+                                            <select
+                                                className={inputStyle}
+                                                value={form.preferredComm}
+                                                onChange={(e) => setForm({ ...form, preferredComm: e.target.value })}
+                                            >
+                                                <option value="EMAIL">Email</option>
+                                                <option value="PHONE">Phone</option>
+                                            </select>
+                                        </div>
+
+                                        <div className="space-y-1 md:col-span-2">
+                                            <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Website</label>
+                                            <input
+                                                className={`${inputStyle} ${errors.website ? "border-red-500 bg-red-50" : ""
+                                                    }`}
+                                                value={form.website}
+                                                onChange={(e) => updateField("website", e.target.value)}
+                                            />
+
+                                            {errors.website && (
+                                                <p className="text-xs text-red-500 mt-1">
+                                                    {errors.website}
+                                                </p>
+                                            )}
+                                        </div>
+
+                                    </div>
+                                </section>
+
+                                {/* Footer Controls */}
+                                <div className="bg-slate-50 dark:bg-slate-800
+border-t border-gray-200 dark:border-slate-700
+-mx-6 -mb-6 p-6
+flex flex-col md:flex-row items-center justify-between gap-4 mt-8">
+                                    <label className="flex items-center gap-3 cursor-pointer group">
+                                        <div className="relative">
+                                            <input
+                                                type="checkbox"
+                                                className="sr-only peer"
+                                                checked={form.allowedToLogin}
+                                                onChange={(e) => setForm({ ...form, allowedToLogin: e.target.checked })}
+                                            />
+                                            <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                        </div>
+                                        <span className="text-sm font-medium 
+text-slate-600 dark:text-slate-300
+group-hover:text-slate-900 dark:group-hover:text-white
+transition-colors">Allow user to login</span>
+                                    </label>
+
+                                    <div className="flex gap-3 w-full md:w-auto">
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowModal(false)}
+                                            className="flex-1 md:flex-none px-6 py-2.5
+text-slate-600 dark:text-slate-300
+font-semibold
+hover:bg-slate-200 dark:hover:bg-slate-700
+rounded-lg transition-colors"
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            disabled={creating}
+                                            className={`relative flex-1 md:flex-none px-8 py-3
+  rounded-xl font-semibold text-white
+  bg-gradient-to-r 
+  from-indigo-600 via-purple-600 to-indigo-600
+  dark:from-indigo-500 dark:via-purple-500 dark:to-indigo-500
+  hover:from-indigo-700 hover:via-purple-700 hover:to-indigo-700
+  dark:hover:from-indigo-400 dark:hover:via-purple-400 dark:hover:to-indigo-400
+  shadow-lg shadow-indigo-200
+  dark:shadow-black/40
+  transition-all duration-300
+  active:scale-[0.97]
+  disabled:opacity-50 disabled:cursor-not-allowed
+  overflow-hidden`}
+                                        >
+                                            <span className="relative z-10 flex items-center justify-center gap-2">
+                                                {creating && (
+                                                    <svg
+                                                        className="animate-spin h-4 w-4"
+                                                        xmlns="http://www.w3.org/2000/svg"
+                                                        fill="none"
+                                                        viewBox="0 0 24 24"
+                                                    >
+                                                        <circle
+                                                            className="opacity-25"
+                                                            cx="12"
+                                                            cy="12"
+                                                            r="10"
+                                                            stroke="currentColor"
+                                                            strokeWidth="4"
+                                                        />
+                                                        <path
+                                                            className="opacity-75"
+                                                            fill="currentColor"
+                                                            d="M4 12a8 8 0 018-8v8H4z"
+                                                        />
+                                                    </svg>
+                                                )}
+                                                {creating ? "Creating Officer..." : "Create Officer"}
+                                            </span>
+
+                                            {/* Shine Effect */}
+                                            <span className="absolute inset-0 
+  bg-white/10 dark:bg-white/5 
+  opacity-0 hover:opacity-20 
+  transition-opacity duration-300"></span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                )
+            }
+
+            {
+                viewOfficer && (
+                    <div className="fixed inset-0 
+    bg-black/60 dark:bg-black/80
+    backdrop-blur-sm 
+    flex items-center justify-center 
+    z-[777787878788] p-4 transition-colors">
+
+                        <div className="bg-white dark:bg-slate-800
+      rounded-2xl shadow-2xl
+      border border-gray-200 dark:border-slate-700
+      w-full max-w-3xl max-h-[90vh]
+      overflow-y-auto p-8
+      transition-colors">
+
+                            {/* Header */}
+                            <div className="flex justify-between items-center mb-6">
+                                <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">
+                                    Loan Officer Profile
+                                </h2>
+
+                                <button
+                                    onClick={() => setViewOfficer(null)}
+                                    className="text-slate-400 dark:text-slate-500 
+            hover:text-red-600 dark:hover:text-red-400
+            transition-colors"
+                                >
+                                    ✕
+                                </button>
+                            </div>
+
+                            {/* Avatar Section */}
+                            <div className="flex items-center gap-6 mb-8">
+
+                                <div className="h-24 w-24 rounded-full overflow-hidden
+          bg-slate-100 dark:bg-slate-700
+          border border-gray-200 dark:border-slate-600">
+
+                                    {viewOfficer.profile?.avatarUrl ? (
+                                        <img
+                                            src={`${API_BASE}${viewOfficer.profile.avatarUrl}`}
+                                            className="h-full w-full object-cover"
+                                        />
+                                    ) : (
+                                        <div className="h-full flex items-center justify-center
+              text-slate-400 dark:text-slate-300">
+                                            No Image
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div>
+                                    <h3 className="text-xl font-semibold text-slate-800 dark:text-slate-200">
+                                        {viewOfficer.firstName} {viewOfficer.lastName}
+                                    </h3>
+
+                                    <p className="text-slate-500 dark:text-slate-400">
+                                        {viewOfficer.email}
+                                    </p>
+
+                                    <p className="text-sm text-slate-400 dark:text-slate-500">
+                                        Status: {viewOfficer.status}
+                                    </p>
                                 </div>
                             </div>
-                        </form>
-                    </div>
-                </div>
-            )}
 
-            {viewOfficer && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[99999999999] p-4">
+                            {/* Grid Info */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
 
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto p-8">
+                                <InfoItem label="Phone" value={viewOfficer.phone} />
+                                <InfoItem label="Company" value={viewOfficer.profile?.company} />
+                                <InfoItem label="Toll Free" value={viewOfficer.profile?.tollFree} />
+                                <InfoItem label="Ext" value={viewOfficer.profile?.tollFreeExt} />
+                                <InfoItem label="Service Provider" value={viewOfficer.profile?.serviceProvider} />
+                                <InfoItem label="License Number" value={viewOfficer.profile?.licenseNumber} />
+                                <InfoItem label="Agent Type" value={viewOfficer.profile?.agentType} />
+                                <InfoItem label="Preferred Comm" value={viewOfficer.profile?.preferredComm} />
+                                <InfoItem label="Website" value={viewOfficer.profile?.website} />
 
-                        {/* Header */}
-                        <div className="flex justify-between items-center mb-6">
-                            <h2 className="text-2xl font-bold text-slate-800">
-                                Loan Officer Profile
-                            </h2>
+                                <InfoItem
+                                    label="Address"
+                                    value={`${viewOfficer.profile?.address || ""} 
+            ${viewOfficer.profile?.suite || ""}, 
+            ${viewOfficer.profile?.city || ""}, 
+            ${viewOfficer.profile?.state || ""} 
+            ${viewOfficer.profile?.zipCode || ""}`}
+                                />
 
-                            <button
-                                onClick={() => setViewOfficer(null)}
-                                className="text-slate-400 hover:text-red-600"
-                            >
-                                ✕
-                            </button>
-                        </div>
+                                <InfoItem
+                                    label="Created At"
+                                    value={new Date(viewOfficer.createdAt).toLocaleString()}
+                                />
 
-                        {/* Avatar */}
-                        <div className="flex items-center gap-6 mb-8">
-                            <div className="h-24 w-24 rounded-full overflow-hidden bg-slate-100 border">
-                                {viewOfficer.profile?.avatarUrl ? (
-                                    <img
-                                        src={viewOfficer.profile.avatarUrl}
-                                        className="h-full w-full object-cover"
-                                    />
-                                ) : (
-                                    <div className="h-full flex items-center justify-center text-slate-400">
-                                        No Image
-                                    </div>
-                                )}
+                                <InfoItem
+                                    label="Last Login"
+                                    value={
+                                        viewOfficer.lastLoginAt
+                                            ? new Date(viewOfficer.lastLoginAt).toLocaleString()
+                                            : "Never"
+                                    }
+                                />
                             </div>
 
-                            <div>
-                                <h3 className="text-xl font-semibold">
-                                    {viewOfficer.firstName} {viewOfficer.lastName}
-                                </h3>
-                                <p className="text-slate-500">{viewOfficer.email}</p>
-                                <p className="text-sm text-slate-400">
-                                    Status: {viewOfficer.status}
-                                </p>
-                            </div>
                         </div>
-
-                        {/* Grid Info */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
-
-                            <InfoItem label="Phone" value={viewOfficer.phone} />
-                            <InfoItem label="Company" value={viewOfficer.profile?.company} />
-                            <InfoItem label="Toll Free" value={viewOfficer.profile?.tollFree} />
-                            <InfoItem label="Ext" value={viewOfficer.profile?.tollFreeExt} />
-                            <InfoItem label="Service Provider" value={viewOfficer.profile?.serviceProvider} />
-                            <InfoItem label="License Number" value={viewOfficer.profile?.licenseNumber} />
-                            <InfoItem label="Agent Type" value={viewOfficer.profile?.agentType} />
-                            <InfoItem label="Preferred Comm" value={viewOfficer.profile?.preferredComm} />
-                            <InfoItem label="Website" value={viewOfficer.profile?.website} />
-
-                            <InfoItem
-                                label="Address"
-                                value={`${viewOfficer.profile?.address || ""} 
-                    ${viewOfficer.profile?.suite || ""}, 
-                    ${viewOfficer.profile?.city || ""}, 
-                    ${viewOfficer.profile?.state || ""} 
-                    ${viewOfficer.profile?.zipCode || ""}`}
-                            />
-
-                            <InfoItem
-                                label="Created At"
-                                value={new Date(viewOfficer.createdAt).toLocaleString()}
-                            />
-
-                            <InfoItem
-                                label="Last Login"
-                                value={
-                                    viewOfficer.lastLoginAt
-                                        ? new Date(viewOfficer.lastLoginAt).toLocaleString()
-                                        : "Never"
-                                }
-                            />
-                        </div>
-
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 }

@@ -983,3 +983,7 @@ body.modal-open {
   scrollbar-color: #3b82f6 transparent;
   scrollbar-width: thin;
 }
+
+.swal-high-zindex {
+  z-index: 9999999999999 !important;
+}
