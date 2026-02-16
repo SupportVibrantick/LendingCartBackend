@@ -1,4 +1,7 @@
 const bcrypt = require("bcrypt");
+const path = require("path");
+const fs = require("fs");
+const { pipeline } = require("stream/promises");
 const { logAudit } = require("../../../services/logger/auditLogger");
 
 module.exports = async function updateBrokerUser(fastify) {
@@ -7,7 +10,8 @@ module.exports = async function updateBrokerUser(fastify) {
     {
       schema: {
         tags: ["Broker -> Users"],
-        summary: "Update Loan Officer profile",
+        summary: "Update Loan Officer profile (with avatar)",
+        consumes: ["multipart/form-data"],
         params: {
           type: "object",
           required: ["id"],
@@ -22,9 +26,7 @@ module.exports = async function updateBrokerUser(fastify) {
       const { id } = req.params;
 
       try {
-        /* =====================================================
-           1️⃣ AUTHORIZATION
-        ===================================================== */
+        /* ================= AUTHORIZATION ================= */
 
         if (!req.user || req.user.orgType !== "BROKER") {
           return reply.code(403).send({
@@ -42,9 +44,7 @@ module.exports = async function updateBrokerUser(fastify) {
 
         const brokerOrgId = req.user.organizationId;
 
-        /* =====================================================
-           2️⃣ FETCH EXISTING USER
-        ===================================================== */
+        /* ================= FETCH EXISTING USER ================= */
 
         const existingUser = await prisma.userAccount.findUnique({
           where: { id },
@@ -67,9 +67,51 @@ module.exports = async function updateBrokerUser(fastify) {
           });
         }
 
-        /* =====================================================
-           3️⃣ EXTRACT UPDATE DATA
-        ===================================================== */
+        /* ================= MULTIPART PARSE ================= */
+
+        const parts = req.parts();
+        const fields = {};
+        let avatarPath = null;
+
+        for await (const part of parts) {
+          if (part.type === "file") {
+            if (part.fieldname === "avatar") {
+              const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+
+              if (!allowedTypes.includes(part.mimetype)) {
+                return reply.code(400).send({
+                  success: false,
+                  message:
+                    "Invalid image type. Only jpg, png, webp allowed.",
+                });
+              }
+
+              const uploadDir = path.join(
+                process.cwd(),
+                "public/broker/loanofficer"
+              );
+
+              if (!fs.existsSync(uploadDir)) {
+                fs.mkdirSync(uploadDir, { recursive: true });
+              }
+
+              const fileName =
+                Date.now() +
+                "-" +
+                part.filename.replace(/\s+/g, "_");
+
+              const filePath = path.join(uploadDir, fileName);
+
+              await pipeline(part.file, fs.createWriteStream(filePath));
+
+              avatarPath = `/public/broker/loanofficer/${fileName}`;
+            }
+          } else {
+            fields[part.fieldname] = part.value;
+          }
+        }
+
+        /* ================= EXTRACT FIELDS ================= */
 
         const {
           email,
@@ -78,8 +120,6 @@ module.exports = async function updateBrokerUser(fastify) {
           lastName,
           phone,
           allowedToLogin,
-
-          // Profile fields
           company,
           tollFree,
           tollFreeExt,
@@ -93,12 +133,9 @@ module.exports = async function updateBrokerUser(fastify) {
           licenseNumber,
           preferredComm,
           website,
-          avatarUrl,
-        } = req.body;
+        } = fields;
 
-        /* =====================================================
-           4️⃣ BUILD USER UPDATE OBJECT
-        ===================================================== */
+        /* ================= BUILD USER UPDATE ================= */
 
         const userUpdateData = {};
 
@@ -108,18 +145,15 @@ module.exports = async function updateBrokerUser(fastify) {
         if (phone !== undefined) userUpdateData.phone = phone;
 
         if (allowedToLogin !== undefined) {
-          userUpdateData.status = allowedToLogin
-            ? "ACTIVE"
-            : "DISABLED";
+          userUpdateData.status =
+            allowedToLogin === "false" ? "DISABLED" : "ACTIVE";
         }
 
         if (password) {
           userUpdateData.passwordHash = await bcrypt.hash(password, 10);
         }
 
-        /* =====================================================
-           5️⃣ BUILD PROFILE UPDATE OBJECT
-        ===================================================== */
+        /* ================= BUILD PROFILE UPDATE ================= */
 
         const profileUpdateData = {};
 
@@ -141,12 +175,12 @@ module.exports = async function updateBrokerUser(fastify) {
         if (preferredComm !== undefined)
           profileUpdateData.preferredComm = preferredComm;
         if (website !== undefined) profileUpdateData.website = website;
-        if (avatarUrl !== undefined)
-          profileUpdateData.avatarUrl = avatarUrl;
 
-        /* =====================================================
-           6️⃣ TRANSACTION UPDATE
-        ===================================================== */
+        if (avatarPath !== null) {
+          profileUpdateData.avatarUrl = avatarPath;
+        }
+
+        /* ================= TRANSACTION ================= */
 
         await prisma.$transaction(async (tx) => {
           if (Object.keys(userUpdateData).length > 0) {
@@ -164,9 +198,20 @@ module.exports = async function updateBrokerUser(fastify) {
           }
         });
 
-        /* =====================================================
-           7️⃣ AUDIT LOG
-        ===================================================== */
+        /* ================= DELETE OLD AVATAR ================= */
+
+        if (avatarPath && existingUser.brokerProfile?.avatarUrl) {
+          const oldPath = path.join(
+            process.cwd(),
+            existingUser.brokerProfile.avatarUrl
+          );
+
+          if (fs.existsSync(oldPath)) {
+            fs.unlinkSync(oldPath);
+          }
+        }
+
+        /* ================= AUDIT LOG ================= */
 
         await logAudit({
           prisma,
@@ -182,9 +227,7 @@ module.exports = async function updateBrokerUser(fastify) {
           },
         });
 
-        /* =====================================================
-           8️⃣ SUCCESS RESPONSE
-        ===================================================== */
+        /* ================= SUCCESS ================= */
 
         return reply.send({
           success: true,
@@ -200,6 +243,8 @@ module.exports = async function updateBrokerUser(fastify) {
           },
           "Update broker user failed"
         );
+
+        console.log(error);
 
         return reply.code(500).send({
           success: false,
