@@ -34,9 +34,9 @@ async function lenderDecisionRoutes(fastify) {
       const prisma = fastify.prisma;
 
       try {
-        // ====================================================
-        // 1️⃣ AUTH VALIDATION
-        // ====================================================
+        // =====================================================
+        // 1️⃣ AUTH CHECK
+        // =====================================================
         if (
           !req.user ||
           req.user.orgType !== "LENDER" ||
@@ -54,9 +54,9 @@ async function lenderDecisionRoutes(fastify) {
         const { applicationLenderId } = req.params;
         const { decision, approvedAmount, interestRate, notes } = req.body;
 
-        // ====================================================
-        // 2️⃣ FETCH APPLICATION (SECURED)
-        // ====================================================
+        // =====================================================
+        // 2️⃣ FETCH SECURED RECORD
+        // =====================================================
         const record = await prisma.applicationLender.findFirst({
           where: {
             id: applicationLenderId,
@@ -74,7 +74,7 @@ async function lenderDecisionRoutes(fastify) {
           });
         }
 
-        // Prevent double decision
+        // Prevent re-decision
         if (["APPROVED", "DECLINED"].includes(record.status)) {
           return reply.status(400).send({
             success: false,
@@ -82,13 +82,11 @@ async function lenderDecisionRoutes(fastify) {
           });
         }
 
-        // ====================================================
-        // 3️⃣ STATUS MAPPING (STRICT ENUM SAFE)
-        // ====================================================
+        // =====================================================
+        // 3️⃣ ENUM SAFE STATUS MAPPING
+        // =====================================================
         const lenderStatus =
-          decision === "APPROVED"
-            ? "APPROVED"
-            : "DECLINED";
+          decision === "APPROVED" ? "APPROVED" : "DECLINED";
 
         const loanStatus =
           decision === "APPROVED"
@@ -97,11 +95,11 @@ async function lenderDecisionRoutes(fastify) {
 
         const previousLoanStatus = record.loanApplication.status;
 
-        // ====================================================
-        // 4️⃣ DATABASE TRANSACTION
-        // ====================================================
+        // =====================================================
+        // 4️⃣ TRANSACTION (ATOMIC)
+        // =====================================================
         await prisma.$transaction(async (tx) => {
-          // Update ApplicationLender
+          // 1️⃣ Update ApplicationLender
           await tx.applicationLender.update({
             where: { id: applicationLenderId },
             data: {
@@ -110,7 +108,7 @@ async function lenderDecisionRoutes(fastify) {
             },
           });
 
-          // Create LenderReview
+          // 2️⃣ Create LenderReview
           await tx.lenderReview.create({
             data: {
               applicationLenderId,
@@ -128,7 +126,7 @@ async function lenderDecisionRoutes(fastify) {
             },
           });
 
-          // Update LoanApplication main status
+          // 3️⃣ Update LoanApplication main status
           await tx.loanApplication.update({
             where: { id: record.loanApplicationId },
             data: {
@@ -136,7 +134,17 @@ async function lenderDecisionRoutes(fastify) {
             },
           });
 
-          // Insert Status History
+          // 4️⃣ 🔥 Update ApplicationSubmission (Broker Dashboard)
+          await tx.applicationSubmission.updateMany({
+            where: {
+              applicationId: record.loanApplicationId,
+            },
+            data: {
+              status: lenderStatus, // APPROVED or DECLINED
+            },
+          });
+
+          // 5️⃣ Insert Status History
           await tx.applicationStatusHistory.create({
             data: {
               loanApplicationId: record.loanApplicationId,
