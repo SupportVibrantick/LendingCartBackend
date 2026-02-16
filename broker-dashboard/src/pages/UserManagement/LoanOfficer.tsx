@@ -1,4 +1,4 @@
-import { Trash2, Users, Eye } from "lucide-react";
+import { Trash2, Users, Eye, EyeOff } from "lucide-react";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import Swal from "sweetalert2";
@@ -148,6 +148,12 @@ export default function LoanOfficersPage() {
 
     const [form, setForm] = useState(initialFormState);
     const [creating, setCreating] = useState(false);
+    const [showPassword, setShowPassword] = useState<Record<string, boolean>>({
+        password: false,
+        confirmPassword: false,
+        });
+    const [editOfficer, setEditOfficer] = useState<LoanOfficer | null>(null);
+
 
     const updateField = (key: keyof FormState, value: any) => {
         setForm((prev) => ({
@@ -164,6 +170,28 @@ export default function LoanOfficersPage() {
             });
         }
     };
+
+    const normalizeWebsiteUrl = (input: string) => {
+  if (!input) return "";
+
+  let url = input.trim();
+
+  // If protocol missing → add https://
+  if (!/^https?:\/\//i.test(url)) {
+    url = `https://${url}`;
+  }
+
+  try {
+    const parsed = new URL(url);
+
+    // Remove trailing slash
+    parsed.pathname = parsed.pathname.replace(/\/$/, "");
+
+    return parsed.toString();
+  } catch {
+    return null; // invalid
+  }
+};
 
     /* ================= STATUS ================= */
     const toggleStatus = async (id: string, status: string) => {
@@ -258,96 +286,143 @@ export default function LoanOfficersPage() {
     }, [search]);
 
     useEffect(() => {
-        fetchOfficers();
-    }, [page, debouncedSearch]);
-
-    useEffect(() => {
         setPage(1);
     }, [debouncedSearch]);
 
-    const validateForm = () => {
-        const newErrors: Record<string, string> = {};
+        useEffect(() => {
+        fetchOfficers();
+    }, [page, debouncedSearch]);
 
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        const phoneRegex = /^[0-9]{8,15}$/;
-        const zipRegex = /^[0-9]{4,10}$/;
+const validateForm = () => {
+  const newErrors: Record<string, string> = {};
 
-        // Required Fields (avatar NOT included)
-        const requiredFields: (keyof FormState)[] = [
-            "firstName",
-            "lastName",
-            "email",
-            "confirmEmail",
-            "password",
-            "confirmPassword",
-            "phone",
-            "company",
-            "tollFree",
-            "tollFreeExt",
-            "suite",
-            "serviceProvider",
-            "address",
-            "city",
-            "state",
-            "zipCode",
-            "licenseNumber",
-            "preferredComm",
-            "website",
-            "agentType",
-        ];
+  // US Email
+  const emailRegex =
+    /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[A-Za-z]{2,}$/;
 
-        requiredFields.forEach((field) => {
-            if (!form[field]?.toString().trim()) {
-                newErrors[field] = "This field is required";
-            }
-        });
+  // US Phone (10 digit with optional +1, spaces, dashes, brackets)
+  const phoneRegex =
+    /^(\+1\s?)?(\(?\d{3}\)?[\s-]?)\d{3}[\s-]?\d{4}$/;
 
-        // Email format
-        if (form.email && !emailRegex.test(form.email)) {
-            newErrors.email = "Invalid email format";
-        }
+  // US ZIP (12345 or 12345-6789)
+  const zipRegex =
+    /^\d{5}(-\d{4})?$/;
 
-        if (form.confirmEmail && !emailRegex.test(form.confirmEmail)) {
-            newErrors.confirmEmail = "Invalid email format";
-        }
+  // US License (basic alphanumeric rule)
+  const licenseRegex =
+    /^[A-Za-z0-9-]{4,20}$/;
 
-        // Email match
-        if (form.email !== form.confirmEmail) {
-            newErrors.confirmEmail = "Emails do not match";
-        }
+  // Required fields
+  const requiredFields: (keyof FormState)[] = editOfficer
+  ? [
+      "firstName",
+      "lastName",
+      "email",
+      "confirmEmail",
+      "phone",
+      "company",
+      "tollFree",
+      "tollFreeExt",
+      "suite",
+      "serviceProvider",
+      "address",
+      "city",
+      "state",
+      "zipCode",
+      "licenseNumber",
+      "preferredComm",
+      "website",
+      "agentType",
+    ]
+  : [
+      "firstName",
+      "lastName",
+      "email",
+      "confirmEmail",
+      "password",
+      "confirmPassword",
+      "phone",
+      "company",
+      "tollFree",
+      "tollFreeExt",
+      "suite",
+      "serviceProvider",
+      "address",
+      "city",
+      "state",
+      "zipCode",
+      "licenseNumber",
+      "preferredComm",
+      "website",
+      "agentType",
+    ];
 
-        // Password strength
-        if (form.password.length < 8) {
-            newErrors.password = "Password must be at least 8 characters";
-        }
+  requiredFields.forEach((field) => {
+    if (!form[field]?.toString().trim()) {
+      newErrors[field] = "This field is required";
+    }
+  });
 
-        // Password match
-        if (form.password !== form.confirmPassword) {
-            newErrors.confirmPassword = "Passwords do not match";
-        }
+  // Email validation
+  if (form.email && !emailRegex.test(form.email)) {
+    newErrors.email = "Enter a valid US email address";
+  }
 
-        // Phone validation
-        if (form.phone && !phoneRegex.test(form.phone)) {
-            newErrors.phone = "Invalid phone number";
-        }
+  if (form.confirmEmail && !emailRegex.test(form.confirmEmail)) {
+    newErrors.confirmEmail = "Enter a valid US email address";
+  }
 
-        // Zip validation
-        if (form.zipCode && !zipRegex.test(form.zipCode)) {
-            newErrors.zipCode = "Invalid zip code";
-        }
+  if (form.email !== form.confirmEmail) {
+    newErrors.confirmEmail = "Emails do not match";
+  }
 
-        // Website validation
-        if (form.website) {
-            try {
-                new URL(form.website.startsWith("http") ? form.website : `https://${form.website}`);
-            } catch {
-                newErrors.website = "Invalid website URL";
-            }
-        }
+  // Password strength (USA standard)
+  if(!editOfficer){
+      if (
+    form.password.length < 8 ||
+    !/[A-Z]/.test(form.password) ||
+    !/[0-9]/.test(form.password)
+  ) {
+    newErrors.password =
+      "Password must be 8+ characters with 1 uppercase & 1 number";
+  }
 
+  if (form.password !== form.confirmPassword) {
+    newErrors.confirmPassword = "Passwords do not match";
+  }
+  }
 
-        return newErrors;
-    };
+  // Phone validation
+  if (form.phone && !phoneRegex.test(form.phone)) {
+    newErrors.phone =
+      "Enter valid US phone (e.g. 123-456-7890)";
+  }
+
+  // ZIP validation
+  if (form.zipCode && !zipRegex.test(form.zipCode)) {
+    newErrors.zipCode =
+      "Enter valid US ZIP (e.g. 12345 or 12345-6789)";
+  }
+
+  // License validation
+  if (
+    form.licenseNumber &&
+    !licenseRegex.test(form.licenseNumber)
+  ) {
+    newErrors.licenseNumber =
+      "License must be 4–20 alphanumeric characters";
+  }
+
+  // Website validation (US domain friendly)
+if (form.website) {
+  const normalized = normalizeWebsiteUrl(form.website);
+
+  if (!normalized) {
+    newErrors.website = "Enter a valid website URL";
+  }
+}
+  return newErrors;
+};
 
     /* ================= CREATE ================= */
 
@@ -371,15 +446,28 @@ export default function LoanOfficersPage() {
             const formData = new FormData();
 
             Object.entries(form).forEach(([key, value]) => {
-                if (!value) return;
+            if (value === null || value === undefined) return;
 
-                if (key === "avatarFile" && value instanceof File) {
-                    formData.append("avatar", value);
-                }
-                else if (key !== "avatarPreview") {
-                    formData.append(key, String(value));
-                }
-            });
+            if (key === "avatarFile" && value instanceof File) {
+                formData.append("avatar", value);
+                return;
+            }
+
+if (key === "website" && typeof value === "string") {
+  const normalized = normalizeWebsiteUrl(value);
+
+  if (normalized) {
+    formData.append("website", normalized);
+  }
+
+  return;
+}
+
+  if (key !== "avatarPreview") {
+    formData.append(key, String(value));
+  }
+});
+
 
             const res = await fetch(`${API_BASE}/broker/users`, {
                 method: "POST",
@@ -409,25 +497,110 @@ export default function LoanOfficersPage() {
         }
     };
 
+ /* ================= UPDATE ================= */
+    const handleUpdate = async (userId: string) => {
+  if (creating) return;
+
+  const validationErrors = validateForm();
+  setErrors(validationErrors);
+
+  if (Object.keys(validationErrors).length > 0) {
+    toast.error("Please fix the errors");
+    return;
+  }
+
+  setCreating(true);
+
+  try {
+    const token = sessionStorage.getItem("broker_token");
+
+    const formData = new FormData();
+
+ Object.entries(form).forEach(([key, value]) => {
+  if (value === null || value === undefined) return;
+
+  if (
+    key === "password" ||
+    key === "confirmPassword" ||
+    key === "avatarPreview"
+  ) {
+    return;
+  }
+
+  if (key === "avatarFile" && value instanceof File) {
+    formData.append("avatar", value);
+    return;
+  }
+
+if (key === "website" && typeof value === "string") {
+  const normalized = normalizeWebsiteUrl(value);
+
+  if (normalized) {
+    formData.append("website", normalized);
+  }
+
+  return;
+}
+
+  formData.append(key, String(value));
+});
+
+    const res = await fetch(
+      `${API_BASE}/broker/users/${userId}`,
+      {
+        method: "PUT",
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: formData,
+      }
+    );
+
+    const json = await res.json();
+
+    if (!res.ok || !json.success) {
+      toast.error(json.message || "Update failed");
+      return;
+    }
+
+    toast.success("Loan Officer Updated Successfully");
+    setShowModal(false);
+    setViewOfficer(null);
+    setEditOfficer(null);
+setForm(initialFormState);
+    fetchOfficers();
+
+  } catch (err) {
+    toast.error("Something went wrong");
+  } finally {
+    setCreating(false);
+  }
+};
 
     /* ================= DELETE ================= */
 
     const handleDelete = async (id: string) => {
-        const result = await Swal.fire({
-            title: "Are you sure?",
-            text: "This Loan Officer will be permanently deleted!",
-            icon: "warning",
-            showCancelButton: true,
-            confirmButtonColor: "#dc2626",
-            cancelButtonColor: "#6b7280",
-            confirmButtonText: "Yes, Delete",
-            cancelButtonText: "Cancel",
-            background: "#1e293b",
-            color: "#e2e8f0",
-            customClass: {
-                container: "swal-high-zindex"
-            }
-        });
+        const isDark = document.documentElement.classList.contains("dark");
+
+const result = await Swal.fire({
+  title: "Are you sure?",
+  text: "This Loan Officer will be permanently deleted!",
+  icon: "warning",
+  showCancelButton: true,
+  confirmButtonColor: "#dc2626",
+  cancelButtonColor: "#6b7280",
+  confirmButtonText: "Yes, Delete",
+  cancelButtonText: "Cancel",
+
+  background: isDark ? "#1e293b" : "#ffffff",
+  color: isDark ? "#e2e8f0" : "#1e293b",
+
+  customClass: {
+    popup: "rounded-2xl",
+    container: "swal-high-zindex",
+  }
+});
+
 
         if (!result.isConfirmed) return;
 
@@ -444,9 +617,10 @@ export default function LoanOfficersPage() {
                 icon: "success",
                 timer: 1500,
                 showConfirmButton: false,
-                background: "#1e293b",
-                color: "#e2e8f0",
+              background: isDark ? "#1e293b" : "#ffffff",
+  color: isDark ? "#e2e8f0" : "#1e293b",
                 customClass: {
+                     popup: "rounded-2xl",
                     container: "swal-high-zindex"
                 }
             });
@@ -462,16 +636,22 @@ export default function LoanOfficersPage() {
     };
 
     const InfoItem = ({ label, value }: { label: string; value: any }) => (
-        <div className="space-y-1">
-            <p className="text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wide">
-                {label}
-            </p>
-            <p className="font-medium text-slate-800 dark:text-slate-200 break-words">
-                {value || "-"}
-            </p>
-        </div>
-    );
+  <div className="space-y-1">
+    <p className="text-xs font-semibold uppercase tracking-wide
+      text-slate-500 dark:text-slate-400">
+      {label}
+    </p>
 
+    <div className="
+      w-full px-4 py-2.5 rounded-lg border
+      border-slate-200 dark:border-slate-600
+      bg-slate-100 dark:bg-slate-700
+      text-slate-800 dark:text-slate-200 cursor-not-allowed
+    ">
+      {value || "-"}
+    </div>
+  </div>
+);
 
     return (
         <div className="p-6 bg-gray-50 dark:bg-slate-900 min-h-screen transition-colors">
@@ -534,7 +714,12 @@ outline-none transition-all"
 
                     {/* Create Button */}
                     <button
-                        onClick={() => setShowModal(true)}
+                        onClick={() => {
+                            setErrors({});
+                            setEditOfficer(null);
+                            setForm(initialFormState);
+                            setShowModal(true);
+                        }}
                         className="bg-indigo-600 hover:bg-indigo-700 
                  text-white px-5 py-2.5 rounded-xl 
                  shadow-sm hover:shadow-md 
@@ -695,6 +880,50 @@ overflow-hidden transition-colors">
                                             <Eye size={16} />
                                         </button>
 
+                                        <button
+  onClick={() => {
+     setErrors({});
+    setEditOfficer(o);
+
+    setForm({
+  ...initialFormState,
+  email: o.email,
+  confirmEmail: o.email,
+  firstName: o.firstName,
+  lastName: o.lastName,
+  phone: o.phone || "",
+  company: o.profile?.company || "",
+  tollFree: o.profile?.tollFree || "",
+  tollFreeExt: o.profile?.tollFreeExt || "",
+  serviceProvider: o.profile?.serviceProvider || "Internal",
+  address: o.profile?.address || "",
+  suite: o.profile?.suite || "",
+  city: o.profile?.city || "",
+  state: o.profile?.state || "",
+  zipCode: o.profile?.zipCode || "",
+  licenseNumber: o.profile?.licenseNumber || "",
+  preferredComm: o.profile?.preferredComm || "EMAIL",
+  website:
+    o.profile?.website?.replace(/^https?:\/\/(www\.)?/, "") || "",
+  agentType: o.profile?.agentType || "Loan Officer",
+
+  avatarPreview: o.profile?.avatarUrl
+    ? `${API_BASE}${o.profile.avatarUrl}`
+    : "",
+});
+
+    setShowModal(true);
+  }}
+  className="inline-flex items-center justify-center 
+  h-9 w-9 rounded-lg
+  bg-yellow-50 hover:bg-yellow-100
+  dark:bg-yellow-900/30 dark:hover:bg-yellow-900/50
+  text-yellow-600 dark:text-yellow-400
+  transition-all duration-200"
+>
+  ✎
+</button>
+
                                         {/* Delete */}
                                         <button
                                             onClick={() => handleDelete(o.id)}
@@ -776,9 +1005,9 @@ border-b border-gray-200 dark:border-slate-700
 bg-slate-50/60 dark:bg-slate-800">
 
                                 <div>
-                                    <h2 className="text-xl font-bold text-slate-800 dark:text-slate-200">
-                                        Create Loan Officer
-                                    </h2>
+                                 <h2 className="text-xl font-bold dark:text-white">
+                                    {editOfficer ? "Edit Loan Officer" : "Create Loan Officer"}
+                                </h2>
                                     <p className="text-sm text-slate-500 dark:text-slate-400">
                                         Fill in the details to register a new officer in the system.
                                     </p>
@@ -788,123 +1017,194 @@ bg-slate-50/60 dark:bg-slate-800">
                                     type="button"
                                     onClick={() => setShowModal(false)}
                                     className="p-2 rounded-full
-    hover:bg-red-50 dark:hover:bg-red-900/30
-    text-slate-400 dark:text-slate-500
-    hover:text-red-600 dark:hover:text-red-400
-    transition-colors"
-                                >
+                                dark:hover:bg-red-900/30
+                                text-slate-400 dark:text-slate-500
+                                hover:text-red-600 dark:hover:text-red-400
+                                transition-colors"
+                                                            >
                                     ✕
                                 </button>
                             </div>
 
                             {/* Scrollable Form Body */}
-                            <form onSubmit={handleCreate} className="overflow-y-auto p-6 space-y-8 custom-scrollbar">
+                            <form onSubmit={(e) => {
+    e.preventDefault();
+    if (editOfficer) {
+      handleUpdate(editOfficer.id);
+    } else {
+      handleCreate(e);
+    }
+  }} className="overflow-y-auto p-6 space-y-8 custom-scrollbar">
 
                                 {/* Section: Basic Info */}
                                 <section>
                                     {/* Avatar Upload */}
-                                    <div className="space-y-4 md:col-span-2 mt-4">
-                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
-                                            Profile Picture
-                                        </label>
+                                  <div className="space-y-4 md:col-span-2 mt-4 text-center">
+  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+    Profile Picture
+  </label>
 
-                                        <div className="flex items-center gap-6">
-                                            {/* Preview Container */}
-                                            <div className="relative group">
-                                                <div className="h-24 w-24 rounded-full overflow-hidden
-bg-slate-100 dark:bg-slate-700
-border-2 border-slate-200 dark:border-slate-600
-shadow-sm transition-all group-hover:border-blue-400">
-                                                    {form.avatarPreview ? (
-                                                        <img
-                                                            src={form.avatarPreview}
-                                                            alt="Avatar Preview"
-                                                            className="h-full w-full object-cover"
-                                                        />
-                                                    ) : (
-                                                        <div className="flex flex-col items-center justify-center h-full text-slate-400 dark:text-slate-300">
-                                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                                            </svg>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
+  <div className="flex flex-col items-center gap-4">
 
-                                            {/* Controls */}
-                                            <div className="flex flex-col gap-2">
-                                                <label className="cursor-pointer inline-flex items-center px-4 py-2
-bg-white dark:bg-slate-700
-border border-slate-300 dark:border-slate-600
-rounded-lg text-sm font-semibold
-text-slate-700 dark:text-slate-200
-hover:bg-slate-50 dark:hover:bg-slate-600
-hover:border-slate-400 dark:hover:border-slate-500
-transition-all active:scale-95 shadow-sm">
-                                                    <span>Change Photo</span>
-                                                    <input
-                                                        type="file"
-                                                        accept="image/*"
-                                                        className="hidden" // Hides the ugly default input
-                                                        onChange={(e) => {
-                                                            const file = e.target.files?.[0];
-                                                            if (!file) return;
+    {/* Preview Container */}
+    <div className="relative group">
+      <div className="h-24 w-24 rounded-full overflow-hidden
+        bg-slate-100 dark:bg-slate-700
+        border-2 border-slate-200 dark:border-slate-600
+        shadow-sm transition-all group-hover:border-blue-400">
 
-                                                            if (file.size > 2 * 1024 * 1024) {
-                                                                toast.error("Image must be under 2MB");
-                                                                return;
-                                                            }
+        {form.avatarPreview ? (
+          <img
+            src={form.avatarPreview}
+            alt="Avatar Preview"
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <div className="flex items-center justify-center h-full
+            text-slate-400 dark:text-slate-300">
+            <svg xmlns="http://www.w3.org/2000/svg"
+              className="h-8 w-8"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor">
+              <path strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
+          </div>
+        )}
+      </div>
+    </div>
 
-                                                            if (!file.type.startsWith("image/")) {
-                                                                toast.error("Only image files allowed");
-                                                                return;
-                                                            }
+    {/* Controls */}
+    <div className="flex flex-col items-center gap-2">
+      <label className="cursor-pointer inline-flex items-center px-4 py-2
+        bg-white dark:bg-slate-700
+        border border-slate-300 dark:border-slate-600
+        rounded-lg text-sm font-semibold
+        text-slate-700 dark:text-slate-200
+        hover:bg-slate-50 dark:hover:bg-slate-600
+        hover:border-slate-400 dark:hover:border-slate-500
+        transition-all active:scale-95 shadow-sm">
 
-                                                            setForm((prev) => ({
-                                                                ...prev,
-                                                                avatarFile: file,
-                                                                avatarPreview: URL.createObjectURL(file),
-                                                            }));
-                                                        }}
-                                                    />
-                                                </label>
-                                                <p className="text-xs text-slate-500 dark:text-slate-400">
-                                                    JPG, GIF or PNG. Max size 2MB.
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </div>
+        <span>Change Photo</span>
+
+        <input
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+
+            if (file.size > 2 * 1024 * 1024) {
+              toast.error("Image must be under 2MB");
+              return;
+            }
+
+            if (!file.type.startsWith("image/")) {
+              toast.error("Only image files allowed");
+              return;
+            }
+
+            setForm((prev) => ({
+              ...prev,
+              avatarFile: file,
+              avatarPreview: URL.createObjectURL(file),
+            }));
+          }}
+        />
+      </label>
+
+      <p className="text-xs text-slate-500 dark:text-slate-400">
+        JPG, GIF or PNG. Max size 2MB.
+      </p>
+    </div>
+
+  </div>
+</div>
                                     <div className="flex items-center gap-2 mb-4 mt-4">
                                         <div className="h-8 w-1 bg-indigo-600 rounded-full"></div>
                                         <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Basic Information</h3>
                                     </div>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                                        {basicFields.map((field) => (
+                                        {basicFields
+                                            .filter((field) => {
+                                                if (editOfficer) {
+                                                return field.key !== "password" && field.key !== "confirmPassword";
+                                                }
+                                                return true;
+                                            })
+                                            .map((field) => (
                                             <div key={field.key} className="space-y-1">
                                                 <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 ml-1">
                                                     {field.label}
                                                 </label>
 
-                                                <input
-                                                    type={field.type || "text"}
-                                                    placeholder={field.placeholder}
-                                                    className={`w-full px-4 py-2.5 rounded-lg border 
-      bg-slate-50 transition-all outline-none
-      focus:ring-2 focus:ring-indigo-500/20 
-      focus:border-indigo-600 dark:border-slate-600 dark:bg-slate-700 text-slate-800 dark:text-slate-200
-      ${errors[field.key]
-                                                            ? "border-red-500 bg-red-50"
-                                                            : "border-slate-200"
-                                                        }`}
-                                                    value={form[field.key] as string}
-                                                    onChange={(e) => updateField(field.key, e.target.value)}
-                                                />
+                                              <div className="relative">
+<input
+  type={
+    field.type === "password"
+      ? showPassword[field.key]
+        ? "text"
+        : "password"
+      : field.type || "text"
+  }
+  placeholder={field.placeholder}
+    disabled={
+    !!editOfficer &&
+    (field.key === "email" || field.key === "confirmEmail")
+    }
+  className={`w-full px-4 py-2.5 pr-12 rounded-lg border
+    bg-slate-50 dark:bg-slate-700
+    text-slate-800 dark:text-slate-200
+    border-slate-200 dark:border-slate-600
+    transition-all outline-none
+    focus:ring-2 focus:ring-indigo-500/20
+    focus:border-indigo-600
+    ${
+      editOfficer &&
+      (field.key === "email" || field.key === "confirmEmail")
+        ? "opacity-60 cursor-not-allowed"
+        : ""
+    }
+    ${errors[field.key]
+      ? "border-red-500 bg-red-50 dark:bg-red-900/30"
+      : ""}
+  `}
+  value={form[field.key] as string}
+  onChange={(e) => updateField(field.key, e.target.value)}
+/>
 
-                                                {errors[field.key] && (
-                                                    <p className="text-xs font-medium text-red-500 mt-1 ml-1">
-                                                        {errors[field.key]}
-                                                    </p>
-                                                )}
+{field.type === "password" && (
+  <button
+    type="button"
+    onClick={() =>
+      setShowPassword((prev) => ({
+        ...prev,
+        [field.key]: !prev[field.key],
+      }))
+    }
+    className="absolute right-3 top-1/2 -translate-y-1/2
+    text-slate-400 dark:text-slate-300
+    hover:text-indigo-600 dark:hover:text-indigo-400
+    transition-colors"
+  >
+    {showPassword[field.key] ? (
+        <Eye size={18} />
+    ) : (
+        <EyeOff size={18} />
+    )}
+  </button>
+)}
+</div>
+
+{errors[field.key] && (
+  <p className="text-xs font-medium text-red-500 mt-1 ml-1">
+    {errors[field.key]}
+  </p>
+)}
                                             </div>
                                         ))}
 
@@ -1118,20 +1418,35 @@ transition-all active:scale-95 shadow-sm">
                                         </div>
 
                                         <div className="space-y-1 md:col-span-2">
-                                            <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Website</label>
-                                            <input
-                                                className={`${inputStyle} ${errors.website ? "border-red-500 bg-red-50" : ""
-                                                    }`}
-                                                value={form.website}
-                                                onChange={(e) => updateField("website", e.target.value)}
-                                            />
+  <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+    Website
+  </label>
 
-                                            {errors.website && (
-                                                <p className="text-xs text-red-500 mt-1">
-                                                    {errors.website}
-                                                </p>
-                                            )}
-                                        </div>
+  <div className="flex">
+    {/* Fixed Prefix */}
+    <span className="inline-flex items-center px-3 rounded-l-lg
+      border border-r-0
+      border-slate-200 dark:border-slate-600
+      bg-slate-100 dark:bg-slate-700
+      text-slate-500 dark:text-slate-400 text-sm">
+      https://www.
+    </span>
+
+    {/* Input */}
+    <input
+      className={`${inputStyle} rounded-l-none ${errors.website ? "border-red-500 bg-red-50 dark:bg-red-900/30" : ""}`}
+      placeholder="example.com"
+      value={form.website}
+      onChange={(e) => updateField("website", e.target.value)}
+    />
+  </div>
+
+  {errors.website && (
+    <p className="text-xs text-red-500 mt-1">
+      {errors.website}
+    </p>
+  )}
+</div>
 
                                     </div>
                                 </section>
@@ -1158,7 +1473,7 @@ transition-colors">Allow user to login</span>
                                     </label>
 
                                     <div className="flex gap-3 w-full md:w-auto">
-                                        <button
+                                        {/* <button
                                             type="button"
                                             onClick={() => setShowModal(false)}
                                             className="flex-1 md:flex-none px-6 py-2.5
@@ -1168,7 +1483,7 @@ hover:bg-slate-200 dark:hover:bg-slate-700
 rounded-lg transition-colors"
                                         >
                                             Cancel
-                                        </button>
+                                        </button> */}
                                         <button
                                             type="submit"
                                             disabled={creating}
@@ -1209,7 +1524,13 @@ rounded-lg transition-colors"
                                                         />
                                                     </svg>
                                                 )}
-                                                {creating ? "Creating Officer..." : "Create Officer"}
+                                               {creating
+                                                ? editOfficer
+                                                    ? "Updating Officer..."
+                                                    : "Creating Officer..."
+                                                : editOfficer
+                                                ? "Update Officer"
+                                                : "Create Officer"}
                                             </span>
 
                                             {/* Shine Effect */}
@@ -1238,62 +1559,73 @@ rounded-lg transition-colors"
       rounded-2xl shadow-2xl
       border border-gray-200 dark:border-slate-700
       w-full max-w-3xl max-h-[90vh]
-      overflow-y-auto p-8
+      overflow-y-auto 
       transition-colors">
 
-                            {/* Header */}
-                            <div className="flex justify-between items-center mb-6">
-                                <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">
-                                    Loan Officer Profile
-                                </h2>
+                            {/* Header (Sticky & Solid Background) */}
+<div className="sticky top-0 z-30
+bg-white dark:bg-slate-800
+border-b border-gray-200 dark:border-slate-700
+px-6 py-4
+flex justify-between items-center">
 
-                                <button
-                                    onClick={() => setViewOfficer(null)}
-                                    className="text-slate-400 dark:text-slate-500 
-            hover:text-red-600 dark:hover:text-red-400
-            transition-colors"
-                                >
-                                    ✕
-                                </button>
-                            </div>
+  <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-200">
+    Loan Officer Profile
+  </h2>
 
-                            {/* Avatar Section */}
-                            <div className="flex items-center gap-6 mb-8">
+  <button
+    onClick={() => setViewOfficer(null)}
+    className="h-9 w-9 flex items-center justify-center rounded-full
+    text-slate-400 dark:text-slate-500
+    hover:bg-red-50 dark:hover:bg-red-900/30
+    hover:text-red-600 dark:hover:text-red-400
+    transition-all">
+    ✕
+  </button>
+</div>
 
-                                <div className="h-24 w-24 rounded-full overflow-hidden
-          bg-slate-100 dark:bg-slate-700
-          border border-gray-200 dark:border-slate-600">
 
-                                    {viewOfficer.profile?.avatarUrl ? (
-                                        <img
-                                            src={`${API_BASE}${viewOfficer.profile.avatarUrl}`}
-                                            className="h-full w-full object-cover"
-                                        />
-                                    ) : (
-                                        <div className="h-full flex items-center justify-center
-              text-slate-400 dark:text-slate-300">
-                                            No Image
-                                        </div>
-                                    )}
-                                </div>
+                          {/* Avatar Section - Centered */}
+<div className="flex flex-col items-center text-center mb-10 mt-4">
 
-                                <div>
-                                    <h3 className="text-xl font-semibold text-slate-800 dark:text-slate-200">
-                                        {viewOfficer.firstName} {viewOfficer.lastName}
-                                    </h3>
+  <div className="h-28 w-28 rounded-full overflow-hidden
+    bg-slate-100 dark:bg-slate-700
+    border border-gray-200 dark:border-slate-600
+    shadow-sm">
 
-                                    <p className="text-slate-500 dark:text-slate-400">
-                                        {viewOfficer.email}
-                                    </p>
+    {viewOfficer.profile?.avatarUrl ? (
+      <img
+        src={`${API_BASE}${viewOfficer.profile.avatarUrl}`}
+        className="h-full w-full object-cover"
+      />
+    ) : (
+      <div className="h-full flex items-center justify-center
+        text-slate-400 dark:text-slate-300">
+        No Image
+      </div>
+    )}
+  </div>
 
-                                    <p className="text-sm text-slate-400 dark:text-slate-500">
-                                        Status: {viewOfficer.status}
-                                    </p>
-                                </div>
-                            </div>
+  <h3 className="mt-4 text-xl font-semibold text-slate-800 dark:text-slate-200">
+    {viewOfficer.firstName} {viewOfficer.lastName}
+  </h3>
+
+  <p className="text-slate-500 dark:text-slate-400">
+    {viewOfficer.email}
+  </p>
+
+  <span className={`mt-2 px-3 py-1 text-xs font-medium rounded-full
+    ${viewOfficer.status === "ACTIVE"
+      ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400"
+      : "bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400"
+    }`}>
+    {viewOfficer.status}
+  </span>
+
+</div>
 
                             {/* Grid Info */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm p-4">
 
                                 <InfoItem label="Phone" value={viewOfficer.phone} />
                                 <InfoItem label="Company" value={viewOfficer.profile?.company} />

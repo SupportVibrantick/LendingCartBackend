@@ -10,6 +10,7 @@ import {
     ChevronLeft,
     ChevronRight,
     CheckCircle,
+    XCircle,
 } from "lucide-react";
 
 /* ================= TYPES ================= */
@@ -78,6 +79,19 @@ export default function LoanPipeline() {
     const [viewSubmissionId, setViewSubmissionId] = useState<string | null>(null);
     const [submissionDetail, setSubmissionDetail] = useState<any>(null);
     const [detailLoading, setDetailLoading] = useState(false);
+    const [decisionModal, setDecisionModal] = useState<{
+  type: "APPROVED" | "DECLINED" | null;
+  applicationId: string | null;
+}>({
+  type: null,
+  applicationId: null,
+});
+
+const [decisionForm, setDecisionForm] = useState({
+  approvedAmount: "",
+  interestRate: "",
+  notes: "",
+});
 
     // Find Lenders Modal State
     const [currentPage, setCurrentPage] = useState(1);
@@ -221,10 +235,61 @@ export default function LoanPipeline() {
         }
     }, [totalPages, currentPage]);
 
-    // useEffect(() => {
-    //     const tableTop = document.querySelector(".loan-table-top");
-    //     tableTop?.scrollIntoView({ behavior: "smooth" });
-    // }, [currentPage]);
+ const handleDecisionSubmit = async () => {
+  try {
+    if (!decisionModal.applicationId || !decisionModal.type) return;
+
+    const payload =
+      decisionModal.type === "APPROVED"
+        ? {
+            decision: "APPROVED",
+            approvedAmount: Number(decisionForm.approvedAmount),
+            interestRate: Number(decisionForm.interestRate),
+            notes: decisionForm.notes,
+          }
+        : {
+            decision: "DECLINED",
+            notes: decisionForm.notes,
+          };
+
+    const res = await fetch(
+      `${API_BASE}/lender/loan-pipeline/${decisionModal.applicationId}/decision`,
+      {
+        method: "PATCH",
+        headers: getAuthHeaders(),
+        body: JSON.stringify(payload),
+      }
+    );
+
+    const json = await res.json();
+
+    if (!res.ok || !json.success) {
+      throw new Error(json.message || "Decision failed");
+    }
+
+    toast.success(
+      decisionModal.type === "APPROVED"
+        ? "Application Approved"
+        : "Application Rejected"
+    );
+
+    // Close modal
+    setDecisionModal({ type: null, applicationId: null });
+
+    // Reset form
+    setDecisionForm({
+      approvedAmount: "",
+      interestRate: "",
+      notes: "",
+    });
+
+    // Refresh table
+    loadSubmissions();
+
+  } catch (err: any) {
+    toast.error(err.message || "Something went wrong");
+  }
+};
 
     return (
         <div className="min-h-screen bg-slate-50 dark:bg-[#0b1120] p-4 md:p-10 text-slate-900 dark:text-slate-100 selection:bg-blue-100 dark:selection:bg-blue-900/30">
@@ -331,7 +396,7 @@ export default function LoanPipeline() {
             {/* Main Table Container */}
             <div className="max-w-7xl mx-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-xl shadow-slate-200/50 dark:shadow-none overflow-hidden">
                 <div className="w-full bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-                    <div className="overflow-x-auto loan-table-top">
+                    <div className="overflow-x-auto loan-table-scroll">
                         <table className="min-w-[1100px] w-full border-separate border-spacing-0">
                             <thead>
                                 <tr className="bg-slate-50/50 dark:bg-slate-800/40">
@@ -440,16 +505,84 @@ export default function LoanPipeline() {
                                             </td>
 
                                             {/* Actions */}
-                                            <td className="px-6 py-4">
-                                                <button
-                                                    onClick={() =>
-                                                        fetchLenderApplicationDetail(row.applicationLenderId)
-                                                    }
-                                                    className="p-2 rounded-lg bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-500/20 transition-all"
-                                                >
-                                                    <Eye size={16} />
-                                                </button>
-                                            </td>
+<td className="px-6 py-4">
+  <div className="flex items-center gap-3">
+
+    {/* View */}
+<button
+  onClick={() =>
+    fetchLenderApplicationDetail(row.applicationLenderId)
+  }
+  className="group flex items-center justify-center
+             h-9 w-9
+             rounded-xl
+             bg-blue-100 text-blue-700
+             dark:bg-blue-600/20 dark:text-blue-300
+             hover:bg-blue-600 hover:text-white
+             dark:hover:bg-blue-500
+             transition-all duration-300
+             shadow-sm hover:shadow-md
+             hover:-translate-y-0.5 active:scale-95"
+>
+  <Eye
+    size={18}
+    className="transition-transform duration-300 group-hover:scale-110"
+  />
+</button>
+
+
+{/* Approve Button */}
+<button
+ onClick={() =>
+    setDecisionModal({
+      type: "APPROVED",
+      applicationId: row.applicationLenderId,
+    })
+  }
+  className="group flex items-center justify-center gap-1.5
+             px-3 py-2 rounded-xl
+             text-sm font-semibold
+             transition-all duration-300
+             bg-emerald-100 text-emerald-700
+             hover:bg-emerald-600 hover:text-white
+             dark:bg-emerald-600/20 dark:text-emerald-300
+             dark:hover:bg-emerald-500 dark:hover:text-white
+             shadow-sm hover:shadow-lg hover:-translate-y-0.5"
+>
+  <CheckCircle
+    size={16}
+    className="transition-transform duration-300 group-hover:rotate-12"
+  />
+</button>
+
+{/* Reject Button */}
+<button
+ onClick={() =>
+    setDecisionModal({
+      type: "DECLINED",
+      applicationId: row.applicationLenderId,
+    })
+  }
+  className="group flex items-center justify-center gap-1.5
+             px-3 py-2 rounded-xl
+             text-sm font-semibold
+             transition-all duration-300
+             bg-rose-100 text-rose-700
+             hover:bg-rose-600 hover:text-white
+             dark:bg-rose-600/20 dark:text-rose-300
+             dark:hover:bg-rose-500 dark:hover:text-white
+             shadow-sm hover:shadow-lg hover:-translate-y-0.5"
+>
+  <XCircle
+    size={16}
+    className="transition-transform duration-300 group-hover:scale-110"
+  />
+</button>  
+
+  </div>
+</td>
+
+
                                         </tr>
                                     ))
                                 ) : (
@@ -559,6 +692,122 @@ export default function LoanPipeline() {
                                 </div>
                             </div>
                         )}
+
+                        {decisionModal.type &&
+  createPortal(
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div className="w-full max-w-lg bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800">
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b dark:border-slate-800">
+          <h2 className="text-lg font-bold">
+            {decisionModal.type === "APPROVED"
+              ? "Approve Application"
+              : "Reject Application"}
+          </h2>
+
+          <button
+            onClick={() =>
+              setDecisionModal({ type: null, applicationId: null })
+            }
+            className="text-sm px-3 py-1 rounded-lg bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400"
+          >
+            Close
+          </button>
+        </div>
+
+        {/* Form */}
+        <div className="p-6 space-y-5">
+
+          {decisionModal.type === "APPROVED" && (
+            <>
+              {/* Approved Amount */}
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Approved Amount
+                </label>
+                <input
+                  type="number"
+                  placeholder="Enter approved amount"
+                   value={decisionForm.approvedAmount}
+  onChange={(e) =>
+    setDecisionForm({ ...decisionForm, approvedAmount: e.target.value })
+  }
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-emerald-500 outline-none"
+                />
+              </div>
+
+              {/* Interest Rate */}
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Interest Rate (%)
+                </label>
+                <input
+                  type="number"
+                   step="0.01"
+  value={decisionForm.interestRate}
+  onChange={(e) =>
+    setDecisionForm({ ...decisionForm, interestRate: e.target.value })
+  }
+                  placeholder="Enter interest rate"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-emerald-500 outline-none"
+                />
+              </div>
+            </>
+          )}
+
+          {/* Notes */}
+          <div>
+            <label className="block text-sm font-medium mb-1">
+              Notes
+            </label>
+            <textarea
+              rows={4}
+              value={decisionForm.notes}
+  onChange={(e) =>
+    setDecisionForm({ ...decisionForm, notes: e.target.value })
+  }
+              placeholder={
+                decisionModal.type === "APPROVED"
+                  ? "Approval notes..."
+                  : "Reason for rejection..."
+              }
+              className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-blue-500 outline-none"
+            />
+          </div>
+
+          {/* Footer Buttons */}
+          <div className="flex justify-end gap-3 pt-4">
+            <button
+              onClick={() =>
+                setDecisionModal({ type: null, applicationId: null })
+              }
+              className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800"
+            >
+              Cancel
+            </button>
+
+           <button
+  onClick={handleDecisionSubmit}
+  className={`px-4 py-2 rounded-xl text-white font-semibold
+    ${
+      decisionModal.type === "APPROVED"
+        ? "bg-emerald-600 hover:bg-emerald-700"
+        : "bg-rose-600 hover:bg-rose-700"
+    }
+  `}
+>
+  {decisionModal.type === "APPROVED"
+    ? "Confirm Approval"
+    : "Confirm Rejection"}
+</button>
+
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body
+  )}
 
                         {/* ================= VIEW APPLICATION MODAL ================= */}
                         {viewSubmissionId &&
