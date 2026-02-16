@@ -10,8 +10,9 @@ async function brokerLoginRoutes(fastify) {
     {
       schema: {
         tags: ["Broker -> Auth"],
-        summary: "Broker login",
-        description: "Authenticate broker admin user",
+        summary: "Broker login (Admin & Loan Officer)",
+        description:
+          "Authenticate Broker Admin or Broker Loan Officer",
         body: {
           type: "object",
           required: ["email", "password"],
@@ -29,9 +30,10 @@ async function brokerLoginRoutes(fastify) {
         const email = req.body.email.trim().toLowerCase();
         const { password } = req.body;
 
-        // ---------------------------
-        // Find user (case-insensitive)
-        // ---------------------------
+        /* =====================================================
+           1️⃣ FIND USER (Case-insensitive)
+        ===================================================== */
+
         const user = await prisma.userAccount.findFirst({
           where: {
             email: {
@@ -54,9 +56,10 @@ async function brokerLoginRoutes(fastify) {
           });
         }
 
-        // ---------------------------
-        // User status check
-        // ---------------------------
+        /* =====================================================
+           2️⃣ USER STATUS CHECK
+        ===================================================== */
+
         if (user.status !== "ACTIVE") {
           return reply.code(401).send({
             success: false,
@@ -64,9 +67,10 @@ async function brokerLoginRoutes(fastify) {
           });
         }
 
-        // ---------------------------
-        // Organization validation
-        // ---------------------------
+        /* =====================================================
+           3️⃣ ORGANIZATION VALIDATION
+        ===================================================== */
+
         if (
           !user.organization ||
           user.organization.type !== "BROKER" ||
@@ -78,21 +82,32 @@ async function brokerLoginRoutes(fastify) {
           });
         }
 
-        // ---------------------------
-        // Role validation
-        // ---------------------------
+        /* =====================================================
+           4️⃣ ROLE VALIDATION (Admin + Officer allowed)
+        ===================================================== */
+
         const roles = user.roles.map((r) => r.role.name);
 
-        if (!roles.includes("BROKER_ADMIN")) {
+        const allowedRoles = [
+          "BROKER_ADMIN",
+          "BROKER_OFFICER",
+        ];
+
+        const hasAccess = roles.some((role) =>
+          allowedRoles.includes(role)
+        );
+
+        if (!hasAccess) {
           return reply.code(403).send({
             success: false,
             message: "Access denied",
           });
         }
 
-        // ---------------------------
-        // Password verification
-        // ---------------------------
+        /* =====================================================
+           5️⃣ PASSWORD VALIDATION
+        ===================================================== */
+
         const isValidPassword = await bcrypt.compare(
           password,
           user.passwordHash
@@ -105,9 +120,10 @@ async function brokerLoginRoutes(fastify) {
           });
         }
 
-        // ---------------------------
-        // Generate JWT
-        // ---------------------------
+        /* =====================================================
+           6️⃣ GENERATE JWT
+        ===================================================== */
+
         const token = jwt.sign(
           {
             id: user.id,
@@ -123,9 +139,21 @@ async function brokerLoginRoutes(fastify) {
           }
         );
 
-        // ---------------------------
-        // Success response
-        // ---------------------------
+        /* =====================================================
+           7️⃣ UPDATE LAST LOGIN
+        ===================================================== */
+
+        await prisma.userAccount.update({
+          where: { id: user.id },
+          data: {
+            lastLoginAt: new Date(),
+          },
+        });
+
+        /* =====================================================
+           8️⃣ SUCCESS RESPONSE
+        ===================================================== */
+
         return reply.send({
           success: true,
           message: "Login successful",
@@ -134,7 +162,8 @@ async function brokerLoginRoutes(fastify) {
             user: {
               id: user.id,
               email: user.email,
-              name: `${user.firstName} ${user.lastName}`,
+              firstName: user.firstName,
+              lastName: user.lastName,
               organizationId: user.organizationId,
               organizationName: user.organization.name,
               roles,
@@ -142,7 +171,11 @@ async function brokerLoginRoutes(fastify) {
           },
         });
       } catch (error) {
-        fastify.log.error("Broker login error", error);
+        fastify.log.error(
+          { error: error.message },
+          "Broker login error"
+        );
+
         return reply.code(500).send({
           success: false,
           message: "Server error during login",
