@@ -95,7 +95,9 @@ export default function LoanApplicationsPage() {
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [viewSubmissionId, setViewSubmissionId] = useState<string | null>(null);
-  const [lenderSubmissionId, setLenderSubmissionId] = useState<string | null>(null);
+  const [lenderSubmissionId, setLenderSubmissionId] = useState<string | null>(
+    null,
+  );
   const [submissionDetail, setSubmissionDetail] = useState<any>(null);
   const [detailLoading, setDetailLoading] = useState(false);
 
@@ -117,32 +119,43 @@ export default function LoanApplicationsPage() {
   const formatFieldKey = (key: string | null | undefined) => {
     if (!key) return "";
 
-    return key
-      // camelCase → camel Case
-      .replace(/([a-z])([A-Z])/g, "$1 $2")
-      // snake_case → snake case
-      .replace(/_/g, " ")
-      // multiple spaces remove
-      .replace(/\s+/g, " ")
-      // trim
-      .trim()
-      // capitalize each word
-      .replace(/\b\w/g, (char) => char.toUpperCase());
+    return (
+      key
+        // camelCase → camel Case
+        .replace(/([a-z])([A-Z])/g, "$1 $2")
+        // snake_case → snake case
+        .replace(/_/g, " ")
+        // multiple spaces remove
+        .replace(/\s+/g, " ")
+        // trim
+        .trim()
+        // capitalize each word
+        .replace(/\b\w/g, (char) => char.toUpperCase())
+    );
   };
 
   const getStatusColor = (status: string) => {
     const s = status?.toLowerCase();
+
     switch (s) {
-      case 'new':
-        return 'bg-blue-500/10 border-blue-500/20 text-blue-600 dark:text-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.1)]';
-      case 'pending':
-        return 'bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.1)]';
-      case 'submitted':
-        return 'bg-indigo-500/10 border-indigo-500/20 text-indigo-600 dark:text-indigo-400 shadow-[0_0_15px_rgba(99,102,241,0.1)]';
-      case 'approved':
-        return 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.1)]';
+      case "new":
+        return "bg-blue-500/10 border-blue-500/20 text-blue-600 dark:text-blue-400";
+
+      case "pending":
+        return "bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400";
+
+      case "submitted":
+      case "sent":
+        return "bg-indigo-500/10 border-indigo-500/20 text-indigo-600 dark:text-indigo-400";
+
+      case "approved":
+        return "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400";
+
+      case "declined":
+        return "bg-red-500/10 border-red-500/20 text-red-600 dark:text-red-400";
+
       default:
-        return 'bg-slate-500/10 border-slate-500/20 text-slate-600 dark:text-slate-400';
+        return "bg-slate-500/10 border-slate-500/20 text-slate-600 dark:text-slate-400";
     }
   };
 
@@ -153,7 +166,6 @@ export default function LoanApplicationsPage() {
   const approvedCount = rows.filter((r) => r.status === "APPROVED").length;
 
   const totalVolume = rows.reduce((sum, r) => sum + r.amount, 0);
-
 
   const fetchSubmissionDetail = async (submissionId: string) => {
     try {
@@ -192,8 +204,8 @@ export default function LoanApplicationsPage() {
         `${API_BASE}/broker/lender-discovery/applications/submissions/${lenderSubmissionId}/eligible`,
         {
           headers: getAuthHeaders(),
-          method: "GET"
-        }
+          method: "GET",
+        },
       );
 
       const json = await res.json();
@@ -224,11 +236,10 @@ export default function LoanApplicationsPage() {
           summary: l.lenderProfile?.summary,
           eligibilityStatus: l.eligible ? "Eligible" : "Rejected",
           lenderProductId: l.lenderProductId,
-        }))
+        })),
       );
 
       setApplicationId(data.applicationId);
-
     } catch (err: any) {
       console.error(err);
       toast.error(err.message || "Failed to load eligible lenders");
@@ -251,7 +262,7 @@ export default function LoanApplicationsPage() {
           body: JSON.stringify({
             lenderProductIds: [lenderProductId],
           }),
-        }
+        },
       );
 
       const json = await res.json();
@@ -262,7 +273,6 @@ export default function LoanApplicationsPage() {
 
       toast.success("Submission processed successfully");
 
-
       setSentLenders((prev) => ({
         ...prev,
         [lenderProductId]: true,
@@ -272,10 +282,9 @@ export default function LoanApplicationsPage() {
         prevRows.map((row) =>
           row.submissionId === lenderSubmissionId
             ? { ...row, status: "SENT" }
-            : row
-        )
+            : row,
+        ),
       );
-
     } catch (err: any) {
       toast.error(err.message || "Failed to send");
     } finally {
@@ -289,11 +298,12 @@ export default function LoanApplicationsPage() {
     }
   }, [findLenderModalOpen, lenderSubmissionId]);
 
-
   const loadSubmissions = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`${API_BASE}/api/public/broker/applications/submissions`);
+      const res = await fetch(
+        `${API_BASE}/api/public/broker/applications/submissions`,
+      );
       const json = await res.json();
       if (!json.success) throw new Error("Failed to load submissions");
 
@@ -364,14 +374,14 @@ export default function LoanApplicationsPage() {
   const filteredLenders = lenders.filter(
     (l) =>
       l.name.toLowerCase().includes(lenderSearchQ.toLowerCase()) ||
-      l.email?.toLowerCase().includes(lenderSearchQ.toLowerCase())
+      l.email?.toLowerCase().includes(lenderSearchQ.toLowerCase()),
   );
 
   const totalPages = Math.ceil(filteredRows.length / rowsPerPage);
 
   const paginatedRows = filteredRows.slice(
     (currentPage - 1) * rowsPerPage,
-    currentPage * rowsPerPage
+    currentPage * rowsPerPage,
   );
 
   useEffect(() => {
@@ -379,11 +389,6 @@ export default function LoanApplicationsPage() {
       setCurrentPage(totalPages);
     }
   }, [totalPages, currentPage]);
-
-  // useEffect(() => {
-  //   const tableTop = document.querySelector(".applications-table-top");
-  //   tableTop?.scrollIntoView({ behavior: "smooth" });
-  // }, [currentPage]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -470,7 +475,6 @@ export default function LoanApplicationsPage() {
 
           {/* APPROVED - Emerald Gradient */}
           <div className="group relative overflow-hidden bg-gradient-to-br from-emerald-600 to-emerald-700 p-6 rounded-2xl shadow-lg shadow-emerald-200 dark:shadow-none hover:shadow-emerald-500/40 hover:-translate-y-1 transition-all duration-300">
-
             <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/10 rounded-full group-hover:scale-125 transition-transform duration-500" />
 
             <div className="relative flex items-center gap-5">
@@ -487,7 +491,6 @@ export default function LoanApplicationsPage() {
               </div>
             </div>
           </div>
-
         </div>
       </header>
 
@@ -503,13 +506,14 @@ export default function LoanApplicationsPage() {
                     { label: "Loan Info", width: "w-[150px]" },
                     { label: "Location", width: "w-[190px]" },
                     { label: "Amount", width: "w-[140px]" },
+                    { label: "Submitted On", width: "w-[190px]" },
                     { label: "Status", width: "w-[130px]" },
                     { label: "Lenders", width: "w-[140px]" },
                     { label: "Action", width: "w-[80px]" },
                   ].map((h) => (
                     <th
                       key={h.label}
-                      className={`${h.width} px-6 py-4 text-left text-[12px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800`}
+                      className={`${h.width} px-6 py-4 text-left text-[12px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800 whitespace-nowrap`}
                     >
                       {h.label}
                     </th>
@@ -522,7 +526,7 @@ export default function LoanApplicationsPage() {
                   /* Professional Skeleton Loader */
                   Array.from({ length: 5 }).map((_, i) => (
                     <tr key={i}>
-                      <td colSpan={7} className="px-6 py-5">
+                      <td colSpan={8} className="px-6 py-5">
                         <div className="flex items-center gap-3 animate-pulse">
                           <div className="h-10 w-10 rounded-lg bg-slate-100 dark:bg-slate-800" />
                           <div className="space-y-2">
@@ -567,7 +571,6 @@ export default function LoanApplicationsPage() {
                       {/* Location */}
                       <td className="px-6 py-4 min-w-[200px]">
                         <div className="flex items-start gap-3">
-
                           {/* Fixed Icon Wrapper */}
                           <div className="w-5 h-5 flex items-center justify-center shrink-0 mt-[2px]">
                             <MapPin
@@ -588,7 +591,6 @@ export default function LoanApplicationsPage() {
                               </div>
                             )}
                           </div>
-
                         </div>
                       </td>
 
@@ -597,6 +599,26 @@ export default function LoanApplicationsPage() {
                         <span className="font-mono text-[14px] font-semibold text-slate-800 dark:text-slate-200">
                           ${row.amount.toLocaleString()}
                         </span>
+                      </td>
+
+                      {/* Submitted Date & Time */}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {(() => {
+                          const submitted = new Date(row.date);
+                          const formattedDate = submitted.toLocaleDateString();
+                          const formattedTime = submitted.toLocaleTimeString();
+
+                          return (
+                            <div className="flex flex-col leading-tight">
+                              <span className="text-[13px] font-medium text-slate-700 dark:text-slate-200">
+                                {formattedDate}
+                              </span>
+                              <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                                {formattedTime}
+                              </span>
+                            </div>
+                          );
+                        })()}
                       </td>
 
                       {/* Status - Dynamic Vibrant Badges */}
@@ -610,11 +632,15 @@ export default function LoanApplicationsPage() {
                         >
                           {/* Animated Status Indicator Dot */}
                           <span className="relative flex h-2 w-2">
-                            <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-40 bg-current`}></span>
-                            <span className={`relative inline-flex rounded-full h-2 w-2 bg-current shadow-[0_0_8px_rgba(255,255,255,0.5)]`}></span>
+                            <span
+                              className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-40 bg-current`}
+                            ></span>
+                            <span
+                              className={`relative inline-flex rounded-full h-2 w-2 bg-current shadow-[0_0_8px_rgba(255,255,255,0.5)]`}
+                            ></span>
                           </span>
 
-                          {row.status}
+                          {row.status === "DECLINED" ? "REJECTED" : row.status}
                         </span>
                       </td>
 
@@ -635,7 +661,9 @@ export default function LoanApplicationsPage() {
                       {/* Action - Clean & Subtle */}
                       <td className="px-6 py-4 text-center">
                         <button
-                          onClick={() => fetchSubmissionDetail(row.submissionId)}
+                          onClick={() =>
+                            fetchSubmissionDetail(row.submissionId)
+                          }
                           className="p-2 rounded-lg bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-500/20 transition-all"
                         >
                           <Eye size={16} />
@@ -646,9 +674,11 @@ export default function LoanApplicationsPage() {
                 ) : (
                   /* Professional Empty State */
                   <tr>
-                    <td colSpan={7} className="px-6 py-24 text-center align-middle">
+                    <td
+                      colSpan={8}
+                      className="px-6 py-24 text-center align-middle"
+                    >
                       <div className="flex flex-col items-center max-w-xs mx-auto">
-
                         {/* Icon */}
                         <div
                           className={`
@@ -657,10 +687,11 @@ export default function LoanApplicationsPage() {
           flex items-center justify-center 
           mb-5
           border
-          ${rows.length === 0
-                              ? "bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/20"
-                              : "bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700"
-                            }
+          ${
+            rows.length === 0
+              ? "bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/20"
+              : "bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700"
+          }
         `}
                         >
                           {rows.length === 0 ? (
@@ -685,7 +716,6 @@ export default function LoanApplicationsPage() {
                             ? "Once applications are submitted, they will appear here."
                             : "Try adjusting your search terms and try again."}
                         </p>
-
                       </div>
                     </td>
                   </tr>
@@ -695,7 +725,6 @@ export default function LoanApplicationsPage() {
             {/* ================= APPLICATION PAGINATION ================= */}
             {filteredRows.length > rowsPerPage && (
               <div className="flex flex-col md:flex-row items-center justify-between gap-4 px-6 py-4 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-
                 {/* Showing Info */}
                 <p className="text-sm text-slate-500 dark:text-slate-400">
                   Showing{" "}
@@ -715,7 +744,6 @@ export default function LoanApplicationsPage() {
 
                 {/* Controls */}
                 <div className="flex items-center gap-2">
-
                   {/* Previous */}
                   <button
                     disabled={currentPage === 1}
@@ -726,20 +754,23 @@ export default function LoanApplicationsPage() {
                   </button>
 
                   {/* Page Numbers */}
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                    <button
-                      key={page}
-                      onClick={() => setCurrentPage(page)}
-                      className={`px-3 py-1 text-sm rounded-lg transition
-            ${currentPage === page
-                          ? "bg-blue-600 text-white"
-                          : "border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800"
-                        }
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                    (page) => (
+                      <button
+                        key={page}
+                        onClick={() => setCurrentPage(page)}
+                        className={`px-3 py-1 text-sm rounded-lg transition
+            ${
+              currentPage === page
+                ? "bg-blue-600 text-white"
+                : "border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800"
+            }
           `}
-                    >
-                      {page}
-                    </button>
-                  ))}
+                      >
+                        {page}
+                      </button>
+                    ),
+                  )}
 
                   {/* Next */}
                   <button
@@ -797,24 +828,151 @@ export default function LoanApplicationsPage() {
                         (f: any) => f.fieldKey === "borrowerSignature",
                       );
 
-                      const submittedDate = new Date(submissionDetail.submittedAt);
+                      const submittedDate = new Date(
+                        submissionDetail.submittedAt,
+                      );
                       const formattedDate = submittedDate.toLocaleDateString();
                       const formattedTime = submittedDate.toLocaleTimeString();
+                      const reviewsArray =
+                        submissionDetail?.lenders?.[0]?.reviews || [];
 
+                      const firstReview =
+                        Array.isArray(reviewsArray) && reviewsArray.length > 0
+                          ? reviewsArray[0]
+                          : null;
                       return (
                         <>
+                          {firstReview && (
+                            <div
+                              className={`relative overflow-hidden rounded-2xl border p-6 mb-8 shadow-md
+      ${
+        firstReview.reviewStatus === "APPROVED"
+          ? "border-emerald-400 bg-emerald-50/40 dark:bg-emerald-500/5"
+          : "border-rose-400 bg-rose-50/40 dark:bg-rose-500/5"
+      }
+    `}
+                            >
+                              {/* Top Accent Line */}
+                              <div
+                                className={`absolute top-0 left-0 right-0 h-1
+        ${
+          firstReview.reviewStatus === "APPROVED"
+            ? "bg-emerald-500"
+            : "bg-rose-500"
+        }
+      `}
+                              />
+
+                              {/* Header Section */}
+                              <div className="flex items-center gap-4 mb-6">
+                                <div
+                                  className={`flex items-center justify-center h-12 w-12 rounded-xl text-white text-xl font-bold
+          ${
+            firstReview.reviewStatus === "APPROVED"
+              ? "bg-emerald-500"
+              : "bg-rose-500"
+          }
+        `}
+                                >
+                                  {firstReview.reviewStatus === "APPROVED"
+                                    ? "✓"
+                                    : "✕"}
+                                </div>
+
+                                <div>
+                                  <p className="text-xs uppercase tracking-wider text-slate-500">
+                                    Lender Decision
+                                  </p>
+                                  <h3
+                                    className={`text-lg font-bold
+            ${
+              firstReview.reviewStatus === "APPROVED"
+                ? "text-emerald-600 dark:text-emerald-400"
+                : "text-rose-600 dark:text-rose-400"
+            }
+          `}
+                                  >
+                                    {firstReview.reviewStatus === "DECLINED"
+                                      ? "REJECTED"
+                                      : firstReview.reviewStatus}
+                                  </h3>
+                                </div>
+                              </div>
+
+                              {/* Inline Row */}
+                              <div className="grid md:grid-cols-4 gap-6 text-sm">
+                                {firstReview.approvedAmount && (
+                                  <div>
+                                    <p className="text-xs text-slate-500 mb-1">
+                                      Approved Amount
+                                    </p>
+                                    <p className="font-semibold text-slate-900 dark:text-slate-100">
+                                      $
+                                      {Number(
+                                        firstReview.approvedAmount,
+                                      ).toLocaleString()}
+                                    </p>
+                                  </div>
+                                )}
+
+                                {firstReview.interestRate && (
+                                  <div>
+                                    <p className="text-xs text-slate-500 mb-1">
+                                      Interest Rate
+                                    </p>
+                                    <p className="font-semibold text-slate-900 dark:text-slate-100">
+                                      {firstReview.interestRate}%
+                                    </p>
+                                  </div>
+                                )}
+
+                                {firstReview?.reviewedAt && (
+                                  <div>
+                                    <p className="text-xs text-slate-500 mb-1">
+                                      {firstReview.reviewStatus === "DECLINED"
+                                        ? "Rejected On"
+                                        : "Reviewed On"}
+                                    </p>
+                                    <p className="font-semibold text-slate-900 dark:text-slate-100">
+                                      {new Date(
+                                        firstReview.reviewedAt,
+                                      ).toLocaleString()}
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Notes Full Width Below */}
+                              {firstReview.notes && (
+                                <div className="mt-6 pt-4 border-t border-slate-200 dark:border-slate-700">
+                                  <p className="text-xs text-slate-500 mb-2">
+                                    Notes
+                                  </p>
+                                  <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap break-words">
+                                    {firstReview.notes}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
                           {/* STATUS */}
 
                           <div className="text-sm font-medium">
                             <span className="font-semibold">Status:</span>{" "}
-                            {submissionDetail.status}
+                            {submissionDetail.status === "DECLINED"
+                              ? "REJECTED"
+                              : submissionDetail.status}
                           </div>
 
                           {/* ALL FIELDS (EXCEPT SIGNATURE) */}
                           <div className="border rounded-xl dark:border-slate-800 p-6">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                               {submissionDetail.fields
-                                .filter((f: any) => f.fieldKey !== "borrowerSignature")
+                                .filter(
+                                  (f: any) =>
+                                    f.fieldKey !== "borrowerSignature",
+                                )
                                 .map((f: any, i: number) => {
                                   const parsedValue = parseValue(f.value);
 
@@ -827,7 +985,8 @@ export default function LoanApplicationsPage() {
 
                                       {/* VALUE */}
                                       <div className="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-sm font-medium text-slate-800 dark:text-slate-200 break-words">
-                                        {parsedValue !== undefined && parsedValue !== ""
+                                        {parsedValue !== undefined &&
+                                        parsedValue !== ""
                                           ? String(parsedValue)
                                           : "-"}
                                       </div>
@@ -840,27 +999,29 @@ export default function LoanApplicationsPage() {
                           {/* DIGITAL SIGNATURE */}
                           {signatureField && (
                             <div className="text-center space-y-4">
-
-                              <h3 className="
+                              <h3
+                                className="
       text-sm font-semibold 
       text-slate-700 
       dark:text-slate-300
       transition-colors duration-300
-    ">
+    "
+                              >
                                 Digital Signature
                               </h3>
 
                               <div className="flex justify-center">
-                                <div className="
-        bg-white 
-        dark:bg-slate-800/70
-        border border-slate-200 
-        dark:border-slate-700
-        rounded-xl 
-        p-4 
-        shadow-sm 
-        transition-colors duration-300
-      ">
+                                <div
+                                  className="
+                                        bg-white 
+                                        dark:bg-slate-800/70
+                                        border border-slate-200 
+                                        dark:border-slate-700
+                                        rounded-xl 
+                                        p-4 
+                                        shadow-sm 
+                                        transition-colors duration-300"
+                                >
                                   <img
                                     src={parseValue(signatureField.value)}
                                     alt="Digital Signature"
@@ -868,18 +1029,21 @@ export default function LoanApplicationsPage() {
                                   />
                                 </div>
                               </div>
-
                             </div>
                           )}
 
                           {/* SUBMITTED DATE & TIME (LAST) */}
                           <div className="border-t pt-6 text-sm text-slate-600 dark:text-slate-400 flex justify-between">
                             <div>
-                              <span className="font-semibold">Submitted Date:</span>{" "}
+                              <span className="font-semibold">
+                                Submitted Date:
+                              </span>{" "}
                               {formattedDate}
                             </div>
                             <div>
-                              <span className="font-semibold">Submitted Time:</span>{" "}
+                              <span className="font-semibold">
+                                Submitted Time:
+                              </span>{" "}
                               {formattedTime}
                             </div>
                           </div>
@@ -888,7 +1052,6 @@ export default function LoanApplicationsPage() {
                     })()
                   ) : null}
                 </div>
-
               </div>
             </div>,
             document.body,
@@ -952,39 +1115,48 @@ export default function LoanApplicationsPage() {
                     </select>
                   </div>
 
-                  {borrowerSummary && borrowerSummary.loanAmount && borrowerSummary.borrowerMinTerm && borrowerSummary.borrowerMaxTerm && borrowerSummary.creditScore && (
-                    <div className="mb-6 bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 p-4 rounded-xl">
-                      <div className="text-sm font-semibold text-blue-700 dark:text-blue-400 mb-2">
-                        Borrower Summary
-                      </div>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                        <div>
-                          <span className="font-semibold">Loan Amount:</span>
+                  {borrowerSummary &&
+                    borrowerSummary.loanAmount &&
+                    borrowerSummary.borrowerMinTerm &&
+                    borrowerSummary.borrowerMaxTerm &&
+                    borrowerSummary.creditScore && (
+                      <div className="mb-6 bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 p-4 rounded-xl">
+                        <div className="text-sm font-semibold text-blue-700 dark:text-blue-400 mb-2">
+                          Borrower Summary
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                           <div>
-                            ${Number(borrowerSummary.loanAmount).toLocaleString()}
+                            <span className="font-semibold">Loan Amount:</span>
+                            <div>
+                              $
+                              {Number(
+                                borrowerSummary.loanAmount,
+                              ).toLocaleString()}
+                            </div>
+                          </div>
+
+                          <div>
+                            <span className="font-semibold">Term:</span>
+                            <div>
+                              {borrowerSummary.borrowerMinTerm} -{" "}
+                              {borrowerSummary.borrowerMaxTerm} months
+                            </div>
+                          </div>
+
+                          <div>
+                            <span className="font-semibold">Credit Score:</span>
+                            <div>{borrowerSummary.creditScore}</div>
+                          </div>
+
+                          <div>
+                            <span className="font-semibold">
+                              Eligible Lenders:
+                            </span>
+                            <div>{lenders.length}</div>
                           </div>
                         </div>
-
-                        <div>
-                          <span className="font-semibold">Term:</span>
-                          <div>
-                            {borrowerSummary.borrowerMinTerm} -{" "}
-                            {borrowerSummary.borrowerMaxTerm} months
-                          </div>
-                        </div>
-
-                        <div>
-                          <span className="font-semibold">Credit Score:</span>
-                          <div>{borrowerSummary.creditScore}</div>
-                        </div>
-
-                        <div>
-                          <span className="font-semibold">Eligible Lenders:</span>
-                          <div>{lenders.length}</div>
-                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
 
                   {/* Loading */}
                   {lenderLoading && (
@@ -1017,7 +1189,10 @@ export default function LoanApplicationsPage() {
                   {!lenderLoading && lenders.length > 0 && (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                       {filteredLenders
-                        .slice((lenderPage - 1) * lenderLimit, lenderPage * lenderLimit)
+                        .slice(
+                          (lenderPage - 1) * lenderLimit,
+                          lenderPage * lenderLimit,
+                        )
                         .map((l) => (
                           <div
                             key={l.id}
@@ -1025,14 +1200,13 @@ export default function LoanApplicationsPage() {
                           >
                             {/* Header */}
                             <div className="flex items-start justify-between mb-3">
-
                               <div className="flex items-center gap-3">
-
                                 {/* Profile Image / Fallback Icon */}
-                                <div className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center 
+                                <div
+                                  className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center 
                     bg-slate-100 dark:bg-slate-800 
-                    border border-slate-200 dark:border-slate-700">
-
+                    border border-slate-200 dark:border-slate-700"
+                                >
                                   {l.profileImage && !imageErrors[l.id] ? (
                                     <img
                                       src={l.profileImage}
@@ -1048,7 +1222,6 @@ export default function LoanApplicationsPage() {
                                   ) : (
                                     <Building2 className="w-6 h-6 text-slate-500 dark:text-slate-400" />
                                   )}
-
                                 </div>
 
                                 {/* Name + Email */}
@@ -1060,19 +1233,18 @@ export default function LoanApplicationsPage() {
                                     {l.email || "No email available"}
                                   </div>
                                 </div>
-
                               </div>
 
                               {/* Eligibility Badge */}
                               <span
-                                className={`text-xs font-bold px-2 py-1 rounded-full ${l.eligibilityStatus === "Eligible"
-                                  ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400"
-                                  : "bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400"
-                                  }`}
+                                className={`text-xs font-bold px-2 py-1 rounded-full ${
+                                  l.eligibilityStatus === "Eligible"
+                                    ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400"
+                                    : "bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400"
+                                }`}
                               >
                                 {l.eligibilityStatus}
                               </span>
-
                             </div>
 
                             {/* Loan Product */}
@@ -1082,35 +1254,27 @@ export default function LoanApplicationsPage() {
 
                             {/* Funding Range */}
                             <div className="text-sm font-medium text-slate-800 dark:text-slate-200">
-                              Funding:
-                              {" "}
-                              ${Number(l.minFunding).toLocaleString()} - ${Number(l.maxFunding).toLocaleString()}
+                              Funding: ${Number(l.minFunding).toLocaleString()}{" "}
+                              - ${Number(l.maxFunding).toLocaleString()}
                             </div>
 
                             {/* Terms */}
                             <div className="text-sm mt-1 text-slate-600 dark:text-slate-400">
-                              Term:
-                              {" "}
-                              {l.minMonths} - {l.maxMonths} months
+                              Term: {l.minMonths} - {l.maxMonths} months
                             </div>
 
                             {/* Interest */}
                             <div className="text-sm mt-1 text-slate-600 dark:text-slate-400">
-                              Interest:
-                              {" "}
-                              {l.interestRateRange}
+                              Interest: {l.interestRateRange}
                             </div>
 
                             {/* Funding Speed */}
                             <div className="text-sm mt-1 text-slate-600 dark:text-slate-400">
-                              Funding Speed:
-                              {" "}
-                              {l.fundingSpeedDays} Days
+                              Funding Speed: {l.fundingSpeedDays} Days
                             </div>
 
                             {/* Send Button */}
                             <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-800">
-
                               <button
                                 disabled={
                                   sendingId === l.lenderProductId ||
@@ -1133,10 +1297,11 @@ export default function LoanApplicationsPage() {
                                   }
                                 }}
                                 className={`w-full py-2 rounded-lg text-sm font-semibold transition-all
-      ${sentLenders[l.lenderProductId]
-                                    ? "bg-emerald-500 text-white cursor-not-allowed"
-                                    : "bg-blue-600 hover:bg-blue-700 text-white"
-                                  }
+      ${
+        sentLenders[l.lenderProductId]
+          ? "bg-emerald-500 text-white cursor-not-allowed"
+          : "bg-blue-600 hover:bg-blue-700 text-white"
+      }
       disabled:opacity-60 disabled:cursor-not-allowed
     `}
                               >
@@ -1151,7 +1316,6 @@ export default function LoanApplicationsPage() {
                                   "Send to Lender"
                                 )}
                               </button>
-
                             </div>
                           </div>
                         ))}
@@ -1162,7 +1326,8 @@ export default function LoanApplicationsPage() {
                   {!lenderLoading && filteredLenders.length > lenderLimit && (
                     <div className="mt-8 flex items-center justify-between border-t border-slate-200 dark:border-slate-800 pt-4">
                       <p className="text-xs text-slate-500">
-                        Page {lenderPage} of {Math.ceil(filteredLenders.length / lenderLimit)}
+                        Page {lenderPage} of{" "}
+                        {Math.ceil(filteredLenders.length / lenderLimit)}
                       </p>
                       <div className="flex gap-2">
                         <button

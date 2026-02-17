@@ -951,3 +951,39 @@ body.modal-open .tailadmin-header {
 body.modal-open {
   overflow: hidden;
 }
+
+/* ===== Custom Horizontal Scrollbar ===== */
+.custom-scrollbar::-webkit-scrollbar {
+  height: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: linear-gradient(
+    90deg,
+    #2563eb,
+    #3b82f6
+  ); /* blue gradient */
+  border-radius: 9999px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(
+    90deg,
+    #1d4ed8,
+    #2563eb
+  );
+}
+
+/* Firefox */
+.custom-scrollbar {
+  scrollbar-color: #3b82f6 transparent;
+  scrollbar-width: thin;
+}
+
+.swal-high-zindex {
+  z-index: 9999999999999 !important;
+}
