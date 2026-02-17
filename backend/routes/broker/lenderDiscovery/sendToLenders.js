@@ -44,7 +44,7 @@ module.exports = async function sendToLenders(fastify) {
         if (!application) {
           return reply.code(404).send({
             success: false,
-            message: "Loan application not found", 
+            message: "Loan application not found",
           });
         }
 
@@ -55,10 +55,12 @@ module.exports = async function sendToLenders(fastify) {
           });
         }
 
-        if (application.status !== "SUBMITTED") {
+        // ✅ Allow SUBMITTED or IN_REVIEW
+        if (!["SUBMITTED", "IN_REVIEW"].includes(application.status)) {
           return reply.code(400).send({
             success: false,
-            message: "Application must be SUBMITTED before sending",
+            message:
+              "Application must be SUBMITTED or IN_REVIEW before sending",
           });
         }
 
@@ -76,10 +78,10 @@ module.exports = async function sendToLenders(fastify) {
           });
         }
 
-        if (submission.status !== "NEW") {
+        if (!["NEW", "SENT"].includes(submission.status)) {
           return reply.code(400).send({
             success: false,
-            message: "Submission already sent",
+            message: "Submission cannot be sent in current status",
           });
         }
 
@@ -150,24 +152,17 @@ module.exports = async function sendToLenders(fastify) {
 
           const sentNow = processed.some((r) => r.status === "SENT");
 
-          if (sentNow) {
-            //  Update Application Status
+          /* ===============================
+             5️⃣ STATUS UPDATE LOGIC
+          =============================== */
+
+          // Only move to IN_REVIEW first time
+          if (sentNow && application.status === "SUBMITTED") {
             await tx.loanApplication.update({
               where: { id: applicationId },
-              data: {
-                status: "IN_REVIEW",
-              },
+              data: { status: "IN_REVIEW" },
             });
 
-            //  Update Submission Status
-            await tx.applicationSubmission.update({
-              where: { id: submissionId },
-              data: {
-                status: "SENT",
-              },
-            });
-
-            //  Status History
             await tx.applicationStatusHistory.create({
               data: {
                 loanApplicationId: applicationId,
@@ -176,6 +171,14 @@ module.exports = async function sendToLenders(fastify) {
                 changedByUserId: userId,
                 reason: "Sent to lenders",
               },
+            });
+          }
+
+          // Update submission status if first send
+          if (sentNow && submission.status === "NEW") {
+            await tx.applicationSubmission.update({
+              where: { id: submissionId },
+              data: { status: "SENT" },
             });
           }
 
@@ -195,7 +198,6 @@ module.exports = async function sendToLenders(fastify) {
         });
       } catch (error) {
         fastify.log.error(error);
-
         return reply.code(500).send({
           success: false,
           message: "Internal server error",
