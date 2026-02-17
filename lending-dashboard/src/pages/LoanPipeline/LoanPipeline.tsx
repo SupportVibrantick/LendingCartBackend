@@ -29,8 +29,6 @@ type TableRow = {
 
 /* ================= HELPERS ================= */
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
-;
-
 const parseValue = (val: string): any => {
   try {
     return JSON.parse(val);
@@ -226,6 +224,14 @@ export default function LoanPipeline() {
   useEffect(() => {
     loadSubmissions();
   }, []);
+
+  const normalizeStatus = (status?: string) => status?.toUpperCase().trim();
+
+  const canTakeDecision = (status?: string) => {
+    const s = normalizeStatus(status);
+
+    return s === "PENDING" || s === "IN_REVIEW" || s === "SENT";
+  };
 
   const filteredRows = useMemo(() => {
     return rows.filter(
@@ -458,10 +464,9 @@ export default function LoanPipeline() {
                   ))
                 ) : paginatedRows.length > 0 ? (
                   paginatedRows.map((row) => {
-                    const isActionAllowed =
-                      row.applicationStatus === "PENDING" ||
-                      row.applicationStatus === "IN_REVIEW" ||
-                      row.applicationStatus === "SENT";
+                    const isActionAllowed = canTakeDecision(
+                      row.applicationStatus,
+                    );
 
                     return (
                       <tr
@@ -565,11 +570,11 @@ export default function LoanPipeline() {
                               className={`group flex items-center justify-center gap-1.5
     px-3 py-2 rounded-xl text-sm font-semibold
     transition-all duration-300
-    ${
-      row.applicationStatus === "PENDING"
-        ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-600 hover:text-white dark:bg-emerald-600/20 dark:text-emerald-300 dark:hover:bg-emerald-500"
-        : "bg-slate-200 text-slate-400 cursor-not-allowed"
-    }
+${
+  isActionAllowed
+    ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-600 hover:text-white dark:bg-emerald-600/20 dark:text-emerald-300 dark:hover:bg-emerald-500"
+    : "bg-slate-200 text-slate-400 cursor-not-allowed"
+}
   `}
                             >
                               <CheckCircle size={16} />
