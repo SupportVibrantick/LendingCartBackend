@@ -25,6 +25,7 @@ import { MdOutlineDocumentScanner } from "react-icons/md";
 import { FaUsersBetweenLines, FaUserGroup } from "react-icons/fa6";
 import { PiSecurityCameraFill } from "react-icons/pi";
 import { TbTemplate } from "react-icons/tb";
+import { TrendingUp } from "lucide-react";
 
 // import AccountBalanceOutlinedIcon from '@mui/icons-material/AccountBalanceOutlined';
 // import AdminPanelSettingsOutlinedIcon from '@mui/icons-material/AdminPanelSettingsOutlined';
@@ -76,8 +77,8 @@ const navItems: NavItem[] = [
   },
 
   {
-    icon: <MdOutlineDocumentScanner />,
-    name: "Submitted Applications",
+    icon: <TrendingUp />,
+    name: "Loan Pipeline",
     path: "/submit-applications",
   },
 
