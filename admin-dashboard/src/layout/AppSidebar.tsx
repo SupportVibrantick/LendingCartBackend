@@ -44,9 +44,9 @@ const navItems: NavItem[] = [
   },
   {
     icon: <GroupsOutlinedIcon />,
-    name: "Broker Organisations",
+    name: "Broker Organizations",
     subItems: [
-      { name: "Brokers Organisation", path: "/all-brokers-organisation" },
+      { name: "Brokers Organization", path: "/all-brokers-Organization" },
       { name: "Broker Assigned Lenders", path: "/all-brokers-lenders" },
     ],
   },
@@ -87,7 +87,7 @@ const navItems: NavItem[] = [
     icon: <AccountBalanceOutlinedIcon />,
     name: "Manage Lenders",
     subItems: [
-      { name: "Lender's Organisation", path: "/all-lenders-organisation" },
+      { name: "Lender's Organization", path: "/all-lenders-Organization" },
       { name: "Lender Assigned Products", path: "/lender-assigned-products" },
       { name: "Assigned Products", path: "/assigned-products" },
     ],

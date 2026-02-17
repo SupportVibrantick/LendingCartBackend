@@ -59,11 +59,11 @@ export default function App() {
             <Route index path="/add-user" element={<AddUser />} />
             <Route index path="/all-user" element={<AllUsers />} />
 
-            {/* <Route index path="/all-brokers-organisation" element={<BrokersPage />} /> */}
+            {/* <Route index path="/all-brokers-Organization" element={<BrokersPage />} /> */}
             <Route index path="/all-brokers-lenders" element={<BrokersLenders />} />
             <Route index path="/all-set-rules" element={<AllRuleSets />} />
             <Route index path="/all-rules" element={<AllRules />} />
-            {/* <Route index path="/all-lenders-organisation" element={<AllLendersPage/>} /> */}
+            {/* <Route index path="/all-lenders-Organization" element={<AllLendersPage/>} /> */}
             <Route index path="/all-loan-products" element={<AllLoanProducts />} />
             <Route index path="/lender-assigned-products" element={<LenderProductAssign />} />
             <Route index path="/assigned-products" element={<AssignedProducts />} />
