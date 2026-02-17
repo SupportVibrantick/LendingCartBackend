@@ -68,7 +68,7 @@ export default function App() {
 
             <Route
               index
-              path="/all-brokers-organisation"
+              path="/all-brokers-Organization"
               element={<BrokersPage />}
             />
             <Route

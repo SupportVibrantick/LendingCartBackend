@@ -87,8 +87,8 @@ const AdminLogs: React.FC = () => {
     }
   }
 
-  useEffect(() => { fetchLogs(currentPage, pageSize); }, [currentPage, pageSize]);
   useEffect(() => { setCurrentPage(1); }, [pageSize, query]);
+  useEffect(() => { fetchLogs(currentPage, pageSize); }, [currentPage, pageSize]);
 
   const filtered = useMemo(() => {
     if (!query.trim()) return logs;
@@ -136,14 +136,18 @@ const AdminLogs: React.FC = () => {
             </div>
             <select
               value={pageSize}
-              onChange={(e) => setPageSize(Number(e.target.value))}
-              className="bg-white dark:bg-slate-900
+               onChange={(e) => {
+              setCurrentPage(1);        // reset immediately
+              setPageSize(Number(e.target.value));
+              }}
+            className="bg-white dark:bg-slate-900
            border border-slate-200 dark:border-slate-700
            text-slate-900 dark:text-slate-100
            rounded-lg px-3 py-2 text-sm shadow-sm
            outline-none focus:ring-2 focus:ring-blue-500/20">
-              <option value={20}>20</option>
-              <option value={50}>50</option>
+              <option value={10}>10 / page</option>
+              <option value={20}>20 / page</option>
+              <option value={50}>50 / page</option>
             </select>
           </div>
         </div>

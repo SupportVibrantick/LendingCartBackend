@@ -6,958 +6,956 @@ import Swal from "sweetalert2";
 const API_BASE = import.meta.env.VITE_API_BASE || "";
 
 interface LoanOfficer {
-    id: string;
-    email: string;
-    firstName: string;
-    lastName: string;
-    phone: string | null;
-    status: string;
-    createdAt: string;
-    lastLoginAt: string | null;
-    roles: string[];
-    profile: {
-        company: string;
-        tollFree: string;
-        tollFreeExt: string;
-        serviceProvider: string;
-        address: string;
-        suite: string;
-        city: string;
-        state: string;
-        zipCode: string;
-        agentType: string;
-        licenseNumber: string;
-        preferredComm: string;
-        website: string;
-        avatarUrl: string | null;
-    } | null;
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  phone: string | null;
+  status: string;
+  createdAt: string;
+  lastLoginAt: string | null;
+  roles: string[];
+  profile: {
+    company: string;
+    tollFree: string;
+    tollFreeExt: string;
+    serviceProvider: string;
+    address: string;
+    suite: string;
+    city: string;
+    state: string;
+    zipCode: string;
+    agentType: string;
+    licenseNumber: string;
+    preferredComm: string;
+    website: string;
+    avatarUrl: string | null;
+  } | null;
 }
 
 const initialFormState = {
-    email: "",
-    confirmEmail: "",
-    password: "",
-    confirmPassword: "",
-    firstName: "",
-    lastName: "",
-    phone: "",
-    allowedToLogin: true,
-    company: "",
-    tollFree: "",
-    tollFreeExt: "",
-    serviceProvider: "Internal",
-    address: "",
-    suite: "",
-    city: "",
-    state: "",
-    zipCode: "",
-    licenseNumber: "",
-    preferredComm: "EMAIL",
-    website: "",
-    agentType: "Loan Officer",
-    avatarFile: null as File | null,
-    avatarPreview: "",
+  email: "",
+  confirmEmail: "",
+  password: "",
+  confirmPassword: "",
+  firstName: "",
+  lastName: "",
+  phone: "",
+  allowedToLogin: true,
+  company: "",
+  tollFree: "",
+  tollFreeExt: "",
+  serviceProvider: "Internal",
+  address: "",
+  suite: "",
+  city: "",
+  state: "",
+  zipCode: "",
+  licenseNumber: "",
+  preferredComm: "EMAIL",
+  website: "",
+  agentType: "Loan Officer",
+  avatarFile: null as File | null,
+  avatarPreview: "",
 };
 
 export const US_STATES = [
-    { code: "AL", name: "Alabama" },
-    { code: "AK", name: "Alaska" },
-    { code: "AZ", name: "Arizona" },
-    { code: "AR", name: "Arkansas" },
-    { code: "CA", name: "California" },
-    { code: "CO", name: "Colorado" },
-    { code: "CT", name: "Connecticut" },
-    { code: "DE", name: "Delaware" },
-    { code: "FL", name: "Florida" },
-    { code: "GA", name: "Georgia" },
-    { code: "HI", name: "Hawaii" },
-    { code: "ID", name: "Idaho" },
-    { code: "IL", name: "Illinois" },
-    { code: "IN", name: "Indiana" },
-    { code: "IA", name: "Iowa" },
-    { code: "KS", name: "Kansas" },
-    { code: "KY", name: "Kentucky" },
-    { code: "LA", name: "Louisiana" },
-    { code: "ME", name: "Maine" },
-    { code: "MD", name: "Maryland" },
-    { code: "MA", name: "Massachusetts" },
-    { code: "MI", name: "Michigan" },
-    { code: "MN", name: "Minnesota" },
-    { code: "MS", name: "Mississippi" },
-    { code: "MO", name: "Missouri" },
-    { code: "MT", name: "Montana" },
-    { code: "NE", name: "Nebraska" },
-    { code: "NV", name: "Nevada" },
-    { code: "NH", name: "New Hampshire" },
-    { code: "NJ", name: "New Jersey" },
-    { code: "NM", name: "New Mexico" },
-    { code: "NY", name: "New York" },
-    { code: "NC", name: "North Carolina" },
-    { code: "ND", name: "North Dakota" },
-    { code: "OH", name: "Ohio" },
-    { code: "OK", name: "Oklahoma" },
-    { code: "OR", name: "Oregon" },
-    { code: "PA", name: "Pennsylvania" },
-    { code: "RI", name: "Rhode Island" },
-    { code: "SC", name: "South Carolina" },
-    { code: "SD", name: "South Dakota" },
-    { code: "TN", name: "Tennessee" },
-    { code: "TX", name: "Texas" },
-    { code: "UT", name: "Utah" },
-    { code: "VT", name: "Vermont" },
-    { code: "VA", name: "Virginia" },
-    { code: "WA", name: "Washington" },
-    { code: "WV", name: "West Virginia" },
-    { code: "WI", name: "Wisconsin" },
-    { code: "WY", name: "Wyoming" },
+  { code: "AL", name: "Alabama" },
+  { code: "AK", name: "Alaska" },
+  { code: "AZ", name: "Arizona" },
+  { code: "AR", name: "Arkansas" },
+  { code: "CA", name: "California" },
+  { code: "CO", name: "Colorado" },
+  { code: "CT", name: "Connecticut" },
+  { code: "DE", name: "Delaware" },
+  { code: "FL", name: "Florida" },
+  { code: "GA", name: "Georgia" },
+  { code: "HI", name: "Hawaii" },
+  { code: "ID", name: "Idaho" },
+  { code: "IL", name: "Illinois" },
+  { code: "IN", name: "Indiana" },
+  { code: "IA", name: "Iowa" },
+  { code: "KS", name: "Kansas" },
+  { code: "KY", name: "Kentucky" },
+  { code: "LA", name: "Louisiana" },
+  { code: "ME", name: "Maine" },
+  { code: "MD", name: "Maryland" },
+  { code: "MA", name: "Massachusetts" },
+  { code: "MI", name: "Michigan" },
+  { code: "MN", name: "Minnesota" },
+  { code: "MS", name: "Mississippi" },
+  { code: "MO", name: "Missouri" },
+  { code: "MT", name: "Montana" },
+  { code: "NE", name: "Nebraska" },
+  { code: "NV", name: "Nevada" },
+  { code: "NH", name: "New Hampshire" },
+  { code: "NJ", name: "New Jersey" },
+  { code: "NM", name: "New Mexico" },
+  { code: "NY", name: "New York" },
+  { code: "NC", name: "North Carolina" },
+  { code: "ND", name: "North Dakota" },
+  { code: "OH", name: "Ohio" },
+  { code: "OK", name: "Oklahoma" },
+  { code: "OR", name: "Oregon" },
+  { code: "PA", name: "Pennsylvania" },
+  { code: "RI", name: "Rhode Island" },
+  { code: "SC", name: "South Carolina" },
+  { code: "SD", name: "South Dakota" },
+  { code: "TN", name: "Tennessee" },
+  { code: "TX", name: "Texas" },
+  { code: "UT", name: "Utah" },
+  { code: "VT", name: "Vermont" },
+  { code: "VA", name: "Virginia" },
+  { code: "WA", name: "Washington" },
+  { code: "WV", name: "West Virginia" },
+  { code: "WI", name: "Wisconsin" },
+  { code: "WY", name: "Wyoming" },
 ];
 
 type FormState = typeof initialFormState;
 
 const basicFields: {
-    label: string;
-    key: keyof FormState;
-    type?: string;
-    placeholder?: string;
+  label: string;
+  key: keyof FormState;
+  type?: string;
+  placeholder?: string;
 }[] = [
-        { label: "First Name", key: "firstName", placeholder: "Jane" },
-        { label: "Last Name", key: "lastName", placeholder: "Doe" },
-        { label: "Email", key: "email", type: "email" },
-        { label: "Confirm Email", key: "confirmEmail", type: "email" },
-        { label: "Password", key: "password", type: "password" },
-        { label: "Confirm Password", key: "confirmPassword", type: "password" },
-        { label: "Phone", key: "phone" },
-        { label: "License Number", key: "licenseNumber" },
-    ];
+  { label: "First Name", key: "firstName", placeholder: "Jane" },
+  { label: "Last Name", key: "lastName", placeholder: "Doe" },
+  { label: "Email", key: "email", type: "email" },
+  { label: "Confirm Email", key: "confirmEmail", type: "email" },
+  { label: "Password", key: "password", type: "password" },
+  { label: "Confirm Password", key: "confirmPassword", type: "password" },
+  { label: "Phone", key: "phone" },
+  { label: "License Number", key: "licenseNumber" },
+];
 
 const inputStyle =
-    "w-full px-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 transition-all outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600";
+  "w-full px-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 transition-all outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600";
 
 export default function LoanOfficersPage() {
-    const [officers, setOfficers] = useState<LoanOfficer[]>([]);
-    const [loading, setLoading] = useState(false);
-    const [page, setPage] = useState(1);
-    const [limit] = useState(10);
-    const [totalPages, setTotalPages] = useState(1);
-    const [search, setSearch] = useState("");
-    const [showModal, setShowModal] = useState(false);
-    const [errors, setErrors] = useState<Record<string, string>>({});
-    const [togglingId, setTogglingId] = useState<string | null>(null);
-    const [viewOfficer, setViewOfficer] = useState<LoanOfficer | null>(null);
-    const [debouncedSearch, setDebouncedSearch] = useState(search);
+  const [officers, setOfficers] = useState<LoanOfficer[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const [limit] = useState(10);
+  const [totalPages, setTotalPages] = useState(1);
+  const [search, setSearch] = useState("");
+  const [showModal, setShowModal] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [viewOfficer, setViewOfficer] = useState<LoanOfficer | null>(null);
+  const [debouncedSearch, setDebouncedSearch] = useState(search);
 
-    const [form, setForm] = useState(initialFormState);
-    const [creating, setCreating] = useState(false);
-    const [showPassword, setShowPassword] = useState<Record<string, boolean>>({
-        password: false,
-        confirmPassword: false,
-        });
-    const [editOfficer, setEditOfficer] = useState<LoanOfficer | null>(null);
-
-
-    const updateField = (key: keyof FormState, value: any) => {
-        setForm((prev) => ({
-            ...prev,
-            [key]: value,
-        }));
-
-        // Clear error on change
-        if (errors[key]) {
-            setErrors((prev) => {
-                const copy = { ...prev };
-                delete copy[key];
-                return copy;
-            });
-        }
-    };
-
-    const normalizeWebsiteUrl = (input: string) => {
-  if (!input) return "";
-
-  let url = input.trim();
-
-  // If protocol missing → add https://
-  if (!/^https?:\/\//i.test(url)) {
-    url = `https://${url}`;
-  }
-
-  try {
-    const parsed = new URL(url);
-
-    // Remove trailing slash
-    parsed.pathname = parsed.pathname.replace(/\/$/, "");
-
-    return parsed.toString();
-  } catch {
-    return null; // invalid
-  }
-};
-
-    /* ================= STATUS ================= */
-    const toggleStatus = async (id: string, status: string) => {
-        try {
-            setTogglingId(id);
-
-            const newStatus = status === "ACTIVE" ? "DISABLED" : "ACTIVE";
-
-            const res = await fetch(`${API_BASE}/broker/users/${id}/status`, {
-                method: "PATCH",
-                headers: getHeaders(),
-                body: JSON.stringify({ status: newStatus }),
-            });
-
-            const json = await res.json();
-
-            if (!res.ok || !json.success) {
-                toast.error(json.message || "Failed to update status");
-                return;
-            }
-
-            toast.success("Status updated");
-            fetchOfficers();
-        } catch (err) {
-            toast.error("Something went wrong");
-        } finally {
-            setTogglingId(null);
-        }
-    };
-
-    const getHeaders = () => {
-        const token = sessionStorage.getItem("broker_token");
-        return {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        };
-    };
-
-    /* ================= FETCH ================= */
-
-    const fetchOfficers = async () => {
-        try {
-            setLoading(true);
-
-            const queryParams = new URLSearchParams({
-                page: String(page),
-                limit: String(limit),
-            });
-
-            if (debouncedSearch) {
-                queryParams.append("search", debouncedSearch);
-            }
-
-            const res = await fetch(
-                `${API_BASE}/broker/users?${queryParams.toString()}`,
-                { headers: getHeaders() }
-            );
-
-            const json = await res.json();
-
-            if (json.success) {
-
-                const officersOnly: LoanOfficer[] = (json.data || []).filter(
-                    (user: LoanOfficer) =>
-                        user?.roles?.includes("BROKER_OFFICER")
-                );
-
-                setOfficers(officersOnly);
-
-                // IMPORTANT: use backend total (not filtered length)
-                setTotalPages(json.totalPages || 1);
-
-                // Safety reset if page exceeds totalPages
-                if (page > (json.totalPages || 1)) {
-                    setPage(1);
-                }
-            }
-
-        } catch (err) {
-            console.error(err);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        const handler = setTimeout(() => {
-            setDebouncedSearch(search.trim());
-        }, 500);
-
-        return () => clearTimeout(handler);
-    }, [search]);
-
-    useEffect(() => {
-        setPage(1);
-    }, [debouncedSearch]);
-
-        useEffect(() => {
-        fetchOfficers();
-    }, [page, debouncedSearch]);
-
-const validateForm = () => {
-  const newErrors: Record<string, string> = {};
-
-  // US Email
-  const emailRegex =
-    /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[A-Za-z]{2,}$/;
-
-  // US Phone (10 digit with optional +1, spaces, dashes, brackets)
-  const phoneRegex =
-    /^(\+1\s?)?(\(?\d{3}\)?[\s-]?)\d{3}[\s-]?\d{4}$/;
-
-  // US ZIP (12345 or 12345-6789)
-  const zipRegex =
-    /^\d{5}(-\d{4})?$/;
-
-  // US License (basic alphanumeric rule)
-  const licenseRegex =
-    /^[A-Za-z0-9-]{4,20}$/;
-
-  // Required fields
-  const requiredFields: (keyof FormState)[] = editOfficer
-  ? [
-      "firstName",
-      "lastName",
-      "email",
-      "confirmEmail",
-      "phone",
-      "company",
-      "tollFree",
-      "tollFreeExt",
-      "suite",
-      "serviceProvider",
-      "address",
-      "city",
-      "state",
-      "zipCode",
-      "licenseNumber",
-      "preferredComm",
-      "website",
-      "agentType",
-    ]
-  : [
-      "firstName",
-      "lastName",
-      "email",
-      "confirmEmail",
-      "password",
-      "confirmPassword",
-      "phone",
-      "company",
-      "tollFree",
-      "tollFreeExt",
-      "suite",
-      "serviceProvider",
-      "address",
-      "city",
-      "state",
-      "zipCode",
-      "licenseNumber",
-      "preferredComm",
-      "website",
-      "agentType",
-    ];
-
-  requiredFields.forEach((field) => {
-    if (!form[field]?.toString().trim()) {
-      newErrors[field] = "This field is required";
-    }
+  const [form, setForm] = useState(initialFormState);
+  const [creating, setCreating] = useState(false);
+  const [showPassword, setShowPassword] = useState<Record<string, boolean>>({
+    password: false,
+    confirmPassword: false,
   });
+  const [editOfficer, setEditOfficer] = useState<LoanOfficer | null>(null);
 
-  // Email validation
-  if (form.email && !emailRegex.test(form.email)) {
-    newErrors.email = "Enter a valid US email address";
-  }
+  const updateField = (key: keyof FormState, value: any) => {
+    setForm((prev) => ({
+      ...prev,
+      [key]: value,
+    }));
 
-  if (form.confirmEmail && !emailRegex.test(form.confirmEmail)) {
-    newErrors.confirmEmail = "Enter a valid US email address";
-  }
+    // Clear error on change
+    if (errors[key]) {
+      setErrors((prev) => {
+        const copy = { ...prev };
+        delete copy[key];
+        return copy;
+      });
+    }
+  };
 
-  if (form.email !== form.confirmEmail) {
-    newErrors.confirmEmail = "Emails do not match";
-  }
+  const normalizeWebsiteUrl = (input: string) => {
+    if (!input) return "";
 
-  // Password strength (USA standard)
-  if(!editOfficer){
-      if (
-    form.password.length < 8 ||
-    !/[A-Z]/.test(form.password) ||
-    !/[0-9]/.test(form.password)
-  ) {
-    newErrors.password =
-      "Password must be 8+ characters with 1 uppercase & 1 number";
-  }
+    let url = input.trim();
 
-  if (form.password !== form.confirmPassword) {
-    newErrors.confirmPassword = "Passwords do not match";
-  }
-  }
+    // If protocol missing → add https://
+    if (!/^https?:\/\//i.test(url)) {
+      url = `https://${url}`;
+    }
 
-  // Phone validation
-  if (form.phone && !phoneRegex.test(form.phone)) {
-    newErrors.phone =
-      "Enter valid US phone (e.g. 123-456-7890)";
-  }
+    try {
+      const parsed = new URL(url);
 
-  // ZIP validation
-  if (form.zipCode && !zipRegex.test(form.zipCode)) {
-    newErrors.zipCode =
-      "Enter valid US ZIP (e.g. 12345 or 12345-6789)";
-  }
+      // Remove trailing slash
+      parsed.pathname = parsed.pathname.replace(/\/$/, "");
 
-  // License validation
-  if (
-    form.licenseNumber &&
-    !licenseRegex.test(form.licenseNumber)
-  ) {
-    newErrors.licenseNumber =
-      "License must be 4–20 alphanumeric characters";
-  }
+      return parsed.toString();
+    } catch {
+      return null; // invalid
+    }
+  };
 
-  // Website validation (US domain friendly)
-if (form.website) {
-  const normalized = normalizeWebsiteUrl(form.website);
+  /* ================= STATUS ================= */
+  const toggleStatus = async (id: string, status: string) => {
+    try {
+      setTogglingId(id);
 
-  if (!normalized) {
-    newErrors.website = "Enter a valid website URL";
-  }
-}
-  return newErrors;
-};
+      const newStatus = status === "ACTIVE" ? "DISABLED" : "ACTIVE";
 
-    /* ================= CREATE ================= */
+      const res = await fetch(`${API_BASE}/broker/users/${id}/status`, {
+        method: "PATCH",
+        headers: getHeaders(),
+        body: JSON.stringify({ status: newStatus }),
+      });
 
-    const handleCreate = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (creating) return;
+      const json = await res.json();
 
-        const validationErrors = validateForm();
-        setErrors(validationErrors);
+      if (!res.ok || !json.success) {
+        toast.error(json.message || "Failed to update status");
+        return;
+      }
 
-        if (Object.keys(validationErrors).length > 0) {
-            toast.error("Please fix the errors");
-            return;
-        }
+      toast.success("Status updated");
+      fetchOfficers();
+    } catch (err) {
+      toast.error("Something went wrong");
+    } finally {
+      setTogglingId(null);
+    }
+  };
 
-        setCreating(true);
-
-        try {
-            const token = sessionStorage.getItem("broker_token");
-
-            const formData = new FormData();
-
-            Object.entries(form).forEach(([key, value]) => {
-            if (value === null || value === undefined) return;
-
-            if (key === "avatarFile" && value instanceof File) {
-                formData.append("avatar", value);
-                return;
-            }
-
-if (key === "website" && typeof value === "string") {
-  const normalized = normalizeWebsiteUrl(value);
-
-  if (normalized) {
-    formData.append("website", normalized);
-  }
-
-  return;
-}
-
-  if (key !== "avatarPreview") {
-    formData.append(key, String(value));
-  }
-});
-
-
-            const res = await fetch(`${API_BASE}/broker/users`, {
-                method: "POST",
-                headers: {
-                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-                },
-                body: formData,
-            });
-
-            const json = await res.json();
-
-            if (!res.ok || !json.success) {
-                toast.error(json.message || "Failed");
-                return;
-            }
-
-            toast.success("Loan Officer Created Successfully");
-            setForm(initialFormState);
-            setErrors({});
-            setShowModal(false);
-            fetchOfficers();
-
-        } catch (err) {
-            toast.error("Something went wrong");
-        } finally {
-            setCreating(false);
-        }
-    };
-
- /* ================= UPDATE ================= */
-    const handleUpdate = async (userId: string) => {
-  if (creating) return;
-
-  const validationErrors = validateForm();
-  setErrors(validationErrors);
-
-  if (Object.keys(validationErrors).length > 0) {
-    toast.error("Please fix the errors");
-    return;
-  }
-
-  setCreating(true);
-
-  try {
+  const getHeaders = () => {
     const token = sessionStorage.getItem("broker_token");
+    return {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
+  };
 
-    const formData = new FormData();
+  /* ================= FETCH ================= */
 
- Object.entries(form).forEach(([key, value]) => {
-  if (value === null || value === undefined) return;
+  const fetchOfficers = async () => {
+    try {
+      setLoading(true);
 
-  if (
-    key === "password" ||
-    key === "confirmPassword" ||
-    key === "avatarPreview"
-  ) {
-    return;
-  }
+      const queryParams = new URLSearchParams({
+        page: String(page),
+        limit: String(limit),
+      });
 
-  if (key === "avatarFile" && value instanceof File) {
-    formData.append("avatar", value);
-    return;
-  }
+      if (debouncedSearch) {
+        queryParams.append("search", debouncedSearch);
+      }
 
-if (key === "website" && typeof value === "string") {
-  const normalized = normalizeWebsiteUrl(value);
+      const res = await fetch(
+        `${API_BASE}/broker/users?${queryParams.toString()}`,
+        { headers: getHeaders() },
+      );
 
-  if (normalized) {
-    formData.append("website", normalized);
-  }
+      const json = await res.json();
 
-  return;
-}
+      if (json.success) {
+        const officersOnly: LoanOfficer[] = (json.data || []).filter(
+          (user: LoanOfficer) => user?.roles?.includes("BROKER_OFFICER"),
+        );
 
-  formData.append(key, String(value));
-});
+        setOfficers(officersOnly);
 
-    const res = await fetch(
-      `${API_BASE}/broker/users/${userId}`,
-      {
+        // IMPORTANT: use backend total (not filtered length)
+        setTotalPages(json.totalPages || 1);
+
+        // Safety reset if page exceeds totalPages
+        if (page > (json.totalPages || 1)) {
+          setPage(1);
+        }
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(search.trim());
+    }, 500);
+
+    return () => clearTimeout(handler);
+  }, [search]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch]);
+
+  useEffect(() => {
+    fetchOfficers();
+  }, [page, debouncedSearch]);
+
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {};
+
+    // US Email
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[A-Za-z]{2,}$/;
+
+    // US Phone (10 digit with optional +1, spaces, dashes, brackets)
+    const phoneRegex = /^(\+1\s?)?(\(?\d{3}\)?[\s-]?)\d{3}[\s-]?\d{4}$/;
+
+    // US ZIP (12345 or 12345-6789)
+    const zipRegex = /^\d{5}(-\d{4})?$/;
+
+    // US License (basic alphanumeric rule)
+    const licenseRegex = /^[A-Za-z0-9-]{4,20}$/;
+
+    // Required fields
+    const requiredFields: (keyof FormState)[] = editOfficer
+      ? [
+          "firstName",
+          "lastName",
+          "email",
+          "confirmEmail",
+          "phone",
+          "company",
+          "tollFree",
+          "tollFreeExt",
+          "suite",
+          "serviceProvider",
+          "address",
+          "city",
+          "state",
+          "zipCode",
+          "licenseNumber",
+          "preferredComm",
+          "website",
+          "agentType",
+        ]
+      : [
+          "firstName",
+          "lastName",
+          "email",
+          "confirmEmail",
+          "password",
+          "confirmPassword",
+          "phone",
+          "company",
+          "tollFree",
+          "tollFreeExt",
+          "suite",
+          "serviceProvider",
+          "address",
+          "city",
+          "state",
+          "zipCode",
+          "licenseNumber",
+          "preferredComm",
+          "website",
+          "agentType",
+        ];
+
+    requiredFields.forEach((field) => {
+      if (!form[field]?.toString().trim()) {
+        newErrors[field] = "This field is required";
+      }
+    });
+
+    // Email validation
+    if (form.email && !emailRegex.test(form.email)) {
+      newErrors.email = "Enter a valid US email address";
+    }
+
+    if (form.confirmEmail && !emailRegex.test(form.confirmEmail)) {
+      newErrors.confirmEmail = "Enter a valid US email address";
+    }
+
+    if (form.email !== form.confirmEmail) {
+      newErrors.confirmEmail = "Emails do not match";
+    }
+
+    // Password strength (USA standard)
+    if (!editOfficer) {
+      if (
+        form.password.length < 8 ||
+        !/[A-Z]/.test(form.password) ||
+        !/[0-9]/.test(form.password)
+      ) {
+        newErrors.password =
+          "Password must be 8+ characters with 1 uppercase & 1 number";
+      }
+
+      if (form.password !== form.confirmPassword) {
+        newErrors.confirmPassword = "Passwords do not match";
+      }
+    }
+
+    // Phone validation
+    if (form.phone && !phoneRegex.test(form.phone)) {
+      newErrors.phone = "Enter valid US phone (e.g. 123-456-7890)";
+    }
+
+    // ZIP validation
+    if (form.zipCode && !zipRegex.test(form.zipCode)) {
+      newErrors.zipCode = "Enter valid US ZIP (e.g. 12345 or 12345-6789)";
+    }
+
+    // License validation
+    if (form.licenseNumber && !licenseRegex.test(form.licenseNumber)) {
+      newErrors.licenseNumber = "License must be 4–20 alphanumeric characters";
+    }
+
+    // Website validation (US domain friendly)
+    if (form.website) {
+      const normalized = normalizeWebsiteUrl(form.website);
+
+      if (!normalized) {
+        newErrors.website = "Enter a valid website URL";
+      }
+    }
+    return newErrors;
+  };
+
+  /* ================= CREATE ================= */
+
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (creating) return;
+
+    const validationErrors = validateForm();
+    setErrors(validationErrors);
+
+    if (Object.keys(validationErrors).length > 0) {
+      toast.error("Please fix the errors");
+      return;
+    }
+
+    setCreating(true);
+
+    try {
+      const token = sessionStorage.getItem("broker_token");
+
+      const formData = new FormData();
+
+      Object.entries(form).forEach(([key, value]) => {
+        if (value === null || value === undefined) return;
+
+        if (key === "avatarFile" && value instanceof File) {
+          formData.append("avatar", value);
+          return;
+        }
+
+        if (key === "website" && typeof value === "string") {
+          const normalized = normalizeWebsiteUrl(value);
+
+          if (normalized) {
+            formData.append("website", normalized);
+          }
+
+          return;
+        }
+
+        if (key !== "avatarPreview") {
+          formData.append(key, String(value));
+        }
+      });
+
+      const res = await fetch(`${API_BASE}/broker/users`, {
+        method: "POST",
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: formData,
+      });
+
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        toast.error(json.message || "Failed");
+        return;
+      }
+
+      toast.success("Loan Officer Created Successfully");
+      setForm(initialFormState);
+      setErrors({});
+      setShowModal(false);
+      fetchOfficers();
+    } catch (err) {
+      toast.error("Something went wrong");
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  /* ================= UPDATE ================= */
+  const handleUpdate = async (userId: string) => {
+    if (creating) return;
+
+    const validationErrors = validateForm();
+    setErrors(validationErrors);
+
+    if (Object.keys(validationErrors).length > 0) {
+      toast.error("Please fix the errors");
+      return;
+    }
+
+    setCreating(true);
+
+    try {
+      const token = sessionStorage.getItem("broker_token");
+
+      const formData = new FormData();
+
+      Object.entries(form).forEach(([key, value]) => {
+        if (value === null || value === undefined) return;
+
+        if (
+          key === "password" ||
+          key === "confirmPassword" ||
+          key === "avatarPreview"
+        ) {
+          return;
+        }
+
+        if (key === "avatarFile" && value instanceof File) {
+          formData.append("avatar", value);
+          return;
+        }
+
+        if (key === "website" && typeof value === "string") {
+          const normalized = normalizeWebsiteUrl(value);
+
+          if (normalized) {
+            formData.append("website", normalized);
+          }
+
+          return;
+        }
+
+        formData.append(key, String(value));
+      });
+
+      const res = await fetch(`${API_BASE}/broker/users/${userId}`, {
         method: "PUT",
         headers: {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: formData,
+      });
+
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        toast.error(json.message || "Update failed");
+        return;
       }
-    );
 
-    const json = await res.json();
-
-    if (!res.ok || !json.success) {
-      toast.error(json.message || "Update failed");
-      return;
+      toast.success("Loan Officer Updated Successfully");
+      setShowModal(false);
+      setViewOfficer(null);
+      setEditOfficer(null);
+      setForm(initialFormState);
+      fetchOfficers();
+    } catch (err) {
+      toast.error("Something went wrong");
+    } finally {
+      setCreating(false);
     }
+  };
 
-    toast.success("Loan Officer Updated Successfully");
-    setShowModal(false);
-    setViewOfficer(null);
-    setEditOfficer(null);
-setForm(initialFormState);
-    fetchOfficers();
+  /* ================= DELETE ================= */
 
-  } catch (err) {
-    toast.error("Something went wrong");
-  } finally {
-    setCreating(false);
-  }
-};
+  const handleDelete = async (id: string) => {
+    const isDark = document.documentElement.classList.contains("dark");
 
-    /* ================= DELETE ================= */
+    const result = await Swal.fire({
+      title: "Are you sure?",
+      text: "This Loan Officer will be permanently deleted!",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#dc2626",
+      cancelButtonColor: "#6b7280",
+      confirmButtonText: "Yes, Delete",
+      cancelButtonText: "Cancel",
 
-    const handleDelete = async (id: string) => {
-        const isDark = document.documentElement.classList.contains("dark");
+      background: isDark ? "#1e293b" : "#ffffff",
+      color: isDark ? "#e2e8f0" : "#1e293b",
 
-const result = await Swal.fire({
-  title: "Are you sure?",
-  text: "This Loan Officer will be permanently deleted!",
-  icon: "warning",
-  showCancelButton: true,
-  confirmButtonColor: "#dc2626",
-  cancelButtonColor: "#6b7280",
-  confirmButtonText: "Yes, Delete",
-  cancelButtonText: "Cancel",
+      customClass: {
+        popup: "rounded-2xl",
+        container: "swal-high-zindex",
+      },
+    });
 
-  background: isDark ? "#1e293b" : "#ffffff",
-  color: isDark ? "#e2e8f0" : "#1e293b",
+    if (!result.isConfirmed) return;
 
-  customClass: {
-    popup: "rounded-2xl",
-    container: "swal-high-zindex",
-  }
-});
+    const token = sessionStorage.getItem("broker_token");
+    try {
+      await fetch(`${API_BASE}/broker/users/${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
+      await Swal.fire({
+        title: "Deleted!",
+        text: "Loan Officer has been deleted successfully.",
+        icon: "success",
+        timer: 1500,
+        showConfirmButton: false,
+        background: isDark ? "#1e293b" : "#ffffff",
+        color: isDark ? "#e2e8f0" : "#1e293b",
+        customClass: {
+          popup: "rounded-2xl",
+          container: "swal-high-zindex",
+        },
+      });
 
-        if (!result.isConfirmed) return;
+      fetchOfficers();
+    } catch (error) {
+      Swal.fire({
+        title: "Error",
+        text: "Something went wrong!",
+        icon: "error",
+      });
+    }
+  };
 
-        const token = sessionStorage.getItem("broker_token");
-        try {
-            await fetch(`${API_BASE}/broker/users/${id}`, {
-                method: "DELETE",
-                headers: { Authorization: `Bearer ${token}` },
-            });
+  const InfoItem = ({ label, value }: { label: string; value: any }) => (
+    <div className="space-y-1">
+      <p
+        className="text-xs font-semibold uppercase tracking-wide
+      text-slate-500 dark:text-slate-400"
+      >
+        {label}
+      </p>
 
-            await Swal.fire({
-                title: "Deleted!",
-                text: "Loan Officer has been deleted successfully.",
-                icon: "success",
-                timer: 1500,
-                showConfirmButton: false,
-              background: isDark ? "#1e293b" : "#ffffff",
-  color: isDark ? "#e2e8f0" : "#1e293b",
-                customClass: {
-                     popup: "rounded-2xl",
-                    container: "swal-high-zindex"
-                }
-            });
-
-            fetchOfficers();
-        } catch (error) {
-            Swal.fire({
-                title: "Error",
-                text: "Something went wrong!",
-                icon: "error",
-            });
-        }
-    };
-
-    const InfoItem = ({ label, value }: { label: string; value: any }) => (
-  <div className="space-y-1">
-    <p className="text-xs font-semibold uppercase tracking-wide
-      text-slate-500 dark:text-slate-400">
-      {label}
-    </p>
-
-    <div className="
+      <div
+        className="
       w-full px-4 py-2.5 rounded-lg border
       border-slate-200 dark:border-slate-600
       bg-slate-100 dark:bg-slate-700
       text-slate-800 dark:text-slate-200 cursor-not-allowed
-    ">
-      {value || "-"}
+    "
+      >
+        {value || "-"}
+      </div>
     </div>
-  </div>
-);
+  );
 
-    return (
-        <div className="p-6 bg-gray-50 dark:bg-slate-900 min-h-screen transition-colors">
-            {/* Header + Controls */}
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8 gap-4">
-
-                {/* Left: Heading */}
-                <div>
-                    <h1 className="text-3xl font-bold bg-gradient-to-r 
+  return (
+    <div className="p-6 bg-gray-50 dark:bg-slate-900 min-h-screen transition-colors">
+      {/* Header + Controls */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8 gap-4">
+        {/* Left: Heading */}
+        <div>
+          <h1
+            className="text-3xl font-bold bg-gradient-to-r 
       from-indigo-600 to-purple-600 
-      bg-clip-text text-transparent">
-                        Loan Officers
-                    </h1>
-                    <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">
-                        Manage and monitor all your loan officers in one place
-                    </p>
-                </div>
+      bg-clip-text text-transparent"
+          >
+            Loan Officers
+          </h1>
+          <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">
+            Manage and monitor all your loan officers in one place
+          </p>
+        </div>
 
-                {/* Right: Search + Button */}
-                <div className="flex items-center gap-4">
-
-                    <div className="relative w-72">
-                        <input
-                            placeholder="Search loan officers..."
-                            className="w-full border border-gray-300 dark:border-slate-600
+        {/* Right: Search + Button */}
+        <div className="flex items-center gap-4">
+          <div className="relative w-72">
+            <input
+              placeholder="Search loan officers..."
+              className="w-full border border-gray-300 dark:border-slate-600
 bg-white dark:bg-slate-800
 text-gray-800 dark:text-slate-200
 focus:border-indigo-500 focus:ring-2
 focus:ring-indigo-200 dark:focus:ring-indigo-500/30
 rounded-xl py-2.5 pl-10 pr-10
 outline-none transition-all"
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                        />
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
 
-                        {/* Search Icon */}
-                        <svg
-                            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                            width="18"
-                            height="18"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            viewBox="0 0 24 24"
-                        >
-                            <circle cx="11" cy="11" r="8" />
-                            <path d="m21 21-4.3-4.3" />
-                        </svg>
+            {/* Search Icon */}
+            <svg
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+              width="18"
+              height="18"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              viewBox="0 0 24 24"
+            >
+              <circle cx="11" cy="11" r="8" />
+              <path d="m21 21-4.3-4.3" />
+            </svg>
 
-                        {/* Clear Button */}
-                        {search && (
-                            <button
-                                onClick={() => setSearch("")}
-                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500"
-                            >
-                                ✕
-                            </button>
-                        )}
-                    </div>
+            {/* Clear Button */}
+            {search && (
+              <button
+                onClick={() => setSearch("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500"
+              >
+                ✕
+              </button>
+            )}
+          </div>
 
-                    {/* Create Button */}
-                    <button
-                        onClick={() => {
-                            setErrors({});
-                            setEditOfficer(null);
-                            setForm(initialFormState);
-                            setShowModal(true);
-                        }}
-                        className="bg-indigo-600 hover:bg-indigo-700 
+          {/* Create Button */}
+          <button
+            onClick={() => {
+              setErrors({});
+              setEditOfficer(null);
+              setForm(initialFormState);
+              setShowModal(true);
+            }}
+            className="bg-indigo-600 hover:bg-indigo-700 
                  text-white px-5 py-2.5 rounded-xl 
                  shadow-sm hover:shadow-md 
                  transition-all duration-200"
-                    >
-                        + Create Loan Officer
-                    </button>
+          >
+            + Create Loan Officer
+          </button>
+        </div>
+      </div>
 
-                </div>
-            </div>
-
-            {/* Table */}
-            <div className="bg-white dark:bg-slate-800
+      {/* Table */}
+      <div
+        className="bg-white dark:bg-slate-800
 rounded-2xl shadow-sm
 border border-gray-200 dark:border-slate-700
-overflow-hidden transition-colors">
-
-                <table className="w-full text-sm">
-
-                    {/* Header */}
-                    <thead className="bg-gradient-to-r 
+overflow-hidden transition-colors"
+      >
+        <table className="w-full text-sm">
+          {/* Header */}
+          <thead
+            className="bg-gradient-to-r 
     from-indigo-50 to-purple-50
     dark:from-slate-800 dark:to-slate-800
-    border-b border-gray-200 dark:border-slate-700">
+    border-b border-gray-200 dark:border-slate-700"
+          >
+            <tr className="text-gray-600 dark:text-slate-400 uppercase text-xs tracking-wider">
+              <th className="p-4 text-left">Name</th>
+              <th className="p-4 text-left">Email</th>
+              <th className="p-4 text-left">Phone</th>
+              <th className="p-4 text-left">Status</th>
+              <th className="p-4 text-left">Created</th>
+              <th className="p-4 text-right">Actions</th>
+            </tr>
+          </thead>
 
-                        <tr className="text-gray-600 dark:text-slate-400 uppercase text-xs tracking-wider">
-                            <th className="p-4 text-left">Name</th>
-                            <th className="p-4 text-left">Email</th>
-                            <th className="p-4 text-left">Phone</th>
-                            <th className="p-4 text-left">Status</th>
-                            <th className="p-4 text-left">Created</th>
-                            <th className="p-4 text-right">Actions</th>
-                        </tr>
-                    </thead>
-
-                    {/* Body */}
-                    <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
-
-                        {loading ? (
-                            <tr>
-                                <td colSpan={6}
-                                    className="p-10 text-center text-gray-400 dark:text-slate-500">
-                                    Loading...
-                                </td>
-                            </tr>
-                        ) : officers.length === 0 ? (
-                            <tr>
-                                <td colSpan={6} className="p-10">
-                                    <div className="flex flex-col items-center justify-center text-center space-y-4">
-                                        <div className="bg-indigo-100 dark:bg-indigo-900/30 
+          {/* Body */}
+          <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
+            {loading ? (
+              <tr>
+                <td
+                  colSpan={6}
+                  className="p-10 text-center text-gray-400 dark:text-slate-500"
+                >
+                  Loading...
+                </td>
+              </tr>
+            ) : officers.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="p-10">
+                  <div className="flex flex-col items-center justify-center text-center space-y-4">
+                    <div
+                      className="bg-indigo-100 dark:bg-indigo-900/30 
               text-indigo-600 dark:text-indigo-400 
-              rounded-full p-4">
-                                            <Users size={32} />
-                                        </div>
+              rounded-full p-4"
+                    >
+                      <Users size={32} />
+                    </div>
 
-                                        <div>
-                                            <p className="text-lg font-semibold text-gray-700 dark:text-slate-200">
-                                                No Loan Officers Found
-                                            </p>
-                                            <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">
-                                                Try adjusting your search or create a new loan officer.
-                                            </p>
-                                        </div>
-                                    </div>
-                                </td>
-                            </tr>
-                        ) : (
-                            officers.map((o) => (
-                                <tr
-                                    key={o.id}
-                                    className="hover:bg-indigo-50/40 
+                    <div>
+                      <p className="text-lg font-semibold text-gray-700 dark:text-slate-200">
+                        No Loan Officers Found
+                      </p>
+                      <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">
+                        Try adjusting your search or create a new loan officer.
+                      </p>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            ) : (
+              officers.map((o) => (
+                <tr
+                  key={o.id}
+                  className="hover:bg-indigo-50/40 
             dark:hover:bg-slate-700/40 
-            transition-all duration-200">
-                                    {/* Name */}
-                                    <td className="p-4">
-                                        <div className="flex items-center gap-3">
-
-                                            {/* Avatar */}
-                                            <div className="h-12 w-12 rounded-full overflow-hidden
+            transition-all duration-200"
+                >
+                  {/* Name */}
+                  <td className="p-4">
+                    <div className="flex items-center gap-3">
+                      {/* Avatar */}
+                      <div
+                        className="h-12 w-12 rounded-full overflow-hidden
                 bg-slate-100 dark:bg-slate-700
                 border border-gray-200 dark:border-slate-600
-                flex-shrink-0">
-                                                {o.profile?.avatarUrl ? (
-                                                    <img
-                                                        src={`${API_BASE}${o.profile?.avatarUrl}`}
-                                                        alt="avatar"
-                                                        className="h-full w-full object-cover"
-                                                    />
-                                                ) : (
-                                                    <div className="h-full w-full flex items-center justify-center
+                flex-shrink-0"
+                      >
+                        {o.profile?.avatarUrl ? (
+                          <img
+                            src={`${API_BASE}${o.profile?.avatarUrl}`}
+                            alt="avatar"
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div
+                            className="h-full w-full flex items-center justify-center
                     text-xs font-semibold
-                    text-slate-500 dark:text-slate-300">
-                                                        {o.firstName?.charAt(0)}
-                                                        {o.lastName?.charAt(0)}
-                                                    </div>
-                                                )}
-                                            </div>
+                    text-slate-500 dark:text-slate-300"
+                          >
+                            {o.firstName?.charAt(0)}
+                            {o.lastName?.charAt(0)}
+                          </div>
+                        )}
+                      </div>
 
-                                            {/* Name + Role */}
-                                            <div>
-                                                <p className="font-semibold text-gray-800 dark:text-slate-200">
-                                                    {o.firstName} {o.lastName}
-                                                </p>
-                                                <p className="text-xs text-gray-500 dark:text-slate-400">
-                                                    {o.profile?.agentType || "-"}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </td>
+                      {/* Name + Role */}
+                      <div>
+                        <p className="font-semibold text-gray-800 dark:text-slate-200">
+                          {o.firstName} {o.lastName}
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-slate-400">
+                          {o.profile?.agentType || "-"}
+                        </p>
+                      </div>
+                    </div>
+                  </td>
 
-                                    {/* Email */}
-                                    <td className="p-4 text-gray-600 dark:text-slate-300">
-                                        {o.email}
-                                    </td>
+                  {/* Email */}
+                  <td className="p-4 text-gray-600 dark:text-slate-300">
+                    {o.email}
+                  </td>
 
-                                    {/* Phone */}
-                                    <td className="p-4 text-gray-600 dark:text-slate-300">
-                                        {o.phone || "-"}
-                                    </td>
+                  {/* Phone */}
+                  <td className="p-4 text-gray-600 dark:text-slate-300">
+                    {o.phone || "-"}
+                  </td>
 
-                                    {/* Status */}
-                                    <td className="p-4">
-                                        <span
-                                            onClick={() =>
-                                                togglingId !== o.id &&
-                                                toggleStatus(o.id, o.status)
-                                            }
-                                            className={`px-3 py-1 rounded-full text-xs font-medium cursor-pointer transition-all duration-200
-                ${o.status === "ACTIVE"
-                                                    ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400"
-                                                    : "bg-red-100 text-red-600 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400"
-                                                }
+                  {/* Status */}
+                  <td className="p-4">
+                    <span
+                      onClick={() =>
+                        togglingId !== o.id && toggleStatus(o.id, o.status)
+                      }
+                      className={`px-3 py-1 rounded-full text-xs font-medium cursor-pointer transition-all duration-200
+                ${
+                  o.status === "ACTIVE"
+                    ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400"
+                    : "bg-red-100 text-red-600 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400"
+                }
                 ${togglingId === o.id ? "opacity-50 cursor-not-allowed" : ""}
               `}
-                                        >
-                                            {togglingId === o.id ? "Updating..." : o.status}
-                                        </span>
-                                    </td> 
+                    >
+                      {togglingId === o.id ? "Updating..." : o.status}
+                    </span>
+                  </td>
 
-                                    {/* Created */}
-                                    <td className="p-4 text-gray-500 dark:text-slate-400">
-                                        {new Date(o.createdAt).toLocaleDateString()}
-                                    </td>
+                  {/* Created */}
+                  <td className="p-4 text-gray-500 dark:text-slate-400">
+                    {new Date(o.createdAt).toLocaleDateString()}
+                  </td>
 
-                                    {/* Actions */}
-                                    <td className="p-4 text-right space-x-2">
-
-                                        {/* View */}
-                                        <button
-                                            onClick={() => setViewOfficer(o)}
-                                            className="inline-flex items-center justify-center 
+                  {/* Actions */}
+                  <td className="p-4 text-right space-x-2">
+                    {/* View */}
+                    <button
+                      onClick={() => setViewOfficer(o)}
+                      className="inline-flex items-center justify-center 
                 h-9 w-9 rounded-lg
                 bg-blue-50 hover:bg-blue-100
                 dark:bg-blue-900/30 dark:hover:bg-blue-900/50
                 text-blue-600 dark:text-blue-400
                 transition-all duration-200"
-                                        >
-                                            <Eye size={16} />
-                                        </button>
+                    >
+                      <Eye size={16} />
+                    </button>
 
-                                        <button
-  onClick={() => {
-     setErrors({});
-    setEditOfficer(o);
+                    <button
+                      onClick={() => {
+                        setErrors({});
+                        setEditOfficer(o);
 
-    setForm({
-  ...initialFormState,
-  email: o.email,
-  confirmEmail: o.email,
-  firstName: o.firstName,
-  lastName: o.lastName,
-  phone: o.phone || "",
-  company: o.profile?.company || "",
-  tollFree: o.profile?.tollFree || "",
-  tollFreeExt: o.profile?.tollFreeExt || "",
-  serviceProvider: o.profile?.serviceProvider || "Internal",
-  address: o.profile?.address || "",
-  suite: o.profile?.suite || "",
-  city: o.profile?.city || "",
-  state: o.profile?.state || "",
-  zipCode: o.profile?.zipCode || "",
-  licenseNumber: o.profile?.licenseNumber || "",
-  preferredComm: o.profile?.preferredComm || "EMAIL",
-  website:
-    o.profile?.website?.replace(/^https?:\/\/(www\.)?/, "") || "",
-  agentType: o.profile?.agentType || "Loan Officer",
+                        setForm({
+                          ...initialFormState,
+                          email: o.email,
+                          confirmEmail: o.email,
+                          firstName: o.firstName,
+                          lastName: o.lastName,
+                          phone: o.phone || "",
+                          company: o.profile?.company || "",
+                          tollFree: o.profile?.tollFree || "",
+                          tollFreeExt: o.profile?.tollFreeExt || "",
+                          serviceProvider:
+                            o.profile?.serviceProvider || "Internal",
+                          address: o.profile?.address || "",
+                          suite: o.profile?.suite || "",
+                          city: o.profile?.city || "",
+                          state: o.profile?.state || "",
+                          zipCode: o.profile?.zipCode || "",
+                          licenseNumber: o.profile?.licenseNumber || "",
+                          preferredComm: o.profile?.preferredComm || "EMAIL",
+                          website:
+                            o.profile?.website?.replace(
+                              /^https?:\/\/(www\.)?/,
+                              "",
+                            ) || "",
+                          agentType: o.profile?.agentType || "Loan Officer",
 
-  avatarPreview: o.profile?.avatarUrl
-    ? `${API_BASE}${o.profile.avatarUrl}`
-    : "",
-});
+                          avatarPreview: o.profile?.avatarUrl
+                            ? `${API_BASE}${o.profile.avatarUrl}`
+                            : "",
+                        });
 
-    setShowModal(true);
-  }}
-  className="inline-flex items-center justify-center 
+                        setShowModal(true);
+                      }}
+                      className="inline-flex items-center justify-center 
   h-9 w-9 rounded-lg
   bg-yellow-50 hover:bg-yellow-100
   dark:bg-yellow-900/30 dark:hover:bg-yellow-900/50
   text-yellow-600 dark:text-yellow-400
   transition-all duration-200"
->
-  ✎
-</button>
+                    >
+                      ✎
+                    </button>
 
-                                        {/* Delete */}
-                                        <button
-                                            onClick={() => handleDelete(o.id)}
-                                            className="inline-flex items-center justify-center 
+                    {/* Delete */}
+                    <button
+                      onClick={() => handleDelete(o.id)}
+                      className="inline-flex items-center justify-center 
                 h-9 w-9 rounded-lg
                 bg-red-50 hover:bg-red-100
                 dark:bg-red-900/30 dark:hover:bg-red-900/50
                 text-red-600 dark:text-red-400
                 transition-all duration-200"
-                                        >
-                                            <Trash2 size={16} />
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))
-                        )}
-                    </tbody>
-                </table>
-            </div>
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
 
-            {/* Pagination */}
-            {
-                totalPages > 1 && (
-                    <div className="flex items-center justify-between mt-6">
-                        <p className="text-sm text-slate-500 dark:text-slate-400">
-                            Page <span className="font-semibold text-slate-700 dark:text-slate-200">{page}</span> of{" "}
-                            <span className="font-semibold text-slate-700 dark:text-slate-200">{totalPages}</span>
-                        </p>
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between mt-6">
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            Page{" "}
+            <span className="font-semibold text-slate-700 dark:text-slate-200">
+              {page}
+            </span>{" "}
+            of{" "}
+            <span className="font-semibold text-slate-700 dark:text-slate-200">
+              {totalPages}
+            </span>
+          </p>
 
-                        <div className="flex gap-2">
-                            <button
-                                disabled={page === 1 || loading}
-                                onClick={() => setPage((p) => Math.max(p - 1, 1))}
-                                className="px-4 py-2 rounded-lg border
+          <div className="flex gap-2">
+            <button
+              disabled={page === 1 || loading}
+              onClick={() => setPage((p) => Math.max(p - 1, 1))}
+              className="px-4 py-2 rounded-lg border
             border-gray-200 dark:border-slate-600
             bg-white dark:bg-slate-800
             text-slate-700 dark:text-slate-200
@@ -965,14 +963,14 @@ overflow-hidden transition-colors">
             disabled:opacity-50
             disabled:cursor-not-allowed
             transition-colors"
-                            >
-                                Prev
-                            </button>
+            >
+              Prev
+            </button>
 
-                            <button
-                                disabled={page === totalPages || loading}
-                                onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
-                                className="
+            <button
+              disabled={page === totalPages || loading}
+              onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
+              className="
             px-4 py-2 rounded-lg border
             border-gray-200 dark:border-slate-600
             bg-white dark:bg-slate-800
@@ -982,181 +980,194 @@ overflow-hidden transition-colors">
             disabled:cursor-not-allowed
             transition-colors
           "
-                            >
-                                Next
-                            </button>
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
 
-                        </div>
-                    </div>
-                )
-            }
-
-            {
-                showModal && (
-                    <div className="fixed inset-0 bg-slate-900/60 dark:bg-black/80 backdrop-blur-md flex items-center justify-center z-[273797737392739] p-4 transition-colors">
-                        <div className="bg-white dark:bg-slate-800
+      {showModal && (
+        <div className="fixed inset-0 bg-slate-900/60 dark:bg-black/80 backdrop-blur-md flex items-center justify-center z-[273797737392739] p-4 transition-colors">
+          <div
+            className="bg-white dark:bg-slate-800
 rounded-2xl shadow-2xl
 border border-gray-200 dark:border-slate-700
-transition-colors w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col animate-in fade-in zoom-in duration-200">
-
-                            {/* Header */}
-                            <div className="flex justify-between items-center p-6 
+transition-colors w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col animate-in fade-in zoom-in duration-200"
+          >
+            {/* Header */}
+            <div
+              className="flex justify-between items-center p-6 
 border-b border-gray-200 dark:border-slate-700
-bg-slate-50/60 dark:bg-slate-800">
+bg-slate-50/60 dark:bg-slate-800"
+            >
+              <div>
+                <h2 className="text-xl font-bold dark:text-white">
+                  {editOfficer ? "Edit Loan Officer" : "Create Loan Officer"}
+                </h2>
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  Fill in the details to register a new officer in the system.
+                </p>
+              </div>
 
-                                <div>
-                                 <h2 className="text-xl font-bold dark:text-white">
-                                    {editOfficer ? "Edit Loan Officer" : "Create Loan Officer"}
-                                </h2>
-                                    <p className="text-sm text-slate-500 dark:text-slate-400">
-                                        Fill in the details to register a new officer in the system.
-                                    </p>
-                                </div>
-
-                                <button
-                                    type="button"
-                                    onClick={() => setShowModal(false)}
-                                    className="p-2 rounded-full
+              <button
+                type="button"
+                onClick={() => setShowModal(false)}
+                className="p-2 rounded-full
                                 dark:hover:bg-red-900/30
                                 text-slate-400 dark:text-slate-500
                                 hover:text-red-600 dark:hover:text-red-400
                                 transition-colors"
-                                                            >
-                                    ✕
-                                </button>
-                            </div>
+              >
+                ✕
+              </button>
+            </div>
 
-                            {/* Scrollable Form Body */}
-                            <form onSubmit={(e) => {
-    e.preventDefault();
-    if (editOfficer) {
-      handleUpdate(editOfficer.id);
-    } else {
-      handleCreate(e);
-    }
-  }} className="overflow-y-auto p-6 space-y-8 custom-scrollbar">
+            {/* Scrollable Form Body */}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (editOfficer) {
+                  handleUpdate(editOfficer.id);
+                } else {
+                  handleCreate(e);
+                }
+              }}
+              className="overflow-y-auto p-6 space-y-8 custom-scrollbar"
+            >
+              {/* Section: Basic Info */}
+              <section>
+                {/* Avatar Upload */}
+                <div className="space-y-4 md:col-span-2 mt-4 text-center">
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Profile Picture
+                  </label>
 
-                                {/* Section: Basic Info */}
-                                <section>
-                                    {/* Avatar Upload */}
-                                  <div className="space-y-4 md:col-span-2 mt-4 text-center">
-  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
-    Profile Picture
-  </label>
-
-  <div className="flex flex-col items-center gap-4">
-
-    {/* Preview Container */}
-    <div className="relative group">
-      <div className="h-24 w-24 rounded-full overflow-hidden
+                  <div className="flex flex-col items-center gap-4">
+                    {/* Preview Container */}
+                    <div className="relative group">
+                      <div
+                        className="h-24 w-24 rounded-full overflow-hidden
         bg-slate-100 dark:bg-slate-700
         border-2 border-slate-200 dark:border-slate-600
-        shadow-sm transition-all group-hover:border-blue-400">
+        shadow-sm transition-all group-hover:border-blue-400"
+                      >
+                        {form.avatarPreview ? (
+                          <img
+                            src={form.avatarPreview}
+                            alt="Avatar Preview"
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div
+                            className="flex items-center justify-center h-full
+            text-slate-400 dark:text-slate-300"
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="h-8 w-8"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={1.5}
+                                d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                              />
+                            </svg>
+                          </div>
+                        )}
+                      </div>
+                    </div>
 
-        {form.avatarPreview ? (
-          <img
-            src={form.avatarPreview}
-            alt="Avatar Preview"
-            className="h-full w-full object-cover"
-          />
-        ) : (
-          <div className="flex items-center justify-center h-full
-            text-slate-400 dark:text-slate-300">
-            <svg xmlns="http://www.w3.org/2000/svg"
-              className="h-8 w-8"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor">
-              <path strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-            </svg>
-          </div>
-        )}
-      </div>
-    </div>
-
-    {/* Controls */}
-    <div className="flex flex-col items-center gap-2">
-      <label className="cursor-pointer inline-flex items-center px-4 py-2
+                    {/* Controls */}
+                    <div className="flex flex-col items-center gap-2">
+                      <label
+                        className="cursor-pointer inline-flex items-center px-4 py-2
         bg-white dark:bg-slate-700
         border border-slate-300 dark:border-slate-600
         rounded-lg text-sm font-semibold
         text-slate-700 dark:text-slate-200
         hover:bg-slate-50 dark:hover:bg-slate-600
         hover:border-slate-400 dark:hover:border-slate-500
-        transition-all active:scale-95 shadow-sm">
+        transition-all active:scale-95 shadow-sm"
+                      >
+                        <span>Change Photo</span>
 
-        <span>Change Photo</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
 
-        <input
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (!file) return;
+                            if (file.size > 2 * 1024 * 1024) {
+                              toast.error("Image must be under 2MB");
+                              return;
+                            }
 
-            if (file.size > 2 * 1024 * 1024) {
-              toast.error("Image must be under 2MB");
-              return;
-            }
+                            if (!file.type.startsWith("image/")) {
+                              toast.error("Only image files allowed");
+                              return;
+                            }
 
-            if (!file.type.startsWith("image/")) {
-              toast.error("Only image files allowed");
-              return;
-            }
+                            setForm((prev) => ({
+                              ...prev,
+                              avatarFile: file,
+                              avatarPreview: URL.createObjectURL(file),
+                            }));
+                          }}
+                        />
+                      </label>
 
-            setForm((prev) => ({
-              ...prev,
-              avatarFile: file,
-              avatarPreview: URL.createObjectURL(file),
-            }));
-          }}
-        />
-      </label>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        JPG, GIF or PNG. Max size 2MB.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 mb-4 mt-4">
+                  <div className="h-8 w-1 bg-indigo-600 rounded-full"></div>
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    Basic Information
+                  </h3>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                  {basicFields
+                    .filter((field) => {
+                      if (editOfficer) {
+                        return (
+                          field.key !== "password" &&
+                          field.key !== "confirmPassword"
+                        );
+                      }
+                      return true;
+                    })
+                    .map((field) => (
+                      <div key={field.key} className="space-y-1">
+                        <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 ml-1">
+                          {field.label}
+                        </label>
 
-      <p className="text-xs text-slate-500 dark:text-slate-400">
-        JPG, GIF or PNG. Max size 2MB.
-      </p>
-    </div>
-
-  </div>
-</div>
-                                    <div className="flex items-center gap-2 mb-4 mt-4">
-                                        <div className="h-8 w-1 bg-indigo-600 rounded-full"></div>
-                                        <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Basic Information</h3>
-                                    </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                                        {basicFields
-                                            .filter((field) => {
-                                                if (editOfficer) {
-                                                return field.key !== "password" && field.key !== "confirmPassword";
-                                                }
-                                                return true;
-                                            })
-                                            .map((field) => (
-                                            <div key={field.key} className="space-y-1">
-                                                <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 ml-1">
-                                                    {field.label}
-                                                </label>
-
-                                              <div className="relative">
-<input
-  type={
-    field.type === "password"
-      ? showPassword[field.key]
-        ? "text"
-        : "password"
-      : field.type || "text"
-  }
-  placeholder={field.placeholder}
-    disabled={
-    !!editOfficer &&
-    (field.key === "email" || field.key === "confirmEmail")
-    }
-  className={`w-full px-4 py-2.5 pr-12 rounded-lg border
+                        <div className="relative">
+                          <input
+                            type={
+                              field.type === "password"
+                                ? showPassword[field.key]
+                                  ? "text"
+                                  : "password"
+                                : field.type || "text"
+                            }
+                            placeholder={field.placeholder}
+                            disabled={
+                              !!editOfficer &&
+                              (field.key === "email" ||
+                                field.key === "confirmEmail")
+                            }
+                            className={`w-full px-4 py-2.5 pr-12 rounded-lg border
     bg-slate-50 dark:bg-slate-700
     text-slate-800 dark:text-slate-200
     border-slate-200 dark:border-slate-600
@@ -1164,316 +1175,356 @@ bg-slate-50/60 dark:bg-slate-800">
     focus:ring-2 focus:ring-indigo-500/20
     focus:border-indigo-600
     ${
-      editOfficer &&
-      (field.key === "email" || field.key === "confirmEmail")
+      editOfficer && (field.key === "email" || field.key === "confirmEmail")
         ? "opacity-60 cursor-not-allowed"
         : ""
     }
-    ${errors[field.key]
-      ? "border-red-500 bg-red-50 dark:bg-red-900/30"
-      : ""}
+    ${errors[field.key] ? "border-red-500 bg-red-50 dark:bg-red-900/30" : ""}
   `}
-  value={form[field.key] as string}
-  onChange={(e) => updateField(field.key, e.target.value)}
-/>
+                            value={form[field.key] as string}
+                            onChange={(e) =>
+                              updateField(field.key, e.target.value)
+                            }
+                          />
 
-{field.type === "password" && (
-  <button
-    type="button"
-    onClick={() =>
-      setShowPassword((prev) => ({
-        ...prev,
-        [field.key]: !prev[field.key],
-      }))
-    }
-    className="absolute right-3 top-1/2 -translate-y-1/2
+                          {field.type === "password" && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setShowPassword((prev) => ({
+                                  ...prev,
+                                  [field.key]: !prev[field.key],
+                                }))
+                              }
+                              className="absolute right-3 top-1/2 -translate-y-1/2
     text-slate-400 dark:text-slate-300
     hover:text-indigo-600 dark:hover:text-indigo-400
     transition-colors"
-  >
-    {showPassword[field.key] ? (
-        <Eye size={18} />
-    ) : (
-        <EyeOff size={18} />
-    )}
-  </button>
-)}
-</div>
+                            >
+                              {showPassword[field.key] ? (
+                                <Eye size={18} />
+                              ) : (
+                                <EyeOff size={18} />
+                              )}
+                            </button>
+                          )}
+                        </div>
 
-{errors[field.key] && (
-  <p className="text-xs font-medium text-red-500 mt-1 ml-1">
-    {errors[field.key]}
-  </p>
-)}
-                                            </div>
-                                        ))}
+                        {errors[field.key] && (
+                          <p className="text-xs font-medium text-red-500 mt-1 ml-1">
+                            {errors[field.key]}
+                          </p>
+                        )}
+                      </div>
+                    ))}
 
-                                        <div className="space-y-1 md:col-span-2">
-                                            <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 ml-1">Agent Type</label>
-                                            <select
-                                                className="w-full px-4 py-2.5 rounded-lg border border-slate-200 bg-slate-100 transition-all outline-none text-slate-500 dark:text-slate-400 cursor-not-allowed dark:border-slate-600 dark:bg-slate-700"
-                                                value={form.agentType}
-                                                disabled
-                                            >
-                                                <option value="Loan Officer">Loan Officer</option>
-                                                <option value="Senior Loan Officer">Senior Loan Officer</option>
-                                                <option value="Manager">Manager</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                </section>
+                  <div className="space-y-1 md:col-span-2">
+                    <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 ml-1">
+                      Agent Type
+                    </label>
+                    <select
+                      className="w-full px-4 py-2.5 rounded-lg border border-slate-200 bg-slate-100 transition-all outline-none text-slate-500 dark:text-slate-400 cursor-not-allowed dark:border-slate-600 dark:bg-slate-700"
+                      value={form.agentType}
+                      disabled
+                    >
+                      <option value="Loan Officer">Loan Officer</option>
+                      <option value="Senior Loan Officer">
+                        Senior Loan Officer
+                      </option>
+                      <option value="Manager">Manager</option>
+                    </select>
+                  </div>
+                </div>
+              </section>
 
-                                {/* Section: Company Info */}
-                                <section>
-                                    <div className="flex items-center gap-2 mb-4">
-                                        <div className="h-8 w-1 bg-emerald-500 rounded-full"></div>
-                                        <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Company Details</h3>
-                                    </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div className="space-y-1 md:col-span-2">
-                                            <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 ml-1">
-                                                Company
-                                            </label>
+              {/* Section: Company Info */}
+              <section>
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="h-8 w-1 bg-emerald-500 rounded-full"></div>
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    Company Details
+                  </h3>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1 md:col-span-2">
+                    <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 ml-1">
+                      Company
+                    </label>
 
-                                            <input
-                                                className={`${inputStyle} ${errors.company ? "border-red-500 bg-red-50" : ""
-                                                    }`}
-                                                value={form.company}
-                                                onChange={(e) => updateField("company", e.target.value)}
-                                            />
+                    <input
+                      className={`${inputStyle} ${
+                        errors.company ? "border-red-500 bg-red-50" : ""
+                      }`}
+                      value={form.company}
+                      onChange={(e) => updateField("company", e.target.value)}
+                    />
 
-                                            {errors.company && (
-                                                <p className="text-xs text-red-500 mt-1">{errors.company}</p>
-                                            )}
-                                        </div>
-                                        <div className="space-y-1">
-                                            <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 ml-1">
-                                                Service Provider
-                                            </label>
+                    {errors.company && (
+                      <p className="text-xs text-red-500 mt-1">
+                        {errors.company}
+                      </p>
+                    )}
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 ml-1">
+                      Service Provider
+                    </label>
 
-                                            <select
-                                                className={`${inputStyle} ${errors.serviceProvider ? "border-red-500 bg-red-50" : ""
-                                                    }`}
-                                                value={form.serviceProvider}
-                                                onChange={(e) => updateField("serviceProvider", e.target.value)}
-                                            >
-                                                <option value="">Select</option>
-                                                <option value="Internal">Internal</option>
-                                                <option value="External">External</option>
-                                                <option value="Partner">Partner</option>
-                                            </select>
+                    <select
+                      className={`${inputStyle} ${
+                        errors.serviceProvider ? "border-red-500 bg-red-50" : ""
+                      }`}
+                      value={form.serviceProvider}
+                      onChange={(e) =>
+                        updateField("serviceProvider", e.target.value)
+                      }
+                    >
+                      <option value="">Select</option>
+                      <option value="Internal">Internal</option>
+                      <option value="External">External</option>
+                      <option value="Partner">Partner</option>
+                    </select>
 
-                                            {errors.serviceProvider && (
-                                                <p className="text-xs text-red-500 mt-1">
-                                                    {errors.serviceProvider}
-                                                </p>
-                                            )}
-                                        </div>
+                    {errors.serviceProvider && (
+                      <p className="text-xs text-red-500 mt-1">
+                        {errors.serviceProvider}
+                      </p>
+                    )}
+                  </div>
 
-                                        <div className="grid grid-cols-3 gap-2">
-                                            <div className="col-span-2 space-y-1">
-                                                <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 ml-1">Toll Free</label>
-                                                <input
-                                                    className={`${inputStyle} ${errors.tollFree ? "border-red-500 bg-red-50" : ""
-                                                        }`}
-                                                    value={form.tollFree}
-                                                    onChange={(e) => updateField("tollFree", e.target.value)}
-                                                />
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="col-span-2 space-y-1">
+                      <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 ml-1">
+                        Toll Free
+                      </label>
+                      <input
+                        className={`${inputStyle} ${
+                          errors.tollFree ? "border-red-500 bg-red-50" : ""
+                        }`}
+                        value={form.tollFree}
+                        onChange={(e) =>
+                          updateField("tollFree", e.target.value)
+                        }
+                      />
 
-                                                {errors.tollFree && (
-                                                    <p className="text-xs text-red-500 mt-1">
-                                                        {errors.tollFree}
-                                                    </p>
-                                                )}
-                                            </div>
-                                            <div className="space-y-1">
-                                                <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 ml-1">
-                                                    Ext
-                                                </label>
+                      {errors.tollFree && (
+                        <p className="text-xs text-red-500 mt-1">
+                          {errors.tollFree}
+                        </p>
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 ml-1">
+                        Ext
+                      </label>
 
-                                                <input
-                                                    className={`${inputStyle} ${errors.tollFreeExt ? "border-red-500 bg-red-50" : ""
-                                                        }`}
-                                                    value={form.tollFreeExt}
-                                                    onChange={(e) => updateField("tollFreeExt", e.target.value)}
-                                                />
+                      <input
+                        className={`${inputStyle} ${
+                          errors.tollFreeExt ? "border-red-500 bg-red-50" : ""
+                        }`}
+                        value={form.tollFreeExt}
+                        onChange={(e) =>
+                          updateField("tollFreeExt", e.target.value)
+                        }
+                      />
 
-                                                {errors.tollFreeExt && (
-                                                    <p className="text-xs text-red-500 mt-1">
-                                                        {errors.tollFreeExt}
-                                                    </p>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </section>
+                      {errors.tollFreeExt && (
+                        <p className="text-xs text-red-500 mt-1">
+                          {errors.tollFreeExt}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </section>
 
-                                {/* Address Section */}
-                                <section>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Address Section */}
+              <section>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1 md:col-span-2">
+                    <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                      Address
+                    </label>
 
-                                        <div className="space-y-1 md:col-span-2">
-                                            <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                                                Address
-                                            </label>
+                    <input
+                      className={`${inputStyle} ${
+                        errors.address ? "border-red-500 bg-red-50" : ""
+                      }`}
+                      value={form.address}
+                      onChange={(e) => updateField("address", e.target.value)}
+                    />
 
-                                            <input
-                                                className={`${inputStyle} ${errors.address ? "border-red-500 bg-red-50" : ""
-                                                    }`}
-                                                value={form.address}
-                                                onChange={(e) => updateField("address", e.target.value)}
-                                            />
+                    {errors.address && (
+                      <p className="text-xs text-red-500 mt-1">
+                        {errors.address}
+                      </p>
+                    )}
+                  </div>
 
-                                            {errors.address && (
-                                                <p className="text-xs text-red-500 mt-1">
-                                                    {errors.address}
-                                                </p>
-                                            )}
-                                        </div>
+                  <div className="space-y-1">
+                    <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                      Suite
+                    </label>
 
-                                        <div className="space-y-1">
-                                            <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                                                Suite
-                                            </label>
+                    <input
+                      className={`${inputStyle} ${
+                        errors.suite ? "border-red-500 bg-red-50" : ""
+                      }`}
+                      value={form.suite}
+                      onChange={(e) => updateField("suite", e.target.value)}
+                    />
 
-                                            <input
-                                                className={`${inputStyle} ${errors.suite ? "border-red-500 bg-red-50" : ""
-                                                    }`}
-                                                value={form.suite}
-                                                onChange={(e) => updateField("suite", e.target.value)}
-                                            />
+                    {errors.suite && (
+                      <p className="text-xs text-red-500 mt-1">
+                        {errors.suite}
+                      </p>
+                    )}
+                  </div>
 
-                                            {errors.suite && (
-                                                <p className="text-xs text-red-500 mt-1">
-                                                    {errors.suite}
-                                                </p>
-                                            )}
-                                        </div>
+                  <div className="space-y-1">
+                    <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                      City
+                    </label>
+                    <input
+                      className={`${inputStyle} ${
+                        errors.city ? "border-red-500 bg-red-50" : ""
+                      }`}
+                      value={form.city}
+                      onChange={(e) => updateField("city", e.target.value)}
+                    />
 
-                                        <div className="space-y-1">
-                                            <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">City</label>
-                                            <input
-                                                className={`${inputStyle} ${errors.city ? "border-red-500 bg-red-50" : ""
-                                                    }`}
-                                                value={form.city}
-                                                onChange={(e) => updateField("city", e.target.value)}
-                                            />
+                    {errors.city && (
+                      <p className="text-xs text-red-500 mt-1">{errors.city}</p>
+                    )}
+                  </div>
 
-                                            {errors.city && (
-                                                <p className="text-xs text-red-500 mt-1">
-                                                    {errors.city}
-                                                </p>
-                                            )}
-                                        </div>
+                  <div className="space-y-1">
+                    <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                      State
+                    </label>
+                    <select
+                      className={`${inputStyle} ${
+                        errors.state ? "border-red-500 bg-red-50" : ""
+                      }`}
+                      value={form.state}
+                      onChange={(e) => updateField("state", e.target.value)}
+                    >
+                      <option value="">Select State</option>
+                      {US_STATES.map((s) => (
+                        <option key={s.code} value={s.code}>
+                          {s.name}
+                        </option>
+                      ))}
+                    </select>
 
-                                        <div className="space-y-1">
-                                            <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">State</label>
-                                            <select
-                                                className={`${inputStyle} ${errors.state ? "border-red-500 bg-red-50" : ""
-                                                    }`}
-                                                value={form.state}
-                                                onChange={(e) => updateField("state", e.target.value)}
-                                            >
-                                                <option value="">Select State</option>
-                                                {US_STATES.map((s) => (
-                                                    <option key={s.code} value={s.code}>
-                                                        {s.name}
-                                                    </option>
-                                                ))}
-                                            </select>
+                    {errors.state && (
+                      <p className="text-xs text-red-500 mt-1">
+                        {errors.state}
+                      </p>
+                    )}
+                  </div>
 
-                                            {errors.state && (
-                                                <p className="text-xs text-red-500 mt-1">
-                                                    {errors.state}
-                                                </p>
-                                            )}
-                                        </div>
+                  <div className="space-y-1">
+                    <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                      Zip Code
+                    </label>
+                    <input
+                      className={`${inputStyle} ${
+                        errors.zipCode ? "border-red-500 bg-red-50" : ""
+                      }`}
+                      value={form.zipCode}
+                      onChange={(e) => updateField("zipCode", e.target.value)}
+                    />
 
-                                        <div className="space-y-1">
-                                            <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Zip Code</label>
-                                            <input
-                                                className={`${inputStyle} ${errors.zipCode ? "border-red-500 bg-red-50" : ""
-                                                    }`}
-                                                value={form.zipCode}
-                                                onChange={(e) => updateField("zipCode", e.target.value)}
-                                            />
+                    {errors.zipCode && (
+                      <p className="text-xs text-red-500 mt-1">
+                        {errors.zipCode}
+                      </p>
+                    )}
+                  </div>
 
-                                            {errors.zipCode && (
-                                                <p className="text-xs text-red-500 mt-1">
-                                                    {errors.zipCode}
-                                                </p>
-                                            )}
-                                        </div>
+                  <div className="space-y-1">
+                    <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                      Preferred Communication
+                    </label>
+                    <select
+                      className={inputStyle}
+                      value={form.preferredComm}
+                      onChange={(e) =>
+                        setForm({ ...form, preferredComm: e.target.value })
+                      }
+                    >
+                      <option value="EMAIL">Email</option>
+                      <option value="PHONE">Phone</option>
+                    </select>
+                  </div>
 
-                                        <div className="space-y-1">
-                                            <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Preferred Communication</label>
-                                            <select
-                                                className={inputStyle}
-                                                value={form.preferredComm}
-                                                onChange={(e) => setForm({ ...form, preferredComm: e.target.value })}
-                                            >
-                                                <option value="EMAIL">Email</option>
-                                                <option value="PHONE">Phone</option>
-                                            </select>
-                                        </div>
+                  <div className="space-y-1 md:col-span-2">
+                    <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                      Website
+                    </label>
 
-                                        <div className="space-y-1 md:col-span-2">
-  <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-    Website
-  </label>
-
-  <div className="flex">
-    {/* Fixed Prefix */}
-    <span className="inline-flex items-center px-3 rounded-l-lg
+                    <div className="flex">
+                      {/* Fixed Prefix */}
+                      <span
+                        className="inline-flex items-center px-3 rounded-l-lg
       border border-r-0
       border-slate-200 dark:border-slate-600
       bg-slate-100 dark:bg-slate-700
-      text-slate-500 dark:text-slate-400 text-sm">
-      https://www.
-    </span>
+      text-slate-500 dark:text-slate-400 text-sm"
+                      >
+                        https://www.
+                      </span>
 
-    {/* Input */}
-    <input
-      className={`${inputStyle} rounded-l-none ${errors.website ? "border-red-500 bg-red-50 dark:bg-red-900/30" : ""}`}
-      placeholder="example.com"
-      value={form.website}
-      onChange={(e) => updateField("website", e.target.value)}
-    />
-  </div>
+                      {/* Input */}
+                      <input
+                        className={`${inputStyle} rounded-l-none ${errors.website ? "border-red-500 bg-red-50 dark:bg-red-900/30" : ""}`}
+                        placeholder="example.com"
+                        value={form.website}
+                        onChange={(e) => updateField("website", e.target.value)}
+                      />
+                    </div>
 
-  {errors.website && (
-    <p className="text-xs text-red-500 mt-1">
-      {errors.website}
-    </p>
-  )}
-</div>
+                    {errors.website && (
+                      <p className="text-xs text-red-500 mt-1">
+                        {errors.website}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </section>
 
-                                    </div>
-                                </section>
-
-                                {/* Footer Controls */}
-                                <div className="bg-slate-50 dark:bg-slate-800
+              {/* Footer Controls */}
+              <div
+                className="bg-slate-50 dark:bg-slate-800
 border-t border-gray-200 dark:border-slate-700
 -mx-6 -mb-6 p-6
-flex flex-col md:flex-row items-center justify-between gap-4 mt-8">
-                                    <label className="flex items-center gap-3 cursor-pointer group">
-                                        <div className="relative">
-                                            <input
-                                                type="checkbox"
-                                                className="sr-only peer"
-                                                checked={form.allowedToLogin}
-                                                onChange={(e) => setForm({ ...form, allowedToLogin: e.target.checked })}
-                                            />
-                                            <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
-                                        </div>
-                                        <span className="text-sm font-medium 
+flex flex-col md:flex-row items-center justify-between gap-4 mt-8"
+              >
+                <label className="flex items-center gap-3 cursor-pointer group">
+                  <div className="relative">
+                    <input
+                      type="checkbox"
+                      className="sr-only peer"
+                      checked={form.allowedToLogin}
+                      onChange={(e) =>
+                        setForm({ ...form, allowedToLogin: e.target.checked })
+                      }
+                    />
+                    <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                  </div>
+                  <span
+                    className="text-sm font-medium 
 text-slate-600 dark:text-slate-300
 group-hover:text-slate-900 dark:group-hover:text-white
-transition-colors">Allow user to login</span>
-                                    </label>
+transition-colors"
+                  >
+                    Allow user to login
+                  </span>
+                </label>
 
-                                    <div className="flex gap-3 w-full md:w-auto">
-                                        {/* <button
+                <div className="flex gap-3 w-full md:w-auto">
+                  {/* <button
                                             type="button"
                                             onClick={() => setShowModal(false)}
                                             className="flex-1 md:flex-none px-6 py-2.5
@@ -1484,10 +1535,10 @@ rounded-lg transition-colors"
                                         >
                                             Cancel
                                         </button> */}
-                                        <button
-                                            type="submit"
-                                            disabled={creating}
-                                            className={`relative flex-1 md:flex-none px-8 py-3
+                  <button
+                    type="submit"
+                    disabled={creating}
+                    className={`relative flex-1 md:flex-none px-8 py-3
   rounded-xl font-semibold text-white
   bg-gradient-to-r 
   from-indigo-600 via-purple-600 to-indigo-600
@@ -1500,171 +1551,190 @@ rounded-lg transition-colors"
   active:scale-[0.97]
   disabled:opacity-50 disabled:cursor-not-allowed
   overflow-hidden`}
-                                        >
-                                            <span className="relative z-10 flex items-center justify-center gap-2">
-                                                {creating && (
-                                                    <svg
-                                                        className="animate-spin h-4 w-4"
-                                                        xmlns="http://www.w3.org/2000/svg"
-                                                        fill="none"
-                                                        viewBox="0 0 24 24"
-                                                    >
-                                                        <circle
-                                                            className="opacity-25"
-                                                            cx="12"
-                                                            cy="12"
-                                                            r="10"
-                                                            stroke="currentColor"
-                                                            strokeWidth="4"
-                                                        />
-                                                        <path
-                                                            className="opacity-75"
-                                                            fill="currentColor"
-                                                            d="M4 12a8 8 0 018-8v8H4z"
-                                                        />
-                                                    </svg>
-                                                )}
-                                               {creating
-                                                ? editOfficer
-                                                    ? "Updating Officer..."
-                                                    : "Creating Officer..."
-                                                : editOfficer
-                                                ? "Update Officer"
-                                                : "Create Officer"}
-                                            </span>
+                  >
+                    <span className="relative z-10 flex items-center justify-center gap-2">
+                      {creating && (
+                        <svg
+                          className="animate-spin h-4 w-4"
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          />
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8v8H4z"
+                          />
+                        </svg>
+                      )}
+                      {creating
+                        ? editOfficer
+                          ? "Updating Officer..."
+                          : "Creating Officer..."
+                        : editOfficer
+                          ? "Update Officer"
+                          : "Create Officer"}
+                    </span>
 
-                                            {/* Shine Effect */}
-                                            <span className="absolute inset-0 
+                    {/* Shine Effect */}
+                    <span
+                      className="absolute inset-0 
   bg-white/10 dark:bg-white/5 
   opacity-0 hover:opacity-20 
-  transition-opacity duration-300"></span>
-                                        </button>
-                                    </div>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                )
-            }
+  transition-opacity duration-300"
+                    ></span>
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
-            {
-                viewOfficer && (
-                    <div className="fixed inset-0 
+      {viewOfficer && (
+        <div
+          className="fixed inset-0 
     bg-black/60 dark:bg-black/80
     backdrop-blur-sm 
     flex items-center justify-center 
-    z-[777787878788] p-4 transition-colors">
-
-                        <div className="bg-white dark:bg-slate-800
+    z-[777787878788] p-4 transition-colors"
+        >
+          <div
+            className="bg-white dark:bg-slate-800
       rounded-2xl shadow-2xl
       border border-gray-200 dark:border-slate-700
       w-full max-w-3xl max-h-[90vh]
       overflow-y-auto 
-      transition-colors">
-
-                            {/* Header (Sticky & Solid Background) */}
-<div className="sticky top-0 z-30
+      transition-colors"
+          >
+            {/* Header (Sticky & Solid Background) */}
+            <div
+              className="sticky top-0 z-30
 bg-white dark:bg-slate-800
 border-b border-gray-200 dark:border-slate-700
 px-6 py-4
-flex justify-between items-center">
+flex justify-between items-center"
+            >
+              <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-200">
+                Loan Officer Profile
+              </h2>
 
-  <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-200">
-    Loan Officer Profile
-  </h2>
-
-  <button
-    onClick={() => setViewOfficer(null)}
-    className="h-9 w-9 flex items-center justify-center rounded-full
+              <button
+                onClick={() => setViewOfficer(null)}
+                className="h-9 w-9 flex items-center justify-center rounded-full
     text-slate-400 dark:text-slate-500
     hover:bg-red-50 dark:hover:bg-red-900/30
     hover:text-red-600 dark:hover:text-red-400
-    transition-all">
-    ✕
-  </button>
-</div>
+    transition-all"
+              >
+                ✕
+              </button>
+            </div>
 
-
-                          {/* Avatar Section - Centered */}
-<div className="flex flex-col items-center text-center mb-10 mt-4">
-
-  <div className="h-28 w-28 rounded-full overflow-hidden
+            {/* Avatar Section - Centered */}
+            <div className="flex flex-col items-center text-center mb-10 mt-4">
+              <div
+                className="h-28 w-28 rounded-full overflow-hidden
     bg-slate-100 dark:bg-slate-700
     border border-gray-200 dark:border-slate-600
-    shadow-sm">
+    shadow-sm"
+              >
+                {viewOfficer.profile?.avatarUrl ? (
+                  <img
+                    src={`${API_BASE}${viewOfficer.profile.avatarUrl}`}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div
+                    className="h-full flex items-center justify-center
+        text-slate-400 dark:text-slate-300"
+                  >
+                    No Image
+                  </div>
+                )}
+              </div>
 
-    {viewOfficer.profile?.avatarUrl ? (
-      <img
-        src={`${API_BASE}${viewOfficer.profile.avatarUrl}`}
-        className="h-full w-full object-cover"
-      />
-    ) : (
-      <div className="h-full flex items-center justify-center
-        text-slate-400 dark:text-slate-300">
-        No Image
-      </div>
-    )}
-  </div>
+              <h3 className="mt-4 text-xl font-semibold text-slate-800 dark:text-slate-200">
+                {viewOfficer.firstName} {viewOfficer.lastName}
+              </h3>
 
-  <h3 className="mt-4 text-xl font-semibold text-slate-800 dark:text-slate-200">
-    {viewOfficer.firstName} {viewOfficer.lastName}
-  </h3>
+              <p className="text-slate-500 dark:text-slate-400">
+                {viewOfficer.email}
+              </p>
 
-  <p className="text-slate-500 dark:text-slate-400">
-    {viewOfficer.email}
-  </p>
+              <span
+                className={`mt-2 px-3 py-1 text-xs font-medium rounded-full
+    ${
+      viewOfficer.status === "ACTIVE"
+        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400"
+        : "bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400"
+    }`}
+              >
+                {viewOfficer.status}
+              </span>
+            </div>
 
-  <span className={`mt-2 px-3 py-1 text-xs font-medium rounded-full
-    ${viewOfficer.status === "ACTIVE"
-      ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400"
-      : "bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400"
-    }`}>
-    {viewOfficer.status}
-  </span>
+            {/* Grid Info */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm p-4">
+              <InfoItem label="Phone" value={viewOfficer.phone} />
+              <InfoItem label="Company" value={viewOfficer.profile?.company} />
+              <InfoItem
+                label="Toll Free"
+                value={viewOfficer.profile?.tollFree}
+              />
+              <InfoItem label="Ext" value={viewOfficer.profile?.tollFreeExt} />
+              <InfoItem
+                label="Service Provider"
+                value={viewOfficer.profile?.serviceProvider}
+              />
+              <InfoItem
+                label="License Number"
+                value={viewOfficer.profile?.licenseNumber}
+              />
+              <InfoItem
+                label="Agent Type"
+                value={viewOfficer.profile?.agentType}
+              />
+              <InfoItem
+                label="Preferred Comm"
+                value={viewOfficer.profile?.preferredComm}
+              />
+              <InfoItem label="Website" value={viewOfficer.profile?.website} />
 
-</div>
-
-                            {/* Grid Info */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm p-4">
-
-                                <InfoItem label="Phone" value={viewOfficer.phone} />
-                                <InfoItem label="Company" value={viewOfficer.profile?.company} />
-                                <InfoItem label="Toll Free" value={viewOfficer.profile?.tollFree} />
-                                <InfoItem label="Ext" value={viewOfficer.profile?.tollFreeExt} />
-                                <InfoItem label="Service Provider" value={viewOfficer.profile?.serviceProvider} />
-                                <InfoItem label="License Number" value={viewOfficer.profile?.licenseNumber} />
-                                <InfoItem label="Agent Type" value={viewOfficer.profile?.agentType} />
-                                <InfoItem label="Preferred Comm" value={viewOfficer.profile?.preferredComm} />
-                                <InfoItem label="Website" value={viewOfficer.profile?.website} />
-
-                                <InfoItem
-                                    label="Address"
-                                    value={`${viewOfficer.profile?.address || ""} 
+              <InfoItem
+                label="Address"
+                value={`${viewOfficer.profile?.address || ""} 
             ${viewOfficer.profile?.suite || ""}, 
             ${viewOfficer.profile?.city || ""}, 
             ${viewOfficer.profile?.state || ""} 
             ${viewOfficer.profile?.zipCode || ""}`}
-                                />
+              />
 
-                                <InfoItem
-                                    label="Created At"
-                                    value={new Date(viewOfficer.createdAt).toLocaleString()}
-                                />
+              <InfoItem
+                label="Created At"
+                value={new Date(viewOfficer.createdAt).toLocaleString()}
+              />
 
-                                <InfoItem
-                                    label="Last Login"
-                                    value={
-                                        viewOfficer.lastLoginAt
-                                            ? new Date(viewOfficer.lastLoginAt).toLocaleString()
-                                            : "Never"
-                                    }
-                                />
-                            </div>
-
-                        </div>
-                    </div>
-                )
-            }
-        </div >
-    );
+              <InfoItem
+                label="Last Login"
+                value={
+                  viewOfficer.lastLoginAt
+                    ? new Date(viewOfficer.lastLoginAt).toLocaleString()
+                    : "Never"
+                }
+              />
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
