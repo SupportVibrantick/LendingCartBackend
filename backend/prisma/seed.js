@@ -1,323 +1,226 @@
 const { PrismaClient } = require("@prisma/client");
-const bcrypt = require("bcryptjs");
-
 const prisma = new PrismaClient();
-const PASSWORD = "Password@123";
-
-function section(title) {
-  console.log("\n=================================================");
-  console.log(`🚀 ${title}`);
-  console.log("=================================================\n");
-}
 
 async function main() {
-  section("STARTING CLEAN ENTERPRISE SEED");
+  console.log("🚀 DEV SEED STARTED...\n");
 
-  const passwordHash = await bcrypt.hash(PASSWORD, 10);
+  /* ==========================================================
+     1️⃣ ENSURE LOAN PRODUCT EXISTS
+  ========================================================== */
 
-  /* ======================================================
-     1. ROLES
-  ====================================================== */
-  section("Creating Roles");
+  let loanProduct = await prisma.loanProduct.findFirst({
+    where: { code: "SBA_7A" },
+  });
 
-  const roleNames = [
-    "PLATFORM_ADMIN",
-    "PLATFORM_SUPPORT",
-    "BROKER_ADMIN",
-    "BROKER_OFFICER",
-    "LENDER_ADMIN",
-    "LENDER_UNDERWRITER",
-    "CLIENT_USER",
-  ];
-
-  const roleMap = {};
-
-  for (const name of roleNames) {
-    const role = await prisma.role.create({
-      data: { name, description: `${name} role` },
+  if (!loanProduct) {
+    loanProduct = await prisma.loanProduct.create({
+      data: {
+        code: "SBA_7A",
+        name: "SBA 7A Loan",
+        description: "Government backed SBA loan product",
+      },
     });
-    roleMap[name] = role.id;
-    console.log(`✅ Role: ${name}`);
+    console.log("✅ Loan Product Created");
+  } else {
+    console.log("✅ Loan Product Already Exists");
   }
 
-  /* ======================================================
-     2. PLATFORM
-  ====================================================== */
-  section("Creating Platform");
+  /* ==========================================================
+     2️⃣ GET BROKER ORG (FROM YOUR MAIN SEED)
+  ========================================================== */
 
-  const platform = await prisma.organization.create({
+  const brokerOrg = await prisma.organization.findFirst({
+    where: { type: "BROKER", isDeleted: false },
+  });
+
+  if (!brokerOrg) {
+    throw new Error("❌ No broker found. Run enterprise seed first.");
+  }
+
+  console.log("✅ Broker Found:", brokerOrg.name);
+
+  /* ==========================================================
+     3️⃣ CREATE BROKER APPLICATION
+  ========================================================== */
+
+  const brokerApplication = await prisma.brokerApplication.create({
     data: {
-      name: "LendingCart Platform",
-      type: "PLATFORM",
-      status: "ACTIVE",
-      email: "platform@lendingcart.com",
+      brokerOrgId: brokerOrg.id,
+      name: "SBA Application Form",
+      code: `SBA_FORM_${Date.now()}`,
+      isActive: true,
     },
   });
 
-  const platformAdmin = await prisma.userAccount.create({
+  console.log("✅ Broker Application Created");
+
+  /* ==========================================================
+     4️⃣ LINK PRODUCT TO APPLICATION
+  ========================================================== */
+
+  const appProduct = await prisma.brokerApplicationProduct.create({
     data: {
-      email: "admin@lendingcart.com",
-      passwordHash,
-      firstName: "Platform",
-      lastName: "Admin",
-      organizationId: platform.id,
+      brokerApplicationId: brokerApplication.id,
+      loanProductCode: "SBA_7A",
+      isActive: true,
     },
   });
 
-  await prisma.userRole.create({
+  console.log("✅ Application Product Created");
+
+  /* ==========================================================
+     5️⃣ CREATE SECTIONS
+  ========================================================== */
+
+  const businessSection = await prisma.brokerApplicationSection.create({
     data: {
-      userId: platformAdmin.id,
-      roleId: roleMap["PLATFORM_ADMIN"],
+      applicationProductId: appProduct.id,
+      name: "Business Info",
+      sortOrder: 1,
     },
   });
 
-  console.log("✅ Platform + Admin Created");
+  const financialSection = await prisma.brokerApplicationSection.create({
+    data: {
+      applicationProductId: appProduct.id,
+      name: "Financial Info",
+      sortOrder: 2,
+    },
+  });
 
-  /* ======================================================
-     3. LOAN PRODUCTS
-  ====================================================== */
-  section("Creating Loan Products");
+  console.log("✅ Sections Created");
 
-  const loanProducts = [
-    { code: "SBA_7A", name: "SBA 7A Loan" },
-    { code: "CRE_PURCHASE", name: "Commercial Purchase" },
-    { code: "WORKING_CAPITAL", name: "Working Capital" },
-  ];
+  /* ==========================================================
+     6️⃣ CREATE FIELDS
+  ========================================================== */
 
-  for (const lp of loanProducts) {
-    await prisma.loanProduct.create({ data: lp });
-    console.log(`✅ Loan Product: ${lp.code}`);
-  }
-
-  /* ======================================================
-     4. DOCUMENT TYPES
-  ====================================================== */
-  section("Creating Document Types");
-
-  const docTypes = [];
-
-  for (const code of ["BANK_STATEMENT", "TAX_RETURN", "ID_PROOF"]) {
-    const dt = await prisma.documentType.create({
-      data: { name: code, code },
-    });
-    docTypes.push(dt);
-    console.log(`✅ Document Type: ${code}`);
-  }
-
-  /* ======================================================
-     5. BROKERS + LOAN OFFICERS
-  ====================================================== */
-  section("Creating Brokers + Loan Officers");
-
-  const brokers = [];
-
-  for (let i = 1; i <= 3; i++) {
-    const org = await prisma.organization.create({
+  const fields = await prisma.$transaction([
+    prisma.brokerApplicationProductField.create({
       data: {
-        name: `Broker Org ${i}`,
-        type: "BROKER",
-        status: "ACTIVE",
+        applicationProductId: appProduct.id,
+        sectionId: businessSection.id,
+        fieldKey: "businessName",
+        label: "Business Name",
+        fieldType: "TEXT",
+        isRequired: true,
+        sortOrder: 1,
       },
-    });
-
-    // Broker Admin
-    const admin = await prisma.userAccount.create({
+    }),
+    prisma.brokerApplicationProductField.create({
       data: {
-        email: `broker${i}@test.com`,
-        passwordHash,
-        firstName: "Broker",
-        lastName: `Admin${i}`,
-        organizationId: org.id,
+        applicationProductId: appProduct.id,
+        sectionId: businessSection.id,
+        fieldKey: "yearsInBusiness",
+        label: "Years in Business",
+        fieldType: "NUMBER",
+        isRequired: true,
+        sortOrder: 2,
       },
-    });
-
-    await prisma.userRole.create({
+    }),
+    prisma.brokerApplicationProductField.create({
       data: {
-        userId: admin.id,
-        roleId: roleMap["BROKER_ADMIN"],
+        applicationProductId: appProduct.id,
+        sectionId: financialSection.id,
+        fieldKey: "annualRevenue",
+        label: "Annual Revenue",
+        fieldType: "CURRENCY",
+        isRequired: true,
+        sortOrder: 1,
       },
-    });
+    }),
+  ]);
 
-    // Loan Officers
-    for (let j = 1; j <= 2; j++) {
-      const officer = await prisma.userAccount.create({
-        data: {
-          email: `broker${i}_officer${j}@test.com`,
-          passwordHash,
-          firstName: "Loan",
-          lastName: `Officer${j}`,
-          organizationId: org.id,
-        },
-      });
+  console.log("✅ Fields Created");
 
-      await prisma.userRole.create({
-        data: {
-          userId: officer.id,
-          roleId: roleMap["BROKER_OFFICER"],
-        },
-      });
+  /* ==========================================================
+     7️⃣ CREATE CLIENT
+  ========================================================== */
 
-      console.log(`   ➜ Loan Officer ${j} created`);
-    }
+  const client = await prisma.client.create({
+    data: {
+      primaryBrokerOrgId: brokerOrg.id,
+      legalName: "Dev Test Company LLC",
+      entityType: "COMPANY",
+    },
+  });
 
-    await prisma.brokerWhiteLabelSetting.create({
+  console.log("✅ Client Created");
+
+  /* ==========================================================
+     8️⃣ CREATE LOAN APPLICATION
+  ========================================================== */
+
+  const loanApplication = await prisma.loanApplication.create({
+    data: {
+      applicationNumber: `DEV-${Date.now()}`,
+      brokerOrgId: brokerOrg.id,
+      clientId: client.id,
+      loanProductCode: "SBA_7A",
+      status: "SUBMITTED",
+      amountRequested: 250000,
+      termMonthsRequested: 120,
+      submittedAt: new Date(),
+    },
+  });
+
+  console.log("✅ Loan Application Created");
+
+  /* ==========================================================
+     9️⃣ CREATE SUBMISSION
+  ========================================================== */
+
+  const submission = await prisma.applicationSubmission.create({
+    data: {
+      applicationId: loanApplication.id,
+      applicationProductId: appProduct.id,
+      status: "SUBMITTED",
+    },
+  });
+
+  console.log("✅ Submission Created");
+
+  /* ==========================================================
+     🔟 INSERT SUBMISSION VALUES
+  ========================================================== */
+
+  await prisma.$transaction([
+    prisma.applicationSubmissionField.create({
       data: {
-        brokerOrgId: org.id,
-        brandName: `BrokerBrand${i}`,
-        primaryColor: "#000000",
+        submissionId: submission.id,
+        fieldId: fields[0].id,
+        fieldKey: "businessName",
+        value: { text: "Dev Test Company LLC" },
+        source: "BROKER",
       },
-    });
-
-    await prisma.affiliateLink.create({
+    }),
+    prisma.applicationSubmissionField.create({
       data: {
-        brokerOrgId: org.id,
-        code: `AFFILIATE_${i}`,
-        targetType: "BROKER_SIGNUP",
-        commissionType: "PERCENTAGE",
-        commissionValue: 5,
+        submissionId: submission.id,
+        fieldId: fields[1].id,
+        fieldKey: "yearsInBusiness",
+        value: 5,
+        source: "BROKER",
       },
-    });
-
-    brokers.push(org);
-
-    console.log(`✅ Broker ${i} Created`);
-  }
-
-  /* ======================================================
-     6. LENDERS + UNDERWRITERS
-  ====================================================== */
-  section("Creating Lenders + Underwriters");
-
-  const lenders = [];
-
-  for (let i = 1; i <= 3; i++) {
-    const org = await prisma.organization.create({
+    }),
+    prisma.applicationSubmissionField.create({
       data: {
-        name: `Lender Org ${i}`,
-        type: "LENDER",
-        status: "ACTIVE",
+        submissionId: submission.id,
+        fieldId: fields[2].id,
+        fieldKey: "annualRevenue",
+        value: 800000,
+        source: "BROKER",
       },
-    });
+    }),
+  ]);
 
-    const admin = await prisma.userAccount.create({
-      data: {
-        email: `lender${i}@test.com`,
-        passwordHash,
-        firstName: "Lender",
-        lastName: `Admin${i}`,
-        organizationId: org.id,
-      },
-    });
+  console.log("✅ Submission Data Inserted");
 
-    await prisma.userRole.create({
-      data: {
-        userId: admin.id,
-        roleId: roleMap["LENDER_ADMIN"],
-      },
-    });
-
-    for (let j = 1; j <= 2; j++) {
-      const underwriter = await prisma.userAccount.create({
-        data: {
-          email: `lender${i}_uw${j}@test.com`,
-          passwordHash,
-          firstName: "Under",
-          lastName: `Writer${j}`,
-          organizationId: org.id,
-        },
-      });
-
-      await prisma.userRole.create({
-        data: {
-          userId: underwriter.id,
-          roleId: roleMap["LENDER_UNDERWRITER"],
-        },
-      });
-    }
-
-    const lenderProduct = await prisma.lenderProduct.create({
-      data: {
-        lenderOrgId: org.id,
-        loanProductCode: "SBA_7A",
-        minLoanAmount: 50000,
-        maxLoanAmount: 2000000,
-      },
-    });
-
-    lenders.push({ org, lenderProduct });
-
-    console.log(`✅ Lender ${i} Created`);
-  }
-
-  /* ======================================================
-     7. CLIENTS + APPLICATIONS
-  ====================================================== */
-  section("Creating Clients + Applications");
-
-  for (const broker of brokers) {
-    for (let i = 1; i <= 3; i++) {
-      const client = await prisma.client.create({
-        data: {
-          primaryBrokerOrgId: broker.id,
-          legalName: `Client ${i}`,
-          entityType: "COMPANY",
-        },
-      });
-
-      const app = await prisma.loanApplication.create({
-        data: {
-          applicationNumber: `APP-${broker.id.slice(0, 4)}-${i}`,
-          brokerOrgId: broker.id,
-          clientId: client.id,
-          loanProductCode: "SBA_7A",
-          amountRequested: 250000,
-        },
-      });
-
-      await prisma.applicationFinancial.create({
-        data: {
-          loanApplicationId: app.id,
-          annualRevenue: 400000,
-          netIncome: 100000,
-        },
-      });
-
-      const sent = await prisma.applicationLender.create({
-        data: {
-          loanApplicationId: app.id,
-          lenderOrgId: lenders[0].org.id,
-          lenderProductId: lenders[0].lenderProduct.id,
-        },
-      });
-
-      const review = await prisma.lenderReview.create({
-        data: {
-          applicationLenderId: sent.id,
-          reviewStatus: "APPROVED",
-          approvedAmount: 240000,
-        },
-      });
-
-      await prisma.lenderCondition.create({
-        data: {
-          lenderReviewId: review.id,
-          description: "Provide updated bank statement",
-        },
-      });
-
-      console.log(`   ➜ Application Created`);
-    }
-  }
-
-  section("SEED COMPLETED SUCCESSFULLY");
-
-  console.log("\n🔐 Default Password For All Users:");
-  console.log(PASSWORD);
+  console.log("\n🎉 DEV SEED COMPLETED SUCCESSFULLY");
 }
 
 main()
   .catch((e) => {
-    console.error("❌ SEED FAILED:", e);
+    console.error("❌ ERROR:", e);
     process.exit(1);
   })
   .finally(async () => {

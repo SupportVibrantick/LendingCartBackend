@@ -1,144 +1,118 @@
-import { useEffect, useState } from "react";
+import { ReactNode } from "react";
 import {
-  ArrowDownIcon,
-  ArrowUpIcon,
-  BoxIconLine,
-  GroupIcon,
-  UserIcon,
-} from "../../icons";
-import Badge from "../ui/badge/Badge";
+  FileText,
+  Clock,
+  CheckCircle,
+  XCircle,
+  DollarSign,
+} from "lucide-react";
 
-type AdminStats = {
-  brokers: number;
-  lenders: number;
-  customers: number;
-};
+/* ================= TYPES ================= */
 
-// Same as other pages: base URL from env
-const API_BASE = import.meta.env.VITE_API_BASE || "";
+interface StatCardProps {
+  title: string;
+  value: string | number;
+  icon: ReactNode;
+  colorScheme: "blue" | "purple" | "green" | "orange";
+}
 
-export default function EcommerceMetrics() {
-  const [stats, setStats] = useState<AdminStats | null>(null);
+/* ================= DUMMY DATA (LENDER) ================= */
 
-  useEffect(() => {
-    let isMounted = true;
+const LENDER_DUMMY_STATS = [
+  {
+    title: "Total Applications",
+    value: 128,
+    icon: <FileText className="w-6 h-6 text-white" />,
+    colorScheme: "blue" as const,
+  },
+  {
+    title: "Pending Review",
+    value: 24,
+    icon: <Clock className="w-6 h-6 text-white" />,
+    colorScheme: "purple" as const,
+  },
+  {
+    title: "Approved",
+    value: 76,
+    icon: <CheckCircle className="w-6 h-6 text-white" />,
+    colorScheme: "green" as const,
+  },
+  {
+    title: "Declined",
+    value: 18,
+    icon: <XCircle className="w-6 h-6 text-white" />,
+    colorScheme: "orange" as const,
+  },
+  {
+    title: "Funded Loans",
+    value: 65,
+    icon: <CheckCircle className="w-6 h-6 text-white" />,
+    colorScheme: "green" as const,
+  },
+  {
+    title: "Total Funded Volume",
+    value: "$4,250,000",
+    icon: <DollarSign className="w-6 h-6 text-white" />,
+    colorScheme: "blue" as const,
+  },
+  {
+    title: "Avg. Loan Size",
+    value: "$65,385",
+    icon: <DollarSign className="w-6 h-6 text-white" />,
+    colorScheme: "purple" as const,
+  },
+  {
+    title: "Approval Rate",
+    value: "63%",
+    icon: <CheckCircle className="w-6 h-6 text-white" />,
+    colorScheme: "green" as const,
+  },
+  {
+    title: "Active Brokers",
+    value: 14,
+    icon: <FileText className="w-6 h-6 text-white" />,
+    colorScheme: "orange" as const,
+  },
+];
 
-    const fetchStats = async () => {
-      try {
-        const token = sessionStorage.getItem("admin_token");
+/* ================= STAT CARD ================= */
 
-        const headers: Record<string, string> = {
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        };
-
-        const res = await fetch(`${API_BASE}/admin/stats`, {
-          method: "GET",
-          headers,
-          // note: no credentials: "include" here, same as BrokersPage
-        });
-
-        if (!res.ok) {
-          console.error(
-            "Failed to fetch admin stats",
-            res.status,
-            await res.text().catch(() => "")
-          );
-          return;
-        }
-
-        const json = await res.json();
-        console.log("admin stats response:", json);
-
-        if (json?.success && json?.data && isMounted) {
-          const orgs = json.data.organizations || {};
-          setStats({
-            brokers: orgs.brokers ?? 0,
-            lenders: orgs.lenders ?? 0,
-            customers: orgs.customers ?? 0, // Assuming customers field exists
-          });
-        }
-      } catch (err) {
-        console.error("Error fetching admin stats", err);
-      }
-    };
-
-    fetchStats();
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  const brokersCount = stats?.brokers ?? 0;
-  const lendersCount = stats?.lenders ?? 0;
-  const customersCount = stats?.customers ?? 0;
+const StatCard = ({ title, value, icon, colorScheme }: StatCardProps) => {
+  const themes = {
+    blue: "bg-gradient-to-r from-blue-600 to-blue-700",
+    purple: "bg-gradient-to-r from-indigo-600 to-purple-600",
+    green: "bg-gradient-to-r from-emerald-600 to-green-600",
+    orange: "bg-gradient-to-r from-orange-500 to-red-500",
+  };
 
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 md:gap-6">
-      {/* <!-- Metric Item Start --> */}
-      <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6">
-        <div className="flex items-center justify-center w-12 h-12 bg-gray-100 rounded-xl dark:bg-gray-800">
-          <BoxIconLine className="text-gray-800 size-6 dark:text-white/90" />
-        </div>
-        <div className="flex items-end justify-between mt-5">
-          <div>
-            <span className="text-sm text-gray-500 dark:text-gray-400">
-              Total Lenders
-            </span>
-            <h4 className="mt-2 font-bold text-gray-800 text-title-sm dark:text-white/90">
-              {lendersCount.toLocaleString()}
-            </h4>
-          </div>
+    <div
+      className={`relative overflow-hidden rounded-2xl px-6 py-5 text-white shadow-xl ${themes[colorScheme]}`}
+    >
+      <div className="absolute -right-10 top-1/2 -translate-y-1/2 w-32 h-32 bg-white/10 rounded-full blur-2xl" />
 
-          <Badge color="error">
-            <ArrowDownIcon />
-            9.05%
-          </Badge>
+      <div className="relative flex items-center gap-4">
+        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/20 backdrop-blur-md">
+          {icon}
+        </div>
+
+        <div>
+          <p className="text-xs uppercase tracking-wider opacity-80">{title}</p>
+          <h3 className="text-2xl font-bold mt-1">{value}</h3>
         </div>
       </div>
+    </div>
+  );
+};
 
-      {/* <!-- Metric Item Start --> */}
-      <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6">
-        <div className="flex items-center justify-center w-12 h-12 bg-gray-100 rounded-xl dark:bg-gray-800">
-          <GroupIcon className="text-gray-800 size-6 dark:text-white/90" />
-        </div>
+/* ================= MAIN COMPONENT ================= */
 
-        <div className="flex items-end justify-between mt-5">
-          <div>
-            <span className="text-sm text-gray-500 dark:text-gray-400">
-              Total Brokers
-            </span>
-            <h4 className="mt-2 font-bold text-gray-800 text-title-sm dark:text-white/90">
-              {brokersCount.toLocaleString()}
-            </h4>
-          </div>
-          <Badge color="success">
-            <ArrowUpIcon />
-            11.01%
-          </Badge>
-        </div>
-      </div>
-
-      {/* <!-- Metric Item Start --> */}
-      <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6">
-        <div className="flex items-center justify-center w-12 h-12 bg-gray-100 rounded-xl dark:bg-gray-800">
-          <UserIcon className="text-gray-800 size-6 dark:text-white/90" />
-        </div>
-
-        <div className="flex items-end justify-between mt-5">
-          <div>
-            <span className="text-sm text-gray-500 dark:text-gray-400">
-              Total Customer
-            </span>
-            <h4 className="mt-2 font-bold text-gray-800 text-title-sm dark:text-white/90">
-              {customersCount.toLocaleString()}
-            </h4>
-          </div>
-          <Badge color="success">
-            <ArrowUpIcon />
-            5.12%
-          </Badge>
-        </div>
-      </div>
+export default function LenderDashboardMetrics() {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      {LENDER_DUMMY_STATS.map((item, index) => (
+        <StatCard key={index} {...item} />
+      ))}
     </div>
   );
 }

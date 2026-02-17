@@ -2,134 +2,197 @@ import Chart from "react-apexcharts";
 import { ApexOptions } from "apexcharts";
 import ChartTab from "../common/ChartTab";
 
-export default function StatisticsChart() {
-  const options: ApexOptions = {
-    legend: {
-      show: false, // Hide legend
-      position: "top",
-      horizontalAlign: "left",
+/* ================= DUMMY DATA (LENDER) ================= */
+
+const DUMMY_STATS = {
+  totalApplications: 150,
+  totalSubmitted: 120,
+  totalInReview: 35,
+  totalApproved: 80,
+  totalFunded: 65,
+};
+
+/* ================= COMPONENT ================= */
+
+export default function LenderStatisticsChart() {
+  /* ================= CALCULATIONS ================= */
+
+  const approvalRate =
+    DUMMY_STATS.totalSubmitted > 0
+      ? Number(
+          (
+            (DUMMY_STATS.totalApproved /
+              DUMMY_STATS.totalSubmitted) *
+            100
+          ).toFixed(1)
+        )
+      : 0;
+
+  const fundingConversion =
+    DUMMY_STATS.totalApproved > 0
+      ? Number(
+          (
+            (DUMMY_STATS.totalFunded /
+              DUMMY_STATS.totalApproved) *
+            100
+          ).toFixed(1)
+        )
+      : 0;
+
+  const submittedConversion =
+    DUMMY_STATS.totalApplications > 0
+      ? Number(
+          (
+            (DUMMY_STATS.totalSubmitted /
+              DUMMY_STATS.totalApplications) *
+            100
+          ).toFixed(1)
+        )
+      : 0;
+
+  const reviewConversion =
+    DUMMY_STATS.totalSubmitted > 0
+      ? Number(
+          (
+            (DUMMY_STATS.totalInReview /
+              DUMMY_STATS.totalSubmitted) *
+            100
+          ).toFixed(1)
+        )
+      : 0;
+
+  /* ================= SERIES ================= */
+
+  const series = [
+    {
+      name: "Volume (Count)",
+      type: "area" as const,
+      data: [
+        DUMMY_STATS.totalApplications,
+        DUMMY_STATS.totalSubmitted,
+        DUMMY_STATS.totalInReview,
+        DUMMY_STATS.totalApproved,
+        DUMMY_STATS.totalFunded,
+      ],
     },
-    colors: ["#465FFF", "#9CB9FF"], // Define line colors
+    {
+      name: "Efficiency (%)",
+      type: "line" as const,
+      data: [
+        100,
+        submittedConversion,
+        reviewConversion,
+        approvalRate,
+        fundingConversion,
+      ],
+    },
+  ];
+
+  /* ================= OPTIONS ================= */
+
+  const options: ApexOptions = {
     chart: {
       fontFamily: "Outfit, sans-serif",
-      height: 310,
-      type: "line", // Set the chart type to 'line'
-      toolbar: {
-        show: false, // Hide chart toolbar
-      },
+      toolbar: { show: false },
+      zoom: { enabled: false },
     },
+    colors: ["#465FFF", "#10B981"],
     stroke: {
-      curve: "straight", // Define the line style (straight, smooth, or step)
-      width: [2, 2], // Line width for each dataset
-    },
-
-    fill: {
-      type: "gradient",
-      gradient: {
-        opacityFrom: 0.55,
-        opacityTo: 0,
-      },
+      curve: "smooth",
+      width: [4, 3],
+      dashArray: [0, 8],
     },
     markers: {
-      size: 0, // Size of the marker points
-      strokeColors: "#fff", // Marker border color
+      size: 5,
+      strokeColors: "#fff",
       strokeWidth: 2,
-      hover: {
-        size: 6, // Marker size on hover
-      },
     },
     grid: {
-      xaxis: {
-        lines: {
-          show: false, // Hide grid lines on x-axis
-        },
-      },
-      yaxis: {
-        lines: {
-          show: true, // Show grid lines on y-axis
-        },
-      },
-    },
-    dataLabels: {
-      enabled: false, // Disable data labels
-    },
-    tooltip: {
-      enabled: true, // Enable tooltip
-      x: {
-        format: "dd MMM yyyy", // Format for x-axis tooltip
-      },
+      borderColor: "#F1F5F9",
+      strokeDashArray: 5,
     },
     xaxis: {
-      type: "category", // Category-based x-axis
       categories: [
-        "Jan",
-        "Feb",
-        "Mar",
-        "Apr",
-        "May",
-        "Jun",
-        "Jul",
-        "Aug",
-        "Sep",
-        "Oct",
-        "Nov",
-        "Dec",
+        "Applications",
+        "Submitted",
+        "In Review",
+        "Approved",
+        "Funded",
       ],
-      axisBorder: {
-        show: false, // Hide x-axis border
-      },
-      axisTicks: {
-        show: false, // Hide x-axis ticks
-      },
-      tooltip: {
-        enabled: false, // Disable tooltip for x-axis points
+      labels: {
+        style: { colors: "#64748b" },
       },
     },
-    yaxis: {
-      labels: {
-        style: {
-          fontSize: "12px", // Adjust font size for y-axis labels
-          colors: ["#6B7280"], // Color of the labels
+    yaxis: [
+      {
+        title: { text: "Count" },
+        labels: {
+          formatter: (val: number) => Math.round(val).toString(),
         },
       },
-      title: {
-        text: "", // Remove y-axis title
-        style: {
-          fontSize: "0px",
+      {
+        opposite: true,
+        max: 100,
+        title: { text: "Conversion %" },
+        labels: {
+          formatter: (val: number) => `${val}%`,
         },
+      },
+    ],
+    tooltip: {
+      shared: true,
+      intersect: false,
+      y: {
+        formatter: (val: number, opts) =>
+          opts.seriesIndex === 1 ? `${val}%` : val.toString(),
+      },
+    },
+    legend: {
+      position: "top",
+      horizontalAlign: "right",
+    },
+    fill: {
+      type: ["gradient", "solid"],
+      gradient: {
+        opacityFrom: 0.4,
+        opacityTo: 0.05,
       },
     },
   };
 
-  const series = [
-    {
-      name: "Sales",
-      data: [180, 190, 170, 160, 175, 165, 170, 205, 230, 210, 240, 235],
-    },
-    {
-      name: "Revenue",
-      data: [40, 30, 50, 40, 55, 40, 70, 100, 110, 120, 150, 140],
-    },
-  ];
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white px-5 pb-5 pt-5 dark:border-gray-800 dark:bg-white/[0.03] sm:px-6 sm:pt-6">
-      <div className="flex flex-col gap-5 mb-6 sm:flex-row sm:justify-between">
-        <div className="w-full">
-          <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">
-            Statistics
+    <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-white/[0.03]">
+      <div className="flex flex-col items-center justify-between gap-4 mb-8 sm:flex-row">
+        <div>
+          <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+            Lender Pipeline Performance
           </h3>
-          <p className="mt-1 text-gray-500 text-theme-sm dark:text-gray-400">
-            Target you’ve set for each month
+          <p className="text-sm text-gray-500">
+            Dummy conversion tracking across lending stages
           </p>
         </div>
-        <div className="flex items-start w-full gap-3 sm:justify-end">
-          <ChartTab />
-        </div>
+        <ChartTab />
       </div>
 
-      <div className="max-w-full overflow-x-auto custom-scrollbar">
-        <div className="min-w-[1000px] xl:min-w-full">
-          <Chart options={options} series={series} type="area" height={310} />
+      <Chart options={options} series={series} type="line" height={350} />
+
+      <div className="grid grid-cols-1 gap-4 mt-8 sm:grid-cols-2">
+        <div className="p-4 rounded-2xl bg-gray-50 dark:bg-gray-800">
+          <p className="text-xs uppercase text-gray-500">
+            Avg. Approval Rate
+          </p>
+          <h4 className="mt-1 text-2xl font-bold text-green-600">
+            {approvalRate}%
+          </h4>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-gray-50 dark:bg-gray-800">
+          <p className="text-xs uppercase text-gray-500">
+            Funding Success
+          </p>
+          <h4 className="mt-1 text-2xl font-bold text-blue-600">
+            {fundingConversion}%
+          </h4>
         </div>
       </div>
     </div>
