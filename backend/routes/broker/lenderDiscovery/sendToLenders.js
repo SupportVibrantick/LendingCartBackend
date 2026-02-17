@@ -55,7 +55,20 @@ module.exports = async function sendToLenders(fastify) {
           });
         }
 
-        // ✅ Allow SUBMITTED or IN_REVIEW
+        // 🔒 Do not allow sending if finalized
+        if (
+          ["LENDER_SELECTED", "LENDER_APPROVED", "FUNDED", "WITHDRAWN"].includes(
+            application.status
+          )
+        ) {
+          return reply.code(400).send({
+            success: false,
+            message:
+              "Application is finalized and cannot be sent to more lenders",
+          });
+        }
+
+        // ✅ Allow only SUBMITTED or IN_REVIEW
         if (!["SUBMITTED", "IN_REVIEW"].includes(application.status)) {
           return reply.code(400).send({
             success: false,
@@ -110,84 +123,86 @@ module.exports = async function sendToLenders(fastify) {
         }
 
         /* ===============================
-           4️⃣ TRANSACTION
+           4️⃣ TRANSACTION (CONCURRENCY SAFE)
         =============================== */
-        const results = await prisma.$transaction(async (tx) => {
-          const processed = [];
+        const results = await prisma.$transaction(
+          async (tx) => {
+            const processed = [];
 
-          for (const lp of lenderProducts) {
-            const existing = await tx.applicationLender.findFirst({
-              where: {
-                loanApplicationId: applicationId,
-                lenderProductId: lp.id,
-              },
-            });
+            for (const lp of lenderProducts) {
+              try {
+                // Use create with unique protection (requires @@unique)
+                const created = await tx.applicationLender.create({
+                  data: {
+                    loanApplicationId: applicationId,
+                    lenderOrgId: lp.lenderOrgId,
+                    lenderProductId: lp.id,
+                    sentByUserId: userId,
+                    sentAt: new Date(),
+                    status: "SENT",
+                  },
+                });
 
-            if (existing) {
-              processed.push({
-                lenderProductId: lp.id,
-                lenderOrgId: lp.lenderOrgId,
-                status: "ALREADY_SENT",
-              });
-              continue;
+                processed.push({
+                  lenderProductId: lp.id,
+                  lenderOrgId: lp.lenderOrgId,
+                  status: "SENT",
+                });
+              } catch (err) {
+                // Handle duplicate safely
+                if (err.code === "P2002") {
+                  processed.push({
+                    lenderProductId: lp.id,
+                    lenderOrgId: lp.lenderOrgId,
+                    status: "ALREADY_SENT",
+                  });
+                } else {
+                  throw err;
+                }
+              }
             }
 
-            await tx.applicationLender.create({
-              data: {
-                loanApplicationId: applicationId,
-                lenderOrgId: lp.lenderOrgId,
-                lenderProductId: lp.id,
-                sentByUserId: userId,
-                sentAt: new Date(),
-                status: "SENT",
-              },
-            });
+            const newlySent = processed.some(
+              (r) => r.status === "SENT"
+            );
 
-            processed.push({
-              lenderProductId: lp.id,
-              lenderOrgId: lp.lenderOrgId,
-              status: "SENT",
-            });
+            /* ===============================
+               5️⃣ GLOBAL STATUS UPDATE (ONLY FIRST TIME)
+            =============================== */
+            if (newlySent && application.status === "SUBMITTED") {
+              await tx.loanApplication.update({
+                where: { id: applicationId },
+                data: { status: "IN_REVIEW" },
+              });
+
+              await tx.applicationStatusHistory.create({
+                data: {
+                  loanApplicationId: applicationId,
+                  fromStatus: "SUBMITTED",
+                  toStatus: "IN_REVIEW",
+                  changedByUserId: userId,
+                  reason: "Sent to lenders",
+                },
+              });
+            }
+
+            if (newlySent && submission.status === "NEW") {
+              await tx.applicationSubmission.update({
+                where: { id: submissionId },
+                data: { status: "SENT" },
+              });
+            }
+
+            return processed;
+          },
+          {
+            isolationLevel: "Serializable", // 🔥 prevents race conditions
           }
-
-          const sentNow = processed.some((r) => r.status === "SENT");
-
-          /* ===============================
-             5️⃣ STATUS UPDATE LOGIC
-          =============================== */
-
-          // Only move to IN_REVIEW first time
-          if (sentNow && application.status === "SUBMITTED") {
-            await tx.loanApplication.update({
-              where: { id: applicationId },
-              data: { status: "IN_REVIEW" },
-            });
-
-            await tx.applicationStatusHistory.create({
-              data: {
-                loanApplicationId: applicationId,
-                fromStatus: "SUBMITTED",
-                toStatus: "IN_REVIEW",
-                changedByUserId: userId,
-                reason: "Sent to lenders",
-              },
-            });
-          }
-
-          // Update submission status if first send
-          if (sentNow && submission.status === "NEW") {
-            await tx.applicationSubmission.update({
-              where: { id: submissionId },
-              data: { status: "SENT" },
-            });
-          }
-
-          return processed;
-        });
+        );
 
         return reply.send({
           success: true,
-          message: "Submission sent to lenders successfully",
+          message: "Submission processed successfully",
           data: {
             applicationId,
             submissionId,
@@ -198,6 +213,7 @@ module.exports = async function sendToLenders(fastify) {
         });
       } catch (error) {
         fastify.log.error(error);
+
         return reply.code(500).send({
           success: false,
           message: "Internal server error",
