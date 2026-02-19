@@ -16,6 +16,7 @@ async function impersonateRoute(fastify) {
           required: ["organizationId"],
           properties: {
             organizationId: { type: "string", format: "uuid" },
+            reason: { type: "string" } // optional but recommended
           },
         },
       },
@@ -25,26 +26,39 @@ async function impersonateRoute(fastify) {
       const prisma = fastify.prisma;
 
       try {
-        const { organizationId } = request.body;
+        const { organizationId, reason } = request.body;
+        const adminUserId = request.user.userId;
 
-        // ✅ Step 1: Check PLATFORM_ADMIN
-        const platformAdmin = await prisma.userRole.findFirst({
+        /* ===================================================
+           🚫 0️⃣ Prevent nested impersonation
+        =================================================== */
+        if (request.user.impersonatedBy) {
+          return reply.status(400).send({
+            success: false,
+            message: "Already in impersonation mode",
+          });
+        }
+
+        /* ===================================================
+           ✅ 1️⃣ Check PLATFORM_ADMIN
+        =================================================== */
+        const isPlatformAdmin = await prisma.userRole.findFirst({
           where: {
-            userId: request.user.userId,
-            role: {
-              name: "PLATFORM_ADMIN",
-            },
+            userId: adminUserId,
+            role: { name: "PLATFORM_ADMIN" },
           },
         });
 
-        if (!platformAdmin) {
+        if (!isPlatformAdmin) {
           return reply.status(403).send({
             success: false,
             message: "Access denied",
           });
         }
 
-        // ✅ Step 2: Find organization
+        /* ===================================================
+           ✅ 2️⃣ Find organization
+        =================================================== */
         const organization = await prisma.organization.findFirst({
           where: {
             id: organizationId,
@@ -59,7 +73,9 @@ async function impersonateRoute(fastify) {
           });
         }
 
-        // ✅ Step 3: Determine admin role name
+        /* ===================================================
+           ✅ 3️⃣ Determine required admin role
+        =================================================== */
         let adminRoleName;
 
         if (organization.type === "BROKER") {
@@ -73,17 +89,22 @@ async function impersonateRoute(fastify) {
           });
         }
 
-        // ✅ Step 4: Find target admin user
+        /* ===================================================
+           ✅ 4️⃣ Fetch target admin with roles included
+        =================================================== */
         const targetAdmin = await prisma.userAccount.findFirst({
           where: {
             organizationId: organization.id,
             status: "ACTIVE",
             roles: {
               some: {
-                role: {
-                  name: adminRoleName,
-                },
+                role: { name: adminRoleName },
               },
+            },
+          },
+          include: {
+            roles: {
+              include: { role: true },
             },
           },
         });
@@ -95,22 +116,47 @@ async function impersonateRoute(fastify) {
           });
         }
 
-        // ✅ Step 5: Generate impersonation token
+        const roleNames = targetAdmin.roles.map(r => r.role.name);
+
+        /* ===================================================
+           🚫 5️⃣ Prevent impersonating PLATFORM_ADMIN
+        =================================================== */
+        if (roleNames.includes("PLATFORM_ADMIN")) {
+          return reply.status(403).send({
+            success: false,
+            message: "Cannot impersonate PLATFORM_ADMIN",
+          });
+        }
+
+        /* ===================================================
+           🔐 6️⃣ Generate secure impersonation JWT
+        =================================================== */
         const token = jwt.sign(
           {
             userId: targetAdmin.id,
             organizationId: organization.id,
             organizationType: organization.type,
-            impersonatedBy: request.user.userId,
+            roles: roleNames,
+            impersonatedBy: adminUserId,
           },
           process.env.JWT_SECRET,
-          { expiresIn: "2h" }
+          {
+            expiresIn: "2h",
+            issuer: "lending-platform",
+            audience: "portal",
+          }
         );
 
+        /* ===================================================
+           📝 7️⃣ Audit Logging
+        =================================================== */
         adminLogs.info("Impersonation successful", {
-          superAdminId: request.user.userId,
+          superAdminId: adminUserId,
           targetOrgId: organization.id,
           targetUserId: targetAdmin.id,
+          orgType: organization.type,
+          reason: reason || "not_provided",
+          ip: request.ip,
         });
 
         return reply.send({
@@ -121,12 +167,13 @@ async function impersonateRoute(fastify) {
               ? "/broker/dashboard"
               : "/lender/dashboard",
         });
+
       } catch (error) {
         adminLogs.error("Impersonation failed", error);
 
         return reply.status(500).send({
           success: false,
-          message: error.message,
+          message: "Internal server error",
         });
       }
     }
