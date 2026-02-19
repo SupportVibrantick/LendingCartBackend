@@ -1,7 +1,6 @@
 import { useEffect, useState, FormEvent } from "react";
 import axios, { AxiosError } from "axios";
 import toast from "react-hot-toast";
-import { useParams } from "react-router-dom";
 
 /* ================= API ================= */
 const api = axios.create({
@@ -16,10 +15,10 @@ api.interceptors.request.use((config) => {
 });
 
 /* ================= TYPES ================= */
-// interface Lender {
-//   id: string;
-//   name: string;
-// }
+interface Lender {
+  id: string;
+  name: string;
+}
 
 interface LoanProduct {
   id: string;
@@ -39,7 +38,7 @@ export type BusinessType = {
 
 interface Errors {
   lenderOrgId?: string;
-  loanTypes?: string;
+  loanProductCode?: string;
   minLoanAmount?: string;
   maxLoanAmount?: string;
   minTermMonths?: string;
@@ -225,21 +224,17 @@ export const EQUIPMENT_TYPES = [
   },
 ];
 
-interface Props {
-  lenderId?: string;
-  onClose?: () => void;
-  onSuccess?: () => void;
-}
-
 /* ================= COMPONENT ================= */
-export default function LenderProductAssign({ lenderId, onSuccess }: Props) {
+export default function LenderAllProductAssign() {
+  const [lenders, setLenders] = useState<Lender[]>([]);
   const [loanProducts, setLoanProducts] = useState<LoanProduct[]>([]);
+
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [errors, setErrors] = useState<Errors>({});
   const [message, setMessage] = useState<MessageState | null>(null);
-  const { lenderId: paramId } = useParams<{ lenderId: string }>();
+
   const [form, setForm] = useState<FormState>({
-    lenderOrgId: lenderId || paramId || "",
+    lenderOrgId: "",
     loanProductCode: "",
     loanTypes: [],
     typeOfBusiness: [],
@@ -327,27 +322,24 @@ export default function LenderProductAssign({ lenderId, onSuccess }: Props) {
 
   /* ================= LOAD DATA ================= */
   useEffect(() => {
-    async function loadProducts() {
+    async function loadData() {
       try {
-        const productsRes = await api.get("/admin/loan-products/list");
+        const [lendersRes, productsRes] = await Promise.all([
+          api.get("/admin/lenders/read"),
+          api.get("/admin/loan-products/list"),
+        ]);
+
+        // LENDERS → paginated
+        setLenders(lendersRes.data?.data?.results ?? []);
+
+        // PRODUCTS → direct array
         setLoanProducts(productsRes.data?.data ?? []);
-      } catch {
-        setMessage({ type: "error", text: "Failed to load products" });
+      } catch (err) {
+        setMessage({ type: "error", text: "Failed to load data" });
       }
     }
 
-    loadProducts();
-  }, []);
-
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-      }
-    };
-
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
+    loadData();
   }, []);
 
   /* ================= VALIDATION ================= */
@@ -355,106 +347,106 @@ export default function LenderProductAssign({ lenderId, onSuccess }: Props) {
     const e: Errors = {};
 
     // REQUIRED
-    if (!form.lenderOrgId) {
-      e.lenderOrgId = "Lender is required";
-    }
+    if (!form.lenderOrgId) e.lenderOrgId = "Lender is required";
 
-    if (form.loanTypes.length === 0) {
-      e.loanTypes = "Select at least one loan type";
-    }
-
-    if (!form.interestRateRange) {
+    if (form.loanTypes.length === 0)
+      e.loanProductCode = "Select at least one loan type";
+    if (!form.interestRateRange)
       e.interestRateRange = "Interest rate range required";
-    }
 
-    // ================= AMOUNTS =================
-    const minLoan = Number(form.minLoanAmount);
-    const maxLoan = Number(form.maxLoanAmount);
+    // AMOUNTS
+    if (!form.minLoanAmount) e.minLoanAmount = "Minimum amount required";
+    if (!form.maxLoanAmount) e.maxLoanAmount = "Maximum amount required";
 
-    if (!form.minLoanAmount) {
-      e.minLoanAmount = "Minimum amount required";
-    } else if (isNaN(minLoan)) {
+    if (form.minLoanAmount && isNaN(Number(form.minLoanAmount)))
       e.minLoanAmount = "Invalid number";
-    }
 
-    if (!form.maxLoanAmount) {
-      e.maxLoanAmount = "Maximum amount required";
-    } else if (isNaN(maxLoan)) {
+    if (form.maxLoanAmount && isNaN(Number(form.maxLoanAmount)))
       e.maxLoanAmount = "Invalid number";
-    }
 
-    if (!e.minLoanAmount && !e.maxLoanAmount && minLoan > maxLoan) {
+    if (
+      form.minLoanAmount &&
+      form.maxLoanAmount &&
+      Number(form.minLoanAmount) > Number(form.maxLoanAmount)
+    )
       e.maxLoanAmount = "Max must be greater than Min";
-    }
 
-    // ================= BUSINESS TYPE =================
-    if (isBusinessTypeRequired && form.typeOfBusiness.length === 0) {
+    // TYPE OF BUSINESS
+    if (form.typeOfBusiness.length === 0)
       e.typeOfBusiness = "Select at least one business type";
-    }
 
-    // ================= EQUIPMENT =================
     if (isEquipmentFinanceSelected) {
       if (form.equipmentTypes.length === 0) {
-        e.loanTypes = "Select at least one equipment type";
+        e.loanProductCode = "Select at least one equipment type";
       }
 
       if (
         form.equipmentTypes.includes("OTHER") &&
         !form.otherEquipmentExplanation
       ) {
-        e.loanTypes = "Please explain other equipment type";
+        e.loanProductCode = "Please explain other equipment type";
       }
     }
 
-    // ================= TERMS =================
-    const minTerm = Number(form.minTermMonths);
-    const maxTerm = Number(form.maxTermMonths);
-
+    // TERMS
     if (!form.minTermMonths) e.minTermMonths = "Required";
     if (!form.maxTermMonths) e.maxTermMonths = "Required";
 
-    if (!e.minTermMonths && !e.maxTermMonths && minTerm > maxTerm) {
+    if (
+      form.minTermMonths &&
+      form.maxTermMonths &&
+      Number(form.minTermMonths) > Number(form.maxTermMonths)
+    )
       e.maxTermMonths = "Max term must be ≥ Min term";
-    }
 
-    // ================= LTV =================
-    const minLTV = Number(form.minLTV);
-    const maxLTV = Number(form.maxLTV);
-
-    if (!form.minLTV) {
-      e.minLTV = "Min LTV is required";
-    } else if (isNaN(minLTV) || minLTV < 0 || minLTV > 100) {
+    // MIN LTV
+    if (!form.minLTV) e.minLTV = "Min LTV is required";
+    else if (isNaN(Number(form.minLTV))) e.minLTV = "Invalid number";
+    else if (Number(form.minLTV) < 0 || Number(form.minLTV) > 100)
       e.minLTV = "Must be between 0–100";
-    }
 
-    if (!form.maxLTV) {
-      e.maxLTV = "Max LTV is required";
-    } else if (isNaN(maxLTV) || maxLTV < 0 || maxLTV > 100) {
+    // MAX LTV
+    if (!form.maxLTV) e.maxLTV = "Max LTV is required";
+    else if (isNaN(Number(form.maxLTV))) e.maxLTV = "Invalid number";
+    else if (Number(form.maxLTV) < 0 || Number(form.maxLTV) > 100)
       e.maxLTV = "Must be between 0–100";
-    }
 
-    if (!e.minLTV && !e.maxLTV && minLTV > maxLTV) {
+    // RELATION CHECK
+    if (form.minLTV && form.maxLTV && Number(form.minLTV) > Number(form.maxLTV))
       e.maxLTV = "Max LTV must be ≥ Min LTV";
-    }
 
-    // ================= CREDIT SCORE =================
-    const credit = Number(form.minCreditScore);
-
-    if (!form.minCreditScore) {
+    // CREDIT SCORE
+    if (!form.minCreditScore)
       e.minCreditScore = "Minimum credit score required";
-    } else if (isNaN(credit) || credit < 300 || credit > 900) {
+    else if (
+      Number(form.minCreditScore) < 300 ||
+      Number(form.minCreditScore) > 900
+    )
       e.minCreditScore = "Score must be between 300–900";
-    }
 
-    // ================= STATES =================
-    if (form.states.length === 0) {
-      e.states = "Select at least one state";
-    }
+    if (form.states.length === 0) e.states = "Select at least one state";
 
-    // ================= EXPERIENCE =================
-    if (!form.minimumExperience) {
+    // EXPERIENCE
+    if (!form.minimumExperience)
       e.minimumExperience = "Select minimum experience";
-    }
+
+    // EXTRA SAFETY: No negative values allowed
+    const numericFields: (keyof FormState)[] = [
+      "minLoanAmount",
+      "maxLoanAmount",
+      "minTermMonths",
+      "maxTermMonths",
+      "minLTV",
+      "maxLTV",
+      "minCreditScore",
+    ];
+
+    numericFields.forEach((field) => {
+      const value = Number(form[field]);
+      if (form[field] && value < 0) {
+        e[field as keyof Errors] = "Value cannot be negative";
+      }
+    });
 
     return e;
   }
@@ -507,10 +499,13 @@ export default function LenderProductAssign({ lenderId, onSuccess }: Props) {
       };
 
       await api.post("/admin/lender-products/create", payload);
+
+      setMessage({
+        type: "success",
+        text: "Lender product assigned successfully",
+      });
+
       toast.success("Lender product assigned successfully");
-      if (onSuccess) {
-        onSuccess();
-      }
 
       setForm((f) => ({
         ...f,
@@ -554,15 +549,6 @@ export default function LenderProductAssign({ lenderId, onSuccess }: Props) {
     }
   }, [isBusinessTypeRequired]);
 
-  useEffect(() => {
-    if (lenderId || paramId) {
-      setForm((prev) => ({
-        ...prev,
-        lenderOrgId: lenderId || paramId || "",
-      }));
-    }
-  }, [lenderId, paramId]);
-
   function formatLoanLabel(text: string) {
     return text
       .replace(/_/g, " ") // SBA_7A → SBA 7A
@@ -582,43 +568,21 @@ export default function LenderProductAssign({ lenderId, onSuccess }: Props) {
   /* ================= UI ================= */
   return (
     <div className="max-w-4xl mx-auto p-6 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-xl shadow border border-slate-200 dark:border-slate-700">
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-2xl font-semibold">Assign Product to Lender</h2>
-
-        <button
-          type="button"
-          disabled
-          className="px-3 py-1 rounded border text-sm opacity-40 cursor-not-allowed"
-        >
-          Mandatory
-        </button>
-        {/* <button
-          type="button"
-          onClick={onClose}
-          className="px-3 py-1 rounded border text-sm"
-        >
-          Close
-        </button> */}
-      </div>
-
-      <div className="mb-4 p-3 rounded-lg bg-yellow-50 text-yellow-800 border border-yellow-200 dark:bg-yellow-500/10 dark:text-yellow-300 dark:border-yellow-500/30">
-        ⚠️ You must assign at least one product before closing this window.
-      </div>
+      <h2 className="text-2xl font-semibold mb-4">Assign Product to Lender</h2>
 
       {message && (
         <div
-          className={`p-3 mb-4 rounded ${
-            message.type === "error"
-              ? "bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-300"
-              : "bg-green-50 text-green-700 dark:bg-emerald-500/10 dark:text-emerald-300"
-          }`}
+          className={`p-3 mb-4 rounded ${message.type === "error"
+            ? "bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-300"
+            : "bg-green-50 text-green-700 dark:bg-emerald-500/10 dark:text-emerald-300"
+            }`}
         >
           {message.text}
         </div>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        {/* <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium">Lender</label>
             <select
@@ -641,7 +605,7 @@ export default function LenderProductAssign({ lenderId, onSuccess }: Props) {
               </p>
             )}
           </div>
-        </div> */}
+        </div>
 
         {/* ================= LOAN TYPES ================= */}
         <div>
@@ -676,9 +640,9 @@ export default function LenderProductAssign({ lenderId, onSuccess }: Props) {
               </label>
             ))}
           </div>
-          {errors.loanTypes && (
+          {errors.loanProductCode && (
             <p className="text-xs text-red-600 dark:text-red-400 mt-1">
-              {errors.loanTypes}
+              {errors.loanProductCode}
             </p>
           )}
 

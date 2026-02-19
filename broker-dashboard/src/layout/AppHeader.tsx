@@ -5,8 +5,10 @@ import { useSidebar } from "../context/SidebarContext";
 import { ThemeToggleButton } from "../components/common/ThemeToggleButton";
 import NotificationDropdown from "../components/header/NotificationDropdown";
 import UserDropdown from "../components/header/UserDropdown";
+import { jwtDecode } from "jwt-decode";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001";
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5173";
+const ADMIN_URI = import.meta.env.VITE_ADMIN_URI || "http://localhost:5173";
 
 function getAuthHeaders(): Record<string, string> {
   try {
@@ -29,6 +31,13 @@ const AppHeader: React.FC = () => {
   const [time, setTime] = useState("");
 
   const { isMobileOpen, toggleSidebar, toggleMobileSidebar } = useSidebar();
+
+  const token = sessionStorage.getItem("broker_token");
+  // OR broker_token in broker app
+
+  const decoded: any = token ? jwtDecode(token) : null;
+
+  const isImpersonation = decoded?.impersonatedBy;
 
   const handleToggle = () => {
     if (window.innerWidth >= 1024) {
@@ -120,6 +129,38 @@ const AppHeader: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
+  const handleExitView = async () => {
+    try {
+      const impersonationToken = sessionStorage.getItem("broker_token");
+
+      const res = await fetch(`${API_BASE}/admin/auth/stop-impersonation`, {
+        method: "POST",
+        headers: {
+          // "Content-Type": "application/json",
+          Authorization: `Bearer ${impersonationToken}`,
+        },
+      });
+
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        throw new Error("Failed to stop impersonation");
+      }
+
+      // Clear broker session
+      sessionStorage.removeItem("broker_token");
+      sessionStorage.removeItem("broker_user");
+
+      // Save new admin token
+      sessionStorage.setItem("admin_token", json.token);
+
+      // Redirect to admin dashboard
+      window.location.href = `${ADMIN_URI}`;
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   return (
     <header className="sticky top-0 flex w-full bg-white border-gray-200 z-99999 dark:border-gray-800 dark:bg-gray-900 lg:border-b">
       <div className="flex flex-col items-center justify-between grow lg:flex-row lg:px-6">
@@ -204,6 +245,15 @@ const AppHeader: React.FC = () => {
               </span>
             </h1>
           </div>
+
+          {isImpersonation && (
+            <button
+              onClick={handleExitView}
+              className="px-4 py-2 text-sm bg-red-500 text-white rounded-md"
+            >
+              Exit View Mode
+            </button>
+          )}
         </div>
         <div
           className={`${

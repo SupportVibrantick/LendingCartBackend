@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useState } from "react";
 import { MdModeEdit, MdDelete } from "react-icons/md";
 import { TiPlus } from "react-icons/ti";
 import EditLenderModal from "./EditLenderModal";
+import { useNavigate } from "react-router-dom";
+
 import {
   RefreshCcw,
   Search,
@@ -14,6 +16,7 @@ import {
   Users,
   UserCheck,
   Activity,
+  PackagePlus,
   // Filter,
 } from "lucide-react";
 import Swal from "sweetalert2";
@@ -23,6 +26,7 @@ Swal.mixin({
   },
 });
 import { Eye, EyeOff } from "lucide-react";
+import LenderProductAssign from "../LoanProducts/LenderAssignProduct";
 
 type Lender = {
   id: any;
@@ -89,7 +93,7 @@ export default function AllLendersPage() {
   const [editingLender, setEditingLender] = useState<Lender | null>(null);
 
   const [query, setQuery] = useState("");
-  const [pageSize, setPageSize] = useState<number>(10);
+  const [pageSize, setPageSize] = useState<number>(6);
   const [currentPage, setCurrentPage] = useState<number>(1);
 
   // Admins modal & editing state
@@ -107,6 +111,13 @@ export default function AllLendersPage() {
   const [brokers, setBrokers] = useState<BrokerOrg[]>([]);
   const [loadingBrokers, setLoadingBrokers] = useState(false);
   const [brokersError, setBrokersError] = useState<string | null>(null);
+
+  const [showAssignPopup, setShowAssignPopup] = useState(false);
+  const [newCreatedLenderId, setNewCreatedLenderId] = useState<string | null>(
+    null,
+  );
+
+  const navigate = useNavigate();
 
   const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001"; // adjust if needed
 
@@ -244,13 +255,16 @@ export default function AllLendersPage() {
     try {
       const token = sessionStorage.getItem("admin_token");
 
-      const res = await fetch(`${API_BASE}/admin/lenders/delete/${lender.id}`, {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      const res = await fetch(
+        `${API_BASE}/admin/lenders/delete/${lender.id}/hard`,
+        {
+          method: "DELETE",
+          headers: {
+            // "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
         },
-      });
+      );
 
       if (!res.ok) throw new Error("Delete failed");
 
@@ -320,8 +334,21 @@ export default function AllLendersPage() {
         return;
       }
 
+      const createdId = json?.data?.organizationId ?? json?.data?.id ?? null;
+
+      if (!createdId) {
+        setFormError("Lender created but ID not returned from server.");
+        return;
+      }
+
+      // close create modal
       setIsAddOpen(false);
-      await fetchLenders();
+
+      // store new lender id
+      setNewCreatedLenderId(createdId);
+
+      // open assign popup
+      setShowAssignPopup(true);
     } catch (err: any) {
       console.error(err);
       setFormError(err.message || "Network error");
@@ -460,7 +487,7 @@ export default function AllLendersPage() {
       const res = await fetch(path, {
         method: "PATCH",
         headers: {
-          "Content-Type": "application/json",
+          // "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
       });
@@ -693,53 +720,67 @@ export default function AllLendersPage() {
               <TiPlus className="mr-2 text-lg" />
               Add Lender
             </button>
+
+            <button
+              onClick={() => navigate("/lender-all-assigned-products")}
+              className="inline-flex items-center whitespace-nowrap px-4 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-500/20 active:scale-95 transition-all"
+            >
+              <PackagePlus className="mr-2 h-5 w-5" />
+              Assign Products
+            </button>
           </div>
         </div>
 
         {/* ================= STATS CARDS ================= */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
           {/* TOTAL LENDERS */}
-          <div className="bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20 p-5 rounded-2xl flex items-center gap-4">
-            <div className="p-3 rounded-xl bg-indigo-100 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400">
-              <Users className="w-6 h-6" />
+          <div
+            className="bg-gradient-to-r from-[#5638F7] to-[#9C28FA]
+             text-white p-5 rounded-2xl 
+             flex items-center gap-4 shadow-lg"
+          >
+            <div className="p-3 rounded-xl bg-white/20">
+              <Users className="w-6 h-6 text-white" />
             </div>
             <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+              <p className="text-xs font-bold uppercase tracking-wider text-white/80">
                 Total Lenders
               </p>
-              <p className="text-2xl font-extrabold text-indigo-700 dark:text-indigo-300">
-                {totalLenders}
-              </p>
+              <p className="text-3xl font-extrabold">{totalLenders}</p>
             </div>
           </div>
 
           {/* Total Volume */}
-          <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 p-5 rounded-2xl flex items-center gap-4">
-            <div className="p-3 rounded-xl bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400">
-              <UserCheck className="w-6 h-6" />
+          <div
+            className="bg-gradient-to-r from-orange-500 to-red-500 
+                text-white p-5 rounded-2xl 
+                flex items-center gap-4 shadow-lg"
+          >
+            <div className="p-3 rounded-xl bg-white/20">
+              <UserCheck className="w-6 h-6 text-white" />
             </div>
             <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-red-600 dark:text-red-400">
+              <p className="text-xs font-bold uppercase tracking-wider text-white/80">
                 Total Volume
               </p>
-              <p className="text-2xl font-extrabold text-red-700 dark:text-red-300">
-                0
-              </p>
+              <p className="text-3xl font-extrabold">0</p>
             </div>
           </div>
 
           {/* STATUS NAME (ACTIVE LENDERS) */}
-          <div className="bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 p-5 rounded-2xl flex items-center gap-4">
-            <div className="p-3 rounded-xl bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400">
-              <Activity className="w-6 h-6" />
+          <div
+            className="bg-gradient-to-r from-emerald-500 to-green-600 
+                text-white p-5 rounded-2xl 
+                flex items-center gap-4 shadow-lg"
+          >
+            <div className="p-3 rounded-xl bg-white/20">
+              <Activity className="w-6 h-6 text-white" />
             </div>
             <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+              <p className="text-xs font-bold uppercase tracking-wider text-white/80">
                 Active Lenders
               </p>
-              <p className="text-2xl font-extrabold text-emerald-700 dark:text-emerald-300">
-                {activeLenders}
-              </p>
+              <p className="text-3xl font-extrabold">{activeLenders}</p>
             </div>
           </div>
         </div>
@@ -1021,7 +1062,8 @@ export default function AllLendersPage() {
                   Create Lender
                 </h2>
                 <button
-                  onClick={() => setIsAddOpen(false)}
+                  disabled={showAssignPopup}
+                  onClick={() => !showAssignPopup && setIsAddOpen(false)}
                   className="text-gray-500 hover:text-gray-800 dark:text-slate-400 dark:hover:text-slate-200"
                 >
                   Close
@@ -1236,14 +1278,14 @@ export default function AllLendersPage() {
 
                 {/* ================= ACTIONS ================= */}
                 <div className="flex justify-end gap-3 pt-3">
-                  <button
+                  {/* <button
                     type="button"
                     onClick={() => setIsAddOpen(false)}
                     className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md
               dark:text-slate-200 dark:hover:bg-slate-800"
                   >
                     Cancel
-                  </button>
+                  </button> */}
                   <button
                     type="submit"
                     disabled={submitting}
@@ -1454,6 +1496,21 @@ export default function AllLendersPage() {
           </div>
         )}
       </div>
+      {showAssignPopup && newCreatedLenderId && (
+        <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-900 p-6 rounded-xl w-full max-w-5xl max-h-[90vh] overflow-y-auto">
+            <LenderProductAssign
+              lenderId={newCreatedLenderId}
+              onClose={() => {}} // disabled
+              onSuccess={async () => {
+                setShowAssignPopup(false);
+                setNewCreatedLenderId(null);
+                await fetchLenders();
+              }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
