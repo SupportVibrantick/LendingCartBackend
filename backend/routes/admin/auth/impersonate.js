@@ -16,7 +16,7 @@ async function impersonateRoute(fastify) {
           required: ["organizationId"],
           properties: {
             organizationId: { type: "string", format: "uuid" },
-            reason: { type: "string" } // optional but recommended
+            reason: { type: "string" },
           },
         },
       },
@@ -40,7 +40,7 @@ async function impersonateRoute(fastify) {
         }
 
         /* ===================================================
-           ✅ 1️⃣ Check PLATFORM_ADMIN
+           ✅ 1️⃣ Check PLATFORM_ADMIN role
         =================================================== */
         const isPlatformAdmin = await prisma.userRole.findFirst({
           where: {
@@ -57,7 +57,7 @@ async function impersonateRoute(fastify) {
         }
 
         /* ===================================================
-           ✅ 2️⃣ Find organization
+           ✅ 2️⃣ Find Organization
         =================================================== */
         const organization = await prisma.organization.findFirst({
           where: {
@@ -74,7 +74,7 @@ async function impersonateRoute(fastify) {
         }
 
         /* ===================================================
-           ✅ 3️⃣ Determine required admin role
+           ✅ 3️⃣ Determine Admin Role Type
         =================================================== */
         let adminRoleName;
 
@@ -85,12 +85,13 @@ async function impersonateRoute(fastify) {
         } else {
           return reply.status(400).send({
             success: false,
-            message: "Impersonation not allowed for this organization type",
+            message:
+              "Impersonation not allowed for this organization type",
           });
         }
 
         /* ===================================================
-           ✅ 4️⃣ Fetch target admin with roles included
+           ✅ 4️⃣ Fetch Target Admin (WITH Organization)
         =================================================== */
         const targetAdmin = await prisma.userAccount.findFirst({
           where: {
@@ -106,20 +107,24 @@ async function impersonateRoute(fastify) {
             roles: {
               include: { role: true },
             },
+            organization: true,
           },
         });
 
         if (!targetAdmin) {
           return reply.status(404).send({
             success: false,
-            message: "No active admin found for this organization",
+            message:
+              "No active admin found for this organization",
           });
         }
 
-        const roleNames = targetAdmin.roles.map(r => r.role.name);
+        const roleNames = targetAdmin.roles.map(
+          (r) => r.role.name
+        );
 
         /* ===================================================
-           🚫 5️⃣ Prevent impersonating PLATFORM_ADMIN
+           🚫 5️⃣ Extra Safety: Prevent impersonating PLATFORM_ADMIN
         =================================================== */
         if (roleNames.includes("PLATFORM_ADMIN")) {
           return reply.status(403).send({
@@ -129,12 +134,12 @@ async function impersonateRoute(fastify) {
         }
 
         /* ===================================================
-           🔐 6️⃣ Generate secure impersonation JWT
+           🔐 6️⃣ Generate Secure Impersonation JWT
         =================================================== */
         const token = jwt.sign(
           {
             userId: targetAdmin.id,
-            organizationId: organization.id,
+            organizationId: targetAdmin.organizationId,
             organizationType: organization.type,
             roles: roleNames,
             impersonatedBy: adminUserId,
@@ -159,15 +164,26 @@ async function impersonateRoute(fastify) {
           ip: request.ip,
         });
 
+        /* ===================================================
+           🚀 8️⃣ Return Token + User Data
+        =================================================== */
         return reply.send({
           success: true,
           token,
+          user: {
+            id: targetAdmin.id,
+            email: targetAdmin.email,
+            name: `${targetAdmin.firstName} ${targetAdmin.lastName}`,
+            organizationId: targetAdmin.organizationId,
+            organizationName: targetAdmin.organization.name,
+            roles: roleNames,
+            organizationType: organization.type,
+          },
           redirectTo:
             organization.type === "BROKER"
               ? "/broker/dashboard"
               : "/lender/dashboard",
         });
-
       } catch (error) {
         adminLogs.error("Impersonation failed", error);
 
