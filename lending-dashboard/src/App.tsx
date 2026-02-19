@@ -37,7 +37,7 @@ import MyBroker from "./pages/Brokers/MyBroker";
 import FindBroker from "./pages/Brokers/FindBroker";
 import BrokerRequest from "./pages/Brokers/BrokerInvites";
 import LoanPipeline from "./pages/LoanPipeline/LoanPipeline";
-
+import ImpersonateLogin from "./pages/ImpersonateLogin";
 
 export default function App() {
   return (
@@ -60,13 +60,29 @@ export default function App() {
             <Route index path="/all-user" element={<AllUsers />} />
 
             {/* <Route index path="/all-brokers-Organization" element={<BrokersPage />} /> */}
-            <Route index path="/all-brokers-lenders" element={<BrokersLenders />} />
+            <Route
+              index
+              path="/all-brokers-lenders"
+              element={<BrokersLenders />}
+            />
             <Route index path="/all-set-rules" element={<AllRuleSets />} />
             <Route index path="/all-rules" element={<AllRules />} />
             {/* <Route index path="/all-lenders-Organization" element={<AllLendersPage/>} /> */}
-            <Route index path="/all-loan-products" element={<AllLoanProducts />} />
-            <Route index path="/lender-assigned-products" element={<LenderProductAssign />} />
-            <Route index path="/assigned-products" element={<AssignedProducts />} />
+            <Route
+              index
+              path="/all-loan-products"
+              element={<AllLoanProducts />}
+            />
+            <Route
+              index
+              path="/lender-assigned-products"
+              element={<LenderProductAssign />}
+            />
+            <Route
+              index
+              path="/assigned-products"
+              element={<AssignedProducts />}
+            />
             <Route index path="/all-super-admins" element={<AllSuperadmin />} />
 
             <Route index path="/all-documents" element={<AllDocuments />} />
@@ -78,7 +94,7 @@ export default function App() {
             <Route index path="/broker-request" element={<BrokerRequest />} />
             <Route index path="/find-broker" element={<FindBroker />} />
 
-            <Route index path="/loan-pipeline" element={<LoanPipeline />} />  
+            <Route index path="/loan-pipeline" element={<LoanPipeline />} />
 
             {/* Others Page */}
             <Route path="/profile" element={<UserProfiles />} />
@@ -105,6 +121,7 @@ export default function App() {
           </Route>
 
           {/* Auth Layout */}
+          <Route path="/impersonate" element={<ImpersonateLogin />} />
           <Route path="/signin" element={<SignIn />} />
           <Route path="/signup" element={<SignUp />} />
 

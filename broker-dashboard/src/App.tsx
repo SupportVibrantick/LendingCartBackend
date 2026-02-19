@@ -45,6 +45,7 @@ import Templates from "./pages/ApplicationBuilder/Templates";
 import AddSection from "./pages/ApplicationBuilder/AddSection";
 import SubmitApplications from "./pages/submitedApplications/SubmitApplication";
 import LoanOfficer from "./pages/UserManagement/LoanOfficer";
+import ImpersonateLogin from "./pages/ImpersonateLogin";
 
 export default function App() {
   return (
@@ -210,6 +211,7 @@ export default function App() {
           </Route>
 
           {/* Auth Layout */}
+          <Route path="/impersonate" element={<ImpersonateLogin />} />
           <Route path="/signin" element={<SignIn />} />
           <Route path="/signup" element={<SignUp />} />
 

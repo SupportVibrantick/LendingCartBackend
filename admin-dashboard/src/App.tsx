@@ -30,6 +30,7 @@ import AllLoanProducts from "./pages/LoanProducts/AllLoanProducts";
 import AllDocuments from "./pages/Documents/AllDocuments";
 import AllSuperadmin from "./pages/SuperAdmin/AllSuperAdmin";
 import LenderProductAssign from "./pages/LoanProducts/LenderAssignProduct";
+import LenderAllAssignProducts from "./pages/LoanProducts/LenderAllAssignProducts";
 import AssignedProducts from "./pages/LoanProducts/AssignedProducts";
 import AllLeads from "./pages/LandingPageLeads/AllLeads";
 import ActiveApplication from "./pages/ActiveApplication/ActiveApp";
@@ -43,6 +44,8 @@ import AddFields from "./pages/TemplateBuilder/AddFields";
 import AddSection from "./pages/TemplateBuilder/AddSection";
 import AddAppSection from "./pages/ApplicationBuilder/AddSection";
 import LoanPipeline from "./pages/LoanPipeline/LoanPipeline";
+import BrokerPortal from "./pages/ViewPortal/BrokerPortal";
+import LenderPortal from "./pages/ViewPortal/LenderPortal";
 
 export default function App() {
   return (
@@ -79,6 +82,7 @@ export default function App() {
             <Route index path="/all-lenders-Organization" element={<AllLendersPage/>} />
             <Route index path="/all-loan-products" element={<AllLoanProducts/>} />
             <Route index path="/lender-assigned-products" element={<LenderProductAssign/>} />
+            <Route index path="/lender-all-assigned-products" element={<LenderAllAssignProducts/>} />
             <Route index path="/assigned-products" element={<AssignedProducts/>} />
             <Route index path="/all-super-admins" element={<AllSuperadmin/>} />
             <Route index path="/loan-pipeline" element={<LoanPipeline/>} />
@@ -88,6 +92,8 @@ export default function App() {
             <Route index path="/admin-logs" element={<AdminLogs/>} />
 
             {/* Others Page */}
+            <Route path="/broker-portal" element={<BrokerPortal />} />
+            <Route path="/lender-portal" element={<LenderPortal />} />
             <Route path="/profile" element={<UserProfiles />} />
             <Route path="/calendar" element={<Calendar />} />
             <Route path="/blank" element={<Blank />} />

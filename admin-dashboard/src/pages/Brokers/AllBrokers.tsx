@@ -4,6 +4,7 @@ import { TiPlus } from "react-icons/ti";
 import EditBrokerModal from "./EditBrokerModal"; // adjust path if needed
 import Swal from "sweetalert2";
 import { Eye, EyeOff } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 Swal.mixin({
   customClass: {
@@ -94,6 +95,8 @@ export default function BrokersPage() {
   const [adminSaving, setAdminSaving] = useState(false);
 
   const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001";
+
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchBrokers();
@@ -595,6 +598,13 @@ export default function BrokersPage() {
             >
               <TiPlus className="mr-2 text-lg" />
               Add Broker
+            </button>
+            <button
+              onClick={() => navigate("/all-brokers-lenders")}
+              className="inline-flex items-center whitespace-nowrap px-4 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-500/20 active:scale-95 transition-all"
+            >
+              <UserCheck className="mr-2 h-5 w-5" />
+              Assigned Lenders
             </button>
           </div>
         </div>

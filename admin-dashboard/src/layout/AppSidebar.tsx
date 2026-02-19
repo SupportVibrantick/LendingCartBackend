@@ -42,14 +42,20 @@ const navItems: NavItem[] = [
     name: "Dashboard",
     path: "/",
   },
-  {
+
+   {
     icon: <GroupsOutlinedIcon />,
     name: "Broker Organizations",
-    subItems: [
-      { name: "Brokers Organization", path: "/all-brokers-Organization" },
-      { name: "Broker Assigned Lenders", path: "/all-brokers-lenders" },
-    ],
+    path: "/all-brokers-Organization",
   },
+  // {
+  //   icon: <GroupsOutlinedIcon />,
+  //   name: "Broker Organizations",
+  //   subItems: [
+  //     { name: "Brokers Organization", path: "/all-brokers-Organization" },
+  //     { name: "Broker Assigned Lenders", path: "/all-brokers-lenders" },
+  //   ],
+  // },
   {
     icon: <FaAppStore />,
     name: "Application Builder",
@@ -88,7 +94,7 @@ const navItems: NavItem[] = [
     name: "Manage Lenders",
     subItems: [
       { name: "Lender's Organization", path: "/all-lenders-Organization" },
-      { name: "Lender Assigned Products", path: "/lender-assigned-products" },
+      // { name: "Lender Assigned Products", path: "/lender-assigned-products" },
       { name: "Assigned Products", path: "/assigned-products" },
     ],
   },
@@ -153,12 +159,12 @@ const othersItems: NavItem[] = [
   {
     icon: <RiExternalLinkLine />,
     name: "Broker Portal",
-    path: "https://broker-lendingcart.vibrantick.org/signin",
+    path: "/broker-portal",
   },
   {
     icon: <RiExternalLinkLine />,
     name: "Lender Portal",
-    path: "https://lender-lendingcart.vibrantick.org/signin",
+    path: "/lender-portal",
   },
   // {
   //   icon: <PieChartIcon />,
