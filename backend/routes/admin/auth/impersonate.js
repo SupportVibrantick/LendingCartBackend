@@ -30,7 +30,7 @@ async function impersonateRoute(fastify) {
         const adminUserId = request.user.userId;
 
         /* ===================================================
-           Prevent nested impersonation
+           🚫 0️⃣ Prevent nested impersonation
         =================================================== */
         if (request.user.impersonatedBy) {
           return reply.status(400).send({
@@ -40,7 +40,7 @@ async function impersonateRoute(fastify) {
         }
 
         /* ===================================================
-            Check PLATFORM_ADMIN role
+           ✅ 1️⃣ Check PLATFORM_ADMIN role
         =================================================== */
         const isPlatformAdmin = await prisma.userRole.findFirst({
           where: {
@@ -57,7 +57,7 @@ async function impersonateRoute(fastify) {
         }
 
         /* ===================================================
-           Find Organization
+           ✅ 2️⃣ Find Organization
         =================================================== */
         const organization = await prisma.organization.findFirst({
           where: {
@@ -74,7 +74,7 @@ async function impersonateRoute(fastify) {
         }
 
         /* ===================================================
-           Determine Admin Role Type
+           ✅ 3️⃣ Determine Admin Role Type
         =================================================== */
         let adminRoleName;
 
@@ -85,12 +85,13 @@ async function impersonateRoute(fastify) {
         } else {
           return reply.status(400).send({
             success: false,
-            message: "Impersonation not allowed for this organization type",
+            message:
+              "Impersonation not allowed for this organization type",
           });
         }
 
         /* ===================================================
-           Fetch Target Admin (WITH Organization)
+           ✅ 4️⃣ Fetch Target Admin (WITH Organization)
         =================================================== */
         const targetAdmin = await prisma.userAccount.findFirst({
           where: {
@@ -113,14 +114,17 @@ async function impersonateRoute(fastify) {
         if (!targetAdmin) {
           return reply.status(404).send({
             success: false,
-            message: "No active admin found for this organization",
+            message:
+              "No active admin found for this organization",
           });
         }
 
-        const roleNames = targetAdmin.roles.map((r) => r.role.name);
+        const roleNames = targetAdmin.roles.map(
+          (r) => r.role.name
+        );
 
         /* ===================================================
-            Extra Safety: Prevent impersonating PLATFORM_ADMIN
+           🚫 5️⃣ Extra Safety: Prevent impersonating PLATFORM_ADMIN
         =================================================== */
         if (roleNames.includes("PLATFORM_ADMIN")) {
           return reply.status(403).send({
@@ -130,22 +134,26 @@ async function impersonateRoute(fastify) {
         }
 
         /* ===================================================
-   Generate Secure Impersonation JWT
-=================================================== */
+           🔐 6️⃣ Generate Secure Impersonation JWT
+        =================================================== */
         const token = jwt.sign(
           {
-            userId: targetAdmin.id,
-            orgId: targetAdmin.organizationId,
+            id: targetAdmin.id,
+            organizationId: targetAdmin.organizationId,
+            orgType: organization.type,
             roles: roleNames,
             impersonatedBy: adminUserId,
           },
           process.env.JWT_SECRET,
           {
-            expiresIn: "24h",
-          },
+            expiresIn: "2h",
+            issuer: "lending-platform",
+            audience: "portal",
+          }
         );
+
         /* ===================================================
-            Audit Logging
+           📝 7️⃣ Audit Logging
         =================================================== */
         adminLogs.info("Impersonation successful", {
           superAdminId: adminUserId,
@@ -157,7 +165,7 @@ async function impersonateRoute(fastify) {
         });
 
         /* ===================================================
-          Return Token + User Data
+           🚀 8️⃣ Return Token + User Data
         =================================================== */
         return reply.send({
           success: true,
@@ -184,7 +192,7 @@ async function impersonateRoute(fastify) {
           message: "Internal server error",
         });
       }
-    },
+    }
   );
 }
 
