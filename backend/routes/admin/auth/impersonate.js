@@ -138,9 +138,9 @@ async function impersonateRoute(fastify) {
         =================================================== */
         const token = jwt.sign(
           {
-            userId: targetAdmin.id,
+            id: targetAdmin.id,
             organizationId: targetAdmin.organizationId,
-            organizationType: organization.type,
+            orgType: organization.type,
             roles: roleNames,
             impersonatedBy: adminUserId,
           },
