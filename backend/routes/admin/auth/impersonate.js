@@ -85,8 +85,7 @@ async function impersonateRoute(fastify) {
         } else {
           return reply.status(400).send({
             success: false,
-            message:
-              "Impersonation not allowed for this organization type",
+            message: "Impersonation not allowed for this organization type",
           });
         }
 
@@ -114,14 +113,11 @@ async function impersonateRoute(fastify) {
         if (!targetAdmin) {
           return reply.status(404).send({
             success: false,
-            message:
-              "No active admin found for this organization",
+            message: "No active admin found for this organization",
           });
         }
 
-        const roleNames = targetAdmin.roles.map(
-          (r) => r.role.name
-        );
+        const roleNames = targetAdmin.roles.map((r) => r.role.name);
 
         /* ===================================================
            🚫 5️⃣ Extra Safety: Prevent impersonating PLATFORM_ADMIN
@@ -134,24 +130,20 @@ async function impersonateRoute(fastify) {
         }
 
         /* ===================================================
-           🔐 6️⃣ Generate Secure Impersonation JWT
-        =================================================== */
+   🔐 6️⃣ Generate Secure Impersonation JWT
+=================================================== */
         const token = jwt.sign(
           {
-            id: targetAdmin.id,
-            organizationId: targetAdmin.organizationId,
-            orgType: organization.type,
+            userId: targetAdmin.id,
+            orgId: targetAdmin.organizationId,
             roles: roleNames,
             impersonatedBy: adminUserId,
           },
           process.env.JWT_SECRET,
           {
-            expiresIn: "2h",
-            issuer: "lending-platform",
-            audience: "portal",
-          }
+            expiresIn: "24h",
+          },
         );
-
         /* ===================================================
            📝 7️⃣ Audit Logging
         =================================================== */
@@ -192,7 +184,7 @@ async function impersonateRoute(fastify) {
           message: "Internal server error",
         });
       }
-    }
+    },
   );
 }
 
