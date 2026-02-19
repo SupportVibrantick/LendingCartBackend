@@ -30,7 +30,7 @@ async function impersonateRoute(fastify) {
         const adminUserId = request.user.userId;
 
         /* ===================================================
-           🚫 0️⃣ Prevent nested impersonation
+           Prevent nested impersonation
         =================================================== */
         if (request.user.impersonatedBy) {
           return reply.status(400).send({
@@ -40,7 +40,7 @@ async function impersonateRoute(fastify) {
         }
 
         /* ===================================================
-           ✅ 1️⃣ Check PLATFORM_ADMIN role
+            Check PLATFORM_ADMIN role
         =================================================== */
         const isPlatformAdmin = await prisma.userRole.findFirst({
           where: {
@@ -57,7 +57,7 @@ async function impersonateRoute(fastify) {
         }
 
         /* ===================================================
-           ✅ 2️⃣ Find Organization
+           Find Organization
         =================================================== */
         const organization = await prisma.organization.findFirst({
           where: {
@@ -74,7 +74,7 @@ async function impersonateRoute(fastify) {
         }
 
         /* ===================================================
-           ✅ 3️⃣ Determine Admin Role Type
+           Determine Admin Role Type
         =================================================== */
         let adminRoleName;
 
@@ -90,7 +90,7 @@ async function impersonateRoute(fastify) {
         }
 
         /* ===================================================
-           ✅ 4️⃣ Fetch Target Admin (WITH Organization)
+           Fetch Target Admin (WITH Organization)
         =================================================== */
         const targetAdmin = await prisma.userAccount.findFirst({
           where: {
@@ -120,7 +120,7 @@ async function impersonateRoute(fastify) {
         const roleNames = targetAdmin.roles.map((r) => r.role.name);
 
         /* ===================================================
-           🚫 5️⃣ Extra Safety: Prevent impersonating PLATFORM_ADMIN
+            Extra Safety: Prevent impersonating PLATFORM_ADMIN
         =================================================== */
         if (roleNames.includes("PLATFORM_ADMIN")) {
           return reply.status(403).send({
@@ -130,7 +130,7 @@ async function impersonateRoute(fastify) {
         }
 
         /* ===================================================
-   🔐 6️⃣ Generate Secure Impersonation JWT
+   Generate Secure Impersonation JWT
 =================================================== */
         const token = jwt.sign(
           {
@@ -145,7 +145,7 @@ async function impersonateRoute(fastify) {
           },
         );
         /* ===================================================
-           📝 7️⃣ Audit Logging
+            Audit Logging
         =================================================== */
         adminLogs.info("Impersonation successful", {
           superAdminId: adminUserId,
@@ -157,7 +157,7 @@ async function impersonateRoute(fastify) {
         });
 
         /* ===================================================
-           🚀 8️⃣ Return Token + User Data
+          Return Token + User Data
         =================================================== */
         return reply.send({
           success: true,

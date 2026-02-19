@@ -49,8 +49,7 @@ async function stopImpersonationRoute(fastify) {
           });
         }
 
-        const roleNames =
-          platformAdmin.roles?.map((r) => r.role.name) ?? [];
+        const roleNames = platformAdmin.roles?.map((r) => r.role.name) ?? [];
 
         const newToken = jwt.sign(
           {
@@ -59,7 +58,7 @@ async function stopImpersonationRoute(fastify) {
             roles: roleNames,
           },
           process.env.JWT_SECRET,
-          { expiresIn: "24h" }
+          { expiresIn: "24h" },
         );
 
         adminLogs.info("Impersonation stopped", {
@@ -73,7 +72,6 @@ async function stopImpersonationRoute(fastify) {
           token: newToken,
           redirectTo: "/admin/dashboard",
         });
-
       } catch (err) {
         adminLogs.error("Stop impersonation failed", err);
 
@@ -82,7 +80,7 @@ async function stopImpersonationRoute(fastify) {
           message: "Internal server error",
         });
       }
-    }
+    },
   );
 }
 
