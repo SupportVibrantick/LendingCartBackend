@@ -17,18 +17,16 @@ async function adminStatsRoutes(fastify) {
 
       try {
         const now = new Date();
-        const last7Days = new Date(now);
+        const last7Days = new Date();
         last7Days.setDate(now.getDate() - 7);
 
-        const last30Days = new Date(now);
+        const last30Days = new Date();
         last30Days.setDate(now.getDate() - 30);
 
         const [
           // ORGANIZATIONS
-          totalBrokers,
-          activeBrokers,
-          totalLenders,
-          activeLenders,
+          totalOrganizations,
+          orgByType,
 
           // USERS
           totalUsers,
@@ -40,46 +38,45 @@ async function adminStatsRoutes(fastify) {
 
           // APPLICATIONS
           totalApplications,
-          draftApplications,
-          submittedApplications,
-          inReviewApplications,
-          approvedApplications,
-          declinedApplications,
-          fundedApplications,
-          withdrawnApplications,
+          applicationStatusCounts,
+          fundedVolume,
 
-          // RECENT ACTIVITY
           applicationsLast7Days,
           applicationsLast30Days,
 
-          // LENDER STATS
+          // LENDER
           totalLenderProducts,
           totalApplicationLenders,
-          approvedByLenders,
-          declinedByLenders,
+          lenderStatusCounts,
+          totalLenderReviews,
+          conditionalApprovals,
 
           // RULE ENGINE
           totalRuleEvaluations,
-          hardFailRules,
-          softFailRules,
+          failedRules,
 
           // DOCUMENTS
           totalDocumentUploads,
 
-          // BROKER-LENDER RELATIONS
+          // RELATIONSHIPS
           activeBrokerLenderLinks,
 
-          // REVIEWS
-          totalLenderReviews,
-          conditionalApprovals,
+          // LEADS
+          totalClmLeads,
+          totalLandingLeads,
+          totalAdminLeads,
+
+          // 🔥 LATEST APPLICATIONS
+          latestApplications,
 
         ] = await Promise.all([
 
           // ORGANIZATIONS
-          prisma.organization.count({ where: { type: "BROKER", isDeleted: false } }),
-          prisma.organization.count({ where: { type: "BROKER", status: "ACTIVE", isDeleted: false } }),
-          prisma.organization.count({ where: { type: "LENDER", isDeleted: false } }),
-          prisma.organization.count({ where: { type: "LENDER", status: "ACTIVE", isDeleted: false } }),
+          prisma.organization.count({ where: { isDeleted: false } }),
+          prisma.organization.groupBy({
+            by: ["type"],
+            _count: true,
+          }),
 
           // USERS
           prisma.userAccount.count({ where: { isDeleted: false } }),
@@ -91,55 +88,73 @@ async function adminStatsRoutes(fastify) {
 
           // APPLICATIONS
           prisma.loanApplication.count(),
-          prisma.loanApplication.count({ where: { status: "DRAFT" } }),
-          prisma.loanApplication.count({ where: { status: "SUBMITTED" } }),
-          prisma.loanApplication.count({ where: { status: "IN_REVIEW" } }),
-          prisma.loanApplication.count({ where: { status: "LENDER_APPROVED" } }),
-          prisma.loanApplication.count({ where: { status: "LENDER_DECLINED" } }),
-          prisma.loanApplication.count({ where: { status: "FUNDED" } }),
-          prisma.loanApplication.count({ where: { status: "WITHDRAWN" } }),
+          prisma.loanApplication.groupBy({
+            by: ["status"],
+            _count: true,
+          }),
 
-          // RECENT ACTIVITY
+          prisma.loanApplication.aggregate({
+            _sum: {
+              amountRequested: true,
+            },
+            where: { status: "FUNDED" },
+          }),
+
           prisma.loanApplication.count({ where: { createdAt: { gte: last7Days } } }),
           prisma.loanApplication.count({ where: { createdAt: { gte: last30Days } } }),
 
-          // LENDER STATS
+          // LENDER
           prisma.lenderProduct.count({ where: { isActive: true } }),
           prisma.applicationLender.count(),
-          prisma.applicationLender.count({ where: { status: "APPROVED" } }),
-          prisma.applicationLender.count({ where: { status: "DECLINED" } }),
+          prisma.applicationLender.groupBy({
+            by: ["status"],
+            _count: true,
+          }),
+          prisma.lenderReview.count(),
+          prisma.lenderReview.count({ where: { reviewStatus: "CONDITIONAL" } }),
 
           // RULE ENGINE
           prisma.applicationRuleEvaluation.count(),
-          prisma.applicationRuleResult.count({
-            where: { passed: false }
-          }),
-          prisma.applicationRuleResult.count({
-            where: { passed: true }
-          }),
+          prisma.applicationRuleResult.count({ where: { passed: false } }),
 
           // DOCUMENTS
           prisma.applicationDocumentUpload.count(),
 
-          // BROKER-LENDER RELATIONS
+          // RELATIONSHIPS
           prisma.brokerLenderAccess.count({ where: { isActive: true } }),
 
-          // REVIEWS
-          prisma.lenderReview.count(),
-          prisma.lenderReview.count({ where: { reviewStatus: "CONDITIONAL" } }),
+          // LEADS
+          prisma.commercialLendingMasteryLead.count(),
+          prisma.clmLandingPageLead.count(),
+          prisma.adminManualLead.count(),
+
+          // 🔥 LATEST APPLICATIONS (Top 10)
+          prisma.loanApplication.findMany({
+            take: 10,
+            orderBy: { createdAt: "desc" },
+            select: {
+              id: true,
+              applicationNumber: true,
+              status: true,
+              loanProductCode: true,
+              amountRequested: true,
+              createdAt: true,
+              brokerOrg: { select: { name: true } },
+              client: { select: { legalName: true } },
+              applicationLenders: { select: { id: true } },
+            },
+          }),
         ]);
 
-        adminLogs.info("Full admin dashboard analytics fetched");
+        adminLogs.info("Improved full admin dashboard analytics fetched");
 
         return reply.status(200).send({
           success: true,
           data: {
 
             organizations: {
-              brokers: totalBrokers,
-              activeBrokers,
-              lenders: totalLenders,
-              activeLenders,
+              total: totalOrganizations,
+              breakdown: orgByType,
             },
 
             users: {
@@ -154,30 +169,23 @@ async function adminStatsRoutes(fastify) {
 
             applications: {
               total: totalApplications,
-              draft: draftApplications,
-              submitted: submittedApplications,
-              inReview: inReviewApplications,
-              approved: approvedApplications,
-              declined: declinedApplications,
-              funded: fundedApplications,
-              withdrawn: withdrawnApplications,
+              breakdown: applicationStatusCounts,
+              fundedVolume: fundedVolume._sum.amountRequested || 0,
               last7Days: applicationsLast7Days,
               last30Days: applicationsLast30Days,
             },
 
             lenders: {
               products: totalLenderProducts,
-              applicationConnections: totalApplicationLenders,
-              approved: approvedByLenders,
-              declined: declinedByLenders,
+              connections: totalApplicationLenders,
+              breakdown: lenderStatusCounts,
               reviews: totalLenderReviews,
               conditionalApprovals,
             },
 
             ruleEngine: {
               totalEvaluations: totalRuleEvaluations,
-              hardFails: hardFailRules,
-              softPasses: softFailRules,
+              failedRules,
             },
 
             documents: {
@@ -187,6 +195,24 @@ async function adminStatsRoutes(fastify) {
             relationships: {
               activeBrokerLenderLinks,
             },
+
+            leads: {
+              commercialMastery: totalClmLeads,
+              landingPage: totalLandingLeads,
+              adminManual: totalAdminLeads,
+            },
+
+            latestApplications: latestApplications.map(app => ({
+              id: app.id,
+              applicationNumber: app.applicationNumber,
+              status: app.status,
+              product: app.loanProductCode,
+              amount: app.amountRequested,
+              brokerName: app.brokerOrg?.name || null,
+              clientName: app.client?.legalName || null,
+              lenderCount: app.applicationLenders.length,
+              createdAt: app.createdAt,
+            })),
           },
         });
 
