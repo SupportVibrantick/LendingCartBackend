@@ -16,7 +16,7 @@ async function createLenderRoutes(fastify) {
     "/",
     {
       schema: {
-        tags: ["Admin -> Lenders"], // <-- Swagger grouping
+        tags: ["Admin -> Lenders"],
         summary: "Create a lender organization with admin user",
         description:
           "Creates a LENDER organization, an associated admin user, and optionally links it to a broker via BrokerLenderAccess.",
@@ -39,10 +39,6 @@ async function createLenderRoutes(fastify) {
             adminLastName: { type: "string" },
             adminEmail: { type: "string", format: "email" },
             adminPassword: { type: "string" },
-
-            // Optional: link this lender to a broker immediately
-            // - can be "any broker" chosen by a platform admin
-            // - or the caller's own brokerOrgId (i.e. "assign to himself")
             brokerOrgId: { type: "string", format: "uuid", nullable: true },
           },
         },
@@ -50,8 +46,11 @@ async function createLenderRoutes(fastify) {
     },
     async (request, reply) => {
       const prisma = fastify.prisma;
+
       try {
-        // Validate with Zod
+        // ---------------------------
+        // VALIDATION
+        // ---------------------------
         const validation = createLenderSchema.safeParse(request.body);
 
         if (!validation.success) {
@@ -59,11 +58,11 @@ async function createLenderRoutes(fastify) {
 
           return reply.status(400).send({
             success: false,
-            message: "Invalid input data for creating lender.",
-            details:
-              process.env.NODE_ENV === "development"
-                ? validation.error.issues
-                : undefined,
+            message: "Invalid input data.",
+            errors: validation.error.issues.map((err) => ({
+              field: err.path[0],
+              message: err.message,
+            })),
           });
         }
 
@@ -78,27 +77,46 @@ async function createLenderRoutes(fastify) {
           brokerOrgId,
         } = validation.data;
 
-        // ---- DUPLICATE CHECKS ----
+        // ---------------------------
+        // DUPLICATE CHECKS
+        // ---------------------------
 
-        // Check duplicate organization (name/email/phone)
-        const existingOrg = await prisma.organization.findFirst({
-          where: {
-            OR: [
-              { name: organizationName },
-              { email: organizationEmail },
-              { phone: organizationPhone },
-            ],
-          },
+        const existingOrgName = await prisma.organization.findFirst({
+          where: { name: organizationName },
         });
 
-        if (existingOrg) {
+        if (existingOrgName) {
           return reply.status(409).send({
             success: false,
-            message: "Organization with provided details already exists.",
+            message: "Organization name already exists.",
+            field: "organizationName",
           });
         }
 
-        // Check duplicate admin user email
+        const existingOrgEmail = await prisma.organization.findFirst({
+          where: { email: organizationEmail },
+        });
+
+        if (existingOrgEmail) {
+          return reply.status(409).send({
+            success: false,
+            message: "Organization email already exists.",
+            field: "organizationEmail",
+          });
+        }
+
+        const existingOrgPhone = await prisma.organization.findFirst({
+          where: { phone: organizationPhone },
+        });
+
+        if (existingOrgPhone) {
+          return reply.status(409).send({
+            success: false,
+            message: "Organization phone number already exists.",
+            field: "organizationPhone",
+          });
+        }
+
         const existingUser = await prisma.userAccount.findFirst({
           where: { email: adminEmail },
         });
@@ -107,11 +125,15 @@ async function createLenderRoutes(fastify) {
           return reply.status(409).send({
             success: false,
             message: "Admin email already in use.",
+            field: "adminEmail",
           });
         }
 
-        // If brokerOrgId is supplied, ensure that broker organization exists and is of type BROKER
+        // ---------------------------
+        // BROKER VALIDATION
+        // ---------------------------
         let brokerOrg = null;
+
         if (brokerOrgId) {
           brokerOrg = await prisma.organization.findFirst({
             where: {
@@ -125,21 +147,25 @@ async function createLenderRoutes(fastify) {
             return reply.status(400).send({
               success: false,
               message:
-                "Invalid brokerOrgId. Broker organization not found or not active.",
+                "Invalid brokerOrgId. Broker organization not found or inactive.",
+              field: "brokerOrgId",
             });
           }
         }
 
-        // ---- HASH PASSWORD ----
+        // ---------------------------
+        // PASSWORD HASH
+        // ---------------------------
         const passwordHash = await bcrypt.hash(adminPassword, 10);
 
         let newLenderOrg;
         let newAdmin;
         let brokerAccessCreated = false;
 
-        // ---- TRANSACTION ----
+        // ---------------------------
+        // TRANSACTION
+        // ---------------------------
         await prisma.$transaction(async (tx) => {
-          // 1) Create LENDER Organization
           newLenderOrg = await tx.organization.create({
             data: {
               name: organizationName,
@@ -150,7 +176,6 @@ async function createLenderRoutes(fastify) {
             },
           });
 
-          // 2) Create Admin User for this LENDER
           newAdmin = await tx.userAccount.create({
             data: {
               organizationId: newLenderOrg.id,
@@ -162,10 +187,10 @@ async function createLenderRoutes(fastify) {
             },
           });
 
-          // 3) Assign LENDER_ADMIN role
           const role = await tx.role.findFirst({
             where: { name: "LENDER_ADMIN" },
           });
+
           if (!role) throw new Error("LENDER_ADMIN role missing");
 
           await tx.userRole.create({
@@ -175,9 +200,7 @@ async function createLenderRoutes(fastify) {
             },
           });
 
-          // 4) Optionally create BrokerLenderAccess if brokerOrgId is provided
           if (brokerOrg) {
-            // Check if access already exists (defensive)
             const existingAccess = await tx.brokerLenderAccess.findFirst({
               where: {
                 brokerOrgId: brokerOrg.id,
@@ -190,8 +213,6 @@ async function createLenderRoutes(fastify) {
                 data: {
                   brokerOrgId: brokerOrg.id,
                   lenderOrgId: newLenderOrg.id,
-                  // Since this is an admin route, we treat it as PLATFORM_DEFAULT.
-                  // If you later add a broker-side route, use BROKER_ADDED there.
                   source: "PLATFORM_DEFAULT",
                   isActive: true,
                 },
@@ -209,27 +230,21 @@ async function createLenderRoutes(fastify) {
           brokerAccessCreated,
         });
 
-        // -----------------------------
-        // 📧 SEND EMAIL (AFTER SUCCESS)
-        // -----------------------------
+        // ---------------------------
+        // EMAIL (UNCHANGED)
+        // ---------------------------
         try {
           const apiBase = process.env.VITE_API_BASE || process.env.APP_URL;
 
           const html = loadTemplate("admin/lender/create", {
             name: adminFirstName,
             currentYear: new Date().getFullYear(),
-
-            // Org details
             organizationName,
             organizationEmail,
             organizationPhone,
-
-            // Admin
             adminFirstName,
             adminLastName,
             adminEmail,
-
-            // Logo + links
             apiBase,
             loginUrl: `${apiBase}/lender/login`,
           });
@@ -237,16 +252,14 @@ async function createLenderRoutes(fastify) {
           const subject = "Your Lender Account Has Been Created";
           const text = `Hello ${adminFirstName}, your lender account is ready.`;
 
-          // Try via Kafka first
           try {
             await sendEmailUsingKafka(adminEmail, subject, text, html);
-
-            adminLogs.info("Lender creation email queued via Kafka", {
+            adminLogs.info("Lender email queued via Kafka", {
               to: adminEmail,
             });
           } catch (kafkaErr) {
             adminLogs.error(
-              "Kafka email queue failed for lender email, falling back to direct SMTP",
+              "Kafka failed, fallback to SMTP",
               kafkaErr
             );
 
@@ -257,14 +270,17 @@ async function createLenderRoutes(fastify) {
               html,
             });
 
-            adminLogs.info("Fallback SMTP lender email sent directly", {
+            adminLogs.info("SMTP fallback email sent", {
               to: adminEmail,
             });
           }
         } catch (mailErr) {
-          adminLogs.error("Lender created but all email attempts failed", mailErr);
+          adminLogs.error("Email sending failed after lender creation", mailErr);
         }
 
+        // ---------------------------
+        //  SUCCESS RESPONSE
+        // ---------------------------
         return reply.status(201).send({
           success: true,
           message: "Lender created successfully.",
@@ -281,7 +297,9 @@ async function createLenderRoutes(fastify) {
           success: false,
           message: "Server error occurred while creating lender.",
           details:
-            process.env.NODE_ENV === "development" ? error.message : undefined,
+            process.env.NODE_ENV === "development"
+              ? error.message
+              : undefined,
         });
       }
     }
