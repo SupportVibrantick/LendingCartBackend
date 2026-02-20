@@ -60,7 +60,7 @@ export default function EcommerceMetrics({ stats }: Props) {
       {metrics.map((item, index) => (
         <div
           key={index}
-          className={`group relative h-[110px] w-full overflow-hidden rounded-2xl transition-all duration-300 hover:-translate-y-1 hover:brightness-110`}
+          className={`group relative h-[90px] w-full overflow-hidden rounded-2xl transition-all duration-300 hover:-translate-y-1 hover:brightness-110`}
         >
           {/* Background Gradient Layer */}
           <div className={`absolute inset-0 bg-gradient-to-br ${themes[item.color]} shadow-lg`} />
@@ -79,7 +79,7 @@ export default function EcommerceMetrics({ stats }: Props) {
               <span className="text-[12px] font-semibold uppercase tracking-widest text-white/80 leading-tight">
                 {item.title}
               </span>
-              <span className="text-[20px] font-black tracking-tight mt-0.5">
+              <span className="text-[24px] font-black tracking-tight mt-0.5">
                 {item.value}
               </span>
             </div>
