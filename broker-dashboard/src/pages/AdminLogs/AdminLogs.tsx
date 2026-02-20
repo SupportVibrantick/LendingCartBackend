@@ -237,7 +237,7 @@ const AdminLogs: React.FC = () => {
                             </div>
                             <div>
                               <div className="text-sm font-semibold text-slate-700 dark:text-slate-200">{log.entityType}</div>
-                              <div className="text-xs text-slate-400 font-mono tracking-tighter">{log.entityId.slice(0, 12)}...</div>
+                              {/* <div className="text-xs text-slate-400 font-mono tracking-tighter">{log.entityId.slice(0, 12)}...</div> */}
                             </div>
                           </div>
                         </td>
