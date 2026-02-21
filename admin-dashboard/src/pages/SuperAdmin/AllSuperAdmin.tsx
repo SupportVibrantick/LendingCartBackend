@@ -1,4 +1,5 @@
 // src/pages/AdminUsers/AllSuperadmin.tsx
+import { ShieldCheck } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { MdModeEdit } from "react-icons/md";
 
@@ -377,8 +378,8 @@ const AllSuperadmin: React.FC = () => {
                     ? "Saving..."
                     : "Creating..."
                   : editingAdminId
-                  ? "Save Changes"
-                  : "Create Admin"}
+                    ? "Save Changes"
+                    : "Create Admin"}
               </button>
 
               {editingAdminId && (
@@ -434,20 +435,44 @@ const AllSuperadmin: React.FC = () => {
               <tbody>
                 {loadingList ? (
                   <tr>
-                    <td
-                      className="py-6 text-center text-gray-500 dark:text-slate-400"
-                      colSpan={6}
-                    >
-                      Loading admins...
+                    <td colSpan={6} className="py-14">
+                      <div className="flex flex-col items-center justify-center text-center space-y-4">
+                        {/* Spinner */}
+                        <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+
+                        {/* Message */}
+                        <p className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                          Loading admin users...
+                        </p>
+                      </div>
                     </td>
                   </tr>
                 ) : admins.length === 0 ? (
                   <tr>
-                    <td
-                      className="py-6 text-center text-gray-500 dark:text-slate-400"
-                      colSpan={6}
-                      >
-                      No admin users found.
+                    <td colSpan={6} className="py-12">
+                      <div className="flex flex-col items-center justify-center text-center">
+                        {/* Icon Circle */}
+                        <div
+                          className="w-14 h-14 flex items-center justify-center
+          rounded-full
+          bg-blue-100 dark:bg-blue-900/30
+          text-blue-600 dark:text-blue-400
+          mb-4"
+                        >
+                          <ShieldCheck size={26} />
+                        </div>
+
+                        {/* Title */}
+                        <h3 className="text-base font-semibold text-slate-800 dark:text-white">
+                          No Admin Users Found
+                        </h3>
+
+                        {/* Subtitle */}
+                        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400 max-w-sm">
+                          There are currently no admin accounts available in the
+                          system.
+                        </p>
+                      </div>
                     </td>
                   </tr>
                 ) : (

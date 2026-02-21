@@ -6,6 +6,7 @@ import {
   Users,
   UserCheck,
   Activity,
+  Search,
   // Filter,
 } from "lucide-react";
 import toast from "react-hot-toast";
@@ -93,8 +94,8 @@ export default function AllLeads() {
 
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  /* ================= FETCH ================= */
 
+  /* ================= FETCH ================= */
   async function fetchLeads() {
     setLoading(true);
 
@@ -420,12 +421,38 @@ export default function AllLeads() {
 
       <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5">
         {loading ? (
-          <div className="py-16 text-center text-sm text-slate-500 dark:text-slate-400">
-            Loading leads...
+          <div className="py-20 flex flex-col items-center justify-center text-center space-y-4">
+            {/* Spinner */}
+            <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+
+            {/* Message */}
+            <p className="text-sm font-medium text-slate-600 dark:text-slate-300">
+              Loading leads...
+            </p>
           </div>
         ) : paginated.length === 0 ? (
-          <div className="py-16 text-center text-sm text-slate-500 dark:text-slate-400">
-            No leads found.
+          <div className="py-20 flex flex-col items-center justify-center text-center">
+            {/* Icon */}
+            <div
+              className="w-14 h-14 flex items-center justify-center
+      rounded-full
+      bg-blue-100 dark:bg-blue-900/30
+      text-blue-600 dark:text-blue-400
+      mb-4"
+            >
+              <Search size={26} />
+            </div>
+
+            {/* Title */}
+            <h3 className="text-base font-semibold text-slate-800 dark:text-white">
+              No Leads Found
+            </h3>
+
+            {/* Subtitle */}
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400 max-w-sm">
+              There are no leads matching your current filters or search
+              criteria.
+            </p>
           </div>
         ) : (
           <div className="overflow-auto">

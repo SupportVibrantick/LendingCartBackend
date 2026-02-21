@@ -117,6 +117,8 @@ export default function AllLendersPage() {
     null,
   );
 
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
   const navigate = useNavigate();
 
   const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001"; // adjust if needed
@@ -145,6 +147,59 @@ export default function AllLendersPage() {
     }
     return { "Content-Type": "application/json" };
   }
+
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {};
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    const usPhoneRegex = /^(?:\+1\s?)?(?:\(?\d{3}\)?[\s.-]?)\d{3}[\s.-]?\d{4}$/;
+
+    const nameRegex = /^[A-Za-z\s'-]+$/;
+
+    const strongPassword =
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/;
+
+    if (!form.organizationName.trim()) {
+      newErrors.organizationName = "Organization name is required.";
+    } else if (form.organizationName.trim().length < 2) {
+      newErrors.organizationName = "Minimum 2 characters required.";
+    }
+
+    if (!emailRegex.test(form.organizationEmail)) {
+      newErrors.organizationEmail = "Enter a valid email address.";
+    }
+
+    if (!usPhoneRegex.test(form.organizationPhone)) {
+      newErrors.organizationPhone =
+        "Enter valid US phone number (e.g., 123-456-7890).";
+    }
+
+    if (!form.adminFirstName.trim()) {
+      newErrors.adminFirstName = "First name is required.";
+    } else if (!nameRegex.test(form.adminFirstName)) {
+      newErrors.adminFirstName = "Only letters allowed.";
+    }
+
+    if (!form.adminLastName.trim()) {
+      newErrors.adminLastName = "Last name is required.";
+    } else if (!nameRegex.test(form.adminLastName)) {
+      newErrors.adminLastName = "Only letters allowed.";
+    }
+
+    if (!emailRegex.test(form.adminEmail)) {
+      newErrors.adminEmail = "Enter a valid email address.";
+    }
+
+    if (!strongPassword.test(form.adminPassword)) {
+      newErrors.adminPassword =
+        "Password must be 8+ chars, include uppercase, lowercase, number & special character.";
+    }
+
+    setErrors(newErrors);
+
+    return Object.keys(newErrors).length === 0;
+  };
 
   // -------- LENDERS LIST --------
   async function fetchLenders() {
@@ -240,7 +295,7 @@ export default function AllLendersPage() {
   const handleDelete = async (lender: Lender) => {
     const result = await Swal.fire({
       title: "Are you sure?",
-      text: `Delete lender "${lender.name}"? This cannot be undone.`,
+      text: `Deleting lender "${lender.name}" will permanently remove the lender along with all associated applications and assigned products. This action cannot be undone.`,
       icon: "warning",
       showCancelButton: true,
       confirmButtonColor: "#dc2626",
@@ -292,27 +347,17 @@ export default function AllLendersPage() {
     e?.preventDefault();
     setFormError(null);
 
-    if (
-      !form.organizationName.trim() ||
-      !form.organizationEmail.trim() ||
-      !form.adminEmail.trim() ||
-      !form.adminPassword.trim()
-    ) {
-      setFormError(
-        "Please fill required fields: organization name, organization email, admin email and password.",
-      );
-      return;
-    }
+    if (!validateForm()) return;
 
     setSubmitting(true);
     try {
       const payload: any = {
-        organizationName: form.organizationName,
-        organizationEmail: form.organizationEmail,
-        organizationPhone: form.organizationPhone,
-        adminFirstName: form.adminFirstName,
-        adminLastName: form.adminLastName,
-        adminEmail: form.adminEmail,
+        organizationName: form.organizationName.trim(),
+        organizationEmail: form.organizationEmail.trim(),
+        organizationPhone: form.organizationPhone.trim(),
+        adminFirstName: form.adminFirstName.trim(),
+        adminLastName: form.adminLastName.trim(),
+        adminEmail: form.adminEmail.trim(),
         adminPassword: form.adminPassword,
       };
 
@@ -439,7 +484,7 @@ export default function AllLendersPage() {
           name: payload.name,
           email: payload.email,
           phone: payload.phone,
-          brokerOrgId: payload.brokerOrgId, // ✅ NEW
+          brokerOrgId: payload.brokerOrgId,
         }),
       });
 
@@ -1087,13 +1132,26 @@ export default function AllLendersPage() {
                       </span>
                       <input
                         value={form.organizationName}
-                        onChange={(e) =>
-                          setForm({ ...form, organizationName: e.target.value })
-                        }
-                        className="w-full px-3 py-2 mt-1 border rounded-md
-                  border-gray-300 bg-white text-gray-900
-                  dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
+                        onChange={(e) => {
+                          setForm({
+                            ...form,
+                            organizationName: e.target.value,
+                          });
+                          setErrors((prev) => ({
+                            ...prev,
+                            organizationName: "",
+                          }));
+                        }}
+                        className={`w-full px-3 py-2 mt-1 border rounded-md
+${errors.organizationName ? "border-red-500" : "border-gray-300"}
+bg-white text-gray-900
+dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100`}
                       />
+                      {errors.organizationName && (
+                        <p className="text-xs text-red-600 mt-1">
+                          {errors.organizationName}
+                        </p>
+                      )}
                     </label>
 
                     <label className="block">
@@ -1102,16 +1160,26 @@ export default function AllLendersPage() {
                       </span>
                       <input
                         value={form.organizationEmail}
-                        onChange={(e) =>
+                        onChange={(e) => {
                           setForm({
                             ...form,
                             organizationEmail: e.target.value,
-                          })
-                        }
-                        className="w-full px-3 py-2 mt-1 border rounded-md
-                  border-gray-300 bg-white text-gray-900
-                  dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
+                          });
+                          setErrors((prev) => ({
+                            ...prev,
+                            organizationEmail: "",
+                          }));
+                        }}
+                        className={`w-full px-3 py-2 mt-1 border rounded-md
+${errors.organizationEmail ? "border-red-500" : "border-gray-300"}
+bg-white text-gray-900
+dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100`}
                       />
+                      {errors.organizationEmail && (
+                        <p className="text-xs text-red-600 mt-1">
+                          {errors.organizationEmail}
+                        </p>
+                      )}
                     </label>
 
                     <label className="block md:col-span-1">
@@ -1120,16 +1188,26 @@ export default function AllLendersPage() {
                       </span>
                       <input
                         value={form.organizationPhone}
-                        onChange={(e) =>
+                        onChange={(e) => {
                           setForm({
                             ...form,
                             organizationPhone: e.target.value,
-                          })
-                        }
-                        className="w-full px-3 py-2 mt-1 border rounded-md
-                  border-gray-300 bg-white text-gray-900
-                  dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
+                          });
+                          setErrors((prev) => ({
+                            ...prev,
+                            organizationPhone: "",
+                          }));
+                        }}
+                        className={`w-full px-3 py-2 mt-1 border rounded-md
+${errors.organizationPhone ? "border-red-500" : "border-gray-300"}
+bg-white text-gray-900
+dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100`}
                       />
+                      {errors.organizationPhone && (
+                        <p className="text-xs text-red-600 mt-1">
+                          {errors.organizationPhone}
+                        </p>
+                      )}
                     </label>
                   </div>
                 </div>
@@ -1151,13 +1229,23 @@ export default function AllLendersPage() {
                       </span>
                       <input
                         value={form.adminFirstName}
-                        onChange={(e) =>
-                          setForm({ ...form, adminFirstName: e.target.value })
-                        }
-                        className="w-full px-3 py-2 mt-1 border rounded-md
-                  border-gray-300 bg-white text-gray-900
-                  dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
+                        onChange={(e) => {
+                          setForm({ ...form, adminFirstName: e.target.value });
+                          setErrors((prev) => ({
+                            ...prev,
+                            adminFirstName: "",
+                          }));
+                        }}
+                        className={`w-full px-3 py-2 mt-1 border rounded-md
+${errors.adminFirstName ? "border-red-500" : "border-gray-300"}
+bg-white text-gray-900
+dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100`}
                       />
+                      {errors.adminFirstName && (
+                        <p className="text-xs text-red-600 mt-1">
+                          {errors.adminFirstName}
+                        </p>
+                      )}
                     </label>
 
                     <label className="block">
@@ -1166,13 +1254,20 @@ export default function AllLendersPage() {
                       </span>
                       <input
                         value={form.adminLastName}
-                        onChange={(e) =>
-                          setForm({ ...form, adminLastName: e.target.value })
-                        }
-                        className="w-full px-3 py-2 mt-1 border rounded-md
-                  border-gray-300 bg-white text-gray-900
-                  dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
+                        onChange={(e) => {
+                          setForm({ ...form, adminLastName: e.target.value });
+                          setErrors((prev) => ({ ...prev, adminLastName: "" }));
+                        }}
+                        className={`w-full px-3 py-2 mt-1 border rounded-md
+${errors.adminLastName ? "border-red-500" : "border-gray-300"}
+bg-white text-gray-900
+dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100`}
                       />
+                      {errors.adminLastName && (
+                        <p className="text-xs text-red-600 mt-1">
+                          {errors.adminLastName}
+                        </p>
+                      )}
                     </label>
 
                     {/* Email + Password parallel */}
@@ -1182,13 +1277,20 @@ export default function AllLendersPage() {
                       </span>
                       <input
                         value={form.adminEmail}
-                        onChange={(e) =>
-                          setForm({ ...form, adminEmail: e.target.value })
-                        }
-                        className="w-full px-3 py-2 mt-1 border rounded-md
-                  border-gray-300 bg-white text-gray-900
-                  dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
+                        onChange={(e) => {
+                          setForm({ ...form, adminEmail: e.target.value });
+                          setErrors((prev) => ({ ...prev, adminEmail: "" }));
+                        }}
+                        className={`w-full px-3 py-2 mt-1 border rounded-md
+${errors.adminEmail ? "border-red-500" : "border-gray-300"}
+bg-white text-gray-900
+dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100`}
                       />
+                      {errors.adminEmail && (
+                        <p className="text-xs text-red-600 mt-1">
+                          {errors.adminEmail}
+                        </p>
+                      )}
                     </label>
 
                     <label className="block">
@@ -1200,20 +1302,23 @@ export default function AllLendersPage() {
                         <input
                           type={showPassword ? "text" : "password"}
                           value={form.adminPassword}
-                          onChange={(e) =>
-                            setForm({ ...form, adminPassword: e.target.value })
-                          }
-                          className="w-full px-3 py-2 mt-1 border rounded-md pr-10
-        border-gray-300 bg-white text-gray-900
-        dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
+                          onChange={(e) => {
+                            setForm({ ...form, adminPassword: e.target.value });
+                            setErrors((prev) => ({
+                              ...prev,
+                              adminPassword: "",
+                            }));
+                          }}
+                          className={`w-full px-3 py-2 mt-1 border rounded-md pr-10
+      ${errors.adminPassword ? "border-red-500" : "border-gray-300"}
+      bg-white text-gray-900
+      dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100`}
                         />
 
                         <button
                           type="button"
                           onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2
-        text-gray-500 hover:text-gray-700
-        dark:text-slate-400 dark:hover:text-slate-200"
+                          className="absolute right-3 top-1/2 -translate-y-1/2"
                         >
                           {showPassword ? (
                             <EyeOff size={18} />
@@ -1222,6 +1327,12 @@ export default function AllLendersPage() {
                           )}
                         </button>
                       </div>
+
+                      {errors.adminPassword && (
+                        <p className="text-xs text-red-600 mt-1">
+                          {errors.adminPassword}
+                        </p>
+                      )}
                     </label>
                   </div>
                 </div>

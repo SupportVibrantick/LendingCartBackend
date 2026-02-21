@@ -1,136 +1,140 @@
 import Chart from "react-apexcharts";
 import { ApexOptions } from "apexcharts";
-import ChartTab from "../common/ChartTab";
+import { Building2 } from "lucide-react";
 
-export default function StatisticsChart() {
+interface Props {
+  stats: any;
+}
+
+export default function StatisticsChart({ stats }: Props) {
+  if (!stats) return null;
+
+  const getOrgCount = (type: string) =>
+    stats.organizations.breakdown.find((o: any) => o.type === type)?._count ||
+    0;
+
+  const brokers = getOrgCount("BROKER");
+  const lenders = getOrgCount("LENDER");
+  const platform = getOrgCount("PLATFORM");
+  const total = brokers + lenders + platform;
+
   const options: ApexOptions = {
-    legend: {
-      show: false, // Hide legend
-      position: "top",
-      horizontalAlign: "left",
-    },
-    colors: ["#465FFF", "#9CB9FF"], // Define line colors
     chart: {
-      fontFamily: "Outfit, sans-serif",
-      height: 310,
-      type: "line", // Set the chart type to 'line'
-      toolbar: {
-        show: false, // Hide chart toolbar
-      },
-    },
-    stroke: {
-      curve: "straight", // Define the line style (straight, smooth, or step)
-      width: [2, 2], // Line width for each dataset
+      type: "bar",
+      toolbar: { show: false },
+      fontFamily: "'Inter', sans-serif",
     },
 
-    fill: {
-      type: "gradient",
-      gradient: {
-        opacityFrom: 0.55,
-        opacityTo: 0,
+    //  Beautiful SaaS Colors
+    colors: [
+      "#6366F1", // Indigo - Brokers
+      "#22C55E", // Emerald - Lenders
+      "#F59E0B", // Amber - Platform
+    ],
+
+    plotOptions: {
+      bar: {
+        borderRadius: 8,
+        columnWidth: "45%",
+        distributed: true, // Important (gives each bar different color)
       },
     },
-    markers: {
-      size: 0, // Size of the marker points
-      strokeColors: "#fff", // Marker border color
-      strokeWidth: 2,
-      hover: {
-        size: 6, // Marker size on hover
-      },
-    },
-    grid: {
-      xaxis: {
-        lines: {
-          show: false, // Hide grid lines on x-axis
-        },
-      },
-      yaxis: {
-        lines: {
-          show: true, // Show grid lines on y-axis
-        },
-      },
-    },
+
     dataLabels: {
-      enabled: false, // Disable data labels
+      enabled: false,
     },
-    tooltip: {
-      enabled: true, // Enable tooltip
-      x: {
-        format: "dd MMM yyyy", // Format for x-axis tooltip
-      },
-    },
+
     xaxis: {
-      type: "category", // Category-based x-axis
-      categories: [
-        "Jan",
-        "Feb",
-        "Mar",
-        "Apr",
-        "May",
-        "Jun",
-        "Jul",
-        "Aug",
-        "Sep",
-        "Oct",
-        "Nov",
-        "Dec",
-      ],
-      axisBorder: {
-        show: false, // Hide x-axis border
-      },
-      axisTicks: {
-        show: false, // Hide x-axis ticks
-      },
-      tooltip: {
-        enabled: false, // Disable tooltip for x-axis points
+      categories: ["Brokers", "Lenders", "Platform"],
+      axisBorder: { show: false },
+      axisTicks: { show: false },
+      labels: {
+        style: {
+          colors: "#64748B",
+          fontSize: "13px",
+          fontWeight: 500,
+        },
       },
     },
+
     yaxis: {
       labels: {
         style: {
-          fontSize: "12px", // Adjust font size for y-axis labels
-          colors: ["#6B7280"], // Color of the labels
+          colors: "#94A3B8",
         },
       },
-      title: {
-        text: "", // Remove y-axis title
-        style: {
-          fontSize: "0px",
-        },
+    },
+
+    grid: {
+      borderColor: "#E2E8F0",
+      strokeDashArray: 4,
+    },
+
+    tooltip: {
+      theme: "light",
+      y: {
+        formatter: (val: number) => `${val} Organizations`,
       },
     },
   };
 
   const series = [
     {
-      name: "Sales",
-      data: [180, 190, 170, 160, 175, 165, 170, 205, 230, 210, 240, 235],
-    },
-    {
-      name: "Revenue",
-      data: [40, 30, 50, 40, 55, 40, 70, 100, 110, 120, 150, 140],
+      name: "Organizations",
+      data: [brokers, lenders, platform],
     },
   ];
+
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white px-5 pb-5 pt-5 dark:border-gray-800 dark:bg-white/[0.03] sm:px-6 sm:pt-6">
-      <div className="flex flex-col gap-5 mb-6 sm:flex-row sm:justify-between">
-        <div className="w-full">
-          <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">
-            Statistics
-          </h3>
-          <p className="mt-1 text-gray-500 text-theme-sm dark:text-gray-400">
-            Target you’ve set for each month
-          </p>
+    <div className="w-full h-full rounded-2xl border border-slate-200 bg-white p-4 shadow-sm flex flex-col dark:border-slate-800 dark:bg-[#0F172A]">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center gap-4">
+          <div
+            className="flex h-12 w-12 items-center justify-center 
+                rounded-xl bg-white text-blue-600 shadow-sm"
+          >
+            <Building2 className="w-6 h-6" />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
+              Organization Distribution
+            </h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              Ecosystem partner breakdown
+            </p>
+          </div>
         </div>
-        <div className="flex items-start w-full gap-3 sm:justify-end">
-          <ChartTab />
+
+        <div className="text-right">
+          <p className="text-xs text-slate-500 uppercase tracking-wide">
+            Total
+          </p>
+          <p className="text-xl font-semibold text-slate-900 dark:text-white">
+            {total}
+          </p>
         </div>
       </div>
 
-      <div className="max-w-full overflow-x-auto custom-scrollbar">
-        <div className="min-w-[1000px] xl:min-w-full">
-          <Chart options={options} series={series} type="area" height={310} />
-        </div>
+      {/* Chart */}
+      <Chart options={options} series={series} type="bar" height={260} />
+
+      {/* Footer Summary */}
+      <div className="mt-8 grid grid-cols-3 gap-6 border-t border-slate-100 pt-6 dark:border-slate-800">
+        {[
+          { label: "Brokers", val: brokers },
+          { label: "Lenders", val: lenders },
+          { label: "Platform", val: platform },
+        ].map((item, i) => (
+          <div key={i} className="text-center">
+            <p className="text-lg font-semibold text-slate-900 dark:text-white">
+              {item.val}
+            </p>
+            <p className="text-xs uppercase tracking-wide text-slate-500">
+              {item.label}
+            </p>
+          </div>
+        ))}
       </div>
     </div>
   );
