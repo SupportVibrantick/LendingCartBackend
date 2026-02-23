@@ -46,6 +46,7 @@ import AddSection from "./pages/ApplicationBuilder/AddSection";
 import SubmitApplications from "./pages/submitedApplications/SubmitApplication";
 import LoanOfficer from "./pages/UserManagement/LoanOfficer";
 import ImpersonateLogin from "./pages/ImpersonateLogin";
+import LoanApplication from "./pages/LoanApplication/LoanApplication";
 
 export default function App() {
   return (
@@ -116,11 +117,7 @@ export default function App() {
               element={<CreateApplication />}
             />
 
-            <Route
-              index
-              path="/application"
-              element={<Application />}
-            />
+            <Route index path="/application" element={<Application />} />
 
             <Route
               index
@@ -134,17 +131,9 @@ export default function App() {
               element={<ActiveApplication />}
             />
 
-            <Route
-              index
-              path="/add-section"
-              element={<AddSection />}
-            />
+            <Route index path="/add-section" element={<AddSection />} />
 
-            <Route
-              index
-              path="/templates"
-              element={<Templates />}
-            />
+            <Route index path="/templates" element={<Templates />} />
 
             <Route
               index
@@ -154,21 +143,15 @@ export default function App() {
 
             <Route
               index
-              path="/find-lenders"
-              element={<FindLenders />}
+              path="/loan-application"
+              element={<LoanApplication />}
             />
 
-            <Route
-              index
-              path="/my-lenders"
-              element={<MyLenders />}
-            />
+            <Route index path="/find-lenders" element={<FindLenders />} />
 
-            <Route
-              index
-              path="/invited-lenders"
-              element={<InvitedLenders />}
-            />
+            <Route index path="/my-lenders" element={<MyLenders />} />
+
+            <Route index path="/invited-lenders" element={<InvitedLenders />} />
 
             <Route index path="/all-super-admins" element={<AllSuperadmin />} />
 
@@ -207,7 +190,6 @@ export default function App() {
               path="/broker-website-dashboard/config-website"
               element={<ConfigWebsite />}
             />
-
           </Route>
 
           {/* Auth Layout */}

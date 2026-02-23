@@ -5,7 +5,6 @@ import {
   DollarSign,
   Link,
   Package,
-  ShieldAlert,
   Activity,
   Loader2,
 } from "lucide-react";
@@ -24,62 +23,95 @@ export default function EcommerceMetrics({ stats }: Props) {
     );
   }
 
-  const ruleFailPercent =
-    stats.ruleEngine.totalEvaluations > 0
-      ? ((stats.ruleEngine.failedRules / stats.ruleEngine.totalEvaluations) * 100).toFixed(1)
-      : 0;
-
-  // Matching your screenshot colors exactly but with professional depth
-  const metrics = [
-    { title: "Organizations", value: stats.organizations.total, icon: <Building2 />, color: "ocean" },
-    { title: "Users", value: stats.users.total, icon: <Users />, color: "sunset" },
-    { title: "Applications", value: stats.applications.total, icon: <FileText />, color: "royal" },
-    { title: "Funded Volume", value: `$${stats.applications.fundedVolume.toLocaleString()}`, icon: <DollarSign />, color: "emeraldGlow" },
-    { title: "7 Day Applications", value: stats.applications.last7Days, icon: <Activity />, color: "violetPink" },
-    { title: "Lender Connections", value: stats.lenders.connections, icon: <Link />, color: "cyanSky" },
-    { title: "Products", value: stats.lenders.products, icon: <Package />, color: "amberFire" },
-    { title: "Active Relationships", value: stats.relationships.activeBrokerLenderLinks, icon: <Link />, color: "tealMint" },
-    { title: "Rule Failure %", value: `${ruleFailPercent}%`, icon: <ShieldAlert />, color: "crimsonHeat" },
-  ];
-
+  // Define professional, high-contrast themes
   const themes: Record<string, string> = {
-    ocean: "from-blue-500 via-blue-600 to-indigo-700 shadow-blue-500/25",
-    sunset: "from-pink-500 via-rose-500 to-orange-500 shadow-rose-500/25",
-    royal: "from-indigo-500 via-purple-600 to-violet-700 shadow-purple-500/25",
-    emeraldGlow: "from-emerald-400 via-green-500 to-teal-600 shadow-emerald-500/25",
-    violetPink: "from-fuchsia-500 via-purple-600 to-indigo-600 shadow-fuchsia-500/25",
-    cyanSky: "from-cyan-400 via-sky-500 to-blue-600 shadow-cyan-500/25",
-    amberFire: "from-amber-400 via-orange-500 to-red-500 shadow-orange-500/25",
-    tealMint: "from-teal-400 via-emerald-500 to-green-600 shadow-teal-500/25",
-    crimsonHeat: "from-red-500 via-rose-600 to-pink-600 shadow-red-500/25",
+    teal: "bg-gradient-to-r from-[#4FCDCC] to-[#18B6B4]",
+    sky: "bg-gradient-to-r from-[#37C9EF] to-[#2C92D5]",
+    blue: "bg-gradient-to-r from-[#2C92D5] to-[#13538A]",
+    navy: "bg-gradient-to-r from-[#13538A] to-[#0F3E68]",
   };
 
+  const metrics = [
+    {
+      title: "Organizations",
+      value: stats.organizations.total,
+      icon: <Building2 />,
+      color: "teal",
+    },
+    {
+      title: "Users",
+      value: stats.users.total,
+      icon: <Users />,
+      color: "sky",
+    },
+    {
+      title: "Applications",
+      value: stats.applications.total,
+      icon: <FileText />,
+      color: "blue",
+    },
+    {
+      title: "Funded Volume",
+      value: `$${stats.applications.fundedVolume.toLocaleString()}`,
+      icon: <DollarSign />,
+      color: "navy",
+    },
+    {
+      title: "7 Day Applications",
+      value: stats.applications.last7Days,
+      icon: <Activity />,
+      color: "sky",
+    },
+    {
+      title: "Lender Connections",
+      value: stats.lenders.connections,
+      icon: <Link />,
+      color: "teal",
+    },
+    {
+      title: "Products",
+      value: stats.lenders.products,
+      icon: <Package />,
+      color: "blue",
+    },
+  ];
   return (
-    // Grid matches your screenshot layout
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 p-1">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 p-2">
       {metrics.map((item, index) => (
         <div
           key={index}
-          className={`group relative h-[90px] w-full overflow-hidden rounded-2xl transition-all duration-300 hover:-translate-y-1 hover:brightness-110`}
+          className={`group relative h-[100px] w-full overflow-hidden rounded-2xl transition-all duration-500 hover:-translate-y-2 shadow-xl hover:shadow-2xl`}
         >
-          {/* Background Gradient Layer */}
-          <div className={`absolute inset-0 bg-gradient-to-br ${themes[item.color]} shadow-lg`} />
-          
-          {/* Subtle Shine/Glass Effect */}
-          <div className="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-white/10 blur-2xl group-hover:bg-white/20 transition-all" />
-          
-          <div className="relative h-full flex items-center px-6 gap-5 text-white">
-            {/* Icon Container */}
-            <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-white/20 backdrop-blur-md border border-white/20 shadow-inner">
-              {Object.assign({}, item.icon, { props: { className: "w-6 h-6 text-white drop-shadow-md" } })}
+          {/* Background Gradient */}
+          <div
+            className={`absolute inset-0 bg-gradient-to-br ${themes[item.color]}`}
+          />
+
+          {/* Abstract Glass shapes for "Beauty" */}
+          <div className="absolute -right-2 -bottom-2 h-16 w-16 rounded-full bg-white/10 blur-xl group-hover:scale-150 transition-transform duration-700" />
+          <div className="absolute left-1/2 top-0 h-full w-12 -skew-x-12 bg-white/5 blur-sm" />
+
+          <div className="relative h-full flex items-center px-5 gap-4 text-white">
+            {/* Glass Icon Container */}
+            <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-white/15 backdrop-blur-lg border border-white/30 shadow-lg group-hover:rotate-6 transition-transform">
+              {/* Clone icon to apply classes properly */}
+              {item.icon && typeof item.icon === "object"
+                ? {
+                    ...item.icon,
+                    props: {
+                      ...item.icon.props,
+                      className: "w-6 h-6 text-white",
+                    },
+                  }
+                : item.icon}
             </div>
 
-            {/* Labels */}  
+            {/* Content */}
             <div className="flex flex-col">
-              <span className="text-[12px] font-semibold uppercase tracking-widest text-white/80 leading-tight">
+              <span className="text-[11px] font-bold uppercase tracking-[0.1em] text-white/70">
                 {item.title}
               </span>
-              <span className="text-[24px] font-black tracking-tight mt-0.5">
+              <span className="text-[26px] font-extrabold tracking-tight">
                 {item.value}
               </span>
             </div>
