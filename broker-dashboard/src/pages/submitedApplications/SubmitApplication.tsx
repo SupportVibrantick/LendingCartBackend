@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { createPortal } from "react-dom";
+import { useNavigate } from "react-router";
 import {
   MapPin,
   Eye,
@@ -115,6 +116,8 @@ export default function LoanApplicationsPage() {
   const [applicationId, setApplicationId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const rowsPerPage = 8;
+
+  const navigate = useNavigate();
 
   const formatFieldKey = (key: string | null | undefined) => {
     if (!key) return "";
@@ -412,23 +415,47 @@ export default function LoanApplicationsPage() {
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="relative group">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
-              <input
-                placeholder="Search by name or company..."
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 pr-4 py-2.5 w-full md:w-80 rounded-xl text-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none"
-              />
-            </div>
+          <div className="flex flex-col md:flex-row md:items-center gap-3">
+            {/* Create Loan Application Button */}
             <button
-              onClick={loadSubmissions}
-              className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-blue-500 transition-all shadow-sm active:scale-95"
+              onClick={() => navigate("/loan-application")}
+              className="px-4 py-2.5 rounded-xl text-sm font-medium 
+               bg-blue-600 text-white 
+               hover:bg-blue-700 
+               shadow-sm transition-all active:scale-95"
             >
-              <Loader2
-                className={`w-5 h-5 text-slate-600 dark:text-slate-400 ${loading ? "animate-spin text-blue-500" : ""}`}
-              />
+              + Create Loan Application
             </button>
+
+            {/* Search + Reload Section */}
+            <div className="flex items-center gap-3 flex-1">
+              <div className="relative group flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+                <input
+                  placeholder="Search by name or company..."
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 pr-4 py-2.5 w-full md:w-80 rounded-xl text-sm 
+                   bg-white dark:bg-slate-900 
+                   border border-slate-200 dark:border-slate-800 
+                   shadow-sm focus:ring-2 focus:ring-blue-500/20 
+                   focus:border-blue-500 transition-all outline-none"
+                />
+              </div>
+
+              <button
+                onClick={loadSubmissions}
+                className="p-2.5 rounded-xl bg-white dark:bg-slate-900 
+                 border border-slate-200 dark:border-slate-800 
+                 hover:border-blue-500 transition-all 
+                 shadow-sm active:scale-95"
+              >
+                <Loader2
+                  className={`w-5 h-5 text-slate-600 dark:text-slate-400 ${
+                    loading ? "animate-spin text-blue-500" : ""
+                  }`}
+                />
+              </button>
+            </div>
           </div>
         </div>
 

@@ -29,11 +29,18 @@ interface Props {
   loading: boolean;
 }
 
+const themes = {
+  tealLight: "bg-gradient-to-r from-[#4FCDCC] to-[#18B6B4]",
+  skyBlue: "bg-gradient-to-r from-[#37C9EF] to-[#2C92D5]",
+  navy: "bg-gradient-to-r from-[#2C92D5] to-[#13538A]",
+  deepNavy: "bg-gradient-to-r from-[#13538A] to-[#0F3E68]",
+};
+
 interface StatCardProps {
   title: string;
   value: string | number;
   icon: ReactNode;
-  colorScheme: "blue" | "purple" | "green" | "orange";
+  colorScheme: keyof typeof themes;
 }
 
 /* ================= STAT CONFIG ================= */
@@ -42,42 +49,42 @@ const STAT_CONFIG = {
   totalApplications: {
     label: "Total Applications",
     icon: <FileText className="w-6 h-6 text-white" />,
-    color: "blue",
+    color: "tealLight",
   },
   totalSubmitted: {
     label: "Total Submitted",
     icon: <Send className="w-6 h-6 text-white" />,
-    color: "purple",
+    color: "skyBlue",
   },
   totalInReview: {
     label: "In Review",
     icon: <Clock className="w-6 h-6 text-white" />,
-    color: "orange",
+    color: "navy",
   },
   totalApproved: {
     label: "Total Approved",
     icon: <CheckCircle className="w-6 h-6 text-white" />,
-    color: "green",
+    color: "tealLight",
   },
   totalDeclined: {
     label: "Total Declined",
     icon: <XCircle className="w-6 h-6 text-white" />,
-    color: "orange",
+    color: "navy",
   },
   totalFunded: {
     label: "Total Funded",
     icon: <BadgeDollarSign className="w-6 h-6 text-white" />,
-    color: "green",
+    color: "deepNavy",
   },
   totalWithdrawn: {
     label: "Total Withdrawn",
     icon: <RotateCcw className="w-6 h-6 text-white" />,
-    color: "purple",
+    color: "skyBlue",
   },
   totalVolumeFunded: {
     label: "Total Funded Volume",
     icon: <DollarSign className="w-6 h-6 text-white" />,
-    color: "blue",
+    color: "deepNavy",
     isCurrency: true,
   },
 } as const;
@@ -85,13 +92,6 @@ const STAT_CONFIG = {
 /* ================= STAT CARD ================= */
 
 const StatCard = ({ title, value, icon, colorScheme }: StatCardProps) => {
-  const themes = {
-    blue: "bg-gradient-to-r from-blue-600 to-blue-700",
-    purple: "bg-gradient-to-r from-indigo-600 to-purple-600",
-    green: "bg-gradient-to-r from-emerald-600 to-green-600",
-    orange: "bg-gradient-to-r from-orange-500 to-red-500",
-  };
-
   return (
     <div
       className={`relative overflow-hidden rounded-2xl px-6 py-5 text-white shadow-xl ${themes[colorScheme]}`}
@@ -104,9 +104,7 @@ const StatCard = ({ title, value, icon, colorScheme }: StatCardProps) => {
         </div>
 
         <div>
-          <p className="text-xs uppercase tracking-wider opacity-80">
-            {title}
-          </p>
+          <p className="text-xs uppercase tracking-wider opacity-80">{title}</p>
           <h3 className="text-3xl font-bold mt-1">{value}</h3>
         </div>
       </div>

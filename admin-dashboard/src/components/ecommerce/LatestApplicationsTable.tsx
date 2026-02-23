@@ -178,30 +178,37 @@ export default function LatestApplicationsTable({ applications }: Props) {
 
       {/* Pagination */}
       {filteredApplications.length > 0 && (
-        <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 dark:border-slate-800">
-          <p className="text-sm text-slate-500">
+        <div
+          className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 px-6 py-4 
+    border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0F172A]"
+        >
+          {/* Summary */}
+          <p className="text-sm text-slate-600 dark:text-slate-400">
             Showing{" "}
-            <span className="font-medium text-slate-700 dark:text-white">
+            <span className="font-semibold text-slate-800 dark:text-white">
               {(currentPage - 1) * rowsPerPage + 1}
             </span>{" "}
             to{" "}
-            <span className="font-medium text-slate-700 dark:text-white">
+            <span className="font-semibold text-slate-800 dark:text-white">
               {Math.min(currentPage * rowsPerPage, filteredApplications.length)}
             </span>{" "}
             of{" "}
-            <span className="font-medium text-slate-700 dark:text-white">
+            <span className="font-semibold text-slate-800 dark:text-white">
               {filteredApplications.length}
             </span>{" "}
             results
           </p>
 
+          {/* Controls */}
           <div className="flex items-center gap-2">
             {/* Previous */}
             <button
               onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
               disabled={currentPage === 1}
-              className="px-3 py-1.5 text-sm rounded-lg border border-slate-200 
-        hover:bg-slate-100 disabled:opacity-50 dark:border-slate-700 dark:hover:bg-slate-800"
+              className="px-3 py-1.5 text-sm rounded-lg border 
+        border-slate-300 text-slate-700 hover:bg-slate-100 
+        disabled:opacity-40 disabled:cursor-not-allowed
+        dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800 transition"
             >
               Prev
             </button>
@@ -213,8 +220,8 @@ export default function LatestApplicationsTable({ applications }: Props) {
                 onClick={() => setCurrentPage(page)}
                 className={`px-3 py-1.5 text-sm rounded-lg transition ${
                   currentPage === page
-                    ? "bg-indigo-600 text-white shadow"
-                    : "border border-slate-200 hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
+                    ? "bg-indigo-600 text-white shadow-md dark:bg-indigo-500"
+                    : "border border-slate-300 text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
                 }`}
               >
                 {page}
@@ -225,8 +232,10 @@ export default function LatestApplicationsTable({ applications }: Props) {
             <button
               onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
               disabled={currentPage === totalPages}
-              className="px-3 py-1.5 text-sm rounded-lg border border-slate-200 
-        hover:bg-slate-100 disabled:opacity-50 dark:border-slate-700 dark:hover:bg-slate-800"
+              className="px-3 py-1.5 text-sm rounded-lg border 
+        border-slate-300 text-slate-700 hover:bg-slate-100 
+        disabled:opacity-40 disabled:cursor-not-allowed
+        dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800 transition"
             >
               Next
             </button>
