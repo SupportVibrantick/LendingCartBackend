@@ -10,16 +10,22 @@ async function brokerApplicationsRoutes(fastify) {
   fastify.register(require("./listApplications"));
   fastify.register(require("./updateApplicationStatus"));
   fastify.register(require("./activeApplication"));
-  fastify.register(require('./updateApplication'));
+  fastify.register(require("./updateApplication"));
+
+  
+  fastify.register(require("./brokerSubmitApplication"));
+
   // ─────────────────────────────────────────────
   // Application → Products (admin-approved only)
   // ─────────────────────────────────────────────
   fastify.register(require("./products/addProduct"));
   fastify.register(require("./products/listProducts"));
   fastify.register(require("./products/removeProduct"));
-fastify.register(require("./sections"), {
+
+  fastify.register(require("./sections"), {
     prefix: "/products/:productId/sections",
   });
+
   // ─────────────────────────────────────────────
   // Application → Product Fields
   // ─────────────────────────────────────────────
@@ -29,7 +35,6 @@ fastify.register(require("./sections"), {
   fastify.register(require("./fields/listFields"));
 
   fastify.register(require("./createFromTemplate"));
-
 }
 
 module.exports = brokerApplicationsRoutes;
