@@ -60,20 +60,14 @@ const AppHeader: React.FC = () => {
         headers: getAuthHeaders(),
       });
 
-      if (!res.ok) {
-        console.error("Failed to load user:", res.status);
-        return;
-      }
-
       const json = await res.json();
 
-      if (json?.success === false) {
-        console.error("Failed to load user:", json.message);
+      if (!res.ok || json.ok !== true) {
+        console.error("Failed to load user");
         return;
       }
 
-      const user = json.data ?? json;
-      setUser(user);
+      setUser(json.data); // IMPORTANT
     } catch (err) {
       console.error("Failed to load user:", err);
     }
@@ -238,7 +232,7 @@ const AppHeader: React.FC = () => {
           </button>
 
           <div className="hidden lg:block">
-            <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
+            <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
               Welcome{" "}
               <span className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
                 {toTitleCase(user?.user?.name)}
@@ -262,7 +256,7 @@ const AppHeader: React.FC = () => {
         >
           <div className="flex items-center gap-2 2xsm:gap-3">
             <div className="flex items-center gap-2">
-              <span className="text-xl font-semibold text-blue-600">
+              <span className="text-sm font-semibold text-blue-600">
                 {time}
               </span>
             </div>
@@ -273,7 +267,7 @@ const AppHeader: React.FC = () => {
             {/* <!-- Notification Menu Area --> */}
           </div>
           {/* <!-- User Area --> */}
-          <UserDropdown />
+          <UserDropdown user={user} />
         </div>
       </div>
     </header>

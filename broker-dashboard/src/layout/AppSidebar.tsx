@@ -164,7 +164,7 @@ const AppSidebar: React.FC = () => {
                   )}
 
                   {(isExpanded || isHovered || isMobileOpen) && (
-                    <span className="menu-item-text">{nav.name}</span>
+                    <span className="menu-item-text text-sm">{nav.name}</span>
                   )}
 
                   {(isExpanded || isHovered || isMobileOpen) && (

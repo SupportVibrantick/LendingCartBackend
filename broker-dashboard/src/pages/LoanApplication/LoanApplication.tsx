@@ -1,11 +1,58 @@
 import { useState, useRef, useEffect } from "react";
+import toast from "react-hot-toast";
 import { IoIosArrowBack } from "react-icons/io";
 import { MdDeleteForever } from "react-icons/md";
+import { useNavigate } from "react-router";
+import SignatureCanvas from "react-signature-canvas";
+
+interface Borrower {
+  name: string;
+  entityName: string;
+  phone: string;
+  email: string;
+  employer: string;
+  dob: string;
+  ssn: string;
+  creditScore: string;
+  address: string;
+  mailingAddress: string;
+}
+
+interface CoBorrower extends Borrower {
+  id: number;
+}
+
+interface FormDataType {
+  borrower: Borrower;
+  coBorrowers: CoBorrower[];
+  loanRequest: {
+    purpose: string;
+    amount: string;
+    interestRate: string;
+    currentMarketValue: string;
+    purchasePrice: string;
+    purchaseDate: string;
+  };
+  loanTermIncome: {
+    loanTerm: string;
+    monthlyRent: string;
+    grossRevenueActual: string;
+    grossRevenueProforma: string;
+    noiActual: string;
+    noiProforma: string;
+    annualTaxes: string;
+    floodZone: string;
+    insurancePremium: string;
+    hoaDues: string;
+  };
+}
 
 /* ================= HELPERS ================= */
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
 const LoanApplication = () => {
+  const signatureRef = useRef<SignatureCanvas | null>(null);
+  const [signature, setSignature] = useState<string | null>(null);
   const [coBorrowers, setCoBorrowers] = useState<number[]>([]);
   const coBorrowerRefs = useRef<Record<number, HTMLDivElement | null>>({});
   const [lastAddedId, setLastAddedId] = useState<number | null>(null);
@@ -17,8 +64,44 @@ const LoanApplication = () => {
   const [dynamicFormData, setDynamicFormData] = useState<Record<string, any>>(
     {},
   );
+  const [applicationId, setApplicationId] = useState<string>("");
+  const [productsMeta, setProductsMeta] = useState<any[]>([]);
+  const [submitting, setSubmitting] = useState(false);
+
+  const navigate = useNavigate();
 
   const baseSteps = ["Borrower Info", "Loan Request", "Loan Term & Income"];
+
+  /* ================= SIGNATURE ACTIONS ================= */
+
+  const saveSignature = () => {
+    if (!signatureRef.current || signatureRef.current.isEmpty()) return;
+
+    const base64 = signatureRef.current
+      .getTrimmedCanvas()
+      .toDataURL("image/png");
+
+    setSignature(base64);
+  };
+
+  const handleClearSignature = () => {
+    signatureRef.current?.clear();
+    setSignature(null);
+  };
+
+  const handleUndoSignature = () => {
+    const data = signatureRef.current?.toData();
+    if (!data || data.length === 0) return;
+
+    data.pop();
+    signatureRef.current?.fromData(data);
+
+    if (data.length === 0) {
+      setSignature(null);
+    } else {
+      saveSignature();
+    }
+  };
 
   const toTitleCase = (text: string) => {
     return text
@@ -31,10 +114,11 @@ const LoanApplication = () => {
   const allSteps = [
     ...baseSteps,
     ...dynamicSections.map((section) => toTitleCase(section.sectionName)),
+    ...(selectedProduct ? ["Signature"] : []),
   ];
 
   const [currentStep, setCurrentStep] = useState(0);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormDataType>({
     borrower: {
       name: "",
       entityName: "",
@@ -76,12 +160,37 @@ const LoanApplication = () => {
   const handleAddCoBorrower = () => {
     const newId = Date.now();
 
+    setFormData((prev) => ({
+      ...prev,
+      coBorrowers: [
+        ...prev.coBorrowers,
+        {
+          id: newId,
+          name: "",
+          entityName: "",
+          phone: "",
+          email: "",
+          employer: "",
+          dob: "",
+          ssn: "",
+          creditScore: "",
+          address: "",
+          mailingAddress: "",
+        },
+      ],
+    }));
+
     setCoBorrowers((prev) => [...prev, newId]);
     setLastAddedId(newId);
   };
 
   const handleRemoveCoBorrower = (id: number) => {
     setCoBorrowers((prev) => prev.filter((item) => item !== id));
+
+    setFormData((prev) => ({
+      ...prev,
+      coBorrowers: prev.coBorrowers.filter((b) => b.id !== id),
+    }));
   };
 
   const updateLoanRequest = (field: string, value: string) => {
@@ -107,12 +216,143 @@ const LoanApplication = () => {
   const Stat = ({ label, value }: { label: string; value: string }) => (
     <div>
       <p className="text-xs text-slate-500 uppercase">{label}</p>
-      <p className="text-md font-semibold text-blue-600">{value}</p>
+      <p className="text-[14px] font-semibold text-blue-600">{value}</p>
     </div>
   );
 
   const handleStepClick = (index: number) => {
     goToStep(index);
+  };
+
+  const activeProduct = productsMeta.find(
+    (p: any) => p.loanProductCode === selectedProduct,
+  );
+
+  const handleSubmitApplication = async () => {
+    try {
+      if (!activeProduct) {
+        toast.error("Please select a loan product");
+        return;
+      }
+
+      if (!signature) {
+        toast.error("Please provide your signature");
+        return;
+      }
+      setSubmitting(true);
+
+      const fields: any[] = [];
+
+      /* ================= STATIC BORROWER ================= */
+
+      Object.entries(formData.borrower).forEach(([fieldKey, value]) => {
+        if (value !== "" && value !== undefined && value !== null) {
+          fields.push({
+            fieldKey,
+            value,
+          });
+        }
+      });
+
+      /* ================= CO BORROWERS ================= */
+
+      formData.coBorrowers.forEach((borrower, index) => {
+        Object.entries(borrower).forEach(([fieldKey, value]) => {
+          if (fieldKey === "id") return;
+          if (!value) return;
+
+          fields.push({
+            fieldKey: `coBorrower_${index + 1}_${fieldKey}`,
+            value,
+          });
+        });
+      });
+
+      /* ================= LOAN REQUEST ================= */
+
+      Object.entries(formData.loanRequest).forEach(([fieldKey, value]) => {
+        if (value !== "" && value !== undefined && value !== null) {
+          fields.push({
+            fieldKey,
+            value,
+          });
+        }
+      });
+
+      /* ================= LOAN TERM & INCOME ================= */
+
+      Object.entries(formData.loanTermIncome).forEach(([fieldKey, value]) => {
+        if (value !== "" && value !== undefined && value !== null) {
+          fields.push({
+            fieldKey,
+            value,
+          });
+        }
+      });
+
+      /* ================= DYNAMIC FIELDS (SAME AS GETLOANPAGE) ================= */
+
+      const allDynamicFields = [
+        ...(activeProduct?.unsectionedFields || []),
+        ...(activeProduct?.sections || []).flatMap(
+          (section: any) => section.fields || [],
+        ),
+      ];
+
+      Object.entries(dynamicFormData).forEach(([fieldId, value]) => {
+        if (value === "" || value === undefined) return;
+        if (value instanceof File) return; // skip files for JSON submit
+
+        const fieldMeta = allDynamicFields.find(
+          (f: any) => f.fieldId === fieldId,
+        );
+
+        fields.push({
+          fieldId, // (makes it dynamic)
+          fieldKey: fieldMeta?.fieldKey || fieldMeta?.label || fieldId,
+          value,
+        });
+      });
+
+      /* ================= SIGNATURE ================= */
+
+      fields.push({
+        fieldKey: "signature",
+        value: signature,
+      });
+
+      /* ================= FINAL PAYLOAD ================= */
+
+      const payload = {
+        applicationId,
+        applicationProductId: activeProduct.productId,
+        fields,
+      };
+
+      console.log("Submitting Payload:", payload);
+      const token = sessionStorage.getItem("broker_token");
+      const response = await fetch(`${API_BASE}/broker/applications/submit`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || result.success !== true) {
+        throw new Error(result.message || "Submission failed");
+      }
+
+      toast.success("Application Submitted Successfully 🎉");
+      navigate("/submit-applications");
+    } catch (error: any) {
+      toast.error(error.message || "Something went wrong");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   useEffect(() => {
@@ -128,6 +368,8 @@ const LoanApplication = () => {
 
         const products = result?.data?.products || [];
 
+        setProductsMeta(products);
+        setApplicationId(result?.data?.applicationId || "");
         const productCodes = products.map(
           (product: any) => product.loanProductCode,
         );
@@ -163,7 +405,6 @@ const LoanApplication = () => {
         (a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0),
       );
 
-      console.log(sortedSections);
       setDynamicSections(sortedSections);
     } catch (error) {
       console.error("Error fetching sections:", error);
@@ -182,16 +423,6 @@ const LoanApplication = () => {
       });
     }
   }, [lastAddedId]);
-
-  useEffect(() => {
-    if (
-      selectedProduct &&
-      //   formData.loanTermIncome.loanTerm &&
-      dynamicSections.length === 0
-    ) {
-      fetchSectionsByProduct(selectedProduct);
-    }
-  }, [selectedProduct, formData.loanTermIncome.loanTerm]);
 
   const toNumber = (value: string) => {
     const cleaned = value.replace(/,/g, "");
@@ -246,16 +477,16 @@ const LoanApplication = () => {
   const dscr =
     annualDebtService > 0 ? (noiActual / annualDebtService).toFixed(2) : "0.00";
 
-  const handleDynamicFieldChange = (fieldKey: string, value: any) => {
+  const handleDynamicFieldChange = (fieldId: string, value: any) => {
     setDynamicFormData((prev) => ({
       ...prev,
-      [fieldKey]: value,
+      [fieldId]: value,
     }));
   };
 
   const renderField = (field: any) => {
     const commonClasses =
-      "w-full px-4 py-1 rounded-md border border-slate-300 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition";
+      "w-full px-4 text-sm py-1 rounded-md border border-slate-300 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition";
 
     switch (field.type) {
       case "TEXT":
@@ -264,9 +495,9 @@ const LoanApplication = () => {
             type="text"
             placeholder={field.placeholder || ""}
             required={field.required}
-            value={dynamicFormData[field.fieldKey] || ""}
+            value={dynamicFormData[field.fieldId] || ""}
             onChange={(e) =>
-              handleDynamicFieldChange(field.fieldKey, e.target.value)
+              handleDynamicFieldChange(field.fieldId, e.target.value)
             }
             className={commonClasses}
           />
@@ -278,9 +509,9 @@ const LoanApplication = () => {
             type="email"
             placeholder={field.placeholder || ""}
             required={field.required}
-            value={dynamicFormData[field.fieldKey] || ""}
+            value={dynamicFormData[field.fieldId] || ""}
             onChange={(e) =>
-              handleDynamicFieldChange(field.fieldKey, e.target.value)
+              handleDynamicFieldChange(field.fieldId, e.target.value)
             }
             className={commonClasses}
           />
@@ -292,9 +523,9 @@ const LoanApplication = () => {
             type="number"
             placeholder={field.placeholder || ""}
             required={field.required}
-            value={dynamicFormData[field.fieldKey] || ""}
+            value={dynamicFormData[field.fieldId] || ""}
             onChange={(e) =>
-              handleDynamicFieldChange(field.fieldKey, e.target.value)
+              handleDynamicFieldChange(field.fieldId, e.target.value)
             }
             className={commonClasses}
           />
@@ -305,9 +536,9 @@ const LoanApplication = () => {
           <input
             type="date"
             required={field.required}
-            value={dynamicFormData[field.fieldKey] || ""}
+            value={dynamicFormData[field.fieldId] || ""}
             onChange={(e) =>
-              handleDynamicFieldChange(field.fieldKey, e.target.value)
+              handleDynamicFieldChange(field.fieldId, e.target.value)
             }
             className={commonClasses}
           />
@@ -317,9 +548,9 @@ const LoanApplication = () => {
         return (
           <select
             required={field.required}
-            value={dynamicFormData[field.fieldKey] || ""}
+            value={dynamicFormData[field.fieldId] || ""}
             onChange={(e) =>
-              handleDynamicFieldChange(field.fieldKey, e.target.value)
+              handleDynamicFieldChange(field.fieldId, e.target.value)
             }
             className={commonClasses}
           >
@@ -341,8 +572,8 @@ const LoanApplication = () => {
                   type="radio"
                   name={field.fieldKey}
                   value={opt}
-                  checked={dynamicFormData[field.fieldKey] === opt}
-                  onChange={() => handleDynamicFieldChange(field.fieldKey, opt)}
+                  checked={dynamicFormData[field.fieldId] === opt}
+                  onChange={() => handleDynamicFieldChange(field.fieldId, opt)}
                 />
                 {opt}
               </label>
@@ -359,18 +590,18 @@ const LoanApplication = () => {
                   type="checkbox"
                   value={opt}
                   checked={
-                    dynamicFormData[field.fieldKey]?.includes(opt) || false
+                    dynamicFormData[field.fieldId]?.includes(opt) || false
                   }
                   onChange={(e) => {
-                    const prevValues = dynamicFormData[field.fieldKey] || [];
+                    const prevValues = dynamicFormData[field.fieldId] || [];
                     if (e.target.checked) {
-                      handleDynamicFieldChange(field.fieldKey, [
+                      handleDynamicFieldChange(field.fieldId, [
                         ...prevValues,
                         opt,
                       ]);
                     } else {
                       handleDynamicFieldChange(
-                        field.fieldKey,
+                        field.fieldId,
                         prevValues.filter((v: string) => v !== opt),
                       );
                     }
@@ -398,14 +629,31 @@ const LoanApplication = () => {
   };
 
   useEffect(() => {
-    if (
-      selectedProduct &&
-      formData.loanTermIncome.loanTerm &&
-      dynamicSections.length === 0
-    ) {
+    if (selectedProduct) {
       fetchSectionsByProduct(selectedProduct);
     }
-  }, [selectedProduct, formData.loanTermIncome.loanTerm]);
+  }, [selectedProduct]);
+
+  const updateBorrower = (field: string, value: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      borrower: {
+        ...prev.borrower,
+        [field]: value,
+      },
+    }));
+  };
+
+  const updateCoBorrower = (index: number, field: string, value: string) => {
+    setFormData((prev) => {
+      const updated = [...prev.coBorrowers];
+      updated[index] = {
+        ...updated[index],
+        [field]: value,
+      };
+      return { ...prev, coBorrowers: updated };
+    });
+  };
 
   return (
     <>
@@ -418,44 +666,47 @@ const LoanApplication = () => {
           </p>
         </div>
 
-        {/* STEPPER */}
-        <div className="flex flex-wrap gap-2 mb-6">
-          {allSteps.map((step, index) => (
-            <button
-              key={step}
-              type="button"
-              onClick={() => handleStepClick(index)}
-              className={`px-4 py-2 text-xs rounded-full font-medium transition
-      ${
-        index === currentStep
-          ? "bg-blue-600 text-white shadow"
-          : index < currentStep
-            ? "bg-green-500 text-white hover:bg-green-600"
-            : "bg-slate-200 text-slate-500 hover:bg-slate-300"
-      }`}
-            >
-              {step}
-            </button>
-          ))}
-        </div>
+        {/* ===== FIXED HEADER SECTION ===== */}
+        <div className="w-full sticky top-[70px] z-30 bg-slate-50 pb-4">
+          {/* STEPPER */}
+          <div className="flex flex-wrap gap-2 mb-4 pt-4">
+            {allSteps.map((step, index) => (
+              <button
+                key={step}
+                type="button"
+                onClick={() => handleStepClick(index)}
+                className={`px-4 py-2 text-xs rounded-full font-medium transition
+        ${
+          index === currentStep
+            ? "bg-blue-600 text-white shadow"
+            : index < currentStep
+              ? "bg-green-500 text-white hover:bg-green-600"
+              : "bg-slate-200 text-slate-500 hover:bg-slate-300"
+        }`}
+              >
+                {step}
+              </button>
+            ))}
+          </div>
 
-        {/* STATS BOX */}
-        <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6 mb-6">
-          <div className="grid grid-cols-2 md:grid-cols-6 gap-6 text-center">
-            <Stat
-              label="Loan Amount"
-              value={`$${loanAmount.toLocaleString()}`}
-            />
-            <Stat label="LTV %" value={ltv !== "—" ? `${ltv}%` : "—%"} />
-            <Stat label="LTC %" value={ltc !== "—" ? `${ltc}%` : "—%"} />
-            <Stat label="ARV %" value={arv !== "—" ? `${arv}%` : "—%"} />
-            <Stat label="DSCR" value={dscr !== "—" ? dscr : "—"} />
-            <Stat label="Net Worth" value="$0" />
+          {/* STATS BOX */}
+          <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6 shadow-sm">
+            <div className="grid grid-cols-2 md:grid-cols-6 gap-6 text-center">
+              <Stat
+                label="Loan Amount"
+                value={`$${loanAmount.toLocaleString()}`}
+              />
+              <Stat label="LTV %" value={ltv !== "—" ? `${ltv}%` : "—%"} />
+              <Stat label="LTC %" value={ltc !== "—" ? `${ltc}%` : "—%"} />
+              <Stat label="ARV %" value={arv !== "—" ? `${arv}%` : "—%"} />
+              <Stat label="DSCR" value={dscr !== "—" ? dscr : "—"} />
+              <Stat label="Net Worth" value="$0" />
+            </div>
           </div>
         </div>
 
         {/* Body */}
-        <div className="max-w-6xl mx-auto">
+        <div className="w-full mx-auto">
           {/* ---------------- BORROWER INFORMATION ---------------- */}
           {/* step-0   */}
           {currentStep === 0 && (
@@ -497,9 +748,11 @@ const LoanApplication = () => {
                     <input
                       type="text"
                       required
+                      value={formData.borrower.name}
+                      onChange={(e) => updateBorrower("name", e.target.value)}
                       className="mt-1 w-full px-4 py-1 rounded-md border border-slate-300 
                      focus:ring-2 focus:ring-blue-500/20 
-                     focus:border-blue-500 outline-none"
+                     focus:border-blue-500 outline-none text-sm"
                     />
                   </div>
 
@@ -509,9 +762,13 @@ const LoanApplication = () => {
                     </label>
                     <input
                       type="text"
+                      value={formData.borrower.entityName}
+                      onChange={(e) =>
+                        updateBorrower("entityName", e.target.value)
+                      }
                       className="mt-1 w-full px-4 py-1 rounded-md border border-slate-300 
                      focus:ring-2 focus:ring-blue-500/20 
-                     focus:border-blue-500 outline-none"
+                     focus:border-blue-500 outline-none text-sm"
                     />
                   </div>
 
@@ -522,9 +779,11 @@ const LoanApplication = () => {
                     <input
                       type="tel"
                       required
+                      value={formData.borrower.phone}
+                      onChange={(e) => updateBorrower("phone", e.target.value)}
                       className="mt-1 w-full px-4 py-1 rounded-md border border-slate-300 
                      focus:ring-2 focus:ring-blue-500/20 
-                     focus:border-blue-500 outline-none"
+                     focus:border-blue-500 outline-none text-sm"
                     />
                   </div>
 
@@ -535,6 +794,8 @@ const LoanApplication = () => {
                     <input
                       type="email"
                       required
+                      value={formData.borrower.email}
+                      onChange={(e) => updateBorrower("email", e.target.value)}
                       className="mt-1 w-full px-4 py-1 rounded-md border border-slate-300 
                      focus:ring-2 focus:ring-blue-500/20 
                      focus:border-blue-500 outline-none"
@@ -548,9 +809,13 @@ const LoanApplication = () => {
                     </label>
                     <input
                       type="text"
+                      value={formData.borrower.employer}
+                      onChange={(e) =>
+                        updateBorrower("employer", e.target.value)
+                      }
                       className="mt-1 w-full px-4 py-1 rounded-md border border-slate-300 
                      focus:ring-2 focus:ring-blue-500/20 
-                     focus:border-blue-500 outline-none"
+                     focus:border-blue-500 outline-none text-sm"
                     />
                   </div>
 
@@ -561,9 +826,11 @@ const LoanApplication = () => {
                     <input
                       type="date"
                       required
+                      value={formData.borrower.dob}
+                      onChange={(e) => updateBorrower("dob", e.target.value)}
                       className="mt-1 w-full px-4 py-1 rounded-md border border-slate-300 
                      focus:ring-2 focus:ring-blue-500/20 
-                     focus:border-blue-500 outline-none"
+                     focus:border-blue-500 outline-none text-sm"
                     />
                   </div>
 
@@ -574,9 +841,11 @@ const LoanApplication = () => {
                     <input
                       type="text"
                       required
+                      value={formData.borrower.ssn}
+                      onChange={(e) => updateBorrower("ssn", e.target.value)}
                       className="mt-1 w-full px-4 py-1 rounded-md border border-slate-300 
                      focus:ring-2 focus:ring-blue-500/20 
-                     focus:border-blue-500 outline-none"
+                     focus:border-blue-500 outline-none text-sm"
                     />
                   </div>
 
@@ -586,9 +855,13 @@ const LoanApplication = () => {
                     </label>
                     <input
                       type="number"
+                      value={formData.borrower.creditScore}
+                      onChange={(e) =>
+                        updateBorrower("creditScore", e.target.value)
+                      }
                       className="mt-1 w-full px-4 py-1 rounded-md border border-slate-300 
                      focus:ring-2 focus:ring-blue-500/20 
-                     focus:border-blue-500 outline-none"
+                     focus:border-blue-500 outline-none text-sm"
                     />
                   </div>
 
@@ -599,9 +872,13 @@ const LoanApplication = () => {
                     <input
                       type="text"
                       required
+                      value={formData.borrower.address}
+                      onChange={(e) =>
+                        updateBorrower("address", e.target.value)
+                      }
                       className="mt-1 w-full px-4 py-1 rounded-md border border-slate-300 
                      focus:ring-2 focus:ring-blue-500/20 
-                     focus:border-blue-500 outline-none"
+                     focus:border-blue-500 outline-none text-sm"
                     />
                   </div>
 
@@ -611,9 +888,13 @@ const LoanApplication = () => {
                     </label>
                     <input
                       type="text"
+                      value={formData.borrower.mailingAddress}
+                      onChange={(e) =>
+                        updateBorrower("mailingAddress", e.target.value)
+                      }
                       className="mt-1 w-full px-4 py-1 rounded-md border border-slate-300 
                      focus:ring-2 focus:ring-blue-500/20 
-                     focus:border-blue-500 outline-none"
+                     focus:border-blue-500 outline-none text-sm"
                     />
                   </div>
                 </div>
@@ -654,7 +935,11 @@ const LoanApplication = () => {
                       </label>
                       <input
                         required
-                        className="mt-1 w-full px-4 py-1 rounded-md border border-slate-300"
+                        value={formData.coBorrowers[index]?.name}
+                        onChange={(e) =>
+                          updateCoBorrower(index, "name", e.target.value)
+                        }
+                        className="mt-1 w-full px-4 py-1 rounded-md border border-slate-300 text-sm"
                       />
                     </div>
 
@@ -662,7 +947,13 @@ const LoanApplication = () => {
                       <label className="text-sm font-medium">
                         Entity Name <span className="text-red-500">*</span>
                       </label>
-                      <input className="mt-1 w-full px-4 py-1 rounded-md border border-slate-300" />
+                      <input
+                        value={formData.coBorrowers[index]?.entityName}
+                        onChange={(e) =>
+                          updateCoBorrower(index, "entityName", e.target.value)
+                        }
+                        className="mt-1 w-full px-4 py-1 rounded-md border border-slate-300 text-sm"
+                      />
                     </div>
 
                     <div>
@@ -671,7 +962,11 @@ const LoanApplication = () => {
                       </label>
                       <input
                         required
-                        className="mt-1 w-full px-4 py-1 rounded-md border border-slate-300"
+                        value={formData.coBorrowers[index]?.phone}
+                        onChange={(e) =>
+                          updateCoBorrower(index, "phone", e.target.value)
+                        }
+                        className="mt-1 w-full px-4 py-1 rounded-md border border-slate-300 text-sm"
                       />
                     </div>
 
@@ -682,7 +977,11 @@ const LoanApplication = () => {
                       <input
                         type="email"
                         required
-                        className="mt-1 w-full px-4 py-1 rounded-md border border-slate-300"
+                        value={formData.coBorrowers[index]?.email}
+                        onChange={(e) =>
+                          updateCoBorrower(index, "email", e.target.value)
+                        }
+                        className="mt-1 w-full px-4 py-1 rounded-md border border-slate-300 text-sm"
                       />
                     </div>
 
@@ -691,7 +990,13 @@ const LoanApplication = () => {
                         Employer / Self-Employed{" "}
                         <span className="text-red-500">*</span>
                       </label>
-                      <input className="mt-1 w-full px-4 py-1 rounded-md border border-slate-300" />
+                      <input
+                        value={formData.coBorrowers[index]?.employer}
+                        onChange={(e) =>
+                          updateCoBorrower(index, "employer", e.target.value)
+                        }
+                        className="mt-1 w-full px-4 py-1 rounded-md border border-slate-300 text-sm"
+                      />
                     </div>
 
                     <div>
@@ -700,8 +1005,12 @@ const LoanApplication = () => {
                       </label>
                       <input
                         required
+                        value={formData.coBorrowers[index]?.dob}
+                        onChange={(e) =>
+                          updateCoBorrower(index, "dob", e.target.value)
+                        }
                         placeholder="dd-mm-yyyy"
-                        className="mt-1 w-full px-4 py-1 rounded-md border border-slate-300"
+                        className="mt-1 w-full px-4 py-1 rounded-md border border-slate-300 text-sm"
                       />
                     </div>
 
@@ -711,7 +1020,11 @@ const LoanApplication = () => {
                       </label>
                       <input
                         required
-                        className="mt-1 w-full px-4 py-1 rounded-md border border-slate-300"
+                        value={formData.coBorrowers[index]?.ssn}
+                        onChange={(e) =>
+                          updateCoBorrower(index, "ssn", e.target.value)
+                        }
+                        className="mt-1 w-full px-4 py-1 rounded-md border border-slate-300 text-sm"
                       />
                     </div>
 
@@ -719,7 +1032,13 @@ const LoanApplication = () => {
                       <label className="text-sm font-medium">
                         Credit Score <span className="text-red-500">*</span>
                       </label>
-                      <input className="mt-1 w-full px-4 py-1 rounded-md border border-slate-300" />
+                      <input
+                        value={formData.coBorrowers[index]?.creditScore}
+                        onChange={(e) =>
+                          updateCoBorrower(index, "creditScore", e.target.value)
+                        }
+                        className="mt-1 w-full px-4 py-1 rounded-md border border-slate-300 text-sm"
+                      />
                     </div>
 
                     <div className="md:col-span-2">
@@ -727,8 +1046,12 @@ const LoanApplication = () => {
                         Present Address <span className="text-red-500">*</span>
                       </label>
                       <input
+                        value={formData.coBorrowers[index]?.address}
+                        onChange={(e) =>
+                          updateCoBorrower(index, "address", e.target.value)
+                        }
                         required
-                        className="mt-1 w-full px-4 py-1 rounded-md border border-slate-300"
+                        className="mt-1 w-full px-4 py-1 rounded-md border border-slate-300 text-sm"
                       />
                     </div>
 
@@ -736,7 +1059,17 @@ const LoanApplication = () => {
                       <label className="text-sm font-medium">
                         Mailing Address (if different)
                       </label>
-                      <input className="mt-1 w-full px-4 py-1 rounded-md border border-slate-300" />
+                      <input
+                        value={formData.coBorrowers[index]?.mailingAddress}
+                        onChange={(e) =>
+                          updateCoBorrower(
+                            index,
+                            "mailingAddress",
+                            e.target.value,
+                          )
+                        }
+                        className="mt-1 w-full px-4 py-1 rounded-md border border-slate-300 text-sm"
+                      />
                     </div>
                   </div>
                 </div>
@@ -767,7 +1100,7 @@ const LoanApplication = () => {
                     }}
                     className="w-full px-4 py-1 rounded-md border border-slate-300 
   bg-white focus:ring-2 focus:ring-blue-500/20 
-  focus:border-blue-500 outline-none transition"
+  focus:border-blue-500 outline-none transition text-sm"
                   >
                     <option value="">Select Program</option>
 
@@ -795,16 +1128,20 @@ const LoanApplication = () => {
                     }
                     className="w-full px-4 py-1 rounded-md border border-slate-300 
           bg-white focus:ring-2 focus:ring-blue-500/20 
-          focus:border-blue-500 outline-none transition"
+          focus:border-blue-500 outline-none transition text-sm"
                   >
                     <option value="">Select Purpose</option>
                     <option value="purchase">Purchase</option>
                     <option value="refinance">Refinance</option>
-                    <option value="refinance">Purchase & Rehab</option>
-                    <option value="refinance">Cash Out Refinance</option>
-                    <option value="construction">Business Acquisition</option>
-                    <option value="construction">New Construction</option>
-                    <option value="construction">Refinance & Rehab</option>
+                    <option value="purchase_rehab">Purchase & Rehab</option>
+                    <option value="cash_out_refinance">
+                      Cash Out Refinance
+                    </option>
+                    <option value="business_acquisition">
+                      Business Acquisition
+                    </option>
+                    <option value="new_construction">New Construction</option>
+                    <option value="refinance_rehab">Refinance & Rehab</option>
                   </select>
                 </div>
 
@@ -823,7 +1160,7 @@ const LoanApplication = () => {
                     placeholder="1,000,000"
                     className="w-full px-4 py-1 rounded-md border border-slate-300 
           focus:ring-2 focus:ring-blue-500/20 
-          focus:border-blue-500 outline-none transition"
+          focus:border-blue-500 outline-none transition text-sm"
                   />
                 </div>
 
@@ -842,7 +1179,7 @@ const LoanApplication = () => {
                     placeholder="8"
                     className="w-full px-4 py-1 rounded-md border border-slate-300 
           focus:ring-2 focus:ring-blue-500/20 
-          focus:border-blue-500 outline-none transition"
+          focus:border-blue-500 outline-none transition text-sm"
                   />
                 </div>
 
@@ -861,7 +1198,7 @@ const LoanApplication = () => {
                     placeholder="1,500,000"
                     className="w-full px-4 py-1 rounded-md border border-slate-300 
           focus:ring-2 focus:ring-blue-500/20 
-          focus:border-blue-500 outline-none transition"
+          focus:border-blue-500 outline-none transition text-sm"
                   />
                 </div>
 
@@ -879,7 +1216,7 @@ const LoanApplication = () => {
                     placeholder="1,200,000"
                     className="w-full px-4 py-1 rounded-md border border-slate-300 
           focus:ring-2 focus:ring-blue-500/20 
-          focus:border-blue-500 outline-none transition"
+          focus:border-blue-500 outline-none transition text-sm"
                   />
                 </div>
 
@@ -896,7 +1233,7 @@ const LoanApplication = () => {
                     }
                     className="w-full px-4 py-1 rounded-md border border-slate-300 
           focus:ring-2 focus:ring-blue-500/20 
-          focus:border-blue-500 outline-none transition"
+          focus:border-blue-500 outline-none transition text-sm"
                   />
                 </div>
               </div>
@@ -922,7 +1259,7 @@ const LoanApplication = () => {
                   }
                   className="w-full px-4 py-1 rounded-md border border-slate-300
         bg-white focus:ring-2 focus:ring-blue-500/20
-        focus:border-blue-500 outline-none transition"
+        focus:border-blue-500 outline-none transition text-sm"
                 >
                   <option value="">Select Term</option>
                   <option value="12">12 Months</option>
@@ -950,7 +1287,7 @@ const LoanApplication = () => {
                     }
                     className="w-full px-4 py-1 rounded-md border border-slate-300
           focus:ring-2 focus:ring-blue-500/20
-          focus:border-blue-500 outline-none transition"
+          focus:border-blue-500 outline-none transition text-sm"
                   />
                 </div>
 
@@ -967,7 +1304,7 @@ const LoanApplication = () => {
                     }
                     className="w-full px-4 py-1 rounded-md border border-slate-300
           focus:ring-2 focus:ring-blue-500/20
-          focus:border-blue-500 outline-none transition"
+          focus:border-blue-500 outline-none transition text-sm"
                   />
                 </div>
 
@@ -987,7 +1324,7 @@ const LoanApplication = () => {
                     }
                     className="w-full px-4 py-1 rounded-md border border-slate-300
           focus:ring-2 focus:ring-blue-500/20
-          focus:border-blue-500 outline-none transition"
+          focus:border-blue-500 outline-none transition text-sm"
                   />
                 </div>
 
@@ -1004,7 +1341,7 @@ const LoanApplication = () => {
                     }
                     className="w-full px-4 py-1 rounded-md border border-slate-300
           focus:ring-2 focus:ring-blue-500/20
-          focus:border-blue-500 outline-none transition"
+          focus:border-blue-500 outline-none transition text-sm"
                   />
                 </div>
 
@@ -1021,7 +1358,7 @@ const LoanApplication = () => {
                     }
                     className="w-full px-4 py-1 rounded-md border border-slate-300
           focus:ring-2 focus:ring-blue-500/20
-          focus:border-blue-500 outline-none transition"
+          focus:border-blue-500 outline-none transition text-sm"
                   />
                 </div>
               </div>
@@ -1045,7 +1382,7 @@ const LoanApplication = () => {
                       }
                       className="w-full px-4 py-1 rounded-md border border-slate-300
         focus:ring-2 focus:ring-blue-500/20
-        focus:border-blue-500 outline-none transition"
+        focus:border-blue-500 outline-none transition text-sm"
                     />
                   </div>
 
@@ -1095,7 +1432,7 @@ const LoanApplication = () => {
                       }
                       className="w-full px-4 py-1 rounded-md border border-slate-300
         focus:ring-2 focus:ring-blue-500/20
-        focus:border-blue-500 outline-none transition"
+        focus:border-blue-500 outline-none transition text-sm"
                     />
                   </div>
 
@@ -1112,10 +1449,45 @@ const LoanApplication = () => {
                       }
                       className="w-full px-4 py-1 rounded-md border border-slate-300
         focus:ring-2 focus:ring-blue-500/20
-        focus:border-blue-500 outline-none transition"
+        focus:border-blue-500 outline-none transition text-sm"
                     />
                   </div>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {selectedProduct && currentStep === allSteps.length - 1 && (
+            <div className="border rounded-2xl p-6 bg-white mt-6">
+              <h3 className="text-lg font-semibold mb-6">Digital Signature</h3>
+
+              <div className="border rounded-xl bg-white p-4">
+                <SignatureCanvas
+                  ref={signatureRef}
+                  penColor="black"
+                  onEnd={saveSignature}
+                  canvasProps={{
+                    className: "w-full h-48 border rounded-md bg-white",
+                  }}
+                />
+              </div>
+
+              <div className="flex gap-3 mt-4 flex-wrap">
+                <button
+                  type="button"
+                  onClick={handleUndoSignature}
+                  className="px-4 py-2 text-sm rounded-md border border-slate-300 hover:bg-slate-100"
+                >
+                  Undo
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleClearSignature}
+                  className="px-4 py-2 text-sm rounded-md border border-red-300 text-red-600 hover:bg-red-50"
+                >
+                  Reset
+                </button>
               </div>
             </div>
           )}
@@ -1156,7 +1528,7 @@ const LoanApplication = () => {
                 }
               }}
               disabled={currentStep === 0}
-              className={`px-4 py-2 rounded-md border transition flex items-center justify-center gap-2
+              className={`px-4 py-2 rounded-md border transition flex items-center justify-center gap-2 text-sm
   ${
     currentStep === 0
       ? "border-slate-200 text-slate-400 cursor-not-allowed"
@@ -1170,12 +1542,11 @@ const LoanApplication = () => {
             {/* Save & Next Button */}
             <button
               onClick={() => {
-                console.log("Saved Data:", {
-                  ...formData,
-                  dynamicFormData,
-                });
+                if (currentStep === allSteps.length - 1) {
+                  handleSubmitApplication();
+                  return;
+                }
 
-                // Fetch sections only after Loan Term step
                 if (
                   currentStep === 2 &&
                   selectedProduct &&
@@ -1184,14 +1555,17 @@ const LoanApplication = () => {
                   fetchSectionsByProduct(selectedProduct);
                 }
 
-                if (currentStep < allSteps.length - 1) {
-                  goToStep(currentStep + 1);
-                }
+                goToStep(currentStep + 1);
               }}
+              disabled={submitting}
               className="px-6 py-2 rounded-md bg-blue-600 text-white 
-      hover:bg-blue-700 transition shadow-sm"
+  hover:bg-blue-700 transition shadow-sm text-sm disabled:opacity-50"
             >
-              {currentStep === allSteps.length - 1 ? "Submit" : "Save & Next"}
+              {currentStep === allSteps.length - 1
+                ? submitting
+                  ? "Submitting..."
+                  : "Submit"
+                : "Save & Next"}
             </button>
           </div>
         </div>

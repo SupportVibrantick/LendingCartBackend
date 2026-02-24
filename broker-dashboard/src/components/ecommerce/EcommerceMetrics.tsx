@@ -30,10 +30,10 @@ interface Props {
 }
 
 const themes = {
-  tealLight: "bg-gradient-to-r from-[#4FCDCC] to-[#18B6B4]",
-  skyBlue: "bg-gradient-to-r from-[#37C9EF] to-[#2C92D5]",
-  navy: "bg-gradient-to-r from-[#2C92D5] to-[#13538A]",
-  deepNavy: "bg-gradient-to-r from-[#13538A] to-[#0F3E68]",
+  tealLight: "bg-gradient-to-br from-[#14B8A6] via-[#0D9488] to-[#0F766E]",
+  skyBlue: "bg-gradient-to-br from-[#38BDF8] via-[#0EA5E9] to-[#0369A1]",
+  navy: "bg-gradient-to-br from-[#3B82F6] via-[#1D4ED8] to-[#1E3A8A]",
+  deepNavy: "bg-gradient-to-br from-[#1E293B] via-[#0F172A] to-[#020617]",
 };
 
 interface StatCardProps {
@@ -93,19 +93,19 @@ const STAT_CONFIG = {
 
 const StatCard = ({ title, value, icon, colorScheme }: StatCardProps) => {
   return (
-    <div
-      className={`relative overflow-hidden rounded-2xl px-6 py-5 text-white shadow-xl ${themes[colorScheme]}`}
-    >
-      <div className="absolute -right-10 top-1/2 -translate-y-1/2 w-32 h-32 bg-white/10 rounded-full blur-2xl" />
-
-      <div className="relative flex items-center gap-4">
-        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/20 backdrop-blur-md">
-          {icon}
+    <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 shadow-sm hover:shadow-xl transition-all duration-300 border border-slate-100 dark:border-slate-800">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm text-slate-500 dark:text-slate-400">{title}</p>
+          <h3 className="text-xl font-bold text-slate-900 dark:text-white mt-1">
+            {value}
+          </h3>
         </div>
 
-        <div>
-          <p className="text-xs uppercase tracking-wider opacity-80">{title}</p>
-          <h3 className="text-3xl font-bold mt-1">{value}</h3>
+        <div
+          className={`h-8 w-8 flex items-center justify-center rounded-xl text-white ${themes[colorScheme]}`}
+        >
+          {icon}
         </div>
       </div>
     </div>
