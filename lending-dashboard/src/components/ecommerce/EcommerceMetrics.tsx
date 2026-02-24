@@ -78,28 +78,43 @@ const LENDER_DUMMY_STATS = [
 /* ================= STAT CARD ================= */
 
 const StatCard = ({ title, value, icon, colorScheme }: StatCardProps) => {
-  const themes = {
-    blue: "bg-gradient-to-r from-blue-600 to-blue-700",
-    purple: "bg-gradient-to-r from-indigo-600 to-purple-600",
-    green: "bg-gradient-to-r from-emerald-600 to-green-600",
-    orange: "bg-gradient-to-r from-orange-500 to-red-500",
+  const iconThemes = {
+    blue: "bg-blue-600",
+    purple: "bg-purple-600",
+    green: "bg-emerald-600",
+    orange: "bg-orange-500",
   };
 
   return (
     <div
-      className={`relative overflow-hidden rounded-2xl px-6 py-5 text-white shadow-xl ${themes[colorScheme]}`}
+      className="
+        bg-white dark:bg-slate-900
+        border border-slate-200 dark:border-slate-800
+        rounded-2xl
+        shadow-sm hover:shadow-md
+        dark:shadow-slate-950/40
+        transition-all duration-300
+        p-5 flex items-center justify-between
+      "
     >
-      <div className="absolute -right-10 top-1/2 -translate-y-1/2 w-32 h-32 bg-white/10 rounded-full blur-2xl" />
+      {/* Left Content */}
+      <div>
+        <p className="text-sm text-slate-500 dark:text-slate-400">{title}</p>
 
-      <div className="relative flex items-center gap-4">
-        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/20 backdrop-blur-md">
-          {icon}
-        </div>
+        <h3 className="text-xl font-bold text-slate-900 dark:text-white mt-1">
+          {value}
+        </h3>
+      </div>
 
-        <div>
-          <p className="text-xs uppercase tracking-wider opacity-80">{title}</p>
-          <h3 className="text-2xl font-bold mt-1">{value}</h3>
-        </div>
+      {/* Icon Circle */}
+      <div
+        className={`
+          h-8 w-8 flex items-center justify-center
+          rounded-full text-white
+          ${iconThemes[colorScheme]}
+        `}
+      >
+        {icon}
       </div>
     </div>
   );

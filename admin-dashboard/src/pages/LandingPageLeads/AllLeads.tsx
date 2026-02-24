@@ -278,53 +278,82 @@ export default function AllLeads() {
 
   return (
     <div className="px-6 py-6 bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100 min-h-screen">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
         {/* TOTAL LEADS */}
-        <div className="bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20 p-5 rounded-2xl flex items-center gap-4">
-          <div className="p-3 rounded-xl bg-indigo-100 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400">
-            <Users className="w-6 h-6" />
-          </div>
+        <div
+          className="
+    bg-white dark:bg-slate-900
+    border border-slate-200 dark:border-slate-800
+    rounded-2xl p-6
+    shadow-sm hover:shadow-md
+    transition-all duration-200
+    flex items-center justify-between
+  "
+        >
           <div>
-            <p className="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+            <p className="text-sm text-slate-500 dark:text-slate-400">
               Total Leads
             </p>
-            <p className="text-2xl font-extrabold text-indigo-700 dark:text-indigo-300">
+            <p className="text-xl font-semibold text-slate-900 dark:text-white mt-1">
               {stats.totalLeads}
             </p>
+          </div>
+
+          <div className="h-8 w-8 flex items-center justify-center rounded-full bg-indigo-600 text-white">
+            <Users className="w-5 h-5" />
           </div>
         </div>
 
         {/* CONVERTED LEADS */}
-        <div className="bg-purple-50 dark:bg-purple-500/10 border border-purple-200 dark:border-purple-500/20 p-5 rounded-2xl flex items-center gap-4">
-          <div className="p-3 rounded-xl bg-purple-100 dark:bg-purple-500/20 text-purple-600 dark:text-purple-400">
-            <UserCheck className="w-6 h-6" />
-          </div>
+        <div
+          className="
+    bg-white dark:bg-slate-900
+    border border-slate-200 dark:border-slate-800
+    rounded-2xl p-6
+    shadow-sm hover:shadow-md
+    transition-all duration-200
+    flex items-center justify-between
+  "
+        >
           <div>
-            <p className="text-xs font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400">
+            <p className="text-sm text-slate-500 dark:text-slate-400">
               Converted Leads
             </p>
-            <p className="text-2xl font-extrabold text-purple-700 dark:text-purple-300">
+            <p className="text-xl font-semibold text-slate-900 dark:text-white mt-1">
               {stats.convertedLeads}
             </p>
+          </div>
+
+          <div className="h-8 w-8 flex items-center justify-center rounded-full bg-purple-600 text-white">
+            <UserCheck className="w-5 h-5" />
           </div>
         </div>
 
         {/* NEW LEADS */}
-        <div className="bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 p-5 rounded-2xl flex items-center gap-4">
-          <div className="p-3 rounded-xl bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400">
-            <Activity className="w-6 h-6" />
-          </div>
+        <div
+          className="
+    bg-white dark:bg-slate-900
+    border border-slate-200 dark:border-slate-800
+    rounded-2xl p-6
+    shadow-sm hover:shadow-md
+    transition-all duration-200
+    flex items-center justify-between
+  "
+        >
           <div>
-            <p className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+            <p className="text-sm text-slate-500 dark:text-slate-400">
               New Leads
             </p>
-            <p className="text-2xl font-extrabold text-emerald-700 dark:text-emerald-300">
+            <p className="text-xl font-semibold text-slate-900 dark:text-white mt-1">
               {stats.newLeads}
             </p>
           </div>
+
+          <div className="h-8 w-8 flex items-center justify-center rounded-full bg-emerald-600 text-white">
+            <Activity className="w-5 h-5" />
+          </div>
         </div>
       </div>
-
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">

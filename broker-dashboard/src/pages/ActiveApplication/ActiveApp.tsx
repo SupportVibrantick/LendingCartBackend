@@ -1,8 +1,8 @@
+import { GrCircleInformation } from "react-icons/gr";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 
-const API_BASE =
-  import.meta.env.VITE_API_BASE || "http://localhost:4000";
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
 /* ================= ENUM ================= */
 
@@ -51,7 +51,6 @@ type Product = {
   sections: ApiSection[];
   unsectionedFields: ApiField[];
 };
-
 
 type ActiveApplicationResponse = {
   applicationId: string;
@@ -108,9 +107,11 @@ function RenderActiveField({
   /* RADIO */
   if (uiType === "radio") {
     return (
-      <div className="space-y-2 border rounded-lg p-3
+      <div
+        className="space-y-2 border rounded-lg p-3
                 bg-slate-50 border-slate-200
-                dark:bg-slate-800 dark:border-slate-700">
+                dark:bg-slate-800 dark:border-slate-700"
+      >
         {field.options?.map((opt, i) => (
           <label key={i} className="flex items-center gap-2 text-sm">
             <input
@@ -129,9 +130,11 @@ function RenderActiveField({
   /* CHECKBOX GROUP */
   if (uiType === "checkbox") {
     return (
-      <div className="space-y-2 border rounded-lg p-3
+      <div
+        className="space-y-2 border rounded-lg p-3
                 bg-slate-50 border-slate-200
-                dark:bg-slate-800 dark:border-slate-700">
+                dark:bg-slate-800 dark:border-slate-700"
+      >
         {field.options?.map((opt, i) => (
           <label key={i} className="flex items-center gap-2 text-sm">
             <input
@@ -150,16 +153,16 @@ function RenderActiveField({
   /* RANGE */
   if (uiType === "range") {
     return (
-      <div className="space-y-2 border rounded-lg p-3
+      <div
+        className="space-y-2 border rounded-lg p-3
                 bg-slate-50 border-slate-200
-                dark:bg-slate-800 dark:border-slate-700">
+                dark:bg-slate-800 dark:border-slate-700"
+      >
         <input
           type="range"
           min={field.validation?.min ?? 0}
           max={field.validation?.max ?? 100}
-          onChange={(e) =>
-            onChange(field.fieldKey, Number(e.target.value))
-          }
+          onChange={(e) => onChange(field.fieldKey, Number(e.target.value))}
           className="flex justify-between text-xs
                 text-slate-500 dark:text-slate-400"
         />
@@ -178,13 +181,9 @@ function RenderActiveField({
         className="w-full rounded-lg border px-3 py-2 text-sm
            bg-white text-slate-900 border-slate-300
            dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600"
-        onChange={(e) =>
-          onChange(field.fieldKey, e.target.value)
-        }
+        onChange={(e) => onChange(field.fieldKey, e.target.value)}
       >
-        <option value="">
-          {field.placeholder || "Select"}
-        </option>
+        <option value="">{field.placeholder || "Select"}</option>
         {field.options?.map((o, i) => (
           <option key={i}>{o}</option>
         ))}
@@ -201,9 +200,7 @@ function RenderActiveField({
         className="w-full rounded-lg border px-3 py-2 text-sm
            bg-white text-slate-900 border-slate-300
            dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600"
-        onChange={(e) =>
-          onChange(field.fieldKey, e.target.value)
-        }
+        onChange={(e) => onChange(field.fieldKey, e.target.value)}
       />
     );
   }
@@ -216,12 +213,7 @@ function RenderActiveField({
         className="w-full rounded-lg border px-3 py-2 text-sm
            bg-white text-slate-900 border-slate-300
            dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600"
-        onChange={(e) =>
-          onChange(
-            field.fieldKey,
-            e.target.files?.[0] || null
-          )
-        }
+        onChange={(e) => onChange(field.fieldKey, e.target.files?.[0] || null)}
       />
     );
   }
@@ -232,9 +224,7 @@ function RenderActiveField({
       type={uiType}
       placeholder={field.placeholder || ""}
       className="w-full rounded-lg border px-3 py-2"
-      onChange={(e) =>
-        onChange(field.fieldKey, e.target.value)
-      }
+      onChange={(e) => onChange(field.fieldKey, e.target.value)}
     />
   );
 }
@@ -242,27 +232,20 @@ function RenderActiveField({
 /* ================= PAGE ================= */
 
 export default function ActiveApplication() {
-  const [data, setData] =
-    useState<ActiveApplicationResponse | null>(null);
-  const [activeProductId, setActiveProductId] =
-    useState("");
-  const [values, setValues] = useState<Record<string, any>>(
-    {}
-  );
+  const [data, setData] = useState<ActiveApplicationResponse | null>(null);
+  const [activeProductId, setActiveProductId] = useState("");
+  const [values, setValues] = useState<Record<string, any>>({});
 
   const handleChange = (key: string, value: any) => {
-    setValues(values)
+    setValues(values);
     setValues((p) => ({ ...p, [key]: value }));
   };
 
-
-
   const load = async () => {
     try {
-      const res = await fetch(
-        `${API_BASE}/broker/applications/active`,
-        { headers: getAuthHeaders() }
-      );
+      const res = await fetch(`${API_BASE}/broker/applications/active`, {
+        headers: getAuthHeaders(),
+      });
       const json = await res.json();
       if (!json.success) throw new Error(json.message);
       setData(json.data);
@@ -276,30 +259,50 @@ export default function ActiveApplication() {
     load();
   }, []);
 
-  const product = data?.products.find(
-    (p) => p.productId === activeProductId
-  );
+  const product = data?.products.find((p) => p.productId === activeProductId);
 
   const hasNoFields =
-    (product?.sections?.every(s => s.fields.length === 0) ?? true) &&
-    ((product?.unsectionedFields?.length ?? 0) === 0);
+    (product?.sections?.every((s) => s.fields.length === 0) ?? true) &&
+    (product?.unsectionedFields?.length ?? 0) === 0;
 
   if (!data) return null;
 
   return (
     <div className="p-6 min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100">
-      <h1 className="text-xl font-bold mb-4 text-slate-900 dark:text-slate-100">
-        {data.applicationName}
-      </h1>
+      <div className="flex items-center gap-3 mb-4">
+        <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">
+          {data.applicationName}
+        </h1>
 
+        {/* Visibility Icon */}
+        <div className="relative group">
+          <GrCircleInformation className="w-5 h-5 text-blue-600 dark:text-blue-400 cursor-pointer" />
+
+          {/* Tooltip */}
+          <div
+            className="
+        absolute left-1/2 -translate-x-1/2 top-full mt-2
+        w-64
+        bg-slate-900 dark:bg-slate-800
+        text-white text-xs
+        px-3 py-2 rounded-lg
+        shadow-lg
+        opacity-0 group-hover:opacity-100
+        transition-opacity duration-200
+        z-50
+      "
+          >
+            This application is currently active and visible across all
+            platforms.
+          </div>
+        </div>
+      </div>
       <select
         className="mb-6 border rounded px-3 py-2
              bg-white text-slate-900 border-slate-300
              dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600"
         value={activeProductId}
-        onChange={(e) =>
-          setActiveProductId(e.target.value)
-        }
+        onChange={(e) => setActiveProductId(e.target.value)}
       >
         {data.products.map((p) => (
           <option key={p.productId} value={p.productId}>
@@ -307,17 +310,19 @@ export default function ActiveApplication() {
           </option>
         ))}
       </select>
-
       {hasNoFields && (
-        <div className="flex flex-col items-center justify-center py-16
+        <div
+          className="flex flex-col items-center justify-center py-16
                   border-2 border-dashed rounded-xl
                   border-amber-300 bg-amber-50
-                  dark:border-amber-600 dark:bg-amber-900/20">
-
+                  dark:border-amber-600 dark:bg-amber-900/20"
+        >
           {/* ICON */}
-          <div className="mb-4 flex h-14 w-14 items-center justify-center
+          <div
+            className="mb-4 flex h-14 w-14 items-center justify-center
                     rounded-full bg-amber-100 text-amber-600
-                    dark:bg-amber-500/20 dark:text-amber-400">
+                    dark:bg-amber-500/20 dark:text-amber-400"
+          >
             <svg
               xmlns="http://www.w3.org/2000/svg"
               className="h-7 w-7"
@@ -340,19 +345,20 @@ export default function ActiveApplication() {
           </h3>
 
           {/* MESSAGE */}
-          <p className="mt-2 max-w-md text-center text-xs
-                  text-amber-700 dark:text-amber-400">
-            There are no form fields available for this product.
-            Please contact the administrator or configure fields from
-            the Application Builder.
+          <p
+            className="mt-2 max-w-md text-center text-xs
+                  text-amber-700 dark:text-amber-400"
+          >
+            There are no form fields available for this product. Please contact
+            the administrator or configure fields from the Application Builder.
           </p>
         </div>
       )}
-
-
-      <form className="space-y-8 p-6 rounded-xl border
+      <form
+        className="space-y-8 p-6 rounded-xl border
                  bg-white border-slate-200
-                 dark:bg-slate-900 dark:border-slate-700">
+                 dark:bg-slate-900 dark:border-slate-700"
+      >
         {product?.sections.map((section) => (
           <div key={section.id}>
             <h3 className="text-sm font-semibold mb-3 text-slate-800 dark:text-slate-200">
@@ -362,18 +368,17 @@ export default function ActiveApplication() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               {section.fields.map((f) => (
                 <div key={f.id}>
-                  <label className="block text-sm font-medium mb-2
-                  text-slate-700 dark:text-slate-300">
+                  <label
+                    className="block text-sm font-medium mb-2
+                  text-slate-700 dark:text-slate-300"
+                  >
                     {f.label}
                     {f.isRequired && (
                       <span className="text-red-500 ml-1">*</span>
                     )}
                   </label>
 
-                  <RenderActiveField
-                    field={f}
-                    onChange={handleChange}
-                  />
+                  <RenderActiveField field={f} onChange={handleChange} />
                 </div>
               ))}
             </div>
@@ -382,31 +387,25 @@ export default function ActiveApplication() {
 
         {(product?.unsectionedFields?.length ?? 0) > 0 && (
           <div>
-            <h3 className="font-semibold mb-4">
-              Other Information
-            </h3>
+            <h3 className="font-semibold mb-4">Other Information</h3>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              {product && (product.unsectionedFields ?? []).map((f) => (
-                <div key={f.id}>
-                  <label className="block text-sm font-medium mb-2">
-                    {f.label}
-                    {f.isRequired && (
-                      <span className="text-red-500 ml-1">*</span>
-                    )}
-                  </label>
+              {product &&
+                (product.unsectionedFields ?? []).map((f) => (
+                  <div key={f.id}>
+                    <label className="block text-sm font-medium mb-2">
+                      {f.label}
+                      {f.isRequired && (
+                        <span className="text-red-500 ml-1">*</span>
+                      )}
+                    </label>
 
-                  <RenderActiveField
-                    field={f}
-                    onChange={handleChange}
-                  />
-                </div>
-              ))}
-
+                    <RenderActiveField field={f} onChange={handleChange} />
+                  </div>
+                ))}
             </div>
           </div>
         )}
-
 
         {/* <button
           type="button"

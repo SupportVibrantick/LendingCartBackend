@@ -1,15 +1,17 @@
 import { useState } from "react";
 import { ThemeToggleButton } from "../common/ThemeToggleButton";
 import NotificationDropdown from "./NotificationDropdown";
-import UserDropdown from "./UserDropdown";
+import {UserDropdown} from "./UserDropdown";
 import { Link } from "react-router";
 
 // Define the interface for the props
 interface HeaderProps {
-  onClick?: () => void; // Optional function that takes no arguments and returns void
+  onClick?: () => void;
   onToggle: () => void;
+  user: any;
 }
-const Header: React.FC<HeaderProps> = ({ onClick, onToggle }) => {
+
+const Header: React.FC<HeaderProps> = ({ onClick, onToggle, user }) => {
   const [isApplicationMenuOpen, setApplicationMenuOpen] = useState(false);
 
   const toggleApplicationMenu = () => {
@@ -158,7 +160,7 @@ const Header: React.FC<HeaderProps> = ({ onClick, onToggle }) => {
             {/* <!-- Notification Menu Area --> */}
           </div>
           {/* <!-- User Area --> */}
-          <UserDropdown />
+          <UserDropdown user={user}/>
         </div>
       </div>
     </header>

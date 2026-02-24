@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { FileText, Clock, CheckCircle, XCircle } from "lucide-react";
 
 /* ================= TYPES ================= */
 
@@ -53,10 +54,9 @@ export default function InvitedLenders() {
   async function fetchInvites() {
     setLoading(true);
     try {
-      const res = await fetch(
-        `${API_BASE}/broker/lenders/invites/list`,
-        { headers: getAuthHeaders() }
-      );
+      const res = await fetch(`${API_BASE}/broker/lenders/invites/list`, {
+        headers: getAuthHeaders(),
+      });
 
       const json = await res.json();
 
@@ -65,7 +65,9 @@ export default function InvitedLenders() {
       }
 
       setInvites(Array.isArray(json.data) ? json.data : []);
-      setStats(json.stats || { total: 0, pending: 0, accepted: 0, rejected: 0 });
+      setStats(
+        json.stats || { total: 0, pending: 0, accepted: 0, rejected: 0 },
+      );
     } catch (err) {
       console.error("Fetch invites failed:", err);
     } finally {
@@ -97,7 +99,7 @@ export default function InvitedLenders() {
       </div>
 
       {/* ================= STATS ================= */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-6">
         <StatBox label="Total" value={stats.total} variant="blue" />
         <StatBox label="Pending" value={stats.pending} variant="yellow" />
         <StatBox label="Accepted" value={stats.accepted} variant="green" />
@@ -106,7 +108,6 @@ export default function InvitedLenders() {
 
       {/* ================= TABLE ================= */}
       <div className="rounded-xl border bg-white dark:bg-slate-900 dark:border-slate-700 overflow-hidden">
-
         {/* Loading Skeleton */}
         {loading ? (
           <div className="p-8 space-y-3 animate-pulse">
@@ -160,9 +161,10 @@ export default function InvitedLenders() {
                   <td className="p-4">
                     <span
                       className={`px-2 py-1 rounded-full text-xs font-medium
-                        ${i.lenderStatus === "ACTIVE"
-                          ? "bg-green-100 text-green-700 dark:bg-green-500/10 dark:text-green-300"
-                          : "bg-gray-100 text-gray-700 dark:bg-gray-500/10 dark:text-gray-300"
+                        ${
+                          i.lenderStatus === "ACTIVE"
+                            ? "bg-green-100 text-green-700 dark:bg-green-500/10 dark:text-green-300"
+                            : "bg-gray-100 text-gray-700 dark:bg-gray-500/10 dark:text-gray-300"
                         }`}
                     >
                       {i.lenderStatus}
@@ -173,20 +175,19 @@ export default function InvitedLenders() {
                   <td className="p-4">
                     <span
                       className={`px-2 py-1 rounded-full text-xs font-medium
-                        ${i.inviteStatus === "PENDING"
-                          ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-500/10 dark:text-yellow-300"
-                          : i.inviteStatus === "ACCEPTED"
-                            ? "bg-green-100 text-green-700 dark:bg-green-500/10 dark:text-green-300"
-                            : "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-300"
+                        ${
+                          i.inviteStatus === "PENDING"
+                            ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-500/10 dark:text-yellow-300"
+                            : i.inviteStatus === "ACCEPTED"
+                              ? "bg-green-100 text-green-700 dark:bg-green-500/10 dark:text-green-300"
+                              : "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-300"
                         }`}
                     >
                       {i.inviteStatus}
                     </span>
                   </td>
 
-                  <td className="p-4">
-                    {formatDateTime(i.invitedAt)}
-                  </td>
+                  <td className="p-4">{formatDateTime(i.invitedAt)}</td>
                 </tr>
               ))}
 
@@ -219,7 +220,8 @@ export default function InvitedLenders() {
 
                       {/* Subtitle */}
                       <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-sm">
-                        You haven’t invited any lenders yet. Once you send invites, they will appear here for tracking.
+                        You haven’t invited any lenders yet. Once you send
+                        invites, they will appear here for tracking.
                       </p>
                     </div>
                   </td>
@@ -244,17 +246,46 @@ function StatBox({
   value: number;
   variant: "blue" | "yellow" | "green" | "red";
 }) {
-  const variants = {
-    blue: "bg-blue-500 text-white",
-    yellow: "bg-yellow-500 text-white",
-    green: "bg-green-500 text-white",
-    red: "bg-red-500 text-white",
+  const iconMap = {
+    blue: <FileText className="w-5 h-5 text-white" />,
+    yellow: <Clock className="w-5 h-5 text-white" />,
+    green: <CheckCircle className="w-5 h-5 text-white" />,
+    red: <XCircle className="w-5 h-5 text-white" />,
+  };
+
+  const colorMap = {
+    blue: "bg-blue-600",
+    yellow: "bg-yellow-500",
+    green: "bg-emerald-600",
+    red: "bg-red-600",
   };
 
   return (
-    <div className={`rounded-xl p-4 shadow-md ${variants[variant]}`}>
-      <p className="text-sm opacity-90">{label}</p>
-      <p className="text-3xl font-bold">{value}</p>
+    <div
+      className="
+        bg-white dark:bg-slate-900
+        border border-slate-200 dark:border-slate-800
+        rounded-2xl
+        p-5
+        shadow-sm hover:shadow-md
+        transition-all duration-200
+        flex items-center justify-between
+      "
+    >
+      {/* Left Content */}
+      <div>
+        <p className="text-sm text-slate-500 dark:text-slate-400">{label}</p>
+        <p className="text-2xl font-semibold text-slate-900 dark:text-white mt-1">
+          {value}
+        </p>
+      </div>
+
+      {/* Icon */}
+      <div
+        className={`h-10 w-10 flex items-center justify-center rounded-full ${colorMap[variant]}`}
+      >
+        {iconMap[variant]}
+      </div>
     </div>
   );
 }

@@ -777,55 +777,79 @@ export default function AllLendersPage() {
         </div>
 
         {/* ================= STATS CARDS ================= */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
           {/* TOTAL LENDERS */}
           <div
-            className="bg-gradient-to-r from-[#5638F7] to-[#9C28FA]
-             text-white p-5 rounded-2xl 
-             flex items-center gap-4 shadow-lg"
+            className="
+    bg-white dark:bg-slate-900
+    border border-slate-200 dark:border-slate-800
+    rounded-2xl p-6
+    shadow-sm hover:shadow-md
+    transition-all duration-200
+    flex items-center justify-between
+  "
           >
-            <div className="p-3 rounded-xl bg-white/20">
-              <Users className="w-6 h-6 text-white" />
-            </div>
             <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-white/80">
+              <p className="text-sm text-slate-500 dark:text-slate-400">
                 Total Lenders
               </p>
-              <p className="text-3xl font-extrabold">{totalLenders}</p>
+              <p className="text-xl font-semibold text-slate-900 dark:text-white mt-1">
+                {totalLenders}
+              </p>
+            </div>
+
+            <div className="h-8 w-8 flex items-center justify-center rounded-full bg-violet-600 text-white">
+              <Users className="w-5 h-5" />
             </div>
           </div>
 
           {/* Total Volume */}
           <div
-            className="bg-gradient-to-r from-orange-500 to-red-500 
-                text-white p-5 rounded-2xl 
-                flex items-center gap-4 shadow-lg"
+            className="
+    bg-white dark:bg-slate-900
+    border border-slate-200 dark:border-slate-800
+    rounded-2xl p-6
+    shadow-sm hover:shadow-md
+    transition-all duration-200
+    flex items-center justify-between
+  "
           >
-            <div className="p-3 rounded-xl bg-white/20">
-              <UserCheck className="w-6 h-6 text-white" />
-            </div>
             <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-white/80">
+              <p className="text-sm text-slate-500 dark:text-slate-400">
                 Total Volume
               </p>
-              <p className="text-3xl font-extrabold">0</p>
+              <p className="text-xl font-semibold text-slate-900 dark:text-white mt-1">
+                0
+              </p>
+            </div>
+
+            <div className="h-8 w-8 flex items-center justify-center rounded-full bg-orange-500 text-white">
+              <UserCheck className="w-5 h-5" />
             </div>
           </div>
 
-          {/* STATUS NAME (ACTIVE LENDERS) */}
+          {/* ACTIVE LENDERS */}
           <div
-            className="bg-gradient-to-r from-emerald-500 to-green-600 
-                text-white p-5 rounded-2xl 
-                flex items-center gap-4 shadow-lg"
+            className="
+    bg-white dark:bg-slate-900
+    border border-slate-200 dark:border-slate-800
+    rounded-2xl p-6
+    shadow-sm hover:shadow-md
+    transition-all duration-200
+    flex items-center justify-between
+  "
           >
-            <div className="p-3 rounded-xl bg-white/20">
-              <Activity className="w-6 h-6 text-white" />
-            </div>
             <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-white/80">
+              <p className="text-sm text-slate-500 dark:text-slate-400">
                 Active Lenders
               </p>
-              <p className="text-3xl font-extrabold">{activeLenders}</p>
+              <p className="text-xl font-semibold text-slate-900 dark:text-white mt-1">
+                {activeLenders}
+              </p>
+            </div>
+
+            <div className="h-8 w-8 flex items-center justify-center rounded-full bg-emerald-600 text-white">
+              <Activity className="w-5 h-5" />
             </div>
           </div>
         </div>

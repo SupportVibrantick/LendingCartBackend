@@ -31,21 +31,47 @@ export default function UserProfileCard() {
 
   // ================= LOAD USER =================
   useEffect(() => {
-    const raw = sessionStorage.getItem("broker_user");
-    if (!raw) return;
+    async function loadUser() {
+      try {
+        const res = await fetch(`${API_BASE}/broker/auth/me`, {
+          headers: {
+            Authorization: `Bearer ${sessionStorage.getItem("broker_token")}`,
+          },
+        });
 
-    const parsed: SessionUser = JSON.parse(raw);
-    setUser(parsed);
+        const json = await res.json();
 
-    const parts = parsed.name.split(" ");
-    setFirstName(parts[0] || "");
-    setLastName(parts.slice(1).join(" ") || "");
+        if (!res.ok || json.ok !== true) {
+          throw new Error("Failed to load user");
+        }
+
+        const { user, organization } = json.data;
+
+        const mappedUser: SessionUser = {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          organizationName: organization?.name,
+          organizationId: organization?.id,
+          roles: user.roles,
+          profileImage: user.profileImage,
+        };
+
+        setUser(mappedUser);
+
+        setFirstName(user.firstName || "");
+        setLastName(user.lastName || "");
+      } catch (err) {
+        toast.error("Unable to load profile");
+      }
+    }
+
+    loadUser();
   }, []);
 
   if (!user) return null;
 
-  const roleLabel =
-    user.roles?.[0]?.split("_").join(" ") || "User";
+  const roleLabel = user.roles?.[0]?.split("_").join(" ") || "User";
 
   const displayName = `${firstName} ${lastName}`.trim();
 
@@ -54,7 +80,7 @@ export default function UserProfileCard() {
       .toLowerCase()
       .split(" ")
       .filter(Boolean)
-      .map(w => w[0].toUpperCase() + w.slice(1))
+      .map((w) => w[0].toUpperCase() + w.slice(1))
       .join(" ");
   }
 
@@ -92,10 +118,10 @@ export default function UserProfileCard() {
 
     setSaving(true);
     try {
-      const res = await fetch(`${API_BASE}/lender/auth/profile`, {
+      const res = await fetch(`${API_BASE}/broker/auth/profile`, {
         method: "PUT",
         headers: {
-          Authorization: `Bearer ${sessionStorage.getItem("lender_token")}`,
+          Authorization: `Bearer ${sessionStorage.getItem("broker_token")}`,
         },
         body: formData,
       });
@@ -107,18 +133,24 @@ export default function UserProfileCard() {
 
       if (!user) return;
 
-      const updatedUser: SessionUser = {
-        id: user.id,
-        email: user.email,
-        organizationName: user.organizationName,
-        organizationId: user.organizationId,
-        roles: user.roles,
-        name: displayName,
-        profileImage: json.data?.profileImage || user.profileImage,
-      };
-
-      sessionStorage.setItem("broker_user", JSON.stringify(updatedUser));
-      setUser(updatedUser);
+      // const updatedUser: SessionUser = {
+      //   id: user.id,
+      //   email: user.email,
+      //   organizationName: user.organizationName,
+      //   organizationId: user.organizationId,
+      //   roles: user.roles,
+      //   name: displayName,
+      //   profileImage: json.data?.profileImage || user.profileImage,
+      // };
+      setUser((prev) =>
+        prev
+          ? {
+              ...prev,
+              name: displayName,
+              profileImage: json.data?.profileImage || prev.profileImage,
+            }
+          : prev,
+      );
       setEditing(null);
       setProfileImage(null);
 
@@ -133,7 +165,6 @@ export default function UserProfileCard() {
   // ================= UI =================
   return (
     <div className="max-w-2xl mx-auto bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl p-8">
-
       {/* ================= PROFILE IMAGE ================= */}
       <div className="flex flex-col items-center text-center">
         <div className="relative mb-4">
@@ -142,7 +173,9 @@ export default function UserProfileCard() {
               src={
                 profileImage
                   ? URL.createObjectURL(profileImage)
-                  : user.profileImage || "/images/user/owner.jpg"
+                  : user.profileImage
+                    ? `${API_BASE}/public/${user.profileImage}`
+                    : "/profile.png"
               }
               alt="profile"
               className="h-full w-full object-cover"
@@ -175,16 +208,13 @@ export default function UserProfileCard() {
 
       {/* ================= DETAILS ================= */}
       <div className="mt-8 space-y-5 text-gray-500 dark:text-white">
-
         {/* First Name */}
         <ProfileRow
           label="First Name"
           value={firstName}
           editing={editing === "firstName"}
           onEdit={() =>
-            editing === "firstName"
-              ? cancelEdit()
-              : startEdit("firstName")
+            editing === "firstName" ? cancelEdit() : startEdit("firstName")
           }
           onChange={setFirstName}
         />
@@ -195,9 +225,7 @@ export default function UserProfileCard() {
           value={lastName}
           editing={editing === "lastName"}
           onEdit={() =>
-            editing === "lastName"
-              ? cancelEdit()
-              : startEdit("lastName")
+            editing === "lastName" ? cancelEdit() : startEdit("lastName")
           }
           onChange={setLastName}
         />

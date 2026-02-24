@@ -39,8 +39,6 @@ type TableRow = {
 
 /* ================= HELPERS ================= */
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
-;
-
 const parseValue = (val: string): any => {
   try {
     return JSON.parse(val);
@@ -259,15 +257,15 @@ export default function LoanPipeline() {
   // }, [currentPage]);
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-[#0b1120] p-4 md:p-10 text-slate-900 dark:text-slate-100 selection:bg-blue-100 dark:selection:bg-blue-900/30">
+    <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-[#0b1120] p-3 text-slate-900 dark:text-slate-100 selection:bg-blue-100 dark:selection:bg-blue-900/30">
       {/* Header Area */}
       <header className="max-w-7xl mx-auto mb-10">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="space-y-1">
-            <h2 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-slate-900 to-slate-600 dark:from-white dark:to-slate-400 bg-clip-text">
+            <h2 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-slate-900 to-slate-600 dark:from-white dark:to-slate-400 bg-clip-text">
               Loan Pipeline
             </h2>
-            <p className="text-slate-500 dark:text-slate-400 font-medium">
+            <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">
               You have{" "}
               <span className="text-blue-600 dark:text-blue-400">
                 {filteredRows.length} active
@@ -298,68 +296,85 @@ export default function LoanPipeline() {
 
         {/* Quick Status Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
-          {/* TOTAL VOLUME - Indigo Gradient */}
-          <div className="group relative overflow-hidden bg-gradient-to-br from-indigo-600 to-indigo-700 p-6 rounded-2xl shadow-lg shadow-indigo-200 dark:shadow-none hover:shadow-indigo-500/40 hover:-translate-y-1 transition-all duration-300">
-            {/* Subtle Decorative Circle */}
-            <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/10 rounded-full group-hover:scale-125 transition-transform duration-500" />
+          {/* TOTAL VOLUME */}
+          <div
+            className="
+    bg-white dark:bg-slate-900
+    border border-slate-200 dark:border-slate-800
+    rounded-2xl p-6
+    shadow-sm hover:shadow-md
+    transition-all duration-200
+    flex items-center justify-between
+  "
+          >
+            <div>
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                Total Volume
+              </p>
+              <h3 className="text-xl font-semibold text-slate-900 dark:text-white mt-1">
+                ${totalVolume.toLocaleString()}
+              </h3>
+            </div>
 
-            <div className="relative flex items-center gap-5">
-              <div className="p-4 rounded-xl bg-white/20 backdrop-blur-md text-white shadow-sm">
-                <DollarSign className="w-6 h-6 stroke-[2.5px]" />
-              </div>
-              <div>
-                <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-indigo-100/80 mb-1">
-                  Total Volume
-                </p>
-                <h3 className="text-2xl font-black text-white tracking-tight">
-                  ${totalVolume.toLocaleString()}
-                </h3>
-              </div>
+            <div className="h-8 w-8 flex items-center justify-center rounded-full bg-indigo-600 text-white">
+              <DollarSign className="w-5 h-5" />
             </div>
           </div>
 
-          {/* NEW APPLICATIONS - Blue Gradient */}
-          <div className="group relative overflow-hidden bg-gradient-to-br from-blue-600 to-blue-700 p-6 rounded-2xl shadow-lg shadow-blue-200 dark:shadow-none hover:shadow-blue-500/40 hover:-translate-y-1 transition-all duration-300">
-            <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/10 rounded-full group-hover:scale-125 transition-transform duration-500" />
+          {/* NEW APPLICATIONS */}
+          <div
+            className="
+    bg-white dark:bg-slate-900
+    border border-slate-200 dark:border-slate-800
+    rounded-2xl p-6
+    shadow-sm hover:shadow-md
+    transition-all duration-200
+    flex items-center justify-between
+  "
+          >
+            <div>
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                New Applications
+              </p>
+              <h3 className="text-xl font-semibold text-slate-900 dark:text-white mt-1">
+                {newCount}
+              </h3>
+            </div>
 
-            <div className="relative flex items-center gap-5">
-              <div className="p-4 rounded-xl bg-white/20 backdrop-blur-md text-white shadow-sm">
-                <FileText className="w-6 h-6 stroke-[2.5px]" />
-              </div>
-              <div>
-                <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-blue-100/80 mb-1">
-                  New Applications
-                </p>
-                <h3 className="text-2xl font-black text-white tracking-tight">
-                  {newCount}
-                </h3>
-              </div>
+            <div className="h-8 w-8 flex items-center justify-center rounded-full bg-blue-600 text-white">
+              <FileText className="w-5 h-5" />
             </div>
           </div>
 
-          {/* APPROVED - Emerald Gradient */}
-          <div className="group relative overflow-hidden bg-gradient-to-br from-emerald-600 to-emerald-700 p-6 rounded-2xl shadow-lg shadow-emerald-200 dark:shadow-none hover:shadow-emerald-500/40 hover:-translate-y-1 transition-all duration-300">
-            <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/10 rounded-full group-hover:scale-125 transition-transform duration-500" />
+          {/* APPROVED */}
+          <div
+            className="
+    bg-white dark:bg-slate-900
+    border border-slate-200 dark:border-slate-800
+    rounded-2xl p-6
+    shadow-sm hover:shadow-md
+    transition-all duration-200
+    flex items-center justify-between
+  "
+          >
+            <div>
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                Approved
+              </p>
+              <h3 className="text-xl font-semibold text-slate-900 dark:text-white mt-1">
+                {approvedCount}
+              </h3>
+            </div>
 
-            <div className="relative flex items-center gap-5">
-              <div className="p-4 rounded-xl bg-white/20 backdrop-blur-md text-white shadow-sm">
-                <CheckCircle className="w-6 h-6 stroke-[2.5px]" />
-              </div>
-              <div>
-                <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-emerald-100/80 mb-1">
-                  Approved
-                </p>
-                <h3 className="text-2xl font-black text-white tracking-tight">
-                  {approvedCount}
-                </h3>
-              </div>
+            <div className="h-8 w-8 flex items-center justify-center rounded-full bg-emerald-600 text-white">
+              <CheckCircle className="w-5 h-5" />
             </div>
           </div>
         </div>
       </header>
 
       {/* Main Table Container */}
-      <div className="max-w-7xl mx-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-xl shadow-slate-200/50 dark:shadow-none overflow-hidden">
+      <div className="max-w-7xl mx-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl shadow-slate-200/50 dark:shadow-none overflow-hidden">
         <div className="w-full bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
           <div className="w-full overflow-x-auto overflow-y-hidden custom-scrollbar">
             <table className="min-w-[1150px] w-full border-separate border-spacing-0">
@@ -425,42 +440,42 @@ export default function LoanPipeline() {
                       <td className="px-6 py-4">
                         <div className="flex flex-col">
                           <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                            {row.borrowerName}
+                            {row.borrowerName.slice(0,10)+"..."}
                           </span>
                           <span className="text-[10px] text-slate-500">
-                            {row.entityType}
+                            {row.entityType.slice(0,15)+"..."}
                           </span>
                         </div>
                       </td>
 
                       {/* Loan Type */}
                       <td className="px-6 py-4">
-                        <span className="px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 text-sm">
+                        <span className="text-[12px] text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/50 px-2 py-1 rounded">
                           {row.loanType}
                         </span>
                       </td>
 
                       {/* Amount */}
-                      <td className="px-6 py-4">
-                        <span className="font-mono text-sm font-semibold text-slate-800 dark:text-slate-200">
+                      <td className="px-3 py-2">
+                        <span className="text-sm text-slate-800 dark:text-slate-200">
                           {row.amount ? `$${row.amount.toLocaleString()}` : "-"}
                         </span>
                       </td>
 
                       {/* Broker */}
-                      <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">
-                        {row.brokerName}
+                      <td className="px-4 py-2 text-sm text-slate-600 dark:text-slate-400">
+                        {row.brokerName.slice(0,6)+"..."}
                       </td>
 
                       {/* Application Status */}
-                      <td className="px-6 py-4">
+                      <td className="px-5 py-2">
                         <div className="flex justify-center">
                           <span
                             className={`
                                                                                 inline-flex items-center whitespace-nowrap
-                                                                                px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide
+                                                                                px-3 py-1 rounded-full text-xs uppercase tracking-wide
                                                                                 ${getApplicationStatusColor(row.applicationStatus)}
-                                                                            `}
+                                                                           `}
                           >
                             {formatStatus(row.applicationStatus)}
                           </span>

@@ -115,7 +115,7 @@ export default function LoanApplicationsPage() {
   const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
   const [applicationId, setApplicationId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const rowsPerPage = 8;
+  const rowsPerPage = 6;
 
   const navigate = useNavigate();
 
@@ -398,15 +398,15 @@ export default function LoanApplicationsPage() {
   }, [searchTerm]);
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#0b1120] p-4 md:p-10 text-slate-900 dark:text-slate-100 selection:bg-blue-100 dark:selection:bg-blue-900/30">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#0b1120] p-3 text-slate-900 dark:text-slate-100 selection:bg-blue-100 dark:selection:bg-blue-900/30">
       {/* Header Area */}
       <header className="max-w-7xl mx-auto mb-10">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="space-y-1">
-            <h2 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-slate-900 to-slate-600 dark:from-white dark:to-slate-400 bg-clip-text">
+            <h2 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-slate-900 to-slate-600 dark:from-white dark:to-slate-400 bg-clip-text">
               Loan Pipeline
             </h2>
-            <p className="text-slate-500 dark:text-slate-400 font-medium">
+            <p className="text-slate-500 dark:text-slate-400 text-sm">
               You have{" "}
               <span className="text-blue-600 dark:text-blue-400">
                 {filteredRows.length} active
@@ -419,10 +419,10 @@ export default function LoanApplicationsPage() {
             {/* Create Loan Application Button */}
             <button
               onClick={() => navigate("/loan-application")}
-              className="px-4 py-2.5 rounded-xl text-sm font-medium 
+              className="px-4 py-2.5 rounded-xl font-medium 
                bg-blue-600 text-white 
                hover:bg-blue-700 
-               shadow-sm transition-all active:scale-95"
+               shadow-sm transition-all active:scale-95 text-xs"
             >
               + Create Loan Application
             </button>
@@ -461,69 +461,86 @@ export default function LoanApplicationsPage() {
 
         {/* Quick Status Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
-          {/* TOTAL VOLUME - Indigo Gradient */}
-          <div className="group relative overflow-hidden bg-gradient-to-br from-indigo-600 to-indigo-700 p-6 rounded-2xl shadow-lg shadow-indigo-200 dark:shadow-none hover:shadow-indigo-500/40 hover:-translate-y-1 transition-all duration-300">
-            {/* Subtle Decorative Circle */}
-            <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/10 rounded-full group-hover:scale-125 transition-transform duration-500" />
+          {/* TOTAL VOLUME */}
+          <div
+            className="
+    bg-white dark:bg-slate-900
+    border border-slate-200 dark:border-slate-800
+    rounded-2xl p-6
+    shadow-sm hover:shadow-md
+    transition-all duration-200
+    flex items-center justify-between
+  "
+          >
+            <div>
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                Total Volume
+              </p>
+              <h3 className="text-xl font-semibold text-slate-900 dark:text-white mt-1">
+                ${totalVolume.toLocaleString()}
+              </h3>
+            </div>
 
-            <div className="relative flex items-center gap-5">
-              <div className="p-4 rounded-xl bg-white/20 backdrop-blur-md text-white shadow-sm">
-                <DollarSign className="w-6 h-6 stroke-[2.5px]" />
-              </div>
-              <div>
-                <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-indigo-100/80 mb-1">
-                  Total Volume
-                </p>
-                <h3 className="text-2xl font-black text-white tracking-tight">
-                  ${totalVolume.toLocaleString()}
-                </h3>
-              </div>
+            <div className="h-8 w-8 flex items-center justify-center rounded-full bg-indigo-600 text-white">
+              <DollarSign className="w-5 h-5" />
             </div>
           </div>
 
-          {/* NEW APPLICATIONS - Blue Gradient */}
-          <div className="group relative overflow-hidden bg-gradient-to-br from-blue-600 to-blue-700 p-6 rounded-2xl shadow-lg shadow-blue-200 dark:shadow-none hover:shadow-blue-500/40 hover:-translate-y-1 transition-all duration-300">
-            <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/10 rounded-full group-hover:scale-125 transition-transform duration-500" />
+          {/* NEW APPLICATIONS */}
+          <div
+            className="
+    bg-white dark:bg-slate-900
+    border border-slate-200 dark:border-slate-800
+    rounded-2xl p-6
+    shadow-sm hover:shadow-md
+    transition-all duration-200
+    flex items-center justify-between
+  "
+          >
+            <div>
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                New Applications
+              </p>
+              <h3 className="text-xl font-semibold text-slate-900 dark:text-white mt-1">
+                {newCount}
+              </h3>
+            </div>
 
-            <div className="relative flex items-center gap-5">
-              <div className="p-4 rounded-xl bg-white/20 backdrop-blur-md text-white shadow-sm">
-                <FileText className="w-6 h-6 stroke-[2.5px]" />
-              </div>
-              <div>
-                <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-blue-100/80 mb-1">
-                  New Applications
-                </p>
-                <h3 className="text-2xl font-black text-white tracking-tight">
-                  {newCount}
-                </h3>
-              </div>
+            <div className="h-8 w-8 flex items-center justify-center rounded-full bg-blue-600 text-white">
+              <FileText className="w-5 h-5" />
             </div>
           </div>
 
-          {/* APPROVED - Emerald Gradient */}
-          <div className="group relative overflow-hidden bg-gradient-to-br from-emerald-600 to-emerald-700 p-6 rounded-2xl shadow-lg shadow-emerald-200 dark:shadow-none hover:shadow-emerald-500/40 hover:-translate-y-1 transition-all duration-300">
-            <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/10 rounded-full group-hover:scale-125 transition-transform duration-500" />
+          {/* APPROVED */}
+          <div
+            className="
+    bg-white dark:bg-slate-900
+    border border-slate-200 dark:border-slate-800
+    rounded-2xl p-6
+    shadow-sm hover:shadow-md
+    transition-all duration-200
+    flex items-center justify-between
+  "
+          >
+            <div>
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                Approved
+              </p>
+              <h3 className="text-xl font-semibold text-slate-900 dark:text-white mt-1">
+                {approvedCount}
+              </h3>
+            </div>
 
-            <div className="relative flex items-center gap-5">
-              <div className="p-4 rounded-xl bg-white/20 backdrop-blur-md text-white shadow-sm">
-                <CheckCircle className="w-6 h-6 stroke-[2.5px]" />
-              </div>
-              <div>
-                <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-emerald-100/80 mb-1">
-                  Approved
-                </p>
-                <h3 className="text-2xl font-black text-white tracking-tight">
-                  {approvedCount}
-                </h3>
-              </div>
+            <div className="h-8 w-8 flex items-center justify-center rounded-full bg-emerald-600 text-white">
+              <CheckCircle className="w-5 h-5" />
             </div>
           </div>
         </div>
       </header>
 
       {/* Main Table Container */}
-      <div className="max-w-7xl mx-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-xl shadow-slate-200/50 dark:shadow-none overflow-hidden">
-        <div className="w-full bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+      <div className="max-w-7xl mx-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl shadow-slate-200/50 dark:shadow-none overflow-hidden">
+        <div className="w-full bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
           <div className="overflow-x-auto applications-table-top">
             <table className="w-full border-separate border-spacing-0">
               <thead>
@@ -540,7 +557,7 @@ export default function LoanApplicationsPage() {
                   ].map((h) => (
                     <th
                       key={h.label}
-                      className={`${h.width} px-6 py-4 text-left text-[12px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800 whitespace-nowrap`}
+                      className={`${h.width} px-5 py-3 text-left text-[12px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800 whitespace-nowrap`}
                     >
                       {h.label}
                     </th>
@@ -573,16 +590,16 @@ export default function LoanApplicationsPage() {
                       {/* Borrower - High Emphasis */}
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          <div className="h-10 w-10 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-700 dark:text-slate-300 font-bold shadow-sm">
+                          <div className="h-10 w-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-700 dark:text-slate-300 font-bold">
                             {row.borrowerName?.charAt(0) || "U"}
                           </div>
                           <div className="flex flex-col min-w-0">
-                            <span className="font-semibold text-[14px] text-slate-900 dark:text-slate-100 truncate">
+                            <span className="font-semibold text-[13px] text-slate-900 dark:text-slate-100 truncate">
                               {row.borrowerName || "Untitled Applicant"}
                             </span>
                             <span className="text-[12px] text-slate-500 dark:text-slate-500 flex items-center gap-1">
                               <FileText className="w-3 h-3" />
-                              {row.company}
+                              {row.company.slice(0, 15) + "..."}
                             </span>
                           </div>
                         </div>
@@ -590,7 +607,7 @@ export default function LoanApplicationsPage() {
 
                       {/* Loan Info - Medium Emphasis */}
                       <td className="px-6 py-4">
-                        <span className="text-[13px] font-medium text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/50 px-2 py-1 rounded">
+                        <span className="text-[12px] text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/50 px-2 py-1 rounded">
                           {row.loanType}
                         </span>
                       </td>
@@ -608,8 +625,8 @@ export default function LoanApplicationsPage() {
 
                           {/* Location Text */}
                           <div className="leading-tight">
-                            <div className="text-[13px] font-medium text-slate-700 dark:text-slate-300">
-                              {row.cityState || "Global"}
+                            <div className="text-[13px] text-slate-700 dark:text-slate-300">
+                              {row.cityState.slice(0,15)+"..." || "Global"}
                             </div>
 
                             {row.country && (
@@ -623,7 +640,7 @@ export default function LoanApplicationsPage() {
 
                       {/* Amount - Monospace for numbers */}
                       <td className="px-6 py-4">
-                        <span className="font-mono text-[14px] font-semibold text-slate-800 dark:text-slate-200">
+                        <span className="font-mono text-[14px] text-slate-800 dark:text-slate-200">
                           ${row.amount.toLocaleString()}
                         </span>
                       </td>
@@ -652,7 +669,7 @@ export default function LoanApplicationsPage() {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span
                           className={`
-      inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider 
+      inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] uppercase tracking-wider 
       border backdrop-blur-md transition-all duration-500 group-hover:scale-105
       ${getStatusColor(row.status)}
     `}
@@ -672,16 +689,22 @@ export default function LoanApplicationsPage() {
                       </td>
 
                       {/* Lenders Button */}
-                      <td className="px-6 py-4 whitespace-nowrap min-w-[160px]">
+                      <td className="px-2 py-2 whitespace-nowrap w-[70px] text-center">
                         <button
                           onClick={() => {
                             setLenderSubmissionId(row.submissionId);
                             setFindLenderModalOpen(true);
                           }}
-                          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 w-full text-[12px] font-bold tracking-tight text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500 rounded-xl transition-all shadow-md shadow-blue-500/25 active:scale-[0.97] group/btn"
+                          className="inline-flex items-center justify-center 
+               h-8 w-8
+               text-white bg-blue-600 hover:bg-blue-700 
+               dark:bg-blue-600 dark:hover:bg-blue-500 
+               rounded-lg
+               transition-all 
+               shadow-sm hover:shadow-md
+               active:scale-95"
                         >
-                          <Search className="w-4 h-4 stroke-[2.5px] group-hover/btn:scale-110 transition-transform" />
-                          <span className="whitespace-nowrap">Find Lender</span>
+                          <Search className="w-4 h-4 stroke-[2.5px]" />
                         </button>
                       </td>
 

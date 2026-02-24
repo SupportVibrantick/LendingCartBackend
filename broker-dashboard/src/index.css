@@ -903,6 +903,8 @@ span.flatpickr-weekday,
 /* ================= TEXT ================= */
 .menu-item-text {
   @apply whitespace-nowrap;
+    font-size: 13px;
+    font-weight: 500;
 }
 
 /* ================= DROPDOWN ITEMS ================= */

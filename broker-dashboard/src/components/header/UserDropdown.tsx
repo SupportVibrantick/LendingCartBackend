@@ -1,36 +1,24 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
 import { Dropdown } from "../ui/dropdown/Dropdown";
 import { useNavigate } from "react-router-dom";
 
-export default function UserDropdown() {
+interface UserDropdownProps {
+  user: any;
+}
+
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5173";
+
+export default function UserDropdown({ user }: UserDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [displayName, setDisplayName] = useState("Admin");
-  const [displayEmail, setDisplayEmail] = useState("Admin@gmail.com");
   const navigate = useNavigate();
 
-  useEffect(() => {
-    try {
-      const raw = sessionStorage.getItem("admin_user");
-      if (raw) {
-        const user = JSON.parse(raw);
-        if (user?.firstName || user?.lastName) {
-          setDisplayName(`${user.firstName ?? ""} ${user.lastName ?? ""}`.trim());
-        } else if (user?.name) {
-          setDisplayName(user.name);
-        }
-        if (user?.email) setDisplayEmail(user.email);
-      } else {
-        // fallback: try separate keys
-        const tokenName = sessionStorage.getItem("admin_user_name");
-        const tokenEmail = sessionStorage.getItem("admin_user_email");
-        if (tokenName) setDisplayName(tokenName);
-        if (tokenEmail) setDisplayEmail(tokenEmail);
-      }
-    } catch (e) {
-      // ignore parse errors and keep defaults
-    }
-  }, []);
+  const displayName =
+    user?.user?.firstName && user?.user?.lastName
+      ? `${user.user.firstName} ${user.user.lastName}`
+      : user?.user?.name || "Broker";
+
+  const displayEmail = user?.user?.email || "";
 
   function toggleDropdown() {
     setIsOpen(!isOpen);
@@ -67,13 +55,23 @@ export default function UserDropdown() {
         aria-haspopup="true"
       >
         <span className="mr-3 overflow-hidden rounded-full h-11 w-11">
-          <img src="/profile.png" alt="User" />
+          <img
+            src={
+              user?.user?.profileImage
+                ? `${API_BASE}/public/${user.user.profileImage}`
+                : "/profile.png"
+            }
+            alt="User"
+          />
         </span>
 
-        <span className="block mr-1 font-medium text-theme-sm">{displayName}</span>
+        <span className="block mr-1 font-medium text-theme-sm">
+          {displayName}
+        </span>
         <svg
-          className={`stroke-gray-500 dark:stroke-gray-400 transition-transform duration-200 ${isOpen ? "rotate-180" : ""
-            }`}
+          className={`stroke-gray-500 dark:stroke-gray-400 transition-transform duration-200 ${
+            isOpen ? "rotate-180" : ""
+          }`}
           width="18"
           height="20"
           viewBox="0 0 18 20"
