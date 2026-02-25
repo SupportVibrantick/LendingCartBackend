@@ -12,6 +12,7 @@ import {
   CheckCircle,
   XCircle,
 } from "lucide-react";
+import Swal from "sweetalert2";
 
 /* ================= TYPES ================= */
 type TableRow = {
@@ -65,6 +66,10 @@ const getApplicationStatusColor = (status: string) => {
 
     case "SENT":
       return "bg-blue-100 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400";
+
+    case "CONDITIONAL":
+    case "LENDER_CONDITIONAL":
+      return "bg-cyan-100 text-cyan-700 dark:bg-cyan-500/10 dark:text-cyan-400";
 
     default:
       return "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300";
@@ -230,7 +235,13 @@ export default function LoanPipeline() {
   const canTakeDecision = (status?: string) => {
     const s = normalizeStatus(status);
 
-    return s === "PENDING" || s === "IN_REVIEW" || s === "SENT";
+    return (
+      s === "PENDING" ||
+      s === "IN_REVIEW" ||
+      s === "SENT" ||
+      s === "CONDITIONAL" ||
+      s === "LENDER_CONDITIONAL"
+    );
   };
 
   const filteredRows = useMemo(() => {
@@ -258,6 +269,38 @@ export default function LoanPipeline() {
       setCurrentPage(totalPages);
     }
   }, [totalPages, currentPage]);
+
+  const handleConditionalApproval = async (applicationId: string) => {
+    try {
+      setLoading(true);
+      const payload = {
+        decision: "CONDITIONAL",
+        notes: "Please upload required documents",
+      };
+
+      const res = await fetch(
+        `${API_BASE}/lender/loan-pipeline/${applicationId}/decision`,
+        {
+          method: "PATCH",
+          headers: getAuthHeaders(),
+          body: JSON.stringify(payload),
+        },
+      );
+
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Conditional approval failed");
+      }
+
+      toast.success("Application Conditionally Approved");
+      loadSubmissions();
+    } catch (err: any) {
+      toast.error(err.message || "Something went wrong");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleDecisionSubmit = async () => {
     try {
@@ -578,12 +621,45 @@ export default function LoanPipeline() {
                             {/* Approve Button */}
                             <button
                               disabled={!isActionAllowed}
-                              onClick={() =>
-                                setDecisionModal({
-                                  type: "APPROVED",
-                                  applicationId: row.applicationLenderId,
-                                })
-                              }
+                              onClick={() => {
+                                if (
+                                  normalizeStatus(row.applicationStatus) ===
+                                  "CONDITIONAL"
+                                ) {
+                                  setDecisionModal({
+                                    type: "APPROVED",
+                                    applicationId: row.applicationLenderId,
+                                  });
+                                } else {
+                                  Swal.fire({
+                                    title: "Conditional Approval",
+                                    text: "Do you want to conditionally approve this application?",
+                                    icon: "question",
+                                    showCancelButton: true,
+                                    confirmButtonText: "Yes, approve",
+                                    confirmButtonColor: "#10b981",
+                                    cancelButtonColor: "#f43f5e",
+                                    background:
+                                      document.documentElement.classList.contains(
+                                        "dark",
+                                      )
+                                        ? "#1e293b"
+                                        : "#fff",
+                                    color:
+                                      document.documentElement.classList.contains(
+                                        "dark",
+                                      )
+                                        ? "#f1f5f9"
+                                        : "#1e293b",
+                                  }).then((result) => {
+                                    if (result.isConfirmed) {
+                                      handleConditionalApproval(
+                                        row.applicationLenderId,
+                                      );
+                                    }
+                                  });
+                                }
+                              }}
                               className={`group flex items-center justify-center gap-1.5
     px-3 py-2 rounded-xl text-sm font-semibold
     transition-all duration-300
@@ -918,6 +994,9 @@ ${
                             const isRejected =
                               reviewStatus === "DECLINED" ||
                               reviewStatus === "REJECTED";
+                            const isConditional =
+                              reviewStatus === "CONDITIONAL" ||
+                              reviewStatus === "LENDER_CONDITIONAL";
 
                             return (
                               <div
@@ -928,7 +1007,9 @@ ${
             ? "border-emerald-200 dark:border-emerald-500/30 bg-[#F7FEFB]"
             : isRejected
               ? "border-rose-200 dark:border-rose-500/30 bg-[#FFF9FA]"
-              : "border-slate-200 dark:border-slate-700"
+              : isConditional
+                ? "border-amber-200 dark:border-amber-500/30 bg-amber-50/50 dark:bg-amber-900/10"
+                : "border-slate-200 dark:border-slate-700"
         }
       `}
                               >
@@ -940,7 +1021,9 @@ ${
               ? "bg-emerald-500"
               : isRejected
                 ? "bg-rose-500"
-                : "bg-slate-400"
+                : isConditional
+                  ? "bg-amber-500"
+                  : "bg-slate-400"
           }
         `}
                                 />
@@ -955,11 +1038,19 @@ ${
                                 ? "bg-emerald-500 text-white dark:bg-emerald-500/10 dark:text-emerald-400"
                                 : isRejected
                                   ? "bg-rose-100 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400"
-                                  : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+                                  : isConditional
+                                    ? "bg-amber-600 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400"
+                                    : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
                             }
                         `}
                                   >
-                                    {isApproved ? "✔" : isRejected ? "✖" : "•"}
+                                    {isApproved
+                                      ? "✔"
+                                      : isRejected
+                                        ? "✖"
+                                        : isConditional
+                                          ? "!"
+                                          : "•"}
                                   </div>
 
                                   <div>
@@ -973,7 +1064,9 @@ ${
                                 ? "text-emerald-600 dark:text-emerald-400"
                                 : isRejected
                                   ? "text-rose-600 dark:text-rose-400"
-                                  : "text-slate-700 dark:text-slate-200"
+                                  : isConditional
+                                    ? "text-amber-600 dark:text-amber-400"
+                                    : "text-slate-700 dark:text-slate-200"
                             }
                             `}
                                     >
