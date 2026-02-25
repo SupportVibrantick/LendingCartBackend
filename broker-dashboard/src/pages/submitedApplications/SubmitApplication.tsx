@@ -46,6 +46,7 @@ type TableRow = {
   amount: number;
   status: string;
   date: string;
+  pendingDocumentsCount?: number;
 };
 
 type Lender = {
@@ -115,6 +116,13 @@ export default function LoanApplicationsPage() {
   const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
   const [applicationId, setApplicationId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  // DOCUMENT MODAL STATE
+  const [documentModalOpen, setDocumentModalOpen] = useState(false);
+  // const [documentSubmissionId, setDocumentSubmissionId] = useState<
+  //   string | null
+  // >(null);
+  const [documentsData, setDocumentsData] = useState<any>(null);
+  const [documentsLoading, setDocumentsLoading] = useState(false);
   const rowsPerPage = 6;
 
   const navigate = useNavigate();
@@ -251,6 +259,34 @@ export default function LoanApplicationsPage() {
     }
   };
 
+  const fetchSubmissionDocuments = async (submissionId: string) => {
+    try {
+      setDocumentsLoading(true);
+      // setDocumentSubmissionId(submissionId);
+      setDocumentModalOpen(true);
+
+      const res = await fetch(
+        `${API_BASE}/broker/loan-pipeline/submissions/${submissionId}/documents`,
+        {
+          method: "GET",
+          headers: getAuthHeaders(),
+        },
+      );
+
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Failed to load documents");
+      }
+
+      setDocumentsData(json.data);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to fetch documents");
+    } finally {
+      setDocumentsLoading(false);
+    }
+  };
+
   const sendToLender = async (lenderProductId: string) => {
     if (!lenderSubmissionId || !applicationId) return;
 
@@ -301,6 +337,24 @@ export default function LoanApplicationsPage() {
     }
   }, [findLenderModalOpen, lenderSubmissionId]);
 
+  const getPendingDocumentsCount = async (submissionId: string) => {
+    try {
+      const res = await fetch(
+        `${API_BASE}/broker/loan-pipeline/submissions/${submissionId}/documents`,
+        {
+          headers: getAuthHeaders(),
+        },
+      );
+
+      const json = await res.json();
+      if (!res.ok || !json.success) return 0;
+
+      return json.data.pendingDocumentsCount || 0;
+    } catch {
+      return 0;
+    }
+  };
+
   const loadSubmissions = async () => {
     try {
       setLoading(true);
@@ -321,10 +375,16 @@ export default function LoanApplicationsPage() {
               if (!detailJson.success) return null;
 
               const fields = detailJson.data.fields;
+              const pendingCount = await getPendingDocumentsCount(
+                item.submissionId,
+              );
+
               return {
                 submissionId: item.submissionId,
                 borrowerName:
-                  `${getFieldValue(fields, "borrowerFirstName") || ""} ${getFieldValue(fields, "borrowerLastName") || ""}`.trim(),
+                  `${getFieldValue(fields, "borrowerFirstName") || ""} ${
+                    getFieldValue(fields, "borrowerLastName") || ""
+                  }`.trim(),
                 company: getFieldValue(fields, "companyName") || "Individual",
                 loanType:
                   getFieldValue(fields, "loanProductCode") || "General Loan",
@@ -338,6 +398,7 @@ export default function LoanApplicationsPage() {
                 amount: Number(getFieldValue(fields, "amountRequested") || 0),
                 status: item.status,
                 date: item.submittedOn,
+                pendingDocumentsCount: pendingCount,
               };
             } catch {
               return null;
@@ -352,6 +413,13 @@ export default function LoanApplicationsPage() {
       setLoading(false);
     }
   };
+
+  const Stat = ({ label, value }: { label: string; value: string }) => (
+    <div>
+      <p className="text-xs text-slate-500 uppercase">{label}</p>
+      <p className="text-[14px] font-semibold text-blue-600">{value}</p>
+    </div>
+  );
 
   useEffect(() => {
     loadSubmissions();
@@ -626,7 +694,7 @@ export default function LoanApplicationsPage() {
                           {/* Location Text */}
                           <div className="leading-tight">
                             <div className="text-[13px] text-slate-700 dark:text-slate-300">
-                              {row.cityState.slice(0,15)+"..." || "Global"}
+                              {row.cityState.slice(0, 15) + "..." || "Global"}
                             </div>
 
                             {row.country && (
@@ -709,15 +777,42 @@ export default function LoanApplicationsPage() {
                       </td>
 
                       {/* Action - Clean & Subtle */}
-                      <td className="px-6 py-4 text-center">
+                      <td className="px-6 py-4 text-center space-x-2 flex">
+                        {/* View Details */}
                         <button
                           onClick={() =>
                             fetchSubmissionDetail(row.submissionId)
                           }
-                          className="p-2 rounded-lg bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-500/20 transition-all"
+                          className="p-2 rounded-lg bg-blue-50 dark:bg-blue-500/10 
+               text-blue-600 dark:text-blue-400 
+               hover:bg-blue-100 dark:hover:bg-blue-500/20 transition-all"
                         >
                           <Eye size={16} />
                         </button>
+
+                        {/* Upload Documents */}
+                        <div className="relative inline-block">
+                          {/* Notification Badge */}
+                          {(row.pendingDocumentsCount ?? 0) > 0 && (
+                            <span className="absolute -top-2 -right-2 bg-amber-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full shadow animate-pulse">
+                              {row.pendingDocumentsCount}
+                            </span>
+                          )}
+
+                          {/* Upload Documents Button */}
+                          <button
+                            onClick={() =>
+                              fetchSubmissionDocuments(row.submissionId)
+                            }
+                            className="p-2 rounded-lg 
+               bg-emerald-50 dark:bg-emerald-500/10 
+               text-emerald-600 dark:text-emerald-400 
+               hover:bg-emerald-100 dark:hover:bg-emerald-500/20 
+               transition-all"
+                          >
+                            <FileText size={16} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -878,6 +973,14 @@ export default function LoanApplicationsPage() {
                         (f: any) => f.fieldKey === "borrowerSignature",
                       );
 
+                      const loanAmount =
+                        Number(
+                          getFieldValue(
+                            submissionDetail.fields,
+                            "amountRequested",
+                          ) ?? 0,
+                        ) || 0;
+
                       const submittedDate = new Date(
                         submissionDetail.submittedAt,
                       );
@@ -895,11 +998,13 @@ export default function LoanApplicationsPage() {
                           {firstReview && (
                             <div
                               className={`relative overflow-hidden rounded-2xl border p-6 mb-8 shadow-md
-      ${
-        firstReview.reviewStatus === "APPROVED"
-          ? "border-emerald-400 bg-emerald-50/40 dark:bg-emerald-500/5"
-          : "border-rose-400 bg-rose-50/40 dark:bg-rose-500/5"
-      }
+     ${
+       firstReview.reviewStatus === "APPROVED"
+         ? "border-emerald-400 bg-emerald-50/40 dark:bg-emerald-500/5"
+         : firstReview.reviewStatus === "CONDITIONAL"
+           ? "border-amber-400 bg-amber-50/40 dark:bg-amber-500/5"
+           : "border-rose-400 bg-rose-50/40 dark:bg-rose-500/5"
+     }
     `}
                             >
                               {/* Top Accent Line */}
@@ -908,7 +1013,9 @@ export default function LoanApplicationsPage() {
         ${
           firstReview.reviewStatus === "APPROVED"
             ? "bg-emerald-500"
-            : "bg-rose-500"
+            : firstReview.reviewStatus === "CONDITIONAL"
+              ? "bg-amber-500"
+              : "bg-rose-500"
         }
       `}
                               />
@@ -920,13 +1027,17 @@ export default function LoanApplicationsPage() {
           ${
             firstReview.reviewStatus === "APPROVED"
               ? "bg-emerald-500"
-              : "bg-rose-500"
+              : firstReview.reviewStatus === "CONDITIONAL"
+                ? "bg-amber-500"
+                : "bg-rose-500"
           }
         `}
                                 >
                                   {firstReview.reviewStatus === "APPROVED"
                                     ? "✓"
-                                    : "✕"}
+                                    : firstReview.reviewStatus === "CONDITIONAL"
+                                      ? "!"
+                                      : "✕"}
                                 </div>
 
                                 <div>
@@ -935,11 +1046,13 @@ export default function LoanApplicationsPage() {
                                   </p>
                                   <h3
                                     className={`text-lg font-bold
-            ${
-              firstReview.reviewStatus === "APPROVED"
-                ? "text-emerald-600 dark:text-emerald-400"
-                : "text-rose-600 dark:text-rose-400"
-            }
+           ${
+             firstReview.reviewStatus === "APPROVED"
+               ? "text-emerald-600 dark:text-emerald-400"
+               : firstReview.reviewStatus === "CONDITIONAL"
+                 ? "text-amber-600 dark:text-amber-400"
+                 : "text-rose-600 dark:text-rose-400"
+           }
           `}
                                   >
                                     {firstReview.reviewStatus === "DECLINED"
@@ -1013,6 +1126,18 @@ export default function LoanApplicationsPage() {
                             {submissionDetail.status === "DECLINED"
                               ? "REJECTED"
                               : submissionDetail.status}
+                          </div>
+
+                          {/* STATS BOX */}
+                          <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6 shadow-sm">
+                            <div className="grid grid-cols-2 md:grid-cols-6 gap-6 text-center">
+                              <Stat label="Loan Amount" value={`$${loanAmount.toLocaleString()}`} />
+                              <Stat label="LTV %" value="-" />
+                              <Stat label="LTC %" value="-" />
+                              <Stat label="ARV %" value="-" />
+                              <Stat label="DSCR" value="-" />
+                              <Stat label="Net Worth" value="$0" />
+                            </div>
                           </div>
 
                           {/* ALL FIELDS (EXCEPT SIGNATURE) */}
@@ -1398,6 +1523,135 @@ export default function LoanApplicationsPage() {
                           <ChevronRight size={16} />
                         </button>
                       </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>,
+            document.body,
+          )}
+
+        {documentModalOpen &&
+          createPortal(
+            <div className="fixed inset-0 z-[9999999999] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col">
+                {/* HEADER */}
+                <div className="flex items-center justify-between px-6 py-4 border-b dark:border-slate-800 shrink-0">
+                  <h2 className="font-bold text-lg dark:text-white">
+                    Requested Documents
+                  </h2>
+                  <button
+                    onClick={() => {
+                      setDocumentModalOpen(false);
+                      setDocumentsData(null);
+                    }}
+                    className="text-slate-400 hover:text-red-500 text-xl"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                {/* SCROLLABLE BODY */}
+                <div className="p-6 overflow-y-auto">
+                  {documentsLoading ? (
+                    <div className="text-center text-slate-500 py-10">
+                      Loading documents...
+                    </div>
+                  ) : documentsData?.documents?.length > 0 ? (
+                    <div className="max-h-sm max-w-2xl grid md:grid-cols-2 gap-6">
+                      {documentsData.documents.map(
+                        (doc: any, index: number) => {
+                          const hasFiles =
+                            doc.uploadedFiles && doc.uploadedFiles.length > 0;
+
+                          return (
+                            <div
+                              key={index}
+                              className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-sm hover:shadow-md transition"
+                            >
+                              {/* Top Section */}
+                              <div className="flex items-center gap-4 mb-4">
+                                {/* <div className="w-14 h-14 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-xl font-bold text-slate-500">
+                                  📄
+                                </div> */}
+
+                                <div>
+                                  <h3 className="font-semibold text-slate-800 dark:text-white text-sm">
+                                    {doc.documentName}
+                                  </h3>
+                                  {/* <p className="text-xs text-slate-500">
+                                    {doc.isRequired
+                                      ? "Required Document"
+                                      : "Optional"}
+                                  </p> */}
+                                </div>
+                              </div>
+
+                              {/* Upload Area */}
+                              {!hasFiles ? (
+                                <div className="border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-lg p-6 text-center hover:border-amber-400 transition">
+                                  {/* <div className="text-md mb-2">⬆️</div> */}
+                                  <p className="text-sm text-slate-600 dark:text-slate-400">
+                                    <span className="text-amber-600 font-medium cursor-pointer text-xs">
+                                      Click to Upload
+                                    </span>{" "}
+                                    or drag & drop
+                                  </p>
+                                  <p className="text-xs text-slate-400 mt-1">
+                                    PDF / JPG / PNG (Max 5MB)
+                                  </p>
+                                </div>
+                              ) : (
+                                <div className="space-y-3">
+                                  {doc.uploadedFiles.map(
+                                    (file: any, i: number) => (
+                                      <div
+                                        key={i}
+                                        className="flex items-center justify-between bg-slate-100 dark:bg-slate-800 px-3 py-2 rounded-lg"
+                                      >
+                                        <span className="text-sm truncate">
+                                          {file.fileName}
+                                        </span>
+
+                                        <a
+                                          href={file.url}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          className="text-blue-600 text-xs font-medium"
+                                        >
+                                          View
+                                        </a>
+                                      </div>
+                                    ),
+                                  )}
+                                </div>
+                              )}
+
+                              {/* Bottom Status */}
+                              <div className="mt-4 flex justify-between items-center">
+                                <span
+                                  className={`text-[10px] px-3 py-1 rounded-full font-semibold
+                          ${
+                            doc.status === "PENDING"
+                              ? "bg-amber-100 text-amber-600"
+                              : "bg-emerald-100 text-emerald-600"
+                          }`}
+                                >
+                                  {doc.status}
+                                </span>
+
+                                <span className="text-[10px] font-semibold text-slate-500">
+                                  {doc.uploadedCount} Uploaded
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        },
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-center text-slate-500 py-10">
+                      No documents found
                     </div>
                   )}
                 </div>
