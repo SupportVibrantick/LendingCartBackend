@@ -32,7 +32,7 @@ async function createLenderDocumentConfigRoutes(fastify) {
     async (req, reply) => {
       const prisma = fastify.prisma;
       try {
-        // 🔐 Auth check
+        // Auth check
         if (
           !req.user ||
           req.user.orgType !== "LENDER" ||
@@ -46,7 +46,7 @@ async function createLenderDocumentConfigRoutes(fastify) {
 
         const lenderOrgId = req.user.organizationId;
 
-        // ✅ Zod validation
+        // Zod validation
         const parsed =
           createLenderDocumentConfigSchema.safeParse(req.body);
         if (!parsed.success) {
@@ -67,7 +67,7 @@ async function createLenderDocumentConfigRoutes(fastify) {
           sortOrder,
         } = parsed.data;
 
-        // ✅ Validate lender product ownership (CORRECT FIELD)
+        // Validate lender product ownership (CORRECT FIELD)
         const lenderProduct = await prisma.lenderProduct.findFirst({
           where: {
             id: lenderProductId,

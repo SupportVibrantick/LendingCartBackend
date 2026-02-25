@@ -7,7 +7,7 @@ async function lenderDecisionRoutes(fastify) {
     {
       schema: {
         tags: ["Lender -> Loan Pipeline"],
-        summary: "Approve or Decline loan application",
+        summary: "Lender decision (Conditional / Approved / Declined)",
         params: {
           type: "object",
           required: ["applicationLenderId"],
@@ -21,7 +21,7 @@ async function lenderDecisionRoutes(fastify) {
           properties: {
             decision: {
               type: "string",
-              enum: ["APPROVED", "DECLINED"],
+              enum: ["CONDITIONAL", "APPROVED", "DECLINED"],
             },
             approvedAmount: { type: "number" },
             interestRate: { type: "number" },
@@ -35,7 +35,7 @@ async function lenderDecisionRoutes(fastify) {
 
       try {
         // =====================================================
-        // 1️⃣ AUTH CHECK
+        // AUTH CHECK
         // =====================================================
         if (
           !req.user ||
@@ -55,7 +55,7 @@ async function lenderDecisionRoutes(fastify) {
         const { decision, approvedAmount, interestRate, notes } = req.body;
 
         // =====================================================
-        // 2️⃣ FETCH SECURED RECORD
+        // FETCH SECURED RECORD
         // =====================================================
         const record = await prisma.applicationLender.findFirst({
           where: {
@@ -74,32 +74,43 @@ async function lenderDecisionRoutes(fastify) {
           });
         }
 
-        // Prevent re-decision
         if (["APPROVED", "DECLINED"].includes(record.status)) {
           return reply.status(400).send({
             success: false,
-            message: "Application already decided",
+            message: "Final decision already made",
           });
         }
 
-        // =====================================================
-        // 3️⃣ ENUM SAFE STATUS MAPPING
-        // =====================================================
-        const lenderStatus =
-          decision === "APPROVED" ? "APPROVED" : "DECLINED";
+        let lenderStatus;
+        let reviewStatus;
 
-        const loanStatus =
-          decision === "APPROVED"
-            ? "LENDER_APPROVED"
-            : "LENDER_DECLINED";
+        switch (decision) {
+          case "CONDITIONAL":
+            lenderStatus = "IN_REVIEW";
+            reviewStatus = "CONDITIONAL";
+            break;
+          case "APPROVED":
+            lenderStatus = "APPROVED";
+            reviewStatus = "APPROVED";
+            break;
+          case "DECLINED":
+            lenderStatus = "DECLINED";
+            reviewStatus = "DECLINED";
+            break;
+          default:
+            return reply.status(400).send({
+              success: false,
+              message: "Invalid decision value",
+            });
+        }
 
         const previousLoanStatus = record.loanApplication.status;
 
         // =====================================================
-        // 4️⃣ TRANSACTION (ATOMIC)
+        // TRANSACTION (ATOMIC & SAFE)
         // =====================================================
         await prisma.$transaction(async (tx) => {
-          // 1️⃣ Update ApplicationLender
+          // Update lender mapping
           await tx.applicationLender.update({
             where: { id: applicationLenderId },
             data: {
@@ -108,12 +119,12 @@ async function lenderDecisionRoutes(fastify) {
             },
           });
 
-          // 2️⃣ Create LenderReview
+          // Create lender review
           await tx.lenderReview.create({
             data: {
               applicationLenderId,
               reviewedByUserId: userId,
-              reviewStatus: lenderStatus,
+              reviewStatus,
               approvedAmount:
                 decision === "APPROVED" && approvedAmount
                   ? approvedAmount
@@ -126,43 +137,112 @@ async function lenderDecisionRoutes(fastify) {
             },
           });
 
-          // 3️⃣ Update LoanApplication main status
-          await tx.loanApplication.update({
-            where: { id: record.loanApplicationId },
-            data: {
-              status: loanStatus,
-            },
-          });
+          // =====================================================
+          // CONDITIONAL → CREATE DOCUMENT REQUESTS
+          // =====================================================
+          if (decision === "CONDITIONAL") {
+            if (!record.lenderProductId) {
+              throw new Error(
+                "Lender product not associated with this application"
+              );
+            }
 
-          // 4️⃣ 🔥 Update ApplicationSubmission (Broker Dashboard)
-          await tx.applicationSubmission.updateMany({
-            where: {
-              applicationId: record.loanApplicationId,
-            },
-            data: {
-              status: lenderStatus, // APPROVED or DECLINED
-            },
-          });
+            // Fetch lender document template
+            const lenderRequirements =
+              await tx.lenderDocumentRequirement.findMany({
+                where: {
+                  lenderProductId: record.lenderProductId,
+                },
+              });
 
-          // 5️⃣ Insert Status History
-          await tx.applicationStatusHistory.create({
-            data: {
-              loanApplicationId: record.loanApplicationId,
-              fromStatus: previousLoanStatus,
-              toStatus: loanStatus,
-              changedByUserId: userId,
-              reason: notes || null,
-            },
-          });
+            // Prevent duplicate injection
+            const existingRequirements =
+              await tx.applicationDocumentRequirement.findMany({
+                where: {
+                  loanApplicationId: record.loanApplicationId,
+                  source: "LENDER_DEFAULT",
+                },
+                select: {
+                  documentTypeId: true,
+                },
+              });
+
+            const existingDocTypeIds = new Set(
+              existingRequirements.map((r) => r.documentTypeId)
+            );
+
+            const newRequirements = lenderRequirements
+              .filter((req) => !existingDocTypeIds.has(req.documentTypeId))
+              .map((req) => ({
+                loanApplicationId: record.loanApplicationId,
+                documentTypeId: req.documentTypeId,
+                source: "LENDER_DEFAULT",
+                isRequired: req.isRequired,
+                status: "PENDING",
+              }));
+
+            if (newRequirements.length > 0) {
+              await tx.applicationDocumentRequirement.createMany({
+                data: newRequirements,
+              });
+            }
+
+            // Move loan into review stage
+            if (previousLoanStatus !== "IN_REVIEW") {
+              await tx.loanApplication.update({
+                where: { id: record.loanApplicationId },
+                data: { status: "IN_REVIEW" },
+              });
+
+              await tx.applicationStatusHistory.create({
+                data: {
+                  loanApplicationId: record.loanApplicationId,
+                  fromStatus: previousLoanStatus,
+                  toStatus: "IN_REVIEW",
+                  changedByUserId: userId,
+                  reason: "Conditional approval - documents requested",
+                },
+              });
+            }
+          }
+
+          // =====================================================
+          //  DECLINE LOGIC (ALL LENDERS DECLINED)
+          // =====================================================
+          if (decision === "DECLINED") {
+            const remaining = await tx.applicationLender.count({
+              where: {
+                loanApplicationId: record.loanApplicationId,
+                status: { notIn: ["DECLINED"] },
+              },
+            });
+
+            if (remaining === 0) {
+              await tx.loanApplication.update({
+                where: { id: record.loanApplicationId },
+                data: { status: "LENDER_DECLINED" },
+              });
+
+              await tx.applicationStatusHistory.create({
+                data: {
+                  loanApplicationId: record.loanApplicationId,
+                  fromStatus: previousLoanStatus,
+                  toStatus: "LENDER_DECLINED",
+                  changedByUserId: userId,
+                  reason: "All lenders declined",
+                },
+              });
+            }
+          }
         });
 
         return reply.send({
           success: true,
-          message: `Application ${decision} successfully`,
+          message: `Application ${decision} processed successfully`,
         });
       } catch (error) {
         fastify.log.error({
-          message: "Error updating lender decision",
+          message: "Error processing lender decision",
           error,
         });
 
