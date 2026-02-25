@@ -79,7 +79,7 @@ module.exports = async function brokerRoutes(fastify, opts) {
     instance.register(require("./users"), {
   prefix: "/users",
 });
-
+fastify.register(require("./loanPipeline"),{prefix:"/loan-pipeline"});
 fastify.register(require("./logs"), { prefix: "/logs" });
 fastify.register(require("./stats"), { prefix: "/stats" });
     // Later extensions
