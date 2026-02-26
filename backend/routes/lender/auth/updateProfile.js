@@ -1,5 +1,6 @@
 const path = require("path");
-const fs = require("fs/promises");
+const fs = require("fs");
+const { pipeline } = require("stream/promises");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
@@ -18,7 +19,9 @@ async function lenderUpdateProfileRoutes(fastify) {
       const prisma = fastify.prisma;
 
       try {
+        // ===============================
         // LENDER GUARD
+        // ===============================
         if (!req.user || req.user.orgType !== "LENDER") {
           return reply.code(403).send({
             success: false,
@@ -26,14 +29,18 @@ async function lenderUpdateProfileRoutes(fastify) {
           });
         }
 
-        const parts = await req.parts();
+        const parts = req.parts();
 
+        // ===============================
         // USER FIELDS
+        // ===============================
         let firstName;
         let lastName;
         let profileImage;
 
+        // ===============================
         // LENDER PROFILE FIELDS
+        // ===============================
         let summary;
         let loanTypes;
         let minFunding;
@@ -43,11 +50,15 @@ async function lenderUpdateProfileRoutes(fastify) {
         let fundingSpeedDays;
 
         for await (const part of parts) {
+          // ===============================
+          // HANDLE FIELDS
+          // ===============================
           if (part.type === "field") {
             switch (part.fieldname) {
               case "firstName":
                 firstName = part.value;
                 break;
+
               case "lastName":
                 lastName = part.value;
                 break;
@@ -55,46 +66,82 @@ async function lenderUpdateProfileRoutes(fastify) {
               case "summary":
                 summary = part.value;
                 break;
+
               case "loanTypes":
-                loanTypes = JSON.parse(part.value); // expects array
+                try {
+                  loanTypes = JSON.parse(part.value);
+                } catch {
+                  return reply.code(400).send({
+                    success: false,
+                    message: "Invalid loanTypes format (must be JSON array)",
+                  });
+                }
                 break;
+
               case "minFunding":
-                minFunding = part.value;
+                minFunding = Number(part.value);
                 break;
+
               case "maxFunding":
-                maxFunding = part.value;
+                maxFunding = Number(part.value);
                 break;
+
               case "statesSupported":
                 statesSupported = part.value;
                 break;
+
               case "industries":
                 industries = part.value;
                 break;
+
               case "fundingSpeedDays":
                 fundingSpeedDays = Number(part.value);
                 break;
             }
           }
 
+          // ===============================
+          // HANDLE FILE (PROFILE IMAGE)
+          // ===============================
           if (part.type === "file" && part.fieldname === "profileImage") {
+            const allowedMimeTypes = [
+              "image/jpeg",
+              "image/png",
+              "image/webp",
+            ];
+
+            if (!allowedMimeTypes.includes(part.mimetype)) {
+              return reply.code(400).send({
+                success: false,
+                message: "Only JPG, PNG, WEBP images allowed",
+              });
+            }
+
             const uploadDir = path.join(
               process.cwd(),
-              "public/uploads/profile"
+              "public",
+              "uploads",
+              "profile"
             );
 
-            await fs.mkdir(uploadDir, { recursive: true });
+            await fs.promises.mkdir(uploadDir, { recursive: true });
 
-            const fileName = `${req.user.userId}-${Date.now()}${path.extname(
-              part.filename
-            )}`;
+            const fileExt = path.extname(part.filename || "") || ".jpg";
+
+            const fileName = `${req.user.userId}-${Date.now()}${fileExt}`;
 
             const filePath = path.join(uploadDir, fileName);
-            await fs.writeFile(filePath, await part.toBuffer());
 
-            profileImage = `/uploads/profile/${fileName}`;
+            // Stream file safely (no buffer overload)
+            await pipeline(part.file, fs.createWriteStream(filePath));
+
+            profileImage = `/public/uploads/profile/${fileName}`;
           }
         }
 
+        // ===============================
+        // NOTHING TO UPDATE CHECK
+        // ===============================
         if (
           !firstName &&
           !lastName &&
@@ -113,9 +160,9 @@ async function lenderUpdateProfileRoutes(fastify) {
           });
         }
 
-        /* ===============================
-           UPDATE USER ACCOUNT
-        =============================== */
+        // ===============================
+        // UPDATE USER ACCOUNT
+        // ===============================
         const user = await prisma.userAccount.update({
           where: { id: req.user.userId },
           data: {
@@ -125,9 +172,9 @@ async function lenderUpdateProfileRoutes(fastify) {
           },
         });
 
-        /* ===============================
-           UPSERT LENDER PROFILE
-        =============================== */
+        // ===============================
+        // PREPARE PROFILE DATA
+        // ===============================
         const profileData = {
           ...(summary && { summary }),
           ...(loanTypes && { loanTypes }),
@@ -138,11 +185,15 @@ async function lenderUpdateProfileRoutes(fastify) {
           ...(fundingSpeedDays && { fundingSpeedDays }),
         };
 
+        // ===============================
+        // PROFILE COMPLETION LOGIC
+        // ===============================
         let profileStatus = "INCOMPLETE";
 
         if (
           summary &&
-          loanTypes?.length &&
+          Array.isArray(loanTypes) &&
+          loanTypes.length > 0 &&
           minFunding &&
           maxFunding &&
           statesSupported
@@ -150,6 +201,9 @@ async function lenderUpdateProfileRoutes(fastify) {
           profileStatus = "COMPLETED";
         }
 
+        // ===============================
+        // UPSERT LENDER PROFILE
+        // ===============================
         const lenderProfile = await prisma.lenderProfile.upsert({
           where: { lenderOrgId: req.user.organizationId },
           create: {
@@ -180,6 +234,7 @@ async function lenderUpdateProfileRoutes(fastify) {
         });
       } catch (err) {
         console.error("UPDATE PROFILE ERROR:", err);
+
         return reply.code(500).send({
           success: false,
           message: "Failed to update profile",
