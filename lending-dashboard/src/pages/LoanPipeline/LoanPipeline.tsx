@@ -115,8 +115,7 @@ export default function LoanPipeline() {
   const [isDocumentsModalOpen, setIsDocumentsModalOpen] = useState(false);
   const [documentsData, setDocumentsData] = useState<any>(null);
   const [documentsLoading, setDocumentsLoading] = useState(false);
-  const [selectedApplicationLenderId, setSelectedApplicationLenderId] =
-    useState<string | null>(null);
+  // const [setSelectedApplicationLenderId] = useState<string | null>(null);
 
   // File Preview State
   const [previewFile, setPreviewFile] = useState<{
@@ -246,7 +245,7 @@ export default function LoanPipeline() {
     try {
       setDocumentsLoading(true);
       setIsDocumentsModalOpen(true);
-      setSelectedApplicationLenderId(applicationLenderId);
+      // setSelectedApplicationLenderId(applicationLenderId);
 
       const res = await fetch(
         `${API_BASE}/lender/loan-pipeline/lender/applications/${applicationLenderId}/documents`,
