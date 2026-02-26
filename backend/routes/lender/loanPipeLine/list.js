@@ -93,6 +93,11 @@ async function listSubmittedApplications(fastify) {
                     fields: true,
                   },
                 },
+                documentRequirements: {
+                  select: {
+                    status: true,
+                  },
+                },
               },
             },
           },
@@ -130,11 +135,17 @@ async function listSubmittedApplications(fastify) {
               }
             }
 
+            // 🔥 Pending Document Count
+            const pendingDocumentsCount =
+              app.documentRequirements?.filter(
+                (doc) => doc.status !== "COMPLETE"
+              ).length || 0;
+
             return {
               applicationLenderId: item.id,
 
-              // 🔥 Separate pipeline vs decision
-              lenderPipelineStatus: item.status, // SENT / IN_REVIEW / APPROVED / DECLINED
+              // Pipeline vs Decision
+              lenderPipelineStatus: item.status,
               lenderDecision: latestReview?.reviewStatus ?? null,
 
               approvedAmount: latestReview?.approvedAmount ?? null,
@@ -150,11 +161,13 @@ async function listSubmittedApplications(fastify) {
               applicationStatus: app.status,
               createdAt: app.createdAt,
 
+              // ✅ Added here
+              pendingDocumentsCount,
+
               client: app.client,
               broker: app.brokerOrg,
             };
           })
-          // Optional decision filter
           .filter((item) =>
             decisionFilter
               ? item.lenderDecision === decisionFilter
