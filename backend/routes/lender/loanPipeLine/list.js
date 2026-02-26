@@ -8,21 +8,32 @@ async function listSubmittedApplications(fastify) {
       schema: {
         tags: ["Lender -> Loan Pipeline"],
         summary: "List applications sent to lender",
+        querystring: {
+          type: "object",
+          properties: {
+            page: { type: "integer", minimum: 1, default: 1 },
+            limit: { type: "integer", minimum: 1, maximum: 100, default: 10 },
+            decision: {
+              type: "string",
+              enum: ["CONDITIONAL", "APPROVED", "DECLINED"],
+            },
+          },
+        },
       },
     },
     async (req, reply) => {
       const prisma = fastify.prisma;
 
       try {
-        // ----------------------------------
+        // ==========================================
         // 1️⃣ AUTH CHECK
-        // ----------------------------------
+        // ==========================================
         if (
           !req.user ||
           req.user.orgType !== "LENDER" ||
           !req.user.organizationId
         ) {
-          return reply.status(403).send({
+          return reply.code(403).send({
             success: false,
             message: "Lender access only",
           });
@@ -30,9 +41,17 @@ async function listSubmittedApplications(fastify) {
 
         const lenderOrgId = req.user.organizationId;
 
-        // ----------------------------------
-        // 2️⃣ FETCH APPLICATIONS
-        // ----------------------------------
+        // ==========================================
+        // 2️⃣ PAGINATION + FILTERS
+        // ==========================================
+        const page = Number(req.query.page) || 1;
+        const limit = Number(req.query.limit) || 10;
+        const skip = (page - 1) * limit;
+        const decisionFilter = req.query.decision;
+
+        // ==========================================
+        // 3️⃣ FETCH APPLICATIONS
+        // ==========================================
         const applications = await prisma.applicationLender.findMany({
           where: {
             lenderOrgId,
@@ -40,7 +59,19 @@ async function listSubmittedApplications(fastify) {
           orderBy: {
             sentAt: "desc",
           },
+          skip,
+          take: limit,
           include: {
+            lenderReviews: {
+              take: 1,
+              orderBy: { createdAt: "desc" },
+              select: {
+                reviewStatus: true,
+                approvedAmount: true,
+                interestRate: true,
+                createdAt: true,
+              },
+            },
             loanApplication: {
               include: {
                 client: {
@@ -57,7 +88,7 @@ async function listSubmittedApplications(fastify) {
                   },
                 },
                 submissions: {
-                  take: 1, // only first submission
+                  take: 1,
                   include: {
                     fields: true,
                   },
@@ -67,68 +98,96 @@ async function listSubmittedApplications(fastify) {
           },
         });
 
-        // ----------------------------------
-        // 3️⃣ FORMAT RESPONSE
-        // ----------------------------------
-        const formatted = applications.map((item) => {
-          const app = item.loanApplication;
+        // ==========================================
+        // 4️⃣ FORMAT RESPONSE
+        // ==========================================
+        const formatted = applications
+          .map((item) => {
+            const app = item.loanApplication;
+            const latestReview = item.lenderReviews?.[0] ?? null;
 
-          let amountRequested = null;
-          let termMonthsRequested = null;
+            let amountRequested = null;
+            let termMonthsRequested = null;
 
-          if (app.submissions?.length) {
-            const fields = app.submissions[0].fields || [];
+            if (app.submissions?.length) {
+              const fields = app.submissions[0].fields || [];
 
-            const getField = (key) =>
-              fields.find((f) => f.fieldKey === key)?.value;
+              const getField = (key) =>
+                fields.find((f) => f.fieldKey === key)?.value;
 
-            amountRequested = Number(getField("amountRequested")) || null;
+              amountRequested = Number(getField("amountRequested")) || null;
 
-            const minTerm = Number(getField("minTermMonths"));
-            const maxTerm = Number(getField("maxTermMonths"));
-            const termYears = Number(getField("requested_term_years"));
+              const minTerm = Number(getField("minTermMonths"));
+              const maxTerm = Number(getField("maxTermMonths"));
+              const termYears = Number(getField("requested_term_years"));
 
-            if (maxTerm) {
-              termMonthsRequested = maxTerm;
-            } else if (termYears) {
-              termMonthsRequested = termYears * 12;
-            } else if (minTerm) {
-              termMonthsRequested = minTerm;
+              if (maxTerm) {
+                termMonthsRequested = maxTerm;
+              } else if (termYears) {
+                termMonthsRequested = termYears * 12;
+              } else if (minTerm) {
+                termMonthsRequested = minTerm;
+              }
             }
-          }
 
-          return {
-            applicationLenderId: item.id,
-            lenderStatus: item.status,
-            sentAt: item.sentAt,
+            return {
+              applicationLenderId: item.id,
 
-            applicationId: app.id,
-            applicationNumber: app.applicationNumber,
-            loanProductCode: app.loanProductCode,
-            amountRequested,
-            termMonthsRequested,
-            applicationStatus: app.status,
-            createdAt: app.createdAt,
+              // 🔥 Separate pipeline vs decision
+              lenderPipelineStatus: item.status, // SENT / IN_REVIEW / APPROVED / DECLINED
+              lenderDecision: latestReview?.reviewStatus ?? null,
 
-            client: app.client,
-            broker: app.brokerOrg,
-          };
+              approvedAmount: latestReview?.approvedAmount ?? null,
+              interestRate: latestReview?.interestRate ?? null,
+
+              sentAt: item.sentAt,
+
+              applicationId: app.id,
+              applicationNumber: app.applicationNumber,
+              loanProductCode: app.loanProductCode,
+              amountRequested,
+              termMonthsRequested,
+              applicationStatus: app.status,
+              createdAt: app.createdAt,
+
+              client: app.client,
+              broker: app.brokerOrg,
+            };
+          })
+          // Optional decision filter
+          .filter((item) =>
+            decisionFilter
+              ? item.lenderDecision === decisionFilter
+              : true
+          );
+
+        // ==========================================
+        // 5️⃣ TOTAL COUNT
+        // ==========================================
+        const total = await prisma.applicationLender.count({
+          where: { lenderOrgId },
         });
 
+        // ==========================================
+        // 6️⃣ RESPONSE
+        // ==========================================
         return reply.send({
           success: true,
-          total: formatted.length,
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
           data: formatted,
         });
       } catch (error) {
         fastify.log.error(error);
 
-        return reply.status(500).send({
+        return reply.code(500).send({
           success: false,
           message: "Server error while fetching applications",
         });
       }
-    },
+    }
   );
 }
 
