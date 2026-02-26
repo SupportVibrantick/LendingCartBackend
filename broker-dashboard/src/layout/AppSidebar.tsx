@@ -47,7 +47,7 @@ const navItems: NavItem[] = [
 
   {
     icon: <TbTemplate />,
-    name: "Application Templates",
+    name: "Loan Application Templates",
     path: "/templates",
   },
 

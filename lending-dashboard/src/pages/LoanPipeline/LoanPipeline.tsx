@@ -15,7 +15,6 @@ import {
   Download,
   EllipsisVertical,
 } from "lucide-react";
-import Swal from "sweetalert2";
 
 /* ================= TYPES ================= */
 type TableRow = {
@@ -105,6 +104,11 @@ export default function LoanPipeline() {
     applicationId: null,
   });
 
+  const [dropdownPos, setDropdownPos] = useState<{
+    top: number;
+    left: number;
+  } | null>(null);
+
   const [decisionForm, setDecisionForm] = useState({
     approvedAmount: "",
     interestRate: "",
@@ -115,7 +119,6 @@ export default function LoanPipeline() {
   const [isDocumentsModalOpen, setIsDocumentsModalOpen] = useState(false);
   const [documentsData, setDocumentsData] = useState<any>(null);
   const [documentsLoading, setDocumentsLoading] = useState(false);
-  // const [setSelectedApplicationLenderId] = useState<string | null>(null);
 
   // File Preview State
   const [previewFile, setPreviewFile] = useState<{
@@ -555,26 +558,26 @@ export default function LoanPipeline() {
       </header>
 
       {/* Main Table Container */}
-      <div className="max-w-7xl mx-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-slate-200/50 dark:shadow-none overflow-hidden">
-        <div className="w-full bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-          <div className="overflow-x-auto loan-table-scroll">
-            <table className="min-w-[1100px] w-full border-separate border-spacing-0">
+      <div className="max-w-7xl mx-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-slate-200/50 dark:shadow-none">
+        <div className="w-full bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm relative">
+          <div className="overflow-x-hidden loan-table-scroll">
+            <table className="w-full border-separate border-spacing-0">
               <thead>
                 <tr className="bg-slate-50/50 dark:bg-slate-800/40">
                   {[
-                    { label: "Application Id", width: "min-w-[180px]" },
-                    { label: "Borrower", width: "w-[220px]" },
-                    { label: "Loan Type", width: "w-[130px]" },
-                    { label: "Amount", width: "w-[160px]" },
-                    { label: "Broker", width: "w-[180px]" },
-                    { label: "Application Status", width: "w-[180px]" },
-                    { label: "Lender Decision", width: "w-[180px]" },
-                    { label: "Received At", width: "w-[180px]" },
-                    { label: "Actions", width: "w-[120px]" },
+                    { label: "Application Id" },
+                    { label: "Borrower" },
+                    { label: "Loan Type" },
+                    { label: "Amount" },
+                    { label: "Broker" },
+                    { label: "Application Status" },
+                    { label: "Lender Decision" },
+                    { label: "Received At" },
+                    { label: "Actions" },
                   ].map((h) => (
                     <th
                       key={h.label}
-                      className={`${h.width} px-6 py-4 text-[12px] font-semibold uppercase tracking-wider whitespace-nowrap text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800 ${
+                      className={`px-6 py-4 text-[11px] font-semibold uppercase tracking-wide whitespace-nowrap text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800 ${
                         h.label === "Loan Type" ||
                         h.label === "Application Status"
                           ? "text-center"
@@ -615,10 +618,8 @@ export default function LoanPipeline() {
                         className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors"
                       >
                         {/* Application Number */}
-                        <td className="px-6 py-4 font-mono text-sm whitespace-nowrap align-middle">
-                          <span className="inline-block min-w-[160px]">
-                            {row.applicationNumber}
-                          </span>
+                        <td className="px-6 py-4 font-mono text-sm align-middle break-words">
+                          <span>{row.applicationNumber}</span>
                         </td>
                         {/* Borrower */}
                         <td className="px-6 py-4">
@@ -692,6 +693,15 @@ export default function LoanPipeline() {
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
+
+                                const rect =
+                                  e.currentTarget.getBoundingClientRect();
+
+                                setDropdownPos({
+                                  top: rect.bottom + window.scrollY + 6,
+                                  left: rect.right - 192, // 192 = w-48
+                                });
+
                                 setActiveDropdown(
                                   activeDropdown === row.applicationLenderId
                                     ? null
@@ -706,125 +716,117 @@ export default function LoanPipeline() {
                               />
                             </button>
 
-                            {activeDropdown === row.applicationLenderId && (
-                              <>
-                                <div
-                                  className="fixed inset-0 z-[100]"
-                                  onClick={() => setActiveDropdown(null)}
-                                />
-                                <div className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-200 dark:border-slate-800 py-2 z-[101] animate-in fade-in slide-in-from-top-2">
-                                  {/* View Action */}
-                                  <button
-                                    onClick={() => {
-                                      fetchLenderApplicationDetail(
-                                        row.applicationLenderId,
-                                      );
-                                      setActiveDropdown(null);
+                            {activeDropdown === row.applicationLenderId &&
+                              dropdownPos &&
+                              createPortal(
+                                <>
+                                  {/* Overlay */}
+                                  <div
+                                    className="fixed inset-0 z-40"
+                                    onClick={() => setActiveDropdown(null)}
+                                  />
+
+                                  {/* Dropdown */}
+                                  <div
+                                    style={{
+                                      position: "absolute",
+                                      top: dropdownPos.top,
+                                      left: dropdownPos.left,
                                     }}
-                                    className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 transition-colors"
+                                    className="w-56 bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-200 dark:border-slate-800 py-2 z-50 animate-in fade-in zoom-in-95"
                                   >
-                                    <Eye size={16} />
-                                    View Details
-                                  </button>
+                                    {/* View */}
+                                    <button
+                                      onClick={() => {
+                                        fetchLenderApplicationDetail(
+                                          row.applicationLenderId,
+                                        );
+                                        setActiveDropdown(null);
+                                      }}
+                                      className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 transition"
+                                    >
+                                      <Eye size={16} />
+                                      View Details
+                                    </button>
 
-                                  {/* Documents Action */}
-                                  <button
-                                    onClick={() => {
-                                      fetchDocuments(row.applicationLenderId);
-                                      setActiveDropdown(null);
-                                    }}
-                                    className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-amber-50 dark:hover:bg-amber-900/20 hover:text-amber-600 transition-colors"
-                                  >
-                                    <FileIcon size={16} />
-                                    Documents
-                                    {(row.pendingDocumentsCount ?? 0) > 0 && (
-                                      <span className="ml-auto bg-amber-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">
-                                        {row.pendingDocumentsCount}
-                                      </span>
-                                    )}
-                                  </button>
+                                    {/* Documents */}
+                                    <button
+                                      onClick={() => {
+                                        fetchDocuments(row.applicationLenderId);
+                                        setActiveDropdown(null);
+                                      }}
+                                      className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-amber-50 dark:hover:bg-amber-900/20 hover:text-amber-600 transition"
+                                    >
+                                      <FileIcon size={16} />
+                                      Documents
+                                      {(row.pendingDocumentsCount ?? 0) > 0 && (
+                                        <span className="ml-auto bg-amber-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">
+                                          {row.pendingDocumentsCount}
+                                        </span>
+                                      )}
+                                    </button>
 
-                                  <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
+                                    <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
 
-                                  {/* Approve Action */}
-                                  <button
-                                    disabled={!isActionAllowed}
-                                    onClick={() => {
-                                      setActiveDropdown(null);
-                                      if (
-                                        normalizeStatus(row.lenderDecision) ===
-                                        "CONDITIONAL"
-                                      ) {
+                                    {/* Approve */}
+                                    <button
+                                      disabled={!isActionAllowed}
+                                      onClick={() => {
+                                        setActiveDropdown(null);
+
+                                        if (
+                                          normalizeStatus(
+                                            row.lenderDecision,
+                                          ) === "CONDITIONAL"
+                                        ) {
+                                          setDecisionModal({
+                                            type: "APPROVED",
+                                            applicationId:
+                                              row.applicationLenderId,
+                                          });
+                                        } else {
+                                          handleConditionalApproval(
+                                            row.applicationLenderId,
+                                          );
+                                        }
+                                      }}
+                                      className={`flex items-center gap-3 w-full px-4 py-2.5 text-sm whitespace-nowrap transition ${
+                                        isActionAllowed
+                                          ? "text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+                                          : "text-slate-300 cursor-not-allowed"
+                                      }`}
+                                    >
+                                      <CheckCircle size={16} />
+                                      {normalizeStatus(row.lenderDecision) ===
+                                      "CONDITIONAL"
+                                        ? "Final Approval"
+                                        : "Conditional Approval"}
+                                    </button>
+
+                                    {/* Reject */}
+                                    <button
+                                      disabled={!isActionAllowed}
+                                      onClick={() => {
+                                        setActiveDropdown(null);
                                         setDecisionModal({
-                                          type: "APPROVED",
+                                          type: "DECLINED",
                                           applicationId:
                                             row.applicationLenderId,
                                         });
-                                      } else {
-                                        Swal.fire({
-                                          title: "Conditional Approval",
-                                          text: "Do you want to conditionally approve this application?",
-                                          icon: "question",
-                                          showCancelButton: true,
-                                          confirmButtonText: "Yes, approve",
-                                          confirmButtonColor: "#10b981",
-                                          cancelButtonColor: "#f43f5e",
-                                          background:
-                                            document.documentElement.classList.contains(
-                                              "dark",
-                                            )
-                                              ? "#1e293b"
-                                              : "#fff",
-                                          color:
-                                            document.documentElement.classList.contains(
-                                              "dark",
-                                            )
-                                              ? "#f1f5f9"
-                                              : "#1e293b",
-                                        }).then((result) => {
-                                          if (result.isConfirmed) {
-                                            handleConditionalApproval(
-                                              row.applicationLenderId,
-                                            );
-                                          }
-                                        });
-                                      }
-                                    }}
-                                    className={`flex items-center gap-3 w-full px-4 py-2.5 text-sm transition-colors ${
-                                      isActionAllowed
-                                        ? "text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
-                                        : "text-slate-300 cursor-not-allowed"
-                                    }`}
-                                  >
-                                    <CheckCircle size={16} />
-                                    {normalizeStatus(row.lenderDecision) ===
-                                    "CONDITIONAL"
-                                      ? "Final Approval"
-                                      : "Conditional Approval"}
-                                  </button>
-
-                                  {/* Reject Action */}
-                                  <button
-                                    disabled={!isActionAllowed}
-                                    onClick={() => {
-                                      setActiveDropdown(null);
-                                      setDecisionModal({
-                                        type: "DECLINED",
-                                        applicationId: row.applicationLenderId,
-                                      });
-                                    }}
-                                    className={`flex items-center gap-3 w-full px-4 py-2.5 text-sm transition-colors ${
-                                      isActionAllowed
-                                        ? "text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20"
-                                        : "text-slate-300 cursor-not-allowed"
-                                    }`}
-                                  >
-                                    <XCircle size={16} />
-                                    Reject
-                                  </button>
-                                </div>
-                              </>
-                            )}
+                                      }}
+                                      className={`flex items-center gap-3 w-full px-4 py-2.5 text-sm transition ${
+                                        isActionAllowed
+                                          ? "text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20"
+                                          : "text-slate-300 cursor-not-allowed"
+                                      }`}
+                                    >
+                                      <XCircle size={16} />
+                                      Reject
+                                    </button>
+                                  </div>
+                                </>,
+                                document.body,
+                              )}
                           </div>
                         </td>
                       </tr>
