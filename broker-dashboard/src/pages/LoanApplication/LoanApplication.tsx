@@ -34,6 +34,8 @@ interface FormDataType {
     currentMarketValue: string;
     purchasePrice: string;
     purchaseDate: string;
+    totalAssets: string;
+    totalLiabilities: string;
   };
   loanTermIncome: {
     loanTerm: string;
@@ -121,7 +123,6 @@ const LoanApplication = () => {
   const [productsMeta, setProductsMeta] = useState<any[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-
   const navigate = useNavigate();
 
   const baseSteps = ["Borrower Info", "Loan Request", "Loan Term & Income"];
@@ -180,6 +181,8 @@ const LoanApplication = () => {
       currentMarketValue: "",
       purchasePrice: "",
       purchaseDate: "",
+      totalAssets: "",
+      totalLiabilities: "",
     },
     loanTermIncome: {
       loanTerm: "",
@@ -362,7 +365,18 @@ const LoanApplication = () => {
       if (!selectedProduct) {
         newErrors["selectedProduct"] = "Program selection is required";
       }
+      const assets = Number(formData.loanRequest.totalAssets);
+      const liabilities = Number(formData.loanRequest.totalLiabilities);
 
+      if (assets <= 0) {
+        newErrors["loanRequest.totalAssets"] =
+          "Total Assets must be greater than 0";
+      }
+
+      if (liabilities < 0) {
+        newErrors["loanRequest.totalLiabilities"] =
+          "Liabilities cannot be negative";
+      }
       checkObject(formData.loanRequest, "loanRequest");
     }
 
@@ -507,6 +521,15 @@ const LoanApplication = () => {
 
       addField("borrowerSignature", signatureBase64);
 
+      /* ================= CALCULATED STATS ================= */
+      addField("ltvPercentage", ltv !== "—" ? Number(ltv) : 0);
+      addField("ltcPercentage", ltc !== "—" ? Number(ltc) : 0);
+      addField("arvPercentage", arv !== "—" ? Number(arv) : 0);
+      addField("dscr", dscr !== "—" ? Number(dscr) : 0);
+      addField("totalAssets", borrowerAssets);
+      addField("totalLiabilities", borrowerLiabilities);
+      addField("netWorth", netWorth);
+
       /* ================= FINAL PAYLOAD ================= */
 
       const payload = {
@@ -629,6 +652,13 @@ const LoanApplication = () => {
     const cleaned = value.replace(/,/g, "");
     return parseFloat(cleaned) || 0;
   };
+
+  const borrowerAssets = toNumber(formData.loanRequest.totalAssets || "0");
+  const borrowerLiabilities = toNumber(
+    formData.loanRequest.totalLiabilities || "0",
+  );
+
+  const netWorth = borrowerAssets - borrowerLiabilities;
 
   const calculateAnnualDebtService = (
     loanAmount: number,
@@ -936,7 +966,7 @@ const LoanApplication = () => {
               <Stat label="LTC %" value={ltc !== "—" ? `${ltc}%` : "—%"} />
               <Stat label="ARV %" value={arv !== "—" ? `${arv}%` : "—%"} />
               <Stat label="DSCR" value={dscr !== "—" ? dscr : "—"} />
-              <Stat label="Net Worth" value="$0" />
+              <Stat label="Net Worth" value={`$${netWorth.toLocaleString()}`} />
             </div>
           </div>
         </div>
@@ -971,7 +1001,7 @@ const LoanApplication = () => {
                   </h4>
 
                   <span className="px-3 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-600">
-                    Net Worth: $0
+                    Net Worth: ${netWorth.toLocaleString()}
                   </span>
                 </div>
 
@@ -1862,6 +1892,57 @@ const LoanApplication = () => {
                   {errors["loanRequest.purchaseDate"] && (
                     <p className="text-xs text-red-500 mt-1">
                       {errors["loanRequest.purchaseDate"]}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-600 mb-1">
+                    Total Assets ($) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    value={formData.loanRequest.totalAssets}
+                    onChange={(e) =>
+                      updateLoanRequest("totalAssets", e.target.value)
+                    }
+                    className={`w-full px-4 py-1 rounded-md border ${
+                      errors["loanRequest.totalAssets"]
+                        ? "border-red-500 bg-red-50"
+                        : "border-slate-300"
+                    }
+    focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm`}
+                  />
+                  {errors["loanRequest.totalAssets"] && (
+                    <p className="text-xs text-red-500 mt-1">
+                      {errors["loanRequest.totalAssets"]}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-600 mb-1">
+                    Total Liabilities ($){" "}
+                    <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    value={formData.loanRequest.totalLiabilities}
+                    onChange={(e) =>
+                      updateLoanRequest("totalLiabilities", e.target.value)
+                    }
+                    className={`w-full px-4 py-1 rounded-md border ${
+                      errors["loanRequest.totalLiabilities"]
+                        ? "border-red-500 bg-red-50"
+                        : "border-slate-300"
+                    }
+    focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm`}
+                  />
+                  {errors["loanRequest.totalLiabilities"] && (
+                    <p className="text-xs text-red-500 mt-1">
+                      {errors["loanRequest.totalLiabilities"]}
                     </p>
                   )}
                 </div>
