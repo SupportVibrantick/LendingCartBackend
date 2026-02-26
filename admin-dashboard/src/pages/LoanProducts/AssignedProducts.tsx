@@ -521,19 +521,31 @@ const AssignedProducts: React.FC = () => {
                     {/* FINANCIAL */}
                     <Section title="Financial Criteria">
                       <FieldCard
-                        label="Loan Amount"
-                        value={`${detail.minLoanAmount} – ${detail.maxLoanAmount}`}
+                        label="Min Loan Amount"
+                        value={detail.minLoanAmount}
                       />
                       <FieldCard
-                        label="Term"
-                        value={`${detail.minTermMonths} – ${detail.maxTermMonths} months`}
+                        label="Max Loan Amount"
+                        value={detail.maxLoanAmount}
                       />
                       <FieldCard
-                        label="LTV"
-                        value={`${detail.minLtvPercent}% – ${detail.maxLtvPercent}%`}
+                        label="Min Term (Months)"
+                        value={detail.minTermMonths}
                       />
                       <FieldCard
-                        label="Credit Score"
+                        label="Max Term (Months)"
+                        value={detail.maxTermMonths}
+                      />
+                      <FieldCard
+                        label="Min LTV (%)"
+                        value={detail.minLtvPercent}
+                      />
+                      <FieldCard
+                        label="Max LTV (%)"
+                        value={detail.maxLtvPercent}
+                      />
+                      <FieldCard
+                        label="Min Credit Score"
                         value={detail.minCreditScore}
                       />
                       <FieldCard
@@ -541,7 +553,7 @@ const AssignedProducts: React.FC = () => {
                         value={detail.minExperience}
                       />
                       <FieldCard
-                        label="Interest Rate"
+                        label="Interest Rate Range"
                         value={detail.interestRateRange}
                       />
                     </Section>
@@ -623,7 +635,7 @@ const FieldCard = ({ label, value }: { label: string; value: any }) => (
                  dark:bg-slate-800 dark:text-slate-100
                  dark:border-slate-700 cursor-not-allowed"
     >
-      {value || "-"}
+      {value || "0"}
     </div>
   </div>
 );

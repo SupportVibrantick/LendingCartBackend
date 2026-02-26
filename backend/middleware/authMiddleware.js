@@ -62,6 +62,7 @@ function registerAuthMiddleware(fastify, opts, done) {
         organizationId,             // new standard
         orgType,                    // new standard
         roles,
+        impersonatedBy: decoded.impersonatedBy ?? null, 
         raw: decoded,
       };
     } catch (err) {

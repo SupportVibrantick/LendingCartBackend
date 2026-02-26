@@ -11,7 +11,11 @@ import {
   ChevronRight,
   CheckCircle,
   XCircle,
+  FileIcon,
+  Download,
+  EllipsisVertical,
 } from "lucide-react";
+import Swal from "sweetalert2";
 
 /* ================= TYPES ================= */
 type TableRow = {
@@ -25,6 +29,8 @@ type TableRow = {
   applicationStatus: string;
   sentAt: string;
   brokerName: string;
+  lenderDecision: string;
+  pendingDocumentsCount?: number; // ADD THIS
 };
 
 /* ================= HELPERS ================= */
@@ -66,6 +72,10 @@ const getApplicationStatusColor = (status: string) => {
     case "SENT":
       return "bg-blue-100 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400";
 
+    case "CONDITIONAL":
+    case "LENDER_CONDITIONAL":
+      return "bg-cyan-100 text-cyan-700 dark:bg-cyan-500/10 dark:text-cyan-400";
+
     default:
       return "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300";
   }
@@ -100,6 +110,30 @@ export default function LoanPipeline() {
     interestRate: "",
     notes: "",
   });
+
+  // Documents Modal State
+  const [isDocumentsModalOpen, setIsDocumentsModalOpen] = useState(false);
+  const [documentsData, setDocumentsData] = useState<any>(null);
+  const [documentsLoading, setDocumentsLoading] = useState(false);
+  // const [setSelectedApplicationLenderId] = useState<string | null>(null);
+
+  // File Preview State
+  const [previewFile, setPreviewFile] = useState<{
+    url: string;
+    type: string;
+    name: string;
+  } | null>(null);
+
+  // Multi-file Grid Modal State
+  const [multiFileModal, setMultiFileModal] = useState<{
+    isOpen: boolean;
+    doc: any;
+  }>({
+    isOpen: false,
+    doc: null,
+  });
+
+  const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
 
   // Find Lenders Modal State
   const [currentPage, setCurrentPage] = useState(1);
@@ -149,6 +183,27 @@ export default function LoanPipeline() {
     );
   };
 
+  const handleDownload = async (url: string, filename: string) => {
+    try {
+      const res = await fetch(url, {
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) throw new Error("Failed to download file");
+
+      const blob = await res.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (err: any) {
+      toast.error(err.message || "Download failed");
+    }
+  };
+
   const newCount = rows.filter(
     (r) => r.lenderStatus === "PENDING" || r.lenderStatus === "IN_REVIEW",
   ).length;
@@ -186,6 +241,34 @@ export default function LoanPipeline() {
     }
   };
 
+  const fetchDocuments = async (applicationLenderId: string) => {
+    try {
+      setDocumentsLoading(true);
+      setIsDocumentsModalOpen(true);
+      // setSelectedApplicationLenderId(applicationLenderId);
+
+      const res = await fetch(
+        `${API_BASE}/lender/loan-pipeline/lender/applications/${applicationLenderId}/documents`,
+        {
+          headers: getAuthHeaders(),
+        },
+      );
+
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Failed to load documents");
+      }
+
+      setDocumentsData(json.data);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to load documents");
+      setIsDocumentsModalOpen(false);
+    } finally {
+      setDocumentsLoading(false);
+    }
+  };
+
   const loadSubmissions = async () => {
     try {
       setLoading(true);
@@ -207,10 +290,12 @@ export default function LoanPipeline() {
         entityType: item.client?.entityType || "-",
         loanType: item.loanProductCode,
         amount: Number(item.amountRequested || 0),
-        lenderStatus: item.lenderStatus,
+        lenderStatus: item.lenderPipelineStatus || item.lenderStatus,
         applicationStatus: item.applicationStatus,
         sentAt: item.sentAt,
         brokerName: item.broker?.name || "-",
+        lenderDecision: item.lenderDecision, // MAP THIS
+        pendingDocumentsCount: item.pendingDocumentsCount ?? 0,
       }));
 
       setRows(mappedRows);
@@ -230,7 +315,13 @@ export default function LoanPipeline() {
   const canTakeDecision = (status?: string) => {
     const s = normalizeStatus(status);
 
-    return s === "PENDING" || s === "IN_REVIEW" || s === "SENT";
+    return (
+      s === "PENDING" ||
+      s === "IN_REVIEW" ||
+      s === "SENT" ||
+      s === "CONDITIONAL" ||
+      s === "LENDER_CONDITIONAL"
+    );
   };
 
   const filteredRows = useMemo(() => {
@@ -258,6 +349,38 @@ export default function LoanPipeline() {
       setCurrentPage(totalPages);
     }
   }, [totalPages, currentPage]);
+
+  const handleConditionalApproval = async (applicationId: string) => {
+    try {
+      setLoading(true);
+      const payload = {
+        decision: "CONDITIONAL",
+        notes: "Please upload required documents",
+      };
+
+      const res = await fetch(
+        `${API_BASE}/lender/loan-pipeline/${applicationId}/decision`,
+        {
+          method: "PATCH",
+          headers: getAuthHeaders(),
+          body: JSON.stringify(payload),
+        },
+      );
+
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Conditional approval failed");
+      }
+
+      toast.success("Application Conditionally Approved");
+      loadSubmissions();
+    } catch (err: any) {
+      toast.error(err.message || "Something went wrong");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleDecisionSubmit = async () => {
     try {
@@ -445,6 +568,7 @@ export default function LoanPipeline() {
                     { label: "Amount", width: "w-[160px]" },
                     { label: "Broker", width: "w-[180px]" },
                     { label: "Application Status", width: "w-[180px]" },
+                    { label: "Lender Decision", width: "w-[180px]" },
                     { label: "Received At", width: "w-[180px]" },
                     { label: "Actions", width: "w-[120px]" },
                   ].map((h) => (
@@ -533,13 +657,27 @@ export default function LoanPipeline() {
                         <td className="px-6 py-4">
                           <span
                             className={`
-                                                    inline-flex items-center whitespace-nowrap
-                                                    px-3 py-1 rounded-full
-                                                    text-xs uppercase tracking-wide
-                                                    ${getApplicationStatusColor(row.applicationStatus)}
-                                                `}
+                                                      inline-flex items-center whitespace-nowrap
+                                                      px-3 py-1 rounded-full
+                                                      text-xs uppercase tracking-wide
+                                                      ${getApplicationStatusColor(row.applicationStatus)}
+                                                  `}
                           >
                             {formatApplicationStatus(row.applicationStatus)}
+                          </span>
+                        </td>
+
+                        {/* Lender Decision */}
+                        <td className="px-6 py-4">
+                          <span
+                            className={`
+                                                      inline-flex items-center whitespace-nowrap
+                                                      px-3 py-1 rounded-full
+                                                      text-xs uppercase tracking-wide
+                                                      ${getApplicationStatusColor(row.lenderDecision)}
+                                                  `}
+                          >
+                            {formatApplicationStatus(row.lenderDecision)}
                           </span>
                         </td>
 
@@ -550,74 +688,143 @@ export default function LoanPipeline() {
 
                         {/* Actions */}
                         <td className="px-6 py-4">
-                          <div className="flex items-center gap-3">
-                            {/* View */}
+                          <div className="relative flex justify-center">
                             <button
-                              onClick={() =>
-                                fetchLenderApplicationDetail(
-                                  row.applicationLenderId,
-                                )
-                              }
-                              className="group flex items-center justify-center
-             h-9 w-9
-             rounded-xl
-             bg-blue-100 text-blue-700
-             dark:bg-blue-600/20 dark:text-blue-300
-             hover:bg-blue-600 hover:text-white
-             dark:hover:bg-blue-500
-             transition-all duration-300
-             shadow-sm hover:shadow-md
-             hover:-translate-y-0.5 active:scale-95"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActiveDropdown(
+                                  activeDropdown === row.applicationLenderId
+                                    ? null
+                                    : row.applicationLenderId,
+                                );
+                              }}
+                              className="group flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-blue-600 hover:text-white transition-all duration-200 border border-slate-200 dark:border-slate-700 font-medium text-xs"
                             >
-                              <Eye
-                                size={18}
-                                className="transition-transform duration-300 group-hover:scale-110"
+                              <EllipsisVertical
+                                size={14}
+                                className={`transition-transform duration-200 ${activeDropdown === row.applicationLenderId ? "rotate-180" : ""}`}
                               />
                             </button>
 
-                            {/* Approve Button */}
-                            <button
-                              disabled={!isActionAllowed}
-                              onClick={() =>
-                                setDecisionModal({
-                                  type: "APPROVED",
-                                  applicationId: row.applicationLenderId,
-                                })
-                              }
-                              className={`group flex items-center justify-center gap-1.5
-    px-3 py-2 rounded-xl text-sm font-semibold
-    transition-all duration-300
-${
-  isActionAllowed
-    ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-600 hover:text-white dark:bg-emerald-600/20 dark:text-emerald-300 dark:hover:bg-emerald-500"
-    : "bg-slate-200 text-slate-400 cursor-not-allowed"
-}
-  `}
-                            >
-                              <CheckCircle size={16} />
-                            </button>
+                            {activeDropdown === row.applicationLenderId && (
+                              <>
+                                <div
+                                  className="fixed inset-0 z-[100]"
+                                  onClick={() => setActiveDropdown(null)}
+                                />
+                                <div className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-200 dark:border-slate-800 py-2 z-[101] animate-in fade-in slide-in-from-top-2">
+                                  {/* View Action */}
+                                  <button
+                                    onClick={() => {
+                                      fetchLenderApplicationDetail(
+                                        row.applicationLenderId,
+                                      );
+                                      setActiveDropdown(null);
+                                    }}
+                                    className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 transition-colors"
+                                  >
+                                    <Eye size={16} />
+                                    View Details
+                                  </button>
 
-                            {/* Reject Button */}
-                            <button
-                              disabled={!isActionAllowed}
-                              onClick={() =>
-                                setDecisionModal({
-                                  type: "DECLINED",
-                                  applicationId: row.applicationLenderId,
-                                })
-                              }
-                              className={`group flex items-center justify-center gap-1.5
-    px-3 py-2 rounded-xl text-sm font-semibold
-    transition-all duration-300
-    ${
-      isActionAllowed
-        ? "bg-rose-100 text-rose-700 hover:bg-rose-600 hover:text-white dark:bg-rose-600/20 dark:text-rose-300 dark:hover:bg-rose-500"
-        : "bg-slate-200 text-slate-400 cursor-not-allowed"
-    }
-  `}
-                            >
-                              <XCircle size={16} />
-                            </button>
+                                  {/* Documents Action */}
+                                  <button
+                                    onClick={() => {
+                                      fetchDocuments(row.applicationLenderId);
+                                      setActiveDropdown(null);
+                                    }}
+                                    className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-amber-50 dark:hover:bg-amber-900/20 hover:text-amber-600 transition-colors"
+                                  >
+                                    <FileIcon size={16} />
+                                    Documents
+                                    {(row.pendingDocumentsCount ?? 0) > 0 && (
+                                      <span className="ml-auto bg-amber-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">
+                                        {row.pendingDocumentsCount}
+                                      </span>
+                                    )}
+                                  </button>
+
+                                  <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
+
+                                  {/* Approve Action */}
+                                  <button
+                                    disabled={!isActionAllowed}
+                                    onClick={() => {
+                                      setActiveDropdown(null);
+                                      if (
+                                        normalizeStatus(row.lenderDecision) ===
+                                        "CONDITIONAL"
+                                      ) {
+                                        setDecisionModal({
+                                          type: "APPROVED",
+                                          applicationId:
+                                            row.applicationLenderId,
+                                        });
+                                      } else {
+                                        Swal.fire({
+                                          title: "Conditional Approval",
+                                          text: "Do you want to conditionally approve this application?",
+                                          icon: "question",
+                                          showCancelButton: true,
+                                          confirmButtonText: "Yes, approve",
+                                          confirmButtonColor: "#10b981",
+                                          cancelButtonColor: "#f43f5e",
+                                          background:
+                                            document.documentElement.classList.contains(
+                                              "dark",
+                                            )
+                                              ? "#1e293b"
+                                              : "#fff",
+                                          color:
+                                            document.documentElement.classList.contains(
+                                              "dark",
+                                            )
+                                              ? "#f1f5f9"
+                                              : "#1e293b",
+                                        }).then((result) => {
+                                          if (result.isConfirmed) {
+                                            handleConditionalApproval(
+                                              row.applicationLenderId,
+                                            );
+                                          }
+                                        });
+                                      }
+                                    }}
+                                    className={`flex items-center gap-3 w-full px-4 py-2.5 text-sm transition-colors ${
+                                      isActionAllowed
+                                        ? "text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+                                        : "text-slate-300 cursor-not-allowed"
+                                    }`}
+                                  >
+                                    <CheckCircle size={16} />
+                                    {normalizeStatus(row.lenderDecision) ===
+                                    "CONDITIONAL"
+                                      ? "Final Approval"
+                                      : "Conditional Approval"}
+                                  </button>
+
+                                  {/* Reject Action */}
+                                  <button
+                                    disabled={!isActionAllowed}
+                                    onClick={() => {
+                                      setActiveDropdown(null);
+                                      setDecisionModal({
+                                        type: "DECLINED",
+                                        applicationId: row.applicationLenderId,
+                                      });
+                                    }}
+                                    className={`flex items-center gap-3 w-full px-4 py-2.5 text-sm transition-colors ${
+                                      isActionAllowed
+                                        ? "text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20"
+                                        : "text-slate-300 cursor-not-allowed"
+                                    }`}
+                                  >
+                                    <XCircle size={16} />
+                                    Reject
+                                  </button>
+                                </div>
+                              </>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -918,6 +1125,9 @@ ${
                             const isRejected =
                               reviewStatus === "DECLINED" ||
                               reviewStatus === "REJECTED";
+                            const isConditional =
+                              reviewStatus === "CONDITIONAL" ||
+                              reviewStatus === "LENDER_CONDITIONAL";
 
                             return (
                               <div
@@ -928,7 +1138,9 @@ ${
             ? "border-emerald-200 dark:border-emerald-500/30 bg-[#F7FEFB]"
             : isRejected
               ? "border-rose-200 dark:border-rose-500/30 bg-[#FFF9FA]"
-              : "border-slate-200 dark:border-slate-700"
+              : isConditional
+                ? "border-amber-200 dark:border-amber-500/30 bg-amber-50/50 dark:bg-amber-900/10"
+                : "border-slate-200 dark:border-slate-700"
         }
       `}
                               >
@@ -940,7 +1152,9 @@ ${
               ? "bg-emerald-500"
               : isRejected
                 ? "bg-rose-500"
-                : "bg-slate-400"
+                : isConditional
+                  ? "bg-amber-500"
+                  : "bg-slate-400"
           }
         `}
                                 />
@@ -955,11 +1169,19 @@ ${
                                 ? "bg-emerald-500 text-white dark:bg-emerald-500/10 dark:text-emerald-400"
                                 : isRejected
                                   ? "bg-rose-100 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400"
-                                  : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+                                  : isConditional
+                                    ? "bg-amber-600 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400"
+                                    : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
                             }
                         `}
                                   >
-                                    {isApproved ? "✔" : isRejected ? "✖" : "•"}
+                                    {isApproved
+                                      ? "✔"
+                                      : isRejected
+                                        ? "✖"
+                                        : isConditional
+                                          ? "!"
+                                          : "•"}
                                   </div>
 
                                   <div>
@@ -973,7 +1195,9 @@ ${
                                 ? "text-emerald-600 dark:text-emerald-400"
                                 : isRejected
                                   ? "text-rose-600 dark:text-rose-400"
-                                  : "text-slate-700 dark:text-slate-200"
+                                  : isConditional
+                                    ? "text-amber-600 dark:text-amber-400"
+                                    : "text-slate-700 dark:text-slate-200"
                             }
                             `}
                                     >
@@ -1152,6 +1376,333 @@ ${
                         </div>
                       </div>
                     ) : null}
+                  </div>
+                </div>,
+                document.body,
+              )}
+
+            {/* ================= DOCUMENTS MODAL ================= */}
+            {isDocumentsModalOpen &&
+              createPortal(
+                <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                  <div className="w-full max-w-4xl bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col max-h-[90vh]">
+                    {/* Header */}
+                    <div className="flex items-center justify-between px-6 py-4 border-b dark:border-slate-800">
+                      <div>
+                        <h2 className="text-lg font-bold">
+                          Application Documents
+                        </h2>
+                        {/* <p className="text-xs text-slate-500">
+                          ID: {selectedApplicationLenderId}
+                        </p> */}
+                      </div>
+
+                      <button
+                        onClick={() => {
+                          setIsDocumentsModalOpen(false);
+                          setDocumentsData(null);
+                        }}
+                        className="text-sm px-3 py-1 rounded-lg bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400"
+                      >
+                        Close
+                      </button>
+                    </div>
+
+                    {/* Content */}
+                    <div className="flex-1 overflow-y-auto p-6">
+                      {documentsLoading ? (
+                        <div className="flex flex-col items-center justify-center py-20 gap-3">
+                          <Loader2 className="animate-spin w-8 h-8 text-blue-500" />
+                          <p className="text-sm text-slate-500">
+                            Loading documents...
+                          </p>
+                        </div>
+                      ) : documentsData ? (
+                        <div className="space-y-6">
+                          {/* Summary Bar */}
+                          <div className="flex items-center gap-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800">
+                            <div className="flex-1">
+                              <p className="text-xs text-slate-500 uppercase font-bold tracking-wider">
+                                Pending Documents
+                              </p>
+                              <p className="text-xl font-bold text-amber-600">
+                                {documentsData.documentsPendingCount}
+                              </p>
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-xs text-slate-500 uppercase font-bold tracking-wider">
+                                Total Documents
+                              </p>
+                              <p className="text-xl font-bold">
+                                {documentsData.documents?.length || 0}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Documents Table */}
+                          <div className="overflow-hidden border border-slate-200 dark:border-slate-800 rounded-xl">
+                            <table className="w-full text-left border-collapse">
+                              <thead className="bg-slate-50 dark:bg-slate-800/50 text-xs font-bold uppercase text-slate-500">
+                                <tr>
+                                  <th className="px-4 py-3">Document Name</th>
+                                  <th className="px-4 py-3 text-center">
+                                    Status
+                                  </th>
+                                  <th className="px-4 py-3 text-center">
+                                    Uploads
+                                  </th>
+                                  <th className="px-4 py-3 text-right">
+                                    Actions
+                                  </th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                {documentsData.documents?.map((doc: any) => (
+                                  <tr
+                                    key={doc.requirementId}
+                                    className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors"
+                                  >
+                                    <td className="px-4 py-4">
+                                      <div className="flex flex-col">
+                                        <span className="text-sm font-semibold">
+                                          {doc.documentName}
+                                        </span>
+                                        <span className="text-[10px] text-slate-400">
+                                          Source: {doc.source}
+                                          {doc.isRequired && (
+                                            <span className="ml-2 text-rose-500 font-bold">
+                                              * Required
+                                            </span>
+                                          )}
+                                        </span>
+                                      </div>
+                                    </td>
+                                    <td className="px-4 py-4 text-center">
+                                      <span
+                                        className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${
+                                          doc.status === "COMPLETED"
+                                            ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400"
+                                            : doc.status === "PARTIAL"
+                                              ? "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400"
+                                              : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
+                                        }`}
+                                      >
+                                        {doc.status}
+                                      </span>
+                                    </td>
+                                    <td className="px-4 py-4 text-center font-mono text-sm font-bold">
+                                      {doc.uploadedCount}
+                                    </td>
+                                    <td className="px-4 py-4">
+                                      <div className="flex justify-end gap-2">
+                                        {doc.uploadedCount > 0 ? (
+                                          <button
+                                            onClick={() => {
+                                              if (doc.uploadedCount === 1) {
+                                                const file =
+                                                  doc.uploadedFiles[0];
+                                                setPreviewFile({
+                                                  url: `${API_BASE}${file.fileUrl}`,
+                                                  type: file.fileMimeType,
+                                                  name: file.fileName,
+                                                });
+                                              } else {
+                                                setMultiFileModal({
+                                                  isOpen: true,
+                                                  doc: doc,
+                                                });
+                                              }
+                                            }}
+                                            className="p-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition-all flex items-center gap-1.5"
+                                            title={
+                                              doc.uploadedCount === 1
+                                                ? "View Document"
+                                                : "View Uploads"
+                                            }
+                                          >
+                                            <Eye size={14} />
+                                            {doc.uploadedCount > 1 && (
+                                              <span className="text-[10px] font-bold">
+                                                ({doc.uploadedCount})
+                                              </span>
+                                            )}
+                                          </button>
+                                        ) : (
+                                          <span className="text-xs text-slate-400 italic">
+                                            No files
+                                          </span>
+                                        )}
+                                      </div>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-center py-10 text-slate-500">
+                          No document data available.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>,
+                document.body,
+              )}
+
+            {/* ================= MULTI-FILE GRID MODAL ================= */}
+            {multiFileModal.isOpen &&
+              multiFileModal.doc &&
+              createPortal(
+                <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                  <div className="w-full max-w-3xl bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col max-h-[80vh]">
+                    <div className="flex items-center justify-between px-6 py-4 border-b dark:border-slate-800">
+                      <div>
+                        <h2 className="text-lg font-bold">
+                          Select File to Preview
+                        </h2>
+                        <p className="text-xs text-slate-500">
+                          {multiFileModal.doc.documentName} (
+                          {multiFileModal.doc.uploadedCount} uploads)
+                        </p>
+                      </div>
+                      <button
+                        onClick={() =>
+                          setMultiFileModal({ isOpen: false, doc: null })
+                        }
+                        className="text-sm px-3 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200"
+                      >
+                        Back
+                      </button>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto p-6">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {multiFileModal.doc.uploadedFiles?.map((file: any) => (
+                          <div
+                            key={file.uploadId}
+                            className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 hover:border-blue-500 transition-all group"
+                          >
+                            <div className="flex items-start gap-3">
+                              <div className="p-2 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-400">
+                                <FileIcon size={20} />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p
+                                  className="text-sm font-semibold truncate"
+                                  title={file.fileName}
+                                >
+                                  {file.fileName}
+                                </p>
+                                <p className="text-[10px] text-slate-500 mt-1 uppercase">
+                                  {file.fileMimeType.split("/")[1] || "FILE"}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="mt-4 flex gap-2">
+                              <button
+                                onClick={() =>
+                                  setPreviewFile({
+                                    url: `${API_BASE}${file.fileUrl}`,
+                                    type: file.fileMimeType,
+                                    name: file.fileName,
+                                  })
+                                }
+                                className="flex-1 py-2 text-xs font-bold bg-blue-50 text-blue-600 dark:bg-blue-600/10 dark:text-blue-400 rounded-lg hover:bg-blue-600 hover:text-white transition-all flex items-center justify-center gap-1"
+                              >
+                                <Eye size={14} /> Preview
+                              </button>
+                              <button
+                                onClick={() =>
+                                  handleDownload(
+                                    `${API_BASE}${file.fileUrl}`,
+                                    file.fileName,
+                                  )
+                                }
+                                className="p-2 bg-slate-50 text-slate-600 dark:bg-slate-800 dark:text-slate-400 rounded-lg hover:bg-slate-200 transition-all"
+                              >
+                                <Download size={14} />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>,
+                document.body,
+              )}
+
+            {/* ================= FILE PREVIEW MODAL ================= */}
+            {previewFile &&
+              createPortal(
+                <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+                  <div className="w-full max-w-5xl bg-white dark:bg-slate-900 rounded-2xl shadow-2xl flex flex-col h-[90vh] overflow-hidden">
+                    {/* Header */}
+                    <div className="flex items-center justify-between px-6 py-4 border-b dark:border-slate-800 shrink-0">
+                      <div>
+                        <h2 className="text-lg font-bold truncate max-w-md">
+                          {previewFile.name}
+                        </h2>
+                        <p className="text-xs text-slate-500">
+                          {previewFile.type}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() =>
+                            handleDownload(previewFile.url, previewFile.name)
+                          }
+                          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-sm font-semibold hover:bg-slate-200 dark:hover:bg-slate-700 transition"
+                        >
+                          <Download size={16} />
+                          Download
+                        </button>
+                        <button
+                          onClick={() => setPreviewFile(null)}
+                          className="px-4 py-2 rounded-xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700 transition"
+                        >
+                          Close
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Preview Area */}
+                    <div className="flex-1 bg-slate-100 dark:bg-slate-950 flex items-center justify-center p-4 overflow-hidden">
+                      {previewFile.type.startsWith("image/") ? (
+                        <img
+                          src={previewFile.url}
+                          alt={previewFile.name}
+                          className="max-w-full max-h-full object-contain shadow-lg rounded-lg"
+                        />
+                      ) : previewFile.type === "application/pdf" ? (
+                        <iframe
+                          src={previewFile.url}
+                          title={previewFile.name}
+                          className="w-full h-full rounded-lg border-none"
+                        />
+                      ) : (
+                        <div className="text-center space-y-4">
+                          <div className="w-20 h-20 bg-slate-200 dark:bg-slate-800 rounded-2xl flex items-center justify-center mx-auto">
+                            <FileIcon size={40} className="text-slate-400" />
+                          </div>
+                          <p className="text-slate-500">
+                            Preview not available for this file type.
+                          </p>
+                          <button
+                            onClick={() =>
+                              handleDownload(previewFile.url, previewFile.name)
+                            }
+                            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 transition"
+                          >
+                            <Download size={18} />
+                            Download instead
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>,
                 document.body,

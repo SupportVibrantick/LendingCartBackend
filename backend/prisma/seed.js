@@ -1,122 +1,226 @@
-// backend/prisma/seed.js
 const { PrismaClient } = require("@prisma/client");
-const bcrypt = require("bcryptjs");
-
 const prisma = new PrismaClient();
 
-async function ensureRoles(roleNames = []) {
-  const created = [];
-  for (const name of roleNames) {
-    const existing = await prisma.role.findFirst({ where: { name } });
-    if (!existing) {
-      const r = await prisma.role.create({
-        data: { name, description: `${name} role seeded` },
-      });
-      created.push(r);
-      console.log(`✅ Created role: ${name} (${r.id})`);
-    } else {
-      console.log(`ℹ️  Role exists: ${name} (${existing.id})`);
-    }
-  }
-  return created;
-}
-
 async function main() {
-  console.log("▶️  Starting seed...");
+  console.log("🚀 DEV SEED STARTED...\n");
 
-  const rolesToSeed = [
-    "PLATFORM_ADMIN",
-    "PLATFORM_SUPPORT",
-    "BROKER_ADMIN",
-    "BROKER_OFFICER",
-    "LENDER_ADMIN",
-    "LENDER_UNDERWRITER",
-    "CLIENT_USER",
-  ];
+  /* ==========================================================
+     1️⃣ ENSURE LOAN PRODUCT EXISTS
+  ========================================================== */
 
-  const orgName = process.env.SEED_ADMIN_ORG_NAME || "LendingCart Platform";
-  const orgEmail = process.env.SEED_ADMIN_ORG_EMAIL || "platform@lendingcart.local";
-
-  const adminEmail = process.env.SEED_ADMIN_EMAIL || "admin@lendingcart.local";
-  const adminPassword = process.env.SEED_ADMIN_PASSWORD || "admin@123";
-  const hashed = await bcrypt.hash(adminPassword, 10);
-
-  // 1) Seed roles
-  console.log("📦 Seeding roles...");
-  await ensureRoles(rolesToSeed);
-
-  // 2) Find or create Organization
-  let organization = await prisma.organization.findFirst({
-    where: { name: orgName },
+  let loanProduct = await prisma.loanProduct.findFirst({
+    where: { code: "SBA_7A" },
   });
 
-  if (!organization) {
-    organization = await prisma.organization.create({
+  if (!loanProduct) {
+    loanProduct = await prisma.loanProduct.create({
       data: {
-        name: orgName,
-        type: "PLATFORM",
-        status: "ACTIVE",
-        email: orgEmail,
+        code: "SBA_7A",
+        name: "SBA 7A Loan",
+        description: "Government backed SBA loan product",
       },
     });
-    console.log("✅ Created organization:", organization.id);
+    console.log("✅ Loan Product Created");
   } else {
-    console.log("ℹ️  Found existing organization:", organization.id);
+    console.log("✅ Loan Product Already Exists");
   }
 
-  // 3) Upsert admin user by unique email (UserAccount.email is unique in schema)
-  const admin = await prisma.userAccount.upsert({
-    where: { email: adminEmail },
-    update: {
-      passwordHash: hashed,
-      status: "ACTIVE",
-      organizationId: organization.id,
-      firstName: "Admin",
-      lastName: "User",
-    },
-    create: {
-      email: adminEmail,
-      passwordHash: hashed,
-      status: "ACTIVE",
-      firstName: "Admin",
-      lastName: "User",
-      organizationId: organization.id,
+  /* ==========================================================
+     2️⃣ GET BROKER ORG (FROM YOUR MAIN SEED)
+  ========================================================== */
+
+  const brokerOrg = await prisma.organization.findFirst({
+    where: { type: "BROKER", isDeleted: false },
+  });
+
+  if (!brokerOrg) {
+    throw new Error("❌ No broker found. Run enterprise seed first.");
+  }
+
+  console.log("✅ Broker Found:", brokerOrg.name);
+
+  /* ==========================================================
+     3️⃣ CREATE BROKER APPLICATION
+  ========================================================== */
+
+  const brokerApplication = await prisma.brokerApplication.create({
+    data: {
+      brokerOrgId: brokerOrg.id,
+      name: "SBA Application Form",
+      code: `SBA_FORM_${Date.now()}`,
+      isActive: true,
     },
   });
 
-  console.log("✅ Admin user upserted:", admin.id);
+  console.log("✅ Broker Application Created");
 
-  // 4) Ensure PLATFORM_ADMIN role exists and link user -> role via UserRole if not already linked
-  const platformAdminRole = await prisma.role.findFirst({ where: { name: "PLATFORM_ADMIN" } });
-  if (!platformAdminRole) {
-    throw new Error("PLATFORM_ADMIN role not found after seeding.");
-  }
+  /* ==========================================================
+     4️⃣ LINK PRODUCT TO APPLICATION
+  ========================================================== */
 
-  const existingUserRole = await prisma.userRole.findFirst({
-    where: { userId: admin.id, roleId: platformAdminRole.id },
+  const appProduct = await prisma.brokerApplicationProduct.create({
+    data: {
+      brokerApplicationId: brokerApplication.id,
+      loanProductCode: "SBA_7A",
+      isActive: true,
+    },
   });
 
-  if (!existingUserRole) {
-    await prisma.userRole.create({
-      data: {
-        userId: admin.id,
-        roleId: platformAdminRole.id,
-      },
-    });
-    console.log(`✅ Linked user ${admin.id} -> role ${platformAdminRole.name}`);
-  } else {
-    console.log(`ℹ️  User ${admin.id} already has role ${platformAdminRole.name}`);
-  }
+  console.log("✅ Application Product Created");
 
-  console.log("\n🎉 Seed finished.");
-  console.log(`Organization: ${organization.name} (${organization.id})`);
-  console.log(`Admin Email: ${admin.email}`);
-  console.log(`Admin Password (plaintext): ${adminPassword}`);
+  /* ==========================================================
+     5️⃣ CREATE SECTIONS
+  ========================================================== */
+
+  const businessSection = await prisma.brokerApplicationSection.create({
+    data: {
+      applicationProductId: appProduct.id,
+      name: "Business Info",
+      sortOrder: 1,
+    },
+  });
+
+  const financialSection = await prisma.brokerApplicationSection.create({
+    data: {
+      applicationProductId: appProduct.id,
+      name: "Financial Info",
+      sortOrder: 2,
+    },
+  });
+
+  console.log("✅ Sections Created");
+
+  /* ==========================================================
+     6️⃣ CREATE FIELDS
+  ========================================================== */
+
+  const fields = await prisma.$transaction([
+    prisma.brokerApplicationProductField.create({
+      data: {
+        applicationProductId: appProduct.id,
+        sectionId: businessSection.id,
+        fieldKey: "businessName",
+        label: "Business Name",
+        fieldType: "TEXT",
+        isRequired: true,
+        sortOrder: 1,
+      },
+    }),
+    prisma.brokerApplicationProductField.create({
+      data: {
+        applicationProductId: appProduct.id,
+        sectionId: businessSection.id,
+        fieldKey: "yearsInBusiness",
+        label: "Years in Business",
+        fieldType: "NUMBER",
+        isRequired: true,
+        sortOrder: 2,
+      },
+    }),
+    prisma.brokerApplicationProductField.create({
+      data: {
+        applicationProductId: appProduct.id,
+        sectionId: financialSection.id,
+        fieldKey: "annualRevenue",
+        label: "Annual Revenue",
+        fieldType: "CURRENCY",
+        isRequired: true,
+        sortOrder: 1,
+      },
+    }),
+  ]);
+
+  console.log("✅ Fields Created");
+
+  /* ==========================================================
+     7️⃣ CREATE CLIENT
+  ========================================================== */
+
+  const client = await prisma.client.create({
+    data: {
+      primaryBrokerOrgId: brokerOrg.id,
+      legalName: "Dev Test Company LLC",
+      entityType: "COMPANY",
+    },
+  });
+
+  console.log("✅ Client Created");
+
+  /* ==========================================================
+     8️⃣ CREATE LOAN APPLICATION
+  ========================================================== */
+
+  const loanApplication = await prisma.loanApplication.create({
+    data: {
+      applicationNumber: `DEV-${Date.now()}`,
+      brokerOrgId: brokerOrg.id,
+      clientId: client.id,
+      loanProductCode: "SBA_7A",
+      status: "SUBMITTED",
+      amountRequested: 250000,
+      termMonthsRequested: 120,
+      submittedAt: new Date(),
+    },
+  });
+
+  console.log("✅ Loan Application Created");
+
+  /* ==========================================================
+     9️⃣ CREATE SUBMISSION
+  ========================================================== */
+
+  const submission = await prisma.applicationSubmission.create({
+    data: {
+      applicationId: loanApplication.id,
+      applicationProductId: appProduct.id,
+      status: "SUBMITTED",
+    },
+  });
+
+  console.log("✅ Submission Created");
+
+  /* ==========================================================
+     🔟 INSERT SUBMISSION VALUES
+  ========================================================== */
+
+  await prisma.$transaction([
+    prisma.applicationSubmissionField.create({
+      data: {
+        submissionId: submission.id,
+        fieldId: fields[0].id,
+        fieldKey: "businessName",
+        value: { text: "Dev Test Company LLC" },
+        source: "BROKER",
+      },
+    }),
+    prisma.applicationSubmissionField.create({
+      data: {
+        submissionId: submission.id,
+        fieldId: fields[1].id,
+        fieldKey: "yearsInBusiness",
+        value: 5,
+        source: "BROKER",
+      },
+    }),
+    prisma.applicationSubmissionField.create({
+      data: {
+        submissionId: submission.id,
+        fieldId: fields[2].id,
+        fieldKey: "annualRevenue",
+        value: 800000,
+        source: "BROKER",
+      },
+    }),
+  ]);
+
+  console.log("✅ Submission Data Inserted");
+
+  console.log("\n🎉 DEV SEED COMPLETED SUCCESSFULLY");
 }
 
 main()
   .catch((e) => {
-    console.error("Seed failed:", e);
+    console.error("❌ ERROR:", e);
     process.exit(1);
   })
   .finally(async () => {

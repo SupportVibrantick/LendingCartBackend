@@ -85,6 +85,7 @@ async function readLendersRoutes(fastify) {
                   lastName: true,
                   status: true,
                   createdAt: true,
+                  profileImage: true,
                 },
                 take: 3,
               },
