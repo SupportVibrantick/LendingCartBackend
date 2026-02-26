@@ -13,7 +13,7 @@ import {
   XCircle,
   FileIcon,
   Download,
-  ChevronDown,
+  EllipsisVertical,
 } from "lucide-react";
 import Swal from "sweetalert2";
 
@@ -700,7 +700,7 @@ export default function LoanPipeline() {
                               }}
                               className="group flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-blue-600 hover:text-white transition-all duration-200 border border-slate-200 dark:border-slate-700 font-medium text-xs"
                             >
-                              <ChevronDown
+                              <EllipsisVertical
                                 size={14}
                                 className={`transition-transform duration-200 ${activeDropdown === row.applicationLenderId ? "rotate-180" : ""}`}
                               />
