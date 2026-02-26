@@ -26,7 +26,7 @@ async function listSubmittedApplications(fastify) {
 
       try {
         // ==========================================
-        // 1️⃣ AUTH CHECK
+        // AUTH CHECK
         // ==========================================
         if (
           !req.user ||
@@ -42,7 +42,7 @@ async function listSubmittedApplications(fastify) {
         const lenderOrgId = req.user.organizationId;
 
         // ==========================================
-        // 2️⃣ PAGINATION + FILTERS
+        // PAGINATION + FILTERS
         // ==========================================
         const page = Number(req.query.page) || 1;
         const limit = Number(req.query.limit) || 10;
@@ -50,7 +50,7 @@ async function listSubmittedApplications(fastify) {
         const decisionFilter = req.query.decision;
 
         // ==========================================
-        // 3️⃣ FETCH APPLICATIONS
+        // FETCH APPLICATIONS
         // ==========================================
         const applications = await prisma.applicationLender.findMany({
           where: {
@@ -104,7 +104,7 @@ async function listSubmittedApplications(fastify) {
         });
 
         // ==========================================
-        // 4️⃣ FORMAT RESPONSE
+        // FORMAT RESPONSE
         // ==========================================
         const formatted = applications
           .map((item) => {
@@ -135,7 +135,7 @@ async function listSubmittedApplications(fastify) {
               }
             }
 
-            // 🔥 Pending Document Count
+            // Pending Document Count
             const pendingDocumentsCount =
               app.documentRequirements?.filter(
                 (doc) => doc.status !== "COMPLETE"
@@ -161,7 +161,7 @@ async function listSubmittedApplications(fastify) {
               applicationStatus: app.status,
               createdAt: app.createdAt,
 
-              // ✅ Added here
+              // Added here
               pendingDocumentsCount,
 
               client: app.client,
@@ -175,14 +175,14 @@ async function listSubmittedApplications(fastify) {
           );
 
         // ==========================================
-        // 5️⃣ TOTAL COUNT
+        // TOTAL COUNT
         // ==========================================
         const total = await prisma.applicationLender.count({
           where: { lenderOrgId },
         });
 
         // ==========================================
-        // 6️⃣ RESPONSE
+        // RESPONSE
         // ==========================================
         return reply.send({
           success: true,
