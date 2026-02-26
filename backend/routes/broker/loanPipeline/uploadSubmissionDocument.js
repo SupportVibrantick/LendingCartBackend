@@ -12,7 +12,7 @@ module.exports = async function uploadSubmissionDocument(fastify) {
     async (req, reply) => {
       try {
         // ===============================
-        //  AUTH CHECK (BROKER ONLY)
+        // AUTH CHECK (BROKER ONLY)
         // ===============================
         if (!req.user || req.user.orgType !== "BROKER") {
           return reply.code(403).send({
@@ -34,14 +34,12 @@ module.exports = async function uploadSubmissionDocument(fastify) {
         const { submissionId, requirementId } = req.params;
 
         // ===============================
-        //  VALIDATE SUBMISSION + OWNERSHIP
+        // VALIDATE SUBMISSION + OWNERSHIP
         // ===============================
         const submission =
           await fastify.prisma.applicationSubmission.findUnique({
             where: { id: submissionId },
-            include: {
-              application: true,
-            },
+            include: { application: true },
           });
 
         if (!submission) {
@@ -81,7 +79,7 @@ module.exports = async function uploadSubmissionDocument(fastify) {
         }
 
         // ===============================
-        //  HANDLE FILE
+        // HANDLE FILE
         // ===============================
         const file = await req.file();
 
@@ -92,7 +90,6 @@ module.exports = async function uploadSubmissionDocument(fastify) {
           });
         }
 
-        // Validate MIME
         const allowedMimeTypes = [
           "application/pdf",
           "image/jpeg",
@@ -103,29 +100,38 @@ module.exports = async function uploadSubmissionDocument(fastify) {
         if (!allowedMimeTypes.includes(file.mimetype)) {
           return reply.code(400).send({
             success: false,
-            message: "Invalid file type. Only PDF, JPG, PNG allowed",
+            message: "Invalid file type. Only PDF, JPG, PNG, WEBP allowed",
           });
         }
 
-        // Safe file name
+        // ===============================
+        // CREATE SAFE FILE NAME
+        // ===============================
         const randomName = crypto.randomBytes(16).toString("hex");
-        const ext = path.extname(file.filename);
-        const safeFileName = `${randomName}${ext}`;
 
+        const originalExt = path.extname(file.filename || "");
+        const safeExt = originalExt || getExtensionFromMime(file.mimetype);
+
+        const safeFileName = `${randomName}${safeExt}`;
+
+        // ===============================
+        // FIXED UPLOAD DIRECTORY
+        // ===============================
         const uploadDir = path.join(
-          __dirname,
-          "..",
+          process.cwd(),
           "uploads",
           "loan-documents"
         );
 
-        if (!fs.existsSync(uploadDir)) {
-          fs.mkdirSync(uploadDir, { recursive: true });
-        }
+        await fs.promises.mkdir(uploadDir, { recursive: true });
 
         const filePath = path.join(uploadDir, safeFileName);
 
-        await pipeline(file.file, fs.createWriteStream(filePath));
+        // ===============================
+        // SAVE FILE (STREAM SAFE)
+        // ===============================
+        const writeStream = fs.createWriteStream(filePath);
+        await pipeline(file.file, writeStream);
 
         const fileUrl = `/uploads/loan-documents/${safeFileName}`;
 
@@ -133,7 +139,6 @@ module.exports = async function uploadSubmissionDocument(fastify) {
         // TRANSACTION (SAVE + UPDATE STATUS)
         // ===============================
         await fastify.prisma.$transaction(async (tx) => {
-          // Save upload
           await tx.applicationDocumentUpload.create({
             data: {
               loanApplicationId: submission.application.id,
@@ -145,15 +150,11 @@ module.exports = async function uploadSubmissionDocument(fastify) {
             },
           });
 
-          // Count uploads
           const totalUploads =
             await tx.applicationDocumentUpload.count({
-              where: {
-                documentRequirementId: requirementId,
-              },
+              where: { documentRequirementId: requirementId },
             });
 
-          // Update status
           let newStatus = "PARTIAL";
 
           if (requirement.minFiles && totalUploads >= requirement.minFiles) {
@@ -162,9 +163,7 @@ module.exports = async function uploadSubmissionDocument(fastify) {
 
           await tx.applicationDocumentRequirement.update({
             where: { id: requirementId },
-            data: {
-              status: newStatus,
-            },
+            data: { status: newStatus },
           });
         });
 
@@ -184,3 +183,21 @@ module.exports = async function uploadSubmissionDocument(fastify) {
     }
   );
 };
+
+// ===============================
+// Helper function for extension fallback
+// ===============================
+function getExtensionFromMime(mime) {
+  switch (mime) {
+    case "application/pdf":
+      return ".pdf";
+    case "image/jpeg":
+      return ".jpg";
+    case "image/png":
+      return ".png";
+    case "image/webp":
+      return ".webp";
+    default:
+      return "";
+  }
+}
