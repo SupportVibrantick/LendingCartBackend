@@ -27,6 +27,7 @@ type SubmissionListItem = {
   submissionId: string;
   status: string;
   submittedOn: string;
+  pendingDocumentsCount: number; // ADD THIS
 };
 
 type SubmissionField = {
@@ -123,6 +124,14 @@ export default function LoanApplicationsPage() {
   // >(null);
   const [documentsData, setDocumentsData] = useState<any>(null);
   const [documentsLoading, setDocumentsLoading] = useState(false);
+  const [uploadingDocId, setUploadingDocId] = useState<string | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<Record<string, File[]>>(
+    {},
+  );
+  const [previewFiles, setPreviewFiles] = useState<
+    Record<string, { url: string; type: string; name: string }[]>
+  >({});
+
   const rowsPerPage = 6;
 
   const navigate = useNavigate();
@@ -130,19 +139,20 @@ export default function LoanApplicationsPage() {
   const formatFieldKey = (key: string | null | undefined) => {
     if (!key) return "";
 
-    return (
-      key
-        // camelCase → camel Case
-        .replace(/([a-z])([A-Z])/g, "$1 $2")
-        // snake_case → snake case
-        .replace(/_/g, " ")
-        // multiple spaces remove
-        .replace(/\s+/g, " ")
-        // trim
-        .trim()
-        // capitalize each word
-        .replace(/\b\w/g, (char) => char.toUpperCase())
-    );
+    let cleaned = key
+      // remove coBorrower_1_, coBorrower_2_ etc
+      .replace(/^coBorrower_\d+_/, "coBorrower_")
+      // camelCase → camel Case
+      .replace(/([a-z])([A-Z])/g, "$1 $2")
+      // snake_case → snake case
+      .replace(/_/g, " ")
+      // multiple spaces remove
+      .replace(/\s+/g, " ")
+      .trim()
+      // capitalize each word
+      .replace(/\b\w/g, (char) => char.toUpperCase());
+
+    return cleaned;
   };
 
   const getStatusColor = (status: string) => {
@@ -337,24 +347,6 @@ export default function LoanApplicationsPage() {
     }
   }, [findLenderModalOpen, lenderSubmissionId]);
 
-  const getPendingDocumentsCount = async (submissionId: string) => {
-    try {
-      const res = await fetch(
-        `${API_BASE}/broker/loan-pipeline/submissions/${submissionId}/documents`,
-        {
-          headers: getAuthHeaders(),
-        },
-      );
-
-      const json = await res.json();
-      if (!res.ok || !json.success) return 0;
-
-      return json.data.pendingDocumentsCount || 0;
-    } catch {
-      return 0;
-    }
-  };
-
   const loadSubmissions = async () => {
     try {
       setLoading(true);
@@ -375,9 +367,6 @@ export default function LoanApplicationsPage() {
               if (!detailJson.success) return null;
 
               const fields = detailJson.data.fields;
-              const pendingCount = await getPendingDocumentsCount(
-                item.submissionId,
-              );
 
               return {
                 submissionId: item.submissionId,
@@ -398,7 +387,7 @@ export default function LoanApplicationsPage() {
                 amount: Number(getFieldValue(fields, "amountRequested") || 0),
                 status: item.status,
                 date: item.submittedOn,
-                pendingDocumentsCount: pendingCount,
+                pendingDocumentsCount: item.pendingDocumentsCount || 0,
               };
             } catch {
               return null;
@@ -411,6 +400,67 @@ export default function LoanApplicationsPage() {
       toast.error(err.message || "Something went wrong");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDocumentUpload = async (
+    submissionId: string,
+    requirementId: string,
+  ) => {
+    const files = selectedFiles[requirementId];
+
+    if (!files || files.length === 0) {
+      toast.error("Please select at least one file");
+      return;
+    }
+
+    try {
+      setUploadingDocId(requirementId);
+
+      const token = sessionStorage.getItem("broker_token");
+
+      for (const file of files) {
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const res = await fetch(
+          `${API_BASE}/broker/loan-pipeline/submissions/${submissionId}/documents/${requirementId}/upload`,
+          {
+            method: "POST",
+            headers: {
+              ...(token && { Authorization: `Bearer ${token}` }),
+            },
+            body: formData,
+          },
+        );
+
+        const json = await res.json();
+
+        if (!res.ok || !json.success) {
+          throw new Error(json.message || "Upload failed");
+        }
+      }
+
+      toast.success("All documents uploaded successfully");
+
+      // Reset after success
+      setSelectedFiles((prev) => {
+        const copy = { ...prev };
+        delete copy[requirementId];
+        return copy;
+      });
+
+      setPreviewFiles((prev) => {
+        const copy = { ...prev };
+        delete copy[requirementId];
+        return copy;
+      });
+
+      await fetchSubmissionDocuments(submissionId);
+    } catch (err: any) {
+      toast.error(err.message || "Upload failed");
+    } finally {
+      setUploadingDocId(null);
     }
   };
 
@@ -973,12 +1023,80 @@ export default function LoanApplicationsPage() {
                         (f: any) => f.fieldKey === "borrowerSignature",
                       );
 
+                      /* ===================== YAHAN PASTE KARO ===================== */
+
+                      const allFields = submissionDetail.fields.filter(
+                        (f: any) => f.fieldKey !== "borrowerSignature",
+                      );
+
+                      const primaryFields: any[] = [];
+                      const coBorrowerGroups: Record<string, any[]> = {};
+                      const otherFields: any[] = [];
+
+                      allFields.forEach((f: any) => {
+                        const key = f.fieldKey || "";
+
+                        if (key.startsWith("coBorrower_")) {
+                          const match = key.match(/^coBorrower_(\d+)_/);
+                          if (match) {
+                            const index = match[1];
+                            if (!coBorrowerGroups[index]) {
+                              coBorrowerGroups[index] = [];
+                            }
+                            coBorrowerGroups[index].push(f);
+                          }
+                        } else if (
+                          key.startsWith("borrower") ||
+                          key === "city" ||
+                          key === "state"
+                        ) {
+                          primaryFields.push(f);
+                        } else {
+                          otherFields.push(f);
+                        }
+                      });
+
                       const loanAmount =
                         Number(
                           getFieldValue(
                             submissionDetail.fields,
                             "amountRequested",
                           ) ?? 0,
+                        ) || 0;
+
+                      const ltv =
+                        Number(
+                          getFieldValue(
+                            submissionDetail.fields,
+                            "ltvPercentage",
+                          ) ?? 0,
+                        ) || 0;
+
+                      const ltc =
+                        Number(
+                          getFieldValue(
+                            submissionDetail.fields,
+                            "ltcPercentage",
+                          ) ?? 0,
+                        ) || 0;
+
+                      const arv =
+                        Number(
+                          getFieldValue(
+                            submissionDetail.fields,
+                            "arvPercentage",
+                          ) ?? 0,
+                        ) || 0;
+
+                      const dscr =
+                        Number(
+                          getFieldValue(submissionDetail.fields, "dscr") ?? 0,
+                        ) || 0;
+
+                      const netWorth =
+                        Number(
+                          getFieldValue(submissionDetail.fields, "netWorth") ??
+                            0,
                         ) || 0;
 
                       const submittedDate = new Date(
@@ -993,6 +1111,23 @@ export default function LoanApplicationsPage() {
                         Array.isArray(reviewsArray) && reviewsArray.length > 0
                           ? reviewsArray[0]
                           : null;
+
+                      const FieldItem = ({ field }: { field: any }) => {
+                        const parsedValue = parseValue(field.value);
+
+                        return (
+                          <div className="space-y-1">
+                            <label className="text-xs font-semibold text-slate-500 uppercase">
+                              {formatFieldKey(field.fieldKey)}
+                            </label>
+
+                            <div className="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-900 border text-sm font-medium break-words">
+                              {parsedValue ? String(parsedValue) : "-"}
+                            </div>
+                          </div>
+                        );
+                      };
+
                       return (
                         <>
                           {firstReview && (
@@ -1131,43 +1266,86 @@ export default function LoanApplicationsPage() {
                           {/* STATS BOX */}
                           <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6 shadow-sm">
                             <div className="grid grid-cols-2 md:grid-cols-6 gap-6 text-center">
-                              <Stat label="Loan Amount" value={`$${loanAmount.toLocaleString()}`} />
-                              <Stat label="LTV %" value="-" />
-                              <Stat label="LTC %" value="-" />
-                              <Stat label="ARV %" value="-" />
-                              <Stat label="DSCR" value="-" />
-                              <Stat label="Net Worth" value="$0" />
+                              <Stat
+                                label="Loan Amount"
+                                value={`$${loanAmount.toLocaleString()}`}
+                              />
+                              <Stat
+                                label="LTV %"
+                                value={ltv ? `${ltv.toFixed(2)}%` : "—%"}
+                              />
+                              <Stat
+                                label="LTC %"
+                                value={ltc ? `${ltc.toFixed(2)}%` : "—%"}
+                              />
+                              <Stat
+                                label="ARV %"
+                                value={arv ? `${arv.toFixed(2)}%` : "—%"}
+                              />
+                              <Stat
+                                label="DSCR"
+                                value={dscr ? dscr.toFixed(2) : "—"}
+                              />
+                              <Stat
+                                label="Net Worth"
+                                value={`$${netWorth.toLocaleString()}`}
+                              />
                             </div>
                           </div>
 
                           {/* ALL FIELDS (EXCEPT SIGNATURE) */}
-                          <div className="border rounded-xl dark:border-slate-800 p-6">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                              {submissionDetail.fields
-                                .filter(
-                                  (f: any) =>
-                                    f.fieldKey !== "borrowerSignature",
-                                )
-                                .map((f: any, i: number) => {
-                                  const parsedValue = parseValue(f.value);
+                          <div className="rounded-xl p-6">
+                            <div className=" gap-6">
+                              <div className="border rounded-xl dark:border-slate-800 p-6 space-y-10">
+                                {/* PRIMARY BORROWER */}
+                                {primaryFields.length > 0 && (
+                                  <div>
+                                    <h3 className="text-md font-bold mb-4 border-b pb-2">
+                                      Primary Borrower
+                                    </h3>
 
-                                  return (
-                                    <div key={i} className="space-y-1">
-                                      {/* LABEL */}
-                                      <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
-                                        {formatFieldKey(f.fieldKey)}
-                                      </label>
-
-                                      {/* VALUE */}
-                                      <div className="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-sm font-medium text-slate-800 dark:text-slate-200 break-words">
-                                        {parsedValue !== undefined &&
-                                        parsedValue !== ""
-                                          ? String(parsedValue)
-                                          : "-"}
-                                      </div>
+                                    <div className="grid md:grid-cols-2 gap-6">
+                                      {primaryFields.map(
+                                        (f: any, i: number) => (
+                                          <FieldItem key={i} field={f} />
+                                        ),
+                                      )}
                                     </div>
-                                  );
-                                })}
+                                  </div>
+                                )}
+
+                                {/* CO BORROWERS */}
+                                {Object.keys(coBorrowerGroups).map((index) => (
+                                  <div key={index}>
+                                    <h3 className="text-md font-bold mb-4 border-b pb-2">
+                                      Co Borrower {index}
+                                    </h3>
+
+                                    <div className="grid md:grid-cols-2 gap-6">
+                                      {coBorrowerGroups[index].map(
+                                        (f: any, i: number) => (
+                                          <FieldItem key={i} field={f} />
+                                        ),
+                                      )}
+                                    </div>
+                                  </div>
+                                ))}
+
+                                {/* OTHER FIELDS */}
+                                {otherFields.length > 0 && (
+                                  <div>
+                                    <h3 className="text-md font-bold mb-4 border-b pb-2">
+                                      Loan Details
+                                    </h3>
+
+                                    <div className="grid md:grid-cols-2 gap-6">
+                                      {otherFields.map((f: any, i: number) => (
+                                        <FieldItem key={i} field={f} />
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </div>
 
@@ -1534,18 +1712,29 @@ export default function LoanApplicationsPage() {
         {documentModalOpen &&
           createPortal(
             <div className="fixed inset-0 z-[9999999999] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
-              <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col">
+              <div
+                className="bg-white dark:bg-slate-900 
+rounded-3xl 
+w-full max-w-6xl 
+max-h-[85vh] 
+overflow-hidden 
+shadow-[0_20px_60px_rgba(0,0,0,0.15)] 
+flex flex-col"
+              >
                 {/* HEADER */}
-                <div className="flex items-center justify-between px-6 py-4 border-b dark:border-slate-800 shrink-0">
-                  <h2 className="font-bold text-lg dark:text-white">
+                <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200 dark:border-slate-800 shrink-0">
+                  <h2 className="font-semibold text-sm tracking-wide text-slate-700 dark:text-slate-200">
                     Requested Documents
                   </h2>
+
                   <button
                     onClick={() => {
                       setDocumentModalOpen(false);
                       setDocumentsData(null);
                     }}
-                    className="text-slate-400 hover:text-red-500 text-xl"
+                    className="w-7 h-7 flex items-center justify-center rounded-full 
+    hover:bg-red-100 dark:hover:bg-red-500/20 
+    text-slate-400 hover:text-red-500 transition text-sm"
                   >
                     ✕
                   </button>
@@ -1558,7 +1747,7 @@ export default function LoanApplicationsPage() {
                       Loading documents...
                     </div>
                   ) : documentsData?.documents?.length > 0 ? (
-                    <div className="max-h-sm max-w-2xl grid md:grid-cols-2 gap-6">
+                    <div className="grid sm:grid-cols-4 gap-4">
                       {documentsData.documents.map(
                         (doc: any, index: number) => {
                           const hasFiles =
@@ -1567,82 +1756,313 @@ export default function LoanApplicationsPage() {
                           return (
                             <div
                               key={index}
-                              className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-sm hover:shadow-md transition"
+                              className="
+relative
+bg-white dark:bg-slate-900
+border border-slate-200 dark:border-slate-800
+rounded-xl
+p-4
+shadow-sm
+transition-all duration-200
+flex flex-col
+h-[320px]   
+"
                             >
                               {/* Top Section */}
                               <div className="flex items-center gap-4 mb-4">
-                                {/* <div className="w-14 h-14 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-xl font-bold text-slate-500">
-                                  📄
-                                </div> */}
+                                <div className="flex items-center justify-between w-full">
+  <h3 className="font-medium text-[13px] text-slate-900 dark:text-slate-200 truncate">
+    {doc.documentName}
+  </h3>
 
-                                <div>
-                                  <h3 className="font-semibold text-slate-800 dark:text-white text-sm">
-                                    {doc.documentName}
-                                  </h3>
-                                  {/* <p className="text-xs text-slate-500">
-                                    {doc.isRequired
-                                      ? "Required Document"
-                                      : "Optional"}
-                                  </p> */}
-                                </div>
+  {(previewFiles[doc.requirementId]?.length > 0 ||
+    selectedFiles[doc.requirementId]?.length > 0) && (
+    <button
+      type="button"
+      onClick={() => {
+        setPreviewFiles((prev) => {
+          const copy = { ...prev };
+          delete copy[doc.requirementId];
+          return copy;
+        });
+
+        setSelectedFiles((prev) => {
+          const copy = { ...prev };
+          delete copy[doc.requirementId];
+          return copy;
+        });
+      }}
+      className="text-[10px] px-2 py-1 rounded-md 
+                 bg-red-50 text-red-600 
+                 hover:bg-red-100 
+                 dark:bg-red-500/10 dark:text-red-400 
+                 dark:hover:bg-red-500/20
+                 transition"
+    >
+      Clear
+    </button>
+  )}
+</div>
                               </div>
 
                               {/* Upload Area */}
                               {!hasFiles ? (
-                                <div className="border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-lg p-6 text-center hover:border-amber-400 transition">
-                                  {/* <div className="text-md mb-2">⬆️</div> */}
-                                  <p className="text-sm text-slate-600 dark:text-slate-400">
-                                    <span className="text-amber-600 font-medium cursor-pointer text-xs">
-                                      Click to Upload
-                                    </span>{" "}
-                                    or drag & drop
-                                  </p>
-                                  <p className="text-xs text-slate-400 mt-1">
-                                    PDF / JPG / PNG (Max 5MB)
-                                  </p>
+                                <div className="space-y-3 flex-1 flex flex-col overflow-hidden">
+                                  {/* Preview */}
+                                  {previewFiles[doc.requirementId]?.length >
+                                    0 && (
+                                    <div
+                                      className="
+flex flex-wrap gap-2
+max-h-[220px]
+overflow-y-auto
+pr-1
+scrollbar-thin
+scrollbar-thumb-slate-300
+dark:scrollbar-thumb-slate-700
+"
+                                    >
+                                      {previewFiles[doc.requirementId].map(
+                                        (file, i) => (
+                                          <div
+                                            key={i}
+                                            className="relative w-16 h-16 rounded-lg border-2 border-blue-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 overflow-hidden flex items-center justify-center"
+                                          >
+                                            {/* IMAGE PREVIEW */}
+                                            {file.type.startsWith("image") ? (
+                                              <img
+                                                src={file.url}
+                                                alt={file.name}
+                                                className="w-full h-full object-cover"
+                                              />
+                                            ) : file.type.includes("pdf") ? (
+                                              <div className="flex flex-col items-center justify-center text-xs text-red-500 font-semibold">
+                                                📄
+                                                <span className="text-[9px] mt-1">
+                                                  PDF
+                                                </span>
+                                              </div>
+                                            ) : (
+                                              <div className="text-xs text-slate-500">
+                                                File
+                                              </div>
+                                            )}
+
+                                            {/* Remove Button */}
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                setPreviewFiles((prev) => {
+                                                  const updated = [
+                                                    ...(prev[
+                                                      doc.requirementId
+                                                    ] || []),
+                                                  ];
+                                                  updated.splice(i, 1);
+                                                  const copy = { ...prev };
+                                                  if (updated.length === 0)
+                                                    delete copy[
+                                                      doc.requirementId
+                                                    ];
+                                                  else
+                                                    copy[doc.requirementId] =
+                                                      updated;
+                                                  return copy;
+                                                });
+
+                                                setSelectedFiles((prev) => {
+                                                  const updated = [
+                                                    ...(prev[
+                                                      doc.requirementId
+                                                    ] || []),
+                                                  ];
+                                                  updated.splice(i, 1);
+                                                  const copy = { ...prev };
+                                                  if (updated.length === 0)
+                                                    delete copy[
+                                                      doc.requirementId
+                                                    ];
+                                                  else
+                                                    copy[doc.requirementId] =
+                                                      updated;
+                                                  return copy;
+                                                });
+                                              }}
+                                              className="absolute top-1 right-1 bg-black/60 text-white text-xs px-1 rounded hover:bg-red-500 transition"
+                                            >
+                                              ✕
+                                            </button>
+                                          </div>
+                                        ),
+                                      )}
+                                    </div>
+                                  )}
+
+                                  {/* File Select – show only if no file selected */}
+                                  {!selectedFiles[doc.requirementId] && (
+                                    <label className="h-full flex flex-col justify-center items-center border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-lg p-6 text-center hover:border-amber-400 transition cursor-pointer">
+                                      <input
+                                        type="file"
+                                        multiple
+                                        accept=".pdf,.png,.jpg,.jpeg"
+                                        className="hidden"
+                                        onChange={(e) => {
+                                          const files = Array.from(
+                                            e.target.files || [],
+                                          );
+                                          if (!files.length) return;
+
+                                          const validFiles: File[] = [];
+                                          const previews: {
+                                            url: string;
+                                            type: string;
+                                            name: string;
+                                          }[] = [];
+
+                                          files.forEach((file) => {
+                                            if (file.size > 5 * 1024 * 1024) {
+                                              toast.error(
+                                                `${file.name} exceeds 5MB limit`,
+                                              );
+                                              return;
+                                            }
+
+                                            validFiles.push(file);
+                                            previews.push({
+                                              url: URL.createObjectURL(file),
+                                              type: file.type,
+                                              name: file.name,
+                                            });
+                                          });
+
+                                          if (!validFiles.length) return;
+
+                                          setSelectedFiles((prev) => ({
+                                            ...prev,
+                                            [doc.requirementId]: [
+                                              ...(prev[doc.requirementId] ||
+                                                []),
+                                              ...validFiles,
+                                            ],
+                                          }));
+
+                                          setPreviewFiles((prev) => ({
+                                            ...prev,
+                                            [doc.requirementId]: [
+                                              ...(prev[doc.requirementId] ||
+                                                []),
+                                              ...previews,
+                                            ],
+                                          }));
+                                        }}
+                                      />
+
+                                      <p className="text-xs text-amber-600 font-medium">
+                                        Click to Select File
+                                      </p>
+                                      <p className="text-[10px] text-slate-400 mt-1">
+                                        PDF / JPG / PNG (Max 5MB)
+                                      </p>
+                                    </label>
+                                  )}
+
+                                  {/* Upload Button – only after file selected */}
+                                  {selectedFiles[doc.requirementId]?.length >
+                                    0 && (
+                                    <button
+                                      onClick={() =>
+                                        handleDocumentUpload(
+                                          documentsData.submissionId,
+                                          doc.requirementId,
+                                        )
+                                      }
+                                      disabled={
+                                        uploadingDocId === doc.requirementId
+                                      }
+                                      className="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold py-2 rounded-lg transition disabled:opacity-60"
+                                    >
+                                      {uploadingDocId === doc.requirementId ? (
+                                        <div className="flex items-center justify-center gap-2">
+                                          <Loader2 className="w-4 h-4 animate-spin" />
+                                          Uploading...
+                                        </div>
+                                      ) : (
+                                        "Upload Document"
+                                      )}
+                                    </button>
+                                  )}
                                 </div>
                               ) : (
-                                <div className="space-y-3">
+                                <div
+                                  className="
+flex flex-wrap gap-2
+max-h-[220px]
+overflow-y-auto
+pr-1
+scrollbar-thin
+scrollbar-thumb-slate-300
+dark:scrollbar-thumb-slate-700 w-full
+"
+                                >
                                   {doc.uploadedFiles.map(
-                                    (file: any, i: number) => (
-                                      <div
-                                        key={i}
-                                        className="flex items-center justify-between bg-slate-100 dark:bg-slate-800 px-3 py-2 rounded-lg"
-                                      >
-                                        <span className="text-sm truncate">
-                                          {file.fileName}
-                                        </span>
+                                    (file: any, i: number) => {
+                                      const isImage =
+                                        file.fileMimeType?.startsWith("image");
 
-                                        <a
-                                          href={file.url}
-                                          target="_blank"
-                                          rel="noreferrer"
-                                          className="text-blue-600 text-xs font-medium"
+                                      return (
+                                        <div
+                                          key={i}
+                                          className="relative w-16 h-16 rounded-lg border-2 border-[#98bfe1] bg-slate-100 dark:bg-slate-800 overflow-hidden flex items-center justify-center"
                                         >
-                                          View
-                                        </a>
-                                      </div>
-                                    ),
+                                          {isImage ? (
+                                            <img
+                                              src={`${API_BASE}${file.fileUrl}`}
+                                              alt={file.fileName}
+                                              className="w-full h-full object-cover"
+                                            />
+                                          ) : (
+                                            <div className="flex flex-col items-center justify-center text-xs text-slate-600 dark:text-slate-300">
+                                              📄
+                                              <span className="mt-1 truncate px-1 text-[10px]">
+                                                PDF
+                                              </span>
+                                            </div>
+                                          )}
+
+                                          {/* View Overlay */}
+                                          <a
+                                            href={`${API_BASE}${file.fileUrl}`}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition flex items-center justify-center text-white text-xs font-semibold"
+                                          >
+                                            View
+                                          </a>
+                                        </div>
+                                      );
+                                    },
                                   )}
                                 </div>
                               )}
 
                               {/* Bottom Status */}
-                              <div className="mt-4 flex justify-between items-center">
-                                <span
-                                  className={`text-[10px] px-3 py-1 rounded-full font-semibold
+                              <div className="mt-auto pt-3 ">
+                                <div className="mt-4 flex justify-between items-center">
+                                  <span
+                                    className={`text-[10px] px-3 py-1 rounded-full
                           ${
                             doc.status === "PENDING"
                               ? "bg-amber-100 text-amber-600"
                               : "bg-emerald-100 text-emerald-600"
                           }`}
-                                >
-                                  {doc.status}
-                                </span>
+                                  >
+                                    {doc.status}
+                                  </span>
 
-                                <span className="text-[10px] font-semibold text-slate-500">
-                                  {doc.uploadedCount} Uploaded
-                                </span>
+                                  <span className="text-[11px] font-semibold text-red-400">
+                                    {doc.uploadedCount} Uploaded
+                                  </span>
+                                </div>
                               </div>
                             </div>
                           );
