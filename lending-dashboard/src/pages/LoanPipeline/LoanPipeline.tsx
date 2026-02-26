@@ -56,6 +56,9 @@ const formatApplicationStatus = (status: string) => {
 
 const getApplicationStatusColor = (status: string) => {
   switch (status) {
+    case "APPROVED":
+      return "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400";
+
     case "LENDER_APPROVED":
       return "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400";
 
@@ -73,7 +76,7 @@ const getApplicationStatusColor = (status: string) => {
 
     case "CONDITIONAL":
     case "LENDER_CONDITIONAL":
-      return "bg-cyan-100 text-cyan-700 dark:bg-cyan-500/10 dark:text-cyan-400";
+      return "bg-yellow-100 text-yellow-700 dark:bg-yellow-500/10 dark:text-yellow-400";
 
     default:
       return "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300";
@@ -618,7 +621,7 @@ export default function LoanPipeline() {
                         className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors"
                       >
                         {/* Application Number */}
-                        <td className="px-6 py-4 font-mono text-sm align-middle break-words">
+                        <td className="px-6 py-4 font-mono text-xs align-middle break-words">
                           <span>{row.applicationNumber}</span>
                         </td>
                         {/* Borrower */}
@@ -678,7 +681,11 @@ export default function LoanPipeline() {
                                                       ${getApplicationStatusColor(row.lenderDecision)}
                                                   `}
                           >
-                            {formatApplicationStatus(row.lenderDecision)}
+                            {formatApplicationStatus(
+                              row.lenderDecision === "CONDITIONAL"
+                                ? "Docs Requested"
+                                : row.lenderDecision,
+                            )}
                           </span>
                         </td>
 
@@ -800,7 +807,7 @@ export default function LoanPipeline() {
                                       {normalizeStatus(row.lenderDecision) ===
                                       "CONDITIONAL"
                                         ? "Final Approval"
-                                        : "Conditional Approval"}
+                                        : "Request Document"}
                                     </button>
 
                                     {/* Reject */}
