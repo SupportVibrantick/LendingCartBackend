@@ -96,6 +96,7 @@ export default function LoanPipeline() {
   const [submissionDetail, setSubmissionDetail] = useState<any>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [viewLenders, setViewLenders] = useState<LenderItem[] | null>(null);
+  const [openActionId, setOpenActionId] = useState<string | null>(null);
 
   // Find Lenders Modal State
   const [currentPage, setCurrentPage] = useState(1);
@@ -251,10 +252,19 @@ export default function LoanPipeline() {
     }
   }, [totalPages, currentPage]);
 
-  // useEffect(() => {
-  //     const tableTop = document.querySelector(".loan-table-top");
-  //     tableTop?.scrollIntoView({ behavior: "smooth" });
-  // }, [currentPage]);
+  useEffect(() => {
+    const handleClickOutside = () => {
+      setOpenActionId(null);
+    };
+
+    if (openActionId) {
+      document.addEventListener("click", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("click", handleClickOutside);
+    };
+  }, [openActionId]);
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-[#0b1120] p-3 text-slate-900 dark:text-slate-100 selection:bg-blue-100 dark:selection:bg-blue-900/30">
@@ -376,13 +386,13 @@ export default function LoanPipeline() {
       {/* Main Table Container */}
       <div className="max-w-7xl mx-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl shadow-slate-200/50 dark:shadow-none overflow-hidden">
         <div className="w-full bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-          <div className="w-full overflow-x-auto overflow-y-hidden custom-scrollbar">
-            <table className="min-w-[1150px] w-full border-separate border-spacing-0">
+          <div className="w-full overflow-hidden">
+            <table className="w-full table-auto border-separate border-spacing-0">
               <thead>
                 <tr className="bg-slate-50/50 dark:bg-slate-800/40">
                   {[
                     { label: "Application Id", width: "min-w-[180px]" },
-                    { label: "Borrower", width: "w-[220px]" },
+                    { label: "Borrower", width: "w-[150px]" },
                     { label: "Loan Type", width: "w-[150px]" },
                     { label: "Amount", width: "w-[160px]" },
                     { label: "Broker", width: "w-[180px]" },
@@ -430,7 +440,7 @@ export default function LoanPipeline() {
                       className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors"
                     >
                       {/* Application Number */}
-                      <td className="px-6 py-4 font-mono text-sm whitespace-nowrap align-middle">
+                      <td className="px-6 py-4 font-mono text-xs whitespace-nowrap align-middle">
                         <span className="inline-block min-w-[160px]">
                           {row.applicationNumber}
                         </span>
@@ -440,17 +450,17 @@ export default function LoanPipeline() {
                       <td className="px-6 py-4">
                         <div className="flex flex-col">
                           <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                            {row.borrowerName.slice(0,10)+"..."}
+                            {row.borrowerName.slice(0, 10) + "..."}
                           </span>
                           <span className="text-[10px] text-slate-500">
-                            {row.entityType.slice(0,15)+"..."}
+                            {row.entityType.slice(0, 15) + "..."}
                           </span>
                         </div>
                       </td>
 
                       {/* Loan Type */}
                       <td className="px-6 py-4">
-                        <span className="text-[12px] text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/50 px-2 py-1 rounded">
+                        <span className="text-[10px] text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/50 px-2 py-1 rounded">
                           {row.loanType}
                         </span>
                       </td>
@@ -464,7 +474,7 @@ export default function LoanPipeline() {
 
                       {/* Broker */}
                       <td className="px-4 py-2 text-sm text-slate-600 dark:text-slate-400">
-                        {row.brokerName.slice(0,6)+"..."}
+                        {row.brokerName.slice(0, 6) + "..."}
                       </td>
 
                       {/* Application Status */}
@@ -523,15 +533,85 @@ export default function LoanPipeline() {
                       </td>
 
                       {/* Actions */}
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <button
-                          onClick={() =>
-                            fetchApplicationDetail(row.applicationId)
-                          }
-                          className="p-2 rounded-lg bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-500/20 transition-all"
-                        >
-                          <Eye size={16} />
-                        </button>
+                      <td className="px-6 py-4 relative">
+                        <div className="relative inline-block text-left">
+                          {/* 3 DOT BUTTON */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOpenActionId((prev) =>
+                                prev === row.applicationId
+                                  ? null
+                                  : row.applicationId,
+                              );
+                            }}
+                            className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition"
+                          >
+                            <svg
+                              className="w-4 h-4 text-slate-600 dark:text-slate-300"
+                              fill="currentColor"
+                              viewBox="0 0 20 20"
+                            >
+                              <path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zm6 0a2 2 0 11-4 0 2 2 0 014 0zm6 0a2 2 0 11-4 0 2 2 0 014 0z" />
+                            </svg>
+                          </button>
+
+                          {/* DROPDOWN MENU */}
+                          {openActionId === row.applicationId && (
+                            <div
+                              onClick={(e) => e.stopPropagation()}
+                              className="
+          absolute right-0 mt-2 w-48
+          bg-white dark:bg-[#0f172a]
+          border border-slate-200 dark:border-slate-700
+          rounded-xl shadow-xl
+          z-50
+          animate-in fade-in zoom-in-95 duration-100
+        "
+                            >
+                              <div className="py-2 text-sm">
+                                {/* View Details */}
+                                <button
+                                  onClick={() => {
+                                    fetchApplicationDetail(row.applicationId);
+                                    setOpenActionId(null);
+                                  }}
+                                  className="flex items-center gap-3 w-full px-4 py-2 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-800 transition"
+                                >
+                                  <Eye size={16} />
+                                  View Details
+                                </button>
+
+                                {/* Documents */}
+                                {/* <button className="flex items-center justify-between w-full px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                                  <div className="flex items-center gap-3">
+                                    📄 Documents
+                                  </div> */}
+
+                                {/* Badge */}
+                                {/* {row.lenders.length > 0 && (
+                                    <span className="text-xs bg-orange-500 text-white px-2 py-0.5 rounded-full">
+                                      {row.lenders.length}
+                                    </span>
+                                  )}
+                                </button> */}
+
+                                {/* Request Document */}
+                                {/* <button className="flex items-center gap-3 w-full px-4 py-2 text-emerald-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                                  ✓ Request Document
+                                </button> */}
+
+                                {/* Divider */}
+                                {/* <div className="border-t border-slate-200 dark:border-slate-700 my-1"></div> */}
+
+                                {/* Reject */}
+                                {/* <button className="flex items-center gap-3 w-full px-4 py-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 transition">
+                                  ✕ Reject
+                                </button> */}
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))

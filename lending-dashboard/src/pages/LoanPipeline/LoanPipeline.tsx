@@ -1179,7 +1179,7 @@ export default function LoanPipeline() {
                                 : isRejected
                                   ? "bg-rose-100 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400"
                                   : isConditional
-                                    ? "bg-amber-600 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400"
+                                    ? "bg-amber-500 text-amber-500 dark:bg-amber-500/10 dark:text-amber-400"
                                     : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
                             }
                         `}

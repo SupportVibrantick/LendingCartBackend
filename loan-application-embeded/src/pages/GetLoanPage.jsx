@@ -6,6 +6,9 @@ import ReCAPTCHA from "react-google-recaptcha";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
+const US_PHONE_REGEX =
+  /^(?:\+1\s?)?(?:\(?([2-9][0-9]{2})\)?[\s.-]?)([2-9][0-9]{2})[\s.-]?([0-9]{4})$/;
+
 export const LEAD_SOURCES = [
   { value: "google_search", label: "Google Search" },
   { value: "google_ads", label: "Google Ads" },
@@ -68,10 +71,35 @@ const STATES = [
   "MT",
 ];
 
+const getInitialStaticValues = () => ({
+  isBroker: null,
+
+  // borrower fields
+  borrowerFirstName: "",
+  borrowerLastName: "",
+  borrowerEmail: "",
+  borrowerPhone: "",
+  borrowerLoanAmount: "",
+  borrowerState: "",
+  borrowerCity: "",
+
+  // broker fields
+  firstName: "",
+  lastName: "",
+  email: "",
+  phone: "",
+  brokerLoanAmount: "",
+  brokerState: "",
+  brokerCity: "",
+
+  // shared
+  creditScoreRange: "",
+});
+
 export default function GetLoanPage() {
   const sigPadRef = useRef(null);
+  const coBorrowerRefs = useRef({});
   const [isBroker, setIsBroker] = useState(null);
-  const [hasCoBorrower, setHasCoBorrower] = useState(false);
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [products, setProducts] = useState([]);
   const [selectedProductId, setSelectedProductId] = useState("");
@@ -85,6 +113,7 @@ export default function GetLoanPage() {
   const [signatureHistory, setSignatureHistory] = useState([]);
   const [errors, setErrors] = useState({});
   const [recaptchaToken, setRecaptchaToken] = useState(null);
+  const [coBorrowers, setCoBorrowers] = useState([]);
 
   const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const activeProduct = products.find((p) => p.productId === selectedProductId);
@@ -95,7 +124,7 @@ export default function GetLoanPage() {
     setErrors({});
     setBorrowerSignName("");
     setSignatureData("");
-    setHasCoBorrower(false);
+    setCoBorrowers([]);
     setAgreed(false);
     setRecaptchaToken(null);
 
@@ -114,6 +143,27 @@ export default function GetLoanPage() {
       throw new Error("Server returned invalid response.");
     }
   }
+
+  const toNumber = (val) => {
+    if (!val) return 0;
+    return parseFloat(String(val).replace(/,/g, "")) || 0;
+  };
+
+  const calculateAnnualDebtService = (loanAmount, interestRate, termMonths) => {
+    if (!loanAmount || !termMonths) return 0;
+
+    const monthlyRate = interestRate / 100 / 12;
+
+    if (monthlyRate === 0) {
+      return (loanAmount / termMonths) * 12;
+    }
+
+    const emi =
+      (loanAmount * monthlyRate * Math.pow(1 + monthlyRate, termMonths)) /
+      (Math.pow(1 + monthlyRate, termMonths) - 1);
+
+    return emi * 12;
+  };
 
   const loadProducts = async () => {
     try {
@@ -199,41 +249,91 @@ export default function GetLoanPage() {
         "maxTermMonths",
       ];
 
-      const REQUIRED_COBORROWER_FIELDS = [
-        "coBorrowerFirstName",
-        "coBorrowerLastName",
-        "coBorrowerEmail",
-        "coBorrowerCellPhone",
-        "coBorrowerCreditScore",
-      ];
+      if (coBorrowers.length > 0) {
+        coBorrowers.forEach((b, index) => {
+          if (!b.firstName)
+            newErrors[`coBorrower_${index}_firstName`] =
+              "This field is required";
 
-      if (isBroker === true) {
+          if (!b.lastName)
+            newErrors[`coBorrower_${index}_lastName`] =
+              "This field is required";
+
+          if (!b.email)
+            newErrors[`coBorrower_${index}_email`] = "This field is required";
+
+          if (b.email && !EMAIL_REGEX.test(b.email))
+            newErrors[`coBorrower_${index}_email`] = "Invalid email";
+
+          if (!b.cellPhone) {
+            newErrors[`coBorrower_${index}_cellPhone`] =
+              "This field is required";
+          } else if (!US_PHONE_REGEX.test(b.cellPhone)) {
+            newErrors[`coBorrower_${index}_cellPhone`] =
+              "Enter a valid US phone number";
+          }
+
+          if (!b.creditScore)
+            newErrors[`coBorrower_${index}_creditScore`] =
+              "This field is required";
+
+          if (!b.currentMarketValue)
+            newErrors[`coBorrower_${index}_currentMarketValue`] =
+              "This field is required";
+
+          if (!b.purchasePrice)
+            newErrors[`coBorrower_${index}_purchasePrice`] =
+              "This field is required";
+
+          if (!b.interestRate)
+            newErrors[`coBorrower_${index}_interestRate`] =
+              "This field is required";
+
+          if (!b.noiActual)
+            newErrors[`coBorrower_${index}_noiActual`] =
+              "This field is required";
+
+          if (!b.totalAssets)
+            newErrors[`coBorrower_${index}_totalAssets`] =
+              "This field is required";
+
+          if (!b.totalLiabilities)
+            newErrors[`coBorrower_${index}_totalLiabilities`] =
+              "This field is required";
+        });
+      }
+
+      if (isBroker) {
         REQUIRED_BROKER_FIELDS.forEach((key) => {
           if (!staticValues[key]) {
             newErrors[key] = "This field is required";
           }
         });
-
-        if (!staticValues.creditScoreRange) {
-          newErrors.creditScoreRange = "This field is required";
-        }
-      }
-
-      if (isBroker === false) {
+      } else {
         REQUIRED_BORROWER_FIELDS.forEach((key) => {
           if (!staticValues[key]) {
             newErrors[key] = "This field is required";
           }
         });
-
-        if (hasCoBorrower) {
-          REQUIRED_COBORROWER_FIELDS.forEach((key) => {
-            if (!staticValues[key]) {
-              newErrors[key] = "This field is required";
-            }
-          });
-        }
       }
+
+      if (!staticValues.currentMarketValue)
+        newErrors.currentMarketValue = "This field is required";
+
+      if (!staticValues.purchasePrice)
+        newErrors.purchasePrice = "This field is required";
+
+      if (!staticValues.interestRate)
+        newErrors.interestRate = "This field is required";
+
+      if (!staticValues.noiActual)
+        newErrors.noiActual = "This field is required";
+
+      if (!staticValues.totalAssets)
+        newErrors.totalAssets = "This field is required";
+
+      if (!staticValues.totalLiabilities)
+        newErrors.totalLiabilities = "This field is required";
 
       /* ================= EMAIL VALIDATION ================= */
 
@@ -249,11 +349,14 @@ export default function GetLoanPage() {
       }
 
       if (
-        hasCoBorrower &&
-        staticValues.coBorrowerEmail &&
-        !EMAIL_REGEX.test(staticValues.coBorrowerEmail)
+        staticValues.borrowerCellPhone &&
+        !US_PHONE_REGEX.test(staticValues.borrowerCellPhone)
       ) {
-        newErrors.coBorrowerEmail = "Please enter a valid email address";
+        newErrors.borrowerCellPhone = "Enter a valid US phone number";
+      }
+
+      if (staticValues.phone && !US_PHONE_REGEX.test(staticValues.phone)) {
+        newErrors.phone = "Enter a valid US phone number";
       }
 
       if (
@@ -267,10 +370,15 @@ export default function GetLoanPage() {
 
       /* ================= DYNAMIC VALIDATION ================= */
 
-      const allDynamicFields = [
-        ...(activeProduct?.unsectionedFields || []),
-        ...(activeProduct?.sections || []).flatMap((s) => s.fields || []),
-      ];
+      const getAllDynamicFields = () => {
+        return [
+          ...(activeProduct?.fields || []),
+          ...(activeProduct?.unsectionedFields || []),
+          ...(activeProduct?.sections || []).flatMap((s) => s.fields || []),
+        ];
+      };
+
+      const allDynamicFields = getAllDynamicFields();
 
       allDynamicFields.forEach((field) => {
         const value = dynamicValues[field.fieldId];
@@ -279,7 +387,13 @@ export default function GetLoanPage() {
 
         if (field.type === "FILE") return;
 
-        if (value === undefined || value === "") {
+        if (
+          field.required &&
+          (value === undefined ||
+            value === null ||
+            value === "" ||
+            (Array.isArray(value) && value.length === 0))
+        ) {
           newErrors[field.fieldId] = `${field.label} is required`;
         }
 
@@ -317,7 +431,48 @@ export default function GetLoanPage() {
           staticValues.borrowerLoanAmount;
         normalizedStaticValues.state = staticValues.borrowerState;
         normalizedStaticValues.city = staticValues.borrowerCity;
+
+        normalizedStaticValues.email = staticValues.borrowerEmail;
+        normalizedStaticValues.firstName = staticValues.borrowerFirstName;
+        normalizedStaticValues.lastName = staticValues.borrowerLastName;
       }
+
+      /* ================= CALCULATED STATS (STATIC) ================= */
+
+      const loanAmount = toNumber(
+        isBroker
+          ? staticValues.brokerLoanAmount
+          : staticValues.borrowerLoanAmount,
+      );
+
+      const marketValue = toNumber(staticValues.currentMarketValue);
+      const purchasePrice = toNumber(staticValues.purchasePrice);
+      const interestRate = toNumber(staticValues.interestRate);
+      const termMonths = toNumber(staticValues.maxTermMonths);
+      const noiActual = toNumber(staticValues.noiActual);
+
+      const borrowerAssets = toNumber(staticValues.totalAssets);
+      const borrowerLiabilities = toNumber(staticValues.totalLiabilities);
+
+      const netWorth = borrowerAssets - borrowerLiabilities;
+
+      const ltv =
+        marketValue > 0 ? ((loanAmount / marketValue) * 100).toFixed(2) : 0;
+
+      const ltc =
+        purchasePrice > 0 ? ((loanAmount / purchasePrice) * 100).toFixed(2) : 0;
+
+      const arv =
+        marketValue > 0 ? ((loanAmount / marketValue) * 100).toFixed(2) : 0;
+
+      const annualDebtService = calculateAnnualDebtService(
+        loanAmount,
+        interestRate,
+        termMonths,
+      );
+
+      const dscr =
+        annualDebtService > 0 ? (noiActual / annualDebtService).toFixed(2) : 0;
 
       /* ================= BUILD JSON PAYLOAD ================= */
 
@@ -328,6 +483,18 @@ export default function GetLoanPage() {
         if (value !== "" && value !== undefined) {
           fields.push({ fieldKey, value });
         }
+      });
+
+      coBorrowers.forEach((borrower, index) => {
+        Object.entries(borrower).forEach(([key, value]) => {
+          if (key === "id") return;
+          if (value === "" || value === undefined) return;
+
+          fields.push({
+            fieldKey: `coBorrower_${index + 1}_${key}`,
+            value,
+          });
+        });
       });
 
       // borrower signature name
@@ -351,6 +518,16 @@ export default function GetLoanPage() {
           value: activeProduct.loanProductCode,
         });
       }
+
+      /* ================= ADD CALCULATED FIELDS ================= */
+
+      fields.push({ fieldKey: "ltvPercentage", value: Number(ltv) });
+      fields.push({ fieldKey: "ltcPercentage", value: Number(ltc) });
+      fields.push({ fieldKey: "arvPercentage", value: Number(arv) });
+      fields.push({ fieldKey: "dscr", value: Number(dscr) });
+      fields.push({ fieldKey: "totalAssets", value: borrowerAssets });
+      fields.push({ fieldKey: "totalLiabilities", value: borrowerLiabilities });
+      fields.push({ fieldKey: "netWorth", value: netWorth });
 
       // dynamic fields (NO FILES)
       Object.entries(dynamicValues).forEach(([fieldId, value]) => {
@@ -405,6 +582,65 @@ export default function GetLoanPage() {
     }
   };
 
+  const handleAddCoBorrower = () => {
+    const newId = Date.now();
+
+    setCoBorrowers((prev) => [
+      ...prev,
+      {
+        id: newId,
+        firstName: "",
+        lastName: "",
+        email: "",
+        cellPhone: "",
+        creditScore: "",
+
+        // Financial Details
+        currentMarketValue: "",
+        purchasePrice: "",
+        interestRate: "",
+        noiActual: "",
+        totalAssets: "",
+        totalLiabilities: "",
+      },
+    ]);
+
+    // Scroll after render
+    setTimeout(() => {
+      coBorrowerRefs.current[newId]?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 150);
+  };
+
+  const handleRemoveCoBorrower = (id) => {
+    setCoBorrowers((prev) => {
+      const updated = prev.filter((b) => b.id !== id);
+
+      // Clear coBorrower related errors
+      setErrors((prevErrors) => {
+        const cleanedErrors = { ...prevErrors };
+
+        Object.keys(cleanedErrors).forEach((key) => {
+          if (key.startsWith("coBorrower_")) {
+            delete cleanedErrors[key];
+          }
+        });
+
+        return cleanedErrors;
+      });
+
+      return updated;
+    });
+  };
+
+  const updateCoBorrower = (id, field, value) => {
+    setCoBorrowers((prev) =>
+      prev.map((b) => (b.id === id ? { ...b, [field]: value } : b)),
+    );
+  };
+
   useEffect(() => {
     loadProducts();
   }, []);
@@ -413,7 +649,7 @@ export default function GetLoanPage() {
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 py-12">
       <div className="max-w-5xl mx-auto px-4">
         {/* Heading */}
-        <h1 className="text-sm font-semibold text-blue-700 dark:text-blue-400 mb-6">
+        <h1 className="text-xs font-semibold text-blue-700 dark:text-blue-400 mb-6">
           This is our quick app to help us determine eligibility, available loan
           options & structure various loan terms for you.
         </h1>
@@ -425,7 +661,7 @@ export default function GetLoanPage() {
 
           <div className="p-6 space-y-6">
             <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-lg flex items-center justify-between border border-slate-200 dark:border-slate-700">
-              <span className="font-medium text-sm text-slate-800 dark:text-slate-200">
+              <span className="font-medium text-xs text-slate-800 dark:text-slate-200">
                 Are you a Mortgage Broker OR working WITH ONE?
               </span>
 
@@ -435,35 +671,34 @@ export default function GetLoanPage() {
                   checked={isBroker === true}
                   onChange={() => {
                     setIsBroker(true);
-                    setStaticValues((p) => ({
-                      ...p,
-                      isBroker: true,
-                      // reset borrower fields
-                      borrowerLoanAmount: "",
-                      borrowerState: "",
+                    setErrors({});
 
-                      // initialize broker fields
-                      brokerLoanAmount: "",
-                      brokerState: "",
-                    }));
+                    // RESET EVERYTHING
+                    setStaticValues({
+                      ...getInitialStaticValues(),
+                      isBroker: true,
+                    });
+
+                    // CLEAR ALL CO BORROWERS
+                    setCoBorrowers([]);
                   }}
                 />
+
                 <Radio
                   label="No"
                   checked={isBroker === false}
                   onChange={() => {
                     setIsBroker(false);
-                    setStaticValues((p) => ({
-                      ...p,
-                      isBroker: false,
-                      // reset borrower fields
-                      borrowerLoanAmount: "",
-                      borrowerState: "",
+                    setErrors({});
 
-                      // initialize broker fields
-                      brokerLoanAmount: "",
-                      brokerState: "",
-                    }));
+                    // RESET EVERYTHING
+                    setStaticValues({
+                      ...getInitialStaticValues(),
+                      isBroker: false,
+                    });
+
+                    // CLEAR ALL CO BORROWERS
+                    setCoBorrowers([]);
                   }}
                 />
               </div>
@@ -517,50 +752,53 @@ export default function GetLoanPage() {
                       label="Cell Phone"
                       placeholder="(___) ___-____"
                       value={staticValues.borrowerCellPhone}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        const value = e.target.value;
+
                         setStaticValues((p) => ({
                           ...p,
-                          borrowerCellPhone: e.target.value,
-                        }))
-                      }
-                      type="number"
+                          borrowerCellPhone: value,
+                        }));
+
+                        if (!value || US_PHONE_REGEX.test(value)) {
+                          setErrors((prev) => ({
+                            ...prev,
+                            borrowerCellPhone: undefined,
+                          }));
+                        }
+                      }}
+                      type="tel"
                       error={errors.borrowerCellPhone}
                     />
                   </div>
 
                   {/* Co Borrower Toggle */}
-                  <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-800 p-4 rounded-lg border border-slate-200 dark:border-slate-700">
-                    <span className="text-sm font-medium text-slate-800 dark:text-slate-200">
-                      Is there a Co-borrower?
-                    </span>
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs font-medium">Co-Borrowers</span>
+
                     <button
-                      onClick={() => setHasCoBorrower((p) => !p)}
-                      className={`w-12 h-6 rounded-full relative transition ${
-                        hasCoBorrower ? "bg-blue-600" : "bg-slate-300"
-                      }`}
+                      type="button"
+                      onClick={handleAddCoBorrower}
+                      className="px-3 py-1 bg-blue-600 text-white text-xs rounded cursor-pointer"
                     >
-                      <span
-                        className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition ${
-                          hasCoBorrower ? "right-0.5" : "left-0.5"
-                        }`}
-                      />
+                      + Add Co-Borrower
                     </button>
                   </div>
 
                   {/* ================= PERSONAL INFO ================= */}
-                  <div className="bg-slate-100 dark:bg-slate-800/60 px-4 py-2 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-200">
+                  <div className="bg-slate-100 dark:bg-slate-800/60 px-4 py-2 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-200">
                     Personal Info
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* Citizenship */}
                     <div>
-                      <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block mb-2">
+                      <label className="text-xs font-medium text-slate-700 dark:text-slate-300 block mb-2">
                         Citizenship <span className="text-red-500">*</span>
                       </label>
 
                       <div
-                        className={`grid grid-cols-2 gap-3 text-sm rounded-lg p-3 border
+                        className={`grid grid-cols-2 gap-3 text-xs rounded-lg p-3 border
       ${
         errors.citizenship
           ? "border-red-500 bg-red-50 dark:bg-red-900/10"
@@ -668,109 +906,210 @@ export default function GetLoanPage() {
                     </Select>
                   </div>
 
-                  {hasCoBorrower && (
-                    <>
-                      <SectionHeader title="Co-Borrower Information" />
+                  {coBorrowers.map((borrower, index) => (
+                    <div
+                      key={borrower.id}
+                      ref={(el) => {
+                        if (el) coBorrowerRefs.current[borrower.id] = el;
+                      }}
+                      className="border border-blue-200 rounded-xl p-6 bg-slate-50 space-y-4 mt-4"
+                    >
+                      <div className="flex justify-between items-center">
+                        <h3 className="font-semibold text-xs">
+                          Co-Borrower {index + 1}
+                        </h3>
 
-                      <div className="p-6 space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <Input
-                            label="First Name"
-                            value={staticValues.coBorrowerFirstName}
-                            onChange={(e) =>
-                              setStaticValues((p) => ({
-                                ...p,
-                                coBorrowerFirstName: e.target.value,
-                              }))
-                            }
-                            error={errors.coBorrowerFirstName}
-                          />
-                          <Input
-                            label="Last Name"
-                            value={staticValues.coBorrowerLastName}
-                            onChange={(e) =>
-                              setStaticValues((p) => ({
-                                ...p,
-                                coBorrowerLastName: e.target.value,
-                              }))
-                            }
-                            error={errors.coBorrowerLastName}
-                          />
-                          <Input
-                            label="Borrower Email"
-                            value={staticValues.coBorrowerEmail}
-                            onChange={(e) => {
-                              setStaticValues((p) => ({
-                                ...p,
-                                coBorrowerEmail: e.target.value,
-                              }));
-                              setErrors((err) => ({
-                                ...err,
-                                coBorrowerEmail: undefined,
-                              }));
-                            }}
-                            type="email"
-                            error={errors.coBorrowerEmail}
-                          />
-                          <Input
-                            label="Cell Phone"
-                            placeholder="(___) ___-____"
-                            value={staticValues.coBorrowerCellPhone}
-                            onChange={(e) =>
-                              setStaticValues((p) => ({
-                                ...p,
-                                coBorrowerCellPhone: e.target.value,
-                              }))
-                            }
-                            type="number"
-                            error={errors.coBorrowerCellPhone}
-                          />
-                        </div>
-
-                        {/* ================= PERSONAL INFO ================= */}
-                        <div className="bg-slate-100 dark:bg-slate-800/60 px-4 py-2 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-200">
-                          Personal Info
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          {/* Credit Score */}
-                          <Select
-                            label="Credit Score"
-                            value={staticValues.coBorrowerCreditScore || ""}
-                            onChange={(e) =>
-                              setStaticValues((p) => ({
-                                ...p,
-                                coBorrowerCreditScore: e.target.value,
-                              }))
-                            }
-                            error={errors.coBorrowerCreditScore}
-                          >
-                            <option value="">- Select Credit Score -</option>
-                            {PERSONAL_CREDIT_SCORE_OPTIONS.map((opt) => (
-                              <option key={opt.value} value={opt.value}>
-                                {opt.label}
-                              </option>
-                            ))}
-                          </Select>
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveCoBorrower(borrower.id)}
+                          className="text-red-500 hover:text-red-600 text-xs cursor-pointer"
+                        >
+                          Remove
+                        </button>
                       </div>
-                    </>
-                  )}
 
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <Input
+                          label="First Name"
+                          value={borrower.firstName}
+                          onChange={(e) =>
+                            updateCoBorrower(
+                              borrower.id,
+                              "firstName",
+                              e.target.value,
+                            )
+                          }
+                          error={errors[`coBorrower_${index}_firstName`]}
+                        />
+
+                        <Input
+                          label="Last Name"
+                          value={borrower.lastName}
+                          onChange={(e) =>
+                            updateCoBorrower(
+                              borrower.id,
+                              "lastName",
+                              e.target.value,
+                            )
+                          }
+                          error={errors[`coBorrower_${index}_lastName`]}
+                        />
+
+                        <Input
+                          label="Email"
+                          type="email"
+                          value={borrower.email}
+                          onChange={(e) =>
+                            updateCoBorrower(
+                              borrower.id,
+                              "email",
+                              e.target.value,
+                            )
+                          }
+                          error={errors[`coBorrower_${index}_email`]}
+                        />
+
+                        <Input
+                          label="Cell Phone"
+                          value={borrower.cellPhone}
+                          onChange={(e) =>
+                            updateCoBorrower(
+                              borrower.id,
+                              "cellPhone",
+                              e.target.value,
+                            )
+                          }
+                          error={errors[`coBorrower_${index}_cellPhone`]}
+                        />
+
+                        <Select
+                          label="Credit Score"
+                          value={borrower.creditScore}
+                          onChange={(e) =>
+                            updateCoBorrower(
+                              borrower.id,
+                              "creditScore",
+                              e.target.value,
+                            )
+                          }
+                          error={errors[`coBorrower_${index}_creditScore`]}
+                        >
+                          <option value="">Select</option>
+                          {PERSONAL_CREDIT_SCORE_OPTIONS.map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </Select>
+
+                        <div className="col-span-2 mt-4">
+                          <div className="bg-slate-100 px-3 py-2 rounded text-xs font-semibold text-slate-700">
+                            Financial Details
+                          </div>
+                        </div>
+
+                        <Input
+                          label="Current Market Value"
+                          type="number"
+                          value={borrower.currentMarketValue}
+                          onChange={(e) =>
+                            updateCoBorrower(
+                              borrower.id,
+                              "currentMarketValue",
+                              e.target.value,
+                            )
+                          }
+                          error={
+                            errors[`coBorrower_${index}_currentMarketValue`]
+                          }
+                        />
+
+                        <Input
+                          label="Purchase Price"
+                          type="number"
+                          value={borrower.purchasePrice}
+                          onChange={(e) =>
+                            updateCoBorrower(
+                              borrower.id,
+                              "purchasePrice",
+                              e.target.value,
+                            )
+                          }
+                          error={errors[`coBorrower_${index}_purchasePrice`]}
+                        />
+
+                        <Input
+                          label="Interest Rate (%)"
+                          type="number"
+                          value={borrower.interestRate}
+                          onChange={(e) =>
+                            updateCoBorrower(
+                              borrower.id,
+                              "interestRate",
+                              e.target.value,
+                            )
+                          }
+                          error={errors[`coBorrower_${index}_interestRate`]}
+                        />
+
+                        <Input
+                          label="NOI (Annual Net Operating Income)"
+                          type="number"
+                          value={borrower.noiActual}
+                          onChange={(e) =>
+                            updateCoBorrower(
+                              borrower.id,
+                              "noiActual",
+                              e.target.value,
+                            )
+                          }
+                          error={errors[`coBorrower_${index}_noiActual`]}
+                        />
+
+                        <Input
+                          label="Total Assets"
+                          type="number"
+                          value={borrower.totalAssets}
+                          onChange={(e) =>
+                            updateCoBorrower(
+                              borrower.id,
+                              "totalAssets",
+                              e.target.value,
+                            )
+                          }
+                          error={errors[`coBorrower_${index}_totalAssets`]}
+                        />
+
+                        <Input
+                          label="Total Liabilities"
+                          type="number"
+                          value={borrower.totalLiabilities}
+                          onChange={(e) =>
+                            updateCoBorrower(
+                              borrower.id,
+                              "totalLiabilities",
+                              e.target.value,
+                            )
+                          }
+                          error={errors[`coBorrower_${index}_totalLiabilities`]}
+                        />
+                      </div>
+                    </div>
+                  ))}
                   {/* ================= PRODUCT DYNAMIC FIELDS ================= */}
                   {isBroker === false &&
                     activeProduct &&
                     activeProduct.fields &&
                     activeProduct.fields.length > 0 && (
                       <div className="mt-6">
-                        <div className="bg-slate-100 dark:bg-slate-800/60 px-4 py-2 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-200 mb-4">
+                        <div className="bg-slate-100 dark:bg-slate-800/60 px-4 py-2 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-200 mb-4">
                           Additional Information
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           {activeProduct.fields.map((field) => (
                             <div key={field.fieldId} className="space-y-1">
-                              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                              <label className="text-xs text-slate-700 dark:text-slate-300">
                                 {field.label}
                                 {field.required && (
                                   <span className="text-red-500 ml-1">*</span>
@@ -909,6 +1248,92 @@ export default function GetLoanPage() {
                       ))}
                     </Select>
                   </div>
+
+                  <div className="h-px bg-slate-200 dark:bg-slate-700" />
+
+                  <div className="bg-slate-100 dark:bg-slate-800/60 px-4 py-2 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-200">
+                    Financial Details (For Qualification)
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Input
+                      label="Current Market Value"
+                      type="number"
+                      value={staticValues.currentMarketValue}
+                      onChange={(e) =>
+                        setStaticValues((p) => ({
+                          ...p,
+                          currentMarketValue: e.target.value,
+                        }))
+                      }
+                      error={errors.currentMarketValue}
+                    />
+
+                    <Input
+                      label="Purchase Price"
+                      type="number"
+                      value={staticValues.purchasePrice}
+                      onChange={(e) =>
+                        setStaticValues((p) => ({
+                          ...p,
+                          purchasePrice: e.target.value,
+                        }))
+                      }
+                      error={errors.purchasePrice}
+                    />
+
+                    <Input
+                      label="Interest Rate (%)"
+                      type="number"
+                      value={staticValues.interestRate}
+                      onChange={(e) =>
+                        setStaticValues((p) => ({
+                          ...p,
+                          interestRate: e.target.value,
+                        }))
+                      }
+                      error={errors.interestRate}
+                    />
+
+                    <Input
+                      label="NOI (Annual Net Operating Income)"
+                      type="number"
+                      value={staticValues.noiActual}
+                      onChange={(e) =>
+                        setStaticValues((p) => ({
+                          ...p,
+                          noiActual: e.target.value,
+                        }))
+                      }
+                      error={errors.noiActual}
+                    />
+
+                    <Input
+                      label="Total Assets"
+                      type="number"
+                      value={staticValues.totalAssets}
+                      onChange={(e) =>
+                        setStaticValues((p) => ({
+                          ...p,
+                          totalAssets: e.target.value,
+                        }))
+                      }
+                      error={errors.totalAssets}
+                    />
+
+                    <Input
+                      label="Total Liabilities"
+                      type="number"
+                      value={staticValues.totalLiabilities}
+                      onChange={(e) =>
+                        setStaticValues((p) => ({
+                          ...p,
+                          totalLiabilities: e.target.value,
+                        }))
+                      }
+                      error={errors.totalLiabilities}
+                    />
+                  </div>
                 </div>
 
                 {/* ================= PRODUCT DYNAMIC SECTIONS ================= */}
@@ -922,7 +1347,7 @@ export default function GetLoanPage() {
                         .map((section) => (
                           <div key={section.sectionId}>
                             {/* Section Title */}
-                            <div className="bg-slate-100 dark:bg-slate-800/60 px-4 py-2 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-200 mb-4">
+                            <div className="bg-slate-100 dark:bg-slate-800/60 px-4 py-2 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-200 mb-4">
                               {section.sectionName}
                             </div>
 
@@ -930,7 +1355,7 @@ export default function GetLoanPage() {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                               {section.fields.map((field) => (
                                 <div key={field.fieldId} className="space-y-1">
-                                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                                  <label className="text-xs font-medium text-slate-700 dark:text-slate-300">
                                     {field.label}
                                     {field.required && (
                                       <span className="text-red-500 ml-1">
@@ -963,14 +1388,14 @@ export default function GetLoanPage() {
                   activeProduct.unsectionedFields &&
                   activeProduct.unsectionedFields.length > 0 && (
                     <div className="p-6 space-y-6">
-                      <div className="bg-slate-100 dark:bg-slate-800/60 px-4 py-2 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-200">
+                      <div className="bg-slate-100 dark:bg-slate-800/60 px-4 py-2 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-200">
                         Additional Information
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {activeProduct.unsectionedFields.map((field) => (
                           <div key={field.fieldId} className="space-y-1">
-                            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                            <label className="text-xs font-medium text-slate-700 dark:text-slate-300">
                               {field.label}
                               {field.required && (
                                 <span className="text-red-500 ml-1">*</span>
@@ -1013,10 +1438,22 @@ export default function GetLoanPage() {
                     label="Phone Number"
                     placeholder="(___) ___-____"
                     value={staticValues.phone}
-                    onChange={(e) =>
-                      setStaticValues((p) => ({ ...p, phone: e.target.value }))
-                    }
-                    type="number"
+                    onChange={(e) => {
+                      const value = e.target.value;
+
+                      setStaticValues((p) => ({
+                        ...p,
+                        phone: value,
+                      }));
+
+                      if (!value || US_PHONE_REGEX.test(value)) {
+                        setErrors((prev) => ({
+                          ...prev,
+                          phone: undefined,
+                        }));
+                      }
+                    }}
+                    type="tel"
                     error={errors.phone}
                   />
                   <Input
@@ -1170,20 +1607,106 @@ export default function GetLoanPage() {
                   </Select>
                 </div>
 
+                <div className="h-px bg-slate-200 dark:bg-slate-700" />
+
+                <div className="bg-slate-100 dark:bg-slate-800/60 px-4 py-2 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-200">
+                  Financial Details (For Qualification)
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Input
+                    label="Current Market Value"
+                    type="number"
+                    value={staticValues.currentMarketValue}
+                    onChange={(e) =>
+                      setStaticValues((p) => ({
+                        ...p,
+                        currentMarketValue: e.target.value,
+                      }))
+                    }
+                    error={errors.currentMarketValue}
+                  />
+
+                  <Input
+                    label="Purchase Price"
+                    type="number"
+                    value={staticValues.purchasePrice}
+                    onChange={(e) =>
+                      setStaticValues((p) => ({
+                        ...p,
+                        purchasePrice: e.target.value,
+                      }))
+                    }
+                    error={errors.purchasePrice}
+                  />
+
+                  <Input
+                    label="Interest Rate (%)"
+                    type="number"
+                    value={staticValues.interestRate}
+                    onChange={(e) =>
+                      setStaticValues((p) => ({
+                        ...p,
+                        interestRate: e.target.value,
+                      }))
+                    }
+                    error={errors.interestRate}
+                  />
+
+                  <Input
+                    label="NOI (Annual Net Operating Income)"
+                    type="number"
+                    value={staticValues.noiActual}
+                    onChange={(e) =>
+                      setStaticValues((p) => ({
+                        ...p,
+                        noiActual: e.target.value,
+                      }))
+                    }
+                    error={errors.noiActual}
+                  />
+
+                  <Input
+                    label="Total Assets"
+                    type="number"
+                    value={staticValues.totalAssets}
+                    onChange={(e) =>
+                      setStaticValues((p) => ({
+                        ...p,
+                        totalAssets: e.target.value,
+                      }))
+                    }
+                    error={errors.totalAssets}
+                  />
+
+                  <Input
+                    label="Total Liabilities"
+                    type="number"
+                    value={staticValues.totalLiabilities}
+                    onChange={(e) =>
+                      setStaticValues((p) => ({
+                        ...p,
+                        totalLiabilities: e.target.value,
+                      }))
+                    }
+                    error={errors.totalLiabilities}
+                  />
+                </div>
+
                 {/* ================= PRODUCT DYNAMIC FIELDS ================= */}
                 {isBroker === true &&
                   activeProduct &&
                   activeProduct.fields &&
                   activeProduct.fields.length > 0 && (
                     <div className="mt-6">
-                      <div className="bg-slate-100 dark:bg-slate-800/60 px-4 py-2 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-200 mb-4">
+                      <div className="bg-slate-100 dark:bg-slate-800/60 px-4 py-2 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-200 mb-4">
                         Additional Information
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {activeProduct.fields.map((field) => (
                           <div key={field.fieldId} className="space-y-1">
-                            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                            <label className="text-xs font-medium text-slate-700 dark:text-slate-300">
                               {field.label}
                               {field.required && (
                                 <span className="text-red-500 ml-1">*</span>
@@ -1258,44 +1781,38 @@ export default function GetLoanPage() {
                         borrowerCellPhone: e.target.value,
                       }))
                     }
-                    type="number"
+                    type="tel"
                     error={errors.borrowerCellPhone}
                   />
                 </div>
 
                 {/* Co Borrower Toggle */}
-                <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-800 p-4 rounded-lg border border-slate-200 dark:border-slate-700">
-                  <span className="text-sm font-medium text-slate-800 dark:text-slate-200">
-                    Is there a Co-borrower?
-                  </span>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs font-medium">Co-Borrowers</span>
+
                   <button
-                    onClick={() => setHasCoBorrower((p) => !p)}
-                    className={`w-12 h-6 rounded-full relative transition ${
-                      hasCoBorrower ? "bg-blue-600" : "bg-slate-300"
-                    }`}
+                    type="button"
+                    onClick={handleAddCoBorrower}
+                    className="px-3 py-1 bg-blue-600 text-white text-xs rounded cursor-pointer"
                   >
-                    <span
-                      className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition ${
-                        hasCoBorrower ? "right-0.5" : "left-0.5"
-                      }`}
-                    />
+                    + Add Co-Borrower
                   </button>
                 </div>
 
                 {/* ================= PERSONAL INFO ================= */}
-                <div className="bg-slate-100 dark:bg-slate-800/60 px-4 py-2 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-200">
+                <div className="bg-slate-100 dark:bg-slate-800/60 px-4 py-2 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-200">
                   Personal Info
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Citizenship */}
                   <div>
-                    <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block mb-2">
+                    <label className="text-xs font-medium text-slate-700 dark:text-slate-300 block mb-2">
                       Citizenship <span className="text-red-500">*</span>
                     </label>
 
                     <div
-                      className={`grid grid-cols-2 gap-3 text-sm rounded-lg p-3 border
+                      className={`grid grid-cols-2 gap-3 text-xs rounded-lg p-3 border
       ${
         errors.citizenship
           ? "border-red-500 bg-red-50 dark:bg-red-900/10"
@@ -1390,93 +1907,196 @@ export default function GetLoanPage() {
                   </Select>
                 </div>
 
-                {hasCoBorrower && (
-                  <>
-                    <SectionHeader title="Co-Borrower Information" />
+                {coBorrowers.map((borrower, index) => (
+                  <div
+                    key={borrower.id}
+                    ref={(el) => {
+                      if (el) coBorrowerRefs.current[borrower.id] = el;
+                    }}
+                    className="border border-blue-200 rounded-xl p-6 bg-slate-50 space-y-4 mt-4"
+                  >
+                    <div className="flex justify-between items-center">
+                      <h3 className="font-semibold text-xs">
+                        Co-Borrower {index + 1}
+                      </h3>
 
-                    <div className="p-6 space-y-6">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <Input
-                          label="First Name"
-                          value={staticValues.coBorrowerFirstName}
-                          onChange={(e) =>
-                            setStaticValues((p) => ({
-                              ...p,
-                              coBorrowerFirstName: e.target.value,
-                            }))
-                          }
-                          error={errors.coBorrowerFirstName}
-                        />
-                        <Input
-                          label="Last Name"
-                          value={staticValues.coBorrowerLastName}
-                          onChange={(e) =>
-                            setStaticValues((p) => ({
-                              ...p,
-                              coBorrowerLastName: e.target.value,
-                            }))
-                          }
-                          error={errors.coBorrowerLastName}
-                        />
-                        <Input
-                          label="Borrower Email"
-                          value={staticValues.coBorrowerEmail}
-                          onChange={(e) => {
-                            setStaticValues((p) => ({
-                              ...p,
-                              coBorrowerEmail: e.target.value,
-                            }));
-                            setErrors((err) => ({
-                              ...err,
-                              coBorrowerEmail: undefined,
-                            }));
-                          }}
-                          type="email"
-                          error={errors.coBorrowerEmail}
-                        />
-                        <Input
-                          label="Cell Phone"
-                          placeholder="(___) ___-____"
-                          value={staticValues.coBorrowerCellPhone}
-                          onChange={(e) =>
-                            setStaticValues((p) => ({
-                              ...p,
-                              coBorrowerCellPhone: e.target.value,
-                            }))
-                          }
-                          type="number"
-                          error={errors.coBorrowerCellPhone}
-                        />
-                      </div>
-
-                      {/* ================= PERSONAL INFO ================= */}
-                      <div className="bg-slate-100 dark:bg-slate-800/60 px-4 py-2 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-200">
-                        Personal Info
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {/* Credit Score */}
-                        <Select
-                          label="Credit Score"
-                          value={staticValues.coBorrowerCreditScore || ""}
-                          onChange={(e) =>
-                            setStaticValues((p) => ({
-                              ...p,
-                              coBorrowerCreditScore: e.target.value,
-                            }))
-                          }
-                        >
-                          <option value="">- Select Credit Score -</option>
-                          {PERSONAL_CREDIT_SCORE_OPTIONS.map((opt) => (
-                            <option key={opt.value} value={opt.value}>
-                              {opt.label}
-                            </option>
-                          ))}
-                        </Select>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveCoBorrower(borrower.id)}
+                        className="text-red-500 hover:text-red-600 text-xs cursor-pointer"
+                      >
+                        Remove
+                      </button>
                     </div>
-                  </>
-                )}
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <Input
+                        label="First Name"
+                        value={borrower.firstName}
+                        onChange={(e) =>
+                          updateCoBorrower(
+                            borrower.id,
+                            "firstName",
+                            e.target.value,
+                          )
+                        }
+                        error={errors[`coBorrower_${index}_firstName`]}
+                      />
+
+                      <Input
+                        label="Last Name"
+                        value={borrower.lastName}
+                        onChange={(e) =>
+                          updateCoBorrower(
+                            borrower.id,
+                            "lastName",
+                            e.target.value,
+                          )
+                        }
+                        error={errors[`coBorrower_${index}_lastName`]}
+                      />
+
+                      <Input
+                        label="Email"
+                        type="email"
+                        value={borrower.email}
+                        onChange={(e) =>
+                          updateCoBorrower(borrower.id, "email", e.target.value)
+                        }
+                        error={errors[`coBorrower_${index}_email`]}
+                      />
+
+                      <Input
+                        label="Cell Phone"
+                        type="tel"
+                        value={borrower.cellPhone}
+                        onChange={(e) => {
+                          const value = e.target.value;
+
+                          updateCoBorrower(borrower.id, "cellPhone", value);
+
+                          if (!value || US_PHONE_REGEX.test(value)) {
+                            setErrors((prev) => ({
+                              ...prev,
+                              [`coBorrower_${index}_cellPhone`]: undefined,
+                            }));
+                          }
+                        }}
+                        error={errors[`coBorrower_${index}_cellPhone`]}
+                      />
+
+                      <Select
+                        label="Credit Score"
+                        value={borrower.creditScore}
+                        onChange={(e) =>
+                          updateCoBorrower(
+                            borrower.id,
+                            "creditScore",
+                            e.target.value,
+                          )
+                        }
+                        error={errors[`coBorrower_${index}_creditScore`]}
+                      >
+                        <option value="">Select</option>
+                        {PERSONAL_CREDIT_SCORE_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </Select>
+
+                      <div className="col-span-2 mt-4">
+                        <div className="bg-slate-100 px-3 py-2 rounded text-xs font-semibold text-slate-700">
+                          Financial Details
+                        </div>
+                      </div>
+
+                      <Input
+                        label="Current Market Value"
+                        type="number"
+                        value={borrower.currentMarketValue}
+                        onChange={(e) =>
+                          updateCoBorrower(
+                            borrower.id,
+                            "currentMarketValue",
+                            e.target.value,
+                          )
+                        }
+                        error={errors[`coBorrower_${index}_currentMarketValue`]}
+                      />
+
+                      <Input
+                        label="Purchase Price"
+                        type="number"
+                        value={borrower.purchasePrice}
+                        onChange={(e) =>
+                          updateCoBorrower(
+                            borrower.id,
+                            "purchasePrice",
+                            e.target.value,
+                          )
+                        }
+                        error={errors[`coBorrower_${index}_purchasePrice`]}
+                      />
+
+                      <Input
+                        label="Interest Rate (%)"
+                        type="number"
+                        value={borrower.interestRate}
+                        onChange={(e) =>
+                          updateCoBorrower(
+                            borrower.id,
+                            "interestRate",
+                            e.target.value,
+                          )
+                        }
+                        error={errors[`coBorrower_${index}_interestRate`]}
+                      />
+
+                      <Input
+                        label="NOI (Annual Net Operating Income)"
+                        type="number"
+                        value={borrower.noiActual}
+                        onChange={(e) =>
+                          updateCoBorrower(
+                            borrower.id,
+                            "noiActual",
+                            e.target.value,
+                          )
+                        }
+                        error={errors[`coBorrower_${index}_noiActual`]}
+                      />
+
+                      <Input
+                        label="Total Assets"
+                        type="number"
+                        value={borrower.totalAssets}
+                        onChange={(e) =>
+                          updateCoBorrower(
+                            borrower.id,
+                            "totalAssets",
+                            e.target.value,
+                          )
+                        }
+                        error={errors[`coBorrower_${index}_totalAssets`]}
+                      />
+
+                      <Input
+                        label="Total Liabilities"
+                        type="number"
+                        value={borrower.totalLiabilities}
+                        onChange={(e) =>
+                          updateCoBorrower(
+                            borrower.id,
+                            "totalLiabilities",
+                            e.target.value,
+                          )
+                        }
+                        error={errors[`coBorrower_${index}_totalLiabilities`]}
+                      />
+                    </div>
+                  </div>
+                ))}
 
                 {/* ================= PRODUCT DYNAMIC FIELDS ================= */}
                 {isBroker === true &&
@@ -1484,14 +2104,14 @@ export default function GetLoanPage() {
                   activeProduct.fields &&
                   activeProduct.fields.length > 0 && (
                     <div className="mt-6">
-                      <div className="bg-slate-100 dark:bg-slate-800/60 px-4 py-2 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-200 mb-4">
+                      <div className="bg-slate-100 dark:bg-slate-800/60 px-4 py-2 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-200 mb-4">
                         Additional Information
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {activeProduct.fields.map((field) => (
                           <div key={field.fieldId} className="space-y-1">
-                            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                            <label className="text-xs font-medium text-slate-700 dark:text-slate-300">
                               {field.label}
                               {field.required && (
                                 <span className="text-red-500 ml-1">*</span>
@@ -1527,7 +2147,7 @@ export default function GetLoanPage() {
                   .map((section) => (
                     <div key={section.sectionId}>
                       {/* Section Title */}
-                      <div className="bg-slate-100 dark:bg-slate-800/60 px-4 py-2 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-200 mb-4">
+                      <div className="bg-slate-100 dark:bg-slate-800/60 px-4 py-2 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-200 mb-4">
                         {section.sectionName}
                       </div>
 
@@ -1535,7 +2155,7 @@ export default function GetLoanPage() {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {section.fields.map((field) => (
                           <div key={field.fieldId} className="space-y-1">
-                            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                            <label className="text-xs font-medium text-slate-700 dark:text-slate-300">
                               {field.label}
                               {field.required && (
                                 <span className="text-red-500 ml-1">*</span>
@@ -1566,14 +2186,14 @@ export default function GetLoanPage() {
             activeProduct.unsectionedFields &&
             activeProduct.unsectionedFields.length > 0 && (
               <div className="p-6 space-y-6">
-                <div className="bg-slate-100 dark:bg-slate-800/60 px-4 py-2 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-200">
+                <div className="bg-slate-100 dark:bg-slate-800/60 px-4 py-2 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-200">
                   Additional Information
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {activeProduct.unsectionedFields.map((field) => (
                     <div key={field.fieldId} className="space-y-1">
-                      <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                      <label className="text-xs font-medium text-slate-700 dark:text-slate-300">
                         {field.label}
                         {field.required && (
                           <span className="text-red-500 ml-1">*</span>
@@ -1599,7 +2219,7 @@ export default function GetLoanPage() {
 
               <div className="p-6 space-y-6">
                 {/* Terms text */}
-                <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded text-sm text-slate-700 dark:text-slate-200 border">
+                <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded text-xs text-blue-900 font-semibold dark:text-blue-200 border">
                   By submitting this application, you acknowledge that
                   everything is true and correct to the best of your knowledge.
                   If pre-approved, you authorize us to pull your credit report.
@@ -1610,10 +2230,11 @@ export default function GetLoanPage() {
                 </div>
 
                 {/* Agreement checkbox */}
-                <label className="flex items-center gap-3 text-sm text-slate-700 dark:text-slate-300">
+                <label className="flex items-center gap-3 text-xs text-slate-700 dark:text-slate-300">
                   <input
                     type="checkbox"
                     checked={agreed}
+                    className="text-xs"
                     onChange={(e) => {
                       setAgreed(e.target.checked);
                       setStaticValues((p) => ({
@@ -1641,7 +2262,7 @@ export default function GetLoanPage() {
 
                 {/* ================= SIGNATURE ================= */}
                 <div>
-                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 block">
+                  <label className="text-xs font-medium text-slate-700 dark:text-slate-300 mb-2 block">
                     Borrower Signature <span className="text-red-500">*</span>
                   </label>
 
@@ -1673,7 +2294,7 @@ export default function GetLoanPage() {
                         setSignatureHistory([]);
                         setSignatureData("");
                       }}
-                      className="text-sm px-3 py-1 bg-slate-300 dark:bg-slate-700 rounded cursor-pointer"
+                      className="text-xs px-3 py-1 bg-slate-300 dark:bg-slate-700 rounded cursor-pointer"
                     >
                       Reset Signature
                     </button>
@@ -1708,7 +2329,7 @@ export default function GetLoanPage() {
                           return newHistory;
                         });
                       }}
-                      className="text-sm px-3 py-1 bg-slate-300 dark:bg-slate-700 rounded cursor-pointer"
+                      className="text-xs px-3 py-1 bg-slate-300 dark:bg-slate-700 rounded cursor-pointer"
                     >
                       Undo last stroke
                     </button>
@@ -1742,11 +2363,10 @@ export default function GetLoanPage() {
                     !agreed ||
                     isBroker === null ||
                     !recaptchaToken ||
-                    !sigPadRef.current ||
-                    sigPadRef.current.isEmpty()
+                    !signatureData
                   }
                   // disabled={!agreed || !borrowerSignName || sigPadRef.current?.isEmpty()}
-                  className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-8 py-3 rounded-lg font-semibold text-sm shadow cursor-pointer"
+                  className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-8 py-3 rounded-lg font-semibold text-xs shadow cursor-pointer"
                 >
                   Submit
                 </button>
@@ -1763,7 +2383,7 @@ export default function GetLoanPage() {
 
 function SectionHeader({ title }) {
   return (
-    <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 font-semibold text-sm flex items-center justify-between text-slate-800 dark:text-white bg-slate-50 dark:bg-slate-900">
+    <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 font-semibold text-xs flex items-center justify-between text-slate-800 dark:text-white bg-slate-50 dark:bg-slate-900">
       <span>{title}</span>
       <span className="text-blue-600 dark:text-blue-400">ⓘ</span>
     </div>
@@ -1791,7 +2411,7 @@ function Input({
 
   return (
     <div>
-      <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+      <label className="text-xs font-medium text-slate-700 dark:text-slate-300">
         {label}
       </label>
       {/* <span className="text-red-500">*</span> */}
@@ -1802,7 +2422,7 @@ function Input({
         placeholder={placeholder}
         min={type === "number" ? 0 : undefined}
         onWheel={(e) => e.target.blur()}
-        className="text-sm mt-1 w-full border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 bg-white dark:bg-slate-800 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="text-xs mt-1 w-full border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 bg-white dark:bg-slate-800 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
       />
       {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
     </div>
@@ -1812,13 +2432,13 @@ function Input({
 function Select({ label, value, onChange, children, error = "" }) {
   return (
     <div>
-      <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+      <label className="text-xs font-medium text-slate-700 dark:text-slate-300">
         {label}
       </label>
       <select
         value={value}
         onChange={onChange}
-        className="mt-1 w-full border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 bg-white dark:bg-slate-800 text-slate-800 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="mt-1 w-full border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 bg-white dark:bg-slate-800 text-slate-800 dark:text-white text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
       >
         {children}
       </select>
@@ -1829,7 +2449,7 @@ function Select({ label, value, onChange, children, error = "" }) {
 
 function Radio({ label, checked, onChange, name = "radio" }) {
   return (
-    <label className="flex items-center gap-2 cursor-pointer text-sm text-slate-700 dark:text-slate-300">
+    <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-700 dark:text-slate-300">
       <input type="radio" name={name} checked={checked} onChange={onChange} />
       {label}
     </label>
@@ -1838,7 +2458,7 @@ function Radio({ label, checked, onChange, name = "radio" }) {
 
 const renderField = (field, dynamicValues, setDynamicValues) => {
   const base =
-    "w-full rounded-lg border px-3 py-2 text-sm bg-white text-slate-900 border-slate-300 dark:bg-slate-900 dark:text-slate-100 dark:border-slate-700";
+    "w-full rounded-lg border px-3 py-2 text-xs bg-white text-slate-900 border-slate-300 dark:bg-slate-900 dark:text-slate-100 dark:border-slate-700";
 
   const value = dynamicValues[field.fieldId] ?? "";
   const placeholder = field.placeholder || "";
@@ -1953,7 +2573,7 @@ const renderField = (field, dynamicValues, setDynamicValues) => {
     return (
       <div className="space-y-2 bg-slate-50 dark:bg-slate-800 border rounded-lg p-3">
         {field.options?.map((opt, i) => (
-          <label key={i} className="flex items-center gap-2 text-sm">
+          <label key={i} className="flex items-center gap-2 text-xs">
             <input
               type="radio"
               name={field.fieldId}
@@ -1972,7 +2592,7 @@ const renderField = (field, dynamicValues, setDynamicValues) => {
   /* ---------- CHECKBOX (single boolean) ---------- */
   if (field.type === "CHECKBOX") {
     return (
-      <label className="flex items-center gap-2 text-sm">
+      <label className="flex items-center gap-2 text-xs">
         <input
           type="checkbox"
           checked={!!value}
