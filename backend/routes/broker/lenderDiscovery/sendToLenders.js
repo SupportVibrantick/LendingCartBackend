@@ -23,8 +23,13 @@ module.exports = async function sendToLenders(fastify) {
     },
     async (req, reply) => {
       const prisma = fastify.prisma;
-      const { applicationId, submissionId } = req.params;
+
+      let { applicationId, submissionId } = req.params;
       const { lenderProductIds } = req.body;
+
+      // Defensive UUID cleanup
+      applicationId = applicationId.replace(/"/g, "").trim();
+      submissionId = submissionId.replace(/"/g, "").trim();
 
       if (!req.user || req.user.orgType !== "BROKER") {
         return reply.code(403).send({
@@ -37,9 +42,7 @@ module.exports = async function sendToLenders(fastify) {
       const brokerOrgId = req.user.organizationId;
 
       try {
-        /* =====================================================
-           1️⃣ VALIDATE APPLICATION
-        ===================================================== */
+        /* ================= APPLICATION ================= */
         const application = await prisma.loanApplication.findUnique({
           where: { id: applicationId },
         });
@@ -59,12 +62,9 @@ module.exports = async function sendToLenders(fastify) {
         }
 
         if (
-          [
-            "LENDER_SELECTED",
-            "LENDER_APPROVED",
-            "FUNDED",
-            "WITHDRAWN",
-          ].includes(application.status)
+          ["LENDER_SELECTED", "LENDER_APPROVED", "FUNDED", "WITHDRAWN"].includes(
+            application.status
+          )
         ) {
           return reply.code(400).send({
             success: false,
@@ -81,9 +81,7 @@ module.exports = async function sendToLenders(fastify) {
           });
         }
 
-        /* =====================================================
-           2️⃣ VALIDATE SUBMISSION
-        ===================================================== */
+        /* ================= SUBMISSION ================= */
         const submission = await prisma.applicationSubmission.findUnique({
           where: { id: submissionId },
           include: { fields: true },
@@ -103,9 +101,7 @@ module.exports = async function sendToLenders(fastify) {
           });
         }
 
-        /* =====================================================
-           3️⃣ VALIDATE LENDER PRODUCTS
-        ===================================================== */
+        /* ================= LENDER PRODUCTS ================= */
         const lenderProducts = await prisma.lenderProduct.findMany({
           where: {
             id: { in: lenderProductIds },
@@ -117,9 +113,7 @@ module.exports = async function sendToLenders(fastify) {
               isDeleted: false,
             },
           },
-          include: {
-            lender: true,
-          },
+          include: { lender: true },
         });
 
         if (lenderProducts.length !== lenderProductIds.length) {
@@ -130,9 +124,7 @@ module.exports = async function sendToLenders(fastify) {
           });
         }
 
-        /* =====================================================
-           4️⃣ PREVENT DUPLICATES
-        ===================================================== */
+        /* ================= DUPLICATE CHECK ================= */
         const alreadySent = await prisma.applicationLender.findMany({
           where: {
             loanApplicationId: applicationId,
@@ -142,11 +134,11 @@ module.exports = async function sendToLenders(fastify) {
         });
 
         const alreadySentIds = new Set(
-          alreadySent.map((a) => a.lenderProductId),
+          alreadySent.map((a) => a.lenderProductId)
         );
 
         const newLenderProducts = lenderProducts.filter(
-          (lp) => !alreadySentIds.has(lp.id),
+          (lp) => !alreadySentIds.has(lp.id)
         );
 
         if (!newLenderProducts.length) {
@@ -157,66 +149,39 @@ module.exports = async function sendToLenders(fastify) {
           });
         }
 
-        /* =====================================================
-           5️⃣ DATABASE TRANSACTION
-        ===================================================== */
+        /* ================= TRANSACTION ================= */
         const results = await prisma.$transaction(
           async (tx) => {
             const processed = [];
 
             for (const lp of newLenderProducts) {
-              try {
-                await tx.applicationLender.create({
-                  data: {
-                    loanApplicationId: applicationId,
-                    lenderOrgId: lp.lenderOrgId,
-                    lenderProductId: lp.id,
-                    sentByUserId: userId,
-                    sentAt: new Date(),
-                    status: "SENT",
-                  },
-                });
-
-                processed.push({
-                  lenderProductId: lp.id,
+              await tx.applicationLender.create({
+                data: {
+                  loanApplicationId: applicationId,
                   lenderOrgId: lp.lenderOrgId,
-                  lenderEmail: lp.lender.email,
+                  lenderProductId: lp.id,
+                  sentByUserId: userId,
+                  sentAt: new Date(),
                   status: "SENT",
-                });
-              } catch (err) {
-                if (err.code === "P2002") {
-                  processed.push({
-                    lenderProductId: lp.id,
-                    lenderOrgId: lp.lenderOrgId,
-                    lenderEmail: lp.lender.email,
-                    status: "ALREADY_SENT",
-                  });
-                } else {
-                  throw err;
-                }
-              }
+                },
+              });
+
+              processed.push({
+                lenderProductId: lp.id,
+                lenderOrgId: lp.lenderOrgId,
+                lenderEmail: lp.lender.email,
+                status: "SENT",
+              });
             }
 
-            const newlySent = processed.some((r) => r.status === "SENT");
-
-            if (newlySent && application.status === "SUBMITTED") {
+            if (application.status === "SUBMITTED") {
               await tx.loanApplication.update({
                 where: { id: applicationId },
                 data: { status: "IN_REVIEW" },
               });
-
-              await tx.applicationStatusHistory.create({
-                data: {
-                  loanApplicationId: applicationId,
-                  fromStatus: "SUBMITTED",
-                  toStatus: "IN_REVIEW",
-                  changedByUserId: userId,
-                  reason: "Sent to lenders",
-                },
-              });
             }
 
-            if (newlySent && submission.status === "NEW") {
+            if (submission.status === "NEW") {
               await tx.applicationSubmission.update({
                 where: { id: submissionId },
                 data: { status: "SENT" },
@@ -225,61 +190,58 @@ module.exports = async function sendToLenders(fastify) {
 
             return processed;
           },
-          { isolationLevel: "Serializable" },
+          { isolationLevel: "Serializable" }
         );
 
-        /* =====================================================
-           6️⃣ SEND EMAIL WITH PDF (OUTSIDE TRANSACTION)
-        ===================================================== */
+        /* ================= EMAIL WITH BASE64 PDF ================= */
         for (const r of results) {
           if (r.status === "SENT" && r.lenderEmail) {
             try {
               const pdfBuffer = await generateApplicationPDF(
                 application,
-                submission,
+                submission
               );
+
+              console.log("PDF size:", pdfBuffer.length);
+
+              const base64PDF = pdfBuffer.toString("base64");
 
               await sendMail({
                 to: r.lenderEmail,
                 subject: "New Loan Application Submission",
-                text: "A new loan application has been submitted. Please find the attached PDF.",
+                text:
+                  "A new loan application has been submitted. Please find the attached PDF.",
                 attachments: [
                   {
                     filename: `Loan-Application-${application.id}.pdf`,
-                    content: pdfBuffer,
+                    content: base64PDF,
+                    encoding: "base64",
                     contentType: "application/pdf",
                   },
                 ],
               });
 
-              fastify.log.info(`Application email sent to ${r.lenderEmail}`);
-            } catch (emailError) {
+              fastify.log.info(
+                `Application email sent to ${r.lenderEmail}`
+              );
+            } catch (err) {
               fastify.log.error(
                 `Email failed for ${r.lenderEmail}`,
-                emailError,
+                err
               );
             }
           }
         }
 
-        /* =====================================================
-           7️⃣ SUCCESS RESPONSE
-        ===================================================== */
         return reply.send({
           success: true,
           message: "Submission processed successfully",
-          data: {
-            applicationId,
-            submissionId,
-            totalRequested: lenderProductIds.length,
-            totalProcessed: results.length,
-            results,
-          },
+          data: results,
         });
       } catch (error) {
         fastify.log.error(
           { error: error.message, applicationId, submissionId },
-          "Send to lenders failed",
+          "Send to lenders failed"
         );
 
         return reply.code(500).send({
@@ -287,6 +249,6 @@ module.exports = async function sendToLenders(fastify) {
           message: "Internal server error",
         });
       }
-    },
+    }
   );
 };
