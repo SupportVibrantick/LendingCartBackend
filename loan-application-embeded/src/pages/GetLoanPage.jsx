@@ -144,6 +144,31 @@ export default function GetLoanPage() {
     }
   }
 
+  const formatUSPhone = (value) => {
+    if (!value) return "";
+
+    // Remove all non-digits
+    const digits = value.replace(/\D/g, "").slice(0, 10);
+
+    const len = digits.length;
+
+    if (len < 4) return digits;
+    if (len < 7) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+
+    return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+  };
+
+  const formatAmount = (value) => {
+    if (!value) return "";
+
+    // Remove everything except digits
+    const digits = value.replace(/\D/g, "");
+
+    if (!digits) return "";
+
+    return Number(digits).toLocaleString("en-US");
+  };
+
   const toNumber = (val) => {
     if (!val) return 0;
     return parseFloat(String(val).replace(/,/g, "")) || 0;
@@ -753,14 +778,14 @@ export default function GetLoanPage() {
                       placeholder="(___) ___-____"
                       value={staticValues.borrowerCellPhone}
                       onChange={(e) => {
-                        const value = e.target.value;
+                        const formatted = formatUSPhone(e.target.value);
 
                         setStaticValues((p) => ({
                           ...p,
-                          borrowerCellPhone: value,
+                          borrowerCellPhone: formatted,
                         }));
 
-                        if (!value || US_PHONE_REGEX.test(value)) {
+                        if (!formatted || US_PHONE_REGEX.test(formatted)) {
                           setErrors((prev) => ({
                             ...prev,
                             borrowerCellPhone: undefined,
@@ -1010,15 +1035,16 @@ export default function GetLoanPage() {
 
                         <Input
                           label="Current Market Value"
-                          type="number"
+                          type="text"
                           value={borrower.currentMarketValue}
-                          onChange={(e) =>
+                          onChange={(e) => {
+                            const formatted = formatAmount(e.target.value);
                             updateCoBorrower(
                               borrower.id,
                               "currentMarketValue",
-                              e.target.value,
-                            )
-                          }
+                              formatted,
+                            );
+                          }}
                           error={
                             errors[`coBorrower_${index}_currentMarketValue`]
                           }
@@ -1026,15 +1052,16 @@ export default function GetLoanPage() {
 
                         <Input
                           label="Purchase Price"
-                          type="number"
+                          type="text"
                           value={borrower.purchasePrice}
-                          onChange={(e) =>
+                          onChange={(e) => {
+                            const formatted = formatAmount(e.target.value);
                             updateCoBorrower(
                               borrower.id,
                               "purchasePrice",
-                              e.target.value,
-                            )
-                          }
+                              formatted,
+                            );
+                          }}
                           error={errors[`coBorrower_${index}_purchasePrice`]}
                         />
 
@@ -1054,43 +1081,46 @@ export default function GetLoanPage() {
 
                         <Input
                           label="NOI (Annual Net Operating Income)"
-                          type="number"
+                          type="text"
                           value={borrower.noiActual}
-                          onChange={(e) =>
+                          onChange={(e) => {
+                            const formatted = formatAmount(e.target.value);
                             updateCoBorrower(
                               borrower.id,
                               "noiActual",
-                              e.target.value,
-                            )
-                          }
+                              formatted,
+                            );
+                          }}
                           error={errors[`coBorrower_${index}_noiActual`]}
                         />
 
                         <Input
                           label="Total Assets"
-                          type="number"
+                          type="text"
                           value={borrower.totalAssets}
-                          onChange={(e) =>
+                          onChange={(e) => {
+                            const formatted = formatAmount(e.target.value);
                             updateCoBorrower(
                               borrower.id,
                               "totalAssets",
-                              e.target.value,
-                            )
-                          }
+                              formatted,
+                            );
+                          }}
                           error={errors[`coBorrower_${index}_totalAssets`]}
                         />
 
                         <Input
                           label="Total Liabilities"
-                          type="number"
+                          type="text"
                           value={borrower.totalLiabilities}
-                          onChange={(e) =>
+                          onChange={(e) => {
+                            const formatted = formatAmount(e.target.value);
                             updateCoBorrower(
                               borrower.id,
                               "totalLiabilities",
-                              e.target.value,
-                            )
-                          }
+                              formatted,
+                            );
+                          }}
                           error={errors[`coBorrower_${index}_totalLiabilities`]}
                         />
                       </div>
@@ -1208,13 +1238,14 @@ export default function GetLoanPage() {
                       label="Loan Amount"
                       placeholder="Enter Loan Amount"
                       value={staticValues.borrowerLoanAmount}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        const formatted = formatAmount(e.target.value);
                         setStaticValues((p) => ({
                           ...p,
-                          borrowerLoanAmount: e.target.value,
-                        }))
-                      }
-                      type="number"
+                          borrowerLoanAmount: formatted,
+                        }));
+                      }}
+                      type="text"
                       error={errors.borrowerLoanAmount}
                     />
                     <Input
@@ -1258,27 +1289,29 @@ export default function GetLoanPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <Input
                       label="Current Market Value"
-                      type="number"
+                      type="text"
                       value={staticValues.currentMarketValue}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        const formatted = formatAmount(e.target.value);
                         setStaticValues((p) => ({
                           ...p,
-                          currentMarketValue: e.target.value,
-                        }))
-                      }
+                          currentMarketValue: formatted,
+                        }));
+                      }}
                       error={errors.currentMarketValue}
                     />
 
                     <Input
                       label="Purchase Price"
-                      type="number"
+                      type="text"
                       value={staticValues.purchasePrice}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        const formatted = formatAmount(e.target.value);
                         setStaticValues((p) => ({
                           ...p,
-                          purchasePrice: e.target.value,
-                        }))
-                      }
+                          purchasePrice: formatted,
+                        }));
+                      }}
                       error={errors.purchasePrice}
                     />
 
@@ -1297,40 +1330,43 @@ export default function GetLoanPage() {
 
                     <Input
                       label="NOI (Annual Net Operating Income)"
-                      type="number"
+                      type="text"
                       value={staticValues.noiActual}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        const formatted = formatAmount(e.target.value);
                         setStaticValues((p) => ({
                           ...p,
-                          noiActual: e.target.value,
-                        }))
-                      }
+                          noiActual: formatted,
+                        }));
+                      }}
                       error={errors.noiActual}
                     />
 
                     <Input
                       label="Total Assets"
-                      type="number"
+                      type="text"
                       value={staticValues.totalAssets}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        const formatted = formatAmount(e.target.value);
                         setStaticValues((p) => ({
                           ...p,
-                          totalAssets: e.target.value,
-                        }))
-                      }
+                          totalAssets: formatted,
+                        }));
+                      }}
                       error={errors.totalAssets}
                     />
 
                     <Input
                       label="Total Liabilities"
-                      type="number"
+                      type="text"
                       value={staticValues.totalLiabilities}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        const formatted = formatAmount(e.target.value);
                         setStaticValues((p) => ({
                           ...p,
-                          totalLiabilities: e.target.value,
-                        }))
-                      }
+                          totalLiabilities: formatted,
+                        }));
+                      }}
                       error={errors.totalLiabilities}
                     />
                   </div>
@@ -1436,17 +1472,17 @@ export default function GetLoanPage() {
                   />
                   <Input
                     label="Phone Number"
-                    placeholder="(___) ___-____"
+                    placeholder="222-222-2222"
                     value={staticValues.phone}
                     onChange={(e) => {
-                      const value = e.target.value;
+                      const formatted = formatUSPhone(e.target.value);
 
                       setStaticValues((p) => ({
                         ...p,
-                        phone: value,
+                        phone: formatted,
                       }));
 
-                      if (!value || US_PHONE_REGEX.test(value)) {
+                      if (!formatted || US_PHONE_REGEX.test(formatted)) {
                         setErrors((prev) => ({
                           ...prev,
                           phone: undefined,
@@ -1508,13 +1544,14 @@ export default function GetLoanPage() {
                     label="Loan Amount"
                     placeholder="Enter Loan Amount"
                     value={staticValues.brokerLoanAmount}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      const formatted = formatAmount(e.target.value);
                       setStaticValues((p) => ({
                         ...p,
-                        brokerLoanAmount: e.target.value,
-                      }))
-                    }
-                    type="number"
+                        brokerLoanAmount: formatted,
+                      }));
+                    }}
+                    type="text"
                     error={errors.brokerLoanAmount}
                   />
                   <Select
@@ -1616,27 +1653,29 @@ export default function GetLoanPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Input
                     label="Current Market Value"
-                    type="number"
+                    type="text"
                     value={staticValues.currentMarketValue}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      const formatted = formatAmount(e.target.value);
                       setStaticValues((p) => ({
                         ...p,
-                        currentMarketValue: e.target.value,
-                      }))
-                    }
+                        currentMarketValue: formatted,
+                      }));
+                    }}
                     error={errors.currentMarketValue}
                   />
 
                   <Input
                     label="Purchase Price"
-                    type="number"
+                    type="text"
                     value={staticValues.purchasePrice}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      const formatted = formatAmount(e.target.value);
                       setStaticValues((p) => ({
                         ...p,
-                        purchasePrice: e.target.value,
-                      }))
-                    }
+                        purchasePrice: formatted,
+                      }));
+                    }}
                     error={errors.purchasePrice}
                   />
 
@@ -1655,40 +1694,43 @@ export default function GetLoanPage() {
 
                   <Input
                     label="NOI (Annual Net Operating Income)"
-                    type="number"
+                    type="text"
                     value={staticValues.noiActual}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      const formatted = formatAmount(e.target.value);
                       setStaticValues((p) => ({
                         ...p,
-                        noiActual: e.target.value,
-                      }))
-                    }
+                        noiActual: formatted,
+                      }));
+                    }}
                     error={errors.noiActual}
                   />
 
                   <Input
                     label="Total Assets"
-                    type="number"
+                    type="text"
                     value={staticValues.totalAssets}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      const formatted = formatAmount(e.target.value);
                       setStaticValues((p) => ({
                         ...p,
-                        totalAssets: e.target.value,
-                      }))
-                    }
+                        totalAssets: formatted,
+                      }));
+                    }}
                     error={errors.totalAssets}
                   />
 
                   <Input
                     label="Total Liabilities"
-                    type="number"
+                    type="text"
                     value={staticValues.totalLiabilities}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      const formatted = formatAmount(e.target.value);
                       setStaticValues((p) => ({
                         ...p,
-                        totalLiabilities: e.target.value,
-                      }))
-                    }
+                        totalLiabilities: formatted,
+                      }));
+                    }}
                     error={errors.totalLiabilities}
                   />
                 </div>
@@ -1775,12 +1817,20 @@ export default function GetLoanPage() {
                     label="Cell Phone"
                     placeholder="(___) ___-____"
                     value={staticValues.borrowerCellPhone}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      const formatted = formatUSPhone(e.target.value);
                       setStaticValues((p) => ({
                         ...p,
-                        borrowerCellPhone: e.target.value,
-                      }))
-                    }
+                        borrowerCellPhone: formatted,
+                      }));
+
+                      if (!formatted || US_PHONE_REGEX.test(formatted)) {
+                        setErrors((prev) => ({
+                          ...prev,
+                          borrowerCellPhone: undefined,
+                        }));
+                      }
+                    }}
                     type="tel"
                     error={errors.borrowerCellPhone}
                   />
@@ -1971,11 +2021,11 @@ export default function GetLoanPage() {
                         type="tel"
                         value={borrower.cellPhone}
                         onChange={(e) => {
-                          const value = e.target.value;
+                          const formatted = formatUSPhone(e.target.value);
 
-                          updateCoBorrower(borrower.id, "cellPhone", value);
+                          updateCoBorrower(borrower.id, "cellPhone", formatted);
 
-                          if (!value || US_PHONE_REGEX.test(value)) {
+                          if (!formatted || US_PHONE_REGEX.test(formatted)) {
                             setErrors((prev) => ({
                               ...prev,
                               [`coBorrower_${index}_cellPhone`]: undefined,
@@ -2013,29 +2063,31 @@ export default function GetLoanPage() {
 
                       <Input
                         label="Current Market Value"
-                        type="number"
+                        type="text"
                         value={borrower.currentMarketValue}
-                        onChange={(e) =>
+                        onChange={(e) => {
+                          const formatted = formatAmount(e.target.value);
                           updateCoBorrower(
                             borrower.id,
                             "currentMarketValue",
-                            e.target.value,
-                          )
-                        }
+                            formatted,
+                          );
+                        }}
                         error={errors[`coBorrower_${index}_currentMarketValue`]}
                       />
 
                       <Input
                         label="Purchase Price"
-                        type="number"
+                        type="text"
                         value={borrower.purchasePrice}
-                        onChange={(e) =>
+                        onChange={(e) => {
+                          const formatted = formatAmount(e.target.value);
                           updateCoBorrower(
                             borrower.id,
                             "purchasePrice",
-                            e.target.value,
-                          )
-                        }
+                            formatted,
+                          );
+                        }}
                         error={errors[`coBorrower_${index}_purchasePrice`]}
                       />
 
@@ -2055,43 +2107,42 @@ export default function GetLoanPage() {
 
                       <Input
                         label="NOI (Annual Net Operating Income)"
-                        type="number"
+                        type="text"
                         value={borrower.noiActual}
-                        onChange={(e) =>
-                          updateCoBorrower(
-                            borrower.id,
-                            "noiActual",
-                            e.target.value,
-                          )
-                        }
+                        onChange={(e) => {
+                          const formatted = formatAmount(e.target.value);
+                          updateCoBorrower(borrower.id, "noiActual", formatted);
+                        }}
                         error={errors[`coBorrower_${index}_noiActual`]}
                       />
 
                       <Input
                         label="Total Assets"
-                        type="number"
+                        type="text"
                         value={borrower.totalAssets}
-                        onChange={(e) =>
+                        onChange={(e) => {
+                          const formatted = formatAmount(e.target.value);
                           updateCoBorrower(
                             borrower.id,
                             "totalAssets",
-                            e.target.value,
-                          )
-                        }
+                            formatted,
+                          );
+                        }}
                         error={errors[`coBorrower_${index}_totalAssets`]}
                       />
 
                       <Input
                         label="Total Liabilities"
-                        type="number"
+                        type="text"
                         value={borrower.totalLiabilities}
-                        onChange={(e) =>
+                        onChange={(e) => {
+                          const formatted = formatAmount(e.target.value);
                           updateCoBorrower(
                             borrower.id,
                             "totalLiabilities",
-                            e.target.value,
-                          )
-                        }
+                            formatted,
+                          );
+                        }}
                         error={errors[`coBorrower_${index}_totalLiabilities`]}
                       />
                     </div>
@@ -2590,9 +2641,49 @@ const renderField = (field, dynamicValues, setDynamicValues) => {
   }
 
   /* ---------- CHECKBOX (single boolean) ---------- */
-  if (field.type === "CHECKBOX") {
+  /* ---------- CHECKBOX ---------- */
+  if (field.type === "CHECKBOX_GROUP") {
+    const hasOptions = field.options && field.options.length > 0;
+
+    // MULTI CHECKBOX
+    if (hasOptions) {
+      const selectedValues = Array.isArray(value) ? value : [];
+
+      const toggleOption = (option) => {
+        if (selectedValues.includes(option)) {
+          return selectedValues.filter((v) => v !== option);
+        } else {
+          return [...selectedValues, option];
+        }
+      };
+
+      return (
+        <div className="space-y-2 bg-slate-50 dark:bg-slate-800 border rounded-lg p-3">
+          {field.options.map((opt, i) => (
+            <label
+              key={i}
+              className="flex items-center gap-2 text-xs cursor-pointer"
+            >
+              <input
+                type="checkbox"
+                checked={selectedValues.includes(opt)}
+                onChange={() =>
+                  setDynamicValues((p) => ({
+                    ...p,
+                    [field.fieldId]: toggleOption(opt),
+                  }))
+                }
+              />
+              {opt}
+            </label>
+          ))}
+        </div>
+      );
+    }
+
+    // SINGLE BOOLEAN CHECKBOX
     return (
-      <label className="flex items-center gap-2 text-xs">
+      <label className="flex items-center gap-2 text-xs cursor-pointer">
         <input
           type="checkbox"
           checked={!!value}
