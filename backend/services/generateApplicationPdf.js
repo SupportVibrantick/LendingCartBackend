@@ -17,31 +17,93 @@ const generateApplicationPDF = (application, submission) => {
       const tableStartX = 50;
       const labelWidth = 220;
       const valueWidth = pageWidth - labelWidth;
-      const rowPadding = 8;
+      const rowPadding = 10;
 
-      /* ================= HEADER ================= */
-
-      doc
-        .fontSize(22)
-        .fillColor("#0A3D62")
-        .text("LendingCart", { align: "center" });
+      /* ================= MODERN HEADER ================= */
 
       doc
-        .moveDown(0.3)
-        .fontSize(16)
-        .fillColor("#000")
-        .text("Loan Application Document", { align: "center" });
+        .rect(0, 0, doc.page.width, 90)
+        .fill("#0A3D62");
 
-      doc.moveDown(1.5);
-
-      /* ================= APPLICATION OVERVIEW TABLE ================= */
+      doc
+        .fillColor("#ffffff")
+        .fontSize(24)
+        .font("Helvetica-Bold")
+        .text("LendingCart", 50, 30);
 
       doc
         .fontSize(14)
-        .fillColor("#0A3D62")
-        .text("Application Overview");
+        .font("Helvetica")
+        .text("Loan Application Document", 50, 60);
 
-      doc.moveDown(0.7);
+      doc.moveDown(3);
+
+      /* ================= SECTION FUNCTION ================= */
+
+      function sectionTitle(title) {
+        doc.moveDown(1.5);
+        doc
+          .fontSize(15)
+          .fillColor("#0A3D62")
+          .font("Helvetica-Bold")
+          .text(title);
+        doc.moveDown(0.5);
+
+        doc
+          .moveTo(50, doc.y)
+          .lineTo(doc.page.width - 50, doc.y)
+          .strokeColor("#E0E6ED")
+          .stroke();
+
+        doc.moveDown(0.8);
+      }
+
+      /* ================= TABLE ROW FUNCTION ================= */
+
+      function drawTableRow(doc, label, value) {
+        const y = doc.y;
+
+        if (y > doc.page.height - 100) {
+          doc.addPage();
+        }
+
+        const rowHeight =
+          Math.max(
+            doc.heightOfString(label, { width: labelWidth }),
+            doc.heightOfString(String(value || "N/A"), {
+              width: valueWidth,
+            })
+          ) + rowPadding;
+
+        // Light background
+        doc
+          .rect(tableStartX, doc.y, pageWidth, rowHeight)
+          .fillAndStroke("#F8FAFC", "#E5E7EB");
+
+        // Label
+        doc
+          .fillColor("#475569")
+          .fontSize(11)
+          .font("Helvetica")
+          .text(label, tableStartX + 10, doc.y + 8, {
+            width: labelWidth - 20,
+          });
+
+        // Value
+        doc
+          .fillColor("#0F172A")
+          .font("Helvetica-Bold")
+          .text(String(value || "N/A"), tableStartX + labelWidth + 10, doc.y + 8, {
+            width: valueWidth - 20,
+          })
+          .font("Helvetica");
+
+        doc.moveDown(rowHeight / 12);
+      }
+
+      /* ================= APPLICATION OVERVIEW ================= */
+
+      sectionTitle("Application Overview");
 
       const overviewFields = [
         ["Application ID", application.id],
@@ -56,16 +118,9 @@ const generateApplicationPDF = (application, submission) => {
         drawTableRow(doc, label, value);
       });
 
-      doc.moveDown(1.5);
+      /* ================= BORROWER DATA ================= */
 
-      /* ================= BORROWER FULL DATA TABLE ================= */
-
-      doc
-        .fontSize(14)
-        .fillColor("#0A3D62")
-        .text("Complete Borrower Information");
-
-      doc.moveDown(0.7);
+      sectionTitle("Complete Borrower Information");
 
       let signatureBase64 = null;
 
@@ -82,7 +137,6 @@ const generateApplicationPDF = (application, submission) => {
           value = "N/A";
         }
 
-        // Detect signature field
         if (
           typeof value === "string" &&
           value.startsWith("data:image")
@@ -94,17 +148,12 @@ const generateApplicationPDF = (application, submission) => {
         }
       });
 
-      /* ================= SIGNATURE SECTION ================= */
+      /* ================= SIGNATURE PAGE ================= */
 
       if (signatureBase64) {
         doc.addPage();
 
-        doc
-          .fontSize(16)
-          .fillColor("#0A3D62")
-          .text("Applicant Signature");
-
-        doc.moveDown(1);
+        sectionTitle("Applicant Digital Signature");
 
         const base64Data = signatureBase64.replace(
           /^data:image\/png;base64,/,
@@ -113,26 +162,28 @@ const generateApplicationPDF = (application, submission) => {
 
         const signatureBuffer = Buffer.from(base64Data, "base64");
 
-        doc.image(signatureBuffer, {
-          fit: [250, 120],
-          align: "left",
-        });
-
-        doc.moveDown(2);
-
         doc
-          .moveTo(doc.x, doc.y)
-          .lineTo(doc.x + 250, doc.y)
+          .rect(50, doc.y, 300, 150)
+          .strokeColor("#CBD5E1")
           .stroke();
 
-        doc.text("Authorized Signature", { align: "left" });
+        doc.image(signatureBuffer, 60, doc.y + 10, {
+          fit: [280, 120],
+        });
+
+        doc.moveDown(10);
+
+        doc
+          .fontSize(11)
+          .fillColor("#64748B")
+          .text("Authorized Signature", 50);
       }
 
-      /* ================= FOOTER ================= */
+      /* ================= PROFESSIONAL FOOTER ================= */
 
       doc
-        .fontSize(10)
-        .fillColor("#888")
+        .fontSize(9)
+        .fillColor("#94A3B8")
         .text(
           `Generated on ${new Date().toLocaleString()}`,
           0,
@@ -141,49 +192,6 @@ const generateApplicationPDF = (application, submission) => {
         );
 
       doc.end();
-
-      /* ================= TABLE ROW FUNCTION ================= */
-
-      function drawTableRow(doc, label, value) {
-        const y = doc.y;
-
-        // Auto page break
-        if (y > doc.page.height - 100) {
-          doc.addPage();
-        }
-
-        const rowHeight =
-          Math.max(
-            doc.heightOfString(label, { width: labelWidth }),
-            doc.heightOfString(value, { width: valueWidth })
-          ) + rowPadding;
-
-        // Label Cell
-        doc
-          .rect(tableStartX, doc.y, labelWidth, rowHeight)
-          .stroke();
-
-        doc
-          .fontSize(11)
-          .fillColor("#333")
-          .text(label, tableStartX + 5, doc.y + 5, {
-            width: labelWidth - 10,
-          });
-
-        // Value Cell
-        doc
-          .rect(tableStartX + labelWidth, doc.y, valueWidth, rowHeight)
-          .stroke();
-
-        doc
-          .font("Helvetica-Bold")
-          .text(String(value || "N/A"), tableStartX + labelWidth + 5, doc.y + 5, {
-            width: valueWidth - 10,
-          })
-          .font("Helvetica");
-
-        doc.moveDown(rowHeight / 12);
-      }
     } catch (error) {
       reject(error);
     }
