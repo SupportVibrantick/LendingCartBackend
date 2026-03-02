@@ -55,7 +55,6 @@ module.exports = async function sendToLenders(fastify) {
           });
         }
 
-        // 🔒 Do not allow sending if finalized
         if (
           ["LENDER_SELECTED", "LENDER_APPROVED", "FUNDED", "WITHDRAWN"].includes(
             application.status
@@ -68,7 +67,6 @@ module.exports = async function sendToLenders(fastify) {
           });
         }
 
-        // ✅ Allow only SUBMITTED or IN_REVIEW
         if (!["SUBMITTED", "IN_REVIEW"].includes(application.status)) {
           return reply.code(400).send({
             success: false,
@@ -123,16 +121,44 @@ module.exports = async function sendToLenders(fastify) {
         }
 
         /* ===============================
+           3.5️⃣ DEFENSIVE DUPLICATE CHECK
+        =============================== */
+        const alreadySent = await prisma.applicationLender.findMany({
+          where: {
+            loanApplicationId: applicationId,
+            lenderProductId: { in: lenderProductIds },
+          },
+          select: {
+            lenderProductId: true,
+          },
+        });
+
+        const alreadySentIds = new Set(
+          alreadySent.map((a) => a.lenderProductId)
+        );
+
+        const newLenderProducts = lenderProducts.filter(
+          (lp) => !alreadySentIds.has(lp.id)
+        );
+
+        if (!newLenderProducts.length) {
+          return reply.code(400).send({
+            success: false,
+            message:
+              "All selected lenders have already received this submission",
+          });
+        }
+
+        /* ===============================
            4️⃣ TRANSACTION (CONCURRENCY SAFE)
         =============================== */
         const results = await prisma.$transaction(
           async (tx) => {
             const processed = [];
 
-            for (const lp of lenderProducts) {
+            for (const lp of newLenderProducts) {
               try {
-                // Use create with unique protection (requires @@unique)
-                const created = await tx.applicationLender.create({
+                await tx.applicationLender.create({
                   data: {
                     loanApplicationId: applicationId,
                     lenderOrgId: lp.lenderOrgId,
@@ -149,7 +175,6 @@ module.exports = async function sendToLenders(fastify) {
                   status: "SENT",
                 });
               } catch (err) {
-                // Handle duplicate safely
                 if (err.code === "P2002") {
                   processed.push({
                     lenderProductId: lp.id,
@@ -166,9 +191,6 @@ module.exports = async function sendToLenders(fastify) {
               (r) => r.status === "SENT"
             );
 
-            /* ===============================
-               5️⃣ GLOBAL STATUS UPDATE (ONLY FIRST TIME)
-            =============================== */
             if (newlySent && application.status === "SUBMITTED") {
               await tx.loanApplication.update({
                 where: { id: applicationId },
@@ -196,7 +218,7 @@ module.exports = async function sendToLenders(fastify) {
             return processed;
           },
           {
-            isolationLevel: "Serializable", // 🔥 prevents race conditions
+            isolationLevel: "Serializable",
           }
         );
 
