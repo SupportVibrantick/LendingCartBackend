@@ -22,6 +22,14 @@ interface Borrower {
 
 interface CoBorrower extends Borrower {
   id: number;
+
+  // Financial
+  currentMarketValue: string;
+  purchasePrice: string;
+  interestRate: string;
+  noi: string;
+  totalAssets: string;
+  totalLiabilities: string;
 }
 
 interface FormDataType {
@@ -127,6 +135,70 @@ const LoanApplication = () => {
 
   const baseSteps = ["Borrower Info", "Loan Request", "Loan Term & Income"];
 
+  const formatUSPhone = (value: string) => {
+    // Remove non-digits
+    const cleaned = value.replace(/\D/g, "").slice(0, 10);
+
+    const match = cleaned.match(/^(\d{0,3})(\d{0,3})(\d{0,4})$/);
+
+    if (!match) return cleaned;
+
+    let formatted = "";
+
+    if (match[1]) formatted += match[1];
+    if (match[2]) formatted += "-" + match[2];
+    if (match[3]) formatted += "-" + match[3];
+
+    return formatted;
+  };
+
+  const formatSSN = (value: string) => {
+    // Remove non-digits
+    const cleaned = value.replace(/\D/g, "").slice(0, 9);
+
+    const match = cleaned.match(/^(\d{0,3})(\d{0,2})(\d{0,4})$/);
+
+    if (!match) return cleaned;
+
+    let formatted = "";
+
+    if (match[1]) formatted += match[1];
+    if (match[2]) formatted += "-" + match[2];
+    if (match[3]) formatted += "-" + match[3];
+
+    return formatted;
+  };
+
+  const formatCurrency = (value: string) => {
+    // Remove everything except digits
+    const cleaned = value.replace(/\D/g, "");
+
+    if (!cleaned) return "";
+
+    return Number(cleaned).toLocaleString("en-US");
+  };
+
+  const handleAmountChange = (
+    section: "loanRequest" | "loanTermIncome" | "coBorrower",
+    field: string,
+    value: string,
+    index?: number,
+  ) => {
+    const formatted = formatCurrency(value);
+
+    if (section === "loanRequest") {
+      updateLoanRequest(field, formatted);
+    }
+
+    if (section === "loanTermIncome") {
+      updateLoanTermIncome(field, formatted);
+    }
+
+    if (section === "coBorrower" && index !== undefined) {
+      updateCoBorrower(index, field, formatted);
+    }
+  };
+
   /* ================= SIGNATURE ACTIONS ================= */
 
   const handleClearSignature = () => {
@@ -222,6 +294,14 @@ const LoanApplication = () => {
           city: "",
           state: "",
           mailingAddress: "",
+
+          // Financial
+          currentMarketValue: "",
+          purchasePrice: "",
+          interestRate: "",
+          noi: "",
+          totalAssets: "",
+          totalLiabilities: "",
         },
       ],
     }));
@@ -290,8 +370,7 @@ const LoanApplication = () => {
 
   const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[A-Za-z]{2,}$/;
 
-  const PHONE_REGEX =
-    /^\(?([2-9][0-9]{2})\)?[-.\s]?([0-9]{3})[-.\s]?([0-9]{4})$/;
+  const PHONE_REGEX = /^\d{3}-\d{3}-\d{4}$/;
 
   const validateFieldValue = (
     key: string,
@@ -327,9 +406,53 @@ const LoanApplication = () => {
 
     // SSN
     if (key.toLowerCase().includes("ssn")) {
-      const SSN_REGEX = /^\d{3}-?\d{2}-?\d{4}$/;
+      const SSN_REGEX = /^\d{3}-\d{2}-\d{4}$/;
       if (trimmed && !SSN_REGEX.test(trimmed)) {
         return "Enter valid SSN (XXX-XX-XXXX)";
+      }
+    }
+
+    // Amount fields validation
+    const amountKeys = [
+      "amount",
+      "currentMarketValue",
+      "purchasePrice",
+      "totalAssets",
+      "totalLiabilities",
+      "monthlyRent",
+      "grossRevenueActual",
+      "grossRevenueProforma",
+      "noiActual",
+      "noiProforma",
+      "annualTaxes",
+      "insurancePremium",
+      "hoaDues",
+      "noi",
+    ];
+
+    if (amountKeys.includes(key)) {
+      const numeric = parseFloat(String(trimmed).replace(/,/g, ""));
+
+      if (required && (!numeric || numeric <= 0)) {
+        return "Amount must be greater than 0";
+      }
+
+      if (numeric < 0) {
+        return "Amount cannot be negative";
+      }
+    }
+
+    if (key === "interestRate") {
+      const numeric = parseFloat(trimmed);
+      if (numeric < 0) {
+        return "Interest rate cannot be negative";
+      }
+    }
+
+    if (key === "creditScore") {
+      const score = parseInt(trimmed);
+      if (score < 300 || score > 850) {
+        return "Credit score must be between 300 and 850";
       }
     }
 
@@ -356,7 +479,42 @@ const LoanApplication = () => {
       checkObject(formData.borrower, "borrower");
 
       formData.coBorrowers.forEach((b, index) => {
-        checkObject(b, `coBorrowers.${index}`);
+        // Personal Details
+        checkObject(
+          {
+            name: b.name,
+            entityName: b.entityName,
+            phone: b.phone,
+            email: b.email,
+            employer: b.employer,
+            dob: b.dob,
+            ssn: b.ssn,
+            creditScore: b.creditScore,
+            address: b.address,
+            city: b.city,
+            state: b.state,
+          },
+          `coBorrowers.${index}`,
+        );
+
+        // Financial Details Required Only If Co-Borrower Exists
+        const financialFields = [
+          "currentMarketValue",
+          "purchasePrice",
+          "interestRate",
+          "noi",
+          "totalAssets",
+          "totalLiabilities",
+        ];
+
+        financialFields.forEach((field) => {
+          const value = (b as any)[field];
+          const error = validateFieldValue(field, value, true);
+
+          if (error) {
+            newErrors[`coBorrowers.${index}.${field}`] = error;
+          }
+        });
       });
     }
 
@@ -365,8 +523,8 @@ const LoanApplication = () => {
       if (!selectedProduct) {
         newErrors["selectedProduct"] = "Program selection is required";
       }
-      const assets = Number(formData.loanRequest.totalAssets);
-      const liabilities = Number(formData.loanRequest.totalLiabilities);
+      const assets = toNumber(formData.loanRequest.totalAssets);
+      const liabilities = toNumber(formData.loanRequest.totalLiabilities);
 
       if (assets <= 0) {
         newErrors["loanRequest.totalAssets"] =
@@ -376,6 +534,12 @@ const LoanApplication = () => {
       if (liabilities < 0) {
         newErrors["loanRequest.totalLiabilities"] =
           "Liabilities cannot be negative";
+      }
+
+      const amount = toNumber(formData.loanRequest.amount);
+
+      if (!amount || amount <= 0) {
+        newErrors["loanRequest.amount"] = "Loan amount must be greater than 0";
       }
       checkObject(formData.loanRequest, "loanRequest");
     }
@@ -471,7 +635,7 @@ const LoanApplication = () => {
       /* ================= LOAN REQUEST ================= */
 
       addField("loanProductCode", selectedProduct);
-      addField("amountRequested", Number(formData.loanRequest.amount));
+      addField("amountRequested", toNumber(formData.loanRequest.amount));
       addField("interestRate", formData.loanRequest.interestRate);
 
       /* ================= LOCATION (IF ADDRESS EXISTS) ================= */
@@ -486,11 +650,60 @@ const LoanApplication = () => {
 
       /* ================= CO BORROWERS ================= */
 
+      // formData.coBorrowers.forEach((borrower, index) => {
+      //   Object.entries(borrower).forEach(([key, value]) => {
+      //     if (key === "id") return;
+      //     addField(`coBorrower_${index + 1}_${key}`, value);
+      //   });
+      // });
+
+      /* ================= CO BORROWERS ================= */
+
       formData.coBorrowers.forEach((borrower, index) => {
+        const i = index + 1;
+
+        const toNum = (v: string) => parseFloat(v.replace(/,/g, "") || "0");
+
+        const coLoanAmount =
+          formData.coBorrowers.length > 0
+            ? loanAmount / formData.coBorrowers.length
+            : loanAmount;
+        const coMarketValue = toNum(borrower.currentMarketValue);
+        const coPurchasePrice = toNum(borrower.purchasePrice);
+        const coInterest = borrower.interestRate
+          ? toNum(borrower.interestRate)
+          : interestRate; // fallback to main rate
+        const coNoi = toNum(borrower.noi);
+        const coAssets = toNum(borrower.totalAssets);
+        const coLiabilities = toNum(borrower.totalLiabilities);
+
+        const coNetWorth = coAssets - coLiabilities;
+
+        const coLtv =
+          coMarketValue > 0 ? (coLoanAmount / coMarketValue) * 100 : 0;
+
+        const coLtc =
+          coPurchasePrice > 0 ? (coLoanAmount / coPurchasePrice) * 100 : 0;
+
+        const coAnnualDebt = calculateAnnualDebtService(
+          coLoanAmount,
+          coInterest,
+          termMonths,
+        );
+
+        const coDscr = coAnnualDebt > 0 && coNoi > 0 ? coNoi / coAnnualDebt : 0;
+
+        // Send all original fields
         Object.entries(borrower).forEach(([key, value]) => {
           if (key === "id") return;
-          addField(`coBorrower_${index + 1}_${key}`, value);
+          addField(`coBorrower_${i}_${key}`, value);
         });
+
+        // Send calculated fields
+        addField(`coBorrower_${i}_netWorth`, coNetWorth);
+        addField(`coBorrower_${i}_ltv`, coLtv);
+        addField(`coBorrower_${i}_ltc`, coLtc);
+        addField(`coBorrower_${i}_dscr`, coDscr);
       });
 
       /* ================= DYNAMIC FIELDS ================= */
@@ -665,19 +878,18 @@ const LoanApplication = () => {
     interestRate: number,
     termMonths: number,
   ) => {
-    if (!loanAmount || !termMonths) return 0;
+    if (!loanAmount || !termMonths || termMonths <= 0) return 0;
+    if (interestRate < 0) return 0;
 
     const monthlyRate = interestRate / 100 / 12;
 
-    let emi = 0;
-
     if (monthlyRate === 0) {
-      emi = loanAmount / termMonths;
-    } else {
-      emi =
-        (loanAmount * monthlyRate * Math.pow(1 + monthlyRate, termMonths)) /
-        (Math.pow(1 + monthlyRate, termMonths) - 1);
+      return (loanAmount / termMonths) * 12;
     }
+
+    const emi =
+      (loanAmount * monthlyRate * Math.pow(1 + monthlyRate, termMonths)) /
+      (Math.pow(1 + monthlyRate, termMonths) - 1);
 
     return emi * 12;
   };
@@ -692,8 +904,14 @@ const LoanApplication = () => {
   const ltc =
     purchasePrice > 0 ? ((loanAmount / purchasePrice) * 100).toFixed(2) : "—";
 
+  const afterRepairValue = toNumber(
+    formData.loanTermIncome.grossRevenueProforma,
+  );
+
   const arv =
-    marketValue > 0 ? ((loanAmount / marketValue) * 100).toFixed(2) : "—";
+    afterRepairValue > 0
+      ? ((loanAmount / afterRepairValue) * 100).toFixed(2)
+      : "—";
 
   const interestRate = toNumber(formData.loanRequest.interestRate);
   const termMonths = toNumber(formData.loanTermIncome.loanTerm);
@@ -706,7 +924,9 @@ const LoanApplication = () => {
   );
 
   const dscr =
-    annualDebtService > 0 ? (noiActual / annualDebtService).toFixed(2) : "0.00";
+    annualDebtService > 0 && noiActual > 0
+      ? (noiActual / annualDebtService).toFixed(2)
+      : "—";
 
   const handleDynamicFieldChange = (fieldId: string, value: any) => {
     setDynamicFormData((prev) => ({
@@ -724,19 +944,36 @@ const LoanApplication = () => {
 `;
 
     switch (field.type) {
-      case "TEXT":
+      case "TEXT": {
+        const lowerKey = (field.fieldKey || field.label || "").toLowerCase();
+
+        const isPhone = lowerKey.includes("phone");
+        const isSSN = lowerKey.includes("ssn");
+
         return (
           <input
             type="text"
+            inputMode={isPhone || isSSN ? "numeric" : "text"}
             placeholder={field.placeholder || ""}
             required={field.required}
             value={dynamicFormData[field.fieldId] || ""}
-            onChange={(e) =>
-              handleDynamicFieldChange(field.fieldId, e.target.value)
-            }
+            onChange={(e) => {
+              let value = e.target.value;
+
+              if (isPhone) {
+                value = formatUSPhone(value);
+              }
+
+              if (isSSN) {
+                value = formatSSN(value);
+              }
+
+              handleDynamicFieldChange(field.fieldId, value);
+            }}
             className={commonClasses}
           />
         );
+      }
 
       case "EMAIL":
         return (
@@ -752,19 +989,35 @@ const LoanApplication = () => {
           />
         );
 
-      case "NUMBER":
-        return (
-          <input
-            type="number"
-            placeholder={field.placeholder || ""}
-            required={field.required}
-            value={dynamicFormData[field.fieldId] || ""}
-            onChange={(e) =>
-              handleDynamicFieldChange(field.fieldId, e.target.value)
-            }
-            className={commonClasses}
-          />
-        );
+ case "NUMBER": {
+  const lowerKey =
+    (field.fieldKey || field.label || "").toLowerCase();
+
+  const isPhone = lowerKey.includes("phone");
+  const isSSN = lowerKey.includes("ssn");
+
+  return (
+    <input
+      type="text"
+      inputMode="numeric"
+      placeholder={field.placeholder || ""}
+      required={field.required}
+      value={dynamicFormData[field.fieldId] || ""}
+      onChange={(e) => {
+        let value = e.target.value;
+
+        if (isPhone) {
+          value = formatUSPhone(value);
+        } else if (isSSN) {
+          value = formatSSN(value);
+        }
+
+        handleDynamicFieldChange(field.fieldId, value);
+      }}
+      className={commonClasses}
+    />
+  );
+}
 
       case "DATE":
         return (
@@ -962,9 +1215,9 @@ const LoanApplication = () => {
                 label="Loan Amount"
                 value={`$${loanAmount.toLocaleString()}`}
               />
-              <Stat label="LTV %" value={ltv !== "—" ? `${ltv}%` : "—%"} />
-              <Stat label="LTC %" value={ltc !== "—" ? `${ltc}%` : "—%"} />
-              <Stat label="ARV %" value={arv !== "—" ? `${arv}%` : "—%"} />
+              <Stat label="LTV %" value={ltv !== "—" ? `${ltv}%` : "—"} />
+              <Stat label="LTC %" value={ltc !== "—" ? `${ltc}%` : "—"} />
+              <Stat label="ARV %" value={arv !== "—" ? `${arv}%` : "—"} />
               <Stat label="DSCR" value={dscr !== "—" ? dscr : "—"} />
               <Stat label="Net Worth" value={`$${netWorth.toLocaleString()}`} />
             </div>
@@ -999,10 +1252,6 @@ const LoanApplication = () => {
                   <h4 className="font-medium text-slate-700">
                     Primary Borrower
                   </h4>
-
-                  <span className="px-3 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-600">
-                    Net Worth: ${netWorth.toLocaleString()}
-                  </span>
                 </div>
 
                 {/* Form Grid */}
@@ -1066,20 +1315,22 @@ const LoanApplication = () => {
                       required
                       value={formData.borrower.phone}
                       onChange={(e) => {
-                        const value = e.target.value;
-                        updateBorrower("phone", value);
+                        const formatted = formatUSPhone(e.target.value);
+                        updateBorrower("phone", formatted);
 
-                        const error = validateFieldValue("phone", value, true);
+                        const error = validateFieldValue(
+                          "phone",
+                          formatted,
+                          true,
+                        );
 
                         setErrors((prev) => {
                           const updated = { ...prev };
-
                           if (error) {
                             updated["borrower.phone"] = error;
                           } else {
                             delete updated["borrower.phone"];
                           }
-
                           return updated;
                         });
                       }}
@@ -1180,7 +1431,26 @@ const LoanApplication = () => {
                       type="text"
                       required
                       value={formData.borrower.ssn}
-                      onChange={(e) => updateBorrower("ssn", e.target.value)}
+                      onChange={(e) => {
+                        const formatted = formatSSN(e.target.value);
+                        updateBorrower("ssn", formatted);
+
+                        const error = validateFieldValue(
+                          "ssn",
+                          formatted,
+                          true,
+                        );
+
+                        setErrors((prev) => {
+                          const updated = { ...prev };
+                          if (error) {
+                            updated["borrower.ssn"] = error;
+                          } else {
+                            delete updated["borrower.ssn"];
+                          }
+                          return updated;
+                        });
+                      }}
                       className={`mt-1 w-full px-4 py-1 rounded-md border ${
                         errors["borrower.ssn"]
                           ? "border-red-500 bg-red-50"
@@ -1201,7 +1471,8 @@ const LoanApplication = () => {
                       Credit Score <span className="text-red-500">*</span>
                     </label>
                     <input
-                      type="number"
+                      type="text"
+                      inputMode="numeric"
                       value={formData.borrower.creditScore}
                       onChange={(e) =>
                         updateBorrower("creditScore", e.target.value)
@@ -1327,349 +1598,459 @@ const LoanApplication = () => {
                   </div>
                 </div>
               </div>
-              {formData.coBorrowers.map((borrower, index) => (
-                <div
-                  key={borrower.id}
-                  ref={(el) => {
-                    coBorrowerRefs.current[borrower.id] = el;
-                  }}
-                  className="border rounded-2xl p-6 bg-white mt-6 mb-6"
-                >
-                  {/* Header */}
-                  <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-lg font-semibold">
-                      Co-Borrower {index + 1}
-                    </h3>
+              {formData.coBorrowers.map((borrower, index) => {
+                /* ================= STEP 4 CALCULATIONS ================= */
+                const toNum = (v: string) =>
+                  parseFloat((v || "0").replace(/,/g, ""));
 
-                    <div className="flex items-center gap-3">
-                      <span className="px-3 py-1 text-xs rounded-full bg-blue-100 text-blue-600 font-medium">
-                        Net Worth: $0
-                      </span>
+                const coAssets = toNum(borrower.totalAssets);
+                const coLiabilities = toNum(borrower.totalLiabilities);
 
-                      <button
-                        onClick={() => handleRemoveCoBorrower(borrower.id)}
-                        className="text-red-500 hover:text-red-600 text-lg"
-                      >
-                        <MdDeleteForever />
-                      </button>
-                    </div>
-                  </div>
+                const coNetWorth = coAssets - coLiabilities;
 
-                  {/* Fields */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-sm font-medium">
-                        Name <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        required
-                        value={formData.coBorrowers[index]?.name}
-                        onChange={(e) =>
-                          updateCoBorrower(index, "name", e.target.value)
-                        }
-                        className={`mt-1 w-full px-4 py-1 rounded-md border    focus:ring-2 focus:ring-blue-500/20 
+                return (
+                  <>
+                    <div
+                      key={borrower.id}
+                      ref={(el) => {
+                        coBorrowerRefs.current[borrower.id] = el;
+                      }}
+                      className="border rounded-2xl p-6 bg-white mt-6 mb-6"
+                    >
+                      {/* Header */}
+                      <div className="flex justify-between items-center mb-6">
+                        <h3 className="text-lg font-semibold">
+                          Co-Borrower {index + 1}
+                        </h3>
+
+                        <div className="flex items-center gap-3">
+                          <div className="flex gap-2 flex-wrap text-xs">
+                            <span className="px-2 py-1 bg-blue-100 text-blue-600 rounded-full">
+                              Net Worth: ${coNetWorth.toLocaleString()}
+                            </span>
+                            {/* <span className="px-2 py-1 bg-green-100 text-green-600 rounded-full">
+                              LTV: {coLtv}%
+                            </span>
+                            <span className="px-2 py-1 bg-purple-100 text-purple-600 rounded-full">
+                              DSCR: {coDscr}
+                            </span> */}
+                          </div>
+
+                          <button
+                            onClick={() => handleRemoveCoBorrower(borrower.id)}
+                            className="text-red-500 hover:text-red-600 text-lg"
+                          >
+                            <MdDeleteForever />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Fields */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-sm font-medium">
+                            Name <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            required
+                            value={formData.coBorrowers[index]?.name}
+                            onChange={(e) =>
+                              updateCoBorrower(index, "name", e.target.value)
+                            }
+                            className={`mt-1 w-full px-4 py-1 rounded-md border    focus:ring-2 focus:ring-blue-500/20 
           focus:border-blue-500 outline-none transition text-sm ${
             errors[`coBorrowers.${index}.name`]
               ? "border-red-500 bg-red-50"
               : "border-slate-300"
           }`}
-                      />
+                          />
 
-                      {errors[`coBorrowers.${index}.name`] && (
-                        <p className="text-xs text-red-500 mt-1">
-                          {errors[`coBorrowers.${index}.name`]}
-                        </p>
-                      )}
-                    </div>
+                          {errors[`coBorrowers.${index}.name`] && (
+                            <p className="text-xs text-red-500 mt-1">
+                              {errors[`coBorrowers.${index}.name`]}
+                            </p>
+                          )}
+                        </div>
 
-                    <div>
-                      <label className="text-sm font-medium">
-                        Entity Name <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        value={formData.coBorrowers[index]?.entityName}
-                        onChange={(e) =>
-                          updateCoBorrower(index, "entityName", e.target.value)
-                        }
-                        className={`mt-1 w-full px-4 py-1 rounded-md border    focus:ring-2 focus:ring-blue-500/20 
+                        <div>
+                          <label className="text-sm font-medium">
+                            Entity Name <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            value={formData.coBorrowers[index]?.entityName}
+                            onChange={(e) =>
+                              updateCoBorrower(
+                                index,
+                                "entityName",
+                                e.target.value,
+                              )
+                            }
+                            className={`mt-1 w-full px-4 py-1 rounded-md border    focus:ring-2 focus:ring-blue-500/20 
           focus:border-blue-500 outline-none transition text-sm ${
             errors[`coBorrowers.${index}.entityName`]
               ? "border-red-500 bg-red-50"
               : "border-slate-300"
           }`}
-                      />
+                          />
 
-                      {errors[`coBorrowers.${index}.entityName`] && (
-                        <p className="text-xs text-red-500 mt-1">
-                          {errors[`coBorrowers.${index}.entityName`]}
-                        </p>
-                      )}
-                    </div>
+                          {errors[`coBorrowers.${index}.entityName`] && (
+                            <p className="text-xs text-red-500 mt-1">
+                              {errors[`coBorrowers.${index}.entityName`]}
+                            </p>
+                          )}
+                        </div>
 
-                    <div>
-                      <label className="text-sm font-medium">
-                        Phone <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="tel"
-                        inputMode="numeric"
-                        required
-                        value={formData.coBorrowers[index]?.phone}
-                        onChange={(e) =>
-                          updateCoBorrower(index, "phone", e.target.value)
-                        }
-                        className={`mt-1 w-full px-4 py-1 rounded-md border    focus:ring-2 focus:ring-blue-500/20 
+                        <div>
+                          <label className="text-sm font-medium">
+                            Phone <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="tel"
+                            inputMode="numeric"
+                            required
+                            value={formData.coBorrowers[index]?.phone}
+                            onChange={(e) => {
+                              const formatted = formatUSPhone(e.target.value);
+                              updateCoBorrower(index, "phone", formatted);
+                            }}
+                            className={`mt-1 w-full px-4 py-1 rounded-md border    focus:ring-2 focus:ring-blue-500/20 
           focus:border-blue-500 outline-none transition text-sm ${
             errors[`coBorrowers.${index}.phone`]
               ? "border-red-500 bg-red-50"
               : "border-slate-300"
           }`}
-                      />
+                          />
 
-                      {errors[`coBorrowers.${index}.phone`] && (
-                        <p className="text-xs text-red-500 mt-1">
-                          {errors[`coBorrowers.${index}.phone`]}
-                        </p>
-                      )}
-                    </div>
+                          {errors[`coBorrowers.${index}.phone`] && (
+                            <p className="text-xs text-red-500 mt-1">
+                              {errors[`coBorrowers.${index}.phone`]}
+                            </p>
+                          )}
+                        </div>
 
-                    <div>
-                      <label className="text-sm font-medium">
-                        Email <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="email"
-                        required
-                        value={formData.coBorrowers[index]?.email}
-                        onChange={(e) =>
-                          updateCoBorrower(index, "email", e.target.value)
-                        }
-                        className={`mt-1 w-full px-4 py-1 rounded-md border    focus:ring-2 focus:ring-blue-500/20 
+                        <div>
+                          <label className="text-sm font-medium">
+                            Email <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="email"
+                            required
+                            value={formData.coBorrowers[index]?.email}
+                            onChange={(e) =>
+                              updateCoBorrower(index, "email", e.target.value)
+                            }
+                            className={`mt-1 w-full px-4 py-1 rounded-md border    focus:ring-2 focus:ring-blue-500/20 
           focus:border-blue-500 outline-none transition text-sm ${
             errors[`coBorrowers.${index}.email`]
               ? "border-red-500 bg-red-50"
               : "border-slate-300"
           }`}
-                      />
+                          />
 
-                      {errors[`coBorrowers.${index}.email`] && (
-                        <p className="text-xs text-red-500 mt-1">
-                          {errors[`coBorrowers.${index}.email`]}
-                        </p>
-                      )}
-                    </div>
+                          {errors[`coBorrowers.${index}.email`] && (
+                            <p className="text-xs text-red-500 mt-1">
+                              {errors[`coBorrowers.${index}.email`]}
+                            </p>
+                          )}
+                        </div>
 
-                    <div>
-                      <label className="text-sm font-medium">
-                        Employer / Self-Employed{" "}
-                        <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        value={formData.coBorrowers[index]?.employer}
-                        onChange={(e) =>
-                          updateCoBorrower(index, "employer", e.target.value)
-                        }
-                        className={`mt-1 w-full px-4 py-1 rounded-md border    focus:ring-2 focus:ring-blue-500/20 
+                        <div>
+                          <label className="text-sm font-medium">
+                            Employer / Self-Employed{" "}
+                            <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            value={formData.coBorrowers[index]?.employer}
+                            onChange={(e) =>
+                              updateCoBorrower(
+                                index,
+                                "employer",
+                                e.target.value,
+                              )
+                            }
+                            className={`mt-1 w-full px-4 py-1 rounded-md border    focus:ring-2 focus:ring-blue-500/20 
           focus:border-blue-500 outline-none transition text-sm ${
             errors[`coBorrowers.${index}.employer`]
               ? "border-red-500 bg-red-50"
               : "border-slate-300"
           }`}
-                      />
+                          />
 
-                      {errors[`coBorrowers.${index}.employer`] && (
-                        <p className="text-xs text-red-500 mt-1">
-                          {errors[`coBorrowers.${index}.employer`]}
-                        </p>
-                      )}
-                    </div>
+                          {errors[`coBorrowers.${index}.employer`] && (
+                            <p className="text-xs text-red-500 mt-1">
+                              {errors[`coBorrowers.${index}.employer`]}
+                            </p>
+                          )}
+                        </div>
 
-                    <div>
-                      <label className="text-sm font-medium">
-                        DOB (mm/dd/yyyy) <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="date"
-                        required
-                        value={formData.coBorrowers[index]?.dob}
-                        onChange={(e) =>
-                          updateCoBorrower(index, "dob", e.target.value)
-                        }
-                        placeholder="dd-mm-yyyy"
-                        className={`mt-1 w-full px-4 py-1 rounded-md border    focus:ring-2 focus:ring-blue-500/20 
+                        <div>
+                          <label className="text-sm font-medium">
+                            DOB (mm/dd/yyyy){" "}
+                            <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="date"
+                            required
+                            value={formData.coBorrowers[index]?.dob}
+                            onChange={(e) =>
+                              updateCoBorrower(index, "dob", e.target.value)
+                            }
+                            placeholder="dd-mm-yyyy"
+                            className={`mt-1 w-full px-4 py-1 rounded-md border    focus:ring-2 focus:ring-blue-500/20 
           focus:border-blue-500 outline-none transition text-sm ${
             errors[`coBorrowers.${index}.dob`]
               ? "border-red-500 bg-red-50"
               : "border-slate-300"
           }`}
-                      />
+                          />
 
-                      {errors[`coBorrowers.${index}.dob`] && (
-                        <p className="text-xs text-red-500 mt-1">
-                          {errors[`coBorrowers.${index}.dob`]}
-                        </p>
-                      )}
-                    </div>
+                          {errors[`coBorrowers.${index}.dob`] && (
+                            <p className="text-xs text-red-500 mt-1">
+                              {errors[`coBorrowers.${index}.dob`]}
+                            </p>
+                          )}
+                        </div>
 
-                    <div>
-                      <label className="text-sm font-medium">
-                        SSN <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        required
-                        value={formData.coBorrowers[index]?.ssn}
-                        onChange={(e) =>
-                          updateCoBorrower(index, "ssn", e.target.value)
-                        }
-                        className={`mt-1 w-full px-4 py-1 rounded-md border    focus:ring-2 focus:ring-blue-500/20 
+                        <div>
+                          <label className="text-sm font-medium">
+                            SSN <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            required
+                            value={formData.coBorrowers[index]?.ssn}
+                            onChange={(e) => {
+                              const formatted = formatSSN(e.target.value);
+                              updateCoBorrower(index, "ssn", formatted);
+                            }}
+                            className={`mt-1 w-full px-4 py-1 rounded-md border    focus:ring-2 focus:ring-blue-500/20 
           focus:border-blue-500 outline-none transition text-sm ${
             errors[`coBorrowers.${index}.ssn`]
               ? "border-red-500 bg-red-50"
               : "border-slate-300"
           }`}
-                      />
+                          />
 
-                      {errors[`coBorrowers.${index}.ssn`] && (
-                        <p className="text-xs text-red-500 mt-1">
-                          {errors[`coBorrowers.${index}.ssn`]}
-                        </p>
-                      )}
-                    </div>
+                          {errors[`coBorrowers.${index}.ssn`] && (
+                            <p className="text-xs text-red-500 mt-1">
+                              {errors[`coBorrowers.${index}.ssn`]}
+                            </p>
+                          )}
+                        </div>
 
-                    <div>
-                      <label className="text-sm font-medium">
-                        Credit Score <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="number"
-                        value={formData.coBorrowers[index]?.creditScore}
-                        onChange={(e) =>
-                          updateCoBorrower(index, "creditScore", e.target.value)
-                        }
-                        className={`text-sm mt-1 w-full px-4 py-1 rounded-md border focus:ring-2 focus:ring-blue-500/20 
+                        <div>
+                          <label className="text-sm font-medium">
+                            Credit Score <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="number"
+                            value={formData.coBorrowers[index]?.creditScore}
+                            onChange={(e) =>
+                              updateCoBorrower(
+                                index,
+                                "creditScore",
+                                e.target.value,
+                              )
+                            }
+                            className={`text-sm mt-1 w-full px-4 py-1 rounded-md border focus:ring-2 focus:ring-blue-500/20 
           focus:border-blue-500 outline-none transition ${
             errors[`coBorrowers.${index}.creditScore`]
               ? "border-red-500 bg-red-50"
               : "border-slate-300"
           }`}
-                      />
+                          />
 
-                      {errors[`coBorrowers.${index}.creditScore`] && (
-                        <p className="text-xs text-red-500 mt-1">
-                          {errors[`coBorrowers.${index}.creditScore`]}
-                        </p>
-                      )}
-                    </div>
+                          {errors[`coBorrowers.${index}.creditScore`] && (
+                            <p className="text-xs text-red-500 mt-1">
+                              {errors[`coBorrowers.${index}.creditScore`]}
+                            </p>
+                          )}
+                        </div>
 
-                    <div className="md:col-span-2">
-                      <label className="text-sm font-medium">
-                        Present Address <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        value={formData.coBorrowers[index]?.address}
-                        onChange={(e) =>
-                          updateCoBorrower(index, "address", e.target.value)
-                        }
-                        required
-                        className={`text-sm mt-1 w-full px-4 py-1 rounded-md border focus:ring-2 focus:ring-blue-500/20 
+                        <div className="md:col-span-2">
+                          <label className="text-sm font-medium">
+                            Present Address{" "}
+                            <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            value={formData.coBorrowers[index]?.address}
+                            onChange={(e) =>
+                              updateCoBorrower(index, "address", e.target.value)
+                            }
+                            required
+                            className={`text-sm mt-1 w-full px-4 py-1 rounded-md border focus:ring-2 focus:ring-blue-500/20 
           focus:border-blue-500 outline-none transition ${
             errors[`coBorrowers.${index}.address`]
               ? "border-red-500 bg-red-50"
               : "border-slate-300"
           }`}
-                      />
+                          />
 
-                      {errors[`coBorrowers.${index}.address`] && (
-                        <p className="text-xs text-red-500 mt-1">
-                          {errors[`coBorrowers.${index}.address`]}
-                        </p>
-                      )}
-                    </div>
+                          {errors[`coBorrowers.${index}.address`] && (
+                            <p className="text-xs text-red-500 mt-1">
+                              {errors[`coBorrowers.${index}.address`]}
+                            </p>
+                          )}
+                        </div>
 
-                    <div>
-                      <label className="text-sm font-medium">
-                        City <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.coBorrowers[index]?.city}
-                        onChange={(e) =>
-                          updateCoBorrower(index, "city", e.target.value)
-                        }
-                        className={`mt-1 w-full px-4 py-1 rounded-md border ${
-                          errors[`coBorrowers.${index}.city`]
-                            ? "border-red-500 bg-red-50"
-                            : "border-slate-300"
-                        } focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm`}
-                      />
-                      {errors[`coBorrowers.${index}.city`] && (
-                        <p className="text-xs text-red-500 mt-1">
-                          {errors[`coBorrowers.${index}.city`]}
-                        </p>
-                      )}
-                    </div>
+                        <div>
+                          <label className="text-sm font-medium">
+                            City <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={formData.coBorrowers[index]?.city}
+                            onChange={(e) =>
+                              updateCoBorrower(index, "city", e.target.value)
+                            }
+                            className={`mt-1 w-full px-4 py-1 rounded-md border ${
+                              errors[`coBorrowers.${index}.city`]
+                                ? "border-red-500 bg-red-50"
+                                : "border-slate-300"
+                            } focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm`}
+                          />
+                          {errors[`coBorrowers.${index}.city`] && (
+                            <p className="text-xs text-red-500 mt-1">
+                              {errors[`coBorrowers.${index}.city`]}
+                            </p>
+                          )}
+                        </div>
 
-                    <div>
-                      <label className="text-sm font-medium">
-                        State <span className="text-red-500">*</span>
-                      </label>
+                        <div>
+                          <label className="text-sm font-medium">
+                            State <span className="text-red-500">*</span>
+                          </label>
 
-                      <select
-                        value={formData.coBorrowers[index]?.state}
-                        onChange={(e) =>
-                          updateCoBorrower(index, "state", e.target.value)
-                        }
-                        className={`mt-1 w-full px-4 py-1 rounded-md border ${
-                          errors[`coBorrowers.${index}.state`]
-                            ? "border-red-500 bg-red-50"
-                            : "border-slate-300"
-                        } bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm`}
-                      >
-                        <option value="">Select State</option>
-                        {US_STATES.map((state) => (
-                          <option key={state} value={state}>
-                            {state}
-                          </option>
-                        ))}
-                      </select>
+                          <select
+                            value={formData.coBorrowers[index]?.state}
+                            onChange={(e) =>
+                              updateCoBorrower(index, "state", e.target.value)
+                            }
+                            className={`mt-1 w-full px-4 py-1 rounded-md border ${
+                              errors[`coBorrowers.${index}.state`]
+                                ? "border-red-500 bg-red-50"
+                                : "border-slate-300"
+                            } bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm`}
+                          >
+                            <option value="">Select State</option>
+                            {US_STATES.map((state) => (
+                              <option key={state} value={state}>
+                                {state}
+                              </option>
+                            ))}
+                          </select>
 
-                      {errors[`coBorrowers.${index}.state`] && (
-                        <p className="text-xs text-red-500 mt-1">
-                          {errors[`coBorrowers.${index}.state`]}
-                        </p>
-                      )}
-                    </div>
+                          {errors[`coBorrowers.${index}.state`] && (
+                            <p className="text-xs text-red-500 mt-1">
+                              {errors[`coBorrowers.${index}.state`]}
+                            </p>
+                          )}
+                        </div>
 
-                    <div className="md:col-span-2">
-                      <label className="text-sm font-medium">
-                        Mailing Address (if different)
-                      </label>
-                      <input
-                        value={formData.coBorrowers[index]?.mailingAddress}
-                        onChange={(e) =>
-                          updateCoBorrower(
-                            index,
-                            "mailingAddress",
-                            e.target.value,
-                          )
-                        }
-                        className={`text-sm mt-1 w-full px-4 py-1 rounded-md border focus:ring-2 focus:ring-blue-500/20 
+                        <div className="md:col-span-2">
+                          <label className="text-sm font-medium">
+                            Mailing Address (if different)
+                          </label>
+                          <input
+                            value={formData.coBorrowers[index]?.mailingAddress}
+                            onChange={(e) =>
+                              updateCoBorrower(
+                                index,
+                                "mailingAddress",
+                                e.target.value,
+                              )
+                            }
+                            className={`text-sm mt-1 w-full px-4 py-1 rounded-md border focus:ring-2 focus:ring-blue-500/20 
           focus:border-blue-500 outline-none transition ${
             errors[`coBorrowers.${index}.mailingAddress`]
               ? "border-red-500 bg-red-50"
               : "border-slate-300"
           }`}
-                      />
+                          />
 
-                      {errors[`coBorrowers.${index}.mailingAddress`] && (
-                        <p className="text-xs text-red-500 mt-1">
-                          {errors[`coBorrowers.${index}.mailingAddress`]}
-                        </p>
-                      )}
+                          {errors[`coBorrowers.${index}.mailingAddress`] && (
+                            <p className="text-xs text-red-500 mt-1">
+                              {errors[`coBorrowers.${index}.mailingAddress`]}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* ================= FINANCIAL DETAILS ================= */}
+                      <div className="md:col-span-2 mt-6">
+                        <h4 className="text-md font-semibold text-slate-700 mb-4 border-t pt-4">
+                          Financial Details
+                        </h4>
+                      </div>
+
+                      {/* ================= FINANCIAL DETAILS ================= */}
+                      <div className="md:col-span-2 mt-6">
+                        {/* GRID-2 START */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {[
+                            {
+                              label: "Current Market Value",
+                              key: "currentMarketValue",
+                            },
+                            { label: "Purchase Price", key: "purchasePrice" },
+                            { label: "Interest Rate (%)", key: "interestRate" },
+                            { label: "NOI (Annual)", key: "noi" },
+                            { label: "Total Assets", key: "totalAssets" },
+                            {
+                              label: "Total Liabilities",
+                              key: "totalLiabilities",
+                            },
+                          ].map((field) => (
+                            <div key={field.key}>
+                              <label className="text-sm font-medium">
+                                {field.label}{" "}
+                                <span className="text-red-500">*</span>
+                              </label>
+
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                value={
+                                  (formData.coBorrowers[index] as any)[
+                                    field.key
+                                  ]
+                                }
+                                onChange={(e) => {
+                                  if (field.key === "interestRate") {
+                                    updateCoBorrower(
+                                      index,
+                                      field.key,
+                                      e.target.value,
+                                    );
+                                  } else {
+                                    handleAmountChange(
+                                      "coBorrower",
+                                      field.key,
+                                      e.target.value,
+                                      index,
+                                    );
+                                  }
+                                }}
+                                className={`mt-1 w-full px-4 py-1 rounded-md border text-sm ${
+                                  errors[`coBorrowers.${index}.${field.key}`]
+                                    ? "border-red-500 bg-red-50"
+                                    : "border-slate-300"
+                                }`}
+                              />
+
+                              {errors[`coBorrowers.${index}.${field.key}`] && (
+                                <p className="text-xs text-red-500 mt-1">
+                                  {errors[`coBorrowers.${index}.${field.key}`]}
+                                </p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                        {/* GRID-2 END */}
+                      </div>
                     </div>
-                  </div>
-                </div>
-              ))}
+                  </>
+                );
+              })}
             </>
           )}
 
@@ -1766,14 +2147,16 @@ const LoanApplication = () => {
                     <span className="text-red-500">*</span>
                   </label>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
                     value={formData.loanRequest.amount}
-                    onChange={(e) =>
-                      updateLoanRequest("amount", e.target.value)
-                    }
+                    onChange={(e) => {
+                      const formatted = formatCurrency(e.target.value);
+                      updateLoanRequest("amount", formatted);
+                    }}
                     placeholder="1,000,000"
                     className={`w-full px-4 py-1 rounded-md border ${
-                      errors["loanRequest.purpose"]
+                      errors["loanRequest.amount"]
                         ? "border-red-500 bg-red-50"
                         : "border-slate-300"
                     }
@@ -1822,10 +2205,15 @@ const LoanApplication = () => {
                     <span className="text-red-500">*</span>
                   </label>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
                     value={formData.loanRequest.currentMarketValue}
                     onChange={(e) =>
-                      updateLoanRequest("currentMarketValue", e.target.value)
+                      handleAmountChange(
+                        "loanRequest",
+                        "currentMarketValue",
+                        e.target.value,
+                      )
                     }
                     placeholder="1,500,000"
                     className={`w-full px-4 py-1 rounded-md border ${
@@ -1849,10 +2237,15 @@ const LoanApplication = () => {
                     Purchase Price $ <span className="text-red-500">*</span>
                   </label>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
                     value={formData.loanRequest.purchasePrice}
                     onChange={(e) =>
-                      updateLoanRequest("purchasePrice", e.target.value)
+                      handleAmountChange(
+                        "loanRequest",
+                        "purchasePrice",
+                        e.target.value,
+                      )
                     }
                     placeholder="1,200,000"
                     className={`w-full px-4 py-1 rounded-md border ${
@@ -1901,11 +2294,16 @@ const LoanApplication = () => {
                     Total Assets ($) <span className="text-red-500">*</span>
                   </label>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
                     required
                     value={formData.loanRequest.totalAssets}
                     onChange={(e) =>
-                      updateLoanRequest("totalAssets", e.target.value)
+                      handleAmountChange(
+                        "loanRequest",
+                        "totalAssets",
+                        e.target.value,
+                      )
                     }
                     className={`w-full px-4 py-1 rounded-md border ${
                       errors["loanRequest.totalAssets"]
@@ -1927,11 +2325,16 @@ const LoanApplication = () => {
                     <span className="text-red-500">*</span>
                   </label>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
                     required
                     value={formData.loanRequest.totalLiabilities}
                     onChange={(e) =>
-                      updateLoanRequest("totalLiabilities", e.target.value)
+                      handleAmountChange(
+                        "loanRequest",
+                        "totalLiabilities",
+                        e.target.value,
+                      )
                     }
                     className={`w-full px-4 py-1 rounded-md border ${
                       errors["loanRequest.totalLiabilities"]
@@ -1999,10 +2402,15 @@ const LoanApplication = () => {
                     <span className="text-red-500"> *</span>
                   </label>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
                     value={formData.loanTermIncome.monthlyRent}
                     onChange={(e) =>
-                      updateLoanTermIncome("monthlyRent", e.target.value)
+                      handleAmountChange(
+                        "loanTermIncome",
+                        "monthlyRent",
+                        e.target.value,
+                      )
                     }
                     className={`w-full px-4 py-1 rounded-md border ${
                       errors["loanTermIncome.monthlyRent"]
@@ -2026,10 +2434,15 @@ const LoanApplication = () => {
                     <span className="text-red-500"> *</span>
                   </label>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
                     value={formData.loanTermIncome.grossRevenueActual}
                     onChange={(e) =>
-                      updateLoanTermIncome("grossRevenueActual", e.target.value)
+                      handleAmountChange(
+                        "loanTermIncome",
+                        "grossRevenueActual",
+                        e.target.value,
+                      )
                     }
                     className={`w-full px-4 py-1 rounded-md border ${
                       errors["loanTermIncome.grossRevenueActual"]
@@ -2053,10 +2466,12 @@ const LoanApplication = () => {
                     <span className="text-red-500"> *</span>
                   </label>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
                     value={formData.loanTermIncome.grossRevenueProforma}
                     onChange={(e) =>
-                      updateLoanTermIncome(
+                      handleAmountChange(
+                        "loanTermIncome",
                         "grossRevenueProforma",
                         e.target.value,
                       )
@@ -2083,10 +2498,15 @@ const LoanApplication = () => {
                     <span className="text-red-500"> *</span>
                   </label>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
                     value={formData.loanTermIncome.noiActual}
                     onChange={(e) =>
-                      updateLoanTermIncome("noiActual", e.target.value)
+                      handleAmountChange(
+                        "loanTermIncome",
+                        "noiActual",
+                        e.target.value,
+                      )
                     }
                     className={`w-full px-4 py-1 rounded-md border ${
                       errors["loanTermIncome.noiActual"]
@@ -2110,10 +2530,15 @@ const LoanApplication = () => {
                     <span className="text-red-500"> *</span>
                   </label>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
                     value={formData.loanTermIncome.noiProforma}
                     onChange={(e) =>
-                      updateLoanTermIncome("noiProforma", e.target.value)
+                      handleAmountChange(
+                        "loanTermIncome",
+                        "noiProforma",
+                        e.target.value,
+                      )
                     }
                     className={`w-full px-4 py-1 rounded-md border ${
                       errors["loanTermIncome.noiProforma"]
@@ -2144,10 +2569,15 @@ const LoanApplication = () => {
                       <span className="text-red-500"> *</span>
                     </label>
                     <input
-                      type="number"
+                      type="text"
+                      inputMode="numeric"
                       value={formData.loanTermIncome.annualTaxes}
                       onChange={(e) =>
-                        updateLoanTermIncome("annualTaxes", e.target.value)
+                        handleAmountChange(
+                          "loanTermIncome",
+                          "annualTaxes",
+                          e.target.value,
+                        )
                       }
                       className={`w-full px-4 py-1 rounded-md border ${
                         errors["loanTermIncome.annualTaxes"]
@@ -2216,10 +2646,15 @@ const LoanApplication = () => {
                       <span className="text-red-500"> *</span>
                     </label>
                     <input
-                      type="number"
+                      type="text"
+                      inputMode="numeric"
                       value={formData.loanTermIncome.insurancePremium}
                       onChange={(e) =>
-                        updateLoanTermIncome("insurancePremium", e.target.value)
+                        handleAmountChange(
+                          "loanTermIncome",
+                          "insurancePremium",
+                          e.target.value,
+                        )
                       }
                       className={`w-full px-4 py-1 rounded-md border ${
                         errors["loanTermIncome.insurancePremium"]
@@ -2243,10 +2678,15 @@ const LoanApplication = () => {
                       <span className="text-red-500"> *</span>
                     </label>
                     <input
-                      type="number"
+                      type="text"
+                      inputMode="numeric"
                       value={formData.loanTermIncome.hoaDues}
                       onChange={(e) =>
-                        updateLoanTermIncome("hoaDues", e.target.value)
+                        handleAmountChange(
+                          "loanTermIncome",
+                          "hoaDues",
+                          e.target.value,
+                        )
                       }
                       className={`w-full px-4 py-1 rounded-md border ${
                         errors["loanTermIncome.hoaDues"]
