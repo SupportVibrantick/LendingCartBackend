@@ -13,92 +13,101 @@ const generateApplicationPDF = (application, submission) => {
       doc.on("end", () => resolve(Buffer.concat(buffers)));
       doc.on("error", reject);
 
-      const pageWidth = doc.page.width - doc.options.margin * 2;
-      const tableStartX = 50;
-      const labelWidth = 220;
-      const valueWidth = pageWidth - labelWidth;
-      const rowPadding = 10;
+      const pageWidth = doc.page.width;
+      const contentWidth = pageWidth - 100;
 
-      /* ================= MODERN HEADER ================= */
+      /* ================= HEADER ================= */
 
-      doc
-        .rect(0, 0, doc.page.width, 90)
-        .fill("#0A3D62");
+      doc.rect(0, 0, pageWidth, 90).fill("#0A3D62");
 
       doc
         .fillColor("#ffffff")
-        .fontSize(24)
         .font("Helvetica-Bold")
+        .fontSize(24)
         .text("LendingCart", 50, 30);
 
       doc
-        .fontSize(14)
         .font("Helvetica")
+        .fontSize(14)
         .text("Loan Application Document", 50, 60);
 
-      doc.moveDown(3);
+      doc.moveDown(4);
 
-      /* ================= SECTION FUNCTION ================= */
+      /* ================= SECTION TITLE ================= */
 
       function sectionTitle(title) {
         doc.moveDown(1.5);
+
         doc
-          .fontSize(15)
           .fillColor("#0A3D62")
           .font("Helvetica-Bold")
+          .fontSize(16)
           .text(title);
+
         doc.moveDown(0.5);
 
         doc
           .moveTo(50, doc.y)
-          .lineTo(doc.page.width - 50, doc.y)
-          .strokeColor("#E0E6ED")
+          .lineTo(pageWidth - 50, doc.y)
+          .strokeColor("#E2E8F0")
           .stroke();
 
         doc.moveDown(0.8);
       }
 
-      /* ================= TABLE ROW FUNCTION ================= */
+      /* ================= TWO COLUMN ROW ================= */
 
-      function drawTableRow(doc, label, value) {
-        const y = doc.y;
+      function drawTwoColumnRow(fields) {
+        const startX = 50;
+        const columnGap = 20;
+        const columnWidth = contentWidth / 2 - columnGap / 2;
+        const rowPadding = 14;
 
-        if (y > doc.page.height - 100) {
+        if (doc.y > doc.page.height - 130) {
           doc.addPage();
         }
 
-        const rowHeight =
+        const heights = fields.map((field) =>
           Math.max(
-            doc.heightOfString(label, { width: labelWidth }),
-            doc.heightOfString(String(value || "N/A"), {
-              width: valueWidth,
+            doc.heightOfString(field.label, {
+              width: columnWidth - 20,
+            }),
+            doc.heightOfString(String(field.value || "N/A"), {
+              width: columnWidth - 20,
             })
-          ) + rowPadding;
+          )
+        );
 
-        // Light background
-        doc
-          .rect(tableStartX, doc.y, pageWidth, rowHeight)
-          .fillAndStroke("#F8FAFC", "#E5E7EB");
+        const rowHeight = Math.max(...heights) + rowPadding * 2;
 
-        // Label
-        doc
-          .fillColor("#475569")
-          .fontSize(11)
-          .font("Helvetica")
-          .text(label, tableStartX + 10, doc.y + 8, {
-            width: labelWidth - 20,
-          });
+        fields.forEach((field, index) => {
+          const x = startX + index * (columnWidth + columnGap);
 
-        // Value
-        doc
-          .fillColor("#0F172A")
-          .font("Helvetica-Bold")
-          .text(String(value || "N/A"), tableStartX + labelWidth + 10, doc.y + 8, {
-            width: valueWidth - 20,
-          })
-          .font("Helvetica");
+          // Card Background
+          doc
+            .roundedRect(x, doc.y, columnWidth, rowHeight, 6)
+            .fillAndStroke("#F8FAFC", "#E2E8F0");
 
-        doc.moveDown(rowHeight / 12);
+          // Label
+          doc
+            .fillColor("#64748B")
+            .font("Helvetica")
+            .fontSize(10)
+            .text(field.label, x + 12, doc.y + 10, {
+              width: columnWidth - 24,
+            });
+
+          // Value
+          doc
+            .fillColor("#0F172A")
+            .font("Helvetica-Bold")
+            .fontSize(12)
+            .text(String(field.value || "N/A"), x + 12, doc.y + 28, {
+              width: columnWidth - 24,
+            });
+        });
+
+        doc.moveDown(rowHeight / 15);
       }
 
       /* ================= APPLICATION OVERVIEW ================= */
@@ -106,23 +115,27 @@ const generateApplicationPDF = (application, submission) => {
       sectionTitle("Application Overview");
 
       const overviewFields = [
-        ["Application ID", application.id],
-        ["Loan Product Code", application.loanProductCode],
-        ["Amount Requested", application.amountRequested || "N/A"],
-        ["Application Status", application.status],
-        ["Created At", application.createdAt],
-        ["Updated At", application.updatedAt],
+        { label: "Application ID", value: application.id },
+        { label: "Loan Product Code", value: application.loanProductCode },
+        { label: "Amount Requested", value: application.amountRequested || "N/A" },
+        { label: "Application Status", value: application.status },
+        { label: "Created At", value: application.createdAt },
+        { label: "Updated At", value: application.updatedAt },
       ];
 
-      overviewFields.forEach(([label, value]) => {
-        drawTableRow(doc, label, value);
-      });
+      for (let i = 0; i < overviewFields.length; i += 2) {
+        drawTwoColumnRow([
+          overviewFields[i],
+          overviewFields[i + 1] || { label: "", value: "" },
+        ]);
+      }
 
-      /* ================= BORROWER DATA ================= */
+      /* ================= BORROWER SECTION ================= */
 
       sectionTitle("Complete Borrower Information");
 
       let signatureBase64 = null;
+      const borrowerFields = [];
 
       submission.fields.forEach((field) => {
         const label = field.fieldKey || "Unknown Field";
@@ -137,16 +150,23 @@ const generateApplicationPDF = (application, submission) => {
           value = "N/A";
         }
 
-        if (
-          typeof value === "string" &&
-          value.startsWith("data:image")
-        ) {
+        if (typeof value === "string" && value.startsWith("data:image")) {
           signatureBase64 = value;
-          drawTableRow(doc, label, "Digitally Signed");
+          borrowerFields.push({
+            label,
+            value: "Digitally Signed",
+          });
         } else {
-          drawTableRow(doc, label, value);
+          borrowerFields.push({ label, value });
         }
       });
+
+      for (let i = 0; i < borrowerFields.length; i += 2) {
+        drawTwoColumnRow([
+          borrowerFields[i],
+          borrowerFields[i + 1] || { label: "", value: "" },
+        ]);
+      }
 
       /* ================= SIGNATURE PAGE ================= */
 
@@ -163,7 +183,7 @@ const generateApplicationPDF = (application, submission) => {
         const signatureBuffer = Buffer.from(base64Data, "base64");
 
         doc
-          .rect(50, doc.y, 300, 150)
+          .roundedRect(50, doc.y, 300, 150, 8)
           .strokeColor("#CBD5E1")
           .stroke();
 
@@ -179,7 +199,7 @@ const generateApplicationPDF = (application, submission) => {
           .text("Authorized Signature", 50);
       }
 
-      /* ================= PROFESSIONAL FOOTER ================= */
+      /* ================= FOOTER ================= */
 
       doc
         .fontSize(9)
