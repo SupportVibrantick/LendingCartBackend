@@ -59,9 +59,12 @@ module.exports = async function sendToLenders(fastify) {
         }
 
         if (
-          ["LENDER_SELECTED", "LENDER_APPROVED", "FUNDED", "WITHDRAWN"].includes(
-            application.status
-          )
+          [
+            "LENDER_SELECTED",
+            "LENDER_APPROVED",
+            "FUNDED",
+            "WITHDRAWN",
+          ].includes(application.status)
         ) {
           return reply.code(400).send({
             success: false,
@@ -139,11 +142,11 @@ module.exports = async function sendToLenders(fastify) {
         });
 
         const alreadySentIds = new Set(
-          alreadySent.map((a) => a.lenderProductId)
+          alreadySent.map((a) => a.lenderProductId),
         );
 
         const newLenderProducts = lenderProducts.filter(
-          (lp) => !alreadySentIds.has(lp.id)
+          (lp) => !alreadySentIds.has(lp.id),
         );
 
         if (!newLenderProducts.length) {
@@ -194,9 +197,7 @@ module.exports = async function sendToLenders(fastify) {
               }
             }
 
-            const newlySent = processed.some(
-              (r) => r.status === "SENT"
-            );
+            const newlySent = processed.some((r) => r.status === "SENT");
 
             if (newlySent && application.status === "SUBMITTED") {
               await tx.loanApplication.update({
@@ -224,7 +225,7 @@ module.exports = async function sendToLenders(fastify) {
 
             return processed;
           },
-          { isolationLevel: "Serializable" }
+          { isolationLevel: "Serializable" },
         );
 
         /* =====================================================
@@ -235,29 +236,27 @@ module.exports = async function sendToLenders(fastify) {
             try {
               const pdfBuffer = await generateApplicationPDF(
                 application,
-                submission
+                submission,
               );
 
               await sendMail({
                 to: r.lenderEmail,
                 subject: "New Loan Application Submission",
-                text:
-                  "A new loan application has been submitted. Please find the attached PDF.",
+                text: "A new loan application has been submitted. Please find the attached PDF.",
                 attachments: [
                   {
                     filename: `Loan-Application-${application.id}.pdf`,
                     content: pdfBuffer,
+                    contentType: "application/pdf",
                   },
                 ],
               });
 
-              fastify.log.info(
-                `Application email sent to ${r.lenderEmail}`
-              );
+              fastify.log.info(`Application email sent to ${r.lenderEmail}`);
             } catch (emailError) {
               fastify.log.error(
                 `Email failed for ${r.lenderEmail}`,
-                emailError
+                emailError,
               );
             }
           }
@@ -280,7 +279,7 @@ module.exports = async function sendToLenders(fastify) {
       } catch (error) {
         fastify.log.error(
           { error: error.message, applicationId, submissionId },
-          "Send to lenders failed"
+          "Send to lenders failed",
         );
 
         return reply.code(500).send({
@@ -288,6 +287,6 @@ module.exports = async function sendToLenders(fastify) {
           message: "Internal server error",
         });
       }
-    }
+    },
   );
 };
