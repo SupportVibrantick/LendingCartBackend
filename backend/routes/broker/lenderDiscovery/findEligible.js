@@ -62,7 +62,6 @@ module.exports = async function findEligibleLenders(fastify) {
           });
         }
 
-        // Broker ownership check
         if (application.brokerOrgId !== brokerOrgId) {
           return reply.code(403).send({
             success: false,
@@ -70,7 +69,6 @@ module.exports = async function findEligibleLenders(fastify) {
           });
         }
 
-        // Allow eligibility only after submission
         if (application.status === "DRAFT") {
           return reply.code(400).send({
             success: false,
@@ -120,13 +118,35 @@ module.exports = async function findEligibleLenders(fastify) {
         const { loanProductCode } = application;
 
         /* =====================================================
-           4️⃣ FETCH ACTIVE LENDER PRODUCTS
+           4️⃣ EXCLUDE ALREADY SENT LENDERS (🔥 FIX)
+        ===================================================== */
+
+        const alreadySent = await prisma.applicationLender.findMany({
+          where: {
+            loanApplicationId: application.id,
+          },
+          select: {
+            lenderProductId: true,
+          },
+        });
+
+        const sentProductIds = new Set(
+          alreadySent
+            .map((a) => a.lenderProductId)
+            .filter(Boolean)
+        );
+
+        /* =====================================================
+           5️⃣ FETCH ACTIVE LENDER PRODUCTS
         ===================================================== */
 
         const lenderProducts = await prisma.lenderProduct.findMany({
           where: {
             isActive: true,
             loanProductCode,
+            id: {
+              notIn: [...sentProductIds], // 🔥 CRITICAL FIX
+            },
             lender: {
               type: "LENDER",
               status: "ACTIVE",
@@ -167,7 +187,7 @@ module.exports = async function findEligibleLenders(fastify) {
         }
 
         /* =====================================================
-           5️⃣ ELIGIBILITY EVALUATION
+           6️⃣ ELIGIBILITY EVALUATION
         ===================================================== */
 
         const evaluatedLenders = lenderProducts.map((lp) => {
@@ -181,7 +201,6 @@ module.exports = async function findEligibleLenders(fastify) {
             ? Number(lp.maxLoanAmount)
             : null;
 
-          // Loan Amount Check
           if (loanAmount) {
             if (minLoan && loanAmount < minLoan)
               reasons.push(`Loan below minimum (${minLoan})`);
@@ -190,7 +209,6 @@ module.exports = async function findEligibleLenders(fastify) {
               reasons.push(`Loan exceeds maximum (${maxLoan})`);
           }
 
-          // Term Check
           if (termMonths) {
             if (lp.minTermMonths && termMonths < lp.minTermMonths)
               reasons.push(
@@ -203,7 +221,6 @@ module.exports = async function findEligibleLenders(fastify) {
               );
           }
 
-          // Credit Score Check
           if (creditScore && lp.minCreditScore) {
             if (creditScore < lp.minCreditScore)
               reasons.push(
@@ -246,7 +263,7 @@ module.exports = async function findEligibleLenders(fastify) {
         );
 
         /* =====================================================
-           6️⃣ SUCCESS RESPONSE
+           7️⃣ SUCCESS RESPONSE
         ===================================================== */
 
         return reply.send({
