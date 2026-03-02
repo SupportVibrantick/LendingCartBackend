@@ -3,61 +3,107 @@ const PDFDocument = require("pdfkit");
 const generateApplicationPDF = (application, submission) => {
   return new Promise((resolve, reject) => {
     try {
-      const doc = new PDFDocument({ margin: 40 });
-      const chunks = [];
-
-      // Collect PDF chunks properly
-      doc.on("data", (chunk) => {
-        chunks.push(chunk);
+      const doc = new PDFDocument({
+        size: "A4",
+        margin: 50,
       });
 
-      // When finished, return full buffer
-      doc.on("end", () => {
-        const pdfBuffer = Buffer.concat(chunks);
-        resolve(pdfBuffer);
-      });
+      const buffers = [];
 
-      // Catch PDF errors
-      doc.on("error", (err) => {
-        reject(err);
-      });
+      doc.on("data", (chunk) => buffers.push(chunk));
+      doc.on("end", () => resolve(Buffer.concat(buffers)));
+      doc.on("error", reject);
 
-      /* ===============================
-         PDF CONTENT
-      =============================== */
+      /* ================= HEADER ================= */
 
-      // Header
       doc
-        .fontSize(18)
-        .text("LendingCart - Loan Application", { align: "center" });
+        .fontSize(22)
+        .fillColor("#0a3d62")
+        .text("LendingCart", { align: "center" });
+
+      doc
+        .moveDown(0.5)
+        .fontSize(16)
+        .fillColor("#000000")
+        .text("Loan Application Summary", { align: "center" });
+
       doc.moveDown(2);
 
-      // Application Info
-      doc.fontSize(12);
-      doc.text(`Application ID: ${application.id}`);
-      doc.text(`Loan Product: ${application.loanProductCode}`);
-      doc.text(`Amount Requested: ${application.amountRequested || "N/A"}`);
-      doc.text(`Status: ${application.status}`);
+      /* ================= APPLICATION DETAILS ================= */
+
+      doc
+        .fontSize(14)
+        .fillColor("#0a3d62")
+        .text("Application Details");
+
+      doc.moveDown(0.5);
+
+      doc
+        .fontSize(12)
+        .fillColor("#000000")
+        .text(`Application ID: ${application.id}`)
+        .text(`Loan Product: ${application.loanProductCode}`)
+        .text(`Amount Requested: ₹${application.amountRequested || "N/A"}`)
+        .text(`Status: ${application.status}`);
+
       doc.moveDown(2);
 
-      // Submission Fields
-      doc.fontSize(14).text("Submission Details:");
+      /* ================= SUBMISSION TABLE ================= */
+
+      doc
+        .fontSize(14)
+        .fillColor("#0a3d62")
+        .text("Borrower Information");
+
       doc.moveDown(1);
 
-      if (submission?.fields?.length) {
-        submission.fields.forEach((field) => {
-          doc
-            .fontSize(12)
-            .text(`${field.fieldKey}: ${JSON.stringify(field.value)}`, {
-              width: 500,
-            });
-          doc.moveDown(0.5);
-        });
-      } else {
-        doc.fontSize(12).text("No submission fields available.");
-      }
+      const startX = 50;
+      let startY = doc.y;
 
-      // IMPORTANT: finalize PDF
+      const columnWidth1 = 220;
+      const columnWidth2 = 250;
+      const rowHeight = 25;
+
+      submission.fields.forEach((field, index) => {
+        const y = startY + index * rowHeight;
+
+        // Draw row borders
+        doc
+          .rect(startX, y, columnWidth1, rowHeight)
+          .stroke();
+
+        doc
+          .rect(startX + columnWidth1, y, columnWidth2, rowHeight)
+          .stroke();
+
+        // Field Name
+        doc
+          .fontSize(11)
+          .fillColor("#000")
+          .text(field.fieldKey, startX + 5, y + 8, {
+            width: columnWidth1 - 10,
+          });
+
+        // Field Value
+        doc
+          .text(String(field.value), startX + columnWidth1 + 5, y + 8, {
+            width: columnWidth2 - 10,
+          });
+      });
+
+      doc.moveDown(4);
+
+      /* ================= FOOTER ================= */
+
+      doc
+        .moveDown(2)
+        .fontSize(10)
+        .fillColor("#888888")
+        .text(
+          `Generated on ${new Date().toLocaleString()}`,
+          { align: "center" }
+        );
+
       doc.end();
     } catch (error) {
       reject(error);
