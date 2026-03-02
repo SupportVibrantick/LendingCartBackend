@@ -723,12 +723,14 @@ model ApplicationLender {
   sentByUserId      String?                 @db.Uuid
   sentAt            DateTime?               @db.Timestamptz(6)
   lastUpdatedAt     DateTime?               @db.Timestamptz(6)
+
   lender            Organization            @relation("LenderApplications", fields: [lenderOrgId], references: [id])
   lenderProduct     LenderProduct?          @relation(fields: [lenderProductId], references: [id])
   loanApplication   LoanApplication         @relation(fields: [loanApplicationId], references: [id])
   sentByUser        UserAccount?            @relation("SentByUser", fields: [sentByUserId], references: [id])
   lenderReviews     LenderReview[]
 
+  @@unique([loanApplicationId, lenderProductId]) // 🔥 ADD THIS
   @@index([loanApplicationId])
   @@index([lenderOrgId])
   @@map("application_lenders")
