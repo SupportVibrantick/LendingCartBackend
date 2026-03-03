@@ -50,9 +50,18 @@ function statusClass(status?: string) {
 
 // keep options in sync with Prisma enum LoanProductCode
 const LOAN_PRODUCT_CODES: { value: string; label: string }[] = [
-
   /* ================= SBA / GOVERNMENT ================= */
   { value: "SBA_7A", label: "SBA 7(a) Loan" },
+  {
+    value: "SBA_7A_BUSINESS_ACQUISITION",
+    label: "SBA 7(a) - Business Acquisition",
+  },
+  { value: "SBA_7A_WORKING_CAPITAL", label: "SBA 7(a) - Working Capital" },
+  {
+    value: "SBA_7A_EQUIPMENT_PURCHASE",
+    label: "SBA 7(a) - Equipment Purchase",
+  },
+  { value: "SBA_7A_REAL_ESTATE", label: "SBA 7(a) - Real Estate" },
   { value: "SBA_504", label: "SBA 504 Loan" },
   { value: "SBA_EXPRESS", label: "SBA Express Loan" },
   { value: "SBA_CAPLINES", label: "SBA CAPLines" },
@@ -61,8 +70,14 @@ const LOAN_PRODUCT_CODES: { value: string; label: string }[] = [
   { value: "SBA_EXPORT", label: "SBA Export Loan" },
   { value: "VA_BUSINESS", label: "VA Business Loan" },
 
+  {
+    value: "SBA_504_REAL_ESTATE_EQUIPMENT",
+    label: "SBA 504 - Real Estate & Equipment",
+  },
+
   /* ================= USDA ================= */
   { value: "USDA_BUSINESS", label: "USDA Business Loan" },
+  { value: "USDA_BI", label: "USDA B&I Loan" },
   { value: "USDA_RURAL_DEVELOPMENT", label: "USDA Rural Development Loan" },
   { value: "USDA_FARM_OWNERSHIP", label: "USDA Farm Ownership Loan" },
   { value: "USDA_FARM_OPERATING", label: "USDA Farm Operating Loan" },
@@ -71,11 +86,16 @@ const LOAN_PRODUCT_CODES: { value: string; label: string }[] = [
   { value: "CRE_PURCHASE", label: "Commercial Real Estate Purchase" },
   { value: "CRE_REFINANCE", label: "Commercial Real Estate Refinance" },
   { value: "CRE_CASH_OUT", label: "Commercial Cash-Out Refinance" },
-  { value: "OWNER_OCCUPIED_CRE", label: "Owner-Occupied Commercial Real Estate" },
+  {
+    value: "OWNER_OCCUPIED_CRE",
+    label: "Owner-Occupied Commercial Real Estate",
+  },
   { value: "INVESTOR_CRE", label: "Investor Commercial Real Estate" },
   { value: "CMBS", label: "CMBS Loan" },
+  { value: "AGENCY_LOAN", label: "Agency Loan" },
 
   /* ================= CONSTRUCTION ================= */
+  { value: "CONSTRUCTION_LOAN", label: "Construction Loan" },
   { value: "GROUND_UP_CONSTRUCTION", label: "Ground Up Construction" },
   { value: "CONSTRUCTION_TO_PERM", label: "Construction to Permanent" },
   { value: "COMMERCIAL_CONSTRUCTION", label: "Commercial Construction Loan" },
@@ -119,12 +139,22 @@ const LOAN_PRODUCT_CODES: { value: string; label: string }[] = [
   { value: "PURCHASE_ORDER", label: "Purchase Order Financing" },
   { value: "INVENTORY_FINANCE", label: "Inventory Financing" },
   { value: "TRADE_FINANCE", label: "Trade Finance" },
+  { value: "PURCHASE_ORDER_FINANCE", label: "Purchase Order Finance" },
+  {
+    value: "ACCOUNTS_RECEIVABLE_FINANCE",
+    label: "Accounts Receivable Finance",
+  },
+  { value: "ACCOUNTS_PAYABLE_FINANCE", label: "Accounts Payable Finance" },
 
   /* ================= ALT / PRIVATE CREDIT ================= */
   { value: "MERCHANT_CASH_ADVANCE", label: "Merchant Cash Advance" },
   { value: "REVENUE_BASED_FINANCE", label: "Revenue Based Financing" },
   { value: "PRIVATE_CREDIT", label: "Private Credit Loan" },
   { value: "MEZZANINE_FINANCE", label: "Mezzanine Financing" },
+  {
+    value: "MEZZ_FINANCE_PREF_EQUITY",
+    label: "Mezz Finance / Preferred Equity",
+  },
   { value: "VENTURE_DEBT", label: "Venture Debt" },
 
   /* ================= FRANCHISE / INDUSTRY ================= */
@@ -243,12 +273,15 @@ const AllLoanProducts: React.FC = () => {
               name: form.name,
               description: form.description || undefined,
             }),
-          }
+          },
         );
 
         const json = await res.json();
         if (!res.ok || !json.success) {
-          console.error("Failed to update product:", json.message || res.status);
+          console.error(
+            "Failed to update product:",
+            json.message || res.status,
+          );
           toast.error(json.message || "Failed to update product");
           return;
         }
@@ -266,7 +299,10 @@ const AllLoanProducts: React.FC = () => {
 
         const json = await res.json();
         if (!res.ok || !json.success) {
-          console.error("Failed to create product:", json.message || res.status);
+          console.error(
+            "Failed to create product:",
+            json.message || res.status,
+          );
           toast.error(json.message || "Failed to create product");
           return;
         }
@@ -301,14 +337,14 @@ const AllLoanProducts: React.FC = () => {
           method: "PATCH",
           headers: getAuthHeaders(),
           body: JSON.stringify({ isActive: !product.isActive }),
-        }
+        },
       );
 
       const json = await res.json();
       if (!res.ok || !json.success) {
         console.error(
           "Failed to update product status:",
-          json.message || res.status
+          json.message || res.status,
         );
         toast.error(json.message || "Failed to update product status");
         return;
@@ -533,8 +569,8 @@ const AllLoanProducts: React.FC = () => {
                           disabled={togglingId === p.id}
                           className={`inline-flex items-center px-3 py-1 rounded-full border text-xs cursor-pointer
                                       ${statusClass(
-                            p.isActive ? "ACTIVE" : "INACTIVE"
-                          )}
+                                        p.isActive ? "ACTIVE" : "INACTIVE",
+                                      )}
                                       disabled:opacity-60 disabled:cursor-not-allowed`}
                         >
                           {togglingId === p.id
@@ -559,8 +595,6 @@ const AllLoanProducts: React.FC = () => {
                           >
                             <MdModeEdit />
                           </button>
-
-
                         </div>
                       </td>
                     </tr>
