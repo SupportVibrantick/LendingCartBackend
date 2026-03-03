@@ -3,10 +3,7 @@ const PDFDocument = require("pdfkit");
 const generateApplicationPDF = (application, submission) => {
   return new Promise((resolve, reject) => {
     try {
-      const doc = new PDFDocument({
-        size: "A4",
-        margin: 50,
-      });
+      const doc = new PDFDocument({ size: "A4", margin: 50 });
 
       const buffers = [];
       doc.on("data", (chunk) => buffers.push(chunk));
@@ -20,198 +17,185 @@ const generateApplicationPDF = (application, submission) => {
 
       doc.rect(0, 0, pageWidth, 90).fill("#0A3D62");
 
-      doc
-        .fillColor("#ffffff")
+      doc.fillColor("#fff")
         .font("Helvetica-Bold")
-        .fontSize(24)
+        .fontSize(22)
         .text("LendingCart", 50, 30);
 
-      doc
+      doc.fontSize(14)
         .font("Helvetica")
-        .fontSize(14)
         .text("Loan Application Document", 50, 60);
 
       doc.moveDown(4);
+
+      /* ================= STATUS ================= */
+
+      doc.fillColor("#000")
+        .fontSize(11)
+        .font("Helvetica")
+        .text(`Status: ${application.status}`, 50);
+
+      doc.moveDown(1.5);
+
+      /* ================= STATS BOX ================= */
+
+      const statsStartY = doc.y;
+      const statWidth = contentWidth / 6;
+      const statHeight = 70;
+
+      const stats = [
+        { label: "Loan Amount", value: `$${Number(application.amountRequested || 0).toLocaleString()}` },
+        { label: "LTV %", value: application.ltvPercentage || "—" },
+        { label: "LTC %", value: application.ltcPercentage || "—" },
+        { label: "ARV %", value: application.arvPercentage || "—" },
+        { label: "DSCR", value: application.dscr || "—" },
+        { label: "Net Worth", value: `$${Number(application.netWorth || 0).toLocaleString()}` },
+      ];
+
+      stats.forEach((stat, i) => {
+        const x = 50 + i * statWidth;
+
+        doc.roundedRect(x, statsStartY, statWidth - 5, statHeight, 8)
+          .fillAndStroke("#F0F6FF", "#D6E4FF");
+
+        doc.fillColor("#64748B")
+          .fontSize(9)
+          .text(stat.label, x + 8, statsStartY + 10, {
+            width: statWidth - 16,
+            align: "center",
+          });
+
+        doc.fillColor("#0F172A")
+          .font("Helvetica-Bold")
+          .fontSize(12)
+          .text(stat.value, x + 8, statsStartY + 30, {
+            width: statWidth - 16,
+            align: "center",
+          });
+      });
+
+      doc.moveDown(5);
 
       /* ================= SECTION TITLE ================= */
 
       function sectionTitle(title) {
         doc.moveDown(1.5);
-
-        doc
-          .fillColor("#0A3D62")
+        doc.fillColor("#0A3D62")
           .font("Helvetica-Bold")
-          .fontSize(16)
+          .fontSize(14)
           .text(title);
 
         doc.moveDown(0.5);
-
-        doc
-          .moveTo(50, doc.y)
+        doc.moveTo(50, doc.y)
           .lineTo(pageWidth - 50, doc.y)
           .strokeColor("#E2E8F0")
           .stroke();
-
-        doc.moveDown(0.8);
+        doc.moveDown(1);
       }
 
-      /* ================= TWO COLUMN ROW ================= */
+      /* ================= TWO COLUMN FIELD GRID ================= */
 
-      function drawTwoColumnRow(fields) {
-        const startX = 50;
+      function drawFieldGrid(fields) {
         const columnGap = 20;
-        const columnWidth = contentWidth / 2 - columnGap / 2;
-        const rowPadding = 14;
+        const colWidth = contentWidth / 2 - columnGap / 2;
 
-        if (doc.y > doc.page.height - 130) {
-          doc.addPage();
-        }
+        for (let i = 0; i < fields.length; i += 2) {
+          if (doc.y > doc.page.height - 120) doc.addPage();
 
-        const heights = fields.map((field) =>
-          Math.max(
-            doc.heightOfString(field.label, {
-              width: columnWidth - 20,
-            }),
-            doc.heightOfString(String(field.value || "N/A"), {
-              width: columnWidth - 20,
-            })
-          )
-        );
+          const pair = [fields[i], fields[i + 1]];
 
-        const rowHeight = Math.max(...heights) + rowPadding * 2;
+          const rowHeight = 65;
 
-        fields.forEach((field, index) => {
-          const x = startX + index * (columnWidth + columnGap);
+          pair.forEach((field, index) => {
+            if (!field) return;
 
-          // Card Background
-          doc
-            .roundedRect(x, doc.y, columnWidth, rowHeight, 6)
-            .fillAndStroke("#F8FAFC", "#E2E8F0");
+            const x = 50 + index * (colWidth + columnGap);
 
-          // Label
-          doc
-            .fillColor("#64748B")
-            .font("Helvetica")
-            .fontSize(10)
-            .text(field.label, x + 12, doc.y + 10, {
-              width: columnWidth - 24,
-            });
+            doc.roundedRect(x, doc.y, colWidth, rowHeight, 8)
+              .fillAndStroke("#F8FAFC", "#E2E8F0");
 
-          // Value
-          doc
-            .fillColor("#0F172A")
-            .font("Helvetica-Bold")
-            .fontSize(12)
-            .text(String(field.value || "N/A"), x + 12, doc.y + 28, {
-              width: columnWidth - 24,
-            });
-        });
+            doc.fillColor("#64748B")
+              .fontSize(9)
+              .font("Helvetica")
+              .text(field.label, x + 12, doc.y + 10);
 
-        doc.moveDown(rowHeight / 15);
-      }
-
-      /* ================= APPLICATION OVERVIEW ================= */
-
-      sectionTitle("Application Overview");
-
-      const overviewFields = [
-        { label: "Application ID", value: application.id },
-        { label: "Loan Product Code", value: application.loanProductCode },
-        { label: "Amount Requested", value: application.amountRequested || "N/A" },
-        { label: "Application Status", value: application.status },
-        { label: "Created At", value: application.createdAt },
-        { label: "Updated At", value: application.updatedAt },
-      ];
-
-      for (let i = 0; i < overviewFields.length; i += 2) {
-        drawTwoColumnRow([
-          overviewFields[i],
-          overviewFields[i + 1] || { label: "", value: "" },
-        ]);
-      }
-
-      /* ================= BORROWER SECTION ================= */
-
-      sectionTitle("Complete Borrower Information");
-
-      let signatureBase64 = null;
-      const borrowerFields = [];
-
-      submission.fields.forEach((field) => {
-        const label = field.fieldKey || "Unknown Field";
-
-        let value;
-        try {
-          value =
-            typeof field.value === "object"
-              ? JSON.stringify(field.value)
-              : String(field.value);
-        } catch {
-          value = "N/A";
-        }
-
-        if (typeof value === "string" && value.startsWith("data:image")) {
-          signatureBase64 = value;
-          borrowerFields.push({
-            label,
-            value: "Digitally Signed",
+            doc.fillColor("#0F172A")
+              .fontSize(11)
+              .font("Helvetica-Bold")
+              .text(field.value || "-", x + 12, doc.y + 28, {
+                width: colWidth - 24,
+              });
           });
-        } else {
-          borrowerFields.push({ label, value });
-        }
-      });
 
-      for (let i = 0; i < borrowerFields.length; i += 2) {
-        drawTwoColumnRow([
-          borrowerFields[i],
-          borrowerFields[i + 1] || { label: "", value: "" },
-        ]);
+          doc.moveDown(4);
+        }
       }
 
-      /* ================= SIGNATURE PAGE ================= */
+      /* ================= PRIMARY BORROWER ================= */
 
-      if (signatureBase64) {
+      sectionTitle("Primary Borrower");
+
+      const primaryFields = submission.fields
+        .filter(f => f.fieldKey.startsWith("borrower") || f.fieldKey === "city" || f.fieldKey === "state")
+        .map(f => ({
+          label: f.fieldKey,
+          value: String(f.value || "-")
+        }));
+
+      drawFieldGrid(primaryFields);
+
+      /* ================= LOAN DETAILS ================= */
+
+      sectionTitle("Loan Details");
+
+      const loanFields = submission.fields
+        .filter(f => !f.fieldKey.startsWith("borrower"))
+        .map(f => ({
+          label: f.fieldKey,
+          value: String(f.value || "-")
+        }));
+
+      drawFieldGrid(loanFields);
+
+      /* ================= SIGNATURE ================= */
+
+      const signatureField = submission.fields.find(
+        f => typeof f.value === "string" && f.value.startsWith("data:image")
+      );
+
+      if (signatureField) {
         doc.addPage();
+        sectionTitle("Digital Signature");
 
-        sectionTitle("Applicant Digital Signature");
+        const base64Data = signatureField.value.replace(/^data:image\/png;base64,/, "");
+        const buffer = Buffer.from(base64Data, "base64");
 
-        const base64Data = signatureBase64.replace(
-          /^data:image\/png;base64,/,
-          ""
-        );
-
-        const signatureBuffer = Buffer.from(base64Data, "base64");
-
-        doc
-          .roundedRect(50, doc.y, 300, 150, 8)
+        doc.roundedRect(50, doc.y, 300, 150, 10)
           .strokeColor("#CBD5E1")
           .stroke();
 
-        doc.image(signatureBuffer, 60, doc.y + 10, {
+        doc.image(buffer, 60, doc.y + 10, {
           fit: [280, 120],
         });
 
         doc.moveDown(10);
-
-        doc
-          .fontSize(11)
-          .fillColor("#64748B")
-          .text("Authorized Signature", 50);
       }
 
       /* ================= FOOTER ================= */
 
-      doc
-        .fontSize(9)
-        .fillColor("#94A3B8")
+      const submitted = new Date(submission.submittedAt);
+
+      doc.fontSize(9)
+        .fillColor("#64748B")
         .text(
-          `Generated on ${new Date().toLocaleString()}`,
+          `Submitted Date: ${submitted.toLocaleDateString()}    |    Submitted Time: ${submitted.toLocaleTimeString()}`,
           0,
           doc.page.height - 40,
           { align: "center" }
         );
 
       doc.end();
+
     } catch (error) {
       reject(error);
     }
