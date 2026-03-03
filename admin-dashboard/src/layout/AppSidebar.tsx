@@ -45,8 +45,8 @@ const navItems: NavItem[] = [
 
    {
     icon: <GroupsOutlinedIcon />,
-    name: "Broker Organizations",
-    path: "/all-brokers-Organization",
+    name: "Broker Database",
+    path: "/all-brokers-database",
   },
   // {
   //   icon: <GroupsOutlinedIcon />,
