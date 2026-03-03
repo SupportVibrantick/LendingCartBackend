@@ -44,6 +44,10 @@ interface FormDataType {
     purchaseDate: string;
     totalAssets: string;
     totalLiabilities: string;
+
+    propertyType: string;
+    subPropertyType: string;
+    recourse: string;
   };
   loanTermIncome: {
     loanTerm: string;
@@ -312,6 +316,10 @@ const LoanApplication = () => {
       purchaseDate: "",
       totalAssets: "",
       totalLiabilities: "",
+
+      propertyType: "",
+      subPropertyType: "",
+      recourse: "",
     },
     loanTermIncome: {
       loanTerm: "",
@@ -598,6 +606,20 @@ const LoanApplication = () => {
       if (!amount || amount <= 0) {
         newErrors["loanRequest.amount"] = "Loan amount must be greater than 0";
       }
+
+      if (!formData.loanRequest.propertyType) {
+        newErrors["loanRequest.propertyType"] = "Property Type is required";
+      }
+
+      if (!formData.loanRequest.subPropertyType) {
+        newErrors["loanRequest.subPropertyType"] =
+          "Sub Property Type is required";
+      }
+
+      if (!formData.loanRequest.recourse) {
+        newErrors["loanRequest.recourse"] = "Recourse selection is required";
+      }
+
       checkObject(formData.loanRequest, "loanRequest");
     }
 
@@ -694,6 +716,9 @@ const LoanApplication = () => {
       addField("loanProductCode", selectedProduct);
       addField("amountRequested", toNumber(formData.loanRequest.amount));
       addField("interestRate", formData.loanRequest.interestRate);
+      addField("propertyType", formData.loanRequest.propertyType);
+      addField("subPropertyType", formData.loanRequest.subPropertyType);
+      addField("recourse", formData.loanRequest.recourse);
 
       /* ================= LOCATION (IF ADDRESS EXISTS) ================= */
 
@@ -1229,6 +1254,53 @@ const LoanApplication = () => {
     });
   };
 
+  const PROPERTY_TYPE_MAP: Record<string, string[]> = {
+    MULTIFAMILY: [
+      "Garden",
+      "Mid-Rise",
+      "High-Rise",
+      "Senior Housing",
+      "Student Housing",
+      "Affordable Housing",
+    ],
+
+    OFFICE: [
+      "Central Business District",
+      "Medical",
+      "Creative",
+      "Government",
+      "Suburban",
+    ],
+
+    RETAIL: [
+      "Strip Plaza",
+      "Mall",
+      "Single-Tenant",
+      "Restaurant",
+      "Automotive",
+    ],
+
+    INDUSTRIAL: [
+      "Warehouse",
+      "Manufacturing",
+      "Flex",
+      "Data Center",
+      "Cold Storage",
+    ],
+
+    SPECIAL_PURPOSE: [
+      "Car Wash",
+      "Gas Station",
+      "Self Storage",
+      "Hospital",
+      "School",
+    ],
+
+    LAND: ["Raw", "Entitled", "Developed", "Agriculture"],
+
+    MIXED_USE: ["Horizontal", "Vertical", "Live & Work"],
+  };
+
   const LOAN_PURPOSE_MAP: Record<string, string[]> = {
     /* 1️⃣ Bridge Loan */
     BRIDGE_REALESTATE: [
@@ -1366,12 +1438,16 @@ const LoanApplication = () => {
       "Supply Chain Finance",
     ],
   };
+
   const loanPurposeOptions = LOAN_PURPOSE_MAP[selectedProduct] || [];
 
   const purposesToShow =
     loanPurposeOptions && loanPurposeOptions.length > 0
       ? loanPurposeOptions
       : ALL_LOAN_PURPOSES;
+
+  const subPropertyOptions =
+    PROPERTY_TYPE_MAP[formData.loanRequest.propertyType] || [];
 
   return (
     <>
@@ -2336,6 +2412,103 @@ const LoanApplication = () => {
                   {errors["loanRequest.purpose"] && (
                     <p className="text-xs text-red-500 mt-1">
                       {errors["loanRequest.purpose"]}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-600 mb-1">
+                    Property Type <span className="text-red-500">*</span>
+                  </label>
+
+                  <select
+                    value={formData.loanRequest.propertyType}
+                    onChange={(e) => {
+                      updateLoanRequest("propertyType", e.target.value);
+                      updateLoanRequest("subPropertyType", ""); // reset child
+                    }}
+                    className={`w-full px-4 py-1 rounded-md border ${
+                      errors["loanRequest.propertyType"]
+                        ? "border-red-500 bg-red-50"
+                        : "border-slate-300"
+                    } bg-white focus:ring-2 focus:ring-blue-500/20
+  focus:border-blue-500 outline-none text-sm`}
+                  >
+                    <option value="">Select Property Type</option>
+                    {Object.keys(PROPERTY_TYPE_MAP).map((type) => (
+                      <option key={type} value={type}>
+                        {type.replace("_", " ")}
+                      </option>
+                    ))}
+                  </select>
+                  {errors["loanRequest.propertyType"] && (
+                    <p className="text-xs text-red-500 mt-1">
+                      {errors["loanRequest.propertyType"]}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-600 mb-1">
+                    Sub Property Type <span className="text-red-500">*</span>
+                  </label>
+
+                  <select
+                    value={formData.loanRequest.subPropertyType}
+                    onChange={(e) =>
+                      updateLoanRequest("subPropertyType", e.target.value)
+                    }
+                    disabled={!formData.loanRequest.propertyType}
+                    className={`w-full px-4 py-1 rounded-md border ${
+                      errors["loanRequest.subPropertyType"]
+                        ? "border-red-500 bg-red-50"
+                        : "border-slate-300"
+                    } bg-white focus:ring-2 focus:ring-blue-500/20
+  focus:border-blue-500 outline-none text-sm`}
+                  >
+                    <option value="">
+                      {formData.loanRequest.propertyType
+                        ? "Select Sub Property Type"
+                        : "Select Property Type First"}
+                    </option>
+
+                    {subPropertyOptions.map((sub) => (
+                      <option key={sub} value={sub}>
+                        {sub}
+                      </option>
+                    ))}
+                  </select>
+                  {errors["loanRequest.subPropertyType"] && (
+                    <p className="text-xs text-red-500 mt-1">
+                      {errors["loanRequest.subPropertyType"]}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-600 mb-1">
+                    Recourse <span className="text-red-500">*</span>
+                  </label>
+
+                  <select
+                    value={formData.loanRequest.recourse}
+                    onChange={(e) =>
+                      updateLoanRequest("recourse", e.target.value)
+                    }
+                    className={`w-full px-4 py-1 rounded-md border ${
+                      errors["loanRequest.recourse"]
+                        ? "border-red-500 bg-red-50"
+                        : "border-slate-300"
+                    } bg-white focus:ring-2 focus:ring-blue-500/20
+  focus:border-blue-500 outline-none text-sm`}
+                  >
+                    <option value="">Select Recourse</option>
+                    <option value="FULL_RECOURSE">Full Recourse</option>
+                    <option value="NON_RECOURSE">Non-Recourse</option>
+                  </select>
+                  {errors["loanRequest.recourse"] && (
+                    <p className="text-xs text-red-500 mt-1">
+                      {errors["loanRequest.recourse"]}
                     </p>
                   )}
                 </div>
