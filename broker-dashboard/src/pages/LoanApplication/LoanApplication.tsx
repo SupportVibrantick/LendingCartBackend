@@ -1230,7 +1230,7 @@ const LoanApplication = () => {
   };
 
   const LOAN_PURPOSE_MAP: Record<string, string[]> = {
-    /* 1. Bridge Loan */
+    /* 1️⃣ Bridge Loan */
     BRIDGE_REALESTATE: [
       "Purchase / Acquisition",
       "Refinance (Rate & Term)",
@@ -1238,24 +1238,18 @@ const LoanApplication = () => {
       "Construction Completion",
     ],
 
-    /* 2. Construction Loan */
-    GROUND_UP_CONSTRUCTION: [
-      "Ground-up Construction",
-      "Major Renovation (>50% of value)",
-      "Tenant Improvements",
-      "Infrastructure Development",
-    ],
-    COMMERCIAL_CONSTRUCTION: [
+    /* 2️⃣ Construction Loan */
+    CONSTRUCTION_LOAN: [
       "Ground-up Construction",
       "Major Renovation (>50% of value)",
       "Tenant Improvements",
       "Infrastructure Development",
     ],
 
-    /* 3. Fix & Flip */
+    /* 3️⃣ Fix & Flip */
     FIX_AND_FLIP: ["Purchase & Rehab", "Refinance & Rehab"],
 
-    /* 4. DSCR */
+    /* 4️⃣ DSCR */
     DSCR_RENTAL: [
       "Purchase",
       "Refinance (Rate & Term)",
@@ -1263,25 +1257,33 @@ const LoanApplication = () => {
       "Portfolio Blanket",
     ],
 
-    /* 5. CRE Permanent Loan */
-    CRE_REFINANCE: ["Purchase", "Refinance", "Recapitalization"],
+    /* 5️⃣ CRE Permanent */
+    CRE_PERMANENT: ["Purchase", "Refinance", "Recapitalization"],
 
-    /* 6. Mezz Finance */
-    MEZZANINE_FINANCE: [
+    /* 6️⃣ Mezz Finance / Pref Equity */
+    MEZZ_FINANCE_PREF_EQUITY: [
       "Gap Finance",
       "Leverage Enhancement",
       "JV Equity",
       "Acquisition Bridge",
     ],
 
-    /* 7. Agency Loan */
+    /* 7️⃣ Agency Loan */
+    AGENCY_LOAN: [
+      "Purchase / Acquisition",
+      "Cash Out Refinance",
+      "Affordable Housing",
+      "Supplement Loan",
+    ],
+
+    /* 8️⃣ CMBS */
     CMBS: [
       "Purchase / Acquisition",
       "Refinance (Rate & Term)",
       "Cash Out Refinance",
     ],
 
-    /* 9. SBA 7a Business Acquisition */
+    /* 9️⃣ SBA 7a - Business Acquisition */
     SBA_7A_BUSINESS_ACQUISITION: [
       "Purchase / Acquisition",
       "Partner Buyout",
@@ -1289,7 +1291,7 @@ const LoanApplication = () => {
       "Business Expansion",
     ],
 
-    /* 10. SBA 7a Working Capital */
+    /* 🔟 SBA 7a - Working Capital */
     SBA_7A_WORKING_CAPITAL: [
       "Inventory Purchase",
       "Marketing / Expansion",
@@ -1297,7 +1299,7 @@ const LoanApplication = () => {
       "Seasonal Line",
     ],
 
-    /* 11. SBA 7a Equipment */
+    /* 11️⃣ SBA 7a - Equipment Purchase */
     SBA_7A_EQUIPMENT_PURCHASE: [
       "New Equipment",
       "Used Equipment",
@@ -1305,7 +1307,7 @@ const LoanApplication = () => {
       "Equipment Line",
     ],
 
-    /* 12. SBA 7a Real Estate */
+    /* 12️⃣ SBA 7a - Real Estate */
     SBA_7A_REAL_ESTATE: [
       "Purchase (Owner-Occupied)",
       "Construction",
@@ -1315,7 +1317,7 @@ const LoanApplication = () => {
       "Refinance & Rehab",
     ],
 
-    /* 13. SBA 504 */
+    /* 13️⃣ SBA 504 */
     SBA_504_REAL_ESTATE_EQUIPMENT: [
       "Real Estate Acquisition",
       "Real Estate Construction",
@@ -1323,8 +1325,8 @@ const LoanApplication = () => {
       "Refinance (504 Debt)",
     ],
 
-    /* 14. USDA */
-    USDA_BUSINESS: [
+    /* 14️⃣ USDA B&I */
+    USDA_BI: [
       "Business Acquisition",
       "Real Estate Purchase",
       "Equipment Purchase",
@@ -1332,7 +1334,7 @@ const LoanApplication = () => {
       "Debt Refinancing",
     ],
 
-    /* 15. Equipment Finance */
+    /* 15️⃣ Equipment Finance */
     EQUIPMENT_FINANCE: [
       "New Equipment Purchase",
       "Used Equipment Purchase",
@@ -1340,37 +1342,36 @@ const LoanApplication = () => {
       "Refinance / Consolidation",
     ],
 
-    /* 16. PO Finance */
-    PURCHASE_ORDER: [
+    /* 16️⃣ Purchase Order Finance */
+    PURCHASE_ORDER_FINANCE: [
       "Single PO Funding",
       "PO Line of Credit",
       "International PO",
       "Government PO",
     ],
 
-    /* 17. AR Finance */
-    ACCOUNTS_RECEIVABLE: [
+    /* 17️⃣ Accounts Receivable Finance */
+    ACCOUNTS_RECEIVABLE_FINANCE: [
       "Invoice Factoring",
       "ABL Line",
       "Selective Receivable Finance",
       "International Receivables",
     ],
 
-    /* 18. AP Finance */
-    ACCOUNTS_PAYABLE: [
+    /* 18️⃣ Accounts Payable Finance */
+    ACCOUNTS_PAYABLE_FINANCE: [
       "Supplier Finance Program",
       "Dynamic Discounting",
       "Reverse Factoring",
       "Supply Chain Finance",
     ],
   };
-
   const loanPurposeOptions = LOAN_PURPOSE_MAP[selectedProduct] || [];
 
   const purposesToShow =
-  loanPurposeOptions && loanPurposeOptions.length > 0
-    ? loanPurposeOptions
-    : ALL_LOAN_PURPOSES;
+    loanPurposeOptions && loanPurposeOptions.length > 0
+      ? loanPurposeOptions
+      : ALL_LOAN_PURPOSES;
 
   return (
     <>

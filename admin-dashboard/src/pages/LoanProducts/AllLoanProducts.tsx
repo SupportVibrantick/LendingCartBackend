@@ -50,30 +50,21 @@ function statusClass(status?: string) {
 
 // keep options in sync with Prisma enum LoanProductCode
 const LOAN_PRODUCT_CODES: { value: string; label: string }[] = [
+
   /* ================= SBA / GOVERNMENT ================= */
   { value: "SBA_7A", label: "SBA 7(a) Loan" },
-  {
-    value: "SBA_7A_BUSINESS_ACQUISITION",
-    label: "SBA 7(a) - Business Acquisition",
-  },
+  { value: "SBA_7A_BUSINESS_ACQUISITION", label: "SBA 7(a) - Business Acquisition" },
   { value: "SBA_7A_WORKING_CAPITAL", label: "SBA 7(a) - Working Capital" },
-  {
-    value: "SBA_7A_EQUIPMENT_PURCHASE",
-    label: "SBA 7(a) - Equipment Purchase",
-  },
+  { value: "SBA_7A_EQUIPMENT_PURCHASE", label: "SBA 7(a) - Equipment Purchase" },
   { value: "SBA_7A_REAL_ESTATE", label: "SBA 7(a) - Real Estate" },
   { value: "SBA_504", label: "SBA 504 Loan" },
+  { value: "SBA_504_REAL_ESTATE_EQUIPMENT", label: "SBA 504 - Real Estate & Equipment" },
   { value: "SBA_EXPRESS", label: "SBA Express Loan" },
   { value: "SBA_CAPLINES", label: "SBA CAPLines" },
   { value: "SBA_MICROLOAN", label: "SBA Microloan" },
   { value: "SBA_DISASTER", label: "SBA Disaster Loan" },
   { value: "SBA_EXPORT", label: "SBA Export Loan" },
   { value: "VA_BUSINESS", label: "VA Business Loan" },
-
-  {
-    value: "SBA_504_REAL_ESTATE_EQUIPMENT",
-    label: "SBA 504 - Real Estate & Equipment",
-  },
 
   /* ================= USDA ================= */
   { value: "USDA_BUSINESS", label: "USDA Business Loan" },
@@ -82,17 +73,19 @@ const LOAN_PRODUCT_CODES: { value: string; label: string }[] = [
   { value: "USDA_FARM_OWNERSHIP", label: "USDA Farm Ownership Loan" },
   { value: "USDA_FARM_OPERATING", label: "USDA Farm Operating Loan" },
 
+  /* ================= AGENCY / INSTITUTIONAL ================= */
+  { value: "AGENCY_LOAN", label: "Agency Loan (Fannie/Freddie/HUD)" },
+  { value: "HUD_223F", label: "HUD 223(f) Loan" },
+  { value: "HUD_221D4", label: "HUD 221(d)(4) Loan" },
+  { value: "CMBS", label: "CMBS Loan" },
+
   /* ================= COMMERCIAL REAL ESTATE ================= */
+  { value: "CRE_PERMANENT", label: "CRE Permanent Loan" },
   { value: "CRE_PURCHASE", label: "Commercial Real Estate Purchase" },
   { value: "CRE_REFINANCE", label: "Commercial Real Estate Refinance" },
   { value: "CRE_CASH_OUT", label: "Commercial Cash-Out Refinance" },
-  {
-    value: "OWNER_OCCUPIED_CRE",
-    label: "Owner-Occupied Commercial Real Estate",
-  },
+  { value: "OWNER_OCCUPIED_CRE", label: "Owner-Occupied Commercial Real Estate" },
   { value: "INVESTOR_CRE", label: "Investor Commercial Real Estate" },
-  { value: "CMBS", label: "CMBS Loan" },
-  { value: "AGENCY_LOAN", label: "Agency Loan" },
 
   /* ================= CONSTRUCTION ================= */
   { value: "CONSTRUCTION_LOAN", label: "Construction Loan" },
@@ -125,37 +118,28 @@ const LOAN_PRODUCT_CODES: { value: string; label: string }[] = [
   { value: "STARTUP_FINANCING", label: "Startup Business Loan" },
   { value: "SMALL_BUSINESS_LOAN", label: "Small Business Loan" },
 
-  /* ================= EQUIPMENT / AUTO ================= */
+  /* ================= EQUIPMENT ================= */
   { value: "EQUIPMENT_FINANCE", label: "Equipment Financing" },
   { value: "EQUIPMENT_LEASE", label: "Equipment Leasing" },
-  { value: "COMMERCIAL_AUTO", label: "Commercial Vehicle Loan" },
   { value: "FLEET_FINANCE", label: "Fleet Financing" },
   { value: "HEAVY_EQUIPMENT", label: "Heavy Equipment Loan" },
 
-  /* ================= ASSET BASED / TRADE ================= */
+  /* ================= TRADE / ABL ================= */
   { value: "ASSET_BASED_LENDING", label: "Asset Based Lending" },
-  { value: "ACCOUNTS_RECEIVABLE", label: "Accounts Receivable Financing" },
   { value: "INVOICE_FACTORING", label: "Invoice Factoring" },
-  { value: "PURCHASE_ORDER", label: "Purchase Order Financing" },
-  { value: "INVENTORY_FINANCE", label: "Inventory Financing" },
-  { value: "TRADE_FINANCE", label: "Trade Finance" },
   { value: "PURCHASE_ORDER_FINANCE", label: "Purchase Order Finance" },
-  {
-    value: "ACCOUNTS_RECEIVABLE_FINANCE",
-    label: "Accounts Receivable Finance",
-  },
+  { value: "ACCOUNTS_RECEIVABLE_FINANCE", label: "Accounts Receivable Finance" },
   { value: "ACCOUNTS_PAYABLE_FINANCE", label: "Accounts Payable Finance" },
+  { value: "INVENTORY_FINANCE", label: "Inventory Finance" },
+  { value: "TRADE_FINANCE", label: "Trade Finance" },
 
-  /* ================= ALT / PRIVATE CREDIT ================= */
-  { value: "MERCHANT_CASH_ADVANCE", label: "Merchant Cash Advance" },
-  { value: "REVENUE_BASED_FINANCE", label: "Revenue Based Financing" },
+  /* ================= PRIVATE CREDIT ================= */
   { value: "PRIVATE_CREDIT", label: "Private Credit Loan" },
   { value: "MEZZANINE_FINANCE", label: "Mezzanine Financing" },
-  {
-    value: "MEZZ_FINANCE_PREF_EQUITY",
-    label: "Mezz Finance / Preferred Equity",
-  },
+  { value: "MEZZ_FINANCE_PREF_EQUITY", label: "Mezz Finance / Preferred Equity" },
   { value: "VENTURE_DEBT", label: "Venture Debt" },
+  { value: "MERCHANT_CASH_ADVANCE", label: "Merchant Cash Advance" },
+  { value: "REVENUE_BASED_FINANCE", label: "Revenue Based Financing" },
 
   /* ================= FRANCHISE / INDUSTRY ================= */
   { value: "FRANCHISE_FINANCE", label: "Franchise Financing" },
@@ -179,7 +163,8 @@ const LOAN_PRODUCT_CODES: { value: string; label: string }[] = [
   { value: "HELOC", label: "Home Equity Line of Credit" },
   { value: "HOME_EQUITY", label: "Home Equity Loan" },
   { value: "PAYDAY_LOAN", label: "Payday Loan" },
-  { value: "BNPL", label: "Buy Now Pay Later (BNPL)" },
+  { value: "BNPL", label: "Buy Now Pay Later (BNPL)" }
+
 ];
 
 const AllLoanProducts: React.FC = () => {
