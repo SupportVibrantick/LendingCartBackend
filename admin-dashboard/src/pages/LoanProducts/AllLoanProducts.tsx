@@ -80,7 +80,7 @@ const LOAN_PRODUCT_CODES: { value: string; label: string }[] = [
   { value: "CMBS", label: "CMBS Loan" },
 
   /* ================= COMMERCIAL REAL ESTATE ================= */
-  { value: "CRE_PERMANENT", label: "CRE Permanent Loan" },
+  { value: "CRE_PERMANENT_LOAN", label: "CRE Permanent Loan" },
   { value: "CRE_PURCHASE", label: "Commercial Real Estate Purchase" },
   { value: "CRE_REFINANCE", label: "Commercial Real Estate Refinance" },
   { value: "CRE_CASH_OUT", label: "Commercial Cash-Out Refinance" },
@@ -106,8 +106,9 @@ const LOAN_PRODUCT_CODES: { value: string; label: string }[] = [
 
   /* ================= RESIDENTIAL INVESTMENT ================= */
   { value: "DSCR_RENTAL", label: "DSCR Rental Loan" },
+  { value: "DSCR", label: "DSCR Loan" },
   { value: "FIX_AND_FLIP", label: "Fix & Flip Loan" },
-  { value: "BRIDGE_REALESTATE", label: "Real Estate Bridge Loan" },
+  { value: "BRIDGE_REALESTATE", label: "Bridge Loan" },
   { value: "HARD_MONEY", label: "Hard Money Loan" },
   { value: "RENTAL_PORTFOLIO", label: "Rental Portfolio Loan" },
 
