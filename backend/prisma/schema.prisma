@@ -1124,6 +1124,7 @@ enum LoanProductCode {
   SBA_DISASTER
   SBA_EXPORT
   VA_BUSINESS
+  AGENCY_LOAN   
 
   /**
    * ================= USDA =================
@@ -1132,10 +1133,12 @@ enum LoanProductCode {
   USDA_RURAL_DEVELOPMENT
   USDA_FARM_OWNERSHIP
   USDA_FARM_OPERATING
+  USDA_BI   
 
   /**
    * ================= COMMERCIAL REAL ESTATE =================
    */
+  CRE_PERMANENT_LOAN
   CRE_PURCHASE
   CRE_REFINANCE
   CRE_CASH_OUT
@@ -1151,6 +1154,7 @@ enum LoanProductCode {
   COMMERCIAL_CONSTRUCTION
   LAND_DEVELOPMENT
   LAND_ACQUISITION
+  CONSTRUCTION_LOAN   
 
   /**
    * ================= RESIDENTIAL / MORTGAGE =================
@@ -1168,6 +1172,7 @@ enum LoanProductCode {
   /**
    * ================= RESIDENTIAL INVESTMENT =================
    */
+  DSCR
   DSCR_RENTAL
   FIX_AND_FLIP
   BRIDGE_REALESTATE
@@ -1196,9 +1201,11 @@ enum LoanProductCode {
    * ================= ASSET BASED / TRADE =================
    */
   ASSET_BASED_LENDING
-  ACCOUNTS_RECEIVABLE
+  ACCOUNTS_RECEIVABLE_FINANCE   
+  ACCOUNTS_PAYABLE_FINANCE      
   INVOICE_FACTORING
   PURCHASE_ORDER
+  PURCHASE_ORDER_FINANCE        
   INVENTORY_FINANCE
   TRADE_FINANCE
 
@@ -1209,6 +1216,7 @@ enum LoanProductCode {
   REVENUE_BASED_FINANCE
   PRIVATE_CREDIT
   MEZZANINE_FINANCE
+  MEZZ_FINANCE_PREF_EQUITY   
   VENTURE_DEBT
 
   /**

@@ -22,6 +22,7 @@ async function brokerApplicationsRoutes(fastify) {
   fastify.register(require("./products/addProduct"));
   fastify.register(require("./products/listProducts"));
   fastify.register(require("./products/removeProduct"));
+  fastify.register(require("./products/updateProduct"));
 
   // ─────────────────────────────────────────────
   // Application → Product Sections 
