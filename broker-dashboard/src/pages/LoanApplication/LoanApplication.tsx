@@ -1258,7 +1258,7 @@ const LoanApplication = () => {
     ],
 
     /* 5️⃣ CRE Permanent */
-    CRE_PERMANENT: ["Purchase", "Refinance", "Recapitalization"],
+    CRE_PERMANENT_LOAN: ["Purchase", "Refinance", "Recapitalization"],
 
     /* 6️⃣ Mezz Finance / Pref Equity */
     MEZZ_FINANCE_PREF_EQUITY: [
