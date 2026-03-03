@@ -1147,7 +1147,7 @@ export default function BrokersPage() {
                     disabled={submitting}
                     className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-70"
                   >
-                    {submitting ? "Creating..." : "Create Lender"}
+                    {submitting ? "Creating..." : "Create Broker"}
                   </button>
                 </div>
               </form>

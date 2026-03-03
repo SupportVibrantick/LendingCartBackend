@@ -67,7 +67,7 @@ export default function App() {
             <Route index path="/add-user" element={<AddUser />} />
             <Route index path="/all-user" element={<AllUsers />} />
 
-            <Route index path="/all-brokers-Organization" element={<BrokersPage />} />
+            <Route index path="/all-brokers-database" element={<BrokersPage />} />
             <Route index path="/all-brokers-lenders" element={<BrokersLenders/>} />
             <Route index path="/active-application" element={<ActiveApplication/>} />
             <Route index path="/create-application" element={<CreateApplication/>} />
