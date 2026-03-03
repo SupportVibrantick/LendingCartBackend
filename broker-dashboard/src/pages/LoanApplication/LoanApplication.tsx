@@ -112,6 +112,63 @@ const US_STATES = [
   "Wyoming",
 ];
 
+const ALL_LOAN_PURPOSES = [
+  "Purchase / Acquisition",
+  "Refinance (Rate & Term)",
+  "Cash Out Refinance",
+  "Construction Completion",
+  "Ground-up Construction",
+  "Major Renovation (>50%)",
+  "Tenant Improvements",
+  "Infrastructure Development",
+  "Purchase & Rehab",
+  "Refinance & Rehab",
+  "Portfolio Blanket",
+  "Recapitalization",
+  "Gap Finance",
+  "Leverage Enhancement",
+  "JV Equity",
+  "Acquisition Bridge",
+  "Affordable Housing",
+  "Supplement Loan",
+  "Partner Buyout",
+  "Franchise Purchase",
+  "Business Expansion",
+  "Inventory Purchase",
+  "Marketing / Expansion",
+  "Debt Consolidation",
+  "Seasonal Line",
+  "New Equipment",
+  "Used Equipment",
+  "Refinance Existing Equipment",
+  "Equipment Line",
+  "Real Estate Acquisition",
+  "Real Estate Construction",
+  "Heavy Equipment",
+  "Refinance (504 Debt)",
+  "Business Acquisition",
+  "Real Estate Purchase",
+  "Equipment Purchase",
+  "Working Capital",
+  "Debt Refinancing",
+  "New Equipment Purchase",
+  "Used Equipment Purchase",
+  "Sale-LeaseBack",
+  "Refinance / Consolidation",
+  "Single PO Funding",
+  "PO Line of Credit",
+  "International PO",
+  "Government PO",
+  "Invoice Factoring",
+  "ABL Line",
+  "Selective Receivable Finance",
+  "International Receivables",
+  "Supplier Finance Program",
+  "Dynamic Discounting",
+  "Reverse Factoring",
+  "Supply Chain Finance",
+];
+
 /* ================= HELPERS ================= */
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
@@ -989,35 +1046,33 @@ const LoanApplication = () => {
           />
         );
 
- case "NUMBER": {
-  const lowerKey =
-    (field.fieldKey || field.label || "").toLowerCase();
+      case "NUMBER": {
+        const lowerKey = (field.fieldKey || field.label || "").toLowerCase();
 
-  const isPhone = lowerKey.includes("phone");
-  const isSSN = lowerKey.includes("ssn");
+        const isPhone = lowerKey.includes("phone");
+        const isSSN = lowerKey.includes("ssn");
 
-  return (
-    <input
-      type="text"
-      inputMode="numeric"
-      placeholder={field.placeholder || ""}
-      required={field.required}
-      value={dynamicFormData[field.fieldId] || ""}
-      onChange={(e) => {
-        let value = e.target.value;
+        return (
+          <input
+            type="text"
+            inputMode="numeric"
+            placeholder={field.placeholder || ""}
+            required={field.required}
+            value={dynamicFormData[field.fieldId] || ""}
+            onChange={(e) => {
+              let value = e.target.value;
 
-        if (isPhone) {
-          value = formatUSPhone(value);
-        } else if (isSSN) {
-          value = formatSSN(value);
-        }
-
-        handleDynamicFieldChange(field.fieldId, value);
-      }}
-      className={commonClasses}
-    />
-  );
-}
+              if (isPhone) {
+                value = formatUSPhone(value);
+              } else if (isSSN) {
+                value = formatSSN(value);
+              }
+              handleDynamicFieldChange(field.fieldId, value);
+            }}
+            className={commonClasses}
+          />
+        );
+      }
 
       case "DATE":
         return (
@@ -1173,6 +1228,149 @@ const LoanApplication = () => {
       return updated;
     });
   };
+
+  const LOAN_PURPOSE_MAP: Record<string, string[]> = {
+    /* 1. Bridge Loan */
+    BRIDGE_REALESTATE: [
+      "Purchase / Acquisition",
+      "Refinance (Rate & Term)",
+      "Cash Out Refinance",
+      "Construction Completion",
+    ],
+
+    /* 2. Construction Loan */
+    GROUND_UP_CONSTRUCTION: [
+      "Ground-up Construction",
+      "Major Renovation (>50% of value)",
+      "Tenant Improvements",
+      "Infrastructure Development",
+    ],
+    COMMERCIAL_CONSTRUCTION: [
+      "Ground-up Construction",
+      "Major Renovation (>50% of value)",
+      "Tenant Improvements",
+      "Infrastructure Development",
+    ],
+
+    /* 3. Fix & Flip */
+    FIX_AND_FLIP: ["Purchase & Rehab", "Refinance & Rehab"],
+
+    /* 4. DSCR */
+    DSCR_RENTAL: [
+      "Purchase",
+      "Refinance (Rate & Term)",
+      "Cash Out Refinance",
+      "Portfolio Blanket",
+    ],
+
+    /* 5. CRE Permanent Loan */
+    CRE_REFINANCE: ["Purchase", "Refinance", "Recapitalization"],
+
+    /* 6. Mezz Finance */
+    MEZZANINE_FINANCE: [
+      "Gap Finance",
+      "Leverage Enhancement",
+      "JV Equity",
+      "Acquisition Bridge",
+    ],
+
+    /* 7. Agency Loan */
+    CMBS: [
+      "Purchase / Acquisition",
+      "Refinance (Rate & Term)",
+      "Cash Out Refinance",
+    ],
+
+    /* 9. SBA 7a Business Acquisition */
+    SBA_7A_BUSINESS_ACQUISITION: [
+      "Purchase / Acquisition",
+      "Partner Buyout",
+      "Franchise Purchase",
+      "Business Expansion",
+    ],
+
+    /* 10. SBA 7a Working Capital */
+    SBA_7A_WORKING_CAPITAL: [
+      "Inventory Purchase",
+      "Marketing / Expansion",
+      "Debt Consolidation",
+      "Seasonal Line",
+    ],
+
+    /* 11. SBA 7a Equipment */
+    SBA_7A_EQUIPMENT_PURCHASE: [
+      "New Equipment",
+      "Used Equipment",
+      "Refinance Existing Equipment",
+      "Equipment Line",
+    ],
+
+    /* 12. SBA 7a Real Estate */
+    SBA_7A_REAL_ESTATE: [
+      "Purchase (Owner-Occupied)",
+      "Construction",
+      "Refinance",
+      "New Construction",
+      "Purchase & Rehab",
+      "Refinance & Rehab",
+    ],
+
+    /* 13. SBA 504 */
+    SBA_504_REAL_ESTATE_EQUIPMENT: [
+      "Real Estate Acquisition",
+      "Real Estate Construction",
+      "Heavy Equipment",
+      "Refinance (504 Debt)",
+    ],
+
+    /* 14. USDA */
+    USDA_BUSINESS: [
+      "Business Acquisition",
+      "Real Estate Purchase",
+      "Equipment Purchase",
+      "Working Capital",
+      "Debt Refinancing",
+    ],
+
+    /* 15. Equipment Finance */
+    EQUIPMENT_FINANCE: [
+      "New Equipment Purchase",
+      "Used Equipment Purchase",
+      "Sale-LeaseBack",
+      "Refinance / Consolidation",
+    ],
+
+    /* 16. PO Finance */
+    PURCHASE_ORDER: [
+      "Single PO Funding",
+      "PO Line of Credit",
+      "International PO",
+      "Government PO",
+    ],
+
+    /* 17. AR Finance */
+    ACCOUNTS_RECEIVABLE: [
+      "Invoice Factoring",
+      "ABL Line",
+      "Selective Receivable Finance",
+      "International Receivables",
+    ],
+
+    /* 18. AP Finance */
+    ACCOUNTS_PAYABLE: [
+      "Supplier Finance Program",
+      "Dynamic Discounting",
+      "Reverse Factoring",
+      "Supply Chain Finance",
+    ],
+  };
+
+  const loanPurposeOptions = LOAN_PURPOSE_MAP[selectedProduct] || [];
+
+  const purposesToShow =
+  loanPurposeOptions && loanPurposeOptions.length > 0
+    ? loanPurposeOptions
+    : ALL_LOAN_PURPOSES;
 
   return (
     <>
@@ -2072,6 +2270,7 @@ const LoanApplication = () => {
                     value={selectedProduct}
                     onChange={(e) => {
                       setSelectedProduct(e.target.value);
+                      updateLoanRequest("purpose", "");
                       setDynamicSections([]);
                       setActiveSectionIndex(null);
                     }}
@@ -2112,26 +2311,26 @@ const LoanApplication = () => {
                     onChange={(e) =>
                       updateLoanRequest("purpose", e.target.value)
                     }
+                    disabled={!selectedProduct}
                     className={`w-full px-4 py-1 rounded-md border ${
                       errors["loanRequest.purpose"]
                         ? "border-red-500 bg-red-50"
                         : "border-slate-300"
                     }
-          bg-white focus:ring-2 focus:ring-blue-500/20 
-          focus:border-blue-500 outline-none transition text-sm`}
+  bg-white focus:ring-2 focus:ring-blue-500/20 
+  focus:border-blue-500 outline-none transition text-sm`}
                   >
-                    <option value="">Select Purpose</option>
-                    <option value="purchase">Purchase</option>
-                    <option value="refinance">Refinance</option>
-                    <option value="purchase_rehab">Purchase & Rehab</option>
-                    <option value="cash_out_refinance">
-                      Cash Out Refinance
+                    <option value="">
+                      {selectedProduct
+                        ? "Select Purpose"
+                        : "Select program first"}
                     </option>
-                    <option value="business_acquisition">
-                      Business Acquisition
-                    </option>
-                    <option value="new_construction">New Construction</option>
-                    <option value="refinance_rehab">Refinance & Rehab</option>
+
+                    {purposesToShow.map((purpose) => (
+                      <option key={purpose} value={purpose}>
+                        {purpose}
+                      </option>
+                    ))}
                   </select>
                   {errors["loanRequest.purpose"] && (
                     <p className="text-xs text-red-500 mt-1">
