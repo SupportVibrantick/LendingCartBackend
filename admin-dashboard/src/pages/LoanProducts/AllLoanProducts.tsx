@@ -50,15 +50,23 @@ function statusClass(status?: string) {
 
 // keep options in sync with Prisma enum LoanProductCode
 const LOAN_PRODUCT_CODES: { value: string; label: string }[] = [
-
   /* ================= SBA / GOVERNMENT ================= */
   { value: "SBA_7A", label: "SBA 7(a) Loan" },
-  { value: "SBA_7A_BUSINESS_ACQUISITION", label: "SBA 7(a) - Business Acquisition" },
+  {
+    value: "SBA_7A_BUSINESS_ACQUISITION",
+    label: "SBA 7(a) - Business Acquisition",
+  },
   { value: "SBA_7A_WORKING_CAPITAL", label: "SBA 7(a) - Working Capital" },
-  { value: "SBA_7A_EQUIPMENT_PURCHASE", label: "SBA 7(a) - Equipment Purchase" },
+  {
+    value: "SBA_7A_EQUIPMENT_PURCHASE",
+    label: "SBA 7(a) - Equipment Purchase",
+  },
   { value: "SBA_7A_REAL_ESTATE", label: "SBA 7(a) - Real Estate" },
   { value: "SBA_504", label: "SBA 504 Loan" },
-  { value: "SBA_504_REAL_ESTATE_EQUIPMENT", label: "SBA 504 - Real Estate & Equipment" },
+  {
+    value: "SBA_504_REAL_ESTATE_EQUIPMENT",
+    label: "SBA 504 - Real Estate & Equipment",
+  },
   { value: "SBA_EXPRESS", label: "SBA Express Loan" },
   { value: "SBA_CAPLINES", label: "SBA CAPLines" },
   { value: "SBA_MICROLOAN", label: "SBA Microloan" },
@@ -84,7 +92,10 @@ const LOAN_PRODUCT_CODES: { value: string; label: string }[] = [
   { value: "CRE_PURCHASE", label: "Commercial Real Estate Purchase" },
   { value: "CRE_REFINANCE", label: "Commercial Real Estate Refinance" },
   { value: "CRE_CASH_OUT", label: "Commercial Cash-Out Refinance" },
-  { value: "OWNER_OCCUPIED_CRE", label: "Owner-Occupied Commercial Real Estate" },
+  {
+    value: "OWNER_OCCUPIED_CRE",
+    label: "Owner-Occupied Commercial Real Estate",
+  },
   { value: "INVESTOR_CRE", label: "Investor Commercial Real Estate" },
 
   /* ================= CONSTRUCTION ================= */
@@ -129,7 +140,10 @@ const LOAN_PRODUCT_CODES: { value: string; label: string }[] = [
   { value: "ASSET_BASED_LENDING", label: "Asset Based Lending" },
   { value: "INVOICE_FACTORING", label: "Invoice Factoring" },
   { value: "PURCHASE_ORDER_FINANCE", label: "Purchase Order Finance" },
-  { value: "ACCOUNTS_RECEIVABLE_FINANCE", label: "Accounts Receivable Finance" },
+  {
+    value: "ACCOUNTS_RECEIVABLE_FINANCE",
+    label: "Accounts Receivable Finance",
+  },
   { value: "ACCOUNTS_PAYABLE_FINANCE", label: "Accounts Payable Finance" },
   { value: "INVENTORY_FINANCE", label: "Inventory Finance" },
   { value: "TRADE_FINANCE", label: "Trade Finance" },
@@ -137,7 +151,10 @@ const LOAN_PRODUCT_CODES: { value: string; label: string }[] = [
   /* ================= PRIVATE CREDIT ================= */
   { value: "PRIVATE_CREDIT", label: "Private Credit Loan" },
   { value: "MEZZANINE_FINANCE", label: "Mezzanine Financing" },
-  { value: "MEZZ_FINANCE_PREF_EQUITY", label: "Mezz Finance / Preferred Equity" },
+  {
+    value: "MEZZ_FINANCE_PREF_EQUITY",
+    label: "Mezz Finance / Preferred Equity",
+  },
   { value: "VENTURE_DEBT", label: "Venture Debt" },
   { value: "MERCHANT_CASH_ADVANCE", label: "Merchant Cash Advance" },
   { value: "REVENUE_BASED_FINANCE", label: "Revenue Based Financing" },
@@ -164,8 +181,7 @@ const LOAN_PRODUCT_CODES: { value: string; label: string }[] = [
   { value: "HELOC", label: "Home Equity Line of Credit" },
   { value: "HOME_EQUITY", label: "Home Equity Loan" },
   { value: "PAYDAY_LOAN", label: "Payday Loan" },
-  { value: "BNPL", label: "Buy Now Pay Later (BNPL)" }
-
+  { value: "BNPL", label: "Buy Now Pay Later (BNPL)" },
 ];
 
 const AllLoanProducts: React.FC = () => {
