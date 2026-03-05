@@ -1,4 +1,5 @@
 // routes/admin/lenders/update.js
+
 const { adminLogs } = require("../../../services/logger/contextLogger.js");
 const bcrypt = require("bcrypt");
 
@@ -11,42 +12,37 @@ async function updateLenderRoutes(fastify) {
     {
       schema: {
         tags: ["Admin -> Lenders"],
-        summary: "Update lender organization & admin user",
+        summary: "Update lender organization & admin",
         description:
-          "Updates a LENDER organization, its admin user (LENDER_ADMIN), and optionally broker-lender access.",
+          "Update lender organization details, lender admin user and broker access.",
         params: {
           type: "object",
+          required: ["id"],
           properties: {
             id: { type: "string", format: "uuid" },
           },
-          required: ["id"],
         },
         body: {
           type: "object",
           properties: {
-            // ORGANIZATION FIELDS
-            name: { type: "string" },
-            email: { type: "string", format: "email" },
-            phone: { type: "string" },
-            status: { type: "string", enum: ["ACTIVE", "INACTIVE"] },
-
-            // ADMIN USER FIELDS
-            admin: {
-              type: "object",
-              properties: {
-                firstName: { type: "string" },
-                lastName: { type: "string" },
-                email: { type: "string", format: "email" },
-                phone: { type: "string" },
-                status: {
-                  type: "string",
-                  enum: ["ACTIVE", "INVITED", "DISABLED"],
-                },
-                password: { type: "string" },
-              },
+            organizationName: { type: "string" },
+            organizationEmail: { type: "string", format: "email" },
+            organizationPhone: { type: "string" },
+            organizationStatus: {
+              type: "string",
+              enum: ["ACTIVE", "INACTIVE"],
             },
 
-            // OPTIONAL: broker reassignment
+            adminFirstName: { type: "string" },
+            adminLastName: { type: "string" },
+            adminEmail: { type: "string", format: "email" },
+            adminPhone: { type: "string" },
+            adminStatus: {
+              type: "string",
+              enum: ["ACTIVE", "INVITED", "DISABLED"],
+            },
+            adminPassword: { type: "string" },
+
             brokerOrgId: { type: "string", format: "uuid", nullable: true },
           },
         },
@@ -60,9 +56,9 @@ async function updateLenderRoutes(fastify) {
 
       try {
         // ===============================
-        // 1. CHECK IF LENDER EXISTS
+        // CHECK LENDER ORGANIZATION
         // ===============================
-        const existingOrg = await prisma.organization.findFirst({
+        const lenderOrg = await prisma.organization.findFirst({
           where: {
             id: lenderOrgId,
             type: "LENDER",
@@ -70,7 +66,7 @@ async function updateLenderRoutes(fastify) {
           },
         });
 
-        if (!existingOrg) {
+        if (!lenderOrg) {
           return reply.status(404).send({
             success: false,
             message: "Lender organization not found.",
@@ -78,7 +74,7 @@ async function updateLenderRoutes(fastify) {
         }
 
         // ===============================
-        // 2. VALIDATE BROKER ORG
+        // BROKER VALIDATION
         // ===============================
         let brokerOrg = null;
 
@@ -96,36 +92,68 @@ async function updateLenderRoutes(fastify) {
               success: false,
               message:
                 "Invalid brokerOrgId. Broker organization not found or inactive.",
+              field: "brokerOrgId",
             });
           }
         }
 
         // ===============================
-        // 3. DUPLICATE CHECK FOR ORG
+        // DUPLICATE CHECKS (ORG)
         // ===============================
-        if (body.name || body.email || body.phone) {
-          const duplicateOrg = await prisma.organization.findFirst({
+
+        if (body.organizationName) {
+          const exists = await prisma.organization.findFirst({
             where: {
+              name: body.organizationName,
               id: { not: lenderOrgId },
-              OR: [
-                body.name ? { name: body.name } : undefined,
-                body.email ? { email: body.email } : undefined,
-                body.phone ? { phone: body.phone } : undefined,
-              ].filter(Boolean),
             },
           });
 
-          if (duplicateOrg) {
+          if (exists) {
             return reply.status(409).send({
               success: false,
-              message:
-                "Another organization already uses this name, email, or phone.",
+              message: "Organization name already exists.",
+              field: "organizationName",
+            });
+          }
+        }
+
+        if (body.organizationEmail) {
+          const exists = await prisma.organization.findFirst({
+            where: {
+              email: body.organizationEmail,
+              id: { not: lenderOrgId },
+            },
+          });
+
+          if (exists) {
+            return reply.status(409).send({
+              success: false,
+              message: "Organization email already exists.",
+              field: "organizationEmail",
+            });
+          }
+        }
+
+        if (body.organizationPhone) {
+          const exists = await prisma.organization.findFirst({
+            where: {
+              phone: body.organizationPhone,
+              id: { not: lenderOrgId },
+            },
+          });
+
+          if (exists) {
+            return reply.status(409).send({
+              success: false,
+              message: "Organization phone already exists.",
+              field: "organizationPhone",
             });
           }
         }
 
         // ===============================
-        // 4. FIND LENDER ADMIN USER
+        // FIND ADMIN USER
         // ===============================
         const adminUserRole = await prisma.userRole.findFirst({
           where: {
@@ -135,90 +163,111 @@ async function updateLenderRoutes(fastify) {
           include: { user: true },
         });
 
-        const adminUser = adminUserRole?.user || null;
+        const adminUser = adminUserRole?.user;
+
+        if (!adminUser) {
+          return reply.status(404).send({
+            success: false,
+            message: "Lender admin user not found.",
+          });
+        }
 
         // ===============================
-        // 5. DUPLICATE CHECK FOR ADMIN EMAIL
+        // DUPLICATE ADMIN EMAIL
         // ===============================
         if (
-          body.admin?.email &&
-          adminUser &&
-          body.admin.email !== adminUser.email
+          body.adminEmail &&
+          body.adminEmail !== adminUser.email
         ) {
-          const duplicateUser = await prisma.userAccount.findFirst({
+          const exists = await prisma.userAccount.findFirst({
             where: {
-              email: body.admin.email,
+              email: body.adminEmail,
               id: { not: adminUser.id },
             },
           });
 
-          if (duplicateUser) {
+          if (exists) {
             return reply.status(409).send({
               success: false,
-              message: "Another user already uses this admin email.",
+              message: "Admin email already in use.",
+              field: "adminEmail",
             });
           }
         }
 
         // ===============================
-        // 6. TRANSACTION
+        // TRANSACTION
         // ===============================
+
         const result = await prisma.$transaction(async (tx) => {
           let updatedOrg = null;
           let updatedAdmin = null;
           let brokerAccessUpdated = false;
 
-          // -------------------------
+          // -------------------
           // UPDATE ORGANIZATION
-          // -------------------------
+          // -------------------
+
           const orgUpdates = {};
 
-          ["name", "email", "phone", "status"].forEach((key) => {
-            if (body[key] !== undefined) {
-              orgUpdates[key] = body[key];
-            }
-          });
+          if (body.organizationName)
+            orgUpdates.name = body.organizationName;
 
-          if (Object.keys(orgUpdates).length > 0) {
+          if (body.organizationEmail)
+            orgUpdates.email = body.organizationEmail;
+
+          if (body.organizationPhone)
+            orgUpdates.phone = body.organizationPhone;
+
+          if (body.organizationStatus)
+            orgUpdates.status = body.organizationStatus;
+
+          if (Object.keys(orgUpdates).length) {
             updatedOrg = await tx.organization.update({
               where: { id: lenderOrgId },
               data: orgUpdates,
             });
           }
 
-          // -------------------------
-          // UPDATE ADMIN USER
-          // -------------------------
-          if (adminUser && body.admin) {
-            const userUpdates = {};
+          // -------------------
+          // UPDATE ADMIN
+          // -------------------
 
-            ["firstName", "lastName", "email", "phone", "status"].forEach(
-              (key) => {
-                if (body.admin[key] !== undefined) {
-                  userUpdates[key] = body.admin[key];
-                }
-              }
+          const adminUpdates = {};
+
+          if (body.adminFirstName)
+            adminUpdates.firstName = body.adminFirstName;
+
+          if (body.adminLastName)
+            adminUpdates.lastName = body.adminLastName;
+
+          if (body.adminEmail)
+            adminUpdates.email = body.adminEmail;
+
+          if (body.adminPhone)
+            adminUpdates.phone = body.adminPhone;
+
+          if (body.adminStatus)
+            adminUpdates.status = body.adminStatus;
+
+          if (body.adminPassword) {
+            adminUpdates.passwordHash = await bcrypt.hash(
+              body.adminPassword,
+              10
             );
-
-            // password update
-            if (body.admin.password) {
-              userUpdates.passwordHash = await bcrypt.hash(
-                body.admin.password,
-                10
-              );
-            }
-
-            if (Object.keys(userUpdates).length > 0) {
-              updatedAdmin = await tx.userAccount.update({
-                where: { id: adminUser.id },
-                data: userUpdates,
-              });
-            }
           }
 
-          // -------------------------
-          // UPDATE BROKER ACCESS
-          // -------------------------
+          if (Object.keys(adminUpdates).length) {
+            updatedAdmin = await tx.userAccount.update({
+              where: { id: adminUser.id },
+              data: adminUpdates,
+            });
+          }
+
+          // -------------------
+          // BROKER ACCESS UPDATE
+          // -------------------
+
           if (body.brokerOrgId !== undefined) {
             await tx.brokerLenderAccess.deleteMany({
               where: { lenderOrgId },
@@ -245,18 +294,12 @@ async function updateLenderRoutes(fastify) {
           };
         });
 
-        // ===============================
-        // LOG SUCCESS
-        // ===============================
         adminLogs.info("Lender updated successfully", {
           lenderOrgId,
-          adminUserId: adminUser?.id || null,
+          adminUserId: adminUser.id,
           brokerAccessUpdated: result.brokerAccessUpdated,
         });
 
-        // ===============================
-        // RESPONSE
-        // ===============================
         return reply.send({
           success: true,
           message: "Lender updated successfully.",
