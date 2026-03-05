@@ -24,7 +24,7 @@ async function updateLenderRoutes(fastify) {
         body: {
           type: "object",
           properties: {
-            // ORG FIELDS
+            // ORGANIZATION FIELDS
             name: { type: "string" },
             email: { type: "string", format: "email" },
             phone: { type: "string" },
@@ -38,12 +38,15 @@ async function updateLenderRoutes(fastify) {
                 lastName: { type: "string" },
                 email: { type: "string", format: "email" },
                 phone: { type: "string" },
-                status: { type: "string", enum: ["ACTIVE", "INVITED", "DISABLED"] },
+                status: {
+                  type: "string",
+                  enum: ["ACTIVE", "INVITED", "DISABLED"],
+                },
                 password: { type: "string" },
               },
             },
 
-            // OPTIONAL: re-assign to broker
+            // OPTIONAL: broker reassignment
             brokerOrgId: { type: "string", format: "uuid", nullable: true },
           },
         },
@@ -56,9 +59,15 @@ async function updateLenderRoutes(fastify) {
       const body = request.body || {};
 
       try {
-        // ====== 1) Fetch lender org ======
+        // ===============================
+        // 1. CHECK IF LENDER EXISTS
+        // ===============================
         const existingOrg = await prisma.organization.findFirst({
-          where: { id: lenderOrgId, type: "LENDER", isDeleted: { not: true } },
+          where: {
+            id: lenderOrgId,
+            type: "LENDER",
+            isDeleted: { not: true },
+          },
         });
 
         if (!existingOrg) {
@@ -68,8 +77,11 @@ async function updateLenderRoutes(fastify) {
           });
         }
 
-        // ====== 2) Validate brokerOrgId ======
+        // ===============================
+        // 2. VALIDATE BROKER ORG
+        // ===============================
         let brokerOrg = null;
+
         if (body.brokerOrgId) {
           brokerOrg = await prisma.organization.findFirst({
             where: {
@@ -82,14 +94,17 @@ async function updateLenderRoutes(fastify) {
           if (!brokerOrg) {
             return reply.status(400).send({
               success: false,
-              message: "Invalid brokerOrgId. Broker not found or inactive.",
+              message:
+                "Invalid brokerOrgId. Broker organization not found or inactive.",
             });
           }
         }
 
-        // ====== 3) Duplicate checks ======
-        if (body.email || body.phone || body.name) {
-          const dup = await prisma.organization.findFirst({
+        // ===============================
+        // 3. DUPLICATE CHECK FOR ORG
+        // ===============================
+        if (body.name || body.email || body.phone) {
+          const duplicateOrg = await prisma.organization.findFirst({
             where: {
               id: { not: lenderOrgId },
               OR: [
@@ -100,15 +115,18 @@ async function updateLenderRoutes(fastify) {
             },
           });
 
-          if (dup) {
+          if (duplicateOrg) {
             return reply.status(409).send({
               success: false,
-              message: "Another organization already uses this name/email/phone.",
+              message:
+                "Another organization already uses this name, email, or phone.",
             });
           }
         }
 
-        // ====== 4) Find Admin User ======
+        // ===============================
+        // 4. FIND LENDER ADMIN USER
+        // ===============================
         const adminUserRole = await prisma.userRole.findFirst({
           where: {
             role: { name: "LENDER_ADMIN" },
@@ -119,13 +137,22 @@ async function updateLenderRoutes(fastify) {
 
         const adminUser = adminUserRole?.user || null;
 
-        // If admin.email is being changed → check duplicates
-        if (body.admin?.email && body.admin.email !== adminUser?.email) {
-          const dupUser = await prisma.userAccount.findFirst({
-            where: { email: body.admin.email },
+        // ===============================
+        // 5. DUPLICATE CHECK FOR ADMIN EMAIL
+        // ===============================
+        if (
+          body.admin?.email &&
+          adminUser &&
+          body.admin.email !== adminUser.email
+        ) {
+          const duplicateUser = await prisma.userAccount.findFirst({
+            where: {
+              email: body.admin.email,
+              id: { not: adminUser.id },
+            },
           });
 
-          if (dupUser) {
+          if (duplicateUser) {
             return reply.status(409).send({
               success: false,
               message: "Another user already uses this admin email.",
@@ -133,16 +160,23 @@ async function updateLenderRoutes(fastify) {
           }
         }
 
-        // ====== 5) TRANSACTION ======
+        // ===============================
+        // 6. TRANSACTION
+        // ===============================
         const result = await prisma.$transaction(async (tx) => {
           let updatedOrg = null;
           let updatedAdmin = null;
           let brokerAccessUpdated = false;
 
-          // --- update organization ---
+          // -------------------------
+          // UPDATE ORGANIZATION
+          // -------------------------
           const orgUpdates = {};
-          ["name", "email", "phone", "status"].forEach((k) => {
-            if (body[k] !== undefined) orgUpdates[k] = body[k];
+
+          ["name", "email", "phone", "status"].forEach((key) => {
+            if (body[key] !== undefined) {
+              orgUpdates[key] = body[key];
+            }
           });
 
           if (Object.keys(orgUpdates).length > 0) {
@@ -152,31 +186,44 @@ async function updateLenderRoutes(fastify) {
             });
           }
 
-          // --- update admin user ---
+          // -------------------------
+          // UPDATE ADMIN USER
+          // -------------------------
           if (adminUser && body.admin) {
             const userUpdates = {};
-            ["firstName", "lastName", "email", "phone", "status"].forEach((k) => {
-              if (body.admin[k] !== undefined) userUpdates[k] = body.admin[k];
-            });
 
+            ["firstName", "lastName", "email", "phone", "status"].forEach(
+              (key) => {
+                if (body.admin[key] !== undefined) {
+                  userUpdates[key] = body.admin[key];
+                }
+              }
+            );
+
+            // password update
             if (body.admin.password) {
-              userUpdates.passwordHash = await bcrypt.hash(body.admin.password, 10);
+              userUpdates.passwordHash = await bcrypt.hash(
+                body.admin.password,
+                10
+              );
             }
 
-            updatedAdmin = await tx.userAccount.update({
-              where: { id: adminUser.id },
-              data: userUpdates,
-            });
+            if (Object.keys(userUpdates).length > 0) {
+              updatedAdmin = await tx.userAccount.update({
+                where: { id: adminUser.id },
+                data: userUpdates,
+              });
+            }
           }
 
-          // --- update broker-lender access ---
+          // -------------------------
+          // UPDATE BROKER ACCESS
+          // -------------------------
           if (body.brokerOrgId !== undefined) {
-            // Delete old access
             await tx.brokerLenderAccess.deleteMany({
               where: { lenderOrgId },
             });
 
-            // Create new access if brokerOrgId provided
             if (brokerOrg) {
               await tx.brokerLenderAccess.create({
                 data: {
@@ -198,12 +245,18 @@ async function updateLenderRoutes(fastify) {
           };
         });
 
-        adminLogs.info("Lender updated", {
+        // ===============================
+        // LOG SUCCESS
+        // ===============================
+        adminLogs.info("Lender updated successfully", {
           lenderOrgId,
           adminUserId: adminUser?.id || null,
           brokerAccessUpdated: result.brokerAccessUpdated,
         });
 
+        // ===============================
+        // RESPONSE
+        // ===============================
         return reply.send({
           success: true,
           message: "Lender updated successfully.",
@@ -211,10 +264,14 @@ async function updateLenderRoutes(fastify) {
         });
       } catch (error) {
         adminLogs.error("Lender update failed", error);
+
         return reply.status(500).send({
           success: false,
           message: "Server error occurred while updating lender.",
-          details: process.env.NODE_ENV === "development" ? error.message : undefined,
+          details:
+            process.env.NODE_ENV === "development"
+              ? error.message
+              : undefined,
         });
       }
     }

@@ -43,7 +43,7 @@ const navItems: NavItem[] = [
     path: "/",
   },
 
-   {
+  {
     icon: <GroupsOutlinedIcon />,
     name: "Broker Database",
     path: "/all-brokers-database",
@@ -99,10 +99,10 @@ const navItems: NavItem[] = [
     ],
   },
 
-    {
+  {
     icon: <TrendingUp />,
     name: "Loan Pipeline",
-    path: "/loan-pipeline"
+    path: "/loan-pipeline",
   },
 
   {
@@ -418,31 +418,31 @@ const AppSidebar: React.FC = () => {
       onMouseLeave={() => setIsHovered(false)}
     >
       <div
-  className={`py-8 flex ${
-    !isExpanded && !isHovered ? "lg:justify-center" : "justify-start"
-  }`}
->
-  <Link to="/">
-    {isExpanded || isHovered || isMobileOpen ? (
-      <div className="bg-white px-3 py-2 rounded">
-        <img
-          src="/ACOM_LOGO.png"
-          alt="Logo"
-          width={217}
-          height={53}
-          className="object-contain"
-        />
+        className={`py-8 flex ${
+          !isExpanded && !isHovered ? "lg:justify-center" : "justify-start"
+        }`}
+      >
+        <Link to="/">
+          {isExpanded || isHovered || isMobileOpen ? (
+            <div className="bg-white px-3 py-2 rounded">
+              <img
+                src="/ACOM_LOGO.png"
+                alt="Logo"
+                width={217}
+                height={53}
+                className="object-contain"
+              />
+            </div>
+          ) : (
+            <img
+              src="/images/logo/logo-icon.svg"
+              alt="Logo"
+              width={32}
+              height={32}
+            />
+          )}
+        </Link>
       </div>
-    ) : (
-      <img
-        src="/images/logo/logo-icon.svg"
-        alt="Logo"
-        width={32}
-        height={32}
-      />
-    )}
-  </Link>
-</div>
       <div className="flex flex-col overflow-y-auto duration-300 ease-linear no-scrollbar">
         <nav className="mb-6">
           <div className="flex flex-col gap-4">
