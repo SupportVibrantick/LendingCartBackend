@@ -27,6 +27,7 @@ Swal.mixin({
 });
 import { Eye, EyeOff } from "lucide-react";
 import LenderProductAssign from "../LoanProducts/LenderAssignProduct";
+import toast from "react-hot-toast";
 
 type Lender = {
   id: any;
@@ -39,6 +40,10 @@ type Lender = {
   profileImage?: string | null;
 
   brokerOrgId?: string;
+
+  adminFirstName?: string;
+  adminLastName?: string;
+  adminEmail?: string;
 };
 
 type Admin = {
@@ -202,11 +207,17 @@ export default function AllLendersPage() {
   };
 
   // -------- LENDERS LIST --------
-  async function fetchLenders() {
+  async function fetchLenders(searchValue?: string) {
     setLoading(true);
+
     try {
       const headers = getAuthHeaders();
-      const res = await fetch(`${API_BASE}/admin/lenders/read/`, {
+
+      const url = searchValue
+        ? `${API_BASE}/admin/lenders/read?search=${encodeURIComponent(searchValue)}`
+        : `${API_BASE}/admin/lenders/read`;
+
+      const res = await fetch(url, {
         method: "GET",
         headers,
       });
@@ -214,29 +225,27 @@ export default function AllLendersPage() {
       if (!res.ok) throw new Error(`Failed to fetch lenders: ${res.status}`);
 
       const json = await res.json();
-      const list = Array.isArray(json)
-        ? json
-        : json.data?.results || json.data || [];
 
-      const normalized: Lender[] = (list as any[]).map(
-        (o: any, idx: number) => {
-          const id = o.id ?? idx + 1;
-          return {
-            id,
-            name: o.name ?? o.organizationName ?? "",
-            email: o.email ?? o.organizationEmail ?? "",
-            phone: o.phone ?? o.organizationPhone ?? "",
-            brokerName: o.brokerLenderAccessAsLender?.[0]?.broker?.name || null,
-            status: o.status ?? "UNKNOWN",
-            createdAt: o.createdAt,
-            profileImage: o.profileImage || null,
-          };
-        },
-      );
+      const list = json?.data?.results || [];
+
+      const normalized: Lender[] = list.map((o: any) => ({
+        id: o.id,
+        name: o.organizationName,
+        email: o.organizationEmail,
+        phone: o.organizationPhone,
+        status: o.organizationStatus,
+        adminFirstName: o.adminFirstName,
+        adminLastName: o.adminLastName,
+        adminEmail: o.adminEmail,
+        brokerOrgId: o.brokerOrgId,
+        brokerName: o.brokerName,
+        createdAt: o.createdAt,
+        profileImage: null,
+      }));
 
       setLenders(normalized);
     } catch (err) {
-      console.error(err);
+      console.error("Fetch lenders failed:", err);
     } finally {
       setLoading(false);
     }
@@ -402,19 +411,7 @@ export default function AllLendersPage() {
     }
   };
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return lenders;
-    return lenders.filter((b) => {
-      return (
-        (b.name || "").toLowerCase().includes(q) ||
-        (b.email || "").toLowerCase().includes(q) ||
-        (b.phone || "").toLowerCase().includes(q) ||
-        (b.status || "").toLowerCase().includes(q) ||
-        (b.brokerName || "").toLowerCase().includes(q)
-      );
-    });
-  }, [lenders, query]);
+  const filtered = lenders;
 
   const total = filtered.length;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -439,59 +436,91 @@ export default function AllLendersPage() {
     try {
       const token = sessionStorage.getItem("admin_token");
 
-      const res = await fetch(`${API_BASE}/admin/lenders/read/${b.id}`, {
+      const res = await fetch(`${API_BASE}/admin/lenders/read?search=${b.id}`, {
         headers: {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
       });
 
+      if (!res.ok) throw new Error("Failed to fetch lender");
+
       const json = await res.json();
 
-      // ✅ CORRECT PATH FROM YOUR RESPONSE
-      const brokerOrgId =
-        json?.data?.organization?.brokerLenderAccessAsLender?.[0]
-          ?.brokerOrgId || "";
+      const lender = json?.data?.results?.[0];
+
+      if (!lender) {
+        toast.error("Lender not found");
+        return;
+      }
 
       setEditingLender({
-        ...b,
-        brokerOrgId, // ✅ THIS MAKES DROPDOWN SELECTED
+        id: lender.id,
+
+        name: lender.organizationName,
+        email: lender.organizationEmail,
+        phone: lender.organizationPhone,
+
+        brokerOrgId: lender.brokerOrgId || "",
+
+        adminFirstName: lender.adminFirstName || "",
+        adminLastName: lender.adminLastName || "",
+        adminEmail: lender.adminEmail || "",
       });
     } catch (err) {
       console.error("Failed to load lender details", err);
+      toast.error("Failed to load lender details");
     }
   };
 
   const handleEditSave = async (payload: {
-    id: any;
+    id: string;
     name: string;
     email: string;
     phone: string;
     brokerOrgId: string | null;
+    adminFirstName?: string;
+    adminLastName?: string;
+    adminEmail?: string;
   }) => {
-    setEditingLender(null);
-
     try {
       const token = sessionStorage.getItem("admin_token");
 
-      await fetch(`${API_BASE}/admin/lenders/update/${payload.id}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({
-          name: payload.name,
-          email: payload.email,
-          phone: payload.phone,
-          brokerOrgId: payload.brokerOrgId,
-        }),
-      });
+      const res = await fetch(
+        `${API_BASE}/admin/lenders/update/${payload.id}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({
+            organizationName: payload.name,
+            organizationEmail: payload.email,
+            organizationPhone: payload.phone,
 
-      // refresh list safely
+            adminFirstName: payload.adminFirstName,
+            adminLastName: payload.adminLastName,
+            adminEmail: payload.adminEmail,
+
+            brokerOrgId: payload.brokerOrgId,
+          }),
+        },
+      );
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err?.message || "Update failed");
+      }
+
+      toast.success("Lender updated successfully");
+
+      setEditingLender(null);
+
       await fetchLenders();
     } catch (err) {
       console.error("Failed to update lender:", err);
+      toast.error("Failed to update lender");
     }
   };
 
@@ -613,12 +642,12 @@ export default function AllLendersPage() {
     }
   }
 
-  const openAdminsFor = async (lender: Lender) => {
-    setShowAdminsFor(lender);
-    setEditingAdminId(null);
-    setAdminEditForm({});
-    await fetchAdmins(lender.id);
-  };
+  // const openAdminsFor = async (lender: Lender) => {
+  //   // setShowAdminsFor(lender);
+  //   // setEditingAdminId(null);
+  //   // setAdminEditForm({});
+  //   await fetchAdmins(lender.id);
+  // };
 
   const closeAdmins = () => {
     setShowAdminsFor(null);
@@ -748,7 +777,7 @@ export default function AllLendersPage() {
 
           <div className="flex items-center gap-3">
             <button
-              onClick={fetchLenders}
+              onClick={() => fetchLenders()}
               disabled={loading}
               className="group flex items-center justify-center w-10 h-10 rounded-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-all active:scale-95 disabled:opacity-50"
               title="Refresh List"
@@ -864,8 +893,10 @@ export default function AllLendersPage() {
             <input
               value={query}
               onChange={(e) => {
+                const value = e.target.value;
+                setQuery(value);
                 setCurrentPage(1);
-                setQuery(e.target.value);
+                fetchLenders(value);
               }}
               placeholder="Search by name, email, phone or status..."
               className="text-sm w-full pl-12 pr-4 py-2 bg-transparent border-none focus:ring-2 focus:ring-blue-500/20 rounded-xl text-slate-700 dark:text-slate-200 placeholder:text-slate-400"
@@ -1030,7 +1061,7 @@ export default function AllLendersPage() {
                   <div className="flex-1 min-w-0 pr-16">
                     <h3
                       className="text-base font-bold text-slate-900 dark:text-white truncate group-hover:text-blue-600 transition-colors cursor-pointer"
-                      onClick={() => openAdminsFor(l)}
+                      // onClick={() => openAdminsFor(l)}
                     >
                       {l.name}
                     </h3>
