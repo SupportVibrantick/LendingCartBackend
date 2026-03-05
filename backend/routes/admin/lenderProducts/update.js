@@ -54,22 +54,21 @@ async function updateLenderProductRoutes(fastify) {
 
         // ---------------------------
         // Prepare update payload
-        // (same logic as create API)
         // ---------------------------
         const updatePayload = {
           businessTypes: data.businessTypes
             ? data.businessTypes.join(",")
             : undefined,
 
-          equipmentTypes: isEquipmentFinance
-            ? data.equipmentTypes
+          equipmentTypes:
+            isEquipmentFinance && data.equipmentTypes?.length
               ? data.equipmentTypes.join(",")
-              : undefined
-            : undefined,
+              : undefined,
 
-          otherEquipmentExplanation: isEquipmentFinance
-            ? (data.otherEquipmentExplanation ?? undefined)
-            : undefined,
+          otherEquipmentExplanation:
+            isEquipmentFinance
+              ? data.otherEquipmentExplanation ?? undefined
+              : undefined,
 
           minLoanAmount: data.minLoanAmount
             ? new Prisma.Decimal(data.minLoanAmount)

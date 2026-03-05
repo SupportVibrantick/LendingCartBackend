@@ -88,7 +88,9 @@ async function createLenderProductRoutes(fastify) {
         const createPayload = loanProducts
           .filter((p) => !existingCodes.has(p.code))
           .map((product) => {
-            const isEquipmentFinance = product.code === "EQUIPMENT_FINANCE";
+
+            const isEquipmentFinance =
+              product.code === "EQUIPMENT_FINANCE";
 
             return {
               lenderOrgId: data.lenderOrgId,
@@ -97,13 +99,16 @@ async function createLenderProductRoutes(fastify) {
 
               businessTypes: data.businessTypes?.join(",") ?? null,
 
-              equipmentTypes: isEquipmentFinance
-                ? (data.equipmentTypes?.join(",") ?? null)
-                : null,
+              // equipment fields only for equipment finance
+              equipmentTypes:
+                isEquipmentFinance && data.equipmentTypes?.length
+                  ? data.equipmentTypes.join(",")
+                  : null,
 
-              otherEquipmentExplanation: isEquipmentFinance
-                ? (data.otherEquipmentExplanation ?? null)
-                : null,
+              otherEquipmentExplanation:
+                isEquipmentFinance
+                  ? data.otherEquipmentExplanation ?? null
+                  : null,
 
               minLoanAmount: data.minLoanAmount
                 ? new Prisma.Decimal(data.minLoanAmount)
@@ -138,15 +143,18 @@ async function createLenderProductRoutes(fastify) {
         if (!createPayload.length) {
           return reply.status(409).send({
             success: false,
-            message: "All loan products are already assigned to this lender.",
+            message:
+              "All loan products are already assigned to this lender.",
           });
         }
 
         // ---------------------------
-        // Create records (transaction)
+        // Create records
         // ---------------------------
         const created = await prisma.$transaction(
-          createPayload.map((d) => prisma.lenderProduct.create({ data: d })),
+          createPayload.map((d) =>
+            prisma.lenderProduct.create({ data: d })
+          )
         );
 
         return reply.status(201).send({
@@ -161,10 +169,11 @@ async function createLenderProductRoutes(fastify) {
 
         return reply.status(500).send({
           success: false,
-          message: "Server error while creating lender products",
+          message:
+            "Server error while creating lender products",
         });
       }
-    },
+    }
   );
 }
 
