@@ -53,24 +53,10 @@ async function listLenderProductsByLenderRoutes(fastify) {
               },
             },
           },
-          orderBy: { createdAt: "desc" },
+          orderBy: {
+            createdAt: "desc",
+          },
         });
-
-        // ---------------------------
-        // Transform CSV → arrays
-        // ---------------------------
-        const formatted = products.map((p) => ({
-          ...p,
-          businessTypes: p.businessTypes
-            ? p.businessTypes.split(",")
-            : [],
-          equipmentTypes: p.equipmentTypes
-            ? p.equipmentTypes.split(",")
-            : [],
-          statesSupported: p.statesSupported
-            ? p.statesSupported.split(",")
-            : [],
-        }));
 
         // ---------------------------
         // Response
@@ -81,9 +67,10 @@ async function listLenderProductsByLenderRoutes(fastify) {
             id: lender.id,
             name: lender.name,
           },
-          count: formatted.length,
-          data: formatted,
+          count: products.length,
+          data: products,
         });
+
       } catch (error) {
         fastify.log.error(error);
 
