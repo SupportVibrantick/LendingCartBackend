@@ -20,9 +20,6 @@ async function updateLenderProductRoutes(fastify) {
       try {
         const productId = request.params.id;
 
-        // ---------------------------
-        // Validate request body
-        // ---------------------------
         const parsed = updateLenderProductSchema.safeParse(request.body);
 
         if (!parsed.success) {
@@ -36,7 +33,7 @@ async function updateLenderProductRoutes(fastify) {
         const data = parsed.data;
 
         // ---------------------------
-        // Check if lender product exists
+        // Check existing mapping
         // ---------------------------
         const exists = await prisma.lenderProduct.findUnique({
           where: { id: productId },
@@ -70,24 +67,28 @@ async function updateLenderProductRoutes(fastify) {
               ? data.otherEquipmentExplanation ?? undefined
               : undefined,
 
-          minLoanAmount: data.minLoanAmount
-            ? new Prisma.Decimal(data.minLoanAmount)
-            : undefined,
+          minLoanAmount:
+            data.minLoanAmount !== undefined
+              ? new Prisma.Decimal(data.minLoanAmount)
+              : undefined,
 
-          maxLoanAmount: data.maxLoanAmount
-            ? new Prisma.Decimal(data.maxLoanAmount)
-            : undefined,
+          maxLoanAmount:
+            data.maxLoanAmount !== undefined
+              ? new Prisma.Decimal(data.maxLoanAmount)
+              : undefined,
 
           minTermMonths: data.minTermMonths ?? undefined,
           maxTermMonths: data.maxTermMonths ?? undefined,
 
-          minLtvPercent: data.minLtvPercent
-            ? new Prisma.Decimal(data.minLtvPercent)
-            : undefined,
+          minLtvPercent:
+            data.minLtvPercent !== undefined
+              ? new Prisma.Decimal(data.minLtvPercent)
+              : undefined,
 
-          maxLtvPercent: data.maxLtvPercent
-            ? new Prisma.Decimal(data.maxLtvPercent)
-            : undefined,
+          maxLtvPercent:
+            data.maxLtvPercent !== undefined
+              ? new Prisma.Decimal(data.maxLtvPercent)
+              : undefined,
 
           minCreditScore: data.minCreditScore ?? undefined,
           minExperience: data.minExperience ?? undefined,
@@ -102,12 +103,29 @@ async function updateLenderProductRoutes(fastify) {
         };
 
         // ---------------------------
-        // Update record
+        // Update current product
         // ---------------------------
         const updated = await prisma.lenderProduct.update({
           where: { id: productId },
           data: updatePayload,
         });
+
+        // ---------------------------
+        // Deactivate deselected products
+        // ---------------------------
+        if (data.loanProductCodes?.length) {
+          await prisma.lenderProduct.updateMany({
+            where: {
+              lenderOrgId: exists.lenderOrgId,
+              loanProductCode: {
+                notIn: data.loanProductCodes,
+              },
+            },
+            data: {
+              isActive: false,
+            },
+          });
+        }
 
         return reply.send({
           success: true,
@@ -122,7 +140,7 @@ async function updateLenderProductRoutes(fastify) {
           message: "Server error while updating lender product",
         });
       }
-    },
+    }
   );
 }
 

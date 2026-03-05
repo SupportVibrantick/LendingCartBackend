@@ -1,11 +1,14 @@
 // schemas/admin/lenderProducts/update.schema.js
+
 const { z } = require("zod");
 const { LoanProductCode } = require("@prisma/client");
 
 const decimalField = z.union([z.string(), z.number()]).optional();
 
 const updateLenderProductSchema = z.object({
-  loanProductCode: z.nativeEnum(LoanProductCode).optional(),
+
+  // for deselect logic
+  loanProductCodes: z.array(z.nativeEnum(LoanProductCode)).optional(),
 
   businessTypes: z.array(z.string()).optional(),
 
