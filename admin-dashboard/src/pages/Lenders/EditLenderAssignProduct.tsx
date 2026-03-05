@@ -366,7 +366,7 @@ export default function EditLenderAssignProduct({
         const ids: Record<string, string> = {};
 
         lenderProducts.forEach((p: any) => {
-          ids[p.loanProductCode] = p.loanProductId;
+          ids[p.loanProductCode] = p.id;
         });
 
         setProductIds(ids);
