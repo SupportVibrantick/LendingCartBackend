@@ -248,6 +248,9 @@ model LenderProduct {
 
   businessTypes String?
 
+  equipmentTypes String? 
+  otherEquipmentExplanation String?
+
   minLoanAmount Decimal? @db.Decimal(20, 2)
   maxLoanAmount Decimal? @db.Decimal(20, 2)
 

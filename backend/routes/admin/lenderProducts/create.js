@@ -80,50 +80,60 @@ async function createLenderProductRoutes(fastify) {
           select: { loanProductCode: true },
         });
 
-        const existingCodes = new Set(
-          existing.map((e) => e.loanProductCode)
-        );
+        const existingCodes = new Set(existing.map((e) => e.loanProductCode));
 
         // ---------------------------
         // Prepare create payload
         // ---------------------------
         const createPayload = loanProducts
           .filter((p) => !existingCodes.has(p.code))
-          .map((product) => ({
-            lenderOrgId: data.lenderOrgId,
-            loanProductId: product.id,
-            loanProductCode: product.code,
+          .map((product) => {
+            const isEquipmentFinance = product.code === "EQUIPMENT_FINANCE";
 
-            businessTypes: data.businessTypes?.join(",") ?? null,
+            return {
+              lenderOrgId: data.lenderOrgId,
+              loanProductId: product.id,
+              loanProductCode: product.code,
 
-            minLoanAmount: data.minLoanAmount
-              ? new Prisma.Decimal(data.minLoanAmount)
-              : null,
+              businessTypes: data.businessTypes?.join(",") ?? null,
 
-            maxLoanAmount: data.maxLoanAmount
-              ? new Prisma.Decimal(data.maxLoanAmount)
-              : null,
+              equipmentTypes: isEquipmentFinance
+                ? (data.equipmentTypes?.join(",") ?? null)
+                : null,
 
-            minTermMonths: data.minTermMonths ?? null,
-            maxTermMonths: data.maxTermMonths ?? null,
+              otherEquipmentExplanation: isEquipmentFinance
+                ? (data.otherEquipmentExplanation ?? null)
+                : null,
 
-            minLtvPercent: data.minLtvPercent
-              ? new Prisma.Decimal(data.minLtvPercent)
-              : null,
+              minLoanAmount: data.minLoanAmount
+                ? new Prisma.Decimal(data.minLoanAmount)
+                : null,
 
-            maxLtvPercent: data.maxLtvPercent
-              ? new Prisma.Decimal(data.maxLtvPercent)
-              : null,
+              maxLoanAmount: data.maxLoanAmount
+                ? new Prisma.Decimal(data.maxLoanAmount)
+                : null,
 
-            minCreditScore: data.minCreditScore ?? null,
-            minExperience: data.minExperience ?? null,
+              minTermMonths: data.minTermMonths ?? null,
+              maxTermMonths: data.maxTermMonths ?? null,
 
-            interestRateRange: data.interestRateRange ?? null,
+              minLtvPercent: data.minLtvPercent
+                ? new Prisma.Decimal(data.minLtvPercent)
+                : null,
 
-            statesSupported: data.statesSupported?.join(",") ?? null,
+              maxLtvPercent: data.maxLtvPercent
+                ? new Prisma.Decimal(data.maxLtvPercent)
+                : null,
 
-            isActive: data.isActive ?? true,
-          }));
+              minCreditScore: data.minCreditScore ?? null,
+              minExperience: data.minExperience ?? null,
+
+              interestRateRange: data.interestRateRange ?? null,
+
+              statesSupported: data.statesSupported?.join(",") ?? null,
+
+              isActive: data.isActive ?? true,
+            };
+          });
 
         if (!createPayload.length) {
           return reply.status(409).send({
@@ -136,9 +146,7 @@ async function createLenderProductRoutes(fastify) {
         // Create records (transaction)
         // ---------------------------
         const created = await prisma.$transaction(
-          createPayload.map((d) =>
-            prisma.lenderProduct.create({ data: d })
-          )
+          createPayload.map((d) => prisma.lenderProduct.create({ data: d })),
         );
 
         return reply.status(201).send({
@@ -156,7 +164,7 @@ async function createLenderProductRoutes(fastify) {
           message: "Server error while creating lender products",
         });
       }
-    }
+    },
   );
 }
 

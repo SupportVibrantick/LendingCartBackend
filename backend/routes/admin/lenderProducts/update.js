@@ -49,6 +49,9 @@ async function updateLenderProductRoutes(fastify) {
           });
         }
 
+        const isEquipmentFinance =
+          exists.loanProductCode === "EQUIPMENT_FINANCE";
+
         // ---------------------------
         // Prepare update payload
         // (same logic as create API)
@@ -56,6 +59,16 @@ async function updateLenderProductRoutes(fastify) {
         const updatePayload = {
           businessTypes: data.businessTypes
             ? data.businessTypes.join(",")
+            : undefined,
+
+          equipmentTypes: isEquipmentFinance
+            ? data.equipmentTypes
+              ? data.equipmentTypes.join(",")
+              : undefined
+            : undefined,
+
+          otherEquipmentExplanation: isEquipmentFinance
+            ? (data.otherEquipmentExplanation ?? undefined)
             : undefined,
 
           minLoanAmount: data.minLoanAmount
@@ -110,7 +123,7 @@ async function updateLenderProductRoutes(fastify) {
           message: "Server error while updating lender product",
         });
       }
-    }
+    },
   );
 }
 
