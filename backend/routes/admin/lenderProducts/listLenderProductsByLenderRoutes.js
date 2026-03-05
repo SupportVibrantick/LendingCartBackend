@@ -49,7 +49,7 @@ async function listLenderProductsByLenderRoutes(fastify) {
         const result = await prisma.lenderProduct.findMany({
           where: {
             lenderOrgId,
-            isActive: true, // only active mappings
+            isActive: true,
           },
           include: {
             loanProduct: {
@@ -66,30 +66,14 @@ async function listLenderProductsByLenderRoutes(fastify) {
         });
 
         // ---------------------------
-        // Normalize response
+        // Return response
         // ---------------------------
-        const formatted = result.map((item) => ({
-          ...item,
-
-          businessTypes: item.businessTypes
-            ? item.businessTypes.split(",")
-            : [],
-
-          equipmentTypes: item.equipmentTypes
-            ? item.equipmentTypes.split(",")
-            : [],
-
-          statesSupported: item.statesSupported
-            ? item.statesSupported.split(",")
-            : [],
-        }));
-
         return reply.send({
           success: true,
-          lender: lender,
+          lender,
           lenderOrgId,
-          count: formatted.length,
-          data: formatted,
+          count: result.length,
+          data: result,
         });
       } catch (error) {
         fastify.log.error(error);
