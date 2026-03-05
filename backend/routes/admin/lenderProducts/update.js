@@ -34,7 +34,7 @@ async function updateLenderProductRoutes(fastify) {
         const data = parsed.data;
 
         // ---------------------------
-        // Check existing product
+        // Check existing lender product
         // ---------------------------
         const exists = await prisma.lenderProduct.findUnique({
           where: { id: productId },
@@ -109,9 +109,7 @@ async function updateLenderProductRoutes(fastify) {
           updatePayload.isActive = data.isActive;
         }
 
-        // ---------------------------
         // Prevent empty update
-        // ---------------------------
         if (Object.keys(updatePayload).length === 0) {
           return reply.status(400).send({
             success: false,
@@ -120,11 +118,20 @@ async function updateLenderProductRoutes(fastify) {
         }
 
         // ---------------------------
-        // Update selected product
+        // Update lender product
         // ---------------------------
         const updatedProduct = await prisma.lenderProduct.update({
           where: { id: productId },
           data: updatePayload,
+          include: {
+            loanProduct: {
+              select: {
+                id: true,
+                name: true,
+                code: true,
+              },
+            },
+          },
         });
 
         // ---------------------------
@@ -145,11 +152,20 @@ async function updateLenderProductRoutes(fastify) {
         }
 
         // ---------------------------
-        // Return updated list
+        // Return final lender products
         // ---------------------------
         const finalProducts = await prisma.lenderProduct.findMany({
           where: {
             lenderOrgId: exists.lenderOrgId,
+          },
+          include: {
+            loanProduct: {
+              select: {
+                id: true,
+                name: true,
+                code: true,
+              },
+            },
           },
           orderBy: {
             createdAt: "desc",
