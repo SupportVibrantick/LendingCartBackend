@@ -37,6 +37,15 @@ async function listLendersRoutes(fastify) {
         const search = (request.query.search || "").trim();
 
         // -----------------------------
+        // UUID DETECTION
+        // -----------------------------
+
+        const isUUID =
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+            search
+          );
+
+        // -----------------------------
         // WHERE FILTER
         // -----------------------------
 
@@ -46,8 +55,12 @@ async function listLendersRoutes(fastify) {
 
           ...(search && {
             OR: [
+              ...(isUUID ? [{ id: search }] : []),
+
               { name: { contains: search, mode: "insensitive" } },
+
               { email: { contains: search, mode: "insensitive" } },
+
               { phone: { contains: search, mode: "insensitive" } },
             ],
           }),
@@ -83,6 +96,7 @@ async function listLendersRoutes(fastify) {
                   lastName: true,
                   status: true,
                 },
+                take: 1,
               },
 
               // BROKER ACCESS
@@ -110,7 +124,6 @@ async function listLendersRoutes(fastify) {
 
         const results = lenders.map((org) => {
           const adminUser = org.users?.[0] || null;
-
           const brokerAccess = org.brokerLenderAccessAsLender?.[0];
 
           return {
