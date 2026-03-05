@@ -52,7 +52,7 @@ async function updateLenderProductRoutes(fastify) {
         // ---------------------------
         // Business Types
         // ---------------------------
-        if (data.businessTypes) {
+        if (data.businessTypes !== undefined) {
           updatePayload.businessTypes = Array.isArray(data.businessTypes)
             ? data.businessTypes.join(",")
             : data.businessTypes;
@@ -61,7 +61,7 @@ async function updateLenderProductRoutes(fastify) {
         // ---------------------------
         // Equipment Types
         // ---------------------------
-        if (isEquipmentFinance && data.equipmentTypes) {
+        if (isEquipmentFinance && data.equipmentTypes !== undefined) {
           updatePayload.equipmentTypes = Array.isArray(data.equipmentTypes)
             ? data.equipmentTypes.join(",")
             : data.equipmentTypes;
@@ -123,7 +123,7 @@ async function updateLenderProductRoutes(fastify) {
         // ---------------------------
         // States
         // ---------------------------
-        if (data.statesSupported) {
+        if (data.statesSupported !== undefined) {
           updatePayload.statesSupported = Array.isArray(data.statesSupported)
             ? data.statesSupported.join(",")
             : data.statesSupported;

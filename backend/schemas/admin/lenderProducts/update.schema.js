@@ -10,9 +10,9 @@ const updateLenderProductSchema = z.object({
   // for deselect logic
   loanProductCodes: z.array(z.nativeEnum(LoanProductCode)).optional(),
 
-  businessTypes: z.array(z.string()).optional(),
+  businessTypes: z.string().optional(),
 
-  equipmentTypes: z.array(z.string()).optional(),
+  equipmentTypes: z.string().optional(),
   otherEquipmentExplanation: z.string().optional(),
 
   minLoanAmount: decimalField,
@@ -29,7 +29,7 @@ const updateLenderProductSchema = z.object({
 
   interestRateRange: z.string().optional(),
 
-  statesSupported: z.array(z.string()).optional(),
+  statesSupported: z.string().optional(),
 
   isActive: z.boolean().optional(),
 });
