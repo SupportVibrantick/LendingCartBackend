@@ -1,13 +1,33 @@
 // schemas/admin/lenderProducts/update.schema.js
 const { z } = require("zod");
+const { LoanProductCode } = require("@prisma/client");
+
+const decimalField = z.union([z.string(), z.number()]).optional();
 
 const updateLenderProductSchema = z.object({
-  minLoanAmount: z.number().nonnegative().optional(),
-  maxLoanAmount: z.number().nonnegative().optional(),
+  loanProductCode: z.nativeEnum(LoanProductCode).optional(),
+
+  businessTypes: z.array(z.string()).optional(),
+
+  equipmentTypes: z.array(z.string()).optional(),
+  otherEquipmentExplanation: z.string().optional(),
+
+  minLoanAmount: decimalField,
+  maxLoanAmount: decimalField,
+
   minTermMonths: z.number().int().nonnegative().optional(),
   maxTermMonths: z.number().int().nonnegative().optional(),
-  regionsSupported: z.array(z.string()).optional(),
-  industriesSupported: z.array(z.string()).optional(),
+
+  minLtvPercent: decimalField,
+  maxLtvPercent: decimalField,
+
+  minCreditScore: z.number().int().nonnegative().optional(),
+  minExperience: z.string().optional(),
+
+  interestRateRange: z.string().optional(),
+
+  statesSupported: z.array(z.string()).optional(),
+
   isActive: z.boolean().optional(),
 });
 
