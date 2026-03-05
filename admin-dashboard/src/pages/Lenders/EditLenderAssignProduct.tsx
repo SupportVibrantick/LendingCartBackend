@@ -1,5 +1,5 @@
 import { useEffect, useState, FormEvent } from "react";
-import axios, { AxiosError } from "axios";
+import axios from "axios";
 import toast from "react-hot-toast";
 import { useParams } from "react-router-dom";
 
@@ -44,6 +44,7 @@ interface Errors {
   maxLoanAmount?: string;
   minTermMonths?: string;
   maxTermMonths?: string;
+  equipmentTypes?: string;
   minLTV?: string;
   maxLTV?: string;
   minCreditScore?: string;
@@ -51,7 +52,6 @@ interface Errors {
   typeOfBusiness?: string;
   interestRateRange?: string;
   states?: string;
-  equipmentTypes?: string;
 }
 
 interface FormState {
@@ -233,12 +233,18 @@ interface Props {
 }
 
 /* ================= COMPONENT ================= */
-export default function LenderProductAssign({ lenderId, onSuccess }: Props) {
+export default function EditLenderAssignProduct({
+  lenderId,
+  onSuccess,
+  onClose,
+}: Props) {
   const [loanProducts, setLoanProducts] = useState<LoanProduct[]>([]);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [errors, setErrors] = useState<Errors>({});
   const [message, setMessage] = useState<MessageState | null>(null);
   const { lenderId: paramId } = useParams<{ lenderId: string }>();
+  const [productIds, setProductIds] = useState<Record<string, string>>({});
+  const [initialLoanTypes, setInitialLoanTypes] = useState<string[]>([]);
   const [form, setForm] = useState<FormState>({
     lenderOrgId: lenderId || paramId || "",
     loanProductCode: "",
@@ -326,19 +332,101 @@ export default function LenderProductAssign({ lenderId, onSuccess }: Props) {
     "No minimum",
   ];
 
-  /* ================= LOAD DATA ================= */
+  //   /* ================= LOAD DATA ================= */
+  //   useEffect(() => {
+  //     async function loadProducts() {
+  //       try {
+  //         const productsRes = await api.get("/admin/loan-products/list");
+  //         setLoanProducts(productsRes.data?.data ?? []);
+  //       } catch {
+  //         setMessage({ type: "error", text: "Failed to load products" });
+  //       }
+  //     }
+
+  //     loadProducts();
+  //   }, []);
+
   useEffect(() => {
-    async function loadProducts() {
+    async function loadData() {
       try {
+        const orgId = lenderId || paramId;
+
+        if (!orgId) return;
+
+        // loan products list
         const productsRes = await api.get("/admin/loan-products/list");
         setLoanProducts(productsRes.data?.data ?? []);
-      } catch {
-        setMessage({ type: "error", text: "Failed to load products" });
+
+        // lender assigned products
+        const res = await api.get(`/admin/lender-products/lender/${orgId}`);
+
+        const lenderProducts = res.data?.data || [];
+
+        if (!lenderProducts.length) return;
+        const ids: Record<string, string> = {};
+
+        lenderProducts.forEach((p: any) => {
+          ids[p.loanProductCode] = p.loanProductId;
+        });
+
+        setProductIds(ids);
+
+        const first = lenderProducts[0];
+
+        const equipmentProduct = lenderProducts.find(
+          (p: any) => p.loanProductCode === "EQUIPMENT_FINANCE",
+        );
+
+        const loanCodes = lenderProducts.map((p: any) => p.loanProductCode);
+
+        setInitialLoanTypes(loanCodes);
+
+        setForm((prev) => ({
+          ...prev,
+
+          lenderOrgId: orgId,
+
+          // ✔ checked loan product checkboxes
+          loanTypes: loanCodes,
+
+          // ✔ business types checkboxes
+          typeOfBusiness: first.businessTypes || [],
+
+          // ✔ states checkboxes
+          states: first.statesSupported || [],
+
+          /* ===== EQUIPMENT TYPES ===== */
+          equipmentTypes: equipmentProduct?.equipmentTypes
+            ? equipmentProduct.equipmentTypes.split(",")
+            : [],
+
+          otherEquipmentExplanation:
+            equipmentProduct?.otherEquipmentExplanation || "",
+
+          minLoanAmount: first.minLoanAmount?.toString() || "",
+          maxLoanAmount: first.maxLoanAmount?.toString() || "",
+
+          minTermMonths: first.minTermMonths?.toString() || "",
+          maxTermMonths: first.maxTermMonths?.toString() || "",
+
+          minLTV: first.minLtvPercent?.toString() || "",
+          maxLTV: first.maxLtvPercent?.toString() || "",
+
+          minCreditScore: first.minCreditScore?.toString() || "",
+
+          minimumExperience: first.minExperience || "",
+          interestRateRange: first.interestRateRange || "",
+
+          isActive: first.isActive ?? true,
+        }));
+      } catch (err) {
+        console.error(err);
+        toast.error("Failed to load lender products");
       }
     }
 
-    loadProducts();
-  }, []);
+    loadData();
+  }, [lenderId, paramId]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -396,7 +484,7 @@ export default function LenderProductAssign({ lenderId, onSuccess }: Props) {
     // ================= EQUIPMENT =================
     if (isEquipmentFinanceSelected) {
       if (form.equipmentTypes.length === 0) {
-        e.equipmentTypes  = "Select at least one equipment type";
+        e.equipmentTypes = "Select at least one equipment type";
       }
 
       if (
@@ -461,79 +549,75 @@ export default function LenderProductAssign({ lenderId, onSuccess }: Props) {
   }
 
   /* ================= SUBMIT ================= */
-  async function handleSubmit(e: FormEvent) {
+  async function handleUpdate(e: FormEvent) {
     e.preventDefault();
     setErrors({});
     setMessage(null);
 
     const v = validate();
+
     if (Object.keys(v).length) {
-      console.log(v);
       setErrors(v);
       return;
     }
 
     setSubmitting(true);
+
     try {
-      const payload = {
-        lenderOrgId: form.lenderOrgId,
+      const updates = initialLoanTypes.map(async (code) => {
+        const productId = productIds[code];
 
-        loanProductCodes: form.loanTypes,
-        businessTypes: form.typeOfBusiness,
+        if (!productId) return;
 
-        equipmentTypes: isEquipmentFinanceSelected
-          ? form.equipmentTypes
-          : undefined,
+        const isSelected = form.loanTypes.includes(code);
 
-        otherEquipmentExplanation: isEquipmentFinanceSelected
-          ? form.otherEquipmentExplanation
-          : undefined,
+        const payload = {
+          businessTypes: form.typeOfBusiness.length
+            ? form.typeOfBusiness
+            : undefined,
 
-        minLoanAmount: Number(form.minLoanAmount),
-        maxLoanAmount: Number(form.maxLoanAmount),
+          equipmentTypes:
+            code === "EQUIPMENT_FINANCE" ? form.equipmentTypes : undefined,
 
-        minTermMonths: Number(form.minTermMonths),
-        maxTermMonths: Number(form.maxTermMonths),
+          otherEquipmentExplanation:
+            code === "EQUIPMENT_FINANCE"
+              ? form.otherEquipmentExplanation
+              : undefined,
 
-        minLtvPercent: Number(form.minLTV),
-        maxLtvPercent: Number(form.maxLTV),
+          minLoanAmount: Number(form.minLoanAmount),
 
-        minCreditScore: Number(form.minCreditScore),
-        minExperience: form.minimumExperience,
+          maxLoanAmount: Number(form.maxLoanAmount),
 
-        interestRateRange: form.interestRateRange,
-        statesSupported: form.states,
+          minTermMonths: Number(form.minTermMonths),
 
-        isActive: form.isActive,
-      };
+          maxTermMonths: Number(form.maxTermMonths),
 
-      await api.post("/admin/lender-products/create", payload);
-      toast.success("Lender product assigned successfully");
-      if (onSuccess) {
-        onSuccess();
-      }
+          minLtvPercent: Number(form.minLTV),
 
-      setForm((f) => ({
-        ...f,
-        loanTypes: [],
-        typeOfBusiness: [],
-        states: [],
-        minLoanAmount: "",
-        maxLoanAmount: "",
-        minTermMonths: "",
-        maxTermMonths: "",
-        minLTV: "",
-        maxLTV: "",
-        minCreditScore: "",
-        interestRateRange: "",
-        minimumExperience: "",
-      }));
-    } catch (err) {
-      const error = err as AxiosError<any>;
-      setMessage({
-        type: "error",
-        text: error.response?.data?.message || "Server error",
+          maxLtvPercent: Number(form.maxLTV),
+
+          minCreditScore: Number(form.minCreditScore),
+
+          minExperience: form.minimumExperience,
+
+          interestRateRange: form.interestRateRange,
+
+          statesSupported: form.states,
+
+          isActive: isSelected,
+        };
+
+        return api.patch(`/admin/loan-products/update/${productId}`, payload);
       });
+
+      await Promise.all(updates);
+
+      // toast.success("Products updated successfully");
+
+      onSuccess?.();
+      onClose?.();
+    } catch (err) {
+      toast.error("Failed to update products");
     } finally {
       setSubmitting(false);
     }
@@ -585,14 +669,6 @@ export default function LenderProductAssign({ lenderId, onSuccess }: Props) {
     <div className="max-w-4xl mx-auto p-6 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-xl shadow border border-slate-200 dark:border-slate-700">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-2xl font-semibold">Assign Product to Lender</h2>
-
-        <button
-          type="button"
-          disabled
-          className="px-3 py-1 rounded border text-sm opacity-40 cursor-not-allowed"
-        >
-          Mandatory
-        </button>
         {/* <button
           type="button"
           onClick={onClose}
@@ -600,10 +676,6 @@ export default function LenderProductAssign({ lenderId, onSuccess }: Props) {
         >
           Close
         </button> */}
-      </div>
-
-      <div className="mb-4 p-3 rounded-lg bg-yellow-50 text-yellow-800 border border-yellow-200 dark:bg-yellow-500/10 dark:text-yellow-300 dark:border-yellow-500/30">
-        ⚠️ You must assign at least one product before closing this window.
       </div>
 
       {message && (
@@ -618,7 +690,7 @@ export default function LenderProductAssign({ lenderId, onSuccess }: Props) {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleUpdate} className="space-y-4">
         {/* <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium">Lender</label>
@@ -1080,7 +1152,7 @@ export default function LenderProductAssign({ lenderId, onSuccess }: Props) {
             disabled={submitting}
             className="ml-auto px-4 py-2 rounded bg-indigo-600 text-white disabled:opacity-50"
           >
-            {submitting ? "Assigning..." : "Assign Product"}
+            {submitting ? "Assigning..." : "Save Assign Product"}
           </button>
         </div>
       </form>

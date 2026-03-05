@@ -716,10 +716,10 @@ const LoanApplication = () => {
       addField("loanProductCode", selectedProduct);
       addField("amountRequested", toNumber(formData.loanRequest.amount));
       addField("interestRate", formData.loanRequest.interestRate);
+      addField("purpose", formData.loanRequest.purpose);
       addField("propertyType", formData.loanRequest.propertyType);
       addField("subPropertyType", formData.loanRequest.subPropertyType);
       addField("recourse", formData.loanRequest.recourse);
-
       /* ================= LOCATION (IF ADDRESS EXISTS) ================= */
 
       // You can improve this later if you split address properly
