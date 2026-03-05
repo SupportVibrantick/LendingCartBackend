@@ -1,4 +1,5 @@
 // routes/admin/lenderProducts/update.js
+
 const { Prisma } = require("@prisma/client");
 const { adminLogs } = require("../../../services/logger/contextLogger");
 const {
@@ -49,63 +50,69 @@ async function updateLenderProductRoutes(fastify) {
         const isEquipmentFinance =
           exists.loanProductCode === "EQUIPMENT_FINANCE";
 
+        const updatePayload = {};
+
+        if (data.businessTypes) {
+          updatePayload.businessTypes = data.businessTypes.join(",");
+        }
+
+        if (isEquipmentFinance && data.equipmentTypes?.length) {
+          updatePayload.equipmentTypes = data.equipmentTypes.join(",");
+        }
+
+        if (isEquipmentFinance && data.otherEquipmentExplanation !== undefined) {
+          updatePayload.otherEquipmentExplanation =
+            data.otherEquipmentExplanation;
+        }
+
+        if (data.minLoanAmount !== undefined) {
+          updatePayload.minLoanAmount = new Prisma.Decimal(data.minLoanAmount);
+        }
+
+        if (data.maxLoanAmount !== undefined) {
+          updatePayload.maxLoanAmount = new Prisma.Decimal(data.maxLoanAmount);
+        }
+
+        if (data.minTermMonths !== undefined) {
+          updatePayload.minTermMonths = data.minTermMonths;
+        }
+
+        if (data.maxTermMonths !== undefined) {
+          updatePayload.maxTermMonths = data.maxTermMonths;
+        }
+
+        if (data.minLtvPercent !== undefined) {
+          updatePayload.minLtvPercent = new Prisma.Decimal(data.minLtvPercent);
+        }
+
+        if (data.maxLtvPercent !== undefined) {
+          updatePayload.maxLtvPercent = new Prisma.Decimal(data.maxLtvPercent);
+        }
+
+        if (data.minCreditScore !== undefined) {
+          updatePayload.minCreditScore = data.minCreditScore;
+        }
+
+        if (data.minExperience !== undefined) {
+          updatePayload.minExperience = data.minExperience;
+        }
+
+        if (data.interestRateRange !== undefined) {
+          updatePayload.interestRateRange = data.interestRateRange;
+        }
+
+        if (data.statesSupported) {
+          updatePayload.statesSupported = data.statesSupported.join(",");
+        }
+
+        if (typeof data.isActive === "boolean") {
+          updatePayload.isActive = data.isActive;
+        }
+
         // ---------------------------
-        // Prepare update payload
+        // Update selected product
         // ---------------------------
-        const updatePayload = {
-          businessTypes: data.businessTypes
-            ? data.businessTypes.join(",")
-            : undefined,
-
-          equipmentTypes:
-            isEquipmentFinance && data.equipmentTypes?.length
-              ? data.equipmentTypes.join(",")
-              : undefined,
-
-          otherEquipmentExplanation:
-            isEquipmentFinance
-              ? data.otherEquipmentExplanation ?? undefined
-              : undefined,
-
-          minLoanAmount:
-            data.minLoanAmount !== undefined
-              ? new Prisma.Decimal(data.minLoanAmount)
-              : undefined,
-
-          maxLoanAmount:
-            data.maxLoanAmount !== undefined
-              ? new Prisma.Decimal(data.maxLoanAmount)
-              : undefined,
-
-          minTermMonths: data.minTermMonths ?? undefined,
-          maxTermMonths: data.maxTermMonths ?? undefined,
-
-          minLtvPercent:
-            data.minLtvPercent !== undefined
-              ? new Prisma.Decimal(data.minLtvPercent)
-              : undefined,
-
-          maxLtvPercent:
-            data.maxLtvPercent !== undefined
-              ? new Prisma.Decimal(data.maxLtvPercent)
-              : undefined,
-
-          minCreditScore: data.minCreditScore ?? undefined,
-          minExperience: data.minExperience ?? undefined,
-
-          interestRateRange: data.interestRateRange ?? undefined,
-
-          statesSupported: data.statesSupported
-            ? data.statesSupported.join(",")
-            : undefined,
-
-          isActive: data.isActive ?? undefined,
-        };
-
-        // ---------------------------
-        // Update current product
-        // ---------------------------
-        const updated = await prisma.lenderProduct.update({
+        await prisma.lenderProduct.update({
           where: { id: productId },
           data: updatePayload,
         });
@@ -127,10 +134,22 @@ async function updateLenderProductRoutes(fastify) {
           });
         }
 
+        // ---------------------------
+        // Return final state
+        // ---------------------------
+        const finalProducts = await prisma.lenderProduct.findMany({
+          where: {
+            lenderOrgId: exists.lenderOrgId,
+          },
+          orderBy: {
+            createdAt: "desc",
+          },
+        });
+
         return reply.send({
           success: true,
           message: "Lender product updated successfully",
-          data: updated,
+          data: finalProducts,
         });
       } catch (error) {
         adminLogs.error("Update lender product failed", error);
