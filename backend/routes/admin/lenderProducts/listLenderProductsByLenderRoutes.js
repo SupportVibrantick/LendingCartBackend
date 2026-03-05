@@ -30,6 +30,10 @@ async function listLenderProductsByLenderRoutes(fastify) {
             type: "LENDER",
             isDeleted: { not: true },
           },
+          select: {
+            id: true,
+            name: true,
+          },
         });
 
         if (!lender) {
@@ -45,12 +49,20 @@ async function listLenderProductsByLenderRoutes(fastify) {
         const result = await prisma.lenderProduct.findMany({
           where: {
             lenderOrgId,
+            isActive: true, // only active mappings
           },
           include: {
-            lender: true,
-            loanProduct: true,
+            loanProduct: {
+              select: {
+                id: true,
+                name: true,
+                code: true,
+              },
+            },
           },
-          orderBy: { createdAt: "desc" },
+          orderBy: {
+            createdAt: "desc",
+          },
         });
 
         // ---------------------------
@@ -63,6 +75,10 @@ async function listLenderProductsByLenderRoutes(fastify) {
             ? item.businessTypes.split(",")
             : [],
 
+          equipmentTypes: item.equipmentTypes
+            ? item.equipmentTypes.split(",")
+            : [],
+
           statesSupported: item.statesSupported
             ? item.statesSupported.split(",")
             : [],
@@ -70,6 +86,7 @@ async function listLenderProductsByLenderRoutes(fastify) {
 
         return reply.send({
           success: true,
+          lender: lender,
           lenderOrgId,
           count: formatted.length,
           data: formatted,
