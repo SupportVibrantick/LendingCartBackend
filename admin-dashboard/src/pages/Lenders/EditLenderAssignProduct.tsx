@@ -607,7 +607,7 @@ export default function EditLenderAssignProduct({
           isActive: isSelected,
         };
 
-        return api.patch(`/admin/loan-products/update/${productId}`, payload);
+        return api.patch(`/admin/lender-products/update/${productId}`, payload);
       });
 
       await Promise.all(updates);
