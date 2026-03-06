@@ -7,6 +7,7 @@ const {
 } = require("../../../schemas/admin/lenderProducts/update.schema");
 
 async function updateLenderProductRoutes(fastify) {
+
   fastify.patch(
     "/:id",
     {
@@ -16,11 +17,15 @@ async function updateLenderProductRoutes(fastify) {
       },
     },
     async (request, reply) => {
+
       const prisma = fastify.prisma;
+      const productId = request.params.id;
 
       try {
-        const productId = request.params.id;
 
+        // -----------------------------
+        // Validate request body
+        // -----------------------------
         const parsed = updateLenderProductSchema.safeParse(request.body);
 
         if (!parsed.success) {
@@ -33,11 +38,14 @@ async function updateLenderProductRoutes(fastify) {
 
         const data = parsed.data;
 
-        const exists = await prisma.lenderProduct.findUnique({
+        // -----------------------------
+        // Check if product exists
+        // -----------------------------
+        const existing = await prisma.lenderProduct.findUnique({
           where: { id: productId },
         });
 
-        if (!exists) {
+        if (!existing) {
           return reply.status(404).send({
             success: false,
             message: "Lender product not found",
@@ -45,104 +53,112 @@ async function updateLenderProductRoutes(fastify) {
         }
 
         const isEquipmentFinance =
-          exists.loanProductCode === "EQUIPMENT_FINANCE";
+          existing.loanProductCode === "EQUIPMENT_FINANCE";
 
         const updatePayload = {};
 
-        // ---------------------------
-        // Business Types
-        // ---------------------------
-        if (data.businessTypes !== undefined) {
-          updatePayload.businessTypes = Array.isArray(data.businessTypes)
-            ? data.businessTypes.join(",")
-            : data.businessTypes;
+        // -----------------------------
+        // Helpers
+        // -----------------------------
+        const toDecimal = (value) =>
+          value !== undefined && value !== null && value !== ""
+            ? new Prisma.Decimal(value)
+            : undefined;
+
+        const toCsv = (value) => {
+          if (value === undefined) return undefined;
+          if (Array.isArray(value)) return value.length ? value.join(",") : null;
+          return value;
+        };
+
+        // -----------------------------
+        // Business types
+        // -----------------------------
+        const businessTypes = toCsv(data.businessTypes);
+        if (businessTypes !== undefined)
+          updatePayload.businessTypes = businessTypes;
+
+        // -----------------------------
+        // Equipment fields
+        // -----------------------------
+        if (isEquipmentFinance) {
+
+          const equipmentTypes = toCsv(data.equipmentTypes);
+          if (equipmentTypes !== undefined)
+            updatePayload.equipmentTypes = equipmentTypes;
+
+          if (data.otherEquipmentExplanation !== undefined)
+            updatePayload.otherEquipmentExplanation =
+              data.otherEquipmentExplanation || null;
+
         }
 
-        // ---------------------------
-        // Equipment Types
-        // ---------------------------
-        if (isEquipmentFinance && data.equipmentTypes !== undefined) {
-          updatePayload.equipmentTypes = Array.isArray(data.equipmentTypes)
-            ? data.equipmentTypes.join(",")
-            : data.equipmentTypes;
-        }
-
-        if (isEquipmentFinance && data.otherEquipmentExplanation !== undefined) {
-          updatePayload.otherEquipmentExplanation =
-            data.otherEquipmentExplanation;
-        }
-
-        // ---------------------------
+        // -----------------------------
         // Loan amounts
-        // ---------------------------
-        if (data.minLoanAmount !== undefined) {
-          updatePayload.minLoanAmount = new Prisma.Decimal(data.minLoanAmount);
-        }
+        // -----------------------------
+        const minLoanAmount = toDecimal(data.minLoanAmount);
+        if (minLoanAmount !== undefined)
+          updatePayload.minLoanAmount = minLoanAmount;
 
-        if (data.maxLoanAmount !== undefined) {
-          updatePayload.maxLoanAmount = new Prisma.Decimal(data.maxLoanAmount);
-        }
+        const maxLoanAmount = toDecimal(data.maxLoanAmount);
+        if (maxLoanAmount !== undefined)
+          updatePayload.maxLoanAmount = maxLoanAmount;
 
-        // ---------------------------
+        // -----------------------------
         // Terms
-        // ---------------------------
-        if (data.minTermMonths !== undefined) {
+        // -----------------------------
+        if (data.minTermMonths !== undefined)
           updatePayload.minTermMonths = data.minTermMonths;
-        }
 
-        if (data.maxTermMonths !== undefined) {
+        if (data.maxTermMonths !== undefined)
           updatePayload.maxTermMonths = data.maxTermMonths;
-        }
 
-        // ---------------------------
+        // -----------------------------
         // LTV
-        // ---------------------------
-        if (data.minLtvPercent !== undefined) {
-          updatePayload.minLtvPercent = new Prisma.Decimal(data.minLtvPercent);
-        }
+        // -----------------------------
+        const minLtv = toDecimal(data.minLtvPercent);
+        if (minLtv !== undefined)
+          updatePayload.minLtvPercent = minLtv;
 
-        if (data.maxLtvPercent !== undefined) {
-          updatePayload.maxLtvPercent = new Prisma.Decimal(data.maxLtvPercent);
-        }
+        const maxLtv = toDecimal(data.maxLtvPercent);
+        if (maxLtv !== undefined)
+          updatePayload.maxLtvPercent = maxLtv;
 
-        // ---------------------------
+        // -----------------------------
         // Credit & Experience
-        // ---------------------------
-        if (data.minCreditScore !== undefined) {
+        // -----------------------------
+        if (data.minCreditScore !== undefined)
           updatePayload.minCreditScore = data.minCreditScore;
-        }
 
-        if (data.minExperience !== undefined) {
+        if (data.minExperience !== undefined)
           updatePayload.minExperience = data.minExperience;
-        }
 
-        if (data.interestRateRange !== undefined) {
+        if (data.interestRateRange !== undefined)
           updatePayload.interestRateRange = data.interestRateRange;
-        }
 
-        // ---------------------------
+        // -----------------------------
         // States
-        // ---------------------------
-        if (data.statesSupported !== undefined) {
-          updatePayload.statesSupported = Array.isArray(data.statesSupported)
-            ? data.statesSupported.join(",")
-            : data.statesSupported;
-        }
+        // -----------------------------
+        const states = toCsv(data.statesSupported);
+        if (states !== undefined)
+          updatePayload.statesSupported = states;
 
-        // ---------------------------
+        // -----------------------------
         // Active flag
-        // ---------------------------
-        if (typeof data.isActive === "boolean") {
+        // -----------------------------
+        if (typeof data.isActive === "boolean")
           updatePayload.isActive = data.isActive;
-        }
 
-        if (Object.keys(updatePayload).length === 0) {
+        if (!Object.keys(updatePayload).length) {
           return reply.status(400).send({
             success: false,
             message: "No valid fields provided for update",
           });
         }
 
+        // -----------------------------
+        // Update product
+        // -----------------------------
         const updatedProduct = await prisma.lenderProduct.update({
           where: { id: productId },
           data: updatePayload,
@@ -157,9 +173,12 @@ async function updateLenderProductRoutes(fastify) {
           },
         });
 
-        const finalProducts = await prisma.lenderProduct.findMany({
+        // -----------------------------
+        // Return updated lender products
+        // -----------------------------
+        const products = await prisma.lenderProduct.findMany({
           where: {
-            lenderOrgId: exists.lenderOrgId,
+            lenderOrgId: existing.lenderOrgId,
           },
           include: {
             loanProduct: {
@@ -177,10 +196,15 @@ async function updateLenderProductRoutes(fastify) {
           success: true,
           message: "Lender product updated successfully",
           updatedProduct,
-          data: finalProducts,
+          data: products,
         });
+
       } catch (error) {
-        adminLogs.error("Update lender product failed", error);
+
+        adminLogs.error("Update lender product failed", {
+          productId,
+          error,
+        });
 
         return reply.status(500).send({
           success: false,

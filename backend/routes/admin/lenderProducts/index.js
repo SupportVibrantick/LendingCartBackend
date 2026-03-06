@@ -3,6 +3,7 @@ const readRoutes = require("./list");
 const updateRoutes = require("./update");
 const statusRoutes = require("./toggleStatus");
 const listLenderProductsByLenderRoutes = require("./listLenderProductsByLenderRoutes");
+const syncLenderProductsRoutes = require("./sync");
 
 async function lenderProductRoutes(fastify, options) {
   fastify.register(createRoutes, { prefix: "/create" });
@@ -10,6 +11,7 @@ async function lenderProductRoutes(fastify, options) {
   fastify.register(updateRoutes, { prefix: "/update" });
   fastify.register(statusRoutes, { prefix: "/status" });
   fastify.register(listLenderProductsByLenderRoutes);
+  fastify.register(syncLenderProductsRoutes);
 }
 
 module.exports = lenderProductRoutes;

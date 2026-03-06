@@ -389,11 +389,13 @@ export default function EditLenderAssignProduct({
           // ✔ checked loan product checkboxes
           loanTypes: loanCodes,
 
-          // ✔ business types checkboxes
-          typeOfBusiness: first.businessTypes || [],
+          typeOfBusiness: first.businessTypes
+  ? first.businessTypes.split(",")
+  : [],
 
-          // ✔ states checkboxes
-          states: first.statesSupported || [],
+states: first.statesSupported
+  ? first.statesSupported.split(",")
+  : [],
 
           /* ===== EQUIPMENT TYPES ===== */
           equipmentTypes: equipmentProduct?.equipmentTypes
@@ -549,79 +551,74 @@ export default function EditLenderAssignProduct({
   }
 
   /* ================= SUBMIT ================= */
-  async function handleUpdate(e: FormEvent) {
-    e.preventDefault();
-    setErrors({});
-    setMessage(null);
+ async function handleUpdate(e: FormEvent) {
+  e.preventDefault();
 
-    const v = validate();
+  setErrors({});
+  setMessage(null);
 
-    if (Object.keys(v).length) {
-      setErrors(v);
-      return;
-    }
+  const v = validate();
 
-    setSubmitting(true);
-
-    try {
-      const updates = initialLoanTypes.map(async (code) => {
-        const productId = productIds[code];
-
-        if (!productId) return;
-
-        const isSelected = form.loanTypes.includes(code);
-
-        const payload = {
-          businessTypes: form.typeOfBusiness.length
-            ? form.typeOfBusiness
-            : undefined,
-
-          equipmentTypes:
-            code === "EQUIPMENT_FINANCE" ? form.equipmentTypes : undefined,
-
-          otherEquipmentExplanation:
-            code === "EQUIPMENT_FINANCE"
-              ? form.otherEquipmentExplanation
-              : undefined,
-
-          minLoanAmount: Number(form.minLoanAmount),
-
-          maxLoanAmount: Number(form.maxLoanAmount),
-
-          minTermMonths: Number(form.minTermMonths),
-
-          maxTermMonths: Number(form.maxTermMonths),
-
-          minLtvPercent: Number(form.minLTV),
-
-          maxLtvPercent: Number(form.maxLTV),
-
-          minCreditScore: Number(form.minCreditScore),
-
-          minExperience: form.minimumExperience,
-
-          interestRateRange: form.interestRateRange,
-
-          statesSupported: form.states,
-
-          isActive: isSelected,
-        };
-
-        return api.patch(`/admin/lender-products/update/${productId}`, payload);
-      });
-
-      await Promise.all(updates);
-
-      // toast.success("Products updated successfully");
-
-      onSuccess?.();
-      onClose?.();
-    } catch (err) {
-      toast.error("Failed to update products");
-    } finally {
-      setSubmitting(false);
-    }
+  if (Object.keys(v).length) {
+    setErrors(v);
+    return;
   }
+
+  setSubmitting(true);
+
+  try {
+
+    const payload = {
+      lenderOrgId: form.lenderOrgId,
+
+      loanProductCodes: form.loanTypes,
+businessTypes: form.typeOfBusiness.length
+  ? form.typeOfBusiness
+  : undefined,
+
+equipmentTypes: form.equipmentTypes.length
+  ? form.equipmentTypes
+  : undefined,
+      otherEquipmentExplanation: form.otherEquipmentExplanation,
+
+      minLoanAmount: Number(form.minLoanAmount),
+
+      maxLoanAmount: Number(form.maxLoanAmount),
+
+      minTermMonths: Number(form.minTermMonths),
+
+      maxTermMonths: Number(form.maxTermMonths),
+
+      minLtvPercent: Number(form.minLTV),
+
+      maxLtvPercent: Number(form.maxLTV),
+
+      minCreditScore: Number(form.minCreditScore),
+
+      minExperience: form.minimumExperience,
+
+      interestRateRange: form.interestRateRange,
+
+      statesSupported: form.states,
+    };
+
+    await api.patch("/admin/lender-products/sync", payload);
+
+    toast.success("Products updated successfully");
+
+    onSuccess?.();
+    onClose?.();
+
+  } catch (err) {
+
+    toast.error("Failed to update products");
+
+  } finally {
+
+    setSubmitting(false);
+
+  }
+}
 
   const isEquipmentFinanceSelected =
     form.loanTypes.includes("EQUIPMENT_FINANCE");
