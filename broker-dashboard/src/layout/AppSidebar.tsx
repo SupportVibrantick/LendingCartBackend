@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useLocation } from "react-router";
 
 import { ChevronDownIcon, GridIcon, HorizontaLDots } from "../icons";
@@ -120,6 +120,33 @@ const AppSidebar: React.FC = () => {
     }));
   };
 
+  useEffect(() => {
+  const findActiveMenus = (
+    items: NavItem[],
+    parentKey = ""
+  ): Record<string, boolean> => {
+    let result: Record<string, boolean> = {};
+
+    items.forEach((item, index) => {
+      const key = parentKey ? `${parentKey}-${index}` : `${index}`;
+
+      if (item.subItems) {
+        const childActive = hasActiveChild(item.subItems);
+
+        if (childActive) {
+          result[key] = true;
+        }
+
+        Object.assign(result, findActiveMenus(item.subItems, key));
+      }
+    });
+
+    return result;
+  };
+
+  setOpenMenus(findActiveMenus(navItems));
+}, [location.pathname]);
+
   // useEffect(() => {
   //   Object.keys(openMenus).forEach((key) => {
   //     if (openMenus[key] && subMenuRefs.current[key]) {
@@ -154,7 +181,7 @@ const AppSidebar: React.FC = () => {
                 <button
                   onClick={() => toggleMenu(key)}
                   className={`menu-item group ${
-                    hasActiveChild(nav.subItems)
+                    hasActiveChild(nav.subItems)  || isOpen
                       ? "menu-item-active"
                       : "menu-item-inactive"
                   }`}
@@ -218,7 +245,7 @@ const AppSidebar: React.FC = () => {
 
   return (
     <aside
-      className={`fixed mt-16 flex flex-col lg:mt-0 top-0 px-5 left-0 bg-[#0F172A] text-gray-900 h-screen transition-all duration-300 ease-in-out z-50 border-r border-gray-200 
+      className={`fixed mt-16 flex flex-col lg:mt-0 top-0 px-5 left-0 bg-[#2C92D5] text-gray-900 h-screen transition-all duration-300 ease-in-out z-50 border-r border-gray-200 
         ${
           isExpanded || isMobileOpen
             ? "w-[290px]"
@@ -261,7 +288,7 @@ const AppSidebar: React.FC = () => {
       <div className="flex flex-col overflow-y-auto duration-300 ease-linear no-scrollbar">
         <nav className="mb-6">
           <h2
-            className={`mb-4 text-xs uppercase flex text-gray-400 ${
+            className={`mb-4 text-xs uppercase flex text-gray-300 ${
               !isExpanded && !isHovered ? "lg:justify-center" : "justify-start"
             }`}
           >

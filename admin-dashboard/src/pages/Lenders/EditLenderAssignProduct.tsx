@@ -371,15 +371,16 @@ export default function EditLenderAssignProduct({
 
         // setProductIds(ids);
 
-       const first = lenderProducts.find((p: any) => p.isActive) || lenderProducts[0];
+        const first =
+          lenderProducts.find((p: any) => p.isActive) || lenderProducts[0];
 
         const equipmentProduct = lenderProducts.find(
           (p: any) => p.loanProductCode === "EQUIPMENT_FINANCE",
         );
 
         const loanCodes = lenderProducts
-  .filter((p: any) => p.isActive)
-  .map((p: any) => p.loanProductCode);
+          .filter((p: any) => p.isActive)
+          .map((p: any) => p.loanProductCode);
 
         // setInitialLoanTypes(loanCodes);
 
@@ -392,12 +393,10 @@ export default function EditLenderAssignProduct({
           loanTypes: loanCodes,
 
           typeOfBusiness: first.businessTypes
-  ? first.businessTypes.split(",")
-  : [],
+            ? first.businessTypes.split(",")
+            : [],
 
-states: first.statesSupported
-  ? first.statesSupported.split(",")
-  : [],
+          states: first.statesSupported ? first.statesSupported.split(",") : [],
 
           /* ===== EQUIPMENT TYPES ===== */
           equipmentTypes: equipmentProduct?.equipmentTypes
@@ -553,74 +552,68 @@ states: first.statesSupported
   }
 
   /* ================= SUBMIT ================= */
- async function handleUpdate(e: FormEvent) {
-  e.preventDefault();
+  async function handleUpdate(e: FormEvent) {
+    e.preventDefault();
 
-  setErrors({});
-  setMessage(null);
+    setErrors({});
+    setMessage(null);
 
-  const v = validate();
+    const v = validate();
 
-  if (Object.keys(v).length) {
-    setErrors(v);
-    return;
+    if (Object.keys(v).length) {
+      setErrors(v);
+      return;
+    }
+
+    setSubmitting(true);
+
+    try {
+      const payload = {
+        lenderOrgId: form.lenderOrgId,
+
+        loanProductCodes: form.loanTypes,
+        businessTypes: form.typeOfBusiness.length
+          ? form.typeOfBusiness
+          : undefined,
+
+        equipmentTypes: form.equipmentTypes.length
+          ? form.equipmentTypes
+          : undefined,
+        otherEquipmentExplanation: form.otherEquipmentExplanation,
+
+        minLoanAmount: Number(form.minLoanAmount),
+
+        maxLoanAmount: Number(form.maxLoanAmount),
+
+        minTermMonths: Number(form.minTermMonths),
+
+        maxTermMonths: Number(form.maxTermMonths),
+
+        minLtvPercent: Number(form.minLTV),
+
+        maxLtvPercent: Number(form.maxLTV),
+
+        minCreditScore: Number(form.minCreditScore),
+
+        minExperience: form.minimumExperience,
+
+        interestRateRange: form.interestRateRange,
+
+        statesSupported: form.states,
+      };
+
+      await api.patch("/admin/lender-products/sync", payload);
+
+      toast.success("Products updated successfully");
+
+      onSuccess?.();
+      onClose?.();
+    } catch (err) {
+      toast.error("Failed to update products");
+    } finally {
+      setSubmitting(false);
+    }
   }
-
-  setSubmitting(true);
-
-  try {
-
-    const payload = {
-      lenderOrgId: form.lenderOrgId,
-
-      loanProductCodes: form.loanTypes,
-businessTypes: form.typeOfBusiness.length
-  ? form.typeOfBusiness
-  : undefined,
-
-equipmentTypes: form.equipmentTypes.length
-  ? form.equipmentTypes
-  : undefined,
-      otherEquipmentExplanation: form.otherEquipmentExplanation,
-
-      minLoanAmount: Number(form.minLoanAmount),
-
-      maxLoanAmount: Number(form.maxLoanAmount),
-
-      minTermMonths: Number(form.minTermMonths),
-
-      maxTermMonths: Number(form.maxTermMonths),
-
-      minLtvPercent: Number(form.minLTV),
-
-      maxLtvPercent: Number(form.maxLTV),
-
-      minCreditScore: Number(form.minCreditScore),
-
-      minExperience: form.minimumExperience,
-
-      interestRateRange: form.interestRateRange,
-
-      statesSupported: form.states,
-    };
-
-    await api.patch("/admin/lender-products/sync", payload);
-
-    toast.success("Products updated successfully");
-
-    onSuccess?.();
-    onClose?.();
-
-  } catch (err) {
-
-    toast.error("Failed to update products");
-
-  } finally {
-
-    setSubmitting(false);
-
-  }
-}
 
   const isEquipmentFinanceSelected =
     form.loanTypes.includes("EQUIPMENT_FINANCE");

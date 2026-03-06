@@ -234,7 +234,7 @@ const AppHeader: React.FC = () => {
           <div className="hidden lg:block">
             <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
               Welcome{" "}
-              <span className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+              <span className="text-[#2C92D5]">
                 {toTitleCase(user?.user?.name)}
               </span>
             </h1>
@@ -256,7 +256,7 @@ const AppHeader: React.FC = () => {
         >
           <div className="flex items-center gap-2 2xsm:gap-3">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold text-blue-600">
+              <span className="text-sm font-semibold text-[#2C92D5]">
                 {time}
               </span>
             </div>
