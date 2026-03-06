@@ -243,8 +243,8 @@ export default function EditLenderAssignProduct({
   const [errors, setErrors] = useState<Errors>({});
   const [message, setMessage] = useState<MessageState | null>(null);
   const { lenderId: paramId } = useParams<{ lenderId: string }>();
-  const [productIds, setProductIds] = useState<Record<string, string>>({});
-  const [initialLoanTypes, setInitialLoanTypes] = useState<string[]>([]);
+  // const [productIds, setProductIds] = useState<Record<string, string>>({});
+  // const [initialLoanTypes, setInitialLoanTypes] = useState<string[]>([]);
   const [form, setForm] = useState<FormState>({
     lenderOrgId: lenderId || paramId || "",
     loanProductCode: "",
@@ -369,7 +369,7 @@ export default function EditLenderAssignProduct({
           ids[p.loanProductCode] = p.id;
         });
 
-        setProductIds(ids);
+        // setProductIds(ids);
 
         const first = lenderProducts[0];
 
@@ -379,7 +379,7 @@ export default function EditLenderAssignProduct({
 
         const loanCodes = lenderProducts.map((p: any) => p.loanProductCode);
 
-        setInitialLoanTypes(loanCodes);
+        // setInitialLoanTypes(loanCodes);
 
         setForm((prev) => ({
           ...prev,

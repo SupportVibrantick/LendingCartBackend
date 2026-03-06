@@ -802,6 +802,13 @@ export default function AllLendersPage() {
               <PackagePlus className="mr-2 h-5 w-5" />
               Assign Products
             </button>
+            <button
+              onClick={() => navigate("/assigned-products")}
+              className="inline-flex items-center whitespace-nowrap px-4 py-2.5 bg-emerald-600 text-white text-sm font-bold rounded-xl hover:bg-emerald-700 shadow-lg shadow-emerald-500/20 active:scale-95 transition-all"
+            >
+              <Eye className="mr-2 h-5 w-5" />
+              View Assign Products
+            </button>
           </div>
         </div>
 
@@ -1059,12 +1066,14 @@ export default function AllLendersPage() {
 
                   {/* Info */}
                   <div className="flex-1 min-w-0 pr-16">
-                    <h3
-                      className="text-base font-bold text-slate-900 dark:text-white truncate group-hover:text-blue-600 transition-colors cursor-pointer"
-                      // onClick={() => openAdminsFor(l)}
-                    >
-                      {l.name}
-                    </h3>
+                    <div>
+                      <h3
+                        className="text-base font-bold text-slate-900 dark:text-white truncate group-hover:text-blue-600 transition-colors cursor-pointer"
+                        // onClick={() => openAdminsFor(l)}
+                      >
+                        {l.name}
+                      </h3>
+                    </div>
                     <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
                       {l.brokerName
                         ? `Broker: ${l.brokerName}`
