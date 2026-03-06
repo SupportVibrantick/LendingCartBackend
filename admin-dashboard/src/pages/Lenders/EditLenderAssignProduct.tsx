@@ -371,13 +371,15 @@ export default function EditLenderAssignProduct({
 
         // setProductIds(ids);
 
-        const first = lenderProducts[0];
+       const first = lenderProducts.find((p: any) => p.isActive) || lenderProducts[0];
 
         const equipmentProduct = lenderProducts.find(
           (p: any) => p.loanProductCode === "EQUIPMENT_FINANCE",
         );
 
-        const loanCodes = lenderProducts.map((p: any) => p.loanProductCode);
+        const loanCodes = lenderProducts
+  .filter((p: any) => p.isActive)
+  .map((p: any) => p.loanProductCode);
 
         // setInitialLoanTypes(loanCodes);
 
