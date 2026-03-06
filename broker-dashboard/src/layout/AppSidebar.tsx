@@ -59,7 +59,11 @@ const navItems: NavItem[] = [
   {
     icon: <FaUserGroup />,
     name: "User Management",
-    subItems: [{ name: "Loan Officer", path: "/loan-officer" }],
+    subItems: [
+      { name: "Brokers" , path:"/create-broker"},
+      { name: "Loan Officer", path: "/loan-officer" },
+      { name: "Contacts", path:"/contacts-list"}
+    ],
   },
 
   {
