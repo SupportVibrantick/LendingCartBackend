@@ -35,7 +35,7 @@ model Organization {
   lenderProducts           LenderProduct[]
   brokerLoanApplications   LoanApplication[]         @relation("BrokerLoanApplications")
   users                    UserAccount[]
-
+  contacts Contact[] 
   // soft-delete fields (additive, non-breaking)
   isDeleted Boolean?  @default(false) @map("is_deleted")
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
@@ -67,10 +67,11 @@ model UserAccount {
   organization               Organization?               @relation(fields: [organizationId], references: [id])
   roles                      UserRole[]
   brokerProfile              BrokerUserProfile?
+  createdContacts Contact[]
   // soft-delete fields (additive, non-breaking)
   isDeleted                  Boolean?                    @default(false) @map("is_deleted")
   deletedAt                  DateTime?                   @map("deleted_at") @db.Timestamptz(6)
-
+  
   @@map("user_accounts")
 }
 
@@ -1060,6 +1061,53 @@ model ApplicationSubmissionField {
   @@map("application_submission_fields")
 }
 
+model Contact {
+  id String @id @default(uuid()) @db.Uuid
+
+  // ownership (broker dashboard)
+  brokerOrgId String @db.Uuid
+  createdById String? @db.Uuid
+
+  // contact details
+  contactType ContactType
+
+  firstName String?
+  lastName  String?
+  email     String?
+  companyName String?
+  website     String?
+
+  phone      String?
+  tollFree   String?
+  cellNumber String?
+  faxNumber  String?
+
+  address String?
+  city    String?
+  state   String?
+  zipCode String?
+
+  stateOfFormation String?
+  entityType       String?
+
+  description String?
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  // soft delete
+  isDeleted Boolean?  @default(false) @map("is_deleted")
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  // relations
+  brokerOrg Organization @relation(fields: [brokerOrgId], references: [id])
+  createdBy UserAccount? @relation(fields: [createdById], references: [id])
+
+  @@index([brokerOrgId])
+  @@index([email])
+  @@map("contacts")
+}
+
 enum LenderProfileStatus {
   DRAFT // created but not completed
   INCOMPLETE // partially filled
@@ -1072,6 +1120,48 @@ enum LeadStatus {
   QUALIFIED
   NOT_INTERESTED
   CONVERTED
+}
+
+enum ContactType {
+  ACCOUNTANT
+  APPRAISER
+  ASSIGNOR
+  ATTORNEY
+  AUDITOR
+  BROKER
+  BROKER_PROCESSOR
+  CLOSING_CONTACT
+  CONTRACTOR
+  COUNSELOR
+  CUSTODIAN
+  ESCROW
+  ESCROW_ASSISTANT
+  FINANCIAL_ADVISOR
+  GENERAL_CONTRACTOR
+  HOA
+  INSPECTOR
+  INSURANCE_FLOOD
+  INSURANCE_GENERAL
+  INSURANCE_HOA
+  INSURANCE_PROPERTY
+  INVESTOR
+  LENDER
+  LENDER_ATTORNEY
+  LOAN_PREPARER
+  OTHER_UNSPECIFIED
+  OWNER
+  PARALEGAL
+  PROPERTY_MANAGER
+  PROSPECT
+  RE_AGENT_BUYER
+  RE_AGENT_SELLER
+  REALTOR_BPO
+  SECONDARY_NOTE_BUYER
+  SELLER_ATTORNEY
+  SERVICER
+  TITLE_REP
+  TRUSTEE
+  OTHER
 }
 
 enum OrganizationType {
