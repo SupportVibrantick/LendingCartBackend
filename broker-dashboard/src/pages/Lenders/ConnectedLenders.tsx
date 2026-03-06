@@ -41,7 +41,6 @@ type ConnectedLender = {
 //   },
 // ];
 
-
 /* ---------------- Skeleton Loader ---------------- */
 function TableSkeleton({ rows = 5 }: { rows?: number }) {
   return (
@@ -113,7 +112,7 @@ export default function ConnectedLendersTable() {
       (l) =>
         l.lenderName.toLowerCase().includes(q) ||
         l.lenderEmail.toLowerCase().includes(q) ||
-        l.lenderId.toLowerCase().includes(q)
+        l.lenderId.toLowerCase().includes(q),
     );
   }, [lenders, query]);
 
@@ -138,7 +137,6 @@ export default function ConnectedLendersTable() {
 
   return (
     <div className="p-4 sm:p-6">
-
       {/* Header + Right Controls */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
         <div>
@@ -177,7 +175,6 @@ export default function ConnectedLendersTable() {
 
       {/* Card */}
       <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl shadow-sm overflow-hidden">
-
         {loading ? (
           <TableSkeleton rows={pageSize} />
         ) : error ? (
@@ -206,7 +203,7 @@ export default function ConnectedLendersTable() {
                     const avatar =
                       l.profileUrl ||
                       `https://ui-avatars.com/api/?background=2563eb&color=fff&name=${encodeURIComponent(
-                        l.lenderName || "User"
+                        l.lenderName || "User",
                       )}`;
 
                     return (
@@ -235,11 +232,14 @@ export default function ConnectedLendersTable() {
                         <td className="px-4 py-3 text-gray-600 dark:text-slate-400">
                           {new Date(l.connectedAt).toLocaleDateString("en-IN")}{" "}
                           <span className="text-xs">
-                            {new Date(l.connectedAt).toLocaleTimeString("en-IN", {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                              hour12: true,
-                            })}
+                            {new Date(l.connectedAt).toLocaleTimeString(
+                              "en-IN",
+                              {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                                hour12: true,
+                              },
+                            )}
                           </span>
                         </td>
                       </tr>
@@ -282,16 +282,3 @@ export default function ConnectedLendersTable() {
     </div>
   );
 }
-
-
-
-
-
-
-
-
-
-
-
-
-

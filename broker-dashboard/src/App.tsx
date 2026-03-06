@@ -47,6 +47,7 @@ import SubmitApplications from "./pages/submitedApplications/SubmitApplication";
 import LoanOfficer from "./pages/UserManagement/LoanOfficer";
 import ImpersonateLogin from "./pages/ImpersonateLogin";
 import LoanApplication from "./pages/LoanApplication/LoanApplication";
+import ContactPage from "./pages/Contacts/ContactPage";
 
 export default function App() {
   return (
@@ -160,6 +161,8 @@ export default function App() {
             <Route index path="/admin-logs" element={<AdminLogs />} />
 
             <Route index path="/loan-officer" element={<LoanOfficer />} />
+
+            <Route index path="/contacts-list" element={<ContactPage />} />
 
             {/* Others Page */}
             <Route path="/profile" element={<UserProfiles />} />

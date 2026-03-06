@@ -941,3 +941,7 @@ body.modal-open {
 .swal-high-zindex {
   z-index: 9999999999999 !important;
 }
+
+.input{
+  @apply border rounded-lg px-3 py-2 w-full outline-none focus:ring-2 focus:ring-indigo-500;
+}
