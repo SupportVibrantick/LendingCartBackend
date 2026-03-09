@@ -416,7 +416,7 @@ const LoanApplication = () => {
   const Stat = ({ label, value }: { label: string; value: string }) => (
     <div>
       <p className="text-xs text-slate-500 uppercase">{label}</p>
-      <p className="text-[14px] font-semibold text-blue-600">{value}</p>
+      <p className="text-[14px] font-semibold text-[#2C92D5]">{value}</p>
     </div>
   );
 
@@ -1019,11 +1019,18 @@ const LoanApplication = () => {
 
   const renderField = (field: any, hasError?: boolean) => {
     const commonClasses = `
-  w-full px-4 text-sm py-1 rounded-md border
-  ${hasError ? "border-red-500 bg-red-50" : "border-slate-300"}
+  w-full px-4 py-1 text-sm rounded-md border transition
+  ${
+    hasError
+      ? "border-red-500 bg-red-50 dark:bg-red-900/20"
+      : "border-slate-300 dark:border-slate-600"
+  }
+  bg-white dark:bg-slate-900
+  text-slate-800 dark:text-slate-200
   focus:ring-2 focus:ring-blue-500/20
-  focus:border-blue-500 outline-none transition
-`;
+  focus:border-blue-500
+  outline-none
+  `;
 
     switch (field.type) {
       case "TEXT": {
@@ -1134,14 +1141,19 @@ const LoanApplication = () => {
       case "RADIO":
         return (
           <div
-            className={`flex gap-6 mt-2 text-sm ${
-              hasError
-                ? "border p-1 rounded-md border-red-500 bg-red-50"
-                : "border p-1 rounded-md border-slate-300 bg-white-50"
-            }`}
+            className={`
+      flex flex-wrap gap-6 mt-2 text-sm p-2 rounded-md border
+      ${
+        hasError
+          ? "border-red-500 bg-red-50 dark:bg-red-900/20"
+          : "border-slate-300 dark:border-slate-600"
+      }
+      bg-white dark:bg-slate-900
+      text-slate-800 dark:text-slate-200
+      `}
           >
             {field.options?.map((opt: string, i: number) => (
-              <label key={i} className={`flex gap-2 p-1`}>
+              <label key={i} className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="radio"
                   name={field.fieldKey}
@@ -1156,48 +1168,43 @@ const LoanApplication = () => {
         );
 
       case "CHECKBOX_GROUP":
-        return (
-          <div
-            className={`flex gap-6 mt-2 text-sm ${
-              hasError
-                ? "border p-1 rounded-md border-red-500 bg-red-50"
-                : "border p-1 rounded-md border-slate-300 bg-white-50"
-            }`}
-          >
-            {field.options?.map((opt: string, i: number) => (
-              <label
-                key={i}
-                className={`flex gap-6 mt-2 p-2 rounded-md border ${
-                  hasError ? "border-red-500 bg-red-50" : "border-slate-300"
-                }`}
-              >
-                <input
-                  type="checkbox"
-                  value={opt}
-                  checked={
-                    dynamicFormData[field.fieldId]?.includes(opt) || false
-                  }
-                  onChange={(e) => {
-                    const prevValues = dynamicFormData[field.fieldId] || [];
-                    if (e.target.checked) {
-                      handleDynamicFieldChange(field.fieldId, [
-                        ...prevValues,
-                        opt,
-                      ]);
-                    } else {
-                      handleDynamicFieldChange(
-                        field.fieldId,
-                        prevValues.filter((v: string) => v !== opt),
-                      );
-                    }
-                  }}
-                />
-                {opt}
-              </label>
-            ))}
-          </div>
-        );
+  return (
+    <div
+      className={`
+      flex flex-wrap gap-4 mt-2 text-sm p-2 rounded-md border
+      ${
+        hasError
+          ? "border-red-500 bg-red-50 dark:bg-red-900/20"
+          : "border-slate-300 dark:border-slate-600"
+      }
+      bg-white dark:bg-slate-900
+      text-slate-800 dark:text-slate-200
+      `}
+    >
+      {field.options?.map((opt: string, i: number) => (
+        <label key={i} className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            value={opt}
+            checked={dynamicFormData[field.fieldId]?.includes(opt) || false}
+            onChange={(e) => {
+              const prevValues = dynamicFormData[field.fieldId] || [];
 
+              if (e.target.checked) {
+                handleDynamicFieldChange(field.fieldId, [...prevValues, opt]);
+              } else {
+                handleDynamicFieldChange(
+                  field.fieldId,
+                  prevValues.filter((v: string) => v !== opt)
+                );
+              }
+            }}
+          />
+          {opt}
+        </label>
+      ))}
+    </div>
+  );
       default:
         return null;
     }
@@ -1451,17 +1458,19 @@ const LoanApplication = () => {
 
   return (
     <>
-      <div className="min-h-screen bg-slate-50 px-6 py-8">
+      <div className="min-h-screen bg-slate-50 px-6 py-8 dark:bg-slate-900">
         {/* HEADER */}
         <div className="mb-6">
-          <h2 className="text-2xl font-semibold">New Loan Application</h2>
+          <h2 className="text-2xl font-bold text-[#2C92D5]">
+            New Loan Application
+          </h2>
           <p className="text-sm text-slate-500">
             Complete comprehensive loan application
           </p>
         </div>
 
         {/* ===== FIXED HEADER SECTION ===== */}
-        <div className="w-full sticky top-[70px] z-30 bg-slate-50 pb-4">
+        <div className="w-full sticky top-[70px] z-30 bg-slate-50 dark:bg-slate-900 pb-4">
           {/* STEPPER */}
           <div className="flex flex-wrap gap-2 mb-4 pt-4">
             {allSteps.map((step, index) => (
@@ -1472,10 +1481,10 @@ const LoanApplication = () => {
                 className={`px-4 py-2 text-xs rounded-full font-medium transition
         ${
           index === currentStep
-            ? "bg-blue-600 text-white shadow"
+            ? "bg-[#2C92D5] text-white shadow"
             : index < currentStep
               ? "bg-green-500 text-white hover:bg-green-600"
-              : "bg-slate-200 text-slate-500 hover:bg-slate-300"
+              : "bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600"
         }`}
               >
                 {step}
@@ -1484,7 +1493,13 @@ const LoanApplication = () => {
           </div>
 
           {/* STATS BOX */}
-          <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6 shadow-sm">
+          <div
+            className="
+bg-blue-50 dark:bg-slate-800
+border border-blue-200 dark:border-slate-700
+rounded-2xl p-6 shadow-sm
+"
+          >
             <div className="grid grid-cols-2 md:grid-cols-6 gap-6 text-center">
               <Stat
                 label="Loan Amount"
@@ -1505,10 +1520,13 @@ const LoanApplication = () => {
           {/* step-0   */}
           {currentStep === 0 && (
             <>
-              <div className="border rounded-2xl p-6 bg-white">
+              <div
+                className="border border-slate-200 dark:border-slate-700 
+rounded-2xl p-6 bg-white dark:bg-slate-800"
+              >
                 {/* Header Row */}
                 <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-lg font-semibold">
+                  <h3 className="text-lg font-semibold dark:text-white">
                     Borrower Information
                   </h3>
 
@@ -1516,7 +1534,7 @@ const LoanApplication = () => {
                     type="button"
                     onClick={handleAddCoBorrower}
                     className="px-4 py-2 rounded-md border border-slate-300 
-               text-sm font-medium hover:bg-slate-100 transition"
+               text-sm font-medium hover:bg-slate-100 transition dark:text-white dark:hover:bg-slate-600"
                   >
                     + Add Co-Borrower
                   </button>
@@ -1524,7 +1542,7 @@ const LoanApplication = () => {
 
                 {/* Primary Borrower */}
                 <div className="flex items-center justify-between mb-4">
-                  <h4 className="font-medium text-slate-700">
+                  <h4 className="font-medium text-slate-700 dark:text-white">
                     Primary Borrower
                   </h4>
                 </div>
@@ -1532,15 +1550,15 @@ const LoanApplication = () => {
                 {/* Form Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="text-sm font-medium text-slate-600">
-                      Name <span className="text-red-500">*</span>
+                    <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                      Name<span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
                       required
                       value={formData.borrower.name}
                       onChange={(e) => updateBorrower("name", e.target.value)}
-                      className={`mt-1 w-full px-4 py-1 rounded-md border ${
+                      className={`mt-1 w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
                         errors["borrower.name"]
                           ? "border-red-500 bg-red-50"
                           : "border-slate-300"
@@ -1556,7 +1574,7 @@ const LoanApplication = () => {
                   </div>
 
                   <div>
-                    <label className="text-sm font-medium text-slate-600">
+                    <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
                       Entity Name <span className="text-red-500">*</span>
                     </label>
                     <input
@@ -1565,7 +1583,7 @@ const LoanApplication = () => {
                       onChange={(e) =>
                         updateBorrower("entityName", e.target.value)
                       }
-                      className={`mt-1 w-full px-4 py-1 rounded-md border ${
+                      className={`mt-1 w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200  ${
                         errors["borrower.entityName"]
                           ? "border-red-500 bg-red-50"
                           : "border-slate-300"
@@ -1581,7 +1599,7 @@ const LoanApplication = () => {
                   </div>
 
                   <div>
-                    <label className="text-sm font-medium text-slate-600">
+                    <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
                       Phone <span className="text-red-500">*</span>
                     </label>
                     <input
@@ -1609,7 +1627,7 @@ const LoanApplication = () => {
                           return updated;
                         });
                       }}
-                      className={`mt-1 w-full px-4 py-1 rounded-md border ${
+                      className={`mt-1 w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200  ${
                         errors["borrower.phone"]
                           ? "border-red-500 bg-red-50"
                           : "border-slate-300"
@@ -1625,7 +1643,7 @@ const LoanApplication = () => {
                   </div>
 
                   <div>
-                    <label className="text-sm font-medium text-slate-600">
+                    <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
                       Email <span className="text-red-500">*</span>
                     </label>
                     <input
@@ -1633,7 +1651,7 @@ const LoanApplication = () => {
                       required
                       value={formData.borrower.email}
                       onChange={(e) => updateBorrower("email", e.target.value)}
-                      className={`mt-1 w-full px-4 py-1 rounded-md border ${
+                      className={`mt-1 w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200  ${
                         errors["borrower.email"]
                           ? "border-red-500 bg-red-50"
                           : "border-slate-300"
@@ -1649,7 +1667,7 @@ const LoanApplication = () => {
                   </div>
 
                   <div>
-                    <label className="text-sm font-medium text-slate-600">
+                    <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
                       Employer / Self-Employed{" "}
                       <span className="text-red-500">*</span>
                     </label>
@@ -1659,7 +1677,7 @@ const LoanApplication = () => {
                       onChange={(e) =>
                         updateBorrower("employer", e.target.value)
                       }
-                      className={`mt-1 w-full px-4 py-1 rounded-md border ${
+                      className={`mt-1 w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
                         errors["borrower.employer"]
                           ? "border-red-500 bg-red-50"
                           : "border-slate-300"
@@ -1675,7 +1693,7 @@ const LoanApplication = () => {
                   </div>
 
                   <div>
-                    <label className="text-sm font-medium text-slate-600">
+                    <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
                       DOB (mm/dd/yyyy) <span className="text-red-500">*</span>
                     </label>
                     <input
@@ -1683,7 +1701,7 @@ const LoanApplication = () => {
                       required
                       value={formData.borrower.dob}
                       onChange={(e) => updateBorrower("dob", e.target.value)}
-                      className={`mt-1 w-full px-4 py-1 rounded-md border ${
+                      className={`mt-1 w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200  ${
                         errors["borrower.dob"]
                           ? "border-red-500 bg-red-50"
                           : "border-slate-300"
@@ -1699,7 +1717,7 @@ const LoanApplication = () => {
                   </div>
 
                   <div>
-                    <label className="text-sm font-medium text-slate-600">
+                    <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
                       SSN <span className="text-red-500">*</span>
                     </label>
                     <input
@@ -1726,7 +1744,7 @@ const LoanApplication = () => {
                           return updated;
                         });
                       }}
-                      className={`mt-1 w-full px-4 py-1 rounded-md border ${
+                      className={`mt-1 w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
                         errors["borrower.ssn"]
                           ? "border-red-500 bg-red-50"
                           : "border-slate-300"
@@ -1742,7 +1760,7 @@ const LoanApplication = () => {
                   </div>
 
                   <div>
-                    <label className="text-sm font-medium text-slate-600">
+                    <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
                       Credit Score <span className="text-red-500">*</span>
                     </label>
                     <input
@@ -1752,7 +1770,7 @@ const LoanApplication = () => {
                       onChange={(e) =>
                         updateBorrower("creditScore", e.target.value)
                       }
-                      className={`mt-1 w-full px-4 py-1 rounded-md border ${
+                      className={`mt-1 w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
                         errors["borrower.creditScore"]
                           ? "border-red-500 bg-red-50"
                           : "border-slate-300"
@@ -1768,7 +1786,7 @@ const LoanApplication = () => {
                   </div>
 
                   <div className="md:col-span-2">
-                    <label className="text-sm font-medium text-slate-600">
+                    <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
                       Present Address <span className="text-red-500">*</span>
                     </label>
                     <input
@@ -1778,7 +1796,7 @@ const LoanApplication = () => {
                       onChange={(e) =>
                         updateBorrower("address", e.target.value)
                       }
-                      className={`mt-1 w-full px-4 py-1 rounded-md border ${
+                      className={`mt-1 w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
                         errors["borrower.address"]
                           ? "border-red-500 bg-red-50"
                           : "border-slate-300"
@@ -1794,14 +1812,14 @@ const LoanApplication = () => {
                   </div>
 
                   <div>
-                    <label className="text-sm font-medium text-slate-600">
+                    <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
                       City <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
                       value={formData.borrower.city}
                       onChange={(e) => updateBorrower("city", e.target.value)}
-                      className={`mt-1 w-full px-4 py-1 rounded-md border ${
+                      className={`mt-1 w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
                         errors["borrower.city"]
                           ? "border-red-500 bg-red-50"
                           : "border-slate-300"
@@ -1817,14 +1835,19 @@ const LoanApplication = () => {
                   </div>
 
                   <div>
-                    <label className="text-sm font-medium text-slate-600">
+                    <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
                       State <span className="text-red-500">*</span>
                     </label>
 
                     <select
                       value={formData.borrower.state}
                       onChange={(e) => updateBorrower("state", e.target.value)}
-                      className={`mt-1 w-full px-4 py-1 rounded-md border ${
+                      className={`w-full px-4 py-1 rounded-md border
+border-slate-300 dark:border-slate-600
+bg-white dark:bg-slate-900
+text-slate-800 dark:text-slate-200
+focus:ring-2 focus:ring-blue-500/20
+focus:border-blue-500 outline-none text-sm ${
                         errors["borrower.state"]
                           ? "border-red-500 bg-red-50"
                           : "border-slate-300"
@@ -1848,7 +1871,7 @@ const LoanApplication = () => {
                   </div>
 
                   <div className="md:col-span-2">
-                    <label className="text-sm font-medium text-slate-600">
+                    <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
                       Mailing Address (if different)
                     </label>
                     <input
@@ -1857,7 +1880,7 @@ const LoanApplication = () => {
                       onChange={(e) =>
                         updateBorrower("mailingAddress", e.target.value)
                       }
-                      className={`mt-1 w-full px-4 py-1 rounded-md border ${
+                      className={`mt-1 w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
                         errors["borrower.mailingAddress"]
                           ? "border-red-500 bg-red-50"
                           : "border-slate-300"
@@ -1890,11 +1913,11 @@ const LoanApplication = () => {
                       ref={(el) => {
                         coBorrowerRefs.current[borrower.id] = el;
                       }}
-                      className="border rounded-2xl p-6 bg-white mt-6 mb-6"
+                      className="border border-slate-200 dark:border-slate-700 rounded-2xl p-6 bg-white dark:bg-slate-800 mt-6 mb-6"
                     >
                       {/* Header */}
                       <div className="flex justify-between items-center mb-6">
-                        <h3 className="text-lg font-semibold">
+                        <h3 className="text-lg font-semibold dark:text-slate-300">
                           Co-Borrower {index + 1}
                         </h3>
 
@@ -1923,7 +1946,7 @@ const LoanApplication = () => {
                       {/* Fields */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                          <label className="text-sm font-medium">
+                          <label className="text-sm font-medium dark:text-slate-300">
                             Name <span className="text-red-500">*</span>
                           </label>
                           <input
@@ -1933,7 +1956,7 @@ const LoanApplication = () => {
                               updateCoBorrower(index, "name", e.target.value)
                             }
                             className={`mt-1 w-full px-4 py-1 rounded-md border    focus:ring-2 focus:ring-blue-500/20 
-          focus:border-blue-500 outline-none transition text-sm ${
+          focus:border-blue-500 outline-none transition text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
             errors[`coBorrowers.${index}.name`]
               ? "border-red-500 bg-red-50"
               : "border-slate-300"
@@ -1948,7 +1971,7 @@ const LoanApplication = () => {
                         </div>
 
                         <div>
-                          <label className="text-sm font-medium">
+                          <label className="text-sm font-medium dark:text-slate-300">
                             Entity Name <span className="text-red-500">*</span>
                           </label>
                           <input
@@ -1961,7 +1984,7 @@ const LoanApplication = () => {
                               )
                             }
                             className={`mt-1 w-full px-4 py-1 rounded-md border    focus:ring-2 focus:ring-blue-500/20 
-          focus:border-blue-500 outline-none transition text-sm ${
+          focus:border-blue-500 outline-none transition text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200  ${
             errors[`coBorrowers.${index}.entityName`]
               ? "border-red-500 bg-red-50"
               : "border-slate-300"
@@ -1976,7 +1999,7 @@ const LoanApplication = () => {
                         </div>
 
                         <div>
-                          <label className="text-sm font-medium">
+                          <label className="text-sm font-medium dark:text-slate-300">
                             Phone <span className="text-red-500">*</span>
                           </label>
                           <input
@@ -1989,7 +2012,7 @@ const LoanApplication = () => {
                               updateCoBorrower(index, "phone", formatted);
                             }}
                             className={`mt-1 w-full px-4 py-1 rounded-md border    focus:ring-2 focus:ring-blue-500/20 
-          focus:border-blue-500 outline-none transition text-sm ${
+          focus:border-blue-500 outline-none transition text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200  ${
             errors[`coBorrowers.${index}.phone`]
               ? "border-red-500 bg-red-50"
               : "border-slate-300"
@@ -2004,7 +2027,7 @@ const LoanApplication = () => {
                         </div>
 
                         <div>
-                          <label className="text-sm font-medium">
+                          <label className="text-sm font-medium dark:text-slate-300">
                             Email <span className="text-red-500">*</span>
                           </label>
                           <input
@@ -2015,7 +2038,7 @@ const LoanApplication = () => {
                               updateCoBorrower(index, "email", e.target.value)
                             }
                             className={`mt-1 w-full px-4 py-1 rounded-md border    focus:ring-2 focus:ring-blue-500/20 
-          focus:border-blue-500 outline-none transition text-sm ${
+          focus:border-blue-500 outline-none transition text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200  ${
             errors[`coBorrowers.${index}.email`]
               ? "border-red-500 bg-red-50"
               : "border-slate-300"
@@ -2030,7 +2053,7 @@ const LoanApplication = () => {
                         </div>
 
                         <div>
-                          <label className="text-sm font-medium">
+                          <label className="text-sm font-medium dark:text-slate-300">
                             Employer / Self-Employed{" "}
                             <span className="text-red-500">*</span>
                           </label>
@@ -2044,7 +2067,7 @@ const LoanApplication = () => {
                               )
                             }
                             className={`mt-1 w-full px-4 py-1 rounded-md border    focus:ring-2 focus:ring-blue-500/20 
-          focus:border-blue-500 outline-none transition text-sm ${
+          focus:border-blue-500 outline-none transition text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200  ${
             errors[`coBorrowers.${index}.employer`]
               ? "border-red-500 bg-red-50"
               : "border-slate-300"
@@ -2059,7 +2082,7 @@ const LoanApplication = () => {
                         </div>
 
                         <div>
-                          <label className="text-sm font-medium">
+                          <label className="text-sm font-medium dark:text-slate-300">
                             DOB (mm/dd/yyyy){" "}
                             <span className="text-red-500">*</span>
                           </label>
@@ -2072,7 +2095,7 @@ const LoanApplication = () => {
                             }
                             placeholder="dd-mm-yyyy"
                             className={`mt-1 w-full px-4 py-1 rounded-md border    focus:ring-2 focus:ring-blue-500/20 
-          focus:border-blue-500 outline-none transition text-sm ${
+          focus:border-blue-500 outline-none transition text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200  ${
             errors[`coBorrowers.${index}.dob`]
               ? "border-red-500 bg-red-50"
               : "border-slate-300"
@@ -2087,7 +2110,7 @@ const LoanApplication = () => {
                         </div>
 
                         <div>
-                          <label className="text-sm font-medium">
+                          <label className="text-sm font-medium dark:text-slate-300">
                             SSN <span className="text-red-500">*</span>
                           </label>
                           <input
@@ -2098,7 +2121,7 @@ const LoanApplication = () => {
                               updateCoBorrower(index, "ssn", formatted);
                             }}
                             className={`mt-1 w-full px-4 py-1 rounded-md border    focus:ring-2 focus:ring-blue-500/20 
-          focus:border-blue-500 outline-none transition text-sm ${
+          focus:border-blue-500 outline-none transition text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200  ${
             errors[`coBorrowers.${index}.ssn`]
               ? "border-red-500 bg-red-50"
               : "border-slate-300"
@@ -2113,7 +2136,7 @@ const LoanApplication = () => {
                         </div>
 
                         <div>
-                          <label className="text-sm font-medium">
+                          <label className="text-sm font-medium dark:text-slate-300">
                             Credit Score <span className="text-red-500">*</span>
                           </label>
                           <input
@@ -2127,7 +2150,7 @@ const LoanApplication = () => {
                               )
                             }
                             className={`text-sm mt-1 w-full px-4 py-1 rounded-md border focus:ring-2 focus:ring-blue-500/20 
-          focus:border-blue-500 outline-none transition ${
+          focus:border-blue-500 outline-none transition dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200  ${
             errors[`coBorrowers.${index}.creditScore`]
               ? "border-red-500 bg-red-50"
               : "border-slate-300"
@@ -2142,7 +2165,7 @@ const LoanApplication = () => {
                         </div>
 
                         <div className="md:col-span-2">
-                          <label className="text-sm font-medium">
+                          <label className="text-sm font-medium dark:text-slate-300">
                             Present Address{" "}
                             <span className="text-red-500">*</span>
                           </label>
@@ -2153,7 +2176,7 @@ const LoanApplication = () => {
                             }
                             required
                             className={`text-sm mt-1 w-full px-4 py-1 rounded-md border focus:ring-2 focus:ring-blue-500/20 
-          focus:border-blue-500 outline-none transition ${
+          focus:border-blue-500 outline-none transition dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200  ${
             errors[`coBorrowers.${index}.address`]
               ? "border-red-500 bg-red-50"
               : "border-slate-300"
@@ -2168,7 +2191,7 @@ const LoanApplication = () => {
                         </div>
 
                         <div>
-                          <label className="text-sm font-medium">
+                          <label className="text-sm font-medium dark:text-slate-300">
                             City <span className="text-red-500">*</span>
                           </label>
                           <input
@@ -2177,7 +2200,7 @@ const LoanApplication = () => {
                             onChange={(e) =>
                               updateCoBorrower(index, "city", e.target.value)
                             }
-                            className={`mt-1 w-full px-4 py-1 rounded-md border ${
+                            className={`mt-1 w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
                               errors[`coBorrowers.${index}.city`]
                                 ? "border-red-500 bg-red-50"
                                 : "border-slate-300"
@@ -2191,7 +2214,7 @@ const LoanApplication = () => {
                         </div>
 
                         <div>
-                          <label className="text-sm font-medium">
+                          <label className="text-sm font-medium dark:text-slate-300">
                             State <span className="text-red-500">*</span>
                           </label>
 
@@ -2200,7 +2223,12 @@ const LoanApplication = () => {
                             onChange={(e) =>
                               updateCoBorrower(index, "state", e.target.value)
                             }
-                            className={`mt-1 w-full px-4 py-1 rounded-md border ${
+                            className={`w-full px-4 py-1 rounded-md border
+border-slate-300 dark:border-slate-600
+bg-white dark:bg-slate-900
+text-slate-800 dark:text-slate-200
+focus:ring-2 focus:ring-blue-500/20
+focus:border-blue-500 outline-none text-sm ${
                               errors[`coBorrowers.${index}.state`]
                                 ? "border-red-500 bg-red-50"
                                 : "border-slate-300"
@@ -2222,7 +2250,7 @@ const LoanApplication = () => {
                         </div>
 
                         <div className="md:col-span-2">
-                          <label className="text-sm font-medium">
+                          <label className="text-sm font-medium dark:text-slate-300">
                             Mailing Address (if different)
                           </label>
                           <input
@@ -2235,7 +2263,7 @@ const LoanApplication = () => {
                               )
                             }
                             className={`text-sm mt-1 w-full px-4 py-1 rounded-md border focus:ring-2 focus:ring-blue-500/20 
-          focus:border-blue-500 outline-none transition ${
+          focus:border-blue-500 outline-none transition dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
             errors[`coBorrowers.${index}.mailingAddress`]
               ? "border-red-500 bg-red-50"
               : "border-slate-300"
@@ -2252,7 +2280,7 @@ const LoanApplication = () => {
 
                       {/* ================= FINANCIAL DETAILS ================= */}
                       <div className="md:col-span-2 mt-6">
-                        <h4 className="text-md font-semibold text-slate-700 mb-4 border-t pt-4">
+                        <h4 className="text-md font-semibold text-slate-700 mb-4 border-t pt-4 dark:text-white">
                           Financial Details
                         </h4>
                       </div>
@@ -2276,7 +2304,7 @@ const LoanApplication = () => {
                             },
                           ].map((field) => (
                             <div key={field.key}>
-                              <label className="text-sm font-medium">
+                              <label className="text-sm font-medium dark:text-slate-300">
                                 {field.label}{" "}
                                 <span className="text-red-500">*</span>
                               </label>
@@ -2305,7 +2333,7 @@ const LoanApplication = () => {
                                     );
                                   }
                                 }}
-                                className={`mt-1 w-full px-4 py-1 rounded-md border text-sm ${
+                                className={`mt-1 w-full px-4 py-1 rounded-md border text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
                                   errors[`coBorrowers.${index}.${field.key}`]
                                     ? "border-red-500 bg-red-50"
                                     : "border-slate-300"
@@ -2331,15 +2359,15 @@ const LoanApplication = () => {
 
           {/* ================= STEP 1 ================= */}
           {currentStep === 1 && (
-            <div className="border rounded-2xl p-6 bg-white">
-              <h3 className="text-lg font-semibold mb-6">
+            <div className="border border-slate-200 dark:border-slate-700 rounded-2xl p-6 bg-white dark:bg-slate-800">
+              <h3 className="text-lg font-semibold mb-6 dark:text-white">
                 Loan Request Details
               </h3>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 {/* Product Code  */}
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-slate-600 mb-1">
+                  <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
                     What kind of program are you looking for?{" "}
                     <span className="text-red-500">*</span>
                   </label>
@@ -2351,7 +2379,12 @@ const LoanApplication = () => {
                       setDynamicSections([]);
                       setActiveSectionIndex(null);
                     }}
-                    className={`w-full px-4 py-1 rounded-md border ${
+                    className={`w-full px-4 py-1 rounded-md border
+border-slate-300 dark:border-slate-600
+bg-white dark:bg-slate-900
+text-slate-800 dark:text-slate-200
+focus:ring-2 focus:ring-blue-500/20
+focus:border-blue-500 outline-none text-sm ${
                       errors["selectedProduct"]
                         ? "border-red-500 bg-red-50"
                         : "border-slate-300"
@@ -2380,7 +2413,7 @@ const LoanApplication = () => {
 
                 {/* Purpose */}
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-slate-600 mb-1">
+                  <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
                     Purpose of the Loan <span className="text-red-500">*</span>
                   </label>
                   <select
@@ -2389,7 +2422,12 @@ const LoanApplication = () => {
                       updateLoanRequest("purpose", e.target.value)
                     }
                     disabled={!selectedProduct}
-                    className={`w-full px-4 py-1 rounded-md border ${
+                    className={`w-full px-4 py-1 rounded-md border
+border-slate-300 dark:border-slate-600
+bg-white dark:bg-slate-900
+text-slate-800 dark:text-slate-200
+focus:ring-2 focus:ring-blue-500/20
+focus:border-blue-500 outline-none text-sm ${
                       errors["loanRequest.purpose"]
                         ? "border-red-500 bg-red-50"
                         : "border-slate-300"
@@ -2417,7 +2455,7 @@ const LoanApplication = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-600 mb-1">
+                  <label className="block text-sm font-medium text-slate-600 mb-1 dark:text-slate-300">
                     Property Type <span className="text-red-500">*</span>
                   </label>
 
@@ -2427,7 +2465,12 @@ const LoanApplication = () => {
                       updateLoanRequest("propertyType", e.target.value);
                       updateLoanRequest("subPropertyType", ""); // reset child
                     }}
-                    className={`w-full px-4 py-1 rounded-md border ${
+                    className={`w-full px-4 py-1 rounded-md border
+border-slate-300 dark:border-slate-600
+bg-white dark:bg-slate-900
+text-slate-800 dark:text-slate-200
+focus:ring-2 focus:ring-blue-500/20
+focus:border-blue-500 outline-none text-sm ${
                       errors["loanRequest.propertyType"]
                         ? "border-red-500 bg-red-50"
                         : "border-slate-300"
@@ -2449,7 +2492,7 @@ const LoanApplication = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-600 mb-1">
+                  <label className="block text-sm font-medium text-slate-600 mb-1 dark:text-slate-300">
                     Sub Property Type <span className="text-red-500">*</span>
                   </label>
 
@@ -2459,7 +2502,12 @@ const LoanApplication = () => {
                       updateLoanRequest("subPropertyType", e.target.value)
                     }
                     disabled={!formData.loanRequest.propertyType}
-                    className={`w-full px-4 py-1 rounded-md border ${
+                    className={`w-full px-4 py-1 rounded-md border
+border-slate-300 dark:border-slate-600
+bg-white dark:bg-slate-900
+text-slate-800 dark:text-slate-200
+focus:ring-2 focus:ring-blue-500/20
+focus:border-blue-500 outline-none text-sm ${
                       errors["loanRequest.subPropertyType"]
                         ? "border-red-500 bg-red-50"
                         : "border-slate-300"
@@ -2486,7 +2534,7 @@ const LoanApplication = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-600 mb-1">
+                  <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
                     Recourse <span className="text-red-500">*</span>
                   </label>
 
@@ -2495,7 +2543,12 @@ const LoanApplication = () => {
                     onChange={(e) =>
                       updateLoanRequest("recourse", e.target.value)
                     }
-                    className={`w-full px-4 py-1 rounded-md border ${
+                    className={`w-full px-4 py-1 rounded-md border
+border-slate-300 dark:border-slate-600
+bg-white dark:bg-slate-900
+text-slate-800 dark:text-slate-200
+focus:ring-2 focus:ring-blue-500/20
+focus:border-blue-500 outline-none text-sm ${
                       errors["loanRequest.recourse"]
                         ? "border-red-500 bg-red-50"
                         : "border-slate-300"
@@ -2515,7 +2568,7 @@ const LoanApplication = () => {
 
                 {/* Loan Amount */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-600 mb-1">
+                  <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
                     Amount of Loan Request{" "}
                     <span className="text-red-500">*</span>
                   </label>
@@ -2528,7 +2581,7 @@ const LoanApplication = () => {
                       updateLoanRequest("amount", formatted);
                     }}
                     placeholder="1,000,000"
-                    className={`w-full px-4 py-1 rounded-md border ${
+                    className={`w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
                       errors["loanRequest.amount"]
                         ? "border-red-500 bg-red-50"
                         : "border-slate-300"
@@ -2545,7 +2598,7 @@ const LoanApplication = () => {
 
                 {/* Interest Rate */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-600 mb-1">
+                  <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
                     Expected Interest Rate %{" "}
                     <span className="text-red-500">*</span>
                   </label>
@@ -2556,7 +2609,7 @@ const LoanApplication = () => {
                       updateLoanRequest("interestRate", e.target.value)
                     }
                     placeholder="8"
-                    className={`w-full px-4 py-1 rounded-md border ${
+                    className={`w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
                       errors["loanRequest.interestRate"]
                         ? "border-red-500 bg-red-50"
                         : "border-slate-300"
@@ -2573,7 +2626,7 @@ const LoanApplication = () => {
 
                 {/* Market Value */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-600 mb-1">
+                  <label className="block text-sm font-medium text-slate-600 mb-1 dark:text-slate-300">
                     Current Market Value (As-Is){" "}
                     <span className="text-red-500">*</span>
                   </label>
@@ -2589,7 +2642,7 @@ const LoanApplication = () => {
                       )
                     }
                     placeholder="1,500,000"
-                    className={`w-full px-4 py-1 rounded-md border ${
+                    className={`w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
                       errors["loanRequest.currentMarketValue"]
                         ? "border-red-500 bg-red-50"
                         : "border-slate-300"
@@ -2606,7 +2659,7 @@ const LoanApplication = () => {
 
                 {/* Purchase Price */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-600 mb-1">
+                  <label className="block text-sm font-medium text-slate-600 mb-1 dark:text-slate-300">
                     Purchase Price $ <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -2621,7 +2674,7 @@ const LoanApplication = () => {
                       )
                     }
                     placeholder="1,200,000"
-                    className={`w-full px-4 py-1 rounded-md border ${
+                    className={`w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
                       errors["loanRequest.purchasePrice"]
                         ? "border-red-500 bg-red-50"
                         : "border-slate-300"
@@ -2638,7 +2691,7 @@ const LoanApplication = () => {
 
                 {/* Purchase Date */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-600 mb-1">
+                  <label className="block text-sm font-medium text-slate-600 mb-1 dark:text-slate-300">
                     Purchase Date <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -2647,7 +2700,7 @@ const LoanApplication = () => {
                     onChange={(e) =>
                       updateLoanRequest("purchaseDate", e.target.value)
                     }
-                    className={`w-full px-4 py-1 rounded-md border ${
+                    className={`w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
                       errors["loanRequest.purchaseDate"]
                         ? "border-red-500 bg-red-50"
                         : "border-slate-300"
@@ -2663,7 +2716,7 @@ const LoanApplication = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-600 mb-1">
+                  <label className="block text-sm font-medium text-slate-600 mb-1 dark:text-slate-300">
                     Total Assets ($) <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -2678,7 +2731,7 @@ const LoanApplication = () => {
                         e.target.value,
                       )
                     }
-                    className={`w-full px-4 py-1 rounded-md border ${
+                    className={`w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200  ${
                       errors["loanRequest.totalAssets"]
                         ? "border-red-500 bg-red-50"
                         : "border-slate-300"
@@ -2693,7 +2746,7 @@ const LoanApplication = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-600 mb-1">
+                  <label className="block text-sm font-medium text-slate-600 mb-1 dark:text-slate-300">
                     Total Liabilities ($){" "}
                     <span className="text-red-500">*</span>
                   </label>
@@ -2709,7 +2762,7 @@ const LoanApplication = () => {
                         e.target.value,
                       )
                     }
-                    className={`w-full px-4 py-1 rounded-md border ${
+                    className={`w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200  ${
                       errors["loanRequest.totalLiabilities"]
                         ? "border-red-500 bg-red-50"
                         : "border-slate-300"
@@ -2728,14 +2781,14 @@ const LoanApplication = () => {
 
           {/* ================= STEP 2 ================= */}
           {currentStep === 2 && (
-            <div className="border rounded-2xl p-6 bg-white">
-              <h3 className="text-xl font-semibold mb-6">
+            <div className="border border-slate-200 dark:border-slate-700 rounded-2xl p-6 bg-white dark:bg-slate-800">
+              <h3 className="text-xl font-semibold mb-6 dark:text-white">
                 Loan Term & Property Income
               </h3>
 
               {/* Loan Term */}
               <div className="mb-6">
-                <label className="block text-sm font-medium text-slate-700 mb-2">
+                <label className="block text-sm font-medium text-slate-700 mb-2 dark:text-slate-300">
                   Loan Term Request <span className="text-red-500"> *</span>
                 </label>
                 <select
@@ -2743,7 +2796,12 @@ const LoanApplication = () => {
                   onChange={(e) =>
                     updateLoanTermIncome("loanTerm", e.target.value)
                   }
-                  className={`w-full px-4 py-1 rounded-md border text-sm ${
+                  className={`w-full px-4 py-1 rounded-md border
+border-slate-300 dark:border-slate-600
+bg-white dark:bg-slate-900
+text-slate-800 dark:text-slate-200
+focus:ring-2 focus:ring-blue-500/20
+focus:border-blue-500 outline-none text-sm ${
                     errors["loanTermIncome.loanTerm"]
                       ? "border-red-500 bg-red-50"
                       : "border-slate-300"
@@ -2763,14 +2821,14 @@ const LoanApplication = () => {
               </div>
 
               {/* Property Income Heading */}
-              <h4 className="text-md font-semibold text-slate-700 mb-4">
+              <h4 className="text-md font-semibold text-slate-700 mb-4 dark:text-slate-300">
                 Property Income
               </h4>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Monthly Rent */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-600 mb-2">
+                  <label className="block text-sm font-medium text-slate-600 mb-2 dark:text-slate-300">
                     Monthly Rent / Market Rent{" "}
                     <span className="text-red-500"> *</span>
                   </label>
@@ -2785,7 +2843,7 @@ const LoanApplication = () => {
                         e.target.value,
                       )
                     }
-                    className={`w-full px-4 py-1 rounded-md border ${
+                    className={`w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200  ${
                       errors["loanTermIncome.monthlyRent"]
                         ? "border-red-500 bg-red-50"
                         : "border-slate-300"
@@ -2802,7 +2860,7 @@ const LoanApplication = () => {
 
                 {/* Gross Revenue Actual */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-600 mb-2">
+                  <label className="block text-sm font-medium text-slate-600 mb-2 dark:text-slate-300">
                     Gross Revenue / Year (Actual){" "}
                     <span className="text-red-500"> *</span>
                   </label>
@@ -2817,7 +2875,7 @@ const LoanApplication = () => {
                         e.target.value,
                       )
                     }
-                    className={`w-full px-4 py-1 rounded-md border ${
+                    className={`w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200  ${
                       errors["loanTermIncome.grossRevenueActual"]
                         ? "border-red-500 bg-red-50"
                         : "border-slate-300"
@@ -2834,7 +2892,7 @@ const LoanApplication = () => {
 
                 {/* Gross Revenue ProForma */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-600 mb-2">
+                  <label className="block text-sm font-medium text-slate-600 mb-2 dark:text-slate-300">
                     Gross Revenue / Year (ProForma){" "}
                     <span className="text-red-500"> *</span>
                   </label>
@@ -2849,7 +2907,7 @@ const LoanApplication = () => {
                         e.target.value,
                       )
                     }
-                    className={`w-full px-4 py-1 rounded-md border ${
+                    className={`w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
                       errors["loanTermIncome.grossRevenueProforma"]
                         ? "border-red-500 bg-red-50"
                         : "border-slate-300"
@@ -2866,7 +2924,7 @@ const LoanApplication = () => {
 
                 {/* NOI Actual */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-600 mb-2">
+                  <label className="block text-sm font-medium text-slate-600 mb-2 dark:text-slate-300">
                     Net Operating Income / Year (Actual){" "}
                     <span className="text-red-500"> *</span>
                   </label>
@@ -2881,7 +2939,7 @@ const LoanApplication = () => {
                         e.target.value,
                       )
                     }
-                    className={`w-full px-4 py-1 rounded-md border ${
+                    className={`w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
                       errors["loanTermIncome.noiActual"]
                         ? "border-red-500 bg-red-50"
                         : "border-slate-300"
@@ -2898,7 +2956,7 @@ const LoanApplication = () => {
 
                 {/* NOI ProForma */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-600 mb-2">
+                  <label className="block text-sm font-medium text-slate-600 mb-2 dark:text-slate-300">
                     Net Operating Income / Year (ProForma){" "}
                     <span className="text-red-500"> *</span>
                   </label>
@@ -2913,7 +2971,7 @@ const LoanApplication = () => {
                         e.target.value,
                       )
                     }
-                    className={`w-full px-4 py-1 rounded-md border ${
+                    className={`w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
                       errors["loanTermIncome.noiProforma"]
                         ? "border-red-500 bg-red-50"
                         : "border-slate-300"
@@ -2930,14 +2988,14 @@ const LoanApplication = () => {
               </div>
               {/* ---------------- EXPENSES SECTION ---------------- */}
               <div className="mt-8">
-                <h4 className="text-md font-semibold text-slate-700 mb-4">
+                <h4 className="text-md font-semibold text-slate-700 mb-4 dark:text-slate-300">
                   Expenses <span className="text-red-500"> *</span>
                 </h4>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Annual Property Taxes */}
                   <div>
-                    <label className="block text-sm font-medium text-slate-600 mb-2">
+                    <label className="block text-sm font-medium text-slate-600 mb-2 dark:text-slate-300">
                       Annual Property Taxes{" "}
                       <span className="text-red-500"> *</span>
                     </label>
@@ -2952,7 +3010,7 @@ const LoanApplication = () => {
                           e.target.value,
                         )
                       }
-                      className={`w-full px-4 py-1 rounded-md border ${
+                      className={`w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200  ${
                         errors["loanTermIncome.annualTaxes"]
                           ? "border-red-500 bg-red-50"
                           : "border-slate-300"
@@ -2969,16 +3027,16 @@ const LoanApplication = () => {
 
                   {/* Property in Flood Zone */}
                   <div>
-                    <label className="block text-sm font-medium text-slate-600 mb-2">
+                    <label className="block text-sm font-medium text-slate-600 mb-2 dark:text-slate-300">
                       Property in Flood Zone{" "}
                       <span className="text-red-500"> *</span>
                     </label>
 
                     <div
-                      className={`flex items-center gap-6 mt-2 ${
+                      className={`flex items-center gap-6 mt-2 dark:text-white ${
                         errors["loanTermIncome.floodZone"]
                           ? "border p-1 rounded-md border-red-500 bg-red-50"
-                          : "border p-1 rounded-md border-slate-300 bg-white-50"
+                          : "border p-1 rounded-md border-slate-300 bg-white dark:bg-slate-900"
                       }`}
                     >
                       <label className="flex items-center gap-2 text-sm">
@@ -2993,7 +3051,7 @@ const LoanApplication = () => {
                         Yes
                       </label>
 
-                      <label className="flex items-center gap-2 text-sm">
+                      <label className="flex items-center gap-2 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ">
                         <input
                           type="radio"
                           value="no"
@@ -3014,7 +3072,7 @@ const LoanApplication = () => {
 
                   {/* Annual Insurance Premium */}
                   <div>
-                    <label className="block text-sm font-medium text-slate-600 mb-2">
+                    <label className="block text-sm font-medium text-slate-600 mb-2 dark:text-slate-300">
                       Annual Insurance Premium{" "}
                       <span className="text-red-500"> *</span>
                     </label>
@@ -3029,7 +3087,7 @@ const LoanApplication = () => {
                           e.target.value,
                         )
                       }
-                      className={`w-full px-4 py-1 rounded-md border ${
+                      className={`w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200  ${
                         errors["loanTermIncome.insurancePremium"]
                           ? "border-red-500 bg-red-50"
                           : "border-slate-300"
@@ -3046,7 +3104,7 @@ const LoanApplication = () => {
 
                   {/* HOA Dues */}
                   <div>
-                    <label className="block text-sm font-medium text-slate-600 mb-2">
+                    <label className="block text-sm font-medium text-slate-600 mb-2 dark:text-slate-300">
                       HOA Dues (If Applicable){" "}
                       <span className="text-red-500"> *</span>
                     </label>
@@ -3061,7 +3119,7 @@ const LoanApplication = () => {
                           e.target.value,
                         )
                       }
-                      className={`w-full px-4 py-1 rounded-md border ${
+                      className={`w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200  ${
                         errors["loanTermIncome.hoaDues"]
                           ? "border-red-500 bg-red-50"
                           : "border-slate-300"
@@ -3080,59 +3138,87 @@ const LoanApplication = () => {
             </div>
           )}
 
-          {selectedProduct && currentStep === allSteps.length - 1 && (
-            <div className="border rounded-2xl p-6 bg-white mt-6">
-              <h3 className="text-lg font-semibold mb-6">Digital Signature</h3>
+        {selectedProduct && currentStep === allSteps.length - 1 && (
+  <div
+    className="
+    border border-slate-200 dark:border-slate-700
+    rounded-2xl p-6
+    bg-white dark:bg-slate-800
+    mt-6
+    shadow-sm
+    "
+  >
+    <h3 className="text-lg font-semibold mb-6 text-slate-800 dark:text-slate-200">
+      Digital Signature
+    </h3>
 
-              <div
-                className={`border rounded-xl p-4 ${
-                  errors["signature"]
-                    ? "border-red-500 bg-red-50"
-                    : "border-slate-300 bg-white"
-                }`}
-              >
-                <SignatureCanvas
-                  ref={signatureRef}
-                  penColor="black"
-                  onEnd={handleSignatureEnd}
-                  canvasProps={{
-                    width: 900,
-                    height: 250,
-                    className: "w-full border rounded-md bg-white",
-                  }}
-                />
-              </div>
+    <div
+      className={`border rounded-xl p-4 ${
+        errors["signature"]
+          ? "border-red-500 bg-red-50 dark:bg-red-900/20"
+          : "border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900"
+      }`}
+    >
+      <SignatureCanvas
+        ref={signatureRef}
+        penColor="blue"
+        onEnd={handleSignatureEnd}
+        canvasProps={{
+          width: 900,
+          height: 250,
+          className:
+            "w-full border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-900",
+        }}
+      />
+    </div>
 
-              {errors["signature"] && (
-                <p className="text-xs text-red-500 mt-2">
-                  {errors["signature"]}
-                </p>
-              )}
+    {errors["signature"] && (
+      <p className="text-xs text-red-500 mt-2">{errors["signature"]}</p>
+    )}
 
-              <div className="flex gap-3 mt-4 flex-wrap">
-                <button
-                  type="button"
-                  onClick={handleUndoSignature}
-                  className="px-4 py-2 text-sm rounded-md border border-slate-300 hover:bg-slate-100"
-                >
-                  Undo
-                </button>
+    <div className="flex gap-3 mt-4 flex-wrap">
+      <button
+        type="button"
+        onClick={handleUndoSignature}
+        className="
+        px-4 py-2 text-sm rounded-md border
+        border-slate-300 dark:border-slate-600
+        text-slate-700 dark:text-slate-200
+        hover:bg-slate-100 dark:hover:bg-slate-700
+        transition
+        "
+      >
+        Undo
+      </button>
 
-                <button
-                  type="button"
-                  onClick={handleClearSignature}
-                  className="px-4 py-2 text-sm rounded-md border border-red-300 text-red-600 hover:bg-red-50"
-                >
-                  Reset
-                </button>
-              </div>
-            </div>
-          )}
+      <button
+        type="button"
+        onClick={handleClearSignature}
+        className="
+        px-4 py-2 text-sm rounded-md border
+        border-red-300 dark:border-red-500
+        text-red-600 dark:text-red-400
+        hover:bg-red-50 dark:hover:bg-red-900/20
+        transition
+        "
+      >
+        Reset
+      </button>
+    </div>
+  </div>
+)}
 
           {activeSectionIndex !== null &&
             dynamicSections[activeSectionIndex] && (
-              <div className="border rounded-2xl p-6 bg-white mt-6">
-                <h3 className="text-lg font-semibold mb-6">
+              <div
+                className="
+      border border-slate-200 dark:border-slate-700
+      rounded-2xl p-6
+      bg-white dark:bg-slate-800
+      mt-6
+      "
+              >
+                <h3 className="text-lg font-semibold mb-6 text-slate-800 dark:text-slate-200">
                   {toTitleCase(dynamicSections[activeSectionIndex].sectionName)}
                 </h3>
 
@@ -3144,7 +3230,7 @@ const LoanApplication = () => {
 
                       return (
                         <div key={field.fieldId}>
-                          <label className="block text-sm font-medium text-slate-600 mb-2">
+                          <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-2">
                             {field.label}
                             {field.required && (
                               <span className="text-red-500"> *</span>
@@ -3167,7 +3253,7 @@ const LoanApplication = () => {
             )}
 
           {/* Footer */}
-          <div className="flex justify-between pt-6 mt-6 border-t border-slate-200">
+          <div className="flex justify-between pt-6 mt-6 border-t border-slate-200 dark:border-slate-700">
             {/* Back Button */}
             <button
               onClick={() => {
@@ -3180,7 +3266,7 @@ const LoanApplication = () => {
   ${
     currentStep === 0
       ? "border-slate-200 text-slate-400 cursor-not-allowed"
-      : "border-slate-300 text-slate-600 hover:bg-slate-100"
+      : "border-slate-300 text-slate-600 hover:bg-slate-100 "
   }`}
             >
               <IoIosArrowBack />
@@ -3210,8 +3296,8 @@ const LoanApplication = () => {
                 goToStep(currentStep + 1);
               }}
               disabled={submitting}
-              className="px-6 py-2 rounded-md bg-blue-600 text-white 
-  hover:bg-blue-700 transition shadow-sm text-sm disabled:opacity-50"
+              className="px-6 py-2 rounded-md bg-[#2C92D5] hover:bg-[#19679b] text-white 
+     transition shadow-sm text-sm disabled:opacity-50"
             >
               {currentStep === allSteps.length - 1
                 ? submitting

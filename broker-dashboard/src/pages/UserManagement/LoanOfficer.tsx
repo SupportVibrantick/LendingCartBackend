@@ -643,9 +643,10 @@ export default function LoanOfficersPage() {
         {/* Left: Heading */}
         <div>
           <h1
-            className="text-3xl font-bold bg-gradient-to-r 
-      from-indigo-600 to-purple-600 
-      bg-clip-text text-transparent"
+            className="text-3xl font-bold"
+            style={{
+              color: "var(--primary-color)"
+            }}
           >
             Loan Officers
           </h1>
@@ -665,7 +666,7 @@ text-gray-800 dark:text-slate-200
 focus:border-indigo-500 focus:ring-2
 focus:ring-indigo-200 dark:focus:ring-indigo-500/30
 rounded-xl py-2.5 pl-10 pr-10
-outline-none transition-all"
+outline-none transition-all text-sm"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -703,10 +704,10 @@ outline-none transition-all"
               setForm(initialFormState);
               setShowModal(true);
             }}
-            className="bg-indigo-600 hover:bg-indigo-700 
+            className="bg-[#2C92D5] hover:bg-[#1d80c2] 
                  text-white px-5 py-2.5 rounded-xl 
                  shadow-sm hover:shadow-md 
-                 transition-all duration-200"
+                 transition-all duration-200 text-sm"
           >
             + Create Loan Officer
           </button>
@@ -1511,7 +1512,7 @@ flex flex-col md:flex-row items-center justify-between gap-4 mt-8"
                         setForm({ ...form, allowedToLogin: e.target.checked })
                       }
                     />
-                    <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                    <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#2C92D5]"></div>
                   </div>
                   <span
                     className="text-sm font-medium 
@@ -1540,17 +1541,15 @@ rounded-lg transition-colors"
                     disabled={creating}
                     className={`relative flex-1 md:flex-none px-8 py-3
   rounded-xl font-semibold text-white
-  bg-gradient-to-r 
-  from-indigo-600 via-purple-600 to-indigo-600
-  dark:from-indigo-500 dark:via-purple-500 dark:to-indigo-500
-  hover:from-indigo-700 hover:via-purple-700 hover:to-indigo-700
-  dark:hover:from-indigo-400 dark:hover:via-purple-400 dark:hover:to-indigo-400
-  shadow-lg shadow-indigo-200
+  hover:shadow-lg hover:shadow-indigo-200
   dark:shadow-black/40
   transition-all duration-300
   active:scale-[0.97]
   disabled:opacity-50 disabled:cursor-not-allowed
-  overflow-hidden`}
+  overflow-hidden text-sm`}
+  style={{
+    backgroundColor: "var(--primary-color)"
+  }}
                   >
                     <span className="relative z-10 flex items-center justify-center gap-2">
                       {creating && (

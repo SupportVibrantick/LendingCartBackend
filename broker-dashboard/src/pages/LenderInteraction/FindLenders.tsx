@@ -148,7 +148,7 @@ export default function FindLenders() {
         {/* ================= HEADER ================= */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+            <h1 className="text-2xl font-bold tracking-tight text-[#2C92D5]">
               Find Lenders
             </h1>
             <p className="text-slate-500 dark:text-slate-400 mt-2 text-sm">
@@ -180,7 +180,7 @@ export default function FindLenders() {
             <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl"></div>
 
             {/* Icon bubble */}
-            <div className="relative z-10 w-24 h-24 rounded-3xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center mb-8 shadow-2xl shadow-blue-500/30 animate-pulse">
+            <div className="relative z-10 w-24 h-24 rounded-3xl bg-[#2C92D5] flex items-center justify-center mb-8 shadow-2xl shadow-blue-500/30 animate-pulse">
               <Building2 size={52} className="text-white" />
             </div>
 
@@ -197,8 +197,7 @@ export default function FindLenders() {
               onClick={handleFindLenders}
               className="
       relative z-10 mt-10 px-10 py-3 rounded-2xl
-      bg-gradient-to-r from-blue-600 to-indigo-600
-      hover:from-blue-700 hover:to-indigo-700
+      bg-[#2C92D5]
       text-white font-bold text-sm
       shadow-xl shadow-blue-500/30
       transition-all duration-300
@@ -393,7 +392,7 @@ export default function FindLenders() {
                   <button
                     onClick={() => inviteLender(l.id)}
                     disabled={invitingId === l.id}
-                    className="flex-1 max-w-[100%] flex items-center justify-center gap-2 py-2 rounded-lg text-[11px] font-bold tracking-tight bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 transition-all active:scale-95 shadow-sm shadow-blue-200 dark:shadow-none"
+                    className="flex-1 max-w-[100%] flex items-center justify-center gap-2 py-2 rounded-lg text-[11px] font-bold tracking-tight bg-[#2C92D5] text-white hover:bg-[#1773af] disabled:opacity-50 transition-all active:scale-95 shadow-sm shadow-blue-200 dark:shadow-none"
                   >
                     {invitingId === l.id ? (
                       <RefreshCcw size={14} className="animate-spin" />

@@ -113,7 +113,7 @@ function RenderActiveField({
                 dark:bg-slate-800 dark:border-slate-700"
       >
         {field.options?.map((opt, i) => (
-          <label key={i} className="flex items-center gap-2 text-sm">
+          <label key={i} className="flex items-center gap-2 text-xs">
             <input
               type="radio"
               name={field.fieldKey}
@@ -136,7 +136,7 @@ function RenderActiveField({
                 dark:bg-slate-800 dark:border-slate-700"
       >
         {field.options?.map((opt, i) => (
-          <label key={i} className="flex items-center gap-2 text-sm">
+          <label key={i} className="flex items-center gap-2 text-xs">
             <input
               type="checkbox"
               onChange={(e) =>
@@ -178,9 +178,9 @@ function RenderActiveField({
   if (uiType === "select") {
     return (
       <select
-        className="w-full rounded-lg border px-3 py-2 text-sm
+        className="w-full rounded-lg border px-3 py-2
            bg-white text-slate-900 border-slate-300
-           dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600"
+           dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600 text-xs"
         onChange={(e) => onChange(field.fieldKey, e.target.value)}
       >
         <option value="">{field.placeholder || "Select"}</option>
@@ -197,7 +197,7 @@ function RenderActiveField({
       <textarea
         rows={4}
         placeholder={field.placeholder || ""}
-        className="w-full rounded-lg border px-3 py-2 text-sm
+        className="w-full rounded-lg border px-3 py-2 text-xs
            bg-white text-slate-900 border-slate-300
            dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600"
         onChange={(e) => onChange(field.fieldKey, e.target.value)}
@@ -210,7 +210,7 @@ function RenderActiveField({
     return (
       <input
         type="file"
-        className="w-full rounded-lg border px-3 py-2 text-sm
+        className="w-full rounded-lg border px-3 py-2 text-xs
            bg-white text-slate-900 border-slate-300
            dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600"
         onChange={(e) => onChange(field.fieldKey, e.target.files?.[0] || null)}
@@ -223,8 +223,9 @@ function RenderActiveField({
     <input
       type={uiType}
       placeholder={field.placeholder || ""}
-      className="w-full rounded-lg border px-3 py-2"
+      className="w-full rounded-lg border px-3 py-2 text-xs"
       onChange={(e) => onChange(field.fieldKey, e.target.value)}
+      disabled
     />
   );
 }
@@ -270,35 +271,38 @@ export default function ActiveApplication() {
   return (
     <div className="p-6 min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100">
       <div className="flex items-center gap-3 mb-4">
-        <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">
+        <h1 className="text-xl font-bold text-[#2C92D5]">
           {data.applicationName}
         </h1>
 
         {/* Visibility Icon */}
-        <div className="relative group">
+        <div className="relative group inline-flex">
           <GrCircleInformation className="w-5 h-5 text-blue-600 dark:text-blue-400 cursor-pointer" />
 
           {/* Tooltip */}
           <div
             className="
-        absolute left-1/2 -translate-x-1/2 top-full mt-2
-        w-64
-        bg-slate-900 dark:bg-slate-800
-        text-white text-xs
-        px-3 py-2 rounded-lg
-        shadow-lg
-        opacity-0 group-hover:opacity-100
-        transition-opacity duration-200
-        z-50
-      "
+    absolute left-1/2 -translate-x-1/2 bottom-full mb-2
+    w-64
+    bg-slate-900 dark:bg-slate-800
+    text-white text-xs
+    px-3 py-2 rounded-lg
+    shadow-lg
+    opacity-0 group-hover:opacity-100
+    transition-opacity duration-200
+    pointer-events-none
+    z-[999999999999999]
+  "
           >
             This application is currently active and visible across all
             platforms.
+            {/* Arrow */}
+            <div className="absolute left-1/2 -translate-x-1/2 top-full w-2 h-2 bg-slate-900 dark:bg-slate-800 rotate-45"></div>
           </div>
         </div>
       </div>
       <select
-        className="mb-6 border rounded px-3 py-2
+        className="mb-6 border rounded px-3 py-2 text-xs
              bg-white text-slate-900 border-slate-300
              dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600"
         value={activeProductId}

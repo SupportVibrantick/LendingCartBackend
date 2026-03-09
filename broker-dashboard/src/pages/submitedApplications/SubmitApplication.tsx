@@ -132,7 +132,7 @@ export default function LoanApplicationsPage() {
     Record<string, { url: string; type: string; name: string }[]>
   >({});
 
-  const rowsPerPage = 6;
+  const rowsPerPage = 5;
 
   const navigate = useNavigate();
 
@@ -467,7 +467,7 @@ export default function LoanApplicationsPage() {
   const Stat = ({ label, value }: { label: string; value: string }) => (
     <div>
       <p className="text-xs text-slate-500 uppercase">{label}</p>
-      <p className="text-[14px] font-semibold text-blue-600">{value}</p>
+      <p className="text-[14px] font-semibold text-[#2C92D5]">{value}</p>
     </div>
   );
 
@@ -521,7 +521,10 @@ export default function LoanApplicationsPage() {
       <header className="max-w-7xl mx-auto mb-10">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="space-y-1">
-            <h2 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-slate-900 to-slate-600 dark:from-white dark:to-slate-400 bg-clip-text">
+            <h2 className="text-3xl font-bold"
+            style={{
+              color: "var(--primary-color)"
+            }}>
               Loan Pipeline
             </h2>
             <p className="text-slate-500 dark:text-slate-400 text-sm">
@@ -538,8 +541,8 @@ export default function LoanApplicationsPage() {
             <button
               onClick={() => navigate("/loan-application")}
               className="px-4 py-2.5 rounded-xl font-medium 
-               bg-blue-600 text-white 
-               hover:bg-blue-700 
+               bg-[#2C92D5] text-white 
+               hover:bg-[#2379b3] 
                shadow-sm transition-all active:scale-95 text-xs"
             >
               + Create Loan Application
@@ -818,8 +821,7 @@ export default function LoanApplicationsPage() {
                           }}
                           className="inline-flex items-center justify-center 
                h-8 w-8
-               text-white bg-blue-600 hover:bg-blue-700 
-               dark:bg-blue-600 dark:hover:bg-blue-500 
+               text-white bg-[#2C92D5] hover:bg-[#1672af]
                rounded-lg
                transition-all 
                shadow-sm hover:shadow-md
@@ -1484,7 +1486,7 @@ export default function LoanApplicationsPage() {
                     borrowerSummary.borrowerMaxTerm &&
                     borrowerSummary.creditScore && (
                       <div className="mb-6 bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 p-4 rounded-xl">
-                        <div className="text-sm font-semibold text-blue-700 dark:text-blue-400 mb-2">
+                        <div className="text-sm font-semibold text-[#2C92D5] dark:text-blue-400 mb-2">
                           Borrower Summary
                         </div>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
@@ -1663,7 +1665,7 @@ export default function LoanApplicationsPage() {
       ${
         sentLenders[l.lenderProductId]
           ? "bg-emerald-500 text-white cursor-not-allowed"
-          : "bg-blue-600 hover:bg-blue-700 text-white"
+          : "bg-[#2C92D5] hover:bg-[#227dba] text-white"
       }
       disabled:opacity-60 disabled:cursor-not-allowed
     `}

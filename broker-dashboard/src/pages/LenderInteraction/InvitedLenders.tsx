@@ -92,7 +92,7 @@ export default function InvitedLenders() {
     <div className="px-6 py-6 text-gray-900 dark:text-gray-100">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold">Invited Lenders</h1>
+        <h1 className="text-2xl font-bold text-[#2C92D5]">Invited Lenders</h1>
         <p className="text-sm text-gray-500 dark:text-slate-400">
           Manage lender invite requests
         </p>

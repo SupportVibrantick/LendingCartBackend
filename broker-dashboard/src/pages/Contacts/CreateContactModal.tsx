@@ -261,13 +261,15 @@ export default function CreateContactModal({ onClose }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[999999]">
-      <div className="bg-white w-[750px] rounded-xl shadow-lg p-6 max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black/40 dark:bg-black/60 flex items-center justify-center z-[999999]">
+      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 w-[750px] rounded-xl shadow-lg p-6 max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between mb-6">
-          <h2 className="text-lg font-semibold">Create Contact</h2>
+          <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
+            Create Contact
+          </h2>
           <button
             onClick={onClose}
-            className="text-gray-500 hover:text-red-500 text-lg"
+            className="text-gray-500 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-500 text-lg"
           >
             ✕
           </button>
@@ -434,7 +436,10 @@ export default function CreateContactModal({ onClose }: Props) {
               name="description"
               value={form.description}
               onChange={handleChange}
-              className="text-xs border rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none"
+              className="text-xs border border-gray-300 dark:border-gray-700
+            bg-white dark:bg-gray-800
+            text-gray-800 dark:text-gray-200
+            rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none"
             />
           </div>
 
@@ -472,7 +477,9 @@ function Input({
 }: InputProps) {
   return (
     <div className="flex flex-col gap-1">
-      <label className="text-sm font-medium">{label}</label>
+      <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+        {label}
+      </label>
 
       <input
         name={name}
@@ -480,7 +487,14 @@ function Input({
         placeholder={placeholder}
         onChange={onChange}
         className={`text-xs border rounded-lg px-3 py-2 outline-none
-        ${error ? "border-red-500 focus:ring-red-400" : "focus:ring-indigo-500"}`}
+        bg-white dark:bg-gray-800
+        text-gray-800 dark:text-gray-200
+        border-gray-300 dark:border-gray-700
+        ${
+          error
+            ? "border-red-500 focus:ring-red-400"
+            : "focus:ring-indigo-500"
+        }`}
       />
 
       {error && <span className="text-xs text-red-500">{error}</span>}
@@ -500,14 +514,23 @@ type SelectProps = {
 function Select({ label, name, value, options, onChange, error }: SelectProps) {
   return (
     <div className="flex flex-col gap-1">
-      <label className="text-sm font-medium">{label}</label>
+      <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+        {label}
+      </label>
 
       <select
         name={name}
         value={value}
         onChange={onChange}
         className={`text-xs border rounded-lg px-3 py-2 outline-none
-        ${error ? "border-red-500 focus:ring-red-400" : "focus:ring-indigo-500"}`}
+        bg-white dark:bg-gray-800
+        text-gray-800 dark:text-gray-200
+        border-gray-300 dark:border-gray-700
+        ${
+          error
+            ? "border-red-500 focus:ring-red-400"
+            : "focus:ring-indigo-500"
+        }`}
       >
         <option value="">Select</option>
 
