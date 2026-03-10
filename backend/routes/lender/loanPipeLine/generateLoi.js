@@ -41,6 +41,7 @@ async function generateLoiRoute(fastify) {
         // =========================
 
         if (
+          
           !req.user ||
           req.user.orgType !== "LENDER" ||
           !req.user.organizationId
