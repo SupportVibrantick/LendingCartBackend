@@ -568,7 +568,7 @@ export default function LenderAllProductAssign() {
   /* ================= UI ================= */
   return (
     <div className="max-w-4xl mx-auto p-6 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-xl shadow border border-slate-200 dark:border-slate-700">
-      <h2 className="text-2xl font-semibold mb-4">Assign Product to Lender</h2>
+      <h2 className="text-2xl font-semibold mb-4 text-[#13538A] dark:text-indigo-600">Assign Product to Lender</h2>
 
       {message && (
         <div
@@ -1041,7 +1041,7 @@ export default function LenderAllProductAssign() {
           <button
             type="submit"
             disabled={submitting}
-            className="ml-auto px-4 py-2 rounded bg-indigo-600 text-white disabled:opacity-50"
+            className="ml-auto px-4 py-2 rounded bg-[#13538A] hover:bg-indigo-600 text-white disabled:opacity-50"
           >
             {submitting ? "Assigning..." : "Assign Product"}
           </button>

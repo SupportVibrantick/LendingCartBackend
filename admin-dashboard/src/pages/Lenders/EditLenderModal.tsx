@@ -112,7 +112,7 @@ max-h-[90vh] overflow-y-auto"
 
           <button
             onClick={onClose}
-            className="text-gray-500 hover:text-red-500 dark:text-slate-400"
+            className="text-gray-500 hover:text-red-500 dark:text-slate-400 dark:hover:text-red-500"
           >
             Close
           </button>
@@ -126,7 +126,7 @@ max-h-[90vh] overflow-y-auto"
             className={`px-4 py-2 rounded-md text-sm font-medium
             ${
               activeTab === "details"
-                ? "bg-blue-600 text-white"
+                ? "bg-[#13538A] text-white"
                 : "bg-gray-200 text-gray-700 dark:bg-slate-700 dark:text-slate-200"
             }`}
           >
@@ -139,7 +139,7 @@ max-h-[90vh] overflow-y-auto"
             className={`px-4 py-2 rounded-md text-sm font-medium
             ${
               activeTab === "products"
-                ? "bg-blue-600 text-white"
+                ? "bg-[#13538A] text-white"
                 : "bg-gray-200 text-gray-700 dark:bg-slate-700 dark:text-slate-200"
             }`}
           >
@@ -161,7 +161,7 @@ max-h-[90vh] overflow-y-auto"
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                   className="w-full px-3 py-2 mt-1 border rounded-md
-                  bg-white dark:bg-slate-800 dark:border-slate-600"
+                  bg-white dark:bg-slate-800 dark:border-slate-600 dark:text-white"
                 />
               </label>
 
@@ -174,7 +174,7 @@ max-h-[90vh] overflow-y-auto"
                   value={form.email}
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
                   className="w-full px-3 py-2 mt-1 border rounded-md
-                  bg-white dark:bg-slate-800 dark:border-slate-600"
+                  bg-white dark:bg-slate-800 dark:border-slate-600 dark:text-white"
                 />
               </label>
 
@@ -187,7 +187,7 @@ max-h-[90vh] overflow-y-auto"
                   value={form.phone}
                   onChange={(e) => setForm({ ...form, phone: e.target.value })}
                   className="w-full px-3 py-2 mt-1 border rounded-md
-                  bg-white dark:bg-slate-800 dark:border-slate-600"
+                  bg-white dark:bg-slate-800 dark:border-slate-600 dark:text-white"
                 />
               </label>
             </div>
@@ -204,7 +204,7 @@ max-h-[90vh] overflow-y-auto"
                   setForm({ ...form, brokerOrgId: e.target.value })
                 }
                 className="w-full px-3 py-2 mt-1 border rounded-md
-                bg-white dark:bg-slate-800 dark:border-slate-600"
+                bg-white dark:bg-slate-800 dark:border-slate-600 dark:text-white"
               >
                 <option value="">No broker</option>
 
@@ -228,7 +228,7 @@ max-h-[90vh] overflow-y-auto"
                     setForm({ ...form, adminFirstName: e.target.value })
                   }
                   className="w-full px-3 py-2 mt-1 border rounded-md
-bg-white dark:bg-slate-800 dark:border-slate-600"
+bg-white dark:bg-slate-800 dark:border-slate-600 dark:text-white"
                 />
               </label>
 
@@ -243,7 +243,7 @@ bg-white dark:bg-slate-800 dark:border-slate-600"
                     setForm({ ...form, adminLastName: e.target.value })
                   }
                   className="w-full px-3 py-2 mt-1 border rounded-md
-bg-white dark:bg-slate-800 dark:border-slate-600"
+bg-white dark:bg-slate-800 dark:border-slate-600 dark:text-white"
                 />
               </label>
 
@@ -258,14 +258,14 @@ bg-white dark:bg-slate-800 dark:border-slate-600"
                     setForm({ ...form, adminEmail: e.target.value })
                   }
                   className="w-full px-3 py-2 mt-1 border rounded-md
-bg-white dark:bg-slate-800 dark:border-slate-600"
+bg-white dark:bg-slate-800 dark:border-slate-600 dark:text-white"
                 />
               </label>
             </div>
             <div className="flex justify-end">
               <button
                 type="submit"
-                className="px-4 py-2 bg-blue-600 text-white rounded-md"
+                className="px-4 py-2 bg-[#13538A] text-white rounded-md"
               >
                 Save Changes
               </button>

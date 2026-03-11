@@ -4,7 +4,7 @@ import { Link } from "react-router";
 import { useSidebar } from "../context/SidebarContext";
 import { ThemeToggleButton } from "../components/common/ThemeToggleButton";
 import NotificationDropdown from "../components/header/NotificationDropdown";
-import {UserDropdown} from "../components/header/UserDropdown";
+import { UserDropdown } from "../components/header/UserDropdown";
 import { jwtDecode } from "jwt-decode";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001";
@@ -239,7 +239,7 @@ const AppHeader: React.FC = () => {
           <div className="hidden lg:block">
             <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
               Welcome{" "}
-              <span className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+              <span className="text-[#18B6B4] dark:text-[#2dd4d1]">
                 {toTitleCase(user?.user?.name)}
               </span>
             </h1>
@@ -261,7 +261,7 @@ const AppHeader: React.FC = () => {
         >
           <div className="flex items-center gap-2 2xsm:gap-3">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold text-blue-600">
+              <span className="text-sm font-semibold text-[#18B6B4] dark:text-[#2dd4d1]">
                 {time}
               </span>
             </div>

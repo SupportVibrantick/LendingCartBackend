@@ -77,6 +77,11 @@ const AllDocuments = () => {
     description: "",
   });
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const [limit] = useState(5);
+  const [total, setTotal] = useState(0);
+
+  const totalPages = Math.ceil(total / limit);
   const formatDate = (value?: string) => {
     if (!value) return "-";
     const d = new Date(value);
@@ -90,12 +95,17 @@ const AllDocuments = () => {
 
   /* ================= API ================= */
 
-  const fetchDocuments = async () => {
+  const fetchDocuments = async (page = 1) => {
     try {
       setLoadingList(true);
-      const res = await fetch(`${API_BASE}/admin/document-types/read`, {
-        headers: getAuthHeaders(),
-      });
+
+      const res = await fetch(
+        `${API_BASE}/admin/document-types/read?page=${page}&limit=${limit}`,
+        {
+          headers: getAuthHeaders(),
+        },
+      );
+
       const json = await res.json();
 
       if (!res.ok || !json.success) {
@@ -111,8 +121,11 @@ const AllDocuments = () => {
           description: d.description ?? "",
           isActive: Boolean(d.isActive),
           createdAt: d.createdAt ?? undefined,
-        }))
+        })),
       );
+
+      setTotal(json.meta?.total || 0);
+      setCurrentPage(json.meta?.page || 1);
     } catch (err) {
       console.error(err);
     } finally {
@@ -139,10 +152,14 @@ const AllDocuments = () => {
           headers: getAuthHeaders(),
           body: JSON.stringify(
             editingId
-              ? { id: editingId, name: form.name, description: form.description }
-              : form
+              ? {
+                  id: editingId,
+                  name: form.name,
+                  description: form.description,
+                }
+              : form,
           ),
-        }
+        },
       );
 
       const json = await res.json();
@@ -152,7 +169,7 @@ const AllDocuments = () => {
       }
 
       toast.success(editingId ? "Document updated" : "Document created");
-      await fetchDocuments();
+      await fetchDocuments(currentPage);
       resetForm();
     } finally {
       setSaving(false);
@@ -188,23 +205,28 @@ const AllDocuments = () => {
       }
 
       toast.success("Status updated");
-      await fetchDocuments();
+      await fetchDocuments(currentPage);
     } finally {
       setTogglingId(null);
     }
   };
 
+  const gotoPage = (page: number) => {
+    if (page < 1 || page > totalPages) return;
+    fetchDocuments(page);
+  };
+
   /* ================= EFFECT ================= */
 
   useEffect(() => {
-    fetchDocuments();
+    fetchDocuments(1);
   }, []);
 
   /* ================= UI ================= */
 
   return (
     <div className="px-6 py-6 bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100 min-h-screen">
-      <h1 className="text-2xl font-semibold mb-6 text-slate-900 dark:text-slate-100">
+      <h1 className="text-2xl font-semibold mb-6 text-[#13538A] dark:text-indigo-600">
         All Documents
       </h1>
 
@@ -250,7 +272,7 @@ const AllDocuments = () => {
             <button
               type="submit"
               disabled={saving}
-              className="bg-blue-600 text-white px-4 py-2 rounded"
+              className="bg-[#13538A] hover:bg-[#1369b4] text-white px-4 py-2 rounded"
             >
               {saving
                 ? "Saving..."
@@ -263,84 +285,156 @@ const AllDocuments = () => {
 
         {/* TABLE */}
         <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-700">
-          <table className="min-w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 uppercase text-xs">
-                <th className="py-2 text-left">Code</th>
-                <th className="py-2 text-left">Name</th>
-                <th className="py-2 text-left">Status</th>
-                <th className="py-2 text-left">Created</th>
-                <th className="py-2 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loadingList ? (
-                <tr>
-                  <td colSpan={5} className="py-10 text-center text-slate-500 dark:text-slate-400">
-                    Loading...
-                  </td>
+          <div className="w-full overflow-x-auto">
+            <table className="min-w-full table-fixed text-sm">
+              <thead>
+                <tr className="border-b border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 uppercase text-xs">
+                  <th className="w-[120px] py-2 text-left">Code</th>
+                  <th className="w-[240px] py-2 text-left">Name</th>
+                  <th className="w-[140px] py-2 text-left">Status</th>
+                  <th className="w-[160px] py-2 text-left">Created</th>
+                  <th className="w-[120px] py-2 text-right">Actions</th>
                 </tr>
-              ) : documents.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="py-16 text-center">
-                    <div className="flex flex-col items-center justify-center">
-
-                      {/* Icon Circle */}
-                      <div className="w-16 h-16 rounded-full bg-red-100 dark:bg-red-500/10 flex items-center justify-center mb-4 border border-red-200 dark:border-red-500/20">
-                        <FiAlertCircle className="text-red-500 dark:text-red-400 text-3xl" />
-                      </div>
-
-                      {/* Title */}
-                      <h3 className="text-lg font-semibold text-red-600 dark:text-red-400">
-                        No Documents Found
-                      </h3>
-
-                      {/* Subtitle */}
-                      <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 max-w-sm">
-                        There are currently no document types available.
-                        Please create a new document to get started.
-                      </p>
-
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                documents.map((p) => (
-                  <tr
-                    key={p.id}
-                    className="border-b border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800"
-                  >
-                    <td className="py-3">{p.code}</td>
-                    <td className="py-3">{p.name}</td>
-                    <td className="py-3">
-                      <button
-                        onClick={() => handleToggleStatus(p)}
-                        disabled={togglingId === p.id}
-                        className={`px-3 py-1 rounded-full border text-xs ${statusClass(
-                          p.isActive ? "ACTIVE" : "INACTIVE"
-                        )}`}
-                      >
-                        {togglingId === p.id
-                          ? "Updating..."
-                          : p.isActive
-                            ? "ACTIVE"
-                            : "INACTIVE"}
-                      </button>
-                    </td>
-                    <td className="py-3">{formatDate(p.createdAt)}</td>
-                    <td className="py-3 text-right">
-                      <button
-                        onClick={() => handleEdit(p)}
-                        className="h-8 w-8 inline-flex items-center justify-center border border-slate-300 dark:border-slate-600 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
-                      >
-                        <MdModeEdit />
-                      </button>
+              </thead>
+              <tbody>
+                {loadingList ? (
+                  <tr>
+                    <td
+                      colSpan={5}
+                      className="py-10 text-center text-slate-500 dark:text-slate-400"
+                    >
+                      Loading...
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : documents.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="py-16 text-center">
+                      <div className="flex flex-col items-center justify-center">
+                        {/* Icon Circle */}
+                        <div className="w-16 h-16 rounded-full bg-red-100 dark:bg-red-500/10 flex items-center justify-center mb-4 border border-red-200 dark:border-red-500/20">
+                          <FiAlertCircle className="text-red-500 dark:text-red-400 text-3xl" />
+                        </div>
+
+                        {/* Title */}
+                        <h3 className="text-lg font-semibold text-red-600 dark:text-red-400">
+                          No Documents Found
+                        </h3>
+
+                        {/* Subtitle */}
+                        <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 max-w-sm">
+                          There are currently no document types available.
+                          Please create a new document to get started.
+                        </p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  documents.map((p) => (
+                    <tr
+                      key={p.id}
+                      className="border-b border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800"
+                    >
+                      <td className="py-3">{p.code}</td>
+                      <td
+                        className="py-3 truncate max-w-[240px]"
+                        title={p.name}
+                      >
+                        {p.name}
+                      </td>
+                      <td className="py-3">
+                        <button
+                          onClick={() => handleToggleStatus(p)}
+                          disabled={togglingId === p.id}
+                          className={`px-3 py-1 rounded-full border text-xs ${statusClass(
+                            p.isActive ? "ACTIVE" : "INACTIVE",
+                          )}`}
+                        >
+                          {togglingId === p.id
+                            ? "Updating..."
+                            : p.isActive
+                              ? "ACTIVE"
+                              : "INACTIVE"}
+                        </button>
+                      </td>
+                      <td className="py-3">{formatDate(p.createdAt)}</td>
+                      <td className="py-3 text-right">
+                        <button
+                          onClick={() => handleEdit(p)}
+                          className="h-8 w-8 inline-flex items-center justify-center border border-slate-300 dark:border-slate-600 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
+                        >
+                          <MdModeEdit />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+            {/* pagination */}
+            {!loadingList && totalPages > 1 && (
+              <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-slate-200 dark:border-slate-700 pt-4">
+                {/* Page Info */}
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  Showing page{" "}
+                  <span className="font-semibold text-slate-800 dark:text-slate-100">
+                    {currentPage}
+                  </span>{" "}
+                  of {totalPages}
+                </p>
+
+                {/* Controls */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* Prev */}
+                  <button
+                    disabled={currentPage === 1}
+                    onClick={() => gotoPage(currentPage - 1)}
+                    className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700
+        bg-white dark:bg-slate-900
+        text-slate-700 dark:text-slate-200
+        hover:bg-slate-50 dark:hover:bg-slate-800
+        transition-colors
+        disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    Prev
+                  </button>
+
+                  {/* Page Numbers */}
+                  {Array.from({ length: totalPages }).map((_, i) => {
+                    const page = i + 1;
+
+                    return (
+                      <button
+                        key={page}
+                        onClick={() => gotoPage(page)}
+                        className={`px-3 py-1.5 rounded-lg text-sm border transition-colors
+              ${
+                currentPage === page
+                  ? "bg-[#13538A] text-white border-[#13538A] shadow-sm dark:bg-indigo-600 dark:border-indigo-600"
+                  : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
+              }`}
+                      >
+                        {page}
+                      </button>
+                    );
+                  })}
+
+                  {/* Next */}
+                  <button
+                    disabled={currentPage === totalPages}
+                    onClick={() => gotoPage(currentPage + 1)}
+                    className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700
+        bg-white dark:bg-slate-900
+        text-slate-700 dark:text-slate-200
+        hover:bg-slate-50 dark:hover:bg-slate-800
+        transition-colors
+        disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

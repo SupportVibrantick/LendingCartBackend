@@ -279,8 +279,8 @@ const CreateApplication: React.FC = () => {
                           onClick={(e) => toggleStatus(e, item)}
                           className={`px-3 py-1 rounded-full text-xs border ${
                             item.isActive
-                              ? "bg-emerald-100 text-emerald-800"
-                              : "bg-gray-100 text-gray-700"
+                              ? "bg-emerald-200 text-emerald-800"
+                              : "bg-gray-200 text-gray-800"
                           }`}
                         >
                           {item.isActive ? "ACTIVE" : "INACTIVE"}
@@ -319,7 +319,7 @@ const CreateApplication: React.FC = () => {
                 </button>
 
                 <span className="text-slate-500 dark:text-slate-400">
-                  Showing {startIndex + 1}–
+                  Showing {startIndex + 1} –
                   {Math.min(startIndex + limit, items.length)} of {items.length}
                 </span>
 

@@ -370,7 +370,7 @@ export default function ApplicationBuilder() {
 
     return (
         <div className="min-h-screen p-6 bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100">
-            <h1 className="text-2xl font-bold mb-6 text-slate-900 dark:text-slate-100">
+            <h1 className="text-2xl font-bold mb-6 text-[#13538A] dark:text-indigo-600">
                 Application Form Builder
             </h1>
 

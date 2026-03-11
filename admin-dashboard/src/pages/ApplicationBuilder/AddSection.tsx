@@ -178,7 +178,7 @@ const AddSectionAdmin: React.FC = () => {
                 {/* ===== Header ===== */}
                 <div className="flex flex-col items-center mb-12 text-center">
                     <div className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-900 rounded-full shadow-sm border border-slate-200 dark:border-slate-800 mb-6">
-                        <Layers className="text-indigo-500" size={16} />
+                        <Layers className="text-[#13538A] dark:text-indigo-600" size={16} />
                         <span className="text-xs font-bold text-slate-700 dark:text-slate-200">
                             Add Section
                         </span>
@@ -186,7 +186,7 @@ const AddSectionAdmin: React.FC = () => {
 
                     <h1 className="text-4xl font-black mb-4 text-slate-900 dark:text-white">
                         Create{" "}
-                        <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-violet-600">
+                        <span className="text-transparent bg-clip-text bg-[#13538A] dark:bg-indigo-600">
                             Application Section
                         </span>
                     </h1>
@@ -268,7 +268,7 @@ const AddSectionAdmin: React.FC = () => {
                     <button
                         onClick={handleSubmit}
                         disabled={saving}
-                        className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold bg-indigo-600 text-white hover:bg-indigo-700"
+                        className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold bg-[#13538A] dark:bg-indigo-600 text-white hover:bg-indigo-900"
                     >
                         {saving ? <Loader2 className="animate-spin" /> : <PlusCircle size={18} />}
                         Create Section

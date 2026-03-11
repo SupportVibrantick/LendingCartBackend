@@ -350,7 +350,7 @@ const LoanApplicationConfig: React.FC = () => {
                   className="flex items-center justify-between border rounded-lg px-4 py-3 dark:border-slate-700"
                 >
                   <div>
-                    <div className="font-medium">{item.loanProductCode}</div>
+                    <div className="font-medium text-sm">{item.loanProductCode}</div>
                     <div className="text-xs text-slate-400">
                       {item.isActive ? "Active" : "Inactive"}
                     </div>
@@ -359,7 +359,7 @@ const LoanApplicationConfig: React.FC = () => {
                   <span
                     className={`text-xs px-3 py-1 rounded-full ${
                       item.isActive
-                        ? "bg-emerald-100 text-emerald-700"
+                        ? "bg-emerald-200 text-emerald-800"
                         : "bg-gray-200 text-gray-700"
                     }`}
                   >

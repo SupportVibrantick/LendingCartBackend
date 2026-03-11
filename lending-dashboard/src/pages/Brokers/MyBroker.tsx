@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Swal from "sweetalert2";
 import toast from "react-hot-toast";
+import { Loader2, Users } from "lucide-react";
 
 type Broker = {
   id: string;
@@ -14,8 +15,7 @@ type Broker = {
   assignedAt: string;
 };
 
-const API_BASE =
-  import.meta.env.VITE_API_BASE || "http://localhost:3001";
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001";
 
 export default function MyBrokers() {
   const [brokers, setBrokers] = useState<Broker[]>([]);
@@ -43,10 +43,9 @@ export default function MyBrokers() {
   async function fetchBrokers() {
     setLoading(true);
     try {
-      const res = await fetch(
-        `${API_BASE}/lender/brokers/list`,
-        { headers: getAuthHeaders() }
-      );
+      const res = await fetch(`${API_BASE}/lender/brokers/list`, {
+        headers: getAuthHeaders(),
+      });
       const json = await res.json();
       setBrokers(Array.isArray(json.data) ? json.data : []);
     } catch {
@@ -64,15 +63,12 @@ export default function MyBrokers() {
       (b) =>
         b.name.toLowerCase().includes(q) ||
         b.email.toLowerCase().includes(q) ||
-        b.phone.includes(q)
+        b.phone.includes(q),
     );
   }, [brokers, search]);
 
   /* ================= PAGINATION ================= */
-  const totalPages = Math.max(
-    1,
-    Math.ceil(filtered.length / pageSize)
-  );
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
 
   const paginated = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
@@ -113,7 +109,7 @@ export default function MyBrokers() {
           body: JSON.stringify({
             isActive,
           }),
-        }
+        },
       );
 
       const json = await res.json();
@@ -122,13 +118,10 @@ export default function MyBrokers() {
         throw new Error(json.message || "Update failed");
       }
 
-
       setBrokers((prev) =>
         prev.map((b) =>
-          b.id === broker.id
-            ? { ...b, connectionStatus: nextStatus }
-            : b
-        )
+          b.id === broker.id ? { ...b, connectionStatus: nextStatus } : b,
+        ),
       );
 
       Swal.fire({
@@ -151,15 +144,15 @@ export default function MyBrokers() {
     }
   }
 
-
   /* ================= UI ================= */
   return (
     <div className="px-6 py-6 text-gray-900 dark:text-gray-100">
-
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-semibold">My Brokers</h1>
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
+            My <span className="text-[#18B6B4]">Brokers</span>
+          </h1>
           <p className="text-sm text-gray-500 dark:text-slate-400">
             Manage assigned brokers
           </p>
@@ -170,16 +163,19 @@ export default function MyBrokers() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search broker..."
-            className="px-3 py-2 border rounded-md text-sm
-              bg-white border-gray-300
-              dark:bg-slate-800 dark:border-slate-600"
+            className="px-3 border rounded-md text-sm
+      bg-white border-gray-300 text-gray-900
+      focus:outline-none focus:ring-2 focus:ring-[#18B6B4]/40 focus:border-[#18B6B4]
+      dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100"
           />
+
           <select
             value={pageSize}
             onChange={(e) => setPageSize(Number(e.target.value))}
-            className="px-2 py-2 border rounded-md text-sm
-              bg-white border-gray-300
-              dark:bg-slate-800 dark:border-slate-600"
+            className="px-2 border rounded-md text-sm
+      bg-white border-gray-300 text-gray-900
+      focus:outline-none focus:ring-2 focus:ring-[#18B6B4]/40 focus:border-[#18B6B4]
+      dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100"
           >
             <option value={5}>5 / page</option>
             <option value={10}>10 / page</option>
@@ -190,13 +186,31 @@ export default function MyBrokers() {
 
       {/* Table */}
       <div className="bg-white border rounded-xl p-4 dark:bg-slate-900 dark:border-slate-700">
+        
         {loading ? (
-          <div className="py-6 text-center text-gray-500">
-            Loading brokers…
+          <div className="py-14 flex flex-col items-center justify-center text-center space-y-3">
+            <Loader2 className="w-8 h-8 animate-spin text-[#18B6B4]" />
+            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+              Loading brokers...
+            </p>
           </div>
         ) : paginated.length === 0 ? (
-          <div className="py-6 text-center text-gray-500">
-            No brokers found
+          <div className="py-16 flex flex-col items-center justify-center text-center">
+            {/* Icon */}
+            <div className="w-14 h-14 flex items-center justify-center rounded-full bg-[#18B6B4]/10 text-[#18B6B4] mb-4">
+              <Users size={26} />
+            </div>
+
+            {/* Title */}
+            <h3 className="text-base font-semibold text-slate-800 dark:text-white">
+              No Brokers Found
+            </h3>
+
+            {/* Subtitle */}
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400 max-w-sm">
+              You currently don’t have any brokers assigned. Once brokers are
+              added, they will appear here.
+            </p>
           </div>
         ) : (
           <table className="min-w-full text-sm">
@@ -241,23 +255,23 @@ export default function MyBrokers() {
                         disabled={updatingId === b.id}
                         onClick={() => handleConnectionToggle(b)}
                         className={`px-3 py-1 rounded-full text-xs font-medium transition
-      ${b.connectionStatus === "CONNECTED"
-                            ? "bg-green-100 text-green-700"
-                            : "bg-red-100 text-red-700"
-                          }
+      ${
+        b.connectionStatus === "CONNECTED"
+          ? "bg-green-100 text-green-700"
+          : "bg-red-100 text-red-700"
+      }
       ${updatingId === b.id ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}
     `}
                         title="Click to toggle connection"
                       >
-                        {updatingId === b.id ? "Updating..." : b.connectionStatus}
+                        {updatingId === b.id
+                          ? "Updating..."
+                          : b.connectionStatus}
                       </button>
                     </td>
-
                   </td>
 
-                  <td>
-                    {new Date(b.assignedAt).toLocaleDateString()}
-                  </td>
+                  <td>{new Date(b.assignedAt).toLocaleDateString()}</td>
                 </tr>
               ))}
             </tbody>
@@ -269,20 +283,14 @@ export default function MyBrokers() {
       {totalPages > 1 && (
         <div className="flex justify-end gap-2 mt-4">
           <button
-            onClick={() =>
-              setCurrentPage((p) => Math.max(1, p - 1))
-            }
+            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
             disabled={currentPage === 1}
             className="px-3 py-1 border rounded disabled:opacity-40"
           >
             Prev
           </button>
           <button
-            onClick={() =>
-              setCurrentPage((p) =>
-                Math.min(totalPages, p + 1)
-              )
-            }
+            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
             disabled={currentPage === totalPages}
             className="px-3 py-1 border rounded disabled:opacity-40"
           >

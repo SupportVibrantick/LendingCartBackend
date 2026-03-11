@@ -74,8 +74,11 @@ export default function AllLeads() {
   const [rowLoadingId, setRowLoadingId] = useState<string | null>(null);
 
   const [query, setQuery] = useState("");
-  const [pageSize] = useState(10);
-  const [currentPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [limit] = useState(5);
+  const [total, setTotal] = useState(0);
+
+  const totalPages = Math.ceil(total / limit);
   const [isAddOpen, setIsAddOpen] = useState(false);
 
   const [form, setForm] = useState({
@@ -96,14 +99,19 @@ export default function AllLeads() {
   const [submitting, setSubmitting] = useState(false);
 
   /* ================= FETCH ================= */
-  async function fetchLeads() {
+  async function fetchLeads(page = 1) {
     setLoading(true);
 
     try {
-      const queryParam = source ? `?source=${source}` : "";
+      const params = new URLSearchParams();
+
+      params.append("page", String(page));
+      params.append("limit", String(limit));
+
+      if (source) params.append("source", source);
 
       const res = await fetch(
-        `${API_BASE}/admin/landing-page-leads/leads${queryParam}`,
+        `${API_BASE}/admin/landing-page-leads/leads?${params.toString()}`,
         {
           headers: getAuthHeaders(),
         },
@@ -114,6 +122,8 @@ export default function AllLeads() {
       const json = await res.json();
 
       setLeads(json.data || []);
+      setCurrentPage(json.meta?.page || 1);
+      setTotal(json.meta?.total || 0);
     } catch (err) {
       console.error("Leads error:", err);
     } finally {
@@ -144,7 +154,7 @@ export default function AllLeads() {
   }
 
   useEffect(() => {
-    fetchLeads();
+    fetchLeads(1);
     fetchStats();
   }, [source]);
 
@@ -158,11 +168,6 @@ export default function AllLeads() {
         .includes(q),
     );
   }, [leads, query]);
-
-  const paginated = useMemo(() => {
-    const start = (currentPage - 1) * pageSize;
-    return filtered.slice(start, start + pageSize);
-  }, [filtered, currentPage, pageSize]);
 
   /* ================= ACTIONS ================= */
 
@@ -274,6 +279,11 @@ export default function AllLeads() {
     }
   };
 
+  function gotoPage(page: number) {
+    if (page < 1 || page > totalPages) return;
+    fetchLeads(page);
+  }
+
   /* ================= UI ================= */
 
   return (
@@ -356,7 +366,7 @@ export default function AllLeads() {
       </div>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">
+          <h1 className="text-2xl font-semibold text-[#13538A] dark:text-indigo-600">
             All Leads
           </h1>
           <p className="text-sm text-slate-500 dark:text-slate-400">
@@ -440,7 +450,7 @@ export default function AllLeads() {
           </div>
           <button
             onClick={openAdd}
-            className="inline-flex items-center whitespace-nowrap px-4 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-500/20 active:scale-95 transition-all"
+            className="inline-flex items-center whitespace-nowrap px-4 py-2.5 bg-[#13538A] text-white text-sm font-bold rounded-xl hover:bg-[#1169b7] shadow-lg shadow-blue-500/20 active:scale-95 transition-all"
           >
             <TiPlus className="mr-2 text-lg" />
             Add Leads
@@ -459,7 +469,7 @@ export default function AllLeads() {
               Loading leads...
             </p>
           </div>
-        ) : paginated.length === 0 ? (
+        ) : filtered.length === 0 ? (
           <div className="py-20 flex flex-col items-center justify-center text-center">
             {/* Icon */}
             <div
@@ -499,7 +509,7 @@ export default function AllLeads() {
               </thead>
 
               <tbody>
-                {paginated.map((l) => (
+                {filtered.map((l) => (
                   <tr
                     key={l.id}
                     className="border-b border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800"
@@ -550,6 +560,62 @@ export default function AllLeads() {
                 ))}
               </tbody>
             </table>
+            {!loading && totalPages > 1 && (
+              <div className="mt-6 flex items-center justify-between border-t border-slate-200 dark:border-slate-700 pt-4">
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  Page{" "}
+                  <span className="font-semibold text-slate-800 dark:text-slate-100">
+                    {currentPage}
+                  </span>{" "}
+                  of {totalPages}
+                </p>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    disabled={currentPage === 1}
+                    onClick={() => gotoPage(currentPage - 1)}
+                    className="px-3 py-1.5 rounded-md border border-slate-200 dark:border-slate-700
+        bg-white dark:bg-slate-900
+        text-slate-700 dark:text-slate-200
+        hover:bg-slate-50 dark:hover:bg-slate-800
+        disabled:opacity-40"
+                  >
+                    Prev
+                  </button>
+
+                  {Array.from({ length: totalPages }).map((_, i) => {
+                    const page = i + 1;
+
+                    return (
+                      <button
+                        key={page}
+                        onClick={() => gotoPage(page)}
+                        className={`px-3 py-1.5 rounded-md border text-sm
+            ${
+              currentPage === page
+                ? "bg-blue-600 text-white border-blue-600"
+                : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
+            }`}
+                      >
+                        {page}
+                      </button>
+                    );
+                  })}
+
+                  <button
+                    disabled={currentPage === totalPages}
+                    onClick={() => gotoPage(currentPage + 1)}
+                    className="px-3 py-1.5 rounded-md border border-slate-200 dark:border-slate-700
+        bg-white dark:bg-slate-900
+        text-slate-700 dark:text-slate-200
+        hover:bg-slate-50 dark:hover:bg-slate-800
+        disabled:opacity-40"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -562,7 +628,7 @@ export default function AllLeads() {
                 </h2>
                 <button
                   onClick={() => setIsAddOpen(false)}
-                  className="text-gray-500 hover:text-gray-800 dark:text-slate-400 dark:hover:text-slate-200 text-sm sm:text-base"
+                  className="text-gray-500 hover:text-red-500 dark:text-slate-400 dark:hover:text-red-500 text-sm sm:text-base"
                 >
                   Close
                 </button>
@@ -682,7 +748,7 @@ export default function AllLeads() {
                 )}
 
                 <div className="sm:col-span-2 flex justify-end gap-3 mt-3">
-                  <button
+                  {/* <button
                     type="button"
                     onClick={() => setIsAddOpen(false)}
                     className="px-4 py-2 rounded-lg text-sm
@@ -690,13 +756,13 @@ export default function AllLeads() {
         hover:bg-slate-100 dark:hover:bg-slate-800"
                   >
                     Cancel
-                  </button>
+                  </button> */}
 
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold
-        hover:bg-blue-700 disabled:opacity-70"
+                    className="px-4 py-2 rounded-lg bg-[#13538A] text-white text-sm font-semibold
+        hover:bg-[#1074cc] disabled:opacity-70"
                   >
                     {submitting ? "Adding..." : "Add Lead"}
                   </button>

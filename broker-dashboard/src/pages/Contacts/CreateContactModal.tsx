@@ -491,9 +491,7 @@ function Input({
         text-gray-800 dark:text-gray-200
         border-gray-300 dark:border-gray-700
         ${
-          error
-            ? "border-red-500 focus:ring-red-400"
-            : "focus:ring-indigo-500"
+          error ? "border-red-500 focus:ring-red-400" : "focus:ring-indigo-500"
         }`}
       />
 
@@ -527,9 +525,7 @@ function Select({ label, name, value, options, onChange, error }: SelectProps) {
         text-gray-800 dark:text-gray-200
         border-gray-300 dark:border-gray-700
         ${
-          error
-            ? "border-red-500 focus:ring-red-400"
-            : "focus:ring-indigo-500"
+          error ? "border-red-500 focus:ring-red-400" : "focus:ring-indigo-500"
         }`}
       >
         <option value="">Select</option>

@@ -272,7 +272,7 @@ export default function LoanPipeline() {
       <header className="max-w-7xl mx-auto mb-10">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="space-y-1">
-            <h2 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-slate-900 to-slate-600 dark:from-white dark:to-slate-400 bg-clip-text">
+            <h2 className="text-2xl font-bold text-[#13538A] dark:text-indigo-600">
               Loan Pipeline
             </h2>
             <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">
