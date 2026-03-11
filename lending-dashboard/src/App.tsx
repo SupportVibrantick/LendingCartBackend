@@ -38,6 +38,7 @@ import FindBroker from "./pages/Brokers/FindBroker";
 import BrokerRequest from "./pages/Brokers/BrokerInvites";
 import LoanPipeline from "./pages/LoanPipeline/LoanPipeline";
 import ImpersonateLogin from "./pages/ImpersonateLogin";
+import LoiPreview from "./pages/LoanPipeline/LoiPreview";
 
 export default function App() {
   return (
@@ -95,6 +96,7 @@ export default function App() {
             <Route index path="/find-broker" element={<FindBroker />} />
 
             <Route index path="/loan-pipeline" element={<LoanPipeline />} />
+            <Route index path="/loi-preview" element={<LoiPreview />} />
 
             {/* Others Page */}
             <Route path="/profile" element={<UserProfiles />} />

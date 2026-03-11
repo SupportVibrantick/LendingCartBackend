@@ -15,6 +15,7 @@ import {
   Download,
   EllipsisVertical,
 } from "lucide-react";
+import { useNavigate } from "react-router";
 
 /* ================= TYPES ================= */
 type TableRow = {
@@ -93,6 +94,7 @@ function getAuthHeaders(): HeadersInit {
 
 /* ================= COMPONENT ================= */
 export default function LoanPipeline() {
+  const navigate = useNavigate();
   const [rows, setRows] = useState<TableRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -143,7 +145,7 @@ export default function LoanPipeline() {
 
   // Find Lenders Modal State
   const [currentPage, setCurrentPage] = useState(1);
-  const rowsPerPage = 6;
+  const rowsPerPage = 5;
 
   const InfoCard = ({ label, value }: { label: string; value: any }) => (
     <div
@@ -312,6 +314,38 @@ export default function LoanPipeline() {
     }
   };
 
+  const handleGenerateLOI = async (applicationId: string) => {
+    try {
+      setLoading(true);
+
+      const res = await fetch(
+        `${API_BASE}/lender/loan-pipeline/${applicationId}/generate-loi`,
+        {
+          method: "POST",
+          headers: getAuthHeaders(),
+          body: JSON.stringify({}),
+        },
+      );
+
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Failed to generate LOI");
+      }
+
+      toast.success("LOI Generated Successfully");
+      navigate(`/loi-preview`, {
+        state: { pdfUrl: `${API_BASE}/public${json.loiUrl}` },
+      });
+      // reload pipeline
+      loadSubmissions();
+    } catch (err: any) {
+      toast.error(err.message || "Something went wrong");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     loadSubmissions();
   }, []);
@@ -444,17 +478,21 @@ export default function LoanPipeline() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#0b1120] p-4 text-slate-900 dark:text-slate-100 selection:bg-blue-100 dark:selection:bg-blue-900/30">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#0b1120] p-2 text-slate-900 dark:text-slate-100 selection:bg-blue-100 dark:selection:bg-blue-900/30">
       {/* Header Area */}
       <header className="max-w-7xl mx-auto mb-10">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="space-y-1">
-            <h2 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-slate-900 to-slate-600 dark:from-white dark:to-slate-400 bg-clip-text">
+            <h2
+              className="text-2xl font-bold tracking-tight text-transparent bg-clip-text 
+bg-gradient-to-r from-[#18B6B4] to-[#0f8f8d] 
+dark:from-[#18B6B4] dark:to-[#6ee7e5]"
+            >
               Loan Pipeline
             </h2>
             <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">
               You have{" "}
-              <span className="text-blue-600 dark:text-blue-400">
+              <span className="text-[#18B6B4] dark:text-[#6ee7e5] font-medium">
                 {filteredRows.length} active
               </span>{" "}
               applications today.
@@ -463,11 +501,20 @@ export default function LoanPipeline() {
 
           <div className="flex items-center gap-3">
             <div className="relative group">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-[#18B6B4] transition-colors" />
+
               <input
                 placeholder="Search by name or company..."
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 pr-4 py-2.5 w-full md:w-80 rounded-xl text-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none"
+                className="pl-10 pr-4 py-2.5 w-full md:w-80 rounded-xl text-sm
+    bg-white dark:bg-slate-900
+    border border-slate-200 dark:border-slate-800
+    shadow-sm
+    focus:ring-2 focus:ring-[#18B6B4]/20
+    focus:border-[#18B6B4]
+    text-slate-800 dark:text-slate-100
+    placeholder:text-slate-400
+    transition-all outline-none"
               />
             </div>
             <button
@@ -561,10 +608,10 @@ export default function LoanPipeline() {
       </header>
 
       {/* Main Table Container */}
-      <div className="max-w-7xl mx-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-slate-200/50 dark:shadow-none">
+      <div className="max-w-7xl mx-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-slate-200/50 dark:shadow-none overflow-hidden">
         <div className="w-full bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm relative">
-          <div className="overflow-x-hidden loan-table-scroll">
-            <table className="w-full border-separate border-spacing-0">
+          <div className="w-full overflow-x-auto loan-table-scroll">
+            <table className="min-w-[1100px] w-full border-separate border-spacing-0">
               <thead>
                 <tr className="bg-slate-50/50 dark:bg-slate-800/40">
                   {[
@@ -775,6 +822,20 @@ export default function LoanPipeline() {
 
                                     <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
 
+                                    {/* Generate LOI */}
+                                    <button
+                                      onClick={() => {
+                                        handleGenerateLOI(
+                                          row.applicationLenderId,
+                                        );
+                                        setActiveDropdown(null);
+                                      }}
+                                      className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition"
+                                    >
+                                      <FileText size={16} />
+                                      Generate LOI
+                                    </button>
+
                                     {/* Approve */}
                                     <button
                                       disabled={!isActionAllowed}
@@ -930,7 +991,7 @@ export default function LoanPipeline() {
                         className={`px-3 py-1 text-sm rounded-lg transition
                                             ${
                                               currentPage === page
-                                                ? "bg-blue-600 text-white"
+                                                ? "bg-[#18B6B4] text-white"
                                                 : "border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800"
                                             }
                                     `}

@@ -767,7 +767,7 @@ export default function AllLendersPage() {
         {/* ================= HEADER ================= */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+            <h1 className="text-2xl font-bold tracking-tight text-[#13538A] dark:text-indigo-600">
               All Lenders
             </h1>
             <p className="text-slate-500 dark:text-slate-400 mt-2 text-sm">
@@ -789,7 +789,7 @@ export default function AllLendersPage() {
             </button>
             <button
               onClick={openAdd}
-              className="inline-flex items-center whitespace-nowrap px-4 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-500/20 active:scale-95 transition-all"
+              className="inline-flex items-center whitespace-nowrap px-4 py-2.5 bg-[#13538A] text-white text-sm font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-500/20 active:scale-95 transition-all"
             >
               <TiPlus className="mr-2 text-lg" />
               Add Lender
@@ -797,7 +797,7 @@ export default function AllLendersPage() {
 
             <button
               onClick={() => navigate("/lender-all-assigned-products")}
-              className="inline-flex items-center whitespace-nowrap px-4 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-500/20 active:scale-95 transition-all"
+              className="inline-flex items-center whitespace-nowrap px-4 py-2.5 bg-[#13538A] text-white text-sm font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-500/20 active:scale-95 transition-all"
             >
               <PackagePlus className="mr-2 h-5 w-5" />
               Assign Products
@@ -1068,7 +1068,7 @@ export default function AllLendersPage() {
                   <div className="flex-1 min-w-0 pr-16">
                     <div>
                       <h3
-                        className="text-base font-bold text-slate-900 dark:text-white truncate group-hover:text-blue-600 transition-colors cursor-pointer"
+                        className="text-base font-bold text-[#13538A] dark:text-white truncate group-hover:text-blue-600 transition-colors cursor-pointer"
                         // onClick={() => openAdminsFor(l)}
                       >
                         {l.name}
@@ -1131,29 +1131,43 @@ export default function AllLendersPage() {
 
         {/* ================= PAGINATION ================= */}
         {!loading && totalPages > 1 && (
-          <div className="mt-12 flex flex-col sm:flex-row items-center justify-between gap-6 border-t border-slate-200 dark:border-slate-800 pt-8">
-            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+          <div className="mt-10 flex flex-col sm:flex-row items-center justify-between gap-6 border-t border-slate-200 dark:border-slate-700 pt-6">
+            <p className="text-sm text-slate-500 dark:text-slate-400">
               Showing{" "}
-              <span className="text-slate-900 dark:text-white">
+              <span className="font-semibold text-slate-800 dark:text-slate-100">
                 Page {currentPage}
               </span>{" "}
               of {totalPages}
             </p>
 
             <div className="flex items-center gap-3">
+              {/* Prev */}
               <button
                 disabled={currentPage === 1}
                 onClick={() => gotoPage(currentPage - 1)}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm font-bold disabled:opacity-40 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all shadow-sm"
+                className="flex items-center gap-2 px-4 py-2 rounded-lg border 
+        border-slate-200 dark:border-slate-700
+        bg-white dark:bg-slate-900
+        text-slate-700 dark:text-slate-200
+        hover:bg-slate-50 dark:hover:bg-slate-800
+        disabled:opacity-40 disabled:cursor-not-allowed
+        transition"
               >
                 <ChevronLeft size={18} />
                 Prev
               </button>
 
+              {/* Next */}
               <button
                 disabled={currentPage === totalPages}
                 onClick={() => gotoPage(currentPage + 1)}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm font-bold disabled:opacity-40 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all shadow-sm"
+                className="flex items-center gap-2 px-4 py-2 rounded-lg border 
+        border-slate-200 dark:border-slate-700
+        bg-white dark:bg-slate-900
+        text-slate-700 dark:text-slate-200
+        hover:bg-slate-50 dark:hover:bg-slate-800
+        disabled:opacity-40 disabled:cursor-not-allowed
+        transition"
               >
                 Next
                 <ChevronRight size={18} />
@@ -1173,7 +1187,7 @@ export default function AllLendersPage() {
                 <button
                   disabled={showAssignPopup}
                   onClick={() => !showAssignPopup && setIsAddOpen(false)}
-                  className="text-gray-500 hover:text-gray-800 dark:text-slate-400 dark:hover:text-slate-200"
+                  className="text-gray-500 hover:text-red-500 dark:text-slate-400 dark:hover:text-red-500"
                 >
                   Close
                 </button>
@@ -1382,7 +1396,7 @@ dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100`}
                         <button
                           type="button"
                           onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2"
+                          className="absolute right-3 top-1/2 -translate-y-1/2 dark:text-white"
                         >
                           {showPassword ? (
                             <EyeOff size={18} />
@@ -1464,7 +1478,7 @@ dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100`}
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-70"
+                    className="px-4 py-2 bg-[#13538A] text-white rounded-md hover:bg-blue-700 disabled:opacity-70"
                   >
                     {submitting ? "Creating..." : "Create Lender"}
                   </button>

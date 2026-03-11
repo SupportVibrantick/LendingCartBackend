@@ -1,6 +1,7 @@
 // src/pages/AdminUsers/AllSuperadmin.tsx
 import { ShieldCheck } from "lucide-react";
 import React, { useEffect, useState } from "react";
+import toast from "react-hot-toast";
 import { MdModeEdit } from "react-icons/md";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001";
@@ -133,12 +134,12 @@ const AllSuperadmin: React.FC = () => {
     e.preventDefault();
 
     if (!form.firstName || !form.lastName || !form.email) {
-      alert("First name, last name and email are required.");
+      toast.error("First name, last name and email are required.");
       return;
     }
 
     if (!editingAdminId && !form.password) {
-      alert("Password is required for new admins.");
+      toast.error("Password is required for new admins.");
       return;
     }
 
@@ -160,14 +161,14 @@ const AllSuperadmin: React.FC = () => {
         if (!res.ok) {
           console.error("Failed to update admin:", res.status);
           const json = await res.json().catch(() => ({}));
-          alert(json.message || "Failed to update admin");
+          toast.error(json.message || "Failed to update admin");
           return;
         }
 
         const json = await res.json();
         if (json.success === false) {
           console.error("Failed to update admin:", json.message);
-          alert(json.message || "Failed to update admin");
+          toast.error(json.message || "Failed to update admin");
           return;
         }
       } else {
@@ -187,14 +188,14 @@ const AllSuperadmin: React.FC = () => {
         if (!res.ok) {
           console.error("Failed to create admin:", res.status);
           const json = await res.json().catch(() => ({}));
-          alert(json.message || "Failed to create admin");
+          toast.error(json.message || "Failed to create admin");
           return;
         }
 
         const json = await res.json();
         if (json.success === false) {
           console.error("Failed to create admin:", json.message);
-          alert(json.message || "Failed to create admin");
+          toast.error(json.message || "Failed to create admin");
           return;
         }
       }
@@ -237,14 +238,14 @@ const AllSuperadmin: React.FC = () => {
       if (!res.ok) {
         console.error("Failed to update admin status:", res.status);
         const json = await res.json().catch(() => ({}));
-        alert(json.message || "Failed to update admin status");
+        toast.error(json.message || "Failed to update admin status");
         return;
       }
 
       const json = await res.json();
       if (json.success === false) {
         console.error("Failed to update admin status:", json.message);
-        alert(json.message || "Failed to update admin status");
+        toast.error(json.message || "Failed to update admin status");
         return;
       }
 
@@ -268,7 +269,7 @@ const AllSuperadmin: React.FC = () => {
       {/* Heading */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
+          <h1 className="text-2xl font-semibold text-[#13538A] dark:text-indigo-600">
             Super Admin Users
           </h1>
           <p className="text-sm text-gray-500 mt-1 dark:text-slate-400">
@@ -370,8 +371,8 @@ const AllSuperadmin: React.FC = () => {
               <button
                 type="submit"
                 disabled={saving}
-                className="inline-flex items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed
-                           dark:bg-blue-500 dark:hover:bg-blue-600"
+                className="inline-flex items-center justify-center rounded-md bg-[#13538A] px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-[#1874c5] disabled:opacity-60 disabled:cursor-not-allowed
+                           "
               >
                 {saving
                   ? editingAdminId

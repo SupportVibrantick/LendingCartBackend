@@ -221,7 +221,7 @@ const CreateApplication: React.FC = () => {
         <div className="px-6 py-6 text-gray-900 dark:text-gray-100">
             {/* Header */}
             <div className="mb-6">
-                <h1 className="text-2xl font-semibold dark:text-white">
+                <h1 className="text-2xl font-semibold text-[#13538A] dark:text-indigo-600">
                     Application Builder
                 </h1>
                 <p className="text-sm text-gray-500 dark:text-slate-400">
@@ -269,7 +269,7 @@ const CreateApplication: React.FC = () => {
 
                         <button
                             type="submit"
-                            className="bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-2 rounded-md"
+                            className="bg-[#13538A] hover:bg-[#2e87d4] text-white text-sm px-4 py-2 rounded-md"
                         >
                             Create Application
                         </button>

@@ -197,6 +197,16 @@ const AllLoanProducts: React.FC = () => {
     description: "",
   });
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
+
+  const totalPages = Math.ceil(products.length / itemsPerPage);
+
+  const paginatedProducts = products.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage,
+  );
+
   // ===== Helpers =====
   const formatDate = (value?: string) => {
     if (!value) return "-";
@@ -247,6 +257,7 @@ const AllLoanProducts: React.FC = () => {
       }));
 
       setProducts(mapped);
+      setCurrentPage(1);
     } catch (err) {
       console.error("Failed to load loan products", err);
     } finally {
@@ -372,7 +383,7 @@ const AllLoanProducts: React.FC = () => {
       {/* Heading */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
+          <h1 className="text-2xl font-semibold text-[#13538A] dark:text-indigo-600">
             Loan Products
           </h1>
           <p className="text-sm text-gray-500 mt-1 dark:text-slate-400">
@@ -382,7 +393,7 @@ const AllLoanProducts: React.FC = () => {
       </div>
 
       {/* 2-column layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-[320px_minmax(0,1fr)] gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-[310px_minmax(0,1fr)] gap-4">
         {/* LEFT CARD – Create / Edit product */}
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 dark:bg-slate-900 dark:border-slate-700">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
@@ -462,8 +473,8 @@ const AllLoanProducts: React.FC = () => {
               <button
                 type="submit"
                 disabled={saving}
-                className="inline-flex items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed
-                           dark:bg-blue-500 dark:hover:bg-blue-600"
+                className="inline-flex items-center justify-center rounded-md bg-[#13538A] px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-[#1b72be] disabled:opacity-60 disabled:cursor-not-allowed
+                            dark:hover:bg-blue-600"
               >
                 {saving
                   ? editingProductId
@@ -512,15 +523,15 @@ const AllLoanProducts: React.FC = () => {
           </div>
 
           <div className="overflow-auto">
-            <table className="min-w-full text-sm">
+            <table className="min-w-full table-fixed text-sm">
               <thead>
                 <tr className="border-b border-gray-100 text-xs text-gray-500 uppercase tracking-wide dark:border-slate-700 dark:text-slate-400">
-                  <th className="py-2 pr-4 text-left">Code</th>
-                  <th className="py-2 pr-4 text-left">Name</th>
+                  <th className="w-[180px] py-2 pr-4 text-left">Code</th>
+                  <th className="w-[200px] py-2 pr-4 text-left">Name</th>
                   <th className="py-2 pr-4 text-left">Description</th>
-                  <th className="py-2 pr-4 text-left">Status</th>
-                  <th className="py-2 pr-4 text-left">Created</th>
-                  <th className="py-2 pr-4 text-right">Actions</th>
+                  <th className="w-[120px] py-2 pr-4 text-left">Status</th>
+                  <th className="w-[120px] py-2 pr-4 text-left">Created</th>
+                  <th className="w-[100px] py-2 pr-4 text-right">Actions</th>
                 </tr>
               </thead>
 
@@ -544,10 +555,10 @@ const AllLoanProducts: React.FC = () => {
                     </td>
                   </tr>
                 ) : (
-                  products.map((p) => (
+                  paginatedProducts.map((p) => (
                     <tr
                       key={p.id}
-                      className="border-b border-gray-100 last:border-0 hover:bg-gray-50/40 dark:border-slate-800 dark:hover:bg-slate-800/60"
+                      className="border-b text-xs border-gray-100 last:border-0 hover:bg-gray-50/40 dark:border-slate-800 dark:hover:bg-slate-800/60"
                     >
                       <td className="py-3 pr-4 text-gray-900 whitespace-nowrap dark:text-gray-100">
                         {p.code}
@@ -555,8 +566,10 @@ const AllLoanProducts: React.FC = () => {
                       <td className="py-3 pr-4 text-gray-900 whitespace-nowrap dark:text-gray-100">
                         {p.name}
                       </td>
-                      <td className="py-3 pr-4 text-gray-600 dark:text-slate-300">
-                        {p.description || "-"}
+                      <td className="py-3 pr-4 text-gray-600 dark:text-slate-300 max-w-[400px]">
+                        <div className="truncate" title={p.description || "-"}>
+                          {p.description || "-"}
+                        </div>
                       </td>
 
                       {/* Clickable status pill */}
@@ -604,6 +617,60 @@ const AllLoanProducts: React.FC = () => {
                 )}
               </tbody>
             </table>
+            {/* Pagination */}
+            {products.length > itemsPerPage && (
+              <div className="flex items-center justify-between pt-4">
+                <p className="text-sm text-gray-500 dark:text-slate-400">
+                  Showing {(currentPage - 1) * itemsPerPage + 1}-
+                  {Math.min(currentPage * itemsPerPage, products.length)} of{" "}
+                  {products.length}
+                </p>
+
+                <div className="flex items-center gap-2">
+                  {/* Previous */}
+                  <button
+                    onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1.5 text-sm rounded-md border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50
+                   dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                  >
+                    Prev
+                  </button>
+
+                  {/* Page Numbers */}
+                  {Array.from({ length: totalPages }).map((_, i) => {
+                    const page = i + 1;
+
+                    return (
+                      <button
+                        key={page}
+                        onClick={() => setCurrentPage(page)}
+                        className={`px-3 py-1.5 text-sm rounded-md border
+              ${
+                currentPage === page
+                  ? "bg-[#13538A] text-white border-[#13538A] dark:bg-blue-600 dark:border-blue-600"
+                  : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+              }`}
+                      >
+                        {page}
+                      </button>
+                    );
+                  })}
+
+                  {/* Next */}
+                  <button
+                    onClick={() =>
+                      setCurrentPage((p) => Math.min(p + 1, totalPages))
+                    }
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-1.5 text-sm rounded-md border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50
+                   dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

@@ -572,7 +572,7 @@ export default function BrokersPage() {
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+            <h1 className="text-2xl font-bold tracking-tight text-[#13538A] dark:text-indigo-600">
               All Brokers
             </h1>
             <p className="text-slate-500 dark:text-slate-400 mt-2 text-sm">
@@ -594,14 +594,14 @@ export default function BrokersPage() {
             </button>
             <button
               onClick={openAdd}
-              className="inline-flex items-center whitespace-nowrap px-4 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-500/20 active:scale-95 transition-all"
+              className="inline-flex items-center whitespace-nowrap px-4 py-2.5 bg-[#13538A] text-white text-sm font-bold rounded-xl hover:bg-[#2e87d4] shadow-lg shadow-blue-500/20 active:scale-95 transition-all"
             >
               <TiPlus className="mr-2 text-lg" />
               Add Broker
             </button>
             <button
               onClick={() => navigate("/all-brokers-lenders")}
-              className="inline-flex items-center whitespace-nowrap px-4 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-500/20 active:scale-95 transition-all"
+              className="inline-flex items-center whitespace-nowrap px-4 py-2.5 bg-[#13538A] text-white text-sm font-bold rounded-xl hover:bg-[#2e87d4] shadow-lg shadow-blue-500/20 active:scale-95 transition-all"
             >
               <UserCheck className="mr-2 h-5 w-5" />
               Assigned Lenders
@@ -1145,7 +1145,7 @@ export default function BrokersPage() {
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-70"
+                    className="px-4 py-2 bg-[#13538A] hover:bg-[#2e87d4] text-white rounded-md disabled:opacity-70"
                   >
                     {submitting ? "Creating..." : "Create Broker"}
                   </button>
@@ -1283,8 +1283,8 @@ export default function BrokersPage() {
                               <button
                                 onClick={saveAdminEdit}
                                 disabled={adminSaving}
-                                className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold
-              hover:bg-blue-700 transition disabled:opacity-70"
+                                className="px-4 py-2 rounded-lg bg-[#13538A] hover:bg-[#2e87d4] text-white text-sm font-semibold
+              transition disabled:opacity-70"
                               >
                                 {adminSaving ? "Saving..." : "Save Changes"}
                               </button>

@@ -29,13 +29,13 @@ type LoanProductList = {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
-}
+};
 
 type LoanProductCode = {
-  id: string,
-  code: string,
-  name: string
-}
+  id: string;
+  code: string;
+  name: string;
+};
 
 const safeParseArray = (value: any): string[] => {
   if (Array.isArray(value)) return value;
@@ -56,7 +56,6 @@ const safeParseArray = (value: any): string[] => {
   }
 };
 
-
 // const STATUS_ORDER = ["ACTIVE", "INACTIVE"]; // keep real backend enum
 
 function statusClass(status?: string) {
@@ -69,7 +68,6 @@ function statusClass(status?: string) {
       return "bg-gray-100 text-gray-800 border-gray-200 dark:bg-slate-600/30 dark:text-slate-100 dark:border-slate-500";
   }
 }
-
 
 export default function AlloanProducts() {
   const [lenders, setLenders] = useState<LoanProductList[]>([]);
@@ -85,17 +83,18 @@ export default function AlloanProducts() {
     minTermMonths: 0,
     maxTermMonths: 0,
     regionsSupported: [],
-    industriesSupported: []
+    industriesSupported: [],
   });
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const [editingLender, setEditingLender] = useState<LoanProductList | null>(null);
+  const [editingLender, setEditingLender] = useState<LoanProductList | null>(
+    null,
+  );
 
   const [query, setQuery] = useState("");
   const [pageSize, setPageSize] = useState<number>(10);
   const [currentPage, setCurrentPage] = useState<number>(1);
-
 
   const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001"; // adjust if needed
 
@@ -133,7 +132,8 @@ export default function AlloanProducts() {
         headers,
       });
 
-      if (!res.ok) throw new Error(`Failed to fetch loan products: ${res.status}`);
+      if (!res.ok)
+        throw new Error(`Failed to fetch loan products: ${res.status}`);
 
       const json = await res.json();
 
@@ -158,12 +158,16 @@ export default function AlloanProducts() {
     setLoading(true);
     try {
       const headers = getAuthHeaders();
-      const res = await fetch(`${API_BASE}/common/loan-products/loan-product-code`, {
-        method: "GET",
-        headers,
-      });
+      const res = await fetch(
+        `${API_BASE}/common/loan-products/loan-product-code`,
+        {
+          method: "GET",
+          headers,
+        },
+      );
 
-      if (!res.ok) throw new Error(`Failed to fetch loan product codes: ${res.status}`);
+      if (!res.ok)
+        throw new Error(`Failed to fetch loan product codes: ${res.status}`);
 
       const json = await res.json();
 
@@ -179,7 +183,6 @@ export default function AlloanProducts() {
     }
   }
 
-
   const openAdd = () => {
     setForm({
       loanProductCode: "",
@@ -188,7 +191,7 @@ export default function AlloanProducts() {
       minTermMonths: 0,
       maxTermMonths: 0,
       regionsSupported: [],
-      industriesSupported: []
+      industriesSupported: [],
     });
     setFormError(null);
     setIsAddOpen(true);
@@ -207,9 +210,7 @@ export default function AlloanProducts() {
       !form.regionsSupported ||
       !form.industriesSupported
     ) {
-      setFormError(
-        "Please fill required fields."
-      );
+      setFormError("Please fill required fields.");
       return;
     }
 
@@ -223,7 +224,7 @@ export default function AlloanProducts() {
         maxTermMonths: form.maxTermMonths,
         regionsSupported: form.regionsSupported,
         industriesSupported: form.industriesSupported,
-      }
+      };
 
       const headers = getAuthHeaders();
 
@@ -235,11 +236,11 @@ export default function AlloanProducts() {
 
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.error(json.message || "Failed to create loan product")
+        toast.error(json.message || "Failed to create loan product");
         setFormError(json?.message || `Server returned ${res.status}`);
         return;
       } else {
-        toast.success(json.message || "Loan product created successfully")
+        toast.success(json.message || "Loan product created successfully");
       }
 
       setIsAddOpen(false);
@@ -256,9 +257,7 @@ export default function AlloanProducts() {
     const q = query.trim().toLowerCase();
     if (!q) return lenders;
     return lenders.filter((b) => {
-      return (
-        (b.loanProductCode || "").toLowerCase().includes(q)
-      );
+      return (b.loanProductCode || "").toLowerCase().includes(q);
     });
   }, [lenders, query]);
 
@@ -285,34 +284,38 @@ export default function AlloanProducts() {
     setEditingLender(b);
   };
 
-
   const handleEditSave = async (updated: LoanProductList) => {
     const normalizedUpdated = {
       ...updated,
       regionsSupported: safeParseArray(updated.regionsSupported),
       industriesSupported: safeParseArray(updated.industriesSupported),
     };
-    setLenders((prev) => prev.map((p) => (p.id === updated.id ? normalizedUpdated : p)));
+    setLenders((prev) =>
+      prev.map((p) => (p.id === updated.id ? normalizedUpdated : p)),
+    );
     setEditingLender(null);
 
     try {
       const token = sessionStorage.getItem("lender_token");
-      const res = await fetch(`${API_BASE}/lender/loan-products/update/${updated.id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      const res = await fetch(
+        `${API_BASE}/lender/loan-products/update/${updated.id}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({
+            minLoanAmount: updated.minLoanAmount,
+            maxLoanAmount: updated.maxLoanAmount,
+            minTermMonths: updated.minTermMonths,
+            maxTermMonths: updated.maxTermMonths,
+            industriesSupported: updated.industriesSupported,
+            regionsSupported: updated.regionsSupported,
+            isActive: updated.isActive,
+          }),
         },
-        body: JSON.stringify({
-          minLoanAmount: updated.minLoanAmount,
-          maxLoanAmount: updated.maxLoanAmount,
-          minTermMonths: updated.minTermMonths,
-          maxTermMonths: updated.maxTermMonths,
-          industriesSupported: updated.industriesSupported,
-          regionsSupported: updated.regionsSupported,
-          isActive: updated.isActive
-        }),
-      });
+      );
       const json = await res.json();
       if (!res.ok) {
         toast.error(json.message || "Update failed");
@@ -334,9 +337,7 @@ export default function AlloanProducts() {
 
     // optimistic UI update
     setLenders((prev) =>
-      prev.map((b) =>
-        b.id === loan.id ? { ...b, isActive: nextStatus } : b
-      )
+      prev.map((b) => (b.id === loan.id ? { ...b, isActive: nextStatus } : b)),
     );
 
     setRowLoadingId(loan.id);
@@ -355,7 +356,7 @@ export default function AlloanProducts() {
           body: JSON.stringify({
             isActive: nextStatus,
           }),
-        }
+        },
       );
 
       const json = await res.json();
@@ -364,17 +365,15 @@ export default function AlloanProducts() {
         throw new Error(json?.message || "Status update failed");
       }
 
-      toast.success(
-        `Loan product ${nextStatus ? "activated" : "deactivated"}`
-      );
+      toast.success(`Loan product ${nextStatus ? "activated" : "deactivated"}`);
     } catch (err: any) {
       console.error(err);
 
       // rollback UI on failure
       setLenders((prev) =>
         prev.map((b) =>
-          b.id === loan.id ? { ...b, isActive: prevStatus } : b
-        )
+          b.id === loan.id ? { ...b, isActive: prevStatus } : b,
+        ),
       );
 
       toast.error(err?.message || "Failed to update status");
@@ -383,10 +382,9 @@ export default function AlloanProducts() {
     }
   };
 
-
   function toggleChip(
     key: "regionsSupported" | "industriesSupported",
-    value: string
+    value: string,
   ) {
     setForm((prev) => {
       const set = new Set(prev[key]);
@@ -395,13 +393,12 @@ export default function AlloanProducts() {
     });
   }
 
-
   return (
     <div className="px-6 py-6 text-gray-900 dark:text-gray-100">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
-            Loan Products
+            <span className="text-[#18B6B4]">Loan</span> Products
           </h1>
           <p className="text-sm text-gray-500 mt-1 dark:text-slate-400">
             Manage global loan products available on the platform.
@@ -436,7 +433,7 @@ export default function AlloanProducts() {
 
           <button
             onClick={openAdd}
-            className="inline-flex items-center whitespace-nowrap px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+            className="inline-flex items-center whitespace-nowrap px-4 py-2 bg-[#18B6B4] text-white rounded-md hover:bg-[#159e9c] transition"
             type="button"
             aria-label="Add Lender"
           >
@@ -511,7 +508,7 @@ export default function AlloanProducts() {
                             onClick={() => !isLoading && changeStatusFor(b)}
                             disabled={isLoading}
                             className={`inline-flex items-center gap-2 px-3 py-1 text-xs font-medium rounded-full border ${statusClass(
-                              b.isActive ? "ACTIVE" : "INACTIVE"
+                              b.isActive ? "ACTIVE" : "INACTIVE",
                             )} disabled:opacity-60`}
                             title="Click to change status"
                             aria-label={`Change status for ${b.isActive}`}
@@ -558,7 +555,6 @@ export default function AlloanProducts() {
                             >
                               <MdModeEdit />
                             </button>
-
                           </div>
                         </td>
                       </tr>
@@ -609,15 +605,16 @@ export default function AlloanProducts() {
                         <button
                           key={page}
                           onClick={() => gotoPage(page)}
-                          className={`px-3 py-1 rounded-md ${page === currentPage
-                            ? "bg-blue-600 text-white"
-                            : "border border-gray-300 bg-white text-gray-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                            }`}
+                          className={`px-3 py-1 rounded-md ${
+                            page === currentPage
+                              ? "bg-[#18B6B4] text-white"
+                              : "border border-gray-300 bg-white text-gray-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                          }`}
                         >
                           {page}
                         </button>
                       );
-                    }
+                    },
                   )}
                 </div>
 
@@ -636,7 +633,6 @@ export default function AlloanProducts() {
         )}
       </div>
 
-
       {/* Add Lender Modal */}
       {isAddOpen && (
         <div className="fixed inset-0 z-500000 flex items-center justify-center bg-black/40 backdrop-blur-sm">
@@ -647,7 +643,7 @@ export default function AlloanProducts() {
               </h2>
               <button
                 onClick={() => setIsAddOpen(false)}
-                className="text-gray-500 hover:text-gray-800 dark:text-slate-400 dark:hover:text-slate-200"
+                className="text-gray-500 hover:text-red-500 dark:text-slate-400 dark:hover:text-red-500"
               >
                 Close
               </button>
@@ -760,10 +756,17 @@ export default function AlloanProducts() {
               </label>
 
               <div>
-                <label className="block text-sm text-gray-700 dark:text-slate-200">Regions Supported</label>
+                <label className="block text-sm text-gray-700 dark:text-slate-200">
+                  Regions Supported
+                </label>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {["CA", "TX", "FL", "NY", "NJ"].map((r) => (
-                    <button type="button" key={r} onClick={() => toggleChip("regionsSupported", r)} className={`px-3 py-1 rounded-full border ${form.regionsSupported.includes(r) ? "bg-blue-600 text-white" : "bg-white text-gray-700"}`}>
+                    <button
+                      type="button"
+                      key={r}
+                      onClick={() => toggleChip("regionsSupported", r)}
+                      className={`px-3 py-1 rounded-full border ${form.regionsSupported.includes(r) ? "bg-blue-600 text-white" : "bg-white text-gray-700"}`}
+                    >
                       {r}
                     </button>
                   ))}
@@ -771,10 +774,17 @@ export default function AlloanProducts() {
               </div>
 
               <div>
-                <label className="block text-sm text-gray-700 dark:text-slate-200">Industries Supported</label>
+                <label className="block text-sm text-gray-700 dark:text-slate-200">
+                  Industries Supported
+                </label>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {["Real Estate", "Hospitality"].map((r) => (
-                    <button type="button" key={r} onClick={() => toggleChip("industriesSupported", r)} className={`px-3 py-1 rounded-full border ${form.industriesSupported.includes(r) ? "bg-blue-600 text-white" : "bg-white text-gray-700"}`}>
+                    <button
+                      type="button"
+                      key={r}
+                      onClick={() => toggleChip("industriesSupported", r)}
+                      className={`px-3 py-1 rounded-full border ${form.industriesSupported.includes(r) ? "bg-blue-600 text-white" : "bg-white text-gray-700"}`}
+                    >
                       {r}
                     </button>
                   ))}
@@ -799,7 +809,7 @@ export default function AlloanProducts() {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-70"
+                  className="px-4 py-2 bg-[#18B6B4] text-white rounded-md hover:bg-[#159e9c] transition disabled:opacity-70 disabled:cursor-not-allowed"
                 >
                   {submitting ? "Creating..." : "Create Loan Product"}
                 </button>

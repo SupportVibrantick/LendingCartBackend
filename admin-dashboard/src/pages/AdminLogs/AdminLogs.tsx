@@ -177,7 +177,7 @@ const AdminLogs: React.FC = () => {
         {/* Heading */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
+            <h1 className="text-3xl font-bold tracking-tight text-[#13538A] dark:text-indigo-600">
               Activity Logs
             </h1>
             <p className="text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-2">
