@@ -13,7 +13,6 @@ const convertAsync = util.promisify(libre.convert);
 const { loadDocxTemplate } = require("../../../utils/loadDocxTemplate");
 
 async function generateLoiRoute(fastify) {
-
   fastify.post(
     "/:applicationLenderId/generate-loi",
     {
@@ -40,8 +39,7 @@ async function generateLoiRoute(fastify) {
         // AUTH CHECK
         // =========================
 
-        if (
-          
+        if (     
           !req.user ||
           req.user.orgType !== "LENDER" ||
           !req.user.organizationId
