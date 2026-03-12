@@ -833,20 +833,37 @@ model NotificationRule {
 }
 
 model Notification {
-  id                String              @id @default(uuid()) @db.Uuid
-  eventType         String
-  channel           NotificationChannel
-  status            NotificationStatus
-  recipientType     RecipientType
-  recipientClientId String?             @db.Uuid
-  recipientUserId   String?             @db.Uuid
-  subject           String?
-  body              String?
-  createdAt         DateTime            @default(now()) @db.Timestamptz(6)
-  sentAt            DateTime?           @db.Timestamptz(6)
+  id              String   @id @default(uuid()) @db.Uuid
 
-  @@index([recipientClientId])
+  eventType       String   // LOI_GENERATED, APPLICATION_SENT, etc
+  category        String?  // LOI, APPLICATION, OFFER, SYSTEM
+
+  channel         String   // IN_APP, EMAIL, SMS
+  status          String   // QUEUED, SENT, FAILED
+
+  recipientType   String   // BROKER, LENDER, PLATFORM, CLIENT
+
+  recipientUserId String?  @db.Uuid
+  recipientOrgId  String?  @db.Uuid
+  recipientClientId String? @db.Uuid
+
+  subject         String?
+  body            String?
+
+  metadata        Json?    // flexible payload (applicationId, loiPath, lenderName)
+
+  isRead          Boolean  @default(false)
+  readAt          DateTime? @db.Timestamptz(6)
+
+  createdAt       DateTime @default(now()) @db.Timestamptz(6)
+  sentAt          DateTime? @db.Timestamptz(6)
+
+  deletedAt       DateTime? @db.Timestamptz(6)
+
   @@index([recipientUserId])
+  @@index([recipientOrgId])
+  @@index([recipientClientId])
+  @@index([eventType])
   @@map("notifications")
 }
 

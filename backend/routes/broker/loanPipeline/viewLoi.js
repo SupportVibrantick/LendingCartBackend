@@ -2,9 +2,6 @@
  * @param {import("fastify").FastifyInstance} fastify
  */
 
-const fs = require("fs");
-const path = require("path");
-
 async function viewLoiBrokerRoute(fastify) {
 
   fastify.get(
@@ -12,7 +9,7 @@ async function viewLoiBrokerRoute(fastify) {
     {
       schema: {
         tags: ["Broker -> Loan Pipeline"],
-        summary: "View LOI received from lender",
+        summary: "Get LOI path for broker",
         params: {
           type: "object",
           required: ["applicationLenderId"],
@@ -48,7 +45,7 @@ async function viewLoiBrokerRoute(fastify) {
         const { applicationLenderId } = req.params;
 
         /* ===============================
-           FETCH RECORD
+           FETCH LOI RECORD
         =============================== */
 
         const record = await prisma.applicationLender.findFirst({
@@ -71,33 +68,36 @@ async function viewLoiBrokerRoute(fastify) {
         }
 
         if (!record.loiUrl) {
-          return reply.code(404).send({
-            success: false,
-            message: "No LOI received from lender yet"
+          return reply.code(200).send({
+            success: true,
+            message: "No LOI received yet",
+            data: {
+              loiPath: null
+            }
           });
         }
 
-        const filePath = path.join(
-          process.cwd(),
-          "public",
-          record.loiUrl
-        );
+        /* ===============================
+           RESPONSE
+        =============================== */
 
-        if (!fs.existsSync(filePath)) {
-          return reply.code(404).send({
-            success: false,
-            message: "LOI file missing on server"
-          });
-        }
-
-        reply
-          .header("Content-Type", "application/pdf")
-          .header("Content-Disposition", "inline")
-          .send(fs.createReadStream(filePath));
+        return reply.send({
+          success: true,
+          data: {
+            loiPath: record.loiUrl
+          }
+        });
 
       } catch (error) {
 
-        fastify.log.error(error);
+        fastify.log.error(
+          {
+            error: error.message,
+            applicationLenderId: req.params.applicationLenderId,
+            brokerOrgId: req.user?.organizationId
+          },
+          "Failed to fetch LOI"
+        );
 
         return reply.code(500).send({
           success: false,

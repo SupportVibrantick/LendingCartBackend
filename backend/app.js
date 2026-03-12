@@ -20,6 +20,7 @@ const swaggerUi = require("@fastify/swagger-ui");
 const indexRoutes = require("./routes/index");
 const verifySuperAdmin = require("./plugins/verifySuperAdmin");
 const dbPlugin = require("./plugins/dbPlugin");
+const socketPlugin = require("./plugins/socket");
 const multipart = require("@fastify/multipart");
 // Configure Fastify with built-in logger
 const app = Fastify({
@@ -98,6 +99,7 @@ app.register(dbPlugin);
 app.register(authMiddleware);
 app.register(fgaMiddleware);
 app.register(verifySuperAdmin);  
+app.register(socketPlugin);
 
 // Serve uploads (profile images)
 app.register(fastifyStatic, {
