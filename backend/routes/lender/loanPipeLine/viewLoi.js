@@ -65,8 +65,12 @@ async function viewLoiRoute(fastify) {
           });
         }
 
+        // =========================
+        // LOI NOT GENERATED
+        // =========================
+
         if (!lenderRecord.loiUrl) {
-          return reply.code(200).send({
+          return reply.send({
             success: true,
             message: "LOI not generated yet",
             data: {
@@ -81,6 +85,7 @@ async function viewLoiRoute(fastify) {
 
         return reply.send({
           success: true,
+          message: "LOI fetched successfully",
           data: {
             loiPath: lenderRecord.loiUrl
           }

@@ -86,6 +86,9 @@ instance.register(require("./contacts"),{
 fastify.register(require("./loanPipeline"),{prefix:"/loan-pipeline"});
 fastify.register(require("./logs"), { prefix: "/logs" });
 fastify.register(require("./stats"), { prefix: "/stats" });
+fastify.register(require("./notifications"), {
+  prefix: "/notifications"
+});
     // Later extensions
     // instance.register(documentRoutes, { prefix: "/documents" });
     // instance.register(applicationRoutes, { prefix: "/applications" });
