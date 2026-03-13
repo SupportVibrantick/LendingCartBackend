@@ -118,6 +118,10 @@ const navItems: NavItem[] = [
           { name: "Add Fields", path: "/add-fields" },
         ],
       },
+      {
+        name: "System Settings",
+        path: "/system-settings",
+      },
     ],
   },
   {
@@ -203,18 +207,18 @@ const AppSidebar: React.FC = () => {
   const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({});
 
   // const isActive = (path: string) => location.pathname === path;
-const isActive = useCallback(
-  (path?: string) => {
-    if (!path) return false;
+  const isActive = useCallback(
+    (path?: string) => {
+      if (!path) return false;
 
-    if (path === "/") {
-      return location.pathname === "/";
-    }
+      if (path === "/") {
+        return location.pathname === "/";
+      }
 
-    return location.pathname.startsWith(path);
-  },
-  [location.pathname],
-);
+      return location.pathname.startsWith(path);
+    },
+    [location.pathname],
+  );
 
   const toggleMenu = (key: string) => {
     setOpenMenus((prev) => ({
@@ -320,7 +324,9 @@ const isActive = useCallback(
                       : "menu-item-inactive"
                   }`}
                 >
-                  <span className="menu-item-icon-size">{nav.icon}</span>
+                  {nav.icon && (
+                    <span className="menu-item-icon-size">{nav.icon}</span>
+                  )}
 
                   {(isExpanded || isHovered || isMobileOpen) && (
                     <span className="menu-item-text">{nav.name}</span>
