@@ -227,7 +227,7 @@ async function generateLoiRoute(fastify) {
         =============================== */
 
         const brokerOrgId = lenderRecord.loanApplication.brokerOrgId;
-
+        console.log("Broker Org ID:", brokerOrgId);
         await prisma.$transaction([
 
           prisma.applicationLender.update({
@@ -270,7 +270,10 @@ async function generateLoiRoute(fastify) {
         =============================== */
 
         if (fastify.io) {
+          const room = `broker_${brokerOrgId}`;
 
+  console.log("Emitting LOI_GENERATED to room:", room);
+  console.log("Active socket rooms:", fastify.io.sockets.adapter.rooms);
           fastify.io.to(`broker_${brokerOrgId}`).emit("LOI_GENERATED", {
             applicationId: lenderRecord.loanApplication.id,
             applicationNumber: lenderRecord.loanApplication.applicationNumber,
