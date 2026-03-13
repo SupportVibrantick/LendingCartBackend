@@ -10,16 +10,23 @@ async function socketPlugin(fastify) {
 
   fastify.decorate("io", io);
 
+  console.log("✅ Socket.IO server initialized");
+
   io.on("connection", (socket) => {
 
-    console.log("Socket connected:", socket.id);
+    console.log("🔌 Socket connected:", socket.id);
 
     socket.on("joinBrokerRoom", (brokerOrgId) => {
-      socket.join(`broker_${brokerOrgId}`);
+
+      const room = `broker_${brokerOrgId}`;
+
+      socket.join(room);
+
+      console.log(`📡 Socket ${socket.id} joined room ${room}`);
     });
 
-    socket.on("disconnect", () => {
-      console.log("Socket disconnected");
+    socket.on("disconnect", (reason) => {
+      console.log(`❌ Socket disconnected: ${socket.id} | ${reason}`);
     });
 
   });
