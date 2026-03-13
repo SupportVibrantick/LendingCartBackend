@@ -10,14 +10,12 @@ module.exports = fp(async function dbPlugin(fastify) {
 
           const actionsToLog = ["create", "update", "delete", "upsert"];
 
-          // Skip logging AuditLog itself
           if (model === "AuditLog" || !actionsToLog.includes(operation)) {
             return query(args);
           }
 
           let oldValue = null;
 
-          // Capture old value before update/delete
           if (["update", "delete"].includes(operation)) {
             try {
               oldValue = await prisma[model].findUnique({
@@ -31,6 +29,7 @@ module.exports = fp(async function dbPlugin(fastify) {
           const result = await query(args);
 
           try {
+
             await prisma.auditLog.create({
               data: {
                 entityType: model,
@@ -41,8 +40,10 @@ module.exports = fp(async function dbPlugin(fastify) {
                   operation !== "delete" && result
                     ? JSON.stringify(result)
                     : null,
+                dashboard: "SYSTEM",
               },
             });
+
           } catch (err) {
             console.error("Audit log failed:", err.message);
           }
@@ -58,4 +59,5 @@ module.exports = fp(async function dbPlugin(fastify) {
   fastify.addHook("onClose", async () => {
     await prisma.$disconnect();
   });
+
 });
