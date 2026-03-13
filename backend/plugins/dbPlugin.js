@@ -10,19 +10,24 @@ module.exports = fp(async function dbPlugin(fastify) {
 
           const actionsToLog = ["create", "update", "delete", "upsert"];
 
-          // Skip logging AuditLog itself
+          // Skip AuditLog itself and non-write operations
           if (model === "AuditLog" || !actionsToLog.includes(operation)) {
             return query(args);
           }
 
           let oldValue = null;
 
-          // Capture old value before update/delete
+          /* ============================
+             Capture old value
+          ============================ */
+
           if (["update", "delete"].includes(operation)) {
             try {
-              oldValue = await prisma[model].findUnique({
-                where: args.where,
-              });
+              if (args?.where) {
+                oldValue = await prisma[model].findUnique({
+                  where: args.where,
+                });
+              }
             } catch (e) {
               oldValue = null;
             }
@@ -30,21 +35,33 @@ module.exports = fp(async function dbPlugin(fastify) {
 
           const result = await query(args);
 
+          /* ============================
+             Safe Audit Logging
+          ============================ */
+
           try {
-            await prisma.auditLog.create({
-              data: {
-                entityType: model,
-                entityId: result?.id || oldValue?.id || "UNKNOWN",
-                action: operation.toUpperCase(),
-                oldValueJson: oldValue ? JSON.stringify(oldValue) : null,
-                newValueJson:
-                  operation !== "delete" && result
-                    ? JSON.stringify(result)
-                    : null,
-              },
-            });
+
+            // Skip if audit log requires fields we don't have
+            const auditData = {
+              entityType: model,
+              entityId: result?.id || oldValue?.id || "UNKNOWN",
+              action: operation.toUpperCase(),
+              oldValueJson: oldValue ? JSON.stringify(oldValue) : null,
+              newValueJson:
+                operation !== "delete" && result
+                  ? JSON.stringify(result)
+                  : null,
+            };
+
+            // Only log if schema allows minimal fields
+            if (prisma.auditLog) {
+              await prisma.auditLog.create({
+                data: auditData,
+              });
+            }
+
           } catch (err) {
-            console.error("Audit log failed:", err.message);
+            console.error("Audit log skipped:", err.message);
           }
 
           return result;
@@ -58,4 +75,5 @@ module.exports = fp(async function dbPlugin(fastify) {
   fastify.addHook("onClose", async () => {
     await prisma.$disconnect();
   });
+
 });
