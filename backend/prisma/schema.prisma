@@ -879,6 +879,7 @@ enum LogCategory {
   APPLICATION
   REVIEW
   SYSTEM
+  LOI
 }
 
 model AuditLog {
