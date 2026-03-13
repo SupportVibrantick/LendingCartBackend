@@ -11,8 +11,10 @@ const util = require("util");
 
 const convertAsync = util.promisify(libre.convert);
 const { loadDocxTemplate } = require("../../../utils/loadDocxTemplate");
+const { logAudit } = require("../../../services/logger/auditLogger");
 
 async function generateLoiRoute(fastify) {
+
   fastify.post(
     "/:applicationLenderId/generate-loi",
     {
@@ -39,11 +41,7 @@ async function generateLoiRoute(fastify) {
            AUTHORIZATION
         =============================== */
 
-        if (
-          !req.user ||
-          req.user.orgType !== "LENDER" ||
-          !req.user.organizationId
-        ) {
+        if (!req.user || req.user.orgType !== "LENDER" || !req.user.organizationId) {
           return reply.code(403).send({
             success: false,
             message: "Lender access only"
@@ -52,6 +50,13 @@ async function generateLoiRoute(fastify) {
 
         const lenderOrgId = req.user.organizationId;
         const { applicationLenderId } = req.params;
+
+        if (!applicationLenderId) {
+          return reply.code(400).send({
+            success: false,
+            message: "ApplicationLenderId is required"
+          });
+        }
 
         /* ===============================
            FETCH APPLICATION DATA
@@ -87,7 +92,7 @@ async function generateLoiRoute(fastify) {
           });
         }
 
-        const submission = lenderRecord.loanApplication.submissions?.[0];
+        const submission = lenderRecord.loanApplication?.submissions?.[0];
 
         if (!submission) {
           return reply.code(400).send({
@@ -103,14 +108,12 @@ async function generateLoiRoute(fastify) {
         const fieldMap = {};
 
         for (const field of submission.fields || []) {
-
           if (!field?.fieldKey) continue;
 
           fieldMap[field.fieldKey] =
             typeof field.value === "object"
               ? JSON.stringify(field.value)
               : String(field.value ?? "");
-
         }
 
         /* ===============================
@@ -122,49 +125,53 @@ async function generateLoiRoute(fastify) {
         try {
           templateBuffer = loadDocxTemplate("lender/loi/loi-template");
         } catch (err) {
-
           fastify.log.error(err);
-
           return reply.code(500).send({
             success: false,
             message: "LOI template not found"
           });
-
         }
 
         /* ===============================
            GENERATE DOCX
         =============================== */
 
-        const zip = new PizZip(templateBuffer);
-
-        const doc = new Docxtemplater(zip, {
-          paragraphLoop: true,
-          linebreaks: true
-        });
-
-        const review = lenderRecord.lenderReviews?.[0];
-
-        doc.setData({
-
-          ...fieldMap,
-
-          applicationId: lenderRecord.loanApplication.id,
-          applicationNumber: lenderRecord.loanApplication.applicationNumber,
-
-          lenderName: lenderRecord.lender?.name || "",
-          status: lenderRecord.status,
-
-          approvedAmount: review?.approvedAmount || "",
-          interestRate: review?.interestRate || "",
-          notes: review?.notes || "",
-
-          date: new Date().toLocaleDateString()
-
-        });
+        let docxBuffer;
 
         try {
+
+          const zip = new PizZip(templateBuffer);
+
+          const doc = new Docxtemplater(zip, {
+            paragraphLoop: true,
+            linebreaks: true
+          });
+
+          const review = lenderRecord.lenderReviews?.[0];
+
+          doc.setData({
+            ...fieldMap,
+
+            applicationId: lenderRecord.loanApplication.id,
+            applicationNumber: lenderRecord.loanApplication.applicationNumber,
+
+            lenderName: lenderRecord.lender?.name || "",
+            status: lenderRecord.status,
+
+            approvedAmount: review?.approvedAmount || "",
+            interestRate: review?.interestRate || "",
+            notes: review?.notes || "",
+
+            date: new Date().toLocaleDateString()
+          });
+
           doc.render();
+
+          docxBuffer = doc.getZip().generate({
+            type: "nodebuffer",
+            compression: "DEFLATE"
+          });
+
         } catch (err) {
 
           fastify.log.error(err);
@@ -173,16 +180,10 @@ async function generateLoiRoute(fastify) {
             success: false,
             message: "Template rendering failed"
           });
-
         }
 
-        const docxBuffer = doc.getZip().generate({
-          type: "nodebuffer",
-          compression: "DEFLATE"
-        });
-
         /* ===============================
-           CONVERT DOCX -> PDF
+           CONVERT DOCX → PDF
         =============================== */
 
         let pdfBuffer;
@@ -190,35 +191,49 @@ async function generateLoiRoute(fastify) {
         try {
           pdfBuffer = await convertAsync(docxBuffer, ".pdf", undefined);
         } catch (err) {
-
           fastify.log.error(err);
 
           return reply.code(500).send({
             success: false,
             message: "PDF conversion failed"
           });
-
         }
 
         /* ===============================
            SAVE PDF FILE
         =============================== */
 
-        const outputDir = path.join(
-          process.cwd(),
-          "public",
-          "lender",
-          "LOI"
-        );
+        const outputDir = path.join(process.cwd(), "public", "lender", "LOI");
 
-        if (!fs.existsSync(outputDir)) {
-          fs.mkdirSync(outputDir, { recursive: true });
+        try {
+
+          if (!fs.existsSync(outputDir)) {
+            fs.mkdirSync(outputDir, { recursive: true });
+          }
+
+        } catch (err) {
+
+          fastify.log.error(err);
+
+          return reply.code(500).send({
+            success: false,
+            message: "Failed creating LOI directory"
+          });
         }
 
         const fileName = `loi-${applicationLenderId}-${Date.now()}.pdf`;
         const filePath = path.join(outputDir, fileName);
 
-        fs.writeFileSync(filePath, pdfBuffer);
+        try {
+          fs.writeFileSync(filePath, pdfBuffer);
+        } catch (err) {
+          fastify.log.error(err);
+
+          return reply.code(500).send({
+            success: false,
+            message: "Failed saving LOI file"
+          });
+        }
 
         const fileUrl = `/lender/LOI/${fileName}`;
 
@@ -227,7 +242,7 @@ async function generateLoiRoute(fastify) {
         =============================== */
 
         const brokerOrgId = lenderRecord.loanApplication.brokerOrgId;
-        console.log("Broker Org ID:", brokerOrgId);
+
         await prisma.$transaction([
 
           prisma.applicationLender.update({
@@ -240,7 +255,6 @@ async function generateLoiRoute(fastify) {
 
               eventType: "LOI_GENERATED",
               category: "LOI",
-
               channel: "IN_APP",
               status: "QUEUED",
 
@@ -259,30 +273,52 @@ async function generateLoiRoute(fastify) {
               },
 
               sentAt: new Date()
-
             }
           })
 
         ]);
 
         /* ===============================
+           AUDIT LOG
+        =============================== */
+
+        await logAudit({
+          prisma,
+          req,
+          dashboard: "LENDER",
+          category: "LOI",
+          entityType: "ApplicationLender",
+          entityId: applicationLenderId,
+          action: "GENERATE_LOI",
+          newValue: {
+            loiUrl: fileUrl,
+            brokerOrgId
+          }
+        });
+
+        /* ===============================
            WEBSOCKET EVENT
         =============================== */
 
-        if (fastify.io) {
-          const room = `broker_${brokerOrgId}`;
+        try {
 
-  console.log("Emitting LOI_GENERATED to room:", room);
-  console.log("Active socket rooms:", fastify.io.sockets.adapter.rooms);
-          fastify.io.to(`broker_${brokerOrgId}`).emit("LOI_GENERATED", {
-            applicationId: lenderRecord.loanApplication.id,
-            applicationNumber: lenderRecord.loanApplication.applicationNumber,
-            applicationLenderId: lenderRecord.id,
-            lenderName: lenderRecord.lender?.name || "Lender",
-            loiPath: fileUrl,
-            generatedAt: new Date()
-          });
+          if (fastify.io) {
 
+            const room = `broker_${brokerOrgId}`;
+
+            fastify.io.to(room).emit("LOI_GENERATED", {
+              applicationId: lenderRecord.loanApplication.id,
+              applicationNumber: lenderRecord.loanApplication.applicationNumber,
+              applicationLenderId: lenderRecord.id,
+              lenderName: lenderRecord.lender?.name || "Lender",
+              loiPath: fileUrl,
+              generatedAt: new Date()
+            });
+
+          }
+
+        } catch (socketErr) {
+          fastify.log.error(socketErr);
         }
 
         /* ===============================
@@ -304,9 +340,8 @@ async function generateLoiRoute(fastify) {
 
         return reply.code(500).send({
           success: false,
-          message: error.message
+          message: "Internal server error"
         });
-
       }
 
     }
@@ -314,3 +349,4 @@ async function generateLoiRoute(fastify) {
 }
 
 module.exports = generateLoiRoute;
+
