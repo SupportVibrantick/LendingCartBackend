@@ -11,6 +11,7 @@ const landingPagesLeads = require("./LandingPagesLeads");
 const applicationRoutes = require("./applications");
 const loanPipelineRoutes = require("./loanPipeLine");
 const impersonateRoutes = require("./impersonate");
+const inviteLendersRoutes = require("./inviteLenders");
 
 // Registers auth sub-router under /admin/auth
 module.exports = async function adminRoutes(fastify, opts) {
@@ -56,6 +57,10 @@ module.exports = async function adminRoutes(fastify, opts) {
 
     instance.register(loanPipelineRoutes, {
       prefix: "/loan-pipeline",
+    });
+
+    instance.register(inviteLendersRoutes,{
+      prefix:"/invite-lenders",
     });
   });
 };
