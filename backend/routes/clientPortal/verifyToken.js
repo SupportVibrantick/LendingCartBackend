@@ -1,9 +1,8 @@
-const { clientLogs } = require("../../services/logger/contextLogger");
-
 /**
  * @param {import("fastify").FastifyInstance} fastify
  */
 async function verifyTokenRoute(fastify) {
+
   fastify.get(
     "/verify/:token",
     {
@@ -15,85 +14,123 @@ async function verifyTokenRoute(fastify) {
           type: "object",
           required: ["token"],
           properties: {
-            token: { type: "string" },
-          },
-        },
-      },
+            token: { type: "string" }
+          }
+        }
+      }
     },
 
     async (req, reply) => {
+
       const prisma = fastify.prisma;
 
       try {
-        const token = req.params.token.trim();
 
-        // ================================
+        const token = (req.params.token || "").trim();
+
+        if (!token) {
+          return reply.status(400).send({
+            success: false,
+            message: "Token is required"
+          });
+        }
+
+        // ==========================================
         // FIND TOKEN
-        // ================================
+        // ==========================================
 
         const tokenRecord = await prisma.clientUploadToken.findUnique({
           where: { token },
-          include: {
+          select: {
+            id: true,
+            loanApplicationId: true,
+            expiresAt: true,
+            isUsed: true,
             loanApplication: {
-              include: {
-                client: true,
-              },
-            },
-          },
+              select: {
+                applicationNumber: true,
+                client: {
+                  select: {
+                    id: true,
+                    legalName: true
+                  }
+                }
+              }
+            }
+          }
         });
 
         if (!tokenRecord) {
           return reply.status(404).send({
             success: false,
-            message: "Invalid upload link",
+            message: "Invalid upload link"
           });
         }
 
-        // ================================
+        // ==========================================
         // EXPIRE CHECK
-        // ================================
+        // ==========================================
 
         if (tokenRecord.expiresAt < new Date()) {
           return reply.status(400).send({
             success: false,
-            message: "Upload link expired",
+            message: "Upload link expired"
           });
         }
 
-        // ================================
-        // VALIDATE RELATIONS
-        // ================================
+        // ==========================================
+        // USED TOKEN CHECK
+        // ==========================================
+
+        if (tokenRecord.isUsed) {
+          return reply.status(400).send({
+            success: false,
+            message: "Upload link already used"
+          });
+        }
 
         if (!tokenRecord.loanApplication) {
           return reply.status(404).send({
             success: false,
-            message: "Loan application not found",
+            message: "Loan application not found"
           });
         }
 
         const loanApplicationId = tokenRecord.loanApplicationId;
 
-        // ================================
+        // ==========================================
         // FETCH DOCUMENT REQUIREMENTS
-        // ================================
+        // ==========================================
 
         const requirements =
           await prisma.applicationDocumentRequirement.findMany({
-            where: {
-              loanApplicationId,
-            },
-            include: {
-              documentType: true,
-              uploads: true,
+            where: { loanApplicationId },
+            select: {
+              id: true,
+              documentTypeId: true,
+              status: true,
+              documentType: {
+                select: {
+                  name: true
+                }
+              },
+              uploads: {
+                select: {
+                  id: true,
+                  fileName: true,
+                  fileUrl: true,
+                  uploadedAt: true
+                }
+              }
             },
             orderBy: {
-              createdAt: "asc",
-            },
+              createdAt: "asc"
+            }
           });
 
-        // ================================
+        // ==========================================
         // FORMAT DOCUMENT RESPONSE
-        // ================================
+        // ==========================================
 
         const documents = requirements.map((r) => ({
           requirementId: r.id,
@@ -105,50 +142,48 @@ async function verifyTokenRoute(fastify) {
             id: u.id,
             fileName: u.fileName,
             fileUrl: u.fileUrl,
-            uploadedAt: u.uploadedAt,
-          })),
+            uploadedAt: u.uploadedAt
+          }))
         }));
 
-        // ================================
+        // ==========================================
         // SUCCESS RESPONSE
-        // ================================
+        // ==========================================
 
-        clientLogs.info("Client upload token verified", {
+        console.log("Client upload token verified", {
           loanApplicationId,
-          tokenId: tokenRecord.id,
+          tokenId: tokenRecord.id
         });
 
         return reply.send({
           success: true,
-
           data: {
             loanApplicationId,
+
             applicationNumber:
               tokenRecord.loanApplication.applicationNumber || null,
 
             client: tokenRecord.loanApplication.client
               ? {
                   id: tokenRecord.loanApplication.client.id,
-                  name: tokenRecord.loanApplication.client.legalName,
+                  name: tokenRecord.loanApplication.client.legalName
                 }
               : null,
 
-            documents,
-          },
+            documents
+          }
         });
-      } catch (error) {
-        console.error("Token verification failed:", error);
 
-        if (clientLogs && clientLogs.error) {
-          clientLogs.error("Token verification failed", error);
-        }
+      } catch (error) {
+
+        console.error("VERIFY TOKEN ERROR:", error);
 
         return reply.status(500).send({
           success: false,
-          message: "Server error verifying upload link",
+          message: "Server error verifying upload link"
         });
       }
-    },
+    }
   );
 }
 
