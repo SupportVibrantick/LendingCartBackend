@@ -28,11 +28,11 @@ async function verifyTokenRoute(fastify) {
 
       try {
 
-        const { token } = req.params;
+        const token = req.params.token.trim();
 
-        // ==========================================
+        // ================================
         // FIND TOKEN
-        // ==========================================
+        // ================================
 
         const tokenRecord = await prisma.clientUploadToken.findUnique({
           where: { token },
@@ -52,9 +52,9 @@ async function verifyTokenRoute(fastify) {
           });
         }
 
-        // ==========================================
-        // EXPIRY CHECK
-        // ==========================================
+        // ================================
+        // EXPIRE CHECK
+        // ================================
 
         if (tokenRecord.expiresAt < new Date()) {
           return reply.status(400).send({
@@ -63,11 +63,22 @@ async function verifyTokenRoute(fastify) {
           });
         }
 
+        // ================================
+        // VALIDATE RELATIONS
+        // ================================
+
+        if (!tokenRecord.loanApplication) {
+          return reply.status(404).send({
+            success: false,
+            message: "Loan application not found"
+          });
+        }
+
         const loanApplicationId = tokenRecord.loanApplicationId;
 
-        // ==========================================
+        // ================================
         // FETCH DOCUMENT REQUIREMENTS
-        // ==========================================
+        // ================================
 
         const requirements =
           await prisma.applicationDocumentRequirement.findMany({
@@ -83,16 +94,17 @@ async function verifyTokenRoute(fastify) {
             }
           });
 
-        // ==========================================
-        // FORMAT RESPONSE
-        // ==========================================
+        // ================================
+        // FORMAT DOCUMENT RESPONSE
+        // ================================
 
-        const documents = requirements.map(req => ({
-          requirementId: req.id,
-          documentTypeId: req.documentTypeId,
-          documentName: req.documentType?.name || "Document",
-          status: req.status,
-          uploadedFiles: req.uploads.map(u => ({
+        const documents = requirements.map(r => ({
+          requirementId: r.id,
+          documentTypeId: r.documentTypeId,
+          documentName: r.documentType?.name || "Document",
+          status: r.status,
+
+          uploadedFiles: (r.uploads || []).map(u => ({
             id: u.id,
             fileName: u.fileName,
             fileUrl: u.fileUrl,
@@ -100,12 +112,13 @@ async function verifyTokenRoute(fastify) {
           }))
         }));
 
-        // ==========================================
+        // ================================
         // SUCCESS RESPONSE
-        // ==========================================
+        // ================================
 
         clientLogs.info("Client upload token verified", {
-          loanApplicationId
+          loanApplicationId,
+          tokenId: tokenRecord.id
         });
 
         return reply.send({
@@ -113,12 +126,15 @@ async function verifyTokenRoute(fastify) {
 
           data: {
             loanApplicationId,
-            applicationNumber: tokenRecord.loanApplication.applicationNumber,
+            applicationNumber:
+              tokenRecord.loanApplication.applicationNumber || null,
 
-            client: {
-              id: tokenRecord.loanApplication.client.id,
-              name: tokenRecord.loanApplication.client.legalName
-            },
+            client: tokenRecord.loanApplication.client
+              ? {
+                  id: tokenRecord.loanApplication.client.id,
+                  name: tokenRecord.loanApplication.client.legalName
+                }
+              : null,
 
             documents
           }
@@ -126,7 +142,12 @@ async function verifyTokenRoute(fastify) {
 
       } catch (error) {
 
-        clientLogs.error("Token verification failed", error);
+        console.error("VERIFY TOKEN ERROR:", error);
+
+        clientLogs.error("Token verification failed", {
+          error: error.message,
+          stack: error.stack
+        });
 
         return reply.status(500).send({
           success: false,
