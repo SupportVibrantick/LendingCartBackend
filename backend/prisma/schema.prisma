@@ -160,7 +160,7 @@ model Client {
   portalUsers        ClientPortalUser[]
   primaryBroker      Organization       @relation("BrokerClients", fields: [primaryBrokerOrgId], references: [id])
   loanApplications   LoanApplication[]
-
+  uploadTokens ClientUploadToken[]
   // soft-delete fields (additive, non-breaking)
   isDeleted Boolean?  @default(false) @map("is_deleted")
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
@@ -494,6 +494,7 @@ model LoanApplication {
   brokerUser           UserAccount?                     @relation("BrokerUserLoanApplications", fields: [brokerUserId], references: [id])
   client               Client                           @relation(fields: [clientId], references: [id])
   submissions          ApplicationSubmission[]
+  clientUploadTokens ClientUploadToken[]
 
   @@index([brokerOrgId])
   @@index([clientId])
@@ -1124,6 +1125,26 @@ model Contact {
   @@index([brokerOrgId])
   @@index([email])
   @@map("contacts")
+}
+
+model ClientUploadToken {
+  id String @id @default(uuid()) @db.Uuid
+
+  loanApplicationId String @db.Uuid
+  clientId String @db.Uuid
+
+  token String @unique
+
+  expiresAt DateTime @db.Timestamptz(6)
+  isUsed Boolean @default(false)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  loanApplication LoanApplication @relation(fields: [loanApplicationId], references: [id])
+  client Client @relation(fields: [clientId], references: [id])
+
+  @@index([loanApplicationId])
+  @@index([token])
 }
 
 enum LenderProfileStatus {
