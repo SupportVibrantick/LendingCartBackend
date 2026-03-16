@@ -5,6 +5,7 @@ const commonDocumentTypes = require("../routes/common/documentTypes");
 const commonLoanProducts = require("./common/loanProducts");
 const landingPagesLeads = require("./public/LandingPagesLeads");
 const publicBrokerApplications = require("./public/broker/applications");
+const clientPortalRoutes = require("../routes/clientPortal");
 
 async function indexRoutes(fastify, options) {
   fastify.get("/", async (request, reply) => {
@@ -20,9 +21,16 @@ async function indexRoutes(fastify, options) {
   });
 
   fastify.register(publicBrokerApplications, {
-  prefix: "/api/public/broker/applications",
-});
+    prefix: "/api/public/broker/applications",
+  });
 
+  // =========================
+  // CLIENT PORTAL (NEW)
+  // =========================
+
+  fastify.register(clientPortalRoutes, {
+    prefix: "/client-portal",
+  });
 
   //  Common (read-only, role-based)
   fastify.register(commonDocumentTypes, {

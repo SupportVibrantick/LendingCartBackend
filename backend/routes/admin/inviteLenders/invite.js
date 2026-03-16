@@ -66,7 +66,7 @@ async function inviteLenderRoutes(fastify) {
         // ---------------------------
         const apiBase = process.env.VITE_API_BASE || process.env.APP_URL;
 
-        const signupUrl = `${apiBase}/lender/register`;
+        const signupUrl = `https://lender-lendingcart.vibrantick.org`;
 
         const html = loadTemplate("admin/lender/invite", {
           name: fullName,
