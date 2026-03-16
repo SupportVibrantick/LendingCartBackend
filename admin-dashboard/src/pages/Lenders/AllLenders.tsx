@@ -17,6 +17,7 @@ import {
   UserCheck,
   Activity,
   PackagePlus,
+  Phone,
   // Filter,
 } from "lucide-react";
 import Swal from "sweetalert2";
@@ -80,6 +81,8 @@ export default function AllLendersPage() {
   const [rowLoadingId, setRowLoadingId] = useState<any | null>(null);
   const [showPassword, setShowPassword] = useState(false);
 
+  const [inviteLoading, setInviteLoading] = useState(false);
+
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [form, setForm] = useState({
     organizationName: "",
@@ -89,7 +92,7 @@ export default function AllLendersPage() {
     adminLastName: "",
     adminEmail: "",
     adminPassword: "",
-    // 🔹 optional broker assignment
+    // optional broker assignment
     brokerOrgId: "",
   });
   const [formError, setFormError] = useState<string | null>(null);
@@ -124,9 +127,27 @@ export default function AllLendersPage() {
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  const [isInviteOpen, setIsInviteOpen] = useState(false);
+
+  const [inviteForm, setInviteForm] = useState({
+    fullName: "",
+    email: "",
+    phone: "",
+  });
+
+  const [inviteErrors, setInviteErrors] = useState({
+    name: "",
+    email: "",
+    phone: "",
+  });
+
+  const [inviteApiError, setInviteApiError] = useState("");
+
   const navigate = useNavigate();
 
   const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001"; // adjust if needed
+
+  const usPhoneRegex = /^\d{3}-\d{3}-\d{4}$/;
 
   useEffect(() => {
     fetchLenders();
@@ -204,6 +225,55 @@ export default function AllLendersPage() {
     setErrors(newErrors);
 
     return Object.keys(newErrors).length === 0;
+  };
+
+  const validateInvite = () => {
+    const errors = {
+      name: "",
+      email: "",
+      phone: "",
+    };
+
+    let isValid = true;
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!inviteForm.fullName.trim()) {
+      errors.name = "Name is required";
+      isValid = false;
+    }
+
+    if (!inviteForm.email.trim()) {
+      errors.email = "Email is required";
+      isValid = false;
+    } else if (!emailRegex.test(inviteForm.email)) {
+      errors.email = "Enter valid email address";
+      isValid = false;
+    }
+
+    if (!inviteForm.phone.trim()) {
+      errors.phone = "Phone number is required";
+      isValid = false;
+    } else if (!usPhoneRegex.test(inviteForm.phone)) {
+      errors.phone = "Enter valid US phone number (e.g. 222-222-2222)";
+      isValid = false;
+    }
+
+    setInviteErrors(errors);
+
+    return isValid;
+  };
+
+  const formatUSPhone = (value: string) => {
+    const numbers = value.replace(/\D/g, "");
+
+    if (numbers.length <= 3) return numbers;
+
+    if (numbers.length <= 6) {
+      return `${numbers.slice(0, 3)}-${numbers.slice(3)}`;
+    }
+
+    return `${numbers.slice(0, 3)}-${numbers.slice(3, 6)}-${numbers.slice(0, 10).slice(6)}`;
   };
 
   // -------- LENDERS LIST --------
@@ -408,6 +478,50 @@ export default function AllLendersPage() {
       setFormError(err.message || "Network error");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleInvite = async () => {
+    if (!validateInvite()) return;
+
+    setInviteApiError("");
+    setInviteLoading(true);
+
+    try {
+      const token = sessionStorage.getItem("admin_token");
+
+      const res = await fetch(`${API_BASE}/admin/invite-lenders/invite`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          fullName: inviteForm.fullName,
+          email: inviteForm.email,
+          phone: inviteForm.phone.replace(/\D/g, ""),
+        }),
+      });
+
+      const json = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        setInviteApiError(json?.message || "Failed to send invite.");
+        return;
+      }
+
+      // success
+      setInviteForm({
+        fullName: "",
+        email: "",
+        phone: "",
+      });
+
+      setIsInviteOpen(false);
+    } catch (err: any) {
+      setInviteApiError("Something went wrong. Please try again.");
+    } finally {
+      setInviteLoading(false);
     }
   };
 
@@ -808,6 +922,19 @@ export default function AllLendersPage() {
             >
               <Eye className="mr-2 h-5 w-5" />
               View Assign Products
+            </button>
+
+            <button
+              onClick={() => setIsInviteOpen(true)}
+              className="inline-flex items-center gap-2 whitespace-nowrap px-5 py-2.5 
+  bg-gradient-to-r from-indigo-600 to-blue-600 
+  text-white text-sm font-semibold 
+  rounded-xl shadow-lg shadow-indigo-500/30 
+  hover:from-indigo-700 hover:to-blue-700 
+  active:scale-95 transition-all"
+            >
+              <Users className="w-4 h-4" />
+              Invite Lender
             </button>
           </div>
         </div>
@@ -1697,6 +1824,178 @@ dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100`}
                 await fetchLenders();
               }}
             />
+          </div>
+        </div>
+      )}
+
+      {isInviteOpen && (
+        <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
+          <div className="w-full max-w-md rounded-2xl overflow-hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-2xl">
+            {/* HEADER */}
+            <div className="flex items-center justify-between px-6 py-4 bg-[#13538A] text-white">
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                <Users size={18} />
+                Invite Lender
+              </h2>
+
+              <button
+                onClick={() => setIsInviteOpen(false)}
+                className="text-white/80 hover:text-red-500 text-lg"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* BODY */}
+            <div className="p-6 space-y-5">
+              {inviteApiError && (
+                <div className="bg-red-50 border border-red-200 text-red-600 text-sm px-3 py-2 rounded-lg">
+                  {inviteApiError}
+                </div>
+              )}
+
+              {/* Name */}
+              <div>
+                <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                  Full Name
+                </label>
+
+                <div className="relative mt-1">
+                  <Users
+                    size={16}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                  />
+
+                  <input
+                    type="text"
+                    value={inviteForm.fullName}
+                    onChange={(e) => {
+                      setInviteForm({
+                        ...inviteForm,
+                        fullName: e.target.value,
+                      });
+                      setInviteErrors({ ...inviteErrors, name: "" });
+                    }}
+                    placeholder="Enter lender name"
+                    className={`w-full pl-9 pr-3 py-2.5 rounded-lg border
+      ${inviteErrors.name ? "border-red-500" : "border-slate-300"}
+      dark:border-slate-600
+      bg-white dark:bg-slate-800
+      text-slate-900 dark:text-white`}
+                  />
+                </div>
+
+                {inviteErrors.name && (
+                  <p className="text-red-500 text-xs mt-1">
+                    {inviteErrors.name}
+                  </p>
+                )}
+              </div>
+
+              {/* Email */}
+              <div>
+                <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                  Email Address
+                </label>
+
+                <div className="relative mt-1">
+                  <Mail
+                    size={16}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                  />
+
+                  <input
+                    type="email"
+                    value={inviteForm.email}
+                    onChange={(e) => {
+                      setInviteForm({ ...inviteForm, email: e.target.value });
+                      setInviteErrors({ ...inviteErrors, email: "" });
+                    }}
+                    placeholder="example@email.com"
+                    className={`w-full pl-9 pr-3 py-2.5 rounded-lg border
+      ${inviteErrors.email ? "border-red-500" : "border-slate-300"}
+      dark:border-slate-600
+      bg-white dark:bg-slate-800
+      text-slate-900 dark:text-white`}
+                  />
+                </div>
+                {inviteErrors.email && (
+                  <p className="text-red-500 text-xs mt-1">
+                    {inviteErrors.email}
+                  </p>
+                )}
+              </div>
+
+              {/* Phone */}
+              <div>
+                <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                  Phone Number
+                </label>
+
+                <div className="relative mt-1">
+                  <Phone
+                    size={16}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                  />
+
+                  <input
+                    type="text"
+                    value={inviteForm.phone}
+                    onChange={(e) => {
+                      const formatted = formatUSPhone(e.target.value);
+
+                      setInviteForm({
+                        ...inviteForm,
+                        phone: formatted,
+                      });
+
+                      setInviteErrors({
+                        ...inviteErrors,
+                        phone: "",
+                      });
+                    }}
+                    placeholder="222-222-2222"
+                    maxLength={12}
+                    className={`w-full pl-9 pr-3 py-2.5 rounded-lg border
+  ${inviteErrors.phone ? "border-red-500" : "border-slate-300"}
+  dark:border-slate-600
+  bg-white dark:bg-slate-800
+  text-slate-900 dark:text-white
+  focus:outline-none focus:ring-2 focus:ring-indigo-500/40`}
+                  />
+                </div>
+                {inviteErrors.phone && (
+                  <p className="text-red-500 text-xs mt-1">
+                    {inviteErrors.phone}
+                  </p>
+                )}
+              </div>
+
+              {/* ACTIONS */}
+              <div className="flex justify-end gap-3 pt-4">
+                <button
+                  onClick={() => setIsInviteOpen(false)}
+                  className="px-4 py-2 rounded-lg text-sm font-medium
+            border border-slate-300 dark:border-slate-600
+            text-slate-600 dark:text-slate-300
+            hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  onClick={handleInvite}
+                  disabled={inviteLoading}
+                  className="px-5 py-2.5 rounded-lg text-sm font-semibold text-white
+  bg-[#13538A]
+  hover:bg-[#0f4370]
+  shadow-lg shadow-indigo-500/20
+  active:scale-95 transition disabled:opacity-60"
+                >
+                  {inviteLoading ? "Sending..." : "Send Invite"}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
