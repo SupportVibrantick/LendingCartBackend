@@ -4,7 +4,6 @@ const { clientLogs } = require("../../services/logger/contextLogger");
  * @param {import("fastify").FastifyInstance} fastify
  */
 async function verifyTokenRoute(fastify) {
-
   fastify.get(
     "/verify/:token",
     {
@@ -16,18 +15,16 @@ async function verifyTokenRoute(fastify) {
           type: "object",
           required: ["token"],
           properties: {
-            token: { type: "string" }
-          }
-        }
-      }
+            token: { type: "string" },
+          },
+        },
+      },
     },
 
     async (req, reply) => {
-
       const prisma = fastify.prisma;
 
       try {
-
         const token = req.params.token.trim();
 
         // ================================
@@ -39,16 +36,16 @@ async function verifyTokenRoute(fastify) {
           include: {
             loanApplication: {
               include: {
-                client: true
-              }
-            }
-          }
+                client: true,
+              },
+            },
+          },
         });
 
         if (!tokenRecord) {
           return reply.status(404).send({
             success: false,
-            message: "Invalid upload link"
+            message: "Invalid upload link",
           });
         }
 
@@ -59,7 +56,7 @@ async function verifyTokenRoute(fastify) {
         if (tokenRecord.expiresAt < new Date()) {
           return reply.status(400).send({
             success: false,
-            message: "Upload link expired"
+            message: "Upload link expired",
           });
         }
 
@@ -70,7 +67,7 @@ async function verifyTokenRoute(fastify) {
         if (!tokenRecord.loanApplication) {
           return reply.status(404).send({
             success: false,
-            message: "Loan application not found"
+            message: "Loan application not found",
           });
         }
 
@@ -83,33 +80,33 @@ async function verifyTokenRoute(fastify) {
         const requirements =
           await prisma.applicationDocumentRequirement.findMany({
             where: {
-              loanApplicationId
+              loanApplicationId,
             },
             include: {
               documentType: true,
-              uploads: true
+              uploads: true,
             },
             orderBy: {
-              createdAt: "asc"
-            }
+              createdAt: "asc",
+            },
           });
 
         // ================================
         // FORMAT DOCUMENT RESPONSE
         // ================================
 
-        const documents = requirements.map(r => ({
+        const documents = requirements.map((r) => ({
           requirementId: r.id,
           documentTypeId: r.documentTypeId,
           documentName: r.documentType?.name || "Document",
           status: r.status,
 
-          uploadedFiles: (r.uploads || []).map(u => ({
+          uploadedFiles: (r.uploads || []).map((u) => ({
             id: u.id,
             fileName: u.fileName,
             fileUrl: u.fileUrl,
-            uploadedAt: u.uploadedAt
-          }))
+            uploadedAt: u.uploadedAt,
+          })),
         }));
 
         // ================================
@@ -118,7 +115,7 @@ async function verifyTokenRoute(fastify) {
 
         clientLogs.info("Client upload token verified", {
           loanApplicationId,
-          tokenId: tokenRecord.id
+          tokenId: tokenRecord.id,
         });
 
         return reply.send({
@@ -132,29 +129,26 @@ async function verifyTokenRoute(fastify) {
             client: tokenRecord.loanApplication.client
               ? {
                   id: tokenRecord.loanApplication.client.id,
-                  name: tokenRecord.loanApplication.client.legalName
+                  name: tokenRecord.loanApplication.client.legalName,
                 }
               : null,
 
-            documents
-          }
+            documents,
+          },
         });
-
       } catch (error) {
+        console.error("Token verification failed:", error);
 
-        console.error("VERIFY TOKEN ERROR:", error);
-
-        clientLogs.error("Token verification failed", {
-          error: error.message,
-          stack: error.stack
-        });
+        if (clientLogs && clientLogs.error) {
+          clientLogs.error("Token verification failed", error);
+        }
 
         return reply.status(500).send({
           success: false,
-          message: "Server error verifying upload link"
+          message: "Server error verifying upload link",
         });
       }
-    }
+    },
   );
 }
 
