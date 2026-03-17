@@ -17,14 +17,6 @@ async function uploadDocumentsRoute(fastify) {
           properties: {
             token: { type: "string" }
           }
-        },
-
-        body: {
-          type: "object",
-          required: ["documentRequirementId"],
-          properties: {
-            documentRequirementId: { type: "string" }
-          }
         }
       }
     },
@@ -36,13 +28,12 @@ async function uploadDocumentsRoute(fastify) {
       try {
 
         const { token } = req.params;
-        const { documentRequirementId } = req.body;
-
-        const file = req.file;
 
         // ==========================================
-        // FILE VALIDATION
+        // GET FILE FROM MULTIPART
         // ==========================================
+
+        const file = await req.file();
 
         if (!file) {
           return reply.status(400).send({
@@ -50,6 +41,8 @@ async function uploadDocumentsRoute(fastify) {
             message: "File is required"
           });
         }
+
+        const documentRequirementId = file.fields.documentRequirementId.value;
 
         // ==========================================
         // TOKEN VALIDATION
@@ -93,7 +86,24 @@ async function uploadDocumentsRoute(fastify) {
         }
 
         // ==========================================
-        // SAVE DOCUMENT
+        // SAVE FILE TO DISK
+        // ==========================================
+
+        const fs = require("fs");
+        const path = require("path");
+
+        const fileName = `${Date.now()}-${file.filename}`;
+        const filePath = path.join(__dirname, "../../../uploads", fileName);
+
+        await new Promise((resolve, reject) => {
+          const stream = fs.createWriteStream(filePath);
+          file.file.pipe(stream);
+          stream.on("finish", resolve);
+          stream.on("error", reject);
+        });
+
+        // ==========================================
+        // SAVE DOCUMENT IN DATABASE
         // ==========================================
 
         const upload = await prisma.applicationDocumentUpload.create({
@@ -101,8 +111,8 @@ async function uploadDocumentsRoute(fastify) {
             loanApplicationId: tokenRecord.loanApplicationId,
             documentRequirementId,
             uploadedByClientUserId: null,
-            fileName: file.filename || file.originalname,
-            fileUrl: `/uploads/${file.filename}`,
+            fileName: file.filename,
+            fileUrl: `/uploads/${fileName}`,
             fileMimeType: file.mimetype
           }
         });
@@ -143,6 +153,7 @@ async function uploadDocumentsRoute(fastify) {
           success: false,
           message: "Server error during document upload"
         });
+
       }
     }
   );
