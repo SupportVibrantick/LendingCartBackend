@@ -1,7 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 
-const { loadTemplate } = require("../../../utils/loadTemplate");
+const { loadTemplate } = require("../../utils/loadTemplate");
 const sendMail = require("../../../services/mail");
 const { sendEmailUsingKafka } = require("../../../services/kafka/email/producer");
 
