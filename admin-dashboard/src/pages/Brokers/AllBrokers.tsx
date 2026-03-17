@@ -1099,7 +1099,7 @@ export default function BrokersPage() {
 
                       <div className="relative">
                         <input
-                          type="password"
+                          type={showPassword ? "text" : "password"}
                           value={form.adminPassword}
                           onChange={(e) =>
                             setForm({ ...form, adminPassword: e.target.value })

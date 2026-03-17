@@ -39,6 +39,7 @@ import BrokerRequest from "./pages/Brokers/BrokerInvites";
 import LoanPipeline from "./pages/LoanPipeline/LoanPipeline";
 import ImpersonateLogin from "./pages/ImpersonateLogin";
 import LoiPreview from "./pages/LoanPipeline/LoiPreview";
+import ClientUpload from "./pages/ClientPortal/ClientUpload";
 
 export default function App() {
   return (
@@ -84,6 +85,7 @@ export default function App() {
               path="/assigned-products"
               element={<AssignedProducts />}
             />
+
             <Route index path="/all-super-admins" element={<AllSuperadmin />} />
 
             <Route index path="/all-documents" element={<AllDocuments />} />
@@ -126,6 +128,11 @@ export default function App() {
           <Route path="/impersonate" element={<ImpersonateLogin />} />
           <Route path="/signin" element={<SignIn />} />
           <Route path="/signup" element={<SignUp />} />
+          <Route
+            index
+            path="/client-upload/:token"
+            element={<ClientUpload />}
+          />
 
           {/* Fallback Route */}
           <Route path="*" element={<NotFound />} />
