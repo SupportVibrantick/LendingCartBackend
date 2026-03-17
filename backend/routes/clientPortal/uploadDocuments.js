@@ -1,5 +1,7 @@
 const fs = require("fs");
 const path = require("path");
+const { pipeline } = require("stream/promises");
+const crypto = require("crypto");
 
 const { loadTemplate } = require("../../utils/loadTemplate");
 const sendMail = require("../../services/mail");
@@ -50,7 +52,7 @@ async function uploadDocumentsRoute(fastify) {
         }
 
         // ============================
-        // VALIDATE FORM FIELD
+        // VALIDATE FIELD
         // ============================
 
         const documentRequirementId =
@@ -111,50 +113,53 @@ async function uploadDocumentsRoute(fastify) {
         const allowedMime = [
           "application/pdf",
           "image/jpeg",
-          "image/png"
+          "image/png",
+          "image/webp"
         ];
 
         if (!allowedMime.includes(file.mimetype)) {
           return reply.status(400).send({
             success: false,
-            message: "Only PDF, JPG, PNG files are allowed"
+            message: "Only PDF, JPG, PNG, WEBP files allowed"
           });
         }
 
         // ============================
-        // ENSURE UPLOAD DIRECTORY
+        // CREATE SAFE FILE NAME
         // ============================
 
-        const uploadDir = path.join(__dirname, "../../../uploads");
+        const randomName = crypto.randomBytes(16).toString("hex");
 
-        if (!fs.existsSync(uploadDir)) {
-          fs.mkdirSync(uploadDir, { recursive: true });
-        }
+        const originalExt = path.extname(file.filename || "");
+
+        const safeExt =
+          originalExt || getExtensionFromMime(file.mimetype);
+
+        const safeFileName = `${randomName}${safeExt}`;
 
         // ============================
-        // GENERATE FILE NAME
+        // SAME FOLDER AS BROKER API
         // ============================
 
-        const safeFileName =
-          `${Date.now()}-${file.filename.replace(/\s+/g, "_")}`;
+        const uploadDir = path.join(
+          process.cwd(),
+          "uploads",
+          "loan-documents"
+        );
+
+        await fs.promises.mkdir(uploadDir, { recursive: true });
 
         const filePath = path.join(uploadDir, safeFileName);
 
         // ============================
-        // SAVE FILE
+        // SAVE FILE (STREAM SAFE)
         // ============================
 
-        await new Promise((resolve, reject) => {
+        const writeStream = fs.createWriteStream(filePath);
 
-          const writeStream = fs.createWriteStream(filePath);
+        await pipeline(file.file, writeStream);
 
-          file.file.pipe(writeStream);
-
-          file.file.on("error", reject);
-          writeStream.on("finish", resolve);
-          writeStream.on("error", reject);
-
-        });
+        const fileUrl = `/uploads/loan-documents/${safeFileName}`;
 
         // ============================
         // SAVE DOCUMENT RECORD
@@ -166,7 +171,7 @@ async function uploadDocumentsRoute(fastify) {
             documentRequirementId,
             uploadedByClientUserId: null,
             fileName: file.filename,
-            fileUrl: `/uploads/${safeFileName}`,
+            fileUrl,
             fileMimeType: file.mimetype
           }
         });
@@ -186,7 +191,8 @@ async function uploadDocumentsRoute(fastify) {
 
         const lenderRecord = await prisma.applicationLender.findFirst({
           where: {
-            loanApplicationId: tokenRecord.loanApplicationId
+            loanApplicationId: tokenRecord.loanApplicationId,
+            status: "IN_REVIEW"
           },
           include: {
             lenderOrganization: true
@@ -197,7 +203,7 @@ async function uploadDocumentsRoute(fastify) {
           lenderRecord?.lenderOrganization?.email;
 
         // ============================
-        // SEND EMAIL TO LENDER
+        // SEND EMAIL
         // ============================
 
         if (lenderEmail) {
@@ -263,3 +269,23 @@ async function uploadDocumentsRoute(fastify) {
 }
 
 module.exports = uploadDocumentsRoute;
+
+
+// ============================
+// EXTENSION HELPER
+// ============================
+
+function getExtensionFromMime(mime) {
+  switch (mime) {
+    case "application/pdf":
+      return ".pdf";
+    case "image/jpeg":
+      return ".jpg";
+    case "image/png":
+      return ".png";
+    case "image/webp":
+      return ".webp";
+    default:
+      return "";
+  }
+}
