@@ -27,6 +27,8 @@ export default function ClientUpload() {
   const [uploading, setUploading] = useState<Record<string, boolean>>({});
   const [uploaded, setUploaded] = useState<Record<string, boolean>>({});
   const [uploadedFilesCount, setUploadedFilesCount] = useState(0);
+  const [applicationNumber, setApplicationNumber] = useState("");
+  const [clientName, setClientName] = useState("");
 
   useEffect(() => {
     verifyToken();
@@ -35,9 +37,14 @@ export default function ClientUpload() {
   const verifyToken = async () => {
     try {
       const res = await axios.get(`${API_BASE}/client-portal/verify/${token}`);
-      const docs = res.data?.data?.documents || [];
+      const data = res.data?.data;
+
+      const docs = data?.documents || [];
 
       setDocuments(docs);
+
+      setApplicationNumber(data?.applicationNumber || "");
+      setClientName(data?.client?.name || "");
 
       const uploadedMap: Record<string, boolean> = {};
       docs.forEach((doc: DocumentItem) => {
@@ -53,7 +60,6 @@ export default function ClientUpload() {
       setLoading(false);
     }
   };
-
   const MAX_FILES = 4;
 
   const handleFileChange = (id: string, newFiles: FileList | null) => {
@@ -170,9 +176,24 @@ export default function ClientUpload() {
       <div className="max-w-5xl mx-auto">
         {/* HEADER */}
         <div className="bg-white rounded-2xl shadow p-6 mb-6 sticky top-4 z-10">
-          <h1 className="text-xl font-semibold text-gray-800">
-            Upload Documents
-          </h1>
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            {/* LEFT */}
+            <div>
+              <h1 className="text-xl font-semibold text-gray-800">
+                Upload Documents
+              </h1>
+
+              <p className="text-sm text-gray-500 mt-1">{clientName}</p>
+            </div>
+
+            {/* RIGHT */}
+            <div className="text-right">
+              <p className="text-xs text-gray-400">Application No.</p>
+              <p className="text-sm font-medium text-gray-700">
+                {applicationNumber}
+              </p>
+            </div>
+          </div>
 
           {/* PROGRESS */}
           <div className="mt-4">

@@ -58,7 +58,7 @@ export default function UserDropdown({ user }: UserDropdownProps) {
           <img
             src={
               user?.user?.profileImage
-                ? `${API_BASE}/public/${user.user.profileImage}`
+                ? `${API_BASE}${user.user.profileImage}`
                 : "/profile.png"
             }
             alt="User"
@@ -130,7 +130,7 @@ export default function UserDropdown({ user }: UserDropdownProps) {
               Edit profile
             </DropdownItem>
           </li>
-          <li>
+          {/* <li>
             <DropdownItem
               onItemClick={closeDropdown}
               tag="a"
@@ -155,8 +155,8 @@ export default function UserDropdown({ user }: UserDropdownProps) {
               </svg>
               Account settings
             </DropdownItem>
-          </li>
-          <li>
+          </li> */}
+          {/* <li>
             <DropdownItem
               onItemClick={closeDropdown}
               tag="a"
@@ -181,7 +181,7 @@ export default function UserDropdown({ user }: UserDropdownProps) {
               </svg>
               Support
             </DropdownItem>
-          </li>
+          </li> */}
         </ul>
 
         <button

@@ -736,7 +736,7 @@ export default function LoanApplicationsPage() {
                   ].map((h) => (
                     <th
                       key={h.label}
-                      className={`${h.width} px-5 py-3 text-left text-[12px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800 whitespace-nowrap`}
+                      className={`${h.width} px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800 whitespace-nowrap`}
                     >
                       {h.label}
                     </th>
@@ -789,7 +789,7 @@ export default function LoanApplicationsPage() {
 
                       {/* Loan Info - Medium Emphasis */}
                       <td className="px-6 py-4">
-                        <span className="text-[12px] text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/50 px-2 py-1 rounded">
+                        <span className="text-[10px] text-slate-700 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/50 px-2 py-1 rounded">
                           {row.loanType}
                         </span>
                       </td>
