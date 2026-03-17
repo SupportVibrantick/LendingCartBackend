@@ -4,6 +4,7 @@ import { IoIosArrowBack } from "react-icons/io";
 import { MdDeleteForever } from "react-icons/md";
 import { useNavigate } from "react-router";
 import SignatureCanvas from "react-signature-canvas";
+import { IoClose } from "react-icons/io5";
 
 interface Borrower {
   name: string;
@@ -1168,9 +1169,9 @@ const LoanApplication = () => {
         );
 
       case "CHECKBOX_GROUP":
-  return (
-    <div
-      className={`
+        return (
+          <div
+            className={`
       flex flex-wrap gap-4 mt-2 text-sm p-2 rounded-md border
       ${
         hasError
@@ -1180,31 +1181,36 @@ const LoanApplication = () => {
       bg-white dark:bg-slate-900
       text-slate-800 dark:text-slate-200
       `}
-    >
-      {field.options?.map((opt: string, i: number) => (
-        <label key={i} className="flex items-center gap-2 cursor-pointer">
-          <input
-            type="checkbox"
-            value={opt}
-            checked={dynamicFormData[field.fieldId]?.includes(opt) || false}
-            onChange={(e) => {
-              const prevValues = dynamicFormData[field.fieldId] || [];
+          >
+            {field.options?.map((opt: string, i: number) => (
+              <label key={i} className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  value={opt}
+                  checked={
+                    dynamicFormData[field.fieldId]?.includes(opt) || false
+                  }
+                  onChange={(e) => {
+                    const prevValues = dynamicFormData[field.fieldId] || [];
 
-              if (e.target.checked) {
-                handleDynamicFieldChange(field.fieldId, [...prevValues, opt]);
-              } else {
-                handleDynamicFieldChange(
-                  field.fieldId,
-                  prevValues.filter((v: string) => v !== opt)
-                );
-              }
-            }}
-          />
-          {opt}
-        </label>
-      ))}
-    </div>
-  );
+                    if (e.target.checked) {
+                      handleDynamicFieldChange(field.fieldId, [
+                        ...prevValues,
+                        opt,
+                      ]);
+                    } else {
+                      handleDynamicFieldChange(
+                        field.fieldId,
+                        prevValues.filter((v: string) => v !== opt),
+                      );
+                    }
+                  }}
+                />
+                {opt}
+              </label>
+            ))}
+          </div>
+        );
       default:
         return null;
     }
@@ -1459,18 +1465,32 @@ const LoanApplication = () => {
   return (
     <>
       <div className="min-h-screen bg-slate-50 px-6 py-8 dark:bg-slate-900">
-        {/* HEADER */}
-        <div className="mb-6">
-          <h2 className="text-2xl font-bold text-[#2C92D5]">
-            New Loan Application
-          </h2>
-          <p className="text-sm text-slate-500">
-            Complete comprehensive loan application
-          </p>
-        </div>
-
         {/* ===== FIXED HEADER SECTION ===== */}
-        <div className="w-full sticky top-[70px] z-30 bg-slate-50 dark:bg-slate-900 pb-4">
+        <div className="w-full sticky top-[1px] z-30 bg-slate-50 dark:bg-slate-900 pb-4">
+          {/* HEADER */}
+          <div className="mb-6 flex items-start justify-between">
+            <div className="pt-4">
+              <h2 className="text-2xl font-bold text-[#2C92D5]">
+                New Loan Application
+              </h2>
+              <p className="text-sm text-slate-500">
+                Complete comprehensive loan application
+              </p>
+            </div>
+
+            {/* Close Button */}
+            <button
+              onClick={() => navigate("/submit-applications")}
+              className="
+            mt-2 w-9 h-9 flex items-center justify-center
+            rounded-full border border-slate-300
+            text-slate-600 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-50 dark:text-red-600
+            transition
+          "
+            >
+              <IoClose size={20} />
+            </button>
+          </div>
           {/* STEPPER */}
           <div className="flex flex-wrap gap-2 mb-4 pt-4">
             {allSteps.map((step, index) => (
@@ -3138,75 +3158,77 @@ focus:border-blue-500 outline-none text-sm ${
             </div>
           )}
 
-        {selectedProduct && currentStep === allSteps.length - 1 && (
-  <div
-    className="
+          {selectedProduct && currentStep === allSteps.length - 1 && (
+            <div
+              className="
     border border-slate-200 dark:border-slate-700
     rounded-2xl p-6
     bg-white dark:bg-slate-800
     mt-6
     shadow-sm
     "
-  >
-    <h3 className="text-lg font-semibold mb-6 text-slate-800 dark:text-slate-200">
-      Digital Signature
-    </h3>
+            >
+              <h3 className="text-lg font-semibold mb-6 text-slate-800 dark:text-slate-200">
+                Digital Signature
+              </h3>
 
-    <div
-      className={`border rounded-xl p-4 ${
-        errors["signature"]
-          ? "border-red-500 bg-red-50 dark:bg-red-900/20"
-          : "border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900"
-      }`}
-    >
-      <SignatureCanvas
-        ref={signatureRef}
-        penColor="blue"
-        onEnd={handleSignatureEnd}
-        canvasProps={{
-          width: 900,
-          height: 250,
-          className:
-            "w-full border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-900",
-        }}
-      />
-    </div>
+              <div
+                className={`border rounded-xl p-4 ${
+                  errors["signature"]
+                    ? "border-red-500 bg-red-50 dark:bg-red-900/20"
+                    : "border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900"
+                }`}
+              >
+                <SignatureCanvas
+                  ref={signatureRef}
+                  penColor="blue"
+                  onEnd={handleSignatureEnd}
+                  canvasProps={{
+                    width: 900,
+                    height: 250,
+                    className:
+                      "w-full border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-900",
+                  }}
+                />
+              </div>
 
-    {errors["signature"] && (
-      <p className="text-xs text-red-500 mt-2">{errors["signature"]}</p>
-    )}
+              {errors["signature"] && (
+                <p className="text-xs text-red-500 mt-2">
+                  {errors["signature"]}
+                </p>
+              )}
 
-    <div className="flex gap-3 mt-4 flex-wrap">
-      <button
-        type="button"
-        onClick={handleUndoSignature}
-        className="
+              <div className="flex gap-3 mt-4 flex-wrap">
+                <button
+                  type="button"
+                  onClick={handleUndoSignature}
+                  className="
         px-4 py-2 text-sm rounded-md border
         border-slate-300 dark:border-slate-600
         text-slate-700 dark:text-slate-200
         hover:bg-slate-100 dark:hover:bg-slate-700
         transition
         "
-      >
-        Undo
-      </button>
+                >
+                  Undo
+                </button>
 
-      <button
-        type="button"
-        onClick={handleClearSignature}
-        className="
+                <button
+                  type="button"
+                  onClick={handleClearSignature}
+                  className="
         px-4 py-2 text-sm rounded-md border
         border-red-300 dark:border-red-500
         text-red-600 dark:text-red-400
         hover:bg-red-50 dark:hover:bg-red-900/20
         transition
         "
-      >
-        Reset
-      </button>
-    </div>
-  </div>
-)}
+                >
+                  Reset
+                </button>
+              </div>
+            </div>
+          )}
 
           {activeSectionIndex !== null &&
             dynamicSections[activeSectionIndex] && (

@@ -28,7 +28,7 @@ const navItems: NavItem[] = [
     path: "/",
   },
 
-    {
+  {
     icon: <TrendingUp />,
     name: "Loan Pipeline",
     path: "/submit-applications",
@@ -60,9 +60,9 @@ const navItems: NavItem[] = [
     icon: <FaUserGroup />,
     name: "User Management",
     subItems: [
-      { name: "Brokers" , path:"/create-broker"},
+      { name: "Brokers", path: "/create-broker" },
       { name: "Loan Officer", path: "/loan-officer" },
-      { name: "Contacts", path:"/contacts-list"}
+      { name: "Contacts", path: "/contacts-list" },
     ],
   },
 
@@ -125,31 +125,31 @@ const AppSidebar: React.FC = () => {
   };
 
   useEffect(() => {
-  const findActiveMenus = (
-    items: NavItem[],
-    parentKey = ""
-  ): Record<string, boolean> => {
-    let result: Record<string, boolean> = {};
+    const findActiveMenus = (
+      items: NavItem[],
+      parentKey = "",
+    ): Record<string, boolean> => {
+      let result: Record<string, boolean> = {};
 
-    items.forEach((item, index) => {
-      const key = parentKey ? `${parentKey}-${index}` : `${index}`;
+      items.forEach((item, index) => {
+        const key = parentKey ? `${parentKey}-${index}` : `${index}`;
 
-      if (item.subItems) {
-        const childActive = hasActiveChild(item.subItems);
+        if (item.subItems) {
+          const childActive = hasActiveChild(item.subItems);
 
-        if (childActive) {
-          result[key] = true;
+          if (childActive) {
+            result[key] = true;
+          }
+
+          Object.assign(result, findActiveMenus(item.subItems, key));
         }
+      });
 
-        Object.assign(result, findActiveMenus(item.subItems, key));
-      }
-    });
+      return result;
+    };
 
-    return result;
-  };
-
-  setOpenMenus(findActiveMenus(navItems));
-}, [location.pathname]);
+    setOpenMenus(findActiveMenus(navItems));
+  }, [location.pathname]);
 
   // useEffect(() => {
   //   Object.keys(openMenus).forEach((key) => {
@@ -185,7 +185,7 @@ const AppSidebar: React.FC = () => {
                 <button
                   onClick={() => toggleMenu(key)}
                   className={`menu-item group ${
-                    hasActiveChild(nav.subItems)  || isOpen
+                    hasActiveChild(nav.subItems) || isOpen
                       ? "menu-item-active"
                       : "menu-item-inactive"
                   }`}
@@ -249,7 +249,8 @@ const AppSidebar: React.FC = () => {
 
   return (
     <aside
-      className={`fixed mt-16 flex flex-col lg:mt-0 top-0 px-5 left-0 bg-[#2C92D5] text-gray-900 h-screen transition-all duration-300 ease-in-out z-50 border-r border-gray-200 
+      className={`fixed mt-16 flex flex-col lg:mt-0 top-0 px-5 left-0 bg-[#2C92D5] border-gray-200 dark:bg-gray-900 
+text-gray-800 dark:text-gray-200 dark:border-gray-800 h-screen transition-all duration-300 ease-in-out z-50 border-r
         ${
           isExpanded || isMobileOpen
             ? "w-[290px]"
