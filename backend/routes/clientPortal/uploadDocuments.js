@@ -1,6 +1,10 @@
 const fs = require("fs");
 const path = require("path");
 
+const { loadTemplate } = require("../../../utils/loadTemplate");
+const sendMail = require("../../../services/mail");
+const { sendEmailUsingKafka } = require("../../../services/kafka/email/producer");
+
 /**
  * @param {import("fastify").FastifyInstance} fastify
  */
@@ -175,6 +179,64 @@ async function uploadDocumentsRoute(fastify) {
           where: { id: documentRequirementId },
           data: { status: "PARTIAL" }
         });
+
+        // ============================
+        // FETCH LENDER EMAIL
+        // ============================
+
+        const lenderRecord = await prisma.applicationLender.findFirst({
+          where: {
+            loanApplicationId: tokenRecord.loanApplicationId
+          },
+          include: {
+            lenderOrganization: true
+          }
+        });
+
+        const lenderEmail =
+          lenderRecord?.lenderOrganization?.email;
+
+        // ============================
+        // SEND EMAIL TO LENDER
+        // ============================
+
+        if (lenderEmail) {
+
+          const html = loadTemplate("lenderPortal/documentUpload", {
+            clientName: "Client",
+            applicationNumber: tokenRecord.loanApplicationId,
+            fileName: file.filename,
+            uploadedAt: new Date().toLocaleString(),
+            dashboardLink: `${process.env.FRONTEND_URL}/lender/applications/${tokenRecord.loanApplicationId}`,
+            currentYear: new Date().getFullYear()
+          });
+
+          const subject =
+            `Client Uploaded Document for Application #${tokenRecord.loanApplicationId}`;
+
+          const text =
+            `A client has uploaded a document for application ${tokenRecord.loanApplicationId}`;
+
+          try {
+
+            await sendEmailUsingKafka(
+              lenderEmail,
+              subject,
+              text,
+              html
+            );
+
+          } catch (err) {
+
+            await sendMail({
+              to: lenderEmail,
+              subject,
+              text,
+              html
+            });
+
+          }
+        }
 
         // ============================
         // RESPONSE
