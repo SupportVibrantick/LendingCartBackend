@@ -1,184 +1,208 @@
 const PDFDocument = require("pdfkit");
 
+const formatLabel = (key) => {
+  return key
+    .replace(/([A-Z])/g, " $1")
+    .replace(/_/g, " ")
+    .replace(/^./, (str) => str.toUpperCase());
+};
+
 const generateApplicationPDF = (application, submission) => {
   return new Promise((resolve, reject) => {
     try {
       const doc = new PDFDocument({ size: "A4", margin: 50 });
 
       const buffers = [];
-      doc.on("data", (chunk) => buffers.push(chunk));
+      doc.on("data", (b) => buffers.push(b));
       doc.on("end", () => resolve(Buffer.concat(buffers)));
       doc.on("error", reject);
 
       const pageWidth = doc.page.width;
       const contentWidth = pageWidth - 100;
 
+      const COLORS = {
+        primary: "#0A3D62",
+        border: "#E2E8F0",
+        muted: "#64748B",
+        text: "#0F172A",
+        bg: "#F8FAFC",
+        statBg: "#F1F5F9"
+      };
+
       /* ================= HEADER ================= */
 
-      doc.rect(0, 0, pageWidth, 90).fill("#0A3D62");
+      doc.rect(0, 0, pageWidth, 85).fill(COLORS.primary);
 
       doc.fillColor("#fff")
-        .font("Helvetica-Bold")
         .fontSize(22)
+        .font("Helvetica-Bold")
         .text("LendingCart", 50, 30);
 
-      doc.fontSize(14)
+      doc.fontSize(12)
         .font("Helvetica")
-        .text("Loan Application Document", 50, 60);
+        .text("Loan Application Summary", 50, 58);
 
       doc.moveDown(4);
 
       /* ================= STATUS ================= */
 
-      doc.fillColor("#000")
+      doc.fillColor(COLORS.text)
         .fontSize(11)
-        .font("Helvetica")
-        .text(`Status: ${application.status}`, 50);
+        .font("Helvetica-Bold")
+        .text(`Application Status: ${application.status}`);
 
       doc.moveDown(1.5);
 
-      /* ================= STATS BOX ================= */
+      /* ================= STATS ================= */
 
-      const statsStartY = doc.y;
-      const statWidth = contentWidth / 6;
-      const statHeight = 70;
+      const statWidth = contentWidth / 3 - 10;
+      const statHeight = 60;
 
       const stats = [
         { label: "Loan Amount", value: `$${Number(application.amountRequested || 0).toLocaleString()}` },
-        { label: "LTV %", value: application.ltvPercentage || "—" },
-        { label: "LTC %", value: application.ltcPercentage || "—" },
-        { label: "ARV %", value: application.arvPercentage || "—" },
+        { label: "LTV", value: application.ltvPercentage || "—" },
+        { label: "LTC", value: application.ltcPercentage || "—" },
+        { label: "ARV", value: application.arvPercentage || "—" },
         { label: "DSCR", value: application.dscr || "—" },
         { label: "Net Worth", value: `$${Number(application.netWorth || 0).toLocaleString()}` },
       ];
 
+      const startY = doc.y;
+
       stats.forEach((stat, i) => {
-        const x = 50 + i * statWidth;
+        const row = Math.floor(i / 3);
+        const col = i % 3;
 
-        doc.roundedRect(x, statsStartY, statWidth - 5, statHeight, 8)
-          .fillAndStroke("#F0F6FF", "#D6E4FF");
+        const x = 50 + col * (statWidth + 10);
+        const y = startY + row * (statHeight + 10);
 
-        doc.fillColor("#64748B")
+        doc.roundedRect(x, y, statWidth, statHeight, 6)
+          .fillAndStroke(COLORS.statBg, COLORS.border);
+
+        doc.fillColor(COLORS.muted)
           .fontSize(9)
-          .text(stat.label, x + 8, statsStartY + 10, {
-            width: statWidth - 16,
-            align: "center",
-          });
+          .font("Helvetica")
+          .text(stat.label, x + 10, y + 10);
 
-        doc.fillColor("#0F172A")
+        doc.fillColor(COLORS.text)
+          .fontSize(14)
           .font("Helvetica-Bold")
-          .fontSize(12)
-          .text(stat.value, x + 8, statsStartY + 30, {
-            width: statWidth - 16,
-            align: "center",
-          });
+          .text(stat.value, x + 10, y + 28);
       });
 
-      doc.moveDown(5);
+      doc.y = startY + 150;
 
       /* ================= SECTION TITLE ================= */
 
-      function sectionTitle(title) {
-        doc.moveDown(1.5);
-        doc.fillColor("#0A3D62")
-          .font("Helvetica-Bold")
+      function section(title) {
+        doc.moveDown(1);
+
+        doc.fillColor(COLORS.primary)
           .fontSize(14)
+          .font("Helvetica-Bold")
           .text(title);
 
-        doc.moveDown(0.5);
+        doc.moveDown(0.4);
+
         doc.moveTo(50, doc.y)
           .lineTo(pageWidth - 50, doc.y)
-          .strokeColor("#E2E8F0")
+          .strokeColor(COLORS.border)
           .stroke();
-        doc.moveDown(1);
+
+        doc.moveDown(0.7);
       }
 
-      /* ================= TWO COLUMN FIELD GRID ================= */
+      /* ================= FIELD GRID ================= */
 
-      function drawFieldGrid(fields) {
+      function drawFields(fields) {
+
         const columnGap = 20;
         const colWidth = contentWidth / 2 - columnGap / 2;
+        const rowHeight = 50;
 
         for (let i = 0; i < fields.length; i += 2) {
+
           if (doc.y > doc.page.height - 120) doc.addPage();
 
-          const pair = [fields[i], fields[i + 1]];
+          const y = doc.y;
 
-          const rowHeight = 65;
+          [fields[i], fields[i + 1]].forEach((field, index) => {
 
-          pair.forEach((field, index) => {
             if (!field) return;
 
             const x = 50 + index * (colWidth + columnGap);
 
-            doc.roundedRect(x, doc.y, colWidth, rowHeight, 8)
-              .fillAndStroke("#F8FAFC", "#E2E8F0");
+            doc.roundedRect(x, y, colWidth, rowHeight, 6)
+              .fillAndStroke(COLORS.bg, COLORS.border);
 
-            doc.fillColor("#64748B")
+            doc.fillColor(COLORS.muted)
               .fontSize(9)
               .font("Helvetica")
-              .text(field.label, x + 12, doc.y + 10);
+              .text(field.label, x + 10, y + 8);
 
-            doc.fillColor("#0F172A")
+            doc.fillColor(COLORS.text)
               .fontSize(11)
               .font("Helvetica-Bold")
-              .text(field.value || "-", x + 12, doc.y + 28, {
-                width: colWidth - 24,
+              .text(field.value || "-", x + 10, y + 22, {
+                width: colWidth - 20
               });
+
           });
 
-          doc.moveDown(4);
+          doc.y += rowHeight + 10;
         }
       }
 
       /* ================= PRIMARY BORROWER ================= */
 
-      sectionTitle("Primary Borrower");
+      section("Borrower Information");
 
-      const primaryFields = submission.fields
-        .filter(f => f.fieldKey.startsWith("borrower") || f.fieldKey === "city" || f.fieldKey === "state")
+      const borrowerFields = submission.fields
+        .filter(f => f.fieldKey.toLowerCase().includes("borrower"))
         .map(f => ({
-          label: f.fieldKey,
+          label: formatLabel(f.fieldKey),
           value: String(f.value || "-")
         }));
 
-      drawFieldGrid(primaryFields);
+      drawFields(borrowerFields);
 
-      /* ================= LOAN DETAILS ================= */
+      /* ================= PROPERTY / LOAN ================= */
 
-      sectionTitle("Loan Details");
+      section("Loan Details");
 
       const loanFields = submission.fields
-        .filter(f => !f.fieldKey.startsWith("borrower"))
+        .filter(f => !f.fieldKey.toLowerCase().includes("borrower"))
         .map(f => ({
-          label: f.fieldKey,
+          label: formatLabel(f.fieldKey),
           value: String(f.value || "-")
         }));
 
-      drawFieldGrid(loanFields);
+      drawFields(loanFields);
 
       /* ================= SIGNATURE ================= */
 
-      const signatureField = submission.fields.find(
+      const signature = submission.fields.find(
         f => typeof f.value === "string" && f.value.startsWith("data:image")
       );
 
-      if (signatureField) {
+      if (signature) {
+
         doc.addPage();
-        sectionTitle("Digital Signature");
 
-        const base64Data = signatureField.value.replace(/^data:image\/png;base64,/, "");
-        const buffer = Buffer.from(base64Data, "base64");
+        section("Digital Signature");
 
-        doc.roundedRect(50, doc.y, 300, 150, 10)
-          .strokeColor("#CBD5E1")
+        const base64 = signature.value.replace(/^data:image\/png;base64,/, "");
+        const buffer = Buffer.from(base64, "base64");
+
+        doc.roundedRect(50, doc.y, 350, 150, 8)
+          .strokeColor(COLORS.border)
           .stroke();
 
         doc.image(buffer, 60, doc.y + 10, {
-          fit: [280, 120],
+          fit: [330, 120]
         });
 
-        doc.moveDown(10);
+        doc.moveDown(8);
       }
 
       /* ================= FOOTER ================= */
@@ -186,9 +210,9 @@ const generateApplicationPDF = (application, submission) => {
       const submitted = new Date(submission.submittedAt);
 
       doc.fontSize(9)
-        .fillColor("#64748B")
+        .fillColor(COLORS.muted)
         .text(
-          `Submitted Date: ${submitted.toLocaleDateString()}    |    Submitted Time: ${submitted.toLocaleTimeString()}`,
+          `Submitted: ${submitted.toLocaleDateString()}  |  ${submitted.toLocaleTimeString()}`,
           0,
           doc.page.height - 40,
           { align: "center" }
@@ -196,8 +220,8 @@ const generateApplicationPDF = (application, submission) => {
 
       doc.end();
 
-    } catch (error) {
-      reject(error);
+    } catch (err) {
+      reject(err);
     }
   });
 };
