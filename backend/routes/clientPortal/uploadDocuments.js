@@ -1,5 +1,3 @@
-const { clientLogs } = require("../../services/logger/contextLogger");
-
 /**
  * @param {import("fastify").FastifyInstance} fastify
  */
@@ -133,11 +131,6 @@ async function uploadDocumentsRoute(fastify) {
         // SUCCESS RESPONSE
         // ==========================================
 
-        clientLogs.info("Client document uploaded", {
-          loanApplicationId: tokenRecord.loanApplicationId,
-          requirementId: documentRequirementId
-        });
-
         return reply.send({
           success: true,
           message: "Document uploaded successfully",
@@ -145,8 +138,6 @@ async function uploadDocumentsRoute(fastify) {
         });
 
       } catch (error) {
-
-        clientLogs.error("Client document upload failed", error);
 
         return reply.status(500).send({
           success: false,
