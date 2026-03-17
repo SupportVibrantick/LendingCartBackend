@@ -208,41 +208,48 @@ async function uploadDocumentsRoute(fastify) {
 
         if (lenderEmail) {
 
-          const html = loadTemplate("lenderPortal/documentUpload", {
-            clientName: "Client",
-            applicationNumber: tokenRecord.loanApplicationId,
-            fileName: file.filename,
-            uploadedAt: new Date().toLocaleString(),
-            dashboardLink: `${process.env.FRONTEND_URL}/lender/applications/${tokenRecord.loanApplicationId}`,
-            currentYear: new Date().getFullYear()
-          });
+  const html = loadTemplate("lenderPortal/documentUpload", {
+    clientName: "Client",
+    applicationNumber: tokenRecord.loanApplicationId,
+    fileName: file.filename,
+    uploadedAt: new Date().toLocaleString(),
+    dashboardLink: `${process.env.FRONTEND_URL}/lender/applications/${tokenRecord.loanApplicationId}`,
+    currentYear: new Date().getFullYear()
+  });
 
-          const subject =
-            `Client Uploaded Document for Application #${tokenRecord.loanApplicationId}`;
+  const subject =
+    `Client Uploaded Document for Application #${tokenRecord.loanApplicationId}`;
 
-          const text =
-            `A client has uploaded a document for application ${tokenRecord.loanApplicationId}`;
+  const text =
+    `A client has uploaded a document for application ${tokenRecord.loanApplicationId}`;
 
-          try {
+  // Run email async without breaking upload
+  (async () => {
+    try {
 
-            await sendEmailUsingKafka(
-              lenderEmail,
-              subject,
-              text,
-              html
-            );
+      await sendEmailUsingKafka(
+        lenderEmail,
+        subject,
+        text,
+        html
+      );
 
-          } catch (err) {
+    } catch (err) {
 
-            await sendMail({
-              to: lenderEmail,
-              subject,
-              text,
-              html
-            });
+      try {
+        await sendMail({
+          to: lenderEmail,
+          subject,
+          text,
+          html
+        });
+      } catch (mailErr) {
+        fastify.log.error("Email failed:", mailErr);
+      }
 
-          }
-        }
+    }
+  })();
+}
 
         // ============================
         // RESPONSE
