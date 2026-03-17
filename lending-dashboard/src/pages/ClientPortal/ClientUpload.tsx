@@ -2,199 +2,319 @@ import { useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { Upload, FileText, CheckCircle } from "lucide-react";
+import toast from "react-hot-toast";
 
-interface DocumentType {
-  name: string;
+/* ================= TYPES ================= */
+
+interface DocumentItem {
+  requirementId: string;
+  documentTypeId: string;
+  documentName: string;
+  status: "PENDING" | "UPLOADED";
+  uploadedFiles: string[];
 }
 
-interface Requirement {
-  id: string;
-  documentType: DocumentType;
-}
-
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001";
+const API_BASE =
+  import.meta.env.VITE_API_BASE || "https://api-lendingcart.vibrantick.org";
 
 export default function ClientUpload() {
   const { token } = useParams<{ token: string }>();
 
-  const [requirements, setRequirements] = useState<Requirement[]>([]);
-  const [files, setFiles] = useState<Record<string, File | null>>({});
-  const [loading, setLoading] = useState<boolean>(true);
-  const [invalidToken, setInvalidToken] = useState<boolean>(false);
+  const [documents, setDocuments] = useState<DocumentItem[]>([]);
+  const [files, setFiles] = useState<Record<string, File[]>>({});
+  const [loading, setLoading] = useState(true);
+  const [invalidToken, setInvalidToken] = useState(false);
   const [uploading, setUploading] = useState<Record<string, boolean>>({});
   const [uploaded, setUploaded] = useState<Record<string, boolean>>({});
+  const [uploadedFilesCount, setUploadedFilesCount] = useState(0);
 
   useEffect(() => {
     verifyToken();
   }, []);
 
-  /* ================= VERIFY TOKEN ================= */
-
   const verifyToken = async () => {
     try {
       const res = await axios.get(`${API_BASE}/client-portal/verify/${token}`);
+      const docs = res.data?.data?.documents || [];
 
-      console.log("VERIFY RESPONSE:", res.data);
+      setDocuments(docs);
 
-      const docs = res.data?.data?.requirements || res.data?.requirements || [];
+      const uploadedMap: Record<string, boolean> = {};
+      docs.forEach((doc: DocumentItem) => {
+        if (doc.uploadedFiles?.length > 0) {
+          uploadedMap[doc.requirementId] = true;
+        }
+      });
 
-      setRequirements(docs);
+      setUploaded(uploadedMap);
     } catch (err) {
-      console.error("Invalid token:", err);
       setInvalidToken(true);
     } finally {
       setLoading(false);
     }
   };
 
-  /* ================= FILE CHANGE ================= */
+  const MAX_FILES = 4;
 
-  const handleFileChange = (docId: string, file: File | null) => {
-    setFiles((prev) => ({
-      ...prev,
-      [docId]: file,
-    }));
-  };
+  const handleFileChange = (id: string, newFiles: FileList | null) => {
+    if (!newFiles) return;
 
-  /* ================= UPLOAD FILE ================= */
+    const selectedFiles = Array.from(newFiles);
+    const existingFiles = files[id] || [];
 
-  const uploadFile = async (docId: string) => {
-    if (!files[docId]) return;
+    // total after adding
+    const totalFiles = [...existingFiles, ...selectedFiles];
 
-    setUploading((prev) => ({
-      ...prev,
-      [docId]: true,
-    }));
+    if (totalFiles.length > MAX_FILES) {
+      toast.error(`You can upload maximum ${MAX_FILES} files only`);
 
-    try {
-      const formData = new FormData();
+      // only allow remaining slots
+      const allowedFiles = selectedFiles.slice(
+        0,
+        MAX_FILES - existingFiles.length,
+      );
 
-      formData.append("token", token || "");
-      formData.append("documentRequirementId", docId);
-      formData.append("file", files[docId] as Blob);
-
-      await axios.post(`${API_BASE}/client-portal/upload`, formData);
-
-      setUploaded((prev) => ({
+      setFiles((prev) => ({
         ...prev,
-        [docId]: true,
+        [id]: [...existingFiles, ...allowedFiles],
       }));
-    } catch (err) {
-      console.error("Upload error:", err);
-      alert("Upload failed. Please try again.");
-    } finally {
-      setUploading((prev) => ({
+    } else {
+      setFiles((prev) => ({
         ...prev,
-        [docId]: false,
+        [id]: totalFiles,
       }));
     }
   };
 
-  /* ================= LOADING SCREEN ================= */
+  const removeFile = (id: string, index: number) => {
+    setFiles((prev) => {
+      const updated = [...(prev[id] || [])];
+      updated.splice(index, 1);
+
+      return {
+        ...prev,
+        [id]: updated.length > 0 ? updated : [],
+      };
+    });
+  };
+
+  const uploadFile = async (id: string) => {
+    const fileList = files[id];
+    if (!fileList || fileList.length === 0) return;
+
+    setUploading((prev) => ({ ...prev, [id]: true }));
+
+    try {
+      for (const file of fileList) {
+        const formData = new FormData();
+
+        // IMPORTANT: only this field required
+        formData.append("documentRequirementId", id);
+        formData.append("file", file);
+
+        const res = await axios.post(
+          `${API_BASE}/client-portal/${token}/upload`,
+          formData,
+          {
+            headers: {
+              "Content-Type": "multipart/form-data",
+            },
+          },
+        );
+
+        setUploadedFilesCount((prev) => prev + 1);
+
+        console.log("UPLOAD SUCCESS:", res.data);
+      }
+
+      setUploaded((prev) => ({ ...prev, [id]: true }));
+      setFiles((prev) => ({ ...prev, [id]: [] }));
+    } catch (err: any) {
+      console.error("UPLOAD ERROR:", err?.response || err);
+
+      toast.error(
+        err?.response?.data?.message || "Upload failed. Please try again.",
+      );
+    } finally {
+      setUploading((prev) => ({ ...prev, [id]: false }));
+    }
+  };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen text-gray-500">
-        Loading upload portal...
+        Loading...
       </div>
     );
   }
-
-  /* ================= INVALID TOKEN ================= */
 
   if (invalidToken) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+      <div className="flex items-center justify-center min-h-screen">
         <div className="bg-white p-8 rounded-xl shadow text-center">
-          <h2 className="text-xl font-semibold text-red-600">
+          <h2 className="text-red-600 font-semibold">
             Invalid or Expired Link
           </h2>
-          <p className="text-gray-500 mt-2">
-            This upload link is no longer valid.
-          </p>
         </div>
       </div>
     );
   }
 
-  /* ================= UI ================= */
+  const totalFiles = Object.values(files).flat().length + uploadedFilesCount;
+
+  const progress =
+    totalFiles === 0 ? 0 : Math.round((uploadedFilesCount / totalFiles) * 100);
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-6">
-      <div className="max-w-3xl mx-auto">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white p-6">
+      <div className="max-w-5xl mx-auto">
         {/* HEADER */}
-        <div className="text-center mb-10">
-          <h1 className="text-2xl font-bold text-gray-800">
-            Upload Required Documents
+        <div className="bg-white rounded-2xl shadow p-6 mb-6 sticky top-4 z-10">
+          <h1 className="text-xl font-semibold text-gray-800">
+            Upload Documents
           </h1>
 
-          <p className="text-gray-500 mt-2">
-            Please upload the requested documents to continue your application.
-          </p>
+          {/* PROGRESS */}
+          <div className="mt-4">
+            <div className="flex justify-between text-xs text-gray-500 mb-1">
+              <span>
+                {uploadedFilesCount} / {totalFiles} Files Uploaded
+              </span>
+              <span>{progress}%</span>
+            </div>
+
+            <div className="w-full bg-gray-200 h-2 rounded-full">
+              <div
+                className="bg-blue-600 h-2 rounded-full transition-all"
+                style={{
+                  width: `${progress}%`,
+                }}
+              />
+            </div>
+          </div>
         </div>
 
-        {/* EMPTY STATE */}
-        {requirements.length === 0 && (
-          <div className="text-center text-gray-500 mt-10">
-            No documents required for upload.
-          </div>
-        )}
-
-        {/* DOCUMENT LIST */}
-        <div className="space-y-5">
-          {requirements.map((doc) => (
+        {/* GRID (LESS SCROLL) */}
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {documents.map((doc) => (
             <div
-              key={doc.id}
-              className="bg-white border rounded-xl p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4 shadow-sm"
+              key={doc.requirementId}
+              className="bg-white border rounded-xl p-4 shadow-sm hover:shadow-md transition flex flex-col justify-between"
             >
-              {/* LEFT */}
-              <div className="flex items-center gap-3">
-                <FileText className="text-blue-600" size={22} />
+              {/* TOP */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <FileText className="text-blue-600" size={20} />
 
-                <div>
-                  <p className="font-medium text-gray-800">
-                    {doc.documentType?.name || "Document"}
-                  </p>
-
-                  {files[doc.id] && (
-                    <p className="text-xs text-gray-500">
-                      {files[doc.id]?.name}
-                    </p>
+                  {uploaded[doc.requirementId] && (
+                    <CheckCircle className="text-green-600" size={20} />
                   )}
                 </div>
+
+                <p className="text-sm font-medium text-gray-800 line-clamp-2">
+                  {doc.documentName}
+                </p>
+
+                <p
+                  className={`text-xs mt-1 ${
+                    uploaded[doc.requirementId]
+                      ? "text-green-600"
+                      : "text-yellow-600"
+                  }`}
+                >
+                  {uploaded[doc.requirementId] ? "Uploaded" : "Pending"}
+                </p>
               </div>
 
-              {/* RIGHT */}
-
-              <div className="flex items-center gap-3">
-                {uploaded[doc.id] ? (
-                  <div className="flex items-center gap-2 text-green-600 text-sm">
-                    <CheckCircle size={18} />
-                    Uploaded
+              {/* ACTIONS */}
+              <div className="mt-4">
+                {uploaded[doc.requirementId] ? (
+                  <div className="text-xs text-green-600 font-medium">
+                    ✔ Completed
                   </div>
                 ) : (
-                  <>
+                  <div className="space-y-2">
+                    {/* FILE INPUT */}
                     <input
                       type="file"
+                      multiple
+                      disabled={(files[doc.requirementId]?.length || 0) >= 4}
+                      id={`file-${doc.requirementId}`}
+                      className="hidden"
                       onChange={(e) =>
-                        handleFileChange(
-                          doc.id,
-                          e.target.files ? e.target.files[0] : null,
-                        )
+                        handleFileChange(doc.requirementId, e.target.files)
                       }
-                      className="text-sm"
                     />
 
-                    <button
-                      onClick={() => uploadFile(doc.id)}
-                      disabled={uploading[doc.id]}
-                      className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-60"
-                    >
-                      <Upload size={16} />
+                    {/* BUTTON ROW */}
+                    <div className="flex gap-2">
+                      {/* CHOOSE BUTTON */}
+                      <label
+                        htmlFor={`file-${doc.requirementId}`}
+                        className={`flex-1 text-center text-xs px-3 py-2 border rounded-lg cursor-pointer 
+    ${
+      (files[doc.requirementId]?.length || 0) >= 4
+        ? "bg-gray-200 cursor-not-allowed text-slate-500"
+        : "hover:bg-gray-100"
+    }`}
+                      >
+                        Choose File
+                      </label>
 
-                      {uploading[doc.id] ? "Uploading..." : "Upload"}
-                    </button>
-                  </>
+                      {/* UPLOAD BUTTON */}
+                      <button
+                        onClick={() => uploadFile(doc.requirementId)}
+                        disabled={
+                          !(files[doc.requirementId]?.length > 0) ||
+                          uploading[doc.requirementId]
+                        }
+                        className="flex-1 flex items-center justify-center gap-1 text-xs px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                      >
+                        <Upload size={14} />
+                        {uploading[doc.requirementId]
+                          ? "Uploading..."
+                          : "Upload"}
+                      </button>
+                    </div>
+
+                    {files[doc.requirementId]?.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {files[doc.requirementId].map((file, index) => {
+                          const isImage = file.type.startsWith("image/");
+
+                          return (
+                            <div
+                              key={index}
+                              className="relative w-16 h-16 border rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center"
+                            >
+                              {/* IMAGE PREVIEW */}
+                              {isImage ? (
+                                <img
+                                  src={URL.createObjectURL(file)}
+                                  alt="preview"
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <div className="text-[10px] text-center px-1">
+                                  📄 {file.name.slice(0, 10)}
+                                </div>
+                              )}
+
+                              {/* REMOVE BUTTON */}
+                              <button
+                                onClick={() =>
+                                  removeFile(doc.requirementId, index)
+                                }
+                                className="absolute top-0 right-0 bg-black/70 text-white text-[10px] px-1 rounded-bl hover:text-red-500"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
