@@ -1,3 +1,6 @@
+const fs = require("fs");
+const path = require("path");
+
 /**
  * @param {import("fastify").FastifyInstance} fastify
  */
@@ -29,9 +32,9 @@ async function uploadDocumentsRoute(fastify) {
 
         const { token } = req.params;
 
-        // ==========================================
-        // GET FILE FROM MULTIPART
-        // ==========================================
+        // ============================
+        // GET FILE
+        // ============================
 
         const file = await req.file();
 
@@ -42,11 +45,23 @@ async function uploadDocumentsRoute(fastify) {
           });
         }
 
-        const documentRequirementId = file.fields.documentRequirementId.value;
+        // ============================
+        // VALIDATE FORM FIELD
+        // ============================
 
-        // ==========================================
+        const documentRequirementId =
+          file?.fields?.documentRequirementId?.value;
+
+        if (!documentRequirementId) {
+          return reply.status(400).send({
+            success: false,
+            message: "documentRequirementId is required"
+          });
+        }
+
+        // ============================
         // TOKEN VALIDATION
-        // ==========================================
+        // ============================
 
         const tokenRecord = await prisma.clientUploadToken.findUnique({
           where: { token }
@@ -66,9 +81,9 @@ async function uploadDocumentsRoute(fastify) {
           });
         }
 
-        // ==========================================
+        // ============================
         // REQUIREMENT VALIDATION
-        // ==========================================
+        // ============================
 
         const requirement =
           await prisma.applicationDocumentRequirement.findFirst({
@@ -85,26 +100,61 @@ async function uploadDocumentsRoute(fastify) {
           });
         }
 
-        // ==========================================
-        // SAVE FILE TO DISK
-        // ==========================================
+        // ============================
+        // FILE TYPE VALIDATION
+        // ============================
 
-        const fs = require("fs");
-        const path = require("path");
+        const allowedMime = [
+          "application/pdf",
+          "image/jpeg",
+          "image/png"
+        ];
 
-        const fileName = `${Date.now()}-${file.filename}`;
-        const filePath = path.join(__dirname, "../../../uploads", fileName);
+        if (!allowedMime.includes(file.mimetype)) {
+          return reply.status(400).send({
+            success: false,
+            message: "Only PDF, JPG, PNG files are allowed"
+          });
+        }
+
+        // ============================
+        // ENSURE UPLOAD DIRECTORY
+        // ============================
+
+        const uploadDir = path.join(__dirname, "../../../uploads");
+
+        if (!fs.existsSync(uploadDir)) {
+          fs.mkdirSync(uploadDir, { recursive: true });
+        }
+
+        // ============================
+        // GENERATE FILE NAME
+        // ============================
+
+        const safeFileName =
+          `${Date.now()}-${file.filename.replace(/\s+/g, "_")}`;
+
+        const filePath = path.join(uploadDir, safeFileName);
+
+        // ============================
+        // SAVE FILE
+        // ============================
 
         await new Promise((resolve, reject) => {
-          const stream = fs.createWriteStream(filePath);
-          file.file.pipe(stream);
-          stream.on("finish", resolve);
-          stream.on("error", reject);
+
+          const writeStream = fs.createWriteStream(filePath);
+
+          file.file.pipe(writeStream);
+
+          file.file.on("error", reject);
+          writeStream.on("finish", resolve);
+          writeStream.on("error", reject);
+
         });
 
-        // ==========================================
-        // SAVE DOCUMENT IN DATABASE
-        // ==========================================
+        // ============================
+        // SAVE DOCUMENT RECORD
+        // ============================
 
         const upload = await prisma.applicationDocumentUpload.create({
           data: {
@@ -112,34 +162,23 @@ async function uploadDocumentsRoute(fastify) {
             documentRequirementId,
             uploadedByClientUserId: null,
             fileName: file.filename,
-            fileUrl: `/uploads/${fileName}`,
+            fileUrl: `/uploads/${safeFileName}`,
             fileMimeType: file.mimetype
           }
         });
 
-        // ==========================================
+        // ============================
         // UPDATE REQUIREMENT STATUS
-        // ==========================================
+        // ============================
 
-        const totalRequired =
-          await prisma.applicationDocumentUpload.count({
-            where: {
-              documentRequirementId
-            }
-          });
+        await prisma.applicationDocumentRequirement.update({
+          where: { id: documentRequirementId },
+          data: { status: "PARTIAL" }
+        });
 
-        if (totalRequired > 0) {
-
-          await prisma.applicationDocumentRequirement.update({
-            where: { id: documentRequirementId },
-            data: { status: "PARTIAL" }
-          });
-
-        }
-
-        // ==========================================
-        // SUCCESS RESPONSE
-        // ==========================================
+        // ============================
+        // RESPONSE
+        // ============================
 
         return reply.send({
           success: true,
@@ -148,6 +187,8 @@ async function uploadDocumentsRoute(fastify) {
         });
 
       } catch (error) {
+
+        req.log.error(error);
 
         return reply.status(500).send({
           success: false,
