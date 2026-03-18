@@ -138,12 +138,14 @@ async function listSubmittedApplications(fastify) {
             // Pending Document Count
             const pendingDocumentsCount =
               app.documentRequirements?.filter(
-                (doc) => doc.status !== "COMPLETE"
+                (doc) => doc.status !== "COMPLETE",
               ).length || 0;
 
             return {
               applicationLenderId: item.id,
 
+              loiUrl: item.loiUrl,
+              loiGenerated: !!item.loiUrl,
               // Pipeline vs Decision
               lenderPipelineStatus: item.status,
               lenderDecision: latestReview?.reviewStatus ?? null,
@@ -169,9 +171,7 @@ async function listSubmittedApplications(fastify) {
             };
           })
           .filter((item) =>
-            decisionFilter
-              ? item.lenderDecision === decisionFilter
-              : true
+            decisionFilter ? item.lenderDecision === decisionFilter : true,
           );
 
         // ==========================================
@@ -200,7 +200,7 @@ async function listSubmittedApplications(fastify) {
           message: "Server error while fetching applications",
         });
       }
-    }
+    },
   );
 }
 
