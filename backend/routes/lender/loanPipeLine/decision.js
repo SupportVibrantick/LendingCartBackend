@@ -218,7 +218,7 @@ async function lenderDecisionRoutes(fastify) {
               .map((docId) => ({
                 loanApplicationId: record.loanApplicationId,
                 documentTypeId: docId,
-                source: "LENDER_SELECTED",
+                source: "LENDER_ADDED",
                 isRequired: true,
                 status: "PENDING",
               }));
