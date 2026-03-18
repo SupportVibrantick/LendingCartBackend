@@ -1483,11 +1483,11 @@ export default function LoanApplicationsPage() {
                             <div className="text-center space-y-4">
                               <h3
                                 className="
-      text-sm font-semibold 
-      text-slate-700 
-      dark:text-slate-300
-      transition-colors duration-300
-    "
+                                  text-sm font-semibold 
+                                  text-slate-700 
+                                  dark:text-slate-300
+                                  transition-colors duration-300
+                                "
                               >
                                 Digital Signature
                               </h3>

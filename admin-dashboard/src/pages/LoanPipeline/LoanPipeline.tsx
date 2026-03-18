@@ -385,13 +385,13 @@ export default function LoanPipeline() {
 
       {/* Main Table Container */}
       <div className="max-w-7xl mx-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl shadow-slate-200/50 dark:shadow-none overflow-hidden">
-        <div className="w-full bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+        <div className="w-full bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-x-auto">
           <div className="w-full overflow-hidden">
-            <table className="w-full table-auto border-separate border-spacing-0">
+            <table className="min-w-[1200px] table-auto border-separate border-spacing-0">
               <thead>
                 <tr className="bg-slate-50/50 dark:bg-slate-800/40">
                   {[
-                    { label: "Application Id", width: "min-w-[180px]" },
+                    // { label: "Application Id", width: "min-w-[180px]" },
                     { label: "Borrower", width: "w-[150px]" },
                     { label: "Loan Type", width: "w-[150px]" },
                     { label: "Amount", width: "w-[160px]" },
@@ -440,17 +440,17 @@ export default function LoanPipeline() {
                       className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors"
                     >
                       {/* Application Number */}
-                      <td className="px-6 py-4 font-mono text-xs whitespace-nowrap align-middle">
+                      {/* <td className="px-6 py-4 font-mono text-xs whitespace-nowrap align-middle">
                         <span className="inline-block min-w-[160px]">
                           {row.applicationNumber}
                         </span>
-                      </td>
+                      </td> */}
 
                       {/* Borrower */}
                       <td className="px-6 py-4">
                         <div className="flex flex-col">
                           <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                            {row.borrowerName.slice(0, 10) + "..."}
+                            {row.borrowerName.length > 12 ? row.borrowerName.slice(0, 12) + "..." : row.borrowerName}
                           </span>
                           <span className="text-[10px] text-slate-500">
                             {row.entityType.slice(0, 15) + "..."}
@@ -473,8 +473,8 @@ export default function LoanPipeline() {
                       </td>
 
                       {/* Broker */}
-                      <td className="px-4 py-2 text-sm text-slate-600 dark:text-slate-400">
-                        {row.brokerName.slice(0, 6) + "..."}
+                      <td className="px-4 py-2 text-xs text-slate-600 dark:text-slate-400">
+                        {row.brokerName.slice(0, 20) + "..."}
                       </td>
 
                       {/* Application Status */}

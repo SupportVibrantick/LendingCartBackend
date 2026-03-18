@@ -132,31 +132,31 @@ export default function LatestApplicationsTable({ applications }: Props) {
                   key={app.id}
                   className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900/40 transition"
                 >
-                  <td className="px-6 py-4 font-medium text-slate-900 dark:text-white">
+                  <td className="px-6 py-4 text-xs font-medium text-slate-900 dark:text-white">
                     {app.applicationNumber}
                   </td>
 
-                  <td className="px-6 py-4 text-slate-600 dark:text-slate-300">
+                  <td className="px-6 py-4 text-xs text-slate-600 dark:text-slate-300">
                     {app.brokerName}
                   </td>
 
-                  <td className="px-6 py-4 text-slate-600 dark:text-slate-300">
+                  <td className="px-6 py-4 text-xs text-slate-600 dark:text-slate-300">
                     {app.clientName}
                   </td>
 
-                  <td className="px-6 py-4 text-slate-600 dark:text-slate-300">
+                  <td className="px-6 py-4 text-xs text-slate-600 dark:text-slate-300">
                     {app.product.replace("_", " ")}
                   </td>
 
-                  <td className="px-6 py-4 text-slate-600 dark:text-slate-300">
+                  <td className="px-6 text-xs py-4 text-slate-600 dark:text-slate-300">
                     {app.lenderCount}
                   </td>
 
-                  <td className="px-6 py-4 text-slate-600 dark:text-slate-300">
+                  <td className="px-6 py-4 text-xs text-slate-600 dark:text-slate-300">
                     {app.amount ? `₹${app.amount}` : "-"}
                   </td>
 
-                  <td className="px-6 py-4 text-slate-500">
+                  <td className="px-6 py-4 text-xs text-slate-500">
                     {formatDate(app.createdAt)}
                   </td>
 

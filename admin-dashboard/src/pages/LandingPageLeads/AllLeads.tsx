@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { MdDelete } from "react-icons/md";
 import { TiPlus } from "react-icons/ti";
+import Swal from "sweetalert2";
 
 import {
   Users,
@@ -212,18 +213,50 @@ export default function AllLeads() {
   }
 
   async function deleteLead(id: string) {
-    if (!window.confirm("Delete this lead?")) return;
+    const result = await Swal.fire({
+      title: "Are you sure?",
+      text: "You won't be able to recover this lead!",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#ef4444",
+      cancelButtonColor: "#6b7280",
+      confirmButtonText: "Yes, delete it!",
+    });
+
+    if (!result.isConfirmed) return;
+
     setRowLoadingId(id);
 
+    const url = source
+      ? `${API_BASE}/admin/landing-page-leads/${source}/${id}`
+      : `${API_BASE}/admin/landing-page-leads/${id}`;
+
     try {
-      await fetch(`${API_BASE}/admin/landing-page-leads/${source}/${id}`, {
+      const res = await fetch(url, {
         method: "DELETE",
-        headers: getAuthHeaders(),
+        headers: {
+          Authorization: `Bearer ${sessionStorage.getItem("admin_token")}`,
+        },
+        body: JSON.stringify({}),
       });
 
+      if (!res.ok) throw new Error();
+
       setLeads((prev) => prev.filter((l) => l.id !== id));
+
+      Swal.fire({
+        title: "Deleted!",
+        text: "Lead has been deleted successfully.",
+        icon: "success",
+        timer: 1500,
+        showConfirmButton: false,
+      });
     } catch {
-      alert("Failed to delete lead");
+      Swal.fire({
+        title: "Error!",
+        text: "Failed to delete lead.",
+        icon: "error",
+      });
     } finally {
       setRowLoadingId(null);
     }
@@ -381,16 +414,16 @@ export default function AllLeads() {
               value={source}
               onChange={(e) => setSource(e.target.value as any)}
               className="
-        appearance-none
-        pl-3 pr-9 py-2.5
-        rounded-xl text-sm font-medium
-        bg-white dark:bg-slate-800
-        text-slate-900 dark:text-slate-100
-        border border-slate-300 dark:border-slate-600
-        hover:bg-slate-50 dark:hover:bg-slate-700
-        focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500
-        transition cursor-pointer
-      "
+                appearance-none
+                pl-3 pr-9 py-2.5
+                rounded-xl text-sm font-medium
+                bg-white dark:bg-slate-800
+                text-slate-900 dark:text-slate-100
+                border border-slate-300 dark:border-slate-600
+                hover:bg-slate-50 dark:hover:bg-slate-700
+                focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500
+                transition cursor-pointer
+              "
             >
               <option value="">All Leads</option>
               <option value="commerciallendingmastery">
