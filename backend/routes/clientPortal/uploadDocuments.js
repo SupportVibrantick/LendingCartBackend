@@ -10,7 +10,6 @@ const { sendEmailUsingKafka } = require("../../services/kafka/email/producer");
 /**
  * @param {import("fastify").FastifyInstance} fastify
  */
-
 async function uploadDocumentsRoute(fastify) {
 
   fastify.post(
@@ -19,7 +18,6 @@ async function uploadDocumentsRoute(fastify) {
       schema: {
         tags: ["Client Portal"],
         summary: "Upload document using secure token",
-
         params: {
           type: "object",
           required: ["token"],
@@ -38,9 +36,9 @@ async function uploadDocumentsRoute(fastify) {
 
         const { token } = req.params;
 
-        // ============================
-        // GET FILE
-        // ============================
+        /* ============================
+           GET FILE
+        ============================ */
 
         const file = await req.file();
 
@@ -50,10 +48,6 @@ async function uploadDocumentsRoute(fastify) {
             message: "File is required"
           });
         }
-
-        // ============================
-        // VALIDATE FIELD
-        // ============================
 
         const documentRequirementId =
           file?.fields?.documentRequirementId?.value;
@@ -65,9 +59,9 @@ async function uploadDocumentsRoute(fastify) {
           });
         }
 
-        // ============================
-        // TOKEN VALIDATION
-        // ============================
+        /* ============================
+           TOKEN VALIDATION
+        ============================ */
 
         const tokenRecord = await prisma.clientUploadToken.findUnique({
           where: { token }
@@ -87,9 +81,9 @@ async function uploadDocumentsRoute(fastify) {
           });
         }
 
-        // ============================
-        // REQUIREMENT VALIDATION
-        // ============================
+        /* ============================
+           REQUIREMENT VALIDATION
+        ============================ */
 
         const requirement =
           await prisma.applicationDocumentRequirement.findFirst({
@@ -106,9 +100,9 @@ async function uploadDocumentsRoute(fastify) {
           });
         }
 
-        // ============================
-        // FILE TYPE VALIDATION
-        // ============================
+        /* ============================
+           FILE TYPE VALIDATION
+        ============================ */
 
         const allowedMime = [
           "application/pdf",
@@ -124,9 +118,9 @@ async function uploadDocumentsRoute(fastify) {
           });
         }
 
-        // ============================
-        // CREATE SAFE FILE NAME
-        // ============================
+        /* ============================
+           SAFE FILE NAME
+        ============================ */
 
         const randomName = crypto.randomBytes(16).toString("hex");
 
@@ -137,9 +131,9 @@ async function uploadDocumentsRoute(fastify) {
 
         const safeFileName = `${randomName}${safeExt}`;
 
-        // ============================
-        // SAME FOLDER AS BROKER API
-        // ============================
+        /* ============================
+           STORAGE
+        ============================ */
 
         const uploadDir = path.join(
           process.cwd(),
@@ -151,19 +145,15 @@ async function uploadDocumentsRoute(fastify) {
 
         const filePath = path.join(uploadDir, safeFileName);
 
-        // ============================
-        // SAVE FILE (STREAM SAFE)
-        // ============================
-
         const writeStream = fs.createWriteStream(filePath);
 
         await pipeline(file.file, writeStream);
 
         const fileUrl = `/uploads/loan-documents/${safeFileName}`;
 
-        // ============================
-        // SAVE DOCUMENT RECORD
-        // ============================
+        /* ============================
+           SAVE DOCUMENT
+        ============================ */
 
         const upload = await prisma.applicationDocumentUpload.create({
           data: {
@@ -176,95 +166,95 @@ async function uploadDocumentsRoute(fastify) {
           }
         });
 
-        // ============================
-        // UPDATE REQUIREMENT STATUS
-        // ============================
+        /* ============================
+           UPDATE STATUS
+        ============================ */
 
         await prisma.applicationDocumentRequirement.update({
           where: { id: documentRequirementId },
           data: { status: "PARTIAL" }
         });
 
-        // ============================
-        // FETCH LENDER EMAIL
-        // ============================
+        /* ============================
+           FETCH LENDER EMAIL
+        ============================ */
 
         const lenderRecord = await prisma.applicationLender.findFirst({
           where: {
             loanApplicationId: tokenRecord.loanApplicationId,
-            status: "IN_REVIEW"
+            status: { in: ["SENT", "IN_REVIEW"] }
           },
           include: {
-            lenderOrganization: true
+            lender: true
           }
         });
 
-        const lenderEmail =
-          lenderRecord?.lenderOrganization?.email;
+        const lenderEmail = lenderRecord?.lender?.email;
 
-        // ============================
-        // SEND EMAIL
-        // ============================
+        /* ============================
+           SEND EMAIL
+        ============================ */
 
         if (lenderEmail) {
 
-  const html = loadTemplate("lenderPortal/documentUpload", {
-    clientName: "Client",
-    applicationNumber: tokenRecord.loanApplicationId,
-    fileName: file.filename,
-    uploadedAt: new Date().toLocaleString(),
-    dashboardLink: `${process.env.FRONTEND_URL}/lender/applications/${tokenRecord.loanApplicationId}`,
-    currentYear: new Date().getFullYear()
-  });
+          const html = loadTemplate("lenderPortal/documentUpload", {
+            clientName: "Client",
+            applicationNumber: tokenRecord.loanApplicationId,
+            fileName: file.filename,
+            uploadedAt: new Date().toLocaleString(),
+            dashboardLink:
+              `${process.env.FRONTEND_URL}/lender/applications/${tokenRecord.loanApplicationId}`,
+            currentYear: new Date().getFullYear()
+          });
 
-  const subject =
-    `Client Uploaded Document for Application #${tokenRecord.loanApplicationId}`;
+          const subject =
+            `Client Uploaded Document for Application #${tokenRecord.loanApplicationId}`;
 
-  const text =
-    `A client has uploaded a document for application ${tokenRecord.loanApplicationId}`;
+          const text =
+            `A client uploaded a document for application ${tokenRecord.loanApplicationId}`;
 
-  // Run email async without breaking upload
-  (async () => {
-  try {
+          (async () => {
 
-    // send to kafka
-    await sendEmailUsingKafka(
-      lenderEmail,
-      subject,
-      text,
-      html
-    );
+            try {
 
-    // ALSO send directly to ensure delivery
-    await sendMail({
-      to: lenderEmail,
-      subject,
-      text,
-      html
-    });
+              await sendEmailUsingKafka(
+                lenderEmail,
+                subject,
+                text,
+                html
+              );
 
-  } catch (err) {
+              // ensure email delivery
+              await sendMail({
+                to: lenderEmail,
+                subject,
+                text,
+                html
+              });
 
-    fastify.log.error("Kafka email failed, sending direct mail", err);
+            } catch (err) {
 
-    try {
-      await sendMail({
-        to: lenderEmail,
-        subject,
-        text,
-        html
-      });
-    } catch (mailErr) {
-      fastify.log.error("Email failed:", mailErr);
-    }
+              fastify.log.error("Kafka email failed", err);
 
-  }
-})();
-}
+              try {
+                await sendMail({
+                  to: lenderEmail,
+                  subject,
+                  text,
+                  html
+                });
+              } catch (mailErr) {
+                fastify.log.error("SMTP email failed", mailErr);
+              }
 
-        // ============================
-        // RESPONSE
-        // ============================
+            }
+
+          })();
+        }
+
+        /* ============================
+           RESPONSE
+        ============================ */
 
         return reply.send({
           success: true,
@@ -289,20 +279,26 @@ async function uploadDocumentsRoute(fastify) {
 module.exports = uploadDocumentsRoute;
 
 
-// ============================
-// EXTENSION HELPER
-// ============================
+/* ============================
+   EXTENSION HELPER
+============================ */
 
 function getExtensionFromMime(mime) {
+
   switch (mime) {
+
     case "application/pdf":
       return ".pdf";
+
     case "image/jpeg":
       return ".jpg";
+
     case "image/png":
       return ".png";
+
     case "image/webp":
       return ".webp";
+
     default:
       return "";
   }
