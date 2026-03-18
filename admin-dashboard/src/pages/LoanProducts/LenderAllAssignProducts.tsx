@@ -1,6 +1,7 @@
 import { useEffect, useState, FormEvent } from "react";
 import axios, { AxiosError } from "axios";
 import toast from "react-hot-toast";
+import { useNavigate } from "react-router-dom";
 
 /* ================= API ================= */
 const api = axios.create({
@@ -17,7 +18,7 @@ api.interceptors.request.use((config) => {
 /* ================= TYPES ================= */
 interface Lender {
   id: string;
-  name: string;
+  organizationName: string;
 }
 
 interface LoanProduct {
@@ -226,6 +227,7 @@ export const EQUIPMENT_TYPES = [
 
 /* ================= COMPONENT ================= */
 export default function LenderAllProductAssign() {
+  const navigate = useNavigate();
   const [lenders, setLenders] = useState<Lender[]>([]);
   const [loanProducts, setLoanProducts] = useState<LoanProduct[]>([]);
 
@@ -331,6 +333,7 @@ export default function LenderAllProductAssign() {
 
         // LENDERS → paginated
         setLenders(lendersRes.data?.data?.results ?? []);
+        console.log(lenders);
 
         // PRODUCTS → direct array
         setLoanProducts(productsRes.data?.data ?? []);
@@ -568,14 +571,33 @@ export default function LenderAllProductAssign() {
   /* ================= UI ================= */
   return (
     <div className="max-w-4xl mx-auto p-6 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-xl shadow border border-slate-200 dark:border-slate-700">
-      <h2 className="text-2xl font-semibold mb-4 text-[#13538A] dark:text-indigo-600">Assign Product to Lender</h2>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-2xl font-semibold text-[#13538A] dark:text-indigo-600">
+          Assign Product to Lender
+        </h2>
+
+        <button
+          onClick={() => navigate("/all-lenders-Organization")}
+          className="flex items-center justify-center w-9 h-9 rounded-full border border-slate-300 hover:bg-slate-100 hover:text-red-500 dark:border-slate-600 dark:hover:bg-slate-800 transition"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <path
+              d="M6 6L18 18M18 6L6 18"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+            />
+          </svg>
+        </button>
+      </div>
 
       {message && (
         <div
-          className={`p-3 mb-4 rounded ${message.type === "error"
-            ? "bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-300"
-            : "bg-green-50 text-green-700 dark:bg-emerald-500/10 dark:text-emerald-300"
-            }`}
+          className={`p-3 mb-4 rounded ${
+            message.type === "error"
+              ? "bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-300"
+              : "bg-green-50 text-green-700 dark:bg-emerald-500/10 dark:text-emerald-300"
+          }`}
         >
           {message.text}
         </div>
@@ -585,17 +607,26 @@ export default function LenderAllProductAssign() {
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium">Lender</label>
+
             <select
               value={form.lenderOrgId}
               onChange={(e) =>
                 setForm({ ...form, lenderOrgId: e.target.value })
               }
-              className="mt-1 block w-full rounded-md border p-2 bg-white text-slate-900 border-slate-300 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600"
+              disabled={!lenders || lenders.length === 0}
+              className="mt-1 block w-full rounded-md border p-2 bg-white text-slate-900 border-slate-300 
+  dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600 
+  disabled:bg-gray-100 disabled:cursor-not-allowed"
             >
-              <option value="">Select lender</option>
-              {lenders.map((l) => (
+              <option value="">
+                {lenders && lenders.length > 0
+                  ? "Select lender"
+                  : "No lenders available"}
+              </option>
+
+              {lenders?.map((l) => (
                 <option key={l.id} value={l.id}>
-                  {l.name}
+                  {l.organizationName}
                 </option>
               ))}
             </select>

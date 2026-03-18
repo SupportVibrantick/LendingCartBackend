@@ -46,6 +46,7 @@ import AddAppSection from "./pages/ApplicationBuilder/AddSection";
 import LoanPipeline from "./pages/LoanPipeline/LoanPipeline";
 import BrokerPortal from "./pages/ViewPortal/BrokerPortal";
 import LenderPortal from "./pages/ViewPortal/LenderPortal";
+import SystemSettings from "./pages/SystemSettings/SystemSettings";
 
 export default function App() {
   return (
@@ -90,6 +91,7 @@ export default function App() {
             <Route index path="/all-documents" element={<AllDocuments/>} />
             <Route index path="/all-landing-pages-leads" element={<AllLeads/>} />
             <Route index path="/admin-logs" element={<AdminLogs/>} />
+            <Route index path="/system-settings" element={<SystemSettings/>} />
 
             {/* Others Page */}
             <Route path="/broker-portal" element={<BrokerPortal />} />

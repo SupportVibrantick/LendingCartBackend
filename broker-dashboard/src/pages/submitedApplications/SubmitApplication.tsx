@@ -16,6 +16,7 @@ import {
   ChevronLeft,
   ChevronRight,
   CheckCircle,
+  MoreVertical,
   // Mail,
   // UserPlus,
 } from "lucide-react";
@@ -131,6 +132,17 @@ export default function LoanApplicationsPage() {
   const [previewFiles, setPreviewFiles] = useState<
     Record<string, { url: string; type: string; name: string }[]>
   >({});
+
+  const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+
+  const [loiModalOpen, setLoiModalOpen] = useState(false);
+  const [lois, setLois] = useState<any[]>([]);
+
+  const [previewFile, setPreviewFile] = useState<{
+    url: string;
+    type: string;
+    name: string;
+  } | null>(null);
 
   const rowsPerPage = 5;
 
@@ -341,6 +353,50 @@ export default function LoanApplicationsPage() {
     }
   };
 
+  const handleViewLOI = async (submissionId: string) => {
+    try {
+      setLoiModalOpen(true);
+
+      // STEP 1: get applicationId
+      const submissionRes = await fetch(
+        `${API_BASE}/api/public/broker/applications/submissions/${submissionId}`,
+      );
+
+      const submissionData = await submissionRes.json();
+
+      if (!submissionRes.ok || !submissionData.success) {
+        throw new Error(submissionData.message || "Failed to fetch submission");
+      }
+
+      const applicationId = submissionData?.data?.applicationId;
+
+      if (!applicationId) {
+        toast.error("Application ID not found");
+        return;
+      }
+
+      // STEP 2: get LOIs
+      const loiRes = await fetch(
+        `${API_BASE}/broker/loan-pipeline/${applicationId}/lois`,
+        {
+          method: "GET",
+          headers: getAuthHeaders(),
+        },
+      );
+
+      const loiData = await loiRes.json();
+
+      if (!loiRes.ok || !loiData.success) {
+        throw new Error(loiData.message || "Failed to fetch LOIs");
+      }
+
+      setLois(loiData.data?.lois || []);
+    } catch (error: any) {
+      console.error(error);
+      toast.error(error.message || "Failed to load LOIs");
+    }
+  };
+
   useEffect(() => {
     if (findLenderModalOpen && lenderSubmissionId) {
       fetchLenders();
@@ -521,10 +577,12 @@ export default function LoanApplicationsPage() {
       <header className="max-w-7xl mx-auto mb-10">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="space-y-1">
-            <h2 className="text-3xl font-bold"
-            style={{
-              color: "var(--primary-color)"
-            }}>
+            <h2
+              className="text-3xl font-bold"
+              style={{
+                color: "var(--primary-color)",
+              }}
+            >
               Loan Pipeline
             </h2>
             <p className="text-slate-500 dark:text-slate-400 text-sm">
@@ -678,7 +736,7 @@ export default function LoanApplicationsPage() {
                   ].map((h) => (
                     <th
                       key={h.label}
-                      className={`${h.width} px-5 py-3 text-left text-[12px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800 whitespace-nowrap`}
+                      className={`${h.width} px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800 whitespace-nowrap`}
                     >
                       {h.label}
                     </th>
@@ -731,7 +789,7 @@ export default function LoanApplicationsPage() {
 
                       {/* Loan Info - Medium Emphasis */}
                       <td className="px-6 py-4">
-                        <span className="text-[12px] text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/50 px-2 py-1 rounded">
+                        <span className="text-[10px] text-slate-700 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/50 px-2 py-1 rounded">
                           {row.loanType}
                         </span>
                       </td>
@@ -832,42 +890,101 @@ export default function LoanApplicationsPage() {
                       </td>
 
                       {/* Action - Clean & Subtle */}
-                      <td className="px-6 py-4 text-center space-x-2 flex">
-                        {/* View Details */}
+                      <td className="px-6 py-4 text-center relative">
+                        {/* Three Dot Button */}
                         <button
                           onClick={() =>
-                            fetchSubmissionDetail(row.submissionId)
+                            setActiveDropdown(
+                              activeDropdown === row.submissionId
+                                ? null
+                                : row.submissionId,
+                            )
                           }
-                          className="p-2 rounded-lg bg-blue-50 dark:bg-blue-500/10 
-               text-blue-600 dark:text-blue-400 
-               hover:bg-blue-100 dark:hover:bg-blue-500/20 transition-all"
+                          className={`
+    relative p-2 rounded-lg
+    text-slate-500 dark:text-slate-400
+    hover:bg-slate-100 dark:hover:bg-slate-800
+    hover:text-slate-700 dark:hover:text-white
+    transition-all duration-300
+    active:scale-90
+    ${
+      activeDropdown === row.submissionId
+        ? "bg-slate-200 dark:bg-slate-700 rotate-90"
+        : ""
+    }
+  `}
                         >
-                          <Eye size={16} />
+                          <MoreVertical
+                            size={18}
+                            className="transition-transform duration-300"
+                          />
                         </button>
 
-                        {/* Upload Documents */}
-                        <div className="relative inline-block">
-                          {/* Notification Badge */}
-                          {(row.pendingDocumentsCount ?? 0) > 0 && (
-                            <span className="absolute -top-2 -right-2 bg-amber-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full shadow animate-pulse">
-                              {row.pendingDocumentsCount}
-                            </span>
-                          )}
-
-                          {/* Upload Documents Button */}
-                          <button
-                            onClick={() =>
-                              fetchSubmissionDocuments(row.submissionId)
-                            }
-                            className="p-2 rounded-lg 
-               bg-emerald-50 dark:bg-emerald-500/10 
-               text-emerald-600 dark:text-emerald-400 
-               hover:bg-emerald-100 dark:hover:bg-emerald-500/20 
-               transition-all"
+                        {activeDropdown === row.submissionId && (
+                          <div
+                            className="
+      absolute right-0 mt-2 w-48
+      bg-white dark:bg-slate-900
+      border border-slate-200 dark:border-slate-800
+      rounded-xl shadow-xl
+      overflow-hidden z-50
+      animate-in fade-in zoom-in-95
+    "
                           >
-                            <FileText size={16} />
-                          </button>
-                        </div>
+                            {/* View Details */}
+                            <button
+                              onClick={() => {
+                                fetchSubmissionDetail(row.submissionId);
+                                setActiveDropdown(null);
+                              }}
+                              className="
+        flex items-center gap-3 w-full px-4 py-3 text-sm
+        text-blue-600 dark:text-blue-400
+        hover:bg-blue-50 dark:hover:bg-blue-500/10
+        transition
+      "
+                            >
+                              <div className="p-1.5 rounded-md bg-blue-100 dark:bg-blue-500/20">
+                                <Eye size={14} />
+                              </div>
+                              View Details
+                            </button>
+
+                            <button
+                              onClick={() => {
+                                handleViewLOI(row.submissionId);
+                                setActiveDropdown(null);
+                              }}
+                              className="flex items-center gap-3 w-full px-4 py-3 text-sm
+             text-purple-600 dark:text-purple-400
+             hover:bg-purple-50 dark:hover:bg-purple-500/10"
+                            >
+                              <div className="p-1.5 rounded-md bg-purple-100 dark:bg-purple-500/20">
+                                <FileText size={14} />
+                              </div>
+                              View LOI
+                            </button>
+
+                            {/* Documents */}
+                            <button
+                              onClick={() => {
+                                fetchSubmissionDocuments(row.submissionId);
+                                setActiveDropdown(null);
+                              }}
+                              className="
+        flex items-center gap-3 w-full px-4 py-3 text-sm
+        text-emerald-600 dark:text-emerald-400
+        hover:bg-emerald-50 dark:hover:bg-emerald-500/10
+        transition
+      "
+                            >
+                              <div className="p-1.5 rounded-md bg-emerald-100 dark:bg-emerald-500/20">
+                                <FileText size={14} />
+                              </div>
+                              Documents
+                            </button>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))
@@ -2088,6 +2205,211 @@ dark:scrollbar-thumb-slate-700 w-full
                       No documents found
                     </div>
                   )}
+                </div>
+              </div>
+            </div>,
+            document.body,
+          )}
+
+        {loiModalOpen &&
+          createPortal(
+            <div className="fixed inset-0 z-[99999999] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="bg-white dark:bg-slate-900 w-full max-w-3xl rounded-2xl shadow-xl">
+                {/* Header */}
+                <div className="flex items-center justify-between px-6 py-4 border-b dark:border-slate-800">
+                  <h2 className="font-bold text-lg dark:text-white">
+                    Letters of Intent
+                  </h2>
+
+                  <button
+                    onClick={() => setLoiModalOpen(false)}
+                    className="text-slate-400 hover:text-red-500 text-xl"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                {/* Body */}
+                <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+                  {lois.length === 0 ? (
+                    /* Empty State */
+                    <div className="flex flex-col items-center justify-center py-16 text-center">
+                      <div
+                        className="
+        w-16 h-16
+        flex items-center justify-center
+        rounded-full
+        bg-amber-100 dark:bg-amber-500/10
+        mb-4
+      "
+                      >
+                        <FileText className="w-7 h-7 text-amber-600 dark:text-amber-400" />
+                      </div>
+
+                      <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">
+                        No LOIs Available
+                      </h3>
+
+                      <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-sm">
+                        No lenders have issued a Letter of Intent for this
+                        application yet. Once available, it will appear here.
+                      </p>
+                    </div>
+                  ) : (
+                    lois.map((loi, index) => (
+                      <div
+                        key={index}
+                        className="border border-slate-200 dark:border-slate-800 rounded-xl p-4 space-y-3"
+                      >
+                        {/* Lender */}
+                        <div className="flex justify-between items-center">
+                          <h3 className="font-semibold text-slate-900 dark:text-white">
+                            {loi.lenderName}
+                          </h3>
+
+                          <span className="text-xs px-3 py-1 rounded-full bg-indigo-100 text-indigo-600">
+                            {loi.status}
+                          </span>
+                        </div>
+
+                        {/* Details */}
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <span className="text-slate-500 dark:text-slate-300">
+                              Email
+                            </span>
+                            <div className="dark:text-slate-400">
+                              {loi.lenderEmail || "-"}
+                            </div>
+                          </div>
+
+                          <div>
+                            <span className="text-slate-500 dark:text-slate-300">
+                              Phone
+                            </span>
+                            <div className="dark:text-slate-400">
+                              {loi.lenderPhone || "-"}
+                            </div>
+                          </div>
+
+                          <div>
+                            <span className="text-slate-500 dark:text-slate-300">
+                              Approved Amount
+                            </span>
+                            <div className="dark:text-slate-400">
+                              {loi.approvedAmount
+                                ? `$${Number(loi.approvedAmount).toLocaleString()}`
+                                : "-"}
+                            </div>
+                          </div>
+
+                          <div>
+                            <span className="text-slate-500 dark:text-slate-300">
+                              Interest Rate
+                            </span>
+                            <div className="dark:text-slate-400">
+                              {loi.interestRate ? `${loi.interestRate}%` : "-"}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Notes */}
+                        {loi.notes && (
+                          <div className="text-sm">
+                            <span className="text-slate-500 dark:text-slate-300">
+                              Notes
+                            </span>
+                            <p className="dark:text-slate-400 mt-1">
+                              {loi.notes}
+                            </p>
+                          </div>
+                        )}
+
+                        {/* View PDF */}
+                        <div className="pt-3 border-t dark:border-slate-800 flex justify-end">
+                          <button
+                            onClick={() => {
+                              const fileUrl = `${API_BASE}/public${loi.loiUrl}`;
+
+                              setPreviewFile({
+                                url: fileUrl,
+                                type: "application/pdf",
+                                name: `${loi.lenderName} LOI`,
+                              });
+                            }}
+                            className="px-4 py-2 rounded-lg bg-purple-600 text-white text-sm hover:bg-purple-700"
+                          >
+                            View LOI PDF
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>,
+            document.body,
+          )}
+
+        {previewFile &&
+          createPortal(
+            <div className="fixed inset-0 z-[99999999] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+              <div className="w-full max-w-6xl bg-white dark:bg-slate-900 rounded-2xl shadow-2xl flex flex-col h-[90vh] overflow-hidden">
+                {/* Header */}
+                <div className="flex items-center justify-between px-6 py-4 border-b dark:border-slate-800 shrink-0">
+                  <div>
+                    <h2 className="text-lg font-bold truncate max-w-md dark:text-white">
+                      {previewFile.name}
+                    </h2>
+                    <p className="text-xs text-slate-500">PDF Preview</p>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {/* Download Button */}
+                    <button
+                      onClick={async () => {
+                        try {
+                          const res = await fetch(previewFile.url);
+
+                          const blob = await res.blob();
+
+                          const url = window.URL.createObjectURL(blob);
+
+                          const link = document.createElement("a");
+                          link.href = url;
+                          link.download = previewFile.name || "LOI.pdf";
+
+                          document.body.appendChild(link);
+                          link.click();
+
+                          link.remove();
+                          window.URL.revokeObjectURL(url);
+                        } catch (err) {
+                          console.error("Download failed", err);
+                        }
+                      }}
+                      className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition"
+                    >
+                      Download
+                    </button>
+
+                    {/* Close Button */}
+                    <button
+                      onClick={() => setPreviewFile(null)}
+                      className="px-4 py-2 rounded-xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700 transition"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+
+                {/* PDF Preview */}
+                <div className="flex-1 bg-slate-100 dark:bg-slate-950">
+                  <iframe
+                    src={`https://docs.google.com/gview?url=${previewFile.url}&embedded=true`}
+                    title={previewFile.name}
+                    className="w-full h-full border-none"
+                  />
                 </div>
               </div>
             </div>,

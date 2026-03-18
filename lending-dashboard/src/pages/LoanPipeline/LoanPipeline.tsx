@@ -132,6 +132,9 @@ export default function LoanPipeline() {
     name: string;
   } | null>(null);
 
+  const [loiPreview, setLoiPreview] = useState<string | null>(null);
+  const [loiLoading, setLoiLoading] = useState(false);
+
   // Multi-file Grid Modal State
   const [multiFileModal, setMultiFileModal] = useState<{
     isOpen: boolean;
@@ -477,17 +480,57 @@ export default function LoanPipeline() {
     }
   };
 
+  const handleViewLOI = async (applicationLenderId: string) => {
+    try {
+      setLoiLoading(true);
+
+      const res = await fetch(
+        `${API_BASE}/lender/loan-pipeline/${applicationLenderId}/view-loi`,
+        {
+          headers: getAuthHeaders(),
+        },
+      );
+
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Failed to fetch LOI");
+      }
+
+      if (!json.data?.loiPath) {
+        toast.error("LOI not generated yet");
+        return;
+      }
+
+      const fileUrl = `${API_BASE}/public${json.data.loiPath}`;
+
+      // SAME METHOD as previewFile
+      const fileRes = await fetch(fileUrl, {
+        headers: getAuthHeaders(),
+      });
+
+      const blob = await fileRes.blob();
+      const blobUrl = URL.createObjectURL(blob);
+
+      setPreviewFile({
+        url: blobUrl,
+        type: "application/pdf",
+        name: "Loan-LOI.pdf",
+      });
+    } catch (err: any) {
+      toast.error(err.message || "Failed to load LOI");
+    } finally {
+      setLoiLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#0b1120] p-2 text-slate-900 dark:text-slate-100 selection:bg-blue-100 dark:selection:bg-blue-900/30">
       {/* Header Area */}
       <header className="max-w-7xl mx-auto mb-10">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="space-y-1">
-            <h2
-              className="text-2xl font-bold tracking-tight text-transparent bg-clip-text 
-bg-gradient-to-r from-[#18B6B4] to-[#0f8f8d] 
-dark:from-[#18B6B4] dark:to-[#6ee7e5]"
-            >
+            <h2 className="text-2xl font-bold tracking-tight text-[#18B6B4] dark:text-[#6ee7e5]">
               Loan Pipeline
             </h2>
             <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">
@@ -507,14 +550,14 @@ dark:from-[#18B6B4] dark:to-[#6ee7e5]"
                 placeholder="Search by name or company..."
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10 pr-4 py-2.5 w-full md:w-80 rounded-xl text-sm
-    bg-white dark:bg-slate-900
-    border border-slate-200 dark:border-slate-800
-    shadow-sm
-    focus:ring-2 focus:ring-[#18B6B4]/20
-    focus:border-[#18B6B4]
-    text-slate-800 dark:text-slate-100
-    placeholder:text-slate-400
-    transition-all outline-none"
+                  bg-white dark:bg-slate-900
+                  border border-slate-200 dark:border-slate-800
+                  shadow-sm
+                  focus:ring-2 focus:ring-[#18B6B4]/20
+                  focus:border-[#18B6B4]
+                  text-slate-800 dark:text-slate-100
+                  placeholder:text-slate-400
+                  transition-all outline-none"
               />
             </div>
             <button
@@ -558,12 +601,12 @@ dark:from-[#18B6B4] dark:to-[#6ee7e5]"
           {/* NEW APPLICATIONS */}
           <div
             className="
-    bg-white dark:bg-slate-900
-    border border-slate-200 dark:border-slate-800
-    rounded-2xl p-6
-    shadow-sm hover:shadow-md
-    transition-all duration-200
-    flex items-center justify-between
+              bg-white dark:bg-slate-900
+              border border-slate-200 dark:border-slate-800
+              rounded-2xl p-6
+              shadow-sm hover:shadow-md
+              transition-all duration-200
+              flex items-center justify-between
   "
           >
             <div>
@@ -583,13 +626,13 @@ dark:from-[#18B6B4] dark:to-[#6ee7e5]"
           {/* APPROVED */}
           <div
             className="
-    bg-white dark:bg-slate-900
-    border border-slate-200 dark:border-slate-800
-    rounded-2xl p-6
-    shadow-sm hover:shadow-md
-    transition-all duration-200
-    flex items-center justify-between
-  "
+              bg-white dark:bg-slate-900
+              border border-slate-200 dark:border-slate-800
+              rounded-2xl p-6
+              shadow-sm hover:shadow-md
+              transition-all duration-200
+              flex items-center justify-between
+            "
           >
             <div>
               <p className="text-sm text-slate-500 dark:text-slate-400">
@@ -834,6 +877,17 @@ dark:from-[#18B6B4] dark:to-[#6ee7e5]"
                                     >
                                       <FileText size={16} />
                                       Generate LOI
+                                    </button>
+
+                                    <button
+                                      onClick={() => {
+                                        handleViewLOI(row.applicationLenderId);
+                                        setActiveDropdown(null);
+                                      }}
+                                      className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition"
+                                    >
+                                      <Eye size={16} />
+                                      View LOI
                                     </button>
 
                                     {/* Approve */}
@@ -1712,7 +1766,7 @@ dark:from-[#18B6B4] dark:to-[#6ee7e5]"
                     {/* Header */}
                     <div className="flex items-center justify-between px-6 py-4 border-b dark:border-slate-800 shrink-0">
                       <div>
-                        <h2 className="text-lg font-bold truncate max-w-md">
+                        <h2 className="text-lg font-bold truncate max-w-md dark:text-white">
                           {previewFile.name}
                         </h2>
                         <p className="text-xs text-slate-500">
@@ -1725,7 +1779,7 @@ dark:from-[#18B6B4] dark:to-[#6ee7e5]"
                           onClick={() =>
                             handleDownload(previewFile.url, previewFile.name)
                           }
-                          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-sm font-semibold hover:bg-slate-200 dark:hover:bg-slate-700 transition"
+                          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-100 text-sm font-semibold hover:bg-slate-200 transition"
                         >
                           <Download size={16} />
                           Download
@@ -1773,6 +1827,41 @@ dark:from-[#18B6B4] dark:to-[#6ee7e5]"
                         </div>
                       )}
                     </div>
+                  </div>
+                </div>,
+                document.body,
+              )}
+
+            {loiPreview &&
+              createPortal(
+                <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+                  <div className="w-full max-w-6xl bg-white dark:bg-slate-900 rounded-2xl shadow-2xl flex flex-col h-[90vh] overflow-hidden">
+                    {/* Header */}
+                    <div className="flex items-center justify-between px-6 py-4 border-b dark:border-slate-800">
+                      <h2 className="text-lg font-bold">LOI Preview</h2>
+
+                      <button
+                        onClick={() => {
+                          URL.revokeObjectURL(loiPreview);
+                          setLoiPreview(null);
+                        }}
+                        className="px-4 py-2 rounded-xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700"
+                      >
+                        Close
+                      </button>
+                    </div>
+
+                    {/* Loading */}
+                    {loiLoading ? (
+                      <div className="flex items-center justify-center flex-1">
+                        <Loader2 className="animate-spin w-6 h-6 text-blue-500" />
+                      </div>
+                    ) : (
+                      <iframe
+                        src={loiPreview}
+                        className="w-full flex-1 border-none"
+                      />
+                    )}
                   </div>
                 </div>,
                 document.body,

@@ -1,11 +1,25 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Dropdown } from "../ui/dropdown/Dropdown";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
-import { Link } from "react-router";
+import { socket } from "../../lib/socket";
+import toast from "react-hot-toast";
+
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5173";
 
 export default function NotificationDropdown() {
   const [isOpen, setIsOpen] = useState(false);
-  const [notifying, setNotifying] = useState(true);
+
+  const [reading, setReading] = useState(false);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [loading, setLoading] = useState(false);
+
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const notifying = unreadCount > 0;
+
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   function toggleDropdown() {
     setIsOpen(!isOpen);
@@ -15,10 +29,284 @@ export default function NotificationDropdown() {
     setIsOpen(false);
   }
 
+  async function markAsRead(id: string) {
+    try {
+      const token = sessionStorage.getItem("broker_token");
+
+      await fetch(`${API_BASE}/broker/notifications/${id}/read`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({}),
+      });
+
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)),
+      );
+
+      setUnreadCount((prev) => Math.max(prev - 1, 0));
+    } catch (err) {
+      console.error("Mark read error", err);
+    }
+  }
+
+  async function markAllAsRead() {
+    try {
+      setReading(true);
+
+      const token = sessionStorage.getItem("broker_token");
+
+      await fetch(`${API_BASE}/broker/notifications/read-all`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({}),
+      });
+
+      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+      setUnreadCount(0);
+    } finally {
+      setReading(false);
+    }
+  }
+
+  async function deleteNotification(id: string) {
+    try {
+      const token = sessionStorage.getItem("broker_token");
+
+      await fetch(`${API_BASE}/broker/notifications/${id}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      setNotifications((prev) => prev.filter((n) => n.id !== id));
+
+      // unread count update
+      const deleted = notifications.find((n) => n.id === id);
+      if (deleted && !deleted.isRead) {
+        setUnreadCount((prev) => Math.max(prev - 1, 0));
+      }
+    } catch (err) {
+      console.error("Delete notification error", err);
+    }
+  }
+
+  async function fetchNotifications(pageNumber = 1) {
+    try {
+      if (pageNumber === 1) setLoading(true);
+      else setLoadingMore(true);
+
+      const token = sessionStorage.getItem("broker_token");
+
+      const res = await fetch(
+        `${API_BASE}/broker/notifications?page=${pageNumber}&limit=10`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+
+      const data = await res.json();
+
+      const newNotifications = data?.data?.notifications || [];
+
+      if (pageNumber === 1) {
+        setNotifications(newNotifications);
+      } else {
+        setNotifications((prev) => [...prev, ...newNotifications]);
+      }
+
+      setUnreadCount(data?.data?.unreadCount || 0);
+
+      if (newNotifications.length < 10) {
+        setHasMore(false);
+      }
+    } catch (err) {
+      console.error("Notification API error", err);
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  }
+
   const handleClick = () => {
     toggleDropdown();
-    setNotifying(false);
   };
+
+  useEffect(() => {
+    fetchNotifications(1);
+  }, []);
+
+  function handleScroll(e: any) {
+    const { scrollTop, scrollHeight, clientHeight } = e.target;
+
+    if (scrollHeight - scrollTop <= clientHeight + 50) {
+      if (hasMore && !loadingMore) {
+        const nextPage = page + 1;
+        setPage(nextPage);
+        fetchNotifications(nextPage);
+      }
+    }
+  }
+
+  function groupNotifications(notifications: any[]) {
+    const today: any[] = [];
+    const yesterday: any[] = [];
+    const thisWeek: any[] = [];
+    const earlier: any[] = [];
+
+    const now = new Date();
+
+    const startOfToday = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+    );
+    const startOfYesterday = new Date(startOfToday);
+    startOfYesterday.setDate(startOfYesterday.getDate() - 1);
+
+    const startOfWeek = new Date(startOfToday);
+    startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay()); // Sunday start
+
+    notifications.forEach((n) => {
+      const date = new Date(n.createdAt);
+
+      if (date >= startOfToday) {
+        today.push(n);
+      } else if (date >= startOfYesterday) {
+        yesterday.push(n);
+      } else if (date >= startOfWeek) {
+        thisWeek.push(n);
+      } else {
+        earlier.push(n);
+      }
+    });
+
+    return { today, yesterday, thisWeek, earlier };
+  }
+
+  // const orderedNotifications = useMemo(() => {
+  //   const { today, yesterday, thisWeek, earlier } =
+  //     groupNotifications(notifications);
+
+  //   return [...today, ...yesterday, ...thisWeek, ...earlier];
+  // }, [notifications]);
+
+  const renderDropdownItem = (n: any) => (
+    <DropdownItem
+      onItemClick={() => {
+        if (!n.isRead) {
+          markAsRead(n.id);
+        }
+        closeDropdown();
+      }}
+      className={`flex justify-between items-start gap-3 rounded-lg border-b p-3 px-4.5 py-3 hover:bg-gray-100
+    ${!n.isRead ? "bg-orange-50 dark:bg-orange-500/10" : ""}`}
+    >
+      <div className="flex gap-3">
+        <span className="relative flex items-center justify-center w-10 h-10 rounded-full text-indigo-600 text-sm font-semibold">
+          {n.metadata?.lenderName
+            ?.trim()
+            .split(" ")
+            .map((w: string) => w[0])
+            .slice(0, 2)
+            .join("")
+            .toUpperCase() || "NA"}
+        </span>
+
+        <span className="block">
+          <span className="mb-1.5 block text-theme-sm text-gray-700">
+            {n.body}
+          </span>
+
+          <span className="flex items-center gap-2 text-gray-500 text-xs">
+            <span>{(n.metadata?.lenderName || "Lender").slice(0, 12)}...</span>
+            <span className="w-1 h-1 bg-gray-400 rounded-full"></span>
+            <span>{new Date(n.createdAt).toLocaleString()}</span>
+          </span>
+        </span>
+      </div>
+
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          deleteNotification(n.id);
+        }}
+        className="text-gray-400 hover:text-red-500"
+      >
+        ✕
+      </button>
+    </DropdownItem>
+  );
+
+  useEffect(() => {
+    const brokerUser = sessionStorage.getItem("broker_user");
+
+    if (!brokerUser) return;
+
+    const parsedUser = JSON.parse(brokerUser);
+    const brokerOrgId = parsedUser.organizationId;
+
+    if (!brokerOrgId) return;
+
+    // 🔌 Socket connected check
+    socket.on("connect", () => {
+      console.log("✅ Socket connected:", socket.id);
+
+      // room join after connection
+      socket.emit("joinBrokerRoom", brokerOrgId);
+      console.log("📡 Joined broker room:", brokerOrgId);
+    });
+
+    // ❌ Connection error
+    socket.on("connect_error", (err) => {
+      console.error("❌ Socket connection error:", err.message);
+    });
+
+    // 🔌 Disconnect
+    socket.on("disconnect", (reason) => {
+      console.log("⚠️ Socket disconnected:", reason);
+    });
+
+    // 🎉 Notification event
+    socket.on("LOI_GENERATED", (data) => {
+      console.log("📩 LOI_GENERATED event received:", data);
+
+      const notification = {
+        id: data.applicationLenderId,
+        body: `LOI generated by ${data.lenderName} for application ${data.applicationNumber}`,
+        createdAt: new Date(),
+        isRead: false,
+        metadata: {
+          lenderName: data.lenderName,
+          loiPath: data.loiPath,
+        },
+      };
+
+      setNotifications((prev) => [notification, ...prev]);
+
+      setPage(1);
+      setHasMore(true);
+      setUnreadCount((prev) => prev + 1);
+
+      toast.success(notification.body);
+    });
+
+    return () => {
+      socket.off("connect");
+      socket.off("disconnect");
+      socket.off("connect_error");
+      socket.off("LOI_GENERATED");
+    };
+  }, []);
+
   return (
     <div className="relative">
       <button
@@ -58,7 +346,7 @@ export default function NotificationDropdown() {
           </h5>
           <button
             onClick={toggleDropdown}
-            className="text-gray-500 transition dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+            className="text-gray-500 transition dark:text-gray-400 hover:text-red-500"
           >
             <svg
               className="fill-current"
@@ -76,305 +364,227 @@ export default function NotificationDropdown() {
             </svg>
           </button>
         </div>
-        <ul className="flex flex-col h-auto overflow-y-auto custom-scrollbar">
-          {/* Example notification items */}
-          <li>
-            <DropdownItem
-              onItemClick={closeDropdown}
-              className="flex gap-3 rounded-lg border-b border-gray-100 p-3 px-4.5 py-3 hover:bg-gray-100 dark:border-gray-800 dark:hover:bg-white/5"
-            >
-              <span className="relative block w-full h-10 rounded-full z-1 max-w-10">
-                <img
-                  width={40}
-                  height={40}
-                  src="/images/user/user-02.jpg"
-                  alt="User"
-                  className="w-full overflow-hidden rounded-full"
-                />
-                <span className="absolute bottom-0 right-0 z-10 h-2.5 w-full max-w-2.5 rounded-full border-[1.5px] border-white bg-success-500 dark:border-gray-900"></span>
-              </span>
+        <ul
+          onScroll={handleScroll}
+          className="flex flex-col h-auto overflow-y-auto custom-scrollbar"
+        >
+          {loading && (
+            <li className="p-4 text-sm text-gray-500">
+              Loading notifications...
+            </li>
+          )}
 
-              <span className="block">
-                <span className="mb-1.5 block  text-theme-sm text-gray-500 dark:text-gray-400 space-x-1">
-                  <span className="font-medium text-gray-800 dark:text-white/90">
-                    Terry Franci
-                  </span>
-                  <span> requests permission to change</span>
-                  <span className="font-medium text-gray-800 dark:text-white/90">
-                    Project - Nganter App
-                  </span>
-                </span>
+          {!loading && notifications.length === 0 && (
+            <li className="p-4 text-sm text-gray-500">No notifications</li>
+          )}
 
-                <span className="flex items-center gap-2 text-gray-500 text-theme-xs dark:text-gray-400">
-                  <span>Project</span>
-                  <span className="w-1 h-1 bg-gray-400 rounded-full"></span>
-                  <span>5 min ago</span>
-                </span>
-              </span>
-            </DropdownItem>
-          </li>
+          {(() => {
+            const { today, yesterday, thisWeek, earlier } =
+              groupNotifications(notifications);
 
-          <li>
-            <DropdownItem
-              onItemClick={closeDropdown}
-              className="flex gap-3 rounded-lg border-b border-gray-100 p-3 px-4.5 py-3 hover:bg-gray-100 dark:border-gray-800 dark:hover:bg-white/5"
-            >
-              <span className="relative block w-full h-10 rounded-full z-1 max-w-10">
-                <img
-                  width={40}
-                  height={40}
-                  src="/images/user/user-03.jpg"
-                  alt="User"
-                  className="w-full overflow-hidden rounded-full"
-                />
-                <span className="absolute bottom-0 right-0 z-10 h-2.5 w-full max-w-2.5 rounded-full border-[1.5px] border-white bg-success-500 dark:border-gray-900"></span>
-              </span>
+            return (
+              <>
+                {today.length > 0 && (
+                  <>
+                    <li className="px-3 py-1 text-xs font-semibold text-gray-500">
+                      Today
+                    </li>
+                    {today.map((n) => (
+                      <li key={n.id}>{renderDropdownItem(n)}</li>
+                    ))}
+                  </>
+                )}
 
-              <span className="block">
-                <span className="mb-1.5 block space-x-1 text-theme-sm text-gray-500 dark:text-gray-400">
-                  <span className="font-medium text-gray-800 dark:text-white/90">
-                    Alena Franci
-                  </span>
-                  <span>requests permission to change</span>
-                  <span className="font-medium text-gray-800 dark:text-white/90">
-                    Project - Nganter App
-                  </span>
-                </span>
+                {yesterday.length > 0 && (
+                  <>
+                    <li className="px-3 py-1 text-xs font-semibold text-gray-500">
+                      Yesterday
+                    </li>
+                    {yesterday.map((n) => (
+                      <li key={n.id}>{renderDropdownItem(n)}</li>
+                    ))}
+                  </>
+                )}
 
-                <span className="flex items-center gap-2 text-gray-500 text-theme-xs dark:text-gray-400">
-                  <span>Project</span>
-                  <span className="w-1 h-1 bg-gray-400 rounded-full"></span>
-                  <span>8 min ago</span>
-                </span>
-              </span>
-            </DropdownItem>
-          </li>
+                {thisWeek.length > 0 && (
+                  <>
+                    <li className="px-3 py-1 text-xs font-semibold text-gray-500">
+                      This Week
+                    </li>
+                    {thisWeek.map((n) => (
+                      <li key={n.id}>{renderDropdownItem(n)}</li>
+                    ))}
+                  </>
+                )}
 
-          <li>
-            <DropdownItem
-              onItemClick={closeDropdown}
-              className="flex gap-3 rounded-lg border-b border-gray-100 p-3 px-4.5 py-3 hover:bg-gray-100 dark:border-gray-800 dark:hover:bg-white/5"
-            >
-              <span className="relative block w-full h-10 rounded-full z-1 max-w-10">
-                <img
-                  width={40}
-                  height={40}
-                  src="/images/user/user-04.jpg"
-                  alt="User"
-                  className="w-full overflow-hidden rounded-full"
-                />
-                <span className="absolute bottom-0 right-0 z-10 h-2.5 w-full max-w-2.5 rounded-full border-[1.5px] border-white bg-success-500 dark:border-gray-900"></span>
-              </span>
-
-              <span className="block">
-                <span className="mb-1.5 block space-x-1 text-theme-sm text-gray-500 dark:text-gray-400">
-                  <span className="font-medium text-gray-800 dark:text-white/90">
-                    Jocelyn Kenter
-                  </span>
-                  <span> requests permission to change</span>
-                  <span className="font-medium text-gray-800 dark:text-white/90">
-                    Project - Nganter App
-                  </span>
-                </span>
-
-                <span className="flex items-center gap-2 text-gray-500 text-theme-xs dark:text-gray-400">
-                  <span>Project</span>
-                  <span className="w-1 h-1 bg-gray-400 rounded-full"></span>
-                  <span>15 min ago</span>
-                </span>
-              </span>
-            </DropdownItem>
-          </li>
-
-          <li>
-            <DropdownItem
-              onItemClick={closeDropdown}
-              className="flex gap-3 rounded-lg border-b border-gray-100 p-3 px-4.5 py-3 hover:bg-gray-100 dark:border-gray-800 dark:hover:bg-white/5"
-              to="/"
-            >
-              <span className="relative block w-full h-10 rounded-full z-1 max-w-10">
-                <img
-                  width={40}
-                  height={40}
-                  src="/images/user/user-05.jpg"
-                  alt="User"
-                  className="w-full overflow-hidden rounded-full"
-                />
-                <span className="absolute bottom-0 right-0 z-10 h-2.5 w-full max-w-2.5 rounded-full border-[1.5px] border-white bg-error-500 dark:border-gray-900"></span>
-              </span>
-
-              <span className="block">
-                <span className="mb-1.5 space-x-1 block text-theme-sm text-gray-500 dark:text-gray-400">
-                  <span className="font-medium text-gray-800 dark:text-white/90">
-                    Brandon Philips
-                  </span>
-                  <span>requests permission to change</span>
-                  <span className="font-medium text-gray-800 dark:text-white/90">
-                    Project - Nganter App
-                  </span>
-                </span>
-
-                <span className="flex items-center gap-2 text-gray-500 text-theme-xs dark:text-gray-400">
-                  <span>Project</span>
-                  <span className="w-1 h-1 bg-gray-400 rounded-full"></span>
-                  <span>1 hr ago</span>
-                </span>
-              </span>
-            </DropdownItem>
-          </li>
-
-          <li>
-            <DropdownItem
-              className="flex gap-3 rounded-lg border-b border-gray-100 p-3 px-4.5 py-3 hover:bg-gray-100 dark:border-gray-800 dark:hover:bg-white/5"
-              onItemClick={closeDropdown}
-            >
-              <span className="relative block w-full h-10 rounded-full z-1 max-w-10">
-                <img
-                  width={40}
-                  height={40}
-                  src="/images/user/user-02.jpg"
-                  alt="User"
-                  className="w-full overflow-hidden rounded-full"
-                />
-                <span className="absolute bottom-0 right-0 z-10 h-2.5 w-full max-w-2.5 rounded-full border-[1.5px] border-white bg-success-500 dark:border-gray-900"></span>
-              </span>
-
-              <span className="block">
-                <span className="mb-1.5 block space-x-1 text-theme-sm text-gray-500 dark:text-gray-400">
-                  <span className="font-medium text-gray-800 dark:text-white/90">
-                    Terry Franci
-                  </span>
-                  <span> requests permission to change</span>
-                  <span className="font-medium text-gray-800 dark:text-white/90">
-                    Project - Nganter App
-                  </span>
-                </span>
-
-                <span className="flex items-center gap-2 text-gray-500 text-theme-xs dark:text-gray-400">
-                  <span>Project</span>
-                  <span className="w-1 h-1 bg-gray-400 rounded-full"></span>
-                  <span>5 min ago</span>
-                </span>
-              </span>
-            </DropdownItem>
-          </li>
-
-          <li>
-            <DropdownItem
-              onItemClick={closeDropdown}
-              className="flex gap-3 rounded-lg border-b border-gray-100 p-3 px-4.5 py-3 hover:bg-gray-100 dark:border-gray-800 dark:hover:bg-white/5"
-            >
-              <span className="relative block w-full h-10 rounded-full z-1 max-w-10">
-                <img
-                  width={40}
-                  height={40}
-                  src="/images/user/user-03.jpg"
-                  alt="User"
-                  className="w-full overflow-hidden rounded-full"
-                />
-                <span className="absolute bottom-0 right-0 z-10 h-2.5 w-full max-w-2.5 rounded-full border-[1.5px] border-white bg-success-500 dark:border-gray-900"></span>
-              </span>
-
-              <span className="block">
-                <span className="mb-1.5 block space-x-1 text-theme-sm text-gray-500 dark:text-gray-400">
-                  <span className="font-medium text-gray-800 dark:text-white/90">
-                    Alena Franci
-                  </span>
-                  <span> requests permission to change</span>
-                  <span className="font-medium text-gray-800 dark:text-white/90">
-                    Project - Nganter App
-                  </span>
-                </span>
-
-                <span className="flex items-center gap-2 text-gray-500 text-theme-xs dark:text-gray-400">
-                  <span>Project</span>
-                  <span className="w-1 h-1 bg-gray-400 rounded-full"></span>
-                  <span>8 min ago</span>
-                </span>
-              </span>
-            </DropdownItem>
-          </li>
-
-          <li>
-            <DropdownItem
-              onItemClick={closeDropdown}
-              className="flex gap-3 rounded-lg border-b border-gray-100 p-3 px-4.5 py-3 hover:bg-gray-100 dark:border-gray-800 dark:hover:bg-white/5"
-            >
-              <span className="relative block w-full h-10 rounded-full z-1 max-w-10">
-                <img
-                  width={40}
-                  height={40}
-                  src="/images/user/user-04.jpg"
-                  alt="User"
-                  className="w-full overflow-hidden rounded-full"
-                />
-                <span className="absolute bottom-0 right-0 z-10 h-2.5 w-full max-w-2.5 rounded-full border-[1.5px] border-white bg-success-500 dark:border-gray-900"></span>
-              </span>
-
-              <span className="block">
-                <span className="mb-1.5 block  space-x-1 text-theme-sm text-gray-500 dark:text-gray-400">
-                  <span className="font-medium text-gray-800 dark:text-white/90">
-                    Jocelyn Kenter
-                  </span>
-                  <span> requests permission to change</span>
-                  <span className="font-medium text-gray-800 dark:text-white/90">
-                    Project - Nganter App
-                  </span>
-                </span>
-
-                <span className="flex items-center gap-2 text-gray-500 text-theme-xs dark:text-gray-400">
-                  <span>Project</span>
-                  <span className="w-1 h-1 bg-gray-400 rounded-full"></span>
-                  <span>15 min ago</span>
-                </span>
-              </span>
-            </DropdownItem>
-          </li>
-
-          <li>
-            <DropdownItem
-              onItemClick={closeDropdown}
-              className="flex gap-3 rounded-lg border-b border-gray-100 p-3 px-4.5 py-3 hover:bg-gray-100 dark:border-gray-800 dark:hover:bg-white/5"
-            >
-              <span className="relative block w-full h-10 rounded-full z-1 max-w-10">
-                <img
-                  width={40}
-                  height={40}
-                  src="/images/user/user-05.jpg"
-                  alt="User"
-                  className="overflow-hidden rounded-full"
-                />
-                <span className="absolute bottom-0 right-0 z-10 h-2.5 w-full max-w-2.5 rounded-full border-[1.5px] border-white bg-error-500 dark:border-gray-900"></span>
-              </span>
-
-              <span className="block">
-                <span className="mb-1.5 block space-x-1 text-theme-sm text-gray-500 dark:text-gray-400">
-                  <span className="font-medium text-gray-800 dark:text-white/90">
-                    Brandon Philips
-                  </span>
-                  <span>requests permission to change</span>
-                  <span className="font-medium text-gray-800 dark:text-white/90">
-                    Project - Nganter App
-                  </span>
-                </span>
-
-                <span className="flex items-center gap-2 text-gray-500 text-theme-xs dark:text-gray-400">
-                  <span>Project</span>
-                  <span className="w-1 h-1 bg-gray-400 rounded-full"></span>
-                  <span>1 hr ago</span>
-                </span>
-              </span>
-            </DropdownItem>
-          </li>
-          {/* Add more items as needed */}
+                {earlier.length > 0 && (
+                  <>
+                    <li className="px-3 py-1 text-xs font-semibold text-gray-500">
+                      Earlier
+                    </li>
+                    {earlier.map((n) => (
+                      <li key={n.id}>{renderDropdownItem(n)}</li>
+                    ))}
+                  </>
+                )}
+              </>
+            );
+          })()}
         </ul>
-        <Link
-          to="/"
-          className="block px-4 py-2 mt-3 text-sm font-medium text-center text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
+        {loadingMore && (
+          <li className="text-center py-3 text-xs text-gray-400">
+            Loading more...
+          </li>
+        )}
+        <button
+          onClick={() => {
+            setIsModalOpen(true);
+            closeDropdown();
+          }}
+          className="block w-full px-4 py-2 mt-3 text-sm font-medium text-center text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
         >
           View All Notifications
-        </Link>
+        </button>
       </Dropdown>
+
+      {isModalOpen && (
+        <div className="fixed inset-0 z-[9999999999] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="w-full max-w-2xl bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b dark:border-gray-700">
+              <h2 className="text-lg font-semibold text-gray-800 dark:text-white">
+                All Notifications
+              </h2>
+
+              <div className="flex items-center gap-3">
+                {unreadCount > 0 && (
+                  <button
+                    onClick={markAllAsRead}
+                    disabled={unreadCount === 0 || reading}
+                    className="px-3 py-1 text-xs font-medium text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-indigo-500/10 dark:text-indigo-400"
+                  >
+                    {reading ? "Reading..." : "Read All"}
+                  </button>
+                )}
+
+                <button
+                  onClick={() => setIsModalOpen(false)}
+                  className="text-gray-500 hover:text-red-500 dark:hover:text-gray-300"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div
+              onScroll={handleScroll}
+              className="max-h-[500px] overflow-y-auto p-4 space-y-3"
+            >
+              {(() => {
+                const { today, yesterday, thisWeek, earlier } =
+                  groupNotifications(notifications);
+
+                const renderItem = (n: any) => (
+                  <div
+                    key={n.id}
+                    onClick={() => {
+                      if (!n.isRead) {
+                        markAsRead(n.id);
+                      }
+                    }}
+                    className={`flex items-start justify-between gap-3 p-4 rounded-xl border transition cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800
+      ${
+        !n.isRead
+          ? "bg-orange-50 dark:bg-orange-500/10 border-orange-200"
+          : "border-gray-200 dark:border-gray-700"
+      }`}
+                  >
+                    <div className="flex gap-3">
+                      <span className="flex items-center justify-center w-10 h-10 rounded-full bg-indigo-500 text-white text-sm font-semibold">
+                        {n.metadata?.lenderName
+                          ?.trim()
+                          .split(" ")
+                          .map((w: string) => w[0])
+                          .slice(0, 2)
+                          .join("")
+                          .toUpperCase() || "NA"}
+                      </span>
+
+                      <div className="flex flex-col">
+                        <span className="text-sm text-gray-800 dark:text-gray-200">
+                          {n.body}
+                        </span>
+
+                        <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                          {n.metadata?.lenderName} •{" "}
+                          {new Date(n.createdAt).toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteNotification(n.id);
+                      }}
+                      className="text-gray-400 hover:text-red-500 text-sm"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                );
+
+                return (
+                  <>
+                    {today.length > 0 && (
+                      <>
+                        <p className="text-xs font-semibold text-gray-500 px-1">
+                          Today
+                        </p>
+                        {today.map(renderItem)}
+                      </>
+                    )}
+
+                    {yesterday.length > 0 && (
+                      <>
+                        <p className="text-xs font-semibold text-gray-500 px-1 mt-4">
+                          Yesterday
+                        </p>
+                        {yesterday.map(renderItem)}
+                      </>
+                    )}
+
+                    {thisWeek.length > 0 && (
+                      <>
+                        <p className="text-xs font-semibold text-gray-500 px-1 mt-4">
+                          This Week
+                        </p>
+                        {thisWeek.map(renderItem)}
+                      </>
+                    )}
+
+                    {earlier.length > 0 && (
+                      <>
+                        <p className="text-xs font-semibold text-gray-500 px-1 mt-4">
+                          Earlier
+                        </p>
+                        {earlier.map(renderItem)}
+                      </>
+                    )}
+
+                    {loadingMore && (
+                      <div className="text-center py-3 text-xs text-gray-400">
+                        Loading more...
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
