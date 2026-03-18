@@ -31,7 +31,7 @@ async function brokerLoginRoutes(fastify) {
         const { password } = req.body;
 
         /* =====================================================
-           1️⃣ FIND USER (Case-insensitive)
+            FIND USER (Case-insensitive)
         ===================================================== */
 
         const user = await prisma.userAccount.findFirst({
@@ -57,7 +57,7 @@ async function brokerLoginRoutes(fastify) {
         }
 
         /* =====================================================
-           2️⃣ USER STATUS CHECK
+           USER STATUS CHECK
         ===================================================== */
 
         if (user.status !== "ACTIVE") {
@@ -68,7 +68,7 @@ async function brokerLoginRoutes(fastify) {
         }
 
         /* =====================================================
-           3️⃣ ORGANIZATION VALIDATION
+            ORGANIZATION VALIDATION
         ===================================================== */
 
         if (
@@ -83,7 +83,7 @@ async function brokerLoginRoutes(fastify) {
         }
 
         /* =====================================================
-           4️⃣ ROLE VALIDATION (Admin + Officer allowed)
+          ROLE VALIDATION (Admin + Officer allowed)
         ===================================================== */
 
         const roles = user.roles.map((r) => r.role.name);
@@ -105,7 +105,7 @@ async function brokerLoginRoutes(fastify) {
         }
 
         /* =====================================================
-           5️⃣ PASSWORD VALIDATION
+          PASSWORD VALIDATION
         ===================================================== */
 
         const isValidPassword = await bcrypt.compare(
