@@ -225,30 +225,41 @@ async function uploadDocumentsRoute(fastify) {
 
   // Run email async without breaking upload
   (async () => {
-    try {
+  try {
 
-      await sendEmailUsingKafka(
-        lenderEmail,
+    // send to kafka
+    await sendEmailUsingKafka(
+      lenderEmail,
+      subject,
+      text,
+      html
+    );
+
+    // ALSO send directly to ensure delivery
+    await sendMail({
+      to: lenderEmail,
+      subject,
+      text,
+      html
+    });
+
+  } catch (err) {
+
+    fastify.log.error("Kafka email failed, sending direct mail", err);
+
+    try {
+      await sendMail({
+        to: lenderEmail,
         subject,
         text,
         html
-      );
-
-    } catch (err) {
-
-      try {
-        await sendMail({
-          to: lenderEmail,
-          subject,
-          text,
-          html
-        });
-      } catch (mailErr) {
-        fastify.log.error("Email failed:", mailErr);
-      }
-
+      });
+    } catch (mailErr) {
+      fastify.log.error("Email failed:", mailErr);
     }
-  })();
+
+  }
+})();
 }
 
         // ============================
