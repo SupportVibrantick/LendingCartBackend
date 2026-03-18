@@ -197,7 +197,7 @@ async function uploadDocumentsRoute(fastify) {
 
         if (lenderEmail) {
 
-          const html = loadTemplate("lenderPortal/documentUpload", {
+          const html = loadTemplate("clientPortal/documentUpload", {
             clientName: "Client",
             applicationNumber: tokenRecord.loanApplicationId,
             fileName: file.filename,
