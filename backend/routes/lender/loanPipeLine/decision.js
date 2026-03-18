@@ -2,9 +2,9 @@ const crypto = require("crypto");
 
 const { loadTemplate } = require("../../../utils/loadTemplate");
 const sendMail = require("../../../services/mail");
-const { sendEmailUsingKafka } = require("../../../services/kafka/email/producer");
-
-// const { lenderLogs } = require("../../../services/logger/contextLogger");
+const {
+  sendEmailUsingKafka,
+} = require("../../../services/kafka/email/producer");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
@@ -36,6 +36,12 @@ async function lenderDecisionRoutes(fastify) {
             approvedAmount: { type: "number" },
             interestRate: { type: "number" },
             notes: { type: "string" },
+
+            // NEW FIELD (for checkbox selection)
+            documentTypeIds: {
+              type: "array",
+              items: { type: "string", format: "uuid" },
+            },
           },
         },
       },
@@ -64,7 +70,14 @@ async function lenderDecisionRoutes(fastify) {
         const userId = req.user.id;
 
         const { applicationLenderId } = req.params;
-        const { decision, approvedAmount, interestRate, notes } = req.body;
+
+        const {
+          decision,
+          approvedAmount,
+          interestRate,
+          notes,
+          documentTypeIds,
+        } = req.body;
 
         // ===============================
         // FETCH APPLICATION
@@ -109,7 +122,7 @@ async function lenderDecisionRoutes(fastify) {
 
         for (const submission of record.loanApplication.submissions || []) {
           const emailField = submission.fields.find(
-            (f) => f.fieldKey === "email"
+            (f) => f.fieldKey === "email",
           );
 
           if (emailField) {
@@ -158,7 +171,6 @@ async function lenderDecisionRoutes(fastify) {
         // ===============================
 
         await prisma.$transaction(async (tx) => {
-
           // Update lender status
           await tx.applicationLender.update({
             where: { id: applicationLenderId },
@@ -185,11 +197,9 @@ async function lenderDecisionRoutes(fastify) {
           // ===============================
 
           if (decision === "CONDITIONAL") {
-
-            const lenderRequirements =
-              await tx.lenderDocumentRequirement.findMany({
-                where: { lenderProductId: record.lenderProductId },
-              });
+            if (!documentTypeIds || documentTypeIds.length === 0) {
+              throw new Error("Please select at least one document");
+            }
 
             const existingRequirements =
               await tx.applicationDocumentRequirement.findMany({
@@ -200,16 +210,16 @@ async function lenderDecisionRoutes(fastify) {
               });
 
             const existingDocIds = new Set(
-              existingRequirements.map((r) => r.documentTypeId)
+              existingRequirements.map((r) => r.documentTypeId),
             );
 
-            const newRequirements = lenderRequirements
-              .filter((req) => !existingDocIds.has(req.documentTypeId))
-              .map((req) => ({
+            const newRequirements = documentTypeIds
+              .filter((docId) => !existingDocIds.has(docId))
+              .map((docId) => ({
                 loanApplicationId: record.loanApplicationId,
-                documentTypeId: req.documentTypeId,
-                source: "LENDER_DEFAULT",
-                isRequired: req.isRequired,
+                documentTypeId: docId,
+                source: "LENDER_SELECTED",
+                isRequired: true,
                 status: "PENDING",
               }));
 
@@ -219,7 +229,6 @@ async function lenderDecisionRoutes(fastify) {
               });
             }
 
-            // ALWAYS create upload token
             const token = crypto.randomBytes(32).toString("hex");
 
             const tokenRecord = await tx.clientUploadToken.create({
@@ -246,7 +255,6 @@ async function lenderDecisionRoutes(fastify) {
           // ===============================
 
           if (decision === "DECLINED") {
-
             const remaining = await tx.applicationLender.count({
               where: {
                 loanApplicationId: record.loanApplicationId,
@@ -268,29 +276,21 @@ async function lenderDecisionRoutes(fastify) {
         // ===============================
 
         if (decision === "CONDITIONAL" && uploadToken) {
-
-          const uploadLink =
-            `${process.env.FRONTEND_URL}/client-upload/${uploadToken}`;
+          const uploadLink = `${process.env.FRONTEND_URL}/client-upload/${uploadToken}`;
 
           const html = loadTemplate("clientPortal/document", {
-            clientName:
-              record.loanApplication.client?.legalName || "Customer",
+            clientName: record.loanApplication.client?.legalName || "Customer",
             uploadLink,
-            applicationNumber:
-              record.loanApplication.applicationNumber,
+            applicationNumber: record.loanApplication.applicationNumber,
           });
 
           const subject = "Documents Required for Your Loan Application";
 
-          const text =
-            `Please upload required documents using this link: ${uploadLink}`;
+          const text = `Please upload required documents using this link: ${uploadLink}`;
 
           try {
             await sendEmailUsingKafka(clientEmail, subject, text, html);
           } catch (err) {
-
-            // lenderLogs.error("Kafka email failed, fallback SMTP", err);
-
             await sendMail({
               to: clientEmail,
               subject,
@@ -304,17 +304,13 @@ async function lenderDecisionRoutes(fastify) {
           success: true,
           message: `Application ${decision} processed successfully`,
         });
-
       } catch (error) {
-
-        // lenderLogs.error("Decision API failed", error);
-
         return reply.status(500).send({
           success: false,
           message: "Server error while processing decision",
         });
       }
-    }
+    },
   );
 }
 
