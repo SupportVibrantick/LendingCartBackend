@@ -39,28 +39,16 @@ function getAuthHeaders(): Record<string, string> {
   return { "Content-Type": "application/json" };
 }
 
-function statusClass(status?: string) {
-  switch ((status || "").toUpperCase()) {
-    case "ACTIVE":
-      return "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/30";
-    case "INACTIVE":
-      return "bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-500/10 dark:text-yellow-300 dark:border-yellow-500/30";
-    default:
-      return "bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-500/10 dark:text-gray-300 dark:border-gray-500/30";
-  }
-}
-
-const DOCUMENT_CODES = [
-  { value: "SBA", label: "SBA" },
-  { value: "USDA", label: "USDA" },
-  { value: "BRIDGE", label: "Bridge" },
-  { value: "DSCR", label: "DSCR" },
-  { value: "CONSTRUCTION", label: "Construction" },
-  { value: "EQUIPMENT", label: "Equipment" },
-  { value: "ASSET_BASED", label: "Asset Based" },
-  { value: "AR_AP", label: "AR/AP" },
-  { value: "PO_FINANCE", label: "PO Finance" },
-];
+// function statusClass(status?: string) {
+//   switch ((status || "").toUpperCase()) {
+//     case "ACTIVE":
+//       return "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/30";
+//     case "INACTIVE":
+//       return "bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-500/10 dark:text-yellow-300 dark:border-yellow-500/30";
+//     default:
+//       return "bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-500/10 dark:text-gray-300 dark:border-gray-500/30";
+//   }
+// }
 
 /* ================= COMPONENT ================= */
 
@@ -76,6 +64,9 @@ const AllDocuments = () => {
     name: "",
     description: "",
   });
+
+  const [loanProducts, setLoanProducts] = useState<any[]>([]);
+  const [loadingProducts, setLoadingProducts] = useState(false);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [limit] = useState(5);
@@ -130,6 +121,35 @@ const AllDocuments = () => {
       console.error(err);
     } finally {
       setLoadingList(false);
+    }
+  };
+
+  const fetchLoanProducts = async () => {
+    try {
+      setLoadingProducts(true);
+
+      const res = await fetch(
+        "https://api-lendingcart.vibrantick.org/admin/loan-products/list",
+        {
+          headers: getAuthHeaders(),
+        },
+      );
+
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        toast.error(json.message || "Failed to load loan products");
+        return;
+      }
+
+      // sirf active products
+      const active = json.data.filter((item: any) => item.isActive);
+
+      setLoanProducts(active);
+    } catch (err: any) {
+      toast.error(err.message || "Something went wrong");
+    } finally {
+      setLoadingProducts(false);
     }
   };
 
@@ -220,6 +240,7 @@ const AllDocuments = () => {
 
   useEffect(() => {
     fetchDocuments(1);
+    fetchLoanProducts();
   }, []);
 
   /* ================= UI ================= */
@@ -227,103 +248,152 @@ const AllDocuments = () => {
   return (
     <div className="px-6 py-6 bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100 min-h-screen">
       <h1 className="text-2xl font-semibold mb-6 text-[#13538A] dark:text-indigo-600">
-        All Documents
+        Document Management
       </h1>
 
       <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-6">
         {/* FORM */}
-        <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-700">
-          <h2 className="text-lg font-semibold mb-4">
-            {editingId ? "Edit Document" : "Add Document"}
-          </h2>
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-6">
+          {/* HEADER */}
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <h2 className="text-lg font-semibold">
+                {editingId ? "Edit Document" : "Create Document"}
+              </h2>
+              <p className="text-xs text-slate-500">
+                {editingId
+                  ? "Update your existing document"
+                  : "Add a new document type"}
+              </p>
+            </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <select
-              value={form.code}
-              onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))}
-              disabled={!!editingId || saving}
-              className="w-full border px-3 py-2 rounded bg-white text-slate-900 border-slate-300 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600"
-            >
-              <option value="">Select code</option>
-              {DOCUMENT_CODES.map((c) => (
-                <option key={c.value} value={c.value}>
-                  {c.label}
+            {/* 🔥 Show Create New when editing */}
+            {editingId && (
+              <button
+                onClick={resetForm}
+                className="text-xs px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 transition"
+              >
+                + New
+              </button>
+            )}
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-5">
+            {/* CODE SELECT */}
+            <div>
+              <label className="text-xs text-slate-500 mb-1 block">
+                Document Code
+              </label>
+              <select
+                value={form.code}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, code: e.target.value }))
+                }
+                disabled={!!editingId || saving || loadingProducts}
+                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-[#18B6B4]/20 outline-none transition"
+              >
+                <option value="">
+                  {loadingProducts ? "Loading..." : "Select code"}
                 </option>
-              ))}
-            </select>
 
-            <input
-              value={form.name}
-              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-              placeholder="Name"
-              className="w-full border px-3 py-2 rounded bg-white text-slate-900 border-slate-300 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600"
-            />
+                {loanProducts.map((item) => (
+                  <option key={item.id} value={item.code}>
+                    {item.code}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-            <textarea
-              value={form.description}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, description: e.target.value }))
-              }
-              rows={3}
-              placeholder="Description"
-              className="w-full border px-3 py-2 rounded bg-white text-slate-900 border-slate-300 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600"
-            />
+            {/* NAME */}
+            <div>
+              <label className="text-xs text-slate-500 mb-1 block">
+                Document Name
+              </label>
+              <input
+                value={form.name}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, name: e.target.value }))
+                }
+                placeholder="Enter document name"
+                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-[#18B6B4]/20 outline-none transition"
+              />
+            </div>
 
-            <button
-              type="submit"
-              disabled={saving}
-              className="bg-[#13538A] hover:bg-[#1369b4] text-white px-4 py-2 rounded"
-            >
-              {saving
-                ? "Saving..."
-                : editingId
-                  ? "Save Changes"
-                  : "Create Document"}
-            </button>
+            {/* DESCRIPTION */}
+            <div>
+              <label className="text-xs text-slate-500 mb-1 block">
+                Description
+              </label>
+              <textarea
+                rows={3}
+                value={form.description}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, description: e.target.value }))
+                }
+                placeholder="Enter description"
+                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-[#18B6B4]/20 outline-none transition"
+              />
+            </div>
+
+            {/* ACTION BUTTONS */}
+            <div className="flex gap-3 pt-2">
+              {/* MAIN BUTTON */}
+              <button
+                type="submit"
+                disabled={saving}
+                className="flex-1 text-sm py-2.5 rounded-xl bg-[#13538A] hover:bg-[#0b70c8] text-white font-semibold transition-all active:scale-95"
+              >
+                {saving
+                  ? "Saving..."
+                  : editingId
+                    ? "Update Document"
+                    : "Create Document"}
+              </button>
+            </div>
           </form>
         </div>
 
         {/* TABLE */}
         <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-700">
           <div className="w-full overflow-x-auto">
-            <table className="min-w-full table-fixed text-sm">
+            <table className="min-w-full text-sm border-separate border-spacing-y-2">
+              {/* HEADER */}
               <thead>
-                <tr className="border-b border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 uppercase text-xs">
-                  <th className="w-[120px] py-2 text-left">Code</th>
-                  <th className="w-[240px] py-2 text-left">Name</th>
-                  <th className="w-[140px] py-2 text-left">Status</th>
-                  <th className="w-[160px] py-2 text-left">Created</th>
-                  <th className="w-[120px] py-2 text-right">Actions</th>
+                <tr className="text-xs uppercase text-slate-500 dark:text-slate-400">
+                  <th className="px-4 py-2 text-left">Code</th>
+                  <th className="px-4 py-2 text-left">Name</th>
+                  <th className="px-4 py-2 text-left">Status</th>
+                  <th className="px-4 py-2 text-left">Created</th>
+                  <th className="px-4 py-2 text-right">Actions</th>
                 </tr>
               </thead>
+
               <tbody>
                 {loadingList ? (
                   <tr>
                     <td
                       colSpan={5}
-                      className="py-10 text-center text-slate-500 dark:text-slate-400"
+                      className="py-14 text-center text-slate-500"
                     >
-                      Loading...
+                      <span className="animate-pulse">
+                        Loading documents...
+                      </span>
                     </td>
                   </tr>
                 ) : documents.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="py-16 text-center">
-                      <div className="flex flex-col items-center justify-center">
-                        {/* Icon Circle */}
-                        <div className="w-16 h-16 rounded-full bg-red-100 dark:bg-red-500/10 flex items-center justify-center mb-4 border border-red-200 dark:border-red-500/20">
-                          <FiAlertCircle className="text-red-500 dark:text-red-400 text-3xl" />
+                    <td colSpan={5} className="py-20 text-center">
+                      <div className="flex flex-col items-center">
+                        <div className="w-14 h-14 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-4">
+                          <FiAlertCircle size={26} className="text-slate-400" />
                         </div>
 
-                        {/* Title */}
-                        <h3 className="text-lg font-semibold text-red-600 dark:text-red-400">
+                        <h3 className="text-base font-semibold">
                           No Documents Found
                         </h3>
 
-                        {/* Subtitle */}
-                        <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 max-w-sm">
-                          There are currently no document types available.
-                          Please create a new document to get started.
+                        <p className="text-sm text-slate-500 mt-1">
+                          Create your first document to get started
                         </p>
                       </div>
                     </td>
@@ -332,37 +402,70 @@ const AllDocuments = () => {
                   documents.map((p) => (
                     <tr
                       key={p.id}
-                      className="border-b border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800"
+                      className="
+            bg-white dark:bg-slate-900 
+            shadow-sm 
+            hover:shadow-md 
+            transition-all 
+            rounded-xl
+          "
                     >
-                      <td className="py-3">{p.code}</td>
-                      <td
-                        className="py-3 truncate max-w-[240px]"
-                        title={p.name}
-                      >
-                        {p.name}
+                      {/* CODE */}
+                      <td className="px-4 py-3">
+                        <span className="px-2 py-1 text-xs font-medium rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                          {p.code}
+                        </span>
                       </td>
-                      <td className="py-3">
+
+                      {/* NAME */}
+                      <td className="px-4 py-3">
+                        <p
+                          className="font-medium text-slate-800 dark:text-slate-200 truncate max-w-[180px]"
+                          title={p.name}
+                        >
+                          {p.name}
+                        </p>
+                      </td>
+
+                      {/* STATUS */}
+                      <td className="px-4 py-3">
                         <button
                           onClick={() => handleToggleStatus(p)}
                           disabled={togglingId === p.id}
-                          className={`px-3 py-1 rounded-full border text-xs ${statusClass(
-                            p.isActive ? "ACTIVE" : "INACTIVE",
-                          )}`}
+                          className={`px-3 py-1 text-xs font-semibold rounded-full transition
+                ${
+                  p.isActive
+                    ? "bg-emerald-100 text-emerald-600 hover:bg-emerald-200"
+                    : "bg-rose-100 text-rose-600 hover:bg-rose-200"
+                }
+              `}
                         >
                           {togglingId === p.id
-                            ? "Updating..."
+                            ? "..."
                             : p.isActive
-                              ? "ACTIVE"
-                              : "INACTIVE"}
+                              ? "Active"
+                              : "Inactive"}
                         </button>
                       </td>
-                      <td className="py-3">{formatDate(p.createdAt)}</td>
-                      <td className="py-3 text-right">
+
+                      {/* CREATED */}
+                      <td className="px-4 py-3 text-slate-500 text-sm">
+                        {formatDate(p.createdAt)}
+                      </td>
+
+                      {/* ACTION */}
+                      <td className="px-4 py-3 text-right">
                         <button
                           onClick={() => handleEdit(p)}
-                          className="h-8 w-8 inline-flex items-center justify-center border border-slate-300 dark:border-slate-600 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
+                          className="
+                h-9 w-9 flex items-center justify-center 
+                rounded-lg 
+                bg-slate-100 dark:bg-slate-800
+                hover:bg-blue-600 hover:text-white
+                transition-all
+              "
                         >
-                          <MdModeEdit />
+                          <MdModeEdit size={16} />
                         </button>
                       </td>
                     </tr>

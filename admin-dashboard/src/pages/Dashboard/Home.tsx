@@ -1,9 +1,9 @@
 import EcommerceMetrics from "../../components/ecommerce/EcommerceMetrics";
 import StatisticsChart from "../../components/ecommerce/StatisticsChart";
-import MonthlySalesChart from "../../components/ecommerce/MonthlySalesChart";
-import MonthlyTarget from "../../components/ecommerce/MonthlyTarget";
-import RecentOrders from "../../components/ecommerce/RecentOrders";
-import DemographicCard from "../../components/ecommerce/DemographicCard";
+// import MonthlySalesChart from "../../components/ecommerce/MonthlySalesChart";
+// import MonthlyTarget from "../../components/ecommerce/MonthlyTarget";
+// import RecentOrders from "../../components/ecommerce/RecentOrders";
+// import DemographicCard from "../../components/ecommerce/DemographicCard";
 import PageMeta from "../../components/common/PageMeta";
 import { useEffect, useState } from "react";
 import ApplicationsDonutChart from "../../components/charts/bar/ApplicationsDonutChart";
@@ -71,11 +71,11 @@ export default function Home() {
           />
         </div>
 
-        <div className="col-span-12">
+        {/* <div className="col-span-12">
           <MonthlySalesChart />
-        </div>
+        </div> */}
 
-        <div className="col-span-12">
+        {/* <div className="col-span-12">
           <MonthlyTarget />
         </div>
 
@@ -85,7 +85,7 @@ export default function Home() {
 
         <div className="col-span-12 xl:col-span-7">
           <RecentOrders />
-        </div>
+        </div> */}
       </div>
     </>
   );
