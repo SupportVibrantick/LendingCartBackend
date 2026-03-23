@@ -6,14 +6,13 @@ const dayjs = require("dayjs");
 
 async function getClientLoanDetailsRoute(fastify) {
   fastify.get(
-    "/:token",
+    "/",
     {
       schema: {
         tags: ["Client Portal"],
-        summary: "Get loan details using client token",
-        params: {
+        summary: "Get loan details (JWT or Token based)",
+        querystring: {
           type: "object",
-          required: ["token"],
           properties: {
             token: { type: "string" },
           },
@@ -25,48 +24,106 @@ async function getClientLoanDetailsRoute(fastify) {
       const prisma = fastify.prisma;
 
       try {
-        const { token } = req.params;
+        let loan;
 
         /* ===============================
-           VALIDATE TOKEN
+           CASE 1: TOKEN BASED ACCESS
         =============================== */
 
-        const tokenRecord = await prisma.clientUploadToken.findUnique({
-          where: { token },
-          include: {
-            loanApplication: {
+        if (req.query.token) {
+          const token = req.query.token;
+
+          const tokenRecord =
+            await prisma.clientUploadToken.findUnique({
+              where: { token },
               include: {
-                submissions: {
+                loanApplication: {
                   include: {
-                    fields: true,
-                  },
-                },
-                documentRequirements: {
-                  include: {
-                    documentType: true,
-                    uploads: true,
+                    submissions: {
+                      include: { fields: true },
+                    },
+                    documentRequirements: {
+                      include: {
+                        documentType: true,
+                        uploads: true,
+                      },
+                    },
                   },
                 },
               },
+            });
+
+          if (!tokenRecord) {
+            return reply.code(404).send({
+              success: false,
+              message: "Invalid access link",
+            });
+          }
+
+          if (tokenRecord.expiresAt < new Date()) {
+            return reply.code(400).send({
+              success: false,
+              message: "Link expired",
+            });
+          }
+
+          loan = tokenRecord.loanApplication;
+        }
+
+        /* ===============================
+           CASE 2: JWT BASED ACCESS
+        =============================== */
+
+        else if (req.headers.authorization) {
+          const authHeader = req.headers.authorization;
+
+          const token = authHeader.split(" ")[1];
+
+          const decoded = require("jsonwebtoken").verify(
+            token,
+            process.env.JWT_SECRET
+          );
+
+          const clientId = decoded.clientId;
+
+          const loanRecord = await prisma.loanApplication.findFirst({
+            where: { clientId },
+            include: {
+              submissions: {
+                include: { fields: true },
+              },
+              documentRequirements: {
+                include: {
+                  documentType: true,
+                  uploads: true,
+                },
+              },
             },
-          },
-        });
-
-        if (!tokenRecord) {
-          return reply.code(404).send({
-            success: false,
-            message: "Invalid access link",
+            orderBy: {
+              createdAt: "desc",
+            },
           });
+
+          if (!loanRecord) {
+            return reply.code(404).send({
+              success: false,
+              message: "No loan found",
+            });
+          }
+
+          loan = loanRecord;
         }
 
-        if (tokenRecord.expiresAt < new Date()) {
-          return reply.code(400).send({
+        /* ===============================
+           NO ACCESS METHOD
+        =============================== */
+
+        else {
+          return reply.code(401).send({
             success: false,
-            message: "Link expired",
+            message: "Unauthorized access",
           });
         }
-
-        const loan = tokenRecord.loanApplication;
 
         if (!loan) {
           return reply.code(404).send({
@@ -76,7 +133,7 @@ async function getClientLoanDetailsRoute(fastify) {
         }
 
         /* ===============================
-           EXTRACT ALL FIELDS (DYNAMIC)
+           EXTRACT FIELDS
         =============================== */
 
         const allFields = [];
@@ -108,16 +165,6 @@ async function getClientLoanDetailsRoute(fastify) {
           .join(" ")
           .trim();
 
-        const creditScore =
-          getField("creditScore") || getField("credit_score");
-
-        const amountRequested =
-          getField("amountRequested") || getField("loan_amount");
-
-        /* ===============================
-           RESPONSE
-        =============================== */
-
         const response = {
           applicationNumber: loan.applicationNumber,
           status: loan.status,
@@ -128,11 +175,15 @@ async function getClientLoanDetailsRoute(fastify) {
             email: getField("email"),
             phone:
               getField("phone") || getField("phone_number"),
-            creditScore,
+            creditScore:
+              getField("creditScore") ||
+              getField("credit_score"),
           },
 
           loanDetails: {
-            amountRequested,
+            amountRequested:
+              getField("amountRequested") ||
+              getField("loan_amount"),
             loanProductCode:
               getField("loanProductCode") ||
               loan.loanProductCode,
@@ -151,7 +202,7 @@ async function getClientLoanDetailsRoute(fastify) {
             rent: getField("monthly_rental_income"),
           },
 
-          fullApplication: allFields, //FULL DATA
+          fullApplication: allFields,
 
           documents: loan.documentRequirements.map((doc) => ({
             id: doc.id,
@@ -170,11 +221,11 @@ async function getClientLoanDetailsRoute(fastify) {
           success: true,
           data: response,
         });
+
       } catch (error) {
         fastify.log.error(
           {
             error: error.message,
-            token: req.params.token,
           },
           "Failed to fetch client loan details"
         );
