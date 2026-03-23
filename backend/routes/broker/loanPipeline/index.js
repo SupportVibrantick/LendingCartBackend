@@ -4,6 +4,10 @@ async function loanPipelineRoutes(fastify) {
   fastify.register(require("./listLoi"));   // NEW
   fastify.register(require("./viewLoi"));
   fastify.register(require("./listLender"));
+
+
+  fastify.register(require("./sendClientLink"));
+  
 }
 
 module.exports = loanPipelineRoutes;

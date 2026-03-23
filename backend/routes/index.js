@@ -7,6 +7,7 @@ const landingPagesLeads = require("./public/LandingPagesLeads");
 const publicBrokerApplications = require("./public/broker/applications");
 const clientPortalRoutes = require("../routes/clientPortal");
 
+
 async function indexRoutes(fastify, options) {
   fastify.get("/", async (request, reply) => {
     request.log.info("Home page accessed");
@@ -32,6 +33,7 @@ async function indexRoutes(fastify, options) {
     prefix: "/client-portal",
   });
 
+ 
   //  Common (read-only, role-based)
   fastify.register(commonDocumentTypes, {
     prefix: "/document-types",

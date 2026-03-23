@@ -1,0 +1,226 @@
+const crypto = require("crypto");
+
+const { loadTemplate } = require("../../../utils/loadTemplate");
+const sendMail = require("../../../services/mail");
+const {
+  sendEmailUsingKafka,
+} = require("../../../services/kafka/email/producer");
+
+/**
+ * @param {import("fastify").FastifyInstance} fastify
+ */
+
+async function sendClientLinkRoute(fastify) {
+  fastify.post(
+    "/:loanId/send-client-link",
+    {
+      schema: {
+        tags: ["Broker -> Loan Pipeline"],
+        summary: "Send client portal access link",
+        params: {
+          type: "object",
+          required: ["loanId"],
+          properties: {
+            loanId: { type: "string" },
+          },
+        },
+      },
+    },
+
+    async (req, reply) => {
+      const prisma = fastify.prisma;
+
+      try {
+        /* ===============================
+           AUTH CHECK
+        =============================== */
+
+        if (
+          !req.user ||
+          req.user.orgType !== "BROKER" ||
+          !req.user.organizationId
+        ) {
+          return reply.code(403).send({
+            success: false,
+            message: "Broker access only",
+          });
+        }
+
+        const brokerOrgId = req.user.organizationId;
+        const { loanId } = req.params;
+
+        /* ===============================
+           FETCH LOAN + CLIENT
+        =============================== */
+
+        const loan = await prisma.loanApplication.findFirst({
+          where: {
+            id: loanId,
+            brokerOrgId,
+          },
+          include: {
+            client: {
+              include: {
+                contacts: true,
+              },
+            },
+          },
+        });
+
+        if (!loan) {
+          return reply.code(404).send({
+            success: false,
+            message: "Loan application not found",
+          });
+        }
+
+        /* ===============================
+           GET CLIENT EMAIL (SAFE)
+        =============================== */
+
+        const primaryContact = loan.client.contacts.find(
+          (c) => c.isPrimary && c.email
+        );
+
+        const fallbackContact = loan.client.contacts.find(
+          (c) => c.email
+        );
+
+        const clientEmail =
+          primaryContact?.email || fallbackContact?.email;
+
+        if (!clientEmail) {
+          return reply.code(400).send({
+            success: false,
+            message: "Client email not available",
+          });
+        }
+
+        /* ===============================
+           GENERATE TOKEN (WITH TRANSACTION)
+        =============================== */
+
+        let tokenRecord;
+
+        await prisma.$transaction(async (tx) => {
+          const token = crypto.randomBytes(32).toString("hex");
+
+          tokenRecord = await tx.clientUploadToken.create({
+            data: {
+              loanApplicationId: loan.id,
+              clientId: loan.clientId,
+              token,
+              expiresAt: new Date(
+                Date.now() + 7 * 24 * 60 * 60 * 1000 // 7 days
+              ),
+            },
+          });
+
+          // OPTIONAL: update loan status safely
+          if (loan.status === "DRAFT") {
+            await tx.loanApplication.update({
+              where: { id: loan.id },
+              data: { status: "SUBMITTED" },
+            });
+          }
+        });
+
+        if (!tokenRecord?.token) {
+          throw new Error("Token generation failed");
+        }
+
+        /* ===============================
+           PREPARE LINK
+        =============================== */
+
+        if (!process.env.FRONTEND_URL) {
+          throw new Error("FRONTEND_URL not configured");
+        }
+
+        const uploadLink = `${process.env.FRONTEND_URL}/client-upload/${tokenRecord.token}`;
+
+        /* ===============================
+           EMAIL TEMPLATE
+        =============================== */
+
+        const html = loadTemplate("broker/clientLink", {
+          clientName: loan.client?.legalName || "Customer",
+          uploadLink,
+          applicationNumber: loan.applicationNumber,
+        });
+
+        const subject = "Access Your Loan Application Portal";
+
+        const text = `Access your loan application using this secure link:\n${uploadLink}`;
+
+        /* ===============================
+           SEND EMAIL (KAFKA → FALLBACK)
+        =============================== */
+
+        try {
+          await sendEmailUsingKafka(clientEmail, subject, text, html);
+
+          fastify.log.info(
+            {
+              clientEmail,
+              loanId,
+            },
+            "Email sent via Kafka"
+          );
+        } catch (err) {
+          fastify.log.error(
+            {
+              error: err.message,
+              clientEmail,
+              loanId,
+            },
+            "Kafka email failed, using fallback"
+          );
+
+          await sendMail({
+            to: clientEmail,
+            subject,
+            text,
+            html,
+          });
+
+          fastify.log.info(
+            {
+              clientEmail,
+              loanId,
+            },
+            "Email sent via fallback SMTP"
+          );
+        }
+
+        /* ===============================
+           SUCCESS RESPONSE
+        =============================== */
+
+        return reply.send({
+          success: true,
+          message: "Client portal link sent successfully",
+          data: {
+            email: clientEmail,
+          },
+        });
+      } catch (error) {
+        fastify.log.error(
+          {
+            error: error.message,
+            loanId: req.params.loanId,
+            brokerOrgId: req.user?.organizationId,
+          },
+          "Failed to send client portal link"
+        );
+
+        return reply.code(500).send({
+          success: false,
+          message: error.message || "Unexpected server error",
+        });
+      }
+    }
+  );
+}
+
+module.exports = sendClientLinkRoute;
