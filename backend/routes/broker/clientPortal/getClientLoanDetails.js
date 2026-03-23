@@ -151,7 +151,7 @@ async function getClientLoanDetailsRoute(fastify) {
             rent: getField("monthly_rental_income"),
           },
 
-          fullApplication: allFields, // 🔥 FULL DATA
+          fullApplication: allFields, //FULL DATA
 
           documents: loan.documentRequirements.map((doc) => ({
             id: doc.id,
