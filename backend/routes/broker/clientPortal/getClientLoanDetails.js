@@ -36,6 +36,11 @@ async function getClientLoanDetailsRoute(fastify) {
           include: {
             loanApplication: {
               include: {
+                submissions: {
+                  include: {
+                    fields: true,
+                  },
+                },
                 documentRequirements: {
                   include: {
                     documentType: true,
@@ -71,15 +76,82 @@ async function getClientLoanDetailsRoute(fastify) {
         }
 
         /* ===============================
-           FORMAT RESPONSE
+           EXTRACT ALL FIELDS (DYNAMIC)
+        =============================== */
+
+        const allFields = [];
+
+        for (const sub of loan.submissions || []) {
+          for (const field of sub.fields || []) {
+            allFields.push({
+              key: field.fieldKey,
+              value: field.value,
+            });
+          }
+        }
+
+        const getField = (key) =>
+          allFields.find((f) => f.key === key)?.value || null;
+
+        /* ===============================
+           BUILD DATA
+        =============================== */
+
+        const borrowerName = [
+          getField("borrowerFirstName") ||
+            getField("first_name") ||
+            "",
+          getField("borrowerLastName") ||
+            getField("last_name") ||
+            "",
+        ]
+          .join(" ")
+          .trim();
+
+        const creditScore =
+          getField("creditScore") || getField("credit_score");
+
+        const amountRequested =
+          getField("amountRequested") || getField("loan_amount");
+
+        /* ===============================
+           RESPONSE
         =============================== */
 
         const response = {
           applicationNumber: loan.applicationNumber,
           status: loan.status,
           createdAt: dayjs(loan.createdAt).format("DD MMM YYYY"),
-          amountRequested: loan.amountRequested,
-          loanProductCode: loan.loanProductCode,
+
+          borrower: {
+            name: borrowerName || null,
+            email: getField("email"),
+            phone:
+              getField("phone") || getField("phone_number"),
+            creditScore,
+          },
+
+          loanDetails: {
+            amountRequested,
+            loanProductCode:
+              getField("loanProductCode") ||
+              loan.loanProductCode,
+            interestRate:
+              getField("interestRate") ||
+              getField("interest_rate"),
+            loanTerm:
+              getField("loanTerm") ||
+              getField("loan_term"),
+            loanPurpose: getField("loan_purpose"),
+          },
+
+          property: {
+            address: getField("property_address"),
+            value: getField("property_value"),
+            rent: getField("monthly_rental_income"),
+          },
+
+          fullApplication: allFields, // 🔥 FULL DATA
 
           documents: loan.documentRequirements.map((doc) => ({
             id: doc.id,
