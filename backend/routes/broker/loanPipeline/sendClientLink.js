@@ -2,9 +2,6 @@ const crypto = require("crypto");
 
 const { loadTemplate } = require("../../../utils/loadTemplate");
 const sendMail = require("../../../services/mail");
-const {
-  sendEmailUsingKafka,
-} = require("../../../services/kafka/email/producer");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
@@ -97,7 +94,7 @@ async function sendClientLinkRoute(fastify) {
         }
 
         /* ===============================
-           GENERATE TOKEN (WITH TRANSACTION)
+           GENERATE TOKEN (TRANSACTION)
         =============================== */
 
         let tokenRecord;
@@ -116,7 +113,7 @@ async function sendClientLinkRoute(fastify) {
             },
           });
 
-          // OPTIONAL: update loan status safely
+          // OPTIONAL: update loan status
           if (loan.status === "DRAFT") {
             await tx.loanApplication.update({
               where: { id: loan.id },
@@ -147,6 +144,7 @@ async function sendClientLinkRoute(fastify) {
           clientName: loan.client?.legalName || "Customer",
           uploadLink,
           applicationNumber: loan.applicationNumber,
+          brokerName: req.user?.firstName || "Your Broker",
         });
 
         const subject = "Access Your Loan Application Portal";
@@ -154,29 +152,10 @@ async function sendClientLinkRoute(fastify) {
         const text = `Access your loan application using this secure link:\n${uploadLink}`;
 
         /* ===============================
-           SEND EMAIL (KAFKA → FALLBACK)
+           SEND EMAIL (DIRECT SMTP)
         =============================== */
 
         try {
-          await sendEmailUsingKafka(clientEmail, subject, text, html);
-
-          fastify.log.info(
-            {
-              clientEmail,
-              loanId,
-            },
-            "Email sent via Kafka"
-          );
-        } catch (err) {
-          fastify.log.error(
-            {
-              error: err.message,
-              clientEmail,
-              loanId,
-            },
-            "Kafka email failed, using fallback"
-          );
-
           await sendMail({
             to: clientEmail,
             subject,
@@ -189,8 +168,22 @@ async function sendClientLinkRoute(fastify) {
               clientEmail,
               loanId,
             },
-            "Email sent via fallback SMTP"
+            "Email sent successfully via SMTP"
           );
+        } catch (err) {
+          fastify.log.error(
+            {
+              error: err.message,
+              clientEmail,
+              loanId,
+            },
+            "Email sending failed"
+          );
+
+          return reply.code(500).send({
+            success: false,
+            message: "Failed to send email. Check SMTP configuration.",
+          });
         }
 
         /* ===============================
