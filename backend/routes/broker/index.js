@@ -84,9 +84,7 @@ instance.register(require("./contacts"),{
   prefix:"/contacts",
 });
 
-fastify.register(require("./clientPortal"), {
-  prefix: "/client",
-});
+
 fastify.register(require("./loanPipeline"),{prefix:"/loan-pipeline"});
 fastify.register(require("./logs"), { prefix: "/logs" });
 fastify.register(require("./stats"), { prefix: "/stats" });
