@@ -48,6 +48,10 @@ import LoanOfficer from "./pages/UserManagement/LoanOfficer";
 import ImpersonateLogin from "./pages/ImpersonateLogin";
 import LoanApplication from "./pages/LoanApplication/LoanApplication";
 import ContactPage from "./pages/Contacts/ContactPage";
+import ClientUpload from "./pages/ClientPortal/ClientUpload";
+import ClientProtected from "./pages/ClientPortal/ClientProtected";
+import ClientAuth from "./pages/ClientPortal/ClientAuth";
+import CustomerLogin from "./pages/ClientPortal/CustomerLogin";
 
 export default function App() {
   return (
@@ -199,6 +203,18 @@ export default function App() {
           <Route path="/impersonate" element={<ImpersonateLogin />} />
           <Route path="/signin" element={<SignIn />} />
           <Route path="/signup" element={<SignUp />} />
+          <Route path="/client-upload/:token" element={<ClientAuth />} />
+
+          <Route
+            path="/client-portal/:token"
+            element={
+              <ClientProtected>
+                <ClientUpload />
+              </ClientProtected>
+            }
+          />
+
+          <Route path="/customer" element={<CustomerLogin />} />
 
           {/* Fallback Route */}
           <Route path="*" element={<NotFound />} />

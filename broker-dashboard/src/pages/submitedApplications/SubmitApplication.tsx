@@ -17,6 +17,7 @@ import {
   ChevronRight,
   CheckCircle,
   MoreVertical,
+  Send,
   // Mail,
   // UserPlus,
 } from "lucide-react";
@@ -40,6 +41,7 @@ type SubmissionField = {
 
 type TableRow = {
   submissionId: string;
+  applicationId: string;
   borrowerName: string;
   company: string;
   loanType: string;
@@ -426,6 +428,7 @@ export default function LoanApplicationsPage() {
 
               return {
                 submissionId: item.submissionId,
+                applicationId: detailJson.data.applicationId,
                 borrowerName:
                   `${getFieldValue(fields, "borrowerFirstName") || ""} ${
                     getFieldValue(fields, "borrowerLastName") || ""
@@ -526,6 +529,35 @@ export default function LoanApplicationsPage() {
       <p className="text-[14px] font-semibold text-[#2C92D5]">{value}</p>
     </div>
   );
+
+  const handleSendClientLink = async (applicationId: string) => {
+    console.log(applicationId)
+    try {
+      const token = sessionStorage.getItem("broker_token");
+
+      const res = await fetch(
+        `${API_BASE}/broker/loan-pipeline/${applicationId}/send-client-link`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+           body: JSON.stringify({}),
+        },
+      );
+
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Failed to send client link");
+      }
+
+      toast.success("Client link sent successfully 🚀");
+    } catch (err: any) {
+      toast.error(err.message || "Something went wrong");
+    }
+  };
 
   useEffect(() => {
     loadSubmissions();
@@ -948,6 +980,25 @@ export default function LoanApplicationsPage() {
                                 <Eye size={14} />
                               </div>
                               View Details
+                            </button>
+
+                            {/* Send Client Link */}
+                            <button
+                              onClick={() => {
+                                handleSendClientLink(row.applicationId);
+                                setActiveDropdown(null);
+                              }}
+                              className="
+    flex items-center gap-3 w-full px-4 py-3 text-sm
+    text-orange-600 dark:text-orange-400
+    hover:bg-orange-50 dark:hover:bg-orange-500/10
+    transition
+  "
+                            >
+                              <div className="p-1.5 rounded-md bg-orange-100 dark:bg-orange-500/20">
+                                <Send size={14} />
+                              </div>
+                              Send Client Link
                             </button>
 
                             <button
