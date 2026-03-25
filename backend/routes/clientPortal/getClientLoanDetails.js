@@ -166,6 +166,7 @@ async function getClientLoanDetailsRoute(fastify) {
           .trim();
 
         const response = {
+          loanApplicationId: loan.id,
           applicationNumber: loan.applicationNumber,
           status: loan.status,
           createdAt: dayjs(loan.createdAt).format("DD MMM YYYY"),
