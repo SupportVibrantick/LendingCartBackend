@@ -15,7 +15,7 @@ async function clientAuthMiddleware(req, reply) {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // 🔥 IMPORTANT
+    //  IMPORTANT
     req.client = decoded;
 
   } catch (error) {
