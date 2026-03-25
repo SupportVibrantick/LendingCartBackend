@@ -848,7 +848,7 @@ export default function LoanPipeline() {
 
                                 setDropdownPos({
                                   top: rect.bottom + window.scrollY + 6,
-                                  left: rect.right - 192, // 192 = w-48
+                                  left: rect.right - 192,
                                 });
 
                                 setActiveDropdown(
