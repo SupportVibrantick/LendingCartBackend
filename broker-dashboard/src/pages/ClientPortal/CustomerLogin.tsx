@@ -1,43 +1,32 @@
 import { useState } from "react";
 import axios from "axios";
 import toast from "react-hot-toast";
+import { useParams } from "react-router";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "{{LOCAL_URL}}";
+const API_BASE =
+  import.meta.env.VITE_API_BASE || "https://api-lendingcart.vibrantick.org";
 
 export default function CustomerLogin() {
+  const { token } = useParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  const getHeaders = () => {
-    const brokerToken = sessionStorage.getItem("broker_token");
-
-    return {
-      Authorization: `Bearer ${brokerToken}`,
-    };
-  };
-
   const handleLogin = async () => {
     try {
-      const res = await axios.post(
-        `${API_BASE}/broker/client/auth/login`,
-        {
-          email,
-          password,
-        },
-        {
-          headers: getHeaders(),
-        },
-      );
+      const res = await axios.post(`${API_BASE}/broker/client/auth/login`, {
+        email,
+        password,
+      });
 
       const clientToken = res.data?.token;
 
-      // store token
       sessionStorage.setItem("client_token", clientToken);
 
       toast.success("Login successful");
 
-      // redirect (NO token in URL)
-      window.location.href = `/client-portal`;
+      window.location.href = token
+        ? `/client-portal/${token}`
+        : `/client-portal`;
     } catch (err: any) {
       toast.error(err?.response?.data?.message || "Login failed");
     }

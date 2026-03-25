@@ -21,7 +21,7 @@ const MultiLenderSupport = () => {
           </h3>
 
           <p className="text-gray-700 leading-relaxed">
-            Lending Automator allows you to work with virtually any private money lender,
+            Loan AI allows you to work with virtually any private money lender,
             and supports custom document formats for each. Switching lenders midway
             through an application is simple because previously collected data can
             automatically be converted to the new lender's format, ensuring minimal

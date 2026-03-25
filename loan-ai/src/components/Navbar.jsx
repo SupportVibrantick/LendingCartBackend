@@ -7,7 +7,7 @@ const Navbar = () => {
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-blue-500 rounded-full"></div>
           <h1 className="font-bold text-lg text-gray-700">
-            Lending Automator
+            Loan AI
           </h1>
         </div>
 

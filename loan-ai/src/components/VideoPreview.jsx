@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Play } from 'lucide-react';
+import { Play } from "lucide-react";
 
 const VideoPreview = () => {
   const videoRef = useRef(null);
@@ -16,7 +16,6 @@ const VideoPreview = () => {
   return (
     <div id="how-it-works" className="scroll-mt-24 bg-gray-100 py-16 px-5 mb-4">
       <div className="max-w-4xl mx-auto relative aspect-video rounded-xl overflow-hidden shadow-lg">
-        
         {/* VIDEO */}
         <video
           ref={videoRef}
@@ -48,7 +47,6 @@ const VideoPreview = () => {
             {/* Play Button */}
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="flex items-center justify-center w-20 h-20 rounded-full border-2 border-white bg-transparent shadow-xl group-hover:scale-110 transition">
-                
                 {/* Outer Ring */}
                 <div className="absolute w-18 h-18 rounded-full border-4 border-white/40 animate-ping"></div>
 
@@ -57,10 +55,9 @@ const VideoPreview = () => {
                   <Play />
                 </div>
               </div>
-            </div>
+            </div> 
           </div>
         )}
-
       </div>
     </div>
   );

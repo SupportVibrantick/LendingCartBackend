@@ -25,10 +25,10 @@ const DashboardPreview = () => {
         </h2>
 
         <p className="max-w-3xl mx-auto text-gray-600 text-lg leading-relaxed">
-          You’re not a lender – so why use software designed for one? Lending
-          Automator was developed to help mortgage brokers manage their unique
-          businesses from a single interface. Accept applications, match with
-          lenders, and close deals faster with powerful automation tools.
+          You’re not a lender – so why use software designed for one? Loan AI
+          was developed to help mortgage brokers manage their unique businesses
+          from a single interface. Accept applications, match with lenders, and
+          close deals faster with powerful automation tools.
         </p>
       </div>
     </div>

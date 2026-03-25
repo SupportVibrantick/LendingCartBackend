@@ -10,7 +10,7 @@ const Benefits = () => {
     <div id="benefits" className="scroll-mt-24 bg-white py-0 px-5 mx-w-4xl mb-4">
       {/* Heading */}
       <h2 className="text-3xl md:text-4xl font-bold text-center text-blue-900 mb-12">
-        Lending Automator Saves You <br /> Time & Money
+        Loan AI Saves You <br /> Time & Money
       </h2>
 
       {/* Content Row */}
@@ -22,10 +22,10 @@ const Benefits = () => {
           </h3>
 
           <p className="text-gray-800 leading-relaxed">
-            Lending Automator analyzes pre-application data to identify lenders
+            Loan AI analyzes pre-application data to identify lenders
             who may be a good fit to fund your deal. We then allow you to
             request quotes with a single click! No more struggling to find
-            someone who can get it done. Lending Automator helps you discover
+            someone who can get it done. Loan AI helps you discover
             new lenders to keep your loans moving forward.
           </p>
         </div>

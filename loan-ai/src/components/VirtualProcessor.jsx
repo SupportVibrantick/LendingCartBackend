@@ -12,7 +12,7 @@ const VirtualProcessor = () => {
           </h3>
 
           <p className="text-gray-700 leading-relaxed">
-            Lending Automator’s patent-pending Virtual Processor™ technology
+            Loan AI’s patent-pending Virtual Processor™ technology
             works 24/7 to keep your loans moving forward, automatically assigning
             tasks, sending notifications and reminders, collecting documents,
             and helping your clients e-sign right in the platform.

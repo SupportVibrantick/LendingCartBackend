@@ -12,7 +12,7 @@ const InstantBusinessIntelligence = () => {
           </h3>
 
           <p className="text-gray-700 leading-relaxed">
-            Lending Automator's Reporting interface gives you instant visibility
+            Loan AI's Reporting interface gives you instant visibility
             into your pipeline and performance. Track application volume,
             historical and projected revenue, referral sources, and other
             critical business data. Coupled with advanced filtering and a

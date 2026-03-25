@@ -203,7 +203,17 @@ export default function App() {
           <Route path="/impersonate" element={<ImpersonateLogin />} />
           <Route path="/signin" element={<SignIn />} />
           <Route path="/signup" element={<SignUp />} />
+          <Route path="/client-upload" element={<ClientAuth />} />
           <Route path="/client-upload/:token" element={<ClientAuth />} />
+
+          <Route
+            path="/client-portal"
+            element={
+              <ClientProtected>
+                <ClientUpload />
+              </ClientProtected>
+            }
+          />
 
           <Route
             path="/client-portal/:token"

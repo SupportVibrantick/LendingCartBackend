@@ -8,7 +8,7 @@ export default function ClientProtected({ children }: any) {
     const token = sessionStorage.getItem("client_token");
 
     if (!token) {
-      navigate("/client-upload/invalid");
+      navigate("/client-upload");
     }
   }, []);
 

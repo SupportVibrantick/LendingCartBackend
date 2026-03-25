@@ -11,7 +11,7 @@ const Footer = () => {
         {/* Left Section */}
         <div>
           <h2 className="text-white text-xl font-semibold mb-4">
-            Lending Automator
+            Loan AI
           </h2>
 
           {/* Social Icons */}
