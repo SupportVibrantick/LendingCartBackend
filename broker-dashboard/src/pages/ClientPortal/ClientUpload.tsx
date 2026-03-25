@@ -7,20 +7,12 @@ import toast from "react-hot-toast";
 /* ================= TYPES ================= */
 
 interface DocumentItem {
-  requirementId: string;
-  documentTypeId: string;
-  documentName: string;
+  id: string;
+  name: string;
   status: "PENDING" | "UPLOADED";
   uploadedFiles: string[];
+  required: boolean;
 }
-
-const getAuthHeaders = () => {
-  const brokerToken = sessionStorage.getItem("broker_token");
-
-  return {
-    Authorization: brokerToken ? `Bearer ${brokerToken}` : "",
-  };
-};
 
 const API_BASE =
   import.meta.env.VITE_API_BASE || "https://api-lendingcart.vibrantick.org";
@@ -37,6 +29,7 @@ export default function ClientUpload() {
   const [uploadedFilesCount, setUploadedFilesCount] = useState(0);
   const [applicationNumber, setApplicationNumber] = useState("");
   const [clientName, setClientName] = useState("");
+  const [applicationId, setApplicationId] = useState("");
 
   const [status, setStatus] = useState("");
   const [email, setEmail] = useState("");
@@ -54,23 +47,45 @@ export default function ClientUpload() {
 
   const verifyToken = async () => {
     try {
-      const res = await axios.get(`${API_BASE}/broker/client/loan/${token}`, {
-        headers: getAuthHeaders(),
-      });
+      const brokerToken = sessionStorage.getItem("broker_token");
+      const clientToken = sessionStorage.getItem("client_token");
+
+      let headers: any = {};
+      let url = `${API_BASE}/client-portal/loan`;
+
+      // CASE 1: Token present (invite flow)
+      if (token) {
+        url += `?token=${token}`;
+
+        headers = {
+          Authorization: `Bearer ${brokerToken}`, // broker auth
+        };
+      }
+      // CASE 2: No token (logged-in user)
+      else {
+        headers = {
+          Authorization: `Bearer ${clientToken}`, // client auth
+        };
+      }
+
+      const res = await axios.get(url, { headers });
       const data = res.data?.data;
-      let docs = data?.documents || [];
 
+      const docs = (data?.documents || []).map((doc: any) => ({
+        id: doc.id,
+        name: doc.name,
+        status: doc.status,
+        uploadedFiles: doc.uploadedFiles || [],
+        required: doc.required,
+      }));
+
+      setApplicationId(data?.loanApplicationId || "");
       setDocuments(docs);
-
-      // existing
       setApplicationNumber(data?.applicationNumber || "");
-
-      // FIXED (borrower instead of client)
       setClientName(data?.borrower?.name || "");
       setEmail(data?.borrower?.email || "");
       setCreditScore(data?.borrower?.creditScore || "");
 
-      // other fields
       setStatus(data?.status || "");
       setLoanProductCode(data?.loanDetails?.loanProductCode || "");
       setApplicationData(data);
@@ -78,17 +93,19 @@ export default function ClientUpload() {
       const uploadedMap: Record<string, boolean> = {};
       docs.forEach((doc: DocumentItem) => {
         if (doc.uploadedFiles?.length > 0) {
-          uploadedMap[doc.requirementId] = true;
+          uploadedMap[doc.id] = true;
         }
       });
 
       setUploaded(uploadedMap);
     } catch (err) {
+      console.error(err);
       setInvalidToken(true);
     } finally {
       setLoading(false);
     }
   };
+
   const MAX_FILES = 4;
 
   const handleFileChange = (id: string, newFiles: FileList | null) => {
@@ -140,28 +157,39 @@ export default function ClientUpload() {
     setUploading((prev) => ({ ...prev, [id]: true }));
 
     try {
+      const clientToken = sessionStorage.getItem("client_token");
+
       for (const file of fileList) {
         const formData = new FormData();
 
-        // IMPORTANT: only this field required
+        formData.append("loanApplicationId", applicationId);
         formData.append("documentRequirementId", id);
         formData.append("file", file);
 
-        // const res = await axios.post(
-        //   `${API_BASE}/broker/client/loan/${token}`,
-        //   formData,
-        //   {
-        //     headers: {
-        //       "Content-Type": "multipart/form-data",
-        //     },
-        //   },
-        // );
+        const res = await axios.post(
+          `${API_BASE}/client-portal/upload`,
+          formData,
+          {
+            headers: {
+              Authorization: `Bearer ${clientToken}`,
+              "Content-Type": "multipart/form-data",
+            },
+          },
+        );
 
+        console.log("UPLOAD SUCCESS:", res.data);
+
+        // increment count
         setUploadedFilesCount((prev) => prev + 1);
       }
 
+      //  mark uploaded
       setUploaded((prev) => ({ ...prev, [id]: true }));
+
+      // clear selected files
       setFiles((prev) => ({ ...prev, [id]: [] }));
+
+      toast.success("Document uploaded successfully");
     } catch (err: any) {
       console.error("UPLOAD ERROR:", err?.response || err);
 
@@ -205,84 +233,105 @@ export default function ClientUpload() {
     );
   };
 
+  const handleLogout = () => {
+    // remove token
+    sessionStorage.removeItem("client_token");
+
+    // redirect to login page
+    window.location.href = "/client-portal";
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white p-6">
       <div className="max-w-5xl mx-auto">
-        {/* CLIENT INFO BOX */}
-        <div className="bg-white rounded-2xl shadow p-5 mb-6 border">
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            {/* STATUS */}
-            <div>
-              <p className="text-xs text-gray-400">Status</p>
-              <span
-                className={`inline-block px-2 py-1 mt-1 text-xs font-semibold rounded-full
+        <div className="flex">
+          {/* CLIENT INFO BOX */}
+          <div className="bg-white rounded-2xl shadow p-5 mb-6 border">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+              {/* STATUS */}
+              <div>
+                <p className="text-xs text-gray-400">Status</p>
+                <span
+                  className={`inline-block px-2 py-1 mt-1 text-xs font-semibold rounded-full
         ${
           status === "SUBMITTED"
             ? "bg-green-100 text-green-700"
             : "bg-yellow-100 text-yellow-700"
         }`}
-              >
-                {status}
-              </span>
-            </div>
+                >
+                  {status}
+                </span>
+              </div>
 
-            {/* NAME */}
-            <div>
-              <p className="text-xs text-gray-400">Name</p>
-              <p className="font-medium text-gray-800 mt-1 text-sm">
-                {clientName}
-              </p>
-            </div>
+              {/* NAME */}
+              <div>
+                <p className="text-xs text-gray-400">Name</p>
+                <p className="font-medium text-gray-800 mt-1 text-sm">
+                  {clientName}
+                </p>
+              </div>
 
-            {/* EMAIL */}
-            <div>
-              <p className="text-xs text-gray-400">Email</p>
-              <p className="font-medium text-gray-800 mt-1 break-all text-sm">
-                {email}
-              </p>
-            </div>
+              {/* EMAIL */}
+              <div>
+                <p className="text-xs text-gray-400">Email</p>
+                <p className="font-medium text-gray-800 mt-1 break-all text-sm">
+                  {email}
+                </p>
+              </div>
 
-            {/* CREDIT SCORE */}
-            <div>
-              <p className="text-xs text-gray-400">Credit Score</p>
-              <p className="font-semibold text-blue-600 text-sm mt-1">
-                {creditScore || "-"}
-              </p>
-            </div>
+              {/* CREDIT SCORE */}
+              <div>
+                <p className="text-xs text-gray-400">Credit Score</p>
+                <p className="font-semibold text-blue-600 text-sm mt-1">
+                  {creditScore || "-"}
+                </p>
+              </div>
 
-            {/* LOAN PRODUCT */}
-            <div>
-              <p className="text-xs text-gray-400">Loan Product</p>
-              <p className="font-medium text-gray-800 mt-1 text-xs">
-                {loanProductCode}
-              </p>
+              {/* LOAN PRODUCT */}
+              <div>
+                <p className="text-xs text-gray-400">Loan Product</p>
+                <p className="font-medium text-gray-800 mt-1 text-xs">
+                  {loanProductCode}
+                </p>
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="flex gap-3 mb-6">
-          <button
-            onClick={() => setActiveTab("documents")}
-            className={`px-4 py-2 rounded-lg text-sm font-medium border 
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+          {/* LEFT SIDE BUTTONS */}
+          <div className="flex gap-3">
+            <button
+              onClick={() => setActiveTab("documents")}
+              className={`px-4 py-2 rounded-xl text-sm font-medium border transition
       ${
         activeTab === "documents"
           ? "bg-blue-600 text-white"
           : "bg-white text-gray-600 hover:bg-gray-100"
       }`}
-          >
-            Upload Documents
-          </button>
+            >
+              Upload Documents
+            </button>
 
-          <button
-            onClick={() => setActiveTab("application")}
-            className={`px-4 py-2 rounded-lg text-sm font-medium border 
+            <button
+              onClick={() => setActiveTab("application")}
+              className={`px-4 py-2 rounded-xl text-sm font-medium border transition
       ${
         activeTab === "application"
           ? "bg-blue-600 text-white"
           : "bg-white text-gray-600 hover:bg-gray-100"
       }`}
+            >
+              Loan Application
+            </button>
+          </div>
+
+          {/* RIGHT SIDE LOGOUT */}
+          <button
+            onClick={handleLogout}
+            className="text-sm px-4 py-2 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 transition whitespace-nowrap"
           >
-            Loan Application
+            Logout
           </button>
         </div>
 
@@ -347,105 +396,80 @@ export default function ClientUpload() {
                 <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {documents.map((doc) => (
                     <div
-                      key={doc.requirementId}
+                      key={doc.id}
                       className="bg-white border rounded-xl p-4 shadow-sm hover:shadow-md transition flex flex-col justify-between"
                     >
-                      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {documents.map((doc) => (
-                          <div
-                            key={doc.requirementId}
-                            className="bg-white border rounded-xl p-4 shadow-sm hover:shadow-md transition flex flex-col justify-between"
-                          >
-                            {/* TOP */}
-                            <div>
-                              <div className="flex items-center justify-between mb-2">
-                                <FileText className="text-blue-600" size={20} />
+                      {/* TOP */}
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <FileText className="text-blue-600" size={20} />
 
-                                {uploaded[doc.requirementId] && (
-                                  <CheckCircle
-                                    className="text-green-600"
-                                    size={20}
-                                  />
-                                )}
-                              </div>
+                          {uploaded[doc.id] && (
+                            <CheckCircle className="text-green-600" size={20} />
+                          )}
+                        </div>
 
-                              <p className="text-sm font-medium text-gray-800 line-clamp-2">
-                                {doc.documentName}
-                              </p>
+                        <p className="text-sm font-medium text-gray-800 line-clamp-2">
+                          {doc.name}
+                        </p>
 
-                              <p
-                                className={`text-xs mt-1 ${
-                                  uploaded[doc.requirementId]
-                                    ? "text-green-600"
-                                    : "text-yellow-600"
-                                }`}
+                        <p
+                          className={`text-xs mt-1 font-medium ${
+                            uploaded[doc.id]
+                              ? "text-green-600"
+                              : "text-yellow-600"
+                          }`}
+                        >
+                          {uploaded[doc.id] ? "Uploaded" : "Pending"}
+                        </p>
+                      </div>
+
+                      {/* ACTIONS */}
+                      <div className="mt-4">
+                        {uploaded[doc.id] ? (
+                          <div className="text-xs text-green-600 font-medium">
+                            ✔ Completed
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <input
+                              type="file"
+                              multiple
+                              disabled={(files[doc.id]?.length || 0) >= 4}
+                              id={`file-${doc.id}`}
+                              className="hidden"
+                              onChange={(e) =>
+                                handleFileChange(doc.id, e.target.files)
+                              }
+                            />
+
+                            <div className="flex gap-2">
+                              <label
+                                htmlFor={`file-${doc.id}`}
+                                className={`flex-1 text-center text-xs px-3 py-2 border rounded-lg cursor-pointer 
+                ${
+                  (files[doc.id]?.length || 0) >= 4
+                    ? "bg-gray-200 cursor-not-allowed text-slate-500"
+                    : "hover:bg-gray-100"
+                }`}
                               >
-                                {uploaded[doc.requirementId]
-                                  ? "Uploaded"
-                                  : "Pending"}
-                              </p>
-                            </div>
+                                Choose File
+                              </label>
 
-                            {/* ACTIONS */}
-                            <div className="mt-4">
-                              {uploaded[doc.requirementId] ? (
-                                <div className="text-xs text-green-600 font-medium">
-                                  ✔ Completed
-                                </div>
-                              ) : (
-                                <div className="space-y-2">
-                                  <input
-                                    type="file"
-                                    multiple
-                                    disabled={
-                                      (files[doc.requirementId]?.length || 0) >=
-                                      4
-                                    }
-                                    id={`file-${doc.requirementId}`}
-                                    className="hidden"
-                                    onChange={(e) =>
-                                      handleFileChange(
-                                        doc.requirementId,
-                                        e.target.files,
-                                      )
-                                    }
-                                  />
-
-                                  <div className="flex gap-2">
-                                    <label
-                                      htmlFor={`file-${doc.requirementId}`}
-                                      className={`flex-1 text-center text-xs px-3 py-2 border rounded-lg cursor-pointer 
-                  ${
-                    (files[doc.requirementId]?.length || 0) >= 4
-                      ? "bg-gray-200 cursor-not-allowed text-slate-500"
-                      : "hover:bg-gray-100"
-                  }`}
-                                    >
-                                      Choose File
-                                    </label>
-
-                                    <button
-                                      onClick={() =>
-                                        uploadFile(doc.requirementId)
-                                      }
-                                      disabled={
-                                        !(
-                                          files[doc.requirementId]?.length > 0
-                                        ) || uploading[doc.requirementId]
-                                      }
-                                      className="flex-1 flex items-center justify-center gap-1 text-xs px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-                                    >
-                                      <Upload size={14} />
-                                      {uploading[doc.requirementId]
-                                        ? "Uploading..."
-                                        : "Upload"}
-                                    </button>
-                                  </div>
-                                </div>
-                              )}
+                              <button
+                                onClick={() => uploadFile(doc.id)}
+                                disabled={
+                                  !(files[doc.id]?.length > 0) ||
+                                  uploading[doc.id]
+                                }
+                                className="flex-1 flex items-center justify-center gap-1 text-xs px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                              >
+                                <Upload size={14} />
+                                {uploading[doc.id] ? "Uploading..." : "Upload"}
+                              </button>
                             </div>
                           </div>
-                        ))}
+                        )}
                       </div>
                     </div>
                   ))}

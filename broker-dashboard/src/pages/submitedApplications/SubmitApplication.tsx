@@ -42,6 +42,7 @@ type SubmissionField = {
 type TableRow = {
   submissionId: string;
   applicationId: string;
+  applicationNumber?: string;
   borrowerName: string;
   company: string;
   loanType: string;
@@ -146,6 +147,14 @@ export default function LoanApplicationsPage() {
     name: string;
   } | null>(null);
 
+  const [docSelectModal, setDocSelectModal] = useState({
+    isOpen: false,
+    applicationId: "",
+    documents: [],
+    selectedDocs: [] as string[],
+    loading: false,
+  });
+  const [requestMessage, setRequestMessage] = useState("");
   const rowsPerPage = 5;
 
   const navigate = useNavigate();
@@ -428,6 +437,7 @@ export default function LoanApplicationsPage() {
 
               return {
                 submissionId: item.submissionId,
+                applicationNumber: detailJson.data.applicationNumber,
                 applicationId: detailJson.data.applicationId,
                 borrowerName:
                   `${getFieldValue(fields, "borrowerFirstName") || ""} ${
@@ -530,8 +540,27 @@ export default function LoanApplicationsPage() {
     </div>
   );
 
+  const getStatusChip = (status: string) => {
+    switch (status) {
+      case "NEW":
+        return "bg-blue-100 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400";
+
+      case "SENT":
+        return "bg-purple-100 text-purple-700 dark:bg-purple-500/10 dark:text-purple-400";
+
+      case "APPROVED":
+        return "bg-green-100 text-green-700 dark:bg-green-500/10 dark:text-green-400";
+
+      case "DECLINED":
+        return "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400";
+
+      default:
+        return "bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300";
+    }
+  };
+
   const handleSendClientLink = async (applicationId: string) => {
-    console.log(applicationId)
+    console.log(applicationId);
     try {
       const token = sessionStorage.getItem("broker_token");
 
@@ -543,7 +572,7 @@ export default function LoanApplicationsPage() {
             "Content-Type": "application/json",
             ...(token && { Authorization: `Bearer ${token}` }),
           },
-           body: JSON.stringify({}),
+          body: JSON.stringify({}),
         },
       );
 
@@ -574,11 +603,18 @@ export default function LoanApplicationsPage() {
     };
   }, [viewSubmissionId, findLenderModalOpen]);
 
-  const filteredRows = rows.filter(
-    (r) =>
-      r.borrowerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      r.company.toLowerCase().includes(searchTerm.toLowerCase()),
-  );
+  const normalize = (str = "") => str.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+  const filteredRows = rows.filter((r) => {
+    const query = normalize(searchTerm);
+
+    return (
+      normalize(r.borrowerName).includes(query) ||
+      normalize(r.company).includes(query) ||
+      normalize(r.loanType).includes(query) ||
+      normalize(r.applicationNumber || "").includes(query) // 🔥 MAIN FIX
+    );
+  });
 
   const filteredLenders = lenders.filter(
     (l) =>
@@ -603,8 +639,113 @@ export default function LoanApplicationsPage() {
     setCurrentPage(1);
   }, [searchTerm]);
 
+  const fetchDocumentTypes = async (applicationId: string) => {
+    try {
+      const brokerToken = sessionStorage.getItem("broker_token");
+
+      setDocSelectModal({
+        isOpen: true,
+        applicationId,
+        documents: [],
+        selectedDocs: [],
+        loading: true,
+      });
+
+      const res = await fetch(`${API_BASE}/document-types/active`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          ...(brokerToken && {
+            Authorization: `Bearer ${brokerToken}`,
+          }),
+        },
+      });
+
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Failed to fetch document types");
+      }
+
+      const formattedDocs = json.data.map((doc: any) => ({
+        documentTypeId: doc.id,
+        documentType: {
+          name: doc.name,
+        },
+      }));
+
+      setDocSelectModal({
+        isOpen: true,
+        applicationId,
+        documents: formattedDocs,
+        selectedDocs: [],
+        loading: false,
+      });
+    } catch (err: any) {
+      toast.error(err.message || "Failed to load documents");
+
+      // ✅ FIX: stop loading
+      setDocSelectModal((prev) => ({
+        ...prev,
+        loading: false,
+      }));
+    }
+  };
+
+  const handleRequestDocuments = async () => {
+    try {
+      const brokerToken = sessionStorage.getItem("broker_token");
+
+      if (!brokerToken) {
+        toast.error("Unauthorized");
+        return;
+      }
+
+      if (docSelectModal.selectedDocs.length === 0) {
+        toast.error("Please select at least one document");
+        return;
+      }
+
+      const url = `${API_BASE}/broker/loan-pipeline/${docSelectModal.applicationId}/request-documents`;
+
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${brokerToken}`,
+        },
+        body: JSON.stringify({
+          documentTypeIds: docSelectModal.selectedDocs,
+          message: requestMessage || "Please upload these documents urgently",
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || "Failed to request documents");
+      }
+
+      toast.success("Documents requested successfully ✅");
+
+      // ✅ CLOSE MODAL
+      setDocSelectModal({
+        isOpen: false,
+        applicationId: "",
+        documents: [],
+        selectedDocs: [],
+        loading: false,
+      });
+
+      // ✅ OPTIONAL: refresh table
+      // fetchApplications();
+    } catch (err: any) {
+      toast.error(err.message || "Something went wrong");
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#0b1120] p-3 text-slate-900 dark:text-slate-100 selection:bg-blue-100 dark:selection:bg-blue-900/30">
+    <div className="max-w-7xl min-h-screen bg-slate-50 dark:bg-[#0b1120] p-3 text-slate-900 dark:text-slate-100 selection:bg-blue-100 dark:selection:bg-blue-900/30">
       {/* Header Area */}
       <header className="max-w-7xl mx-auto mb-10">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
@@ -643,7 +784,7 @@ export default function LoanApplicationsPage() {
               <div className="relative group flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
                 <input
-                  placeholder="Search by name or company..."
+                  placeholder="Search by name, company, or application no..."
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10 pr-4 py-2.5 w-full md:w-80 rounded-xl text-sm 
                    bg-white dark:bg-slate-900 
@@ -750,20 +891,21 @@ export default function LoanApplicationsPage() {
       </header>
 
       {/* Main Table Container */}
-      <div className="max-w-7xl mx-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl shadow-slate-200/50 dark:shadow-none overflow-hidden">
+      <div className="w-full mx-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl shadow-slate-200/50 dark:shadow-none ">
         <div className="w-full bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
           <div className="overflow-x-auto applications-table-top">
-            <table className="w-full border-separate border-spacing-0">
-              <thead>
+            <table className="min-w-[1100px] w-full table-fixed border-separate border-spacing-0">
+              <thead className="sticky top-0 z-20 bg-white dark:bg-slate-900 shadow-sm">
                 <tr className="bg-slate-50/50 dark:bg-slate-800/40">
                   {[
-                    { label: "Borrower", width: "w-[280px]" },
-                    { label: "Loan Info", width: "w-[150px]" },
-                    { label: "Location", width: "w-[190px]" },
-                    { label: "Amount", width: "w-[140px]" },
-                    { label: "Submitted On", width: "w-[190px]" },
-                    { label: "Status", width: "w-[130px]" },
-                    { label: "Lenders", width: "w-[140px]" },
+                    { label: "Borrower", width: "w-[150px]" },
+                    { label: "Application No.", width: "w-[150px]" },
+                    { label: "Loan Info", width: "w-[190px]" },
+                    { label: "Location", width: "w-[180px]" },
+                    { label: "Amount", width: "w-[100px]" },
+                    { label: "Submitted On", width: "w-[120px]" },
+                    { label: "Status", width: "w-[100px]" },
+                    { label: "Lenders", width: "w-[100px]" },
                     { label: "Action", width: "w-[80px]" },
                   ].map((h) => (
                     <th
@@ -799,13 +941,13 @@ export default function LoanApplicationsPage() {
                       className="group hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors duration-150"
                     >
                       {/* Borrower - High Emphasis */}
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-3">
                         <div className="flex items-center gap-3">
                           <div className="h-10 w-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-700 dark:text-slate-300 font-bold">
                             {row.borrowerName?.charAt(0) || "U"}
                           </div>
                           <div className="flex flex-col min-w-0">
-                            <span className="font-semibold text-[13px] text-slate-900 dark:text-slate-100 truncate">
+                            <span className="text-[13px] text-slate-900 dark:text-slate-100 truncate">
                               {(row.borrowerName &&
                               row.borrowerName.length >= 15
                                 ? row.borrowerName?.slice(0, 15) + "..."
@@ -819,21 +961,27 @@ export default function LoanApplicationsPage() {
                         </div>
                       </td>
 
+                      <td className="px-6 py-3">
+                        <div className="text-xs text-slate-800 dark:text-slate-200">
+                          {row.applicationNumber || "-"}
+                        </div>
+                      </td>
+
                       {/* Loan Info - Medium Emphasis */}
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-3">
                         <span className="text-[10px] text-slate-700 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/50 px-2 py-1 rounded">
                           {row.loanType}
                         </span>
                       </td>
 
                       {/* Location */}
-                      <td className="px-6 py-4 min-w-[200px]">
-                        <div className="flex items-start gap-3">
+                      <td className="px-6 py-3 min-w-[200px]">
+                        <div className="flex items-start gap-1">
                           {/* Fixed Icon Wrapper */}
                           <div className="w-5 h-5 flex items-center justify-center shrink-0 mt-[2px]">
                             <MapPin
-                              className="w-3 h-3 text-slate-500 dark:text-slate-400"
-                              strokeWidth={2.5}
+                              className="w-2.5 h-2.5 text-slate-500 dark:text-slate-400"
+                              strokeWidth={2}
                             />
                           </div>
 
@@ -853,14 +1001,14 @@ export default function LoanApplicationsPage() {
                       </td>
 
                       {/* Amount - Monospace for numbers */}
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-3">
                         <span className="font-mono text-[13px] text-slate-800 dark:text-slate-200">
                           ${row.amount.toLocaleString()}
                         </span>
                       </td>
 
                       {/* Submitted Date & Time */}
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-6 py-3 whitespace-nowrap">
                         {(() => {
                           const submitted = new Date(row.date);
                           const formattedDate = submitted.toLocaleDateString();
@@ -868,7 +1016,7 @@ export default function LoanApplicationsPage() {
 
                           return (
                             <div className="flex flex-col leading-tight">
-                              <span className="text-[13px] font-medium text-slate-700 dark:text-slate-200">
+                              <span className="text-[13px] text-slate-700 dark:text-slate-200">
                                 {formattedDate}
                               </span>
                               <span className="text-[11px] text-slate-500 dark:text-slate-400">
@@ -880,7 +1028,7 @@ export default function LoanApplicationsPage() {
                       </td>
 
                       {/* Status - Dynamic Vibrant Badges */}
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-6 py-3 whitespace-nowrap">
                         <span
                           className={`
       inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] uppercase tracking-wider 
@@ -922,7 +1070,7 @@ export default function LoanApplicationsPage() {
                       </td>
 
                       {/* Action - Clean & Subtle */}
-                      <td className="px-6 py-4 text-center relative">
+                      <td className="px-6 py-3 text-center relative">
                         {/* Three Dot Button */}
                         <button
                           onClick={() =>
@@ -999,6 +1147,25 @@ export default function LoanApplicationsPage() {
                                 <Send size={14} />
                               </div>
                               Send Client Link
+                            </button>
+
+                            {/* Request Document */}
+                            <button
+                              onClick={() => {
+                                fetchDocumentTypes(row.applicationId);
+                                setActiveDropdown(null);
+                              }}
+                              className="
+    flex items-center gap-3 w-full px-4 py-3 text-sm
+    text-emerald-600 dark:text-emerald-400
+    hover:bg-emerald-50 dark:hover:bg-emerald-500/10
+    transition
+  "
+                            >
+                              <div className="p-1.5 rounded-md bg-emerald-100 dark:bg-emerald-500/20">
+                                <FileText size={14} />
+                              </div>
+                              Request Document
                             </button>
 
                             <button
@@ -1092,7 +1259,7 @@ export default function LoanApplicationsPage() {
             </table>
             {/* ================= APPLICATION PAGINATION ================= */}
             {filteredRows.length > rowsPerPage && (
-              <div className="flex flex-col md:flex-row items-center justify-between gap-4 px-6 py-4 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+              <div className="flex flex-col md:flex-row items-center justify-between gap-4 px-6 py-3 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
                 {/* Showing Info */}
                 <p className="text-sm text-slate-500 dark:text-slate-400">
                   Showing{" "}
@@ -1171,7 +1338,7 @@ export default function LoanApplicationsPage() {
                                             shadow-xl dark:shadow-black/40"
               >
                 {/* HEADER */}
-                <div className="sticky top-0 z-10 bg-white dark:bg-slate-900 flex items-center justify-between px-6 py-4 border-b dark:border-slate-800">
+                <div className="sticky top-0 z-10 bg-white dark:bg-slate-900 flex items-center justify-between px-6 py-3 border-b dark:border-slate-800">
                   <div>
                     <h2 className="font-bold text-lg">Application Details</h2>
                   </div>
@@ -1434,13 +1601,33 @@ export default function LoanApplicationsPage() {
                             </div>
                           )}
 
-                          {/* STATUS */}
+                          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 text-sm font-medium">
+                            {/* Application Number */}
+                            <div>
+                              <span className="font-semibold">
+                                Application No:
+                              </span>{" "}
+                              <span className="text-slate-700 dark:text-slate-300">
+                                {submissionDetail.applicationNumber || "-"}
+                              </span>
+                            </div>
 
-                          <div className="text-sm font-medium">
-                            <span className="font-semibold">Status:</span>{" "}
-                            {submissionDetail.status === "DECLINED"
-                              ? "REJECTED"
-                              : submissionDetail.status}
+                            {/* Status */}
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-sm">
+                                Status:
+                              </span>
+
+                              <span
+                                className={`px-3 py-1 rounded-full text-xs font-semibold tracking-wide ${getStatusChip(
+                                  submissionDetail.status,
+                                )}`}
+                              >
+                                {submissionDetail.status === "DECLINED"
+                                  ? "REJECTED"
+                                  : submissionDetail.status}
+                              </span>
+                            </div>
                           </div>
 
                           {/* STATS BOX */}
@@ -1596,7 +1783,7 @@ export default function LoanApplicationsPage() {
             <div className="fixed inset-0 z-50 bg-black/40 dark:bg-black/70 backdrop-blur-[1px] flex items-center justify-center p-4">
               <div className="bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 rounded-2xl w-full max-w-6xl max-h-[90vh] overflow-y-auto shadow-xl dark:shadow-black/40 flex flex-col">
                 {/* HEADER */}
-                <div className="flex items-center justify-between px-6 py-4 border-b dark:border-slate-800 shrink-0">
+                <div className="flex items-center justify-between px-6 py-3 border-b dark:border-slate-800 shrink-0">
                   <div>
                     <h2 className="font-bold text-lg">Find Lenders</h2>
                     <p className="text-xs text-slate-500">
@@ -2267,7 +2454,7 @@ dark:scrollbar-thumb-slate-700 w-full
             <div className="fixed inset-0 z-[99999999] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
               <div className="bg-white dark:bg-slate-900 w-full max-w-3xl rounded-2xl shadow-xl">
                 {/* Header */}
-                <div className="flex items-center justify-between px-6 py-4 border-b dark:border-slate-800">
+                <div className="flex items-center justify-between px-6 py-3 border-b dark:border-slate-800">
                   <h2 className="font-bold text-lg dark:text-white">
                     Letters of Intent
                   </h2>
@@ -2407,7 +2594,7 @@ dark:scrollbar-thumb-slate-700 w-full
             <div className="fixed inset-0 z-[99999999] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
               <div className="w-full max-w-6xl bg-white dark:bg-slate-900 rounded-2xl shadow-2xl flex flex-col h-[90vh] overflow-hidden">
                 {/* Header */}
-                <div className="flex items-center justify-between px-6 py-4 border-b dark:border-slate-800 shrink-0">
+                <div className="flex items-center justify-between px-6 py-3 border-b dark:border-slate-800 shrink-0">
                   <div>
                     <h2 className="text-lg font-bold truncate max-w-md dark:text-white">
                       {previewFile.name}
@@ -2461,6 +2648,163 @@ dark:scrollbar-thumb-slate-700 w-full
                     title={previewFile.name}
                     className="w-full h-full border-none"
                   />
+                </div>
+              </div>
+            </div>,
+            document.body,
+          )}
+
+        {docSelectModal.isOpen &&
+          createPortal(
+            <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+              <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl border border-gray-100">
+                {/* HEADER */}
+                <div className="flex items-center justify-between px-6 py-3 border-b">
+                  <h2 className="text-lg font-semibold text-gray-800">
+                    Select Documents
+                  </h2>
+
+                  <button
+                    onClick={() =>
+                      setDocSelectModal({
+                        isOpen: false,
+                        applicationId: "",
+                        documents: [],
+                        selectedDocs: [],
+                        loading: false,
+                      })
+                    }
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                {/* BODY */}
+                <div className="px-6 py-5">
+                  <div className="flex items-center justify-between mb-4">
+                    <p className="text-sm text-gray-500">
+                      Select which documents are required.
+                    </p>
+
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() =>
+                          setDocSelectModal((prev) => ({
+                            ...prev,
+                            selectedDocs: prev.documents.map(
+                              (d: any) => d.documentTypeId,
+                            ),
+                          }))
+                        }
+                        className="px-3 py-1 text-xs rounded-md border bg-gray-50 hover:bg-gray-100"
+                      >
+                        Select All
+                      </button>
+
+                      <button
+                        onClick={() =>
+                          setDocSelectModal((prev) => ({
+                            ...prev,
+                            selectedDocs: [],
+                          }))
+                        }
+                        className="px-3 py-1 text-xs rounded-md border bg-gray-50 hover:bg-gray-100"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* LOADING */}
+                  {docSelectModal.loading ? (
+                    <div className="text-center py-10 text-gray-500">
+                      Loading documents...
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                      {docSelectModal.documents.map((doc: any) => {
+                        const isSelected = docSelectModal.selectedDocs.includes(
+                          doc.documentTypeId,
+                        );
+
+                        return (
+                          <div
+                            key={doc.documentTypeId}
+                            onClick={() => {
+                              const updated = isSelected
+                                ? docSelectModal.selectedDocs.filter(
+                                    (id) => id !== doc.documentTypeId,
+                                  )
+                                : [
+                                    ...docSelectModal.selectedDocs,
+                                    doc.documentTypeId,
+                                  ];
+
+                              setDocSelectModal({
+                                ...docSelectModal,
+                                selectedDocs: updated,
+                              });
+                            }}
+                            className={`cursor-pointer flex items-center justify-between px-4 py-3 rounded-xl border transition
+                      ${
+                        isSelected
+                          ? "border-emerald-500 bg-emerald-50"
+                          : "border-gray-200 hover:border-gray-300"
+                      }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="w-2 h-2 rounded-full bg-orange-400" />
+                              <span className="text-sm text-gray-700">
+                                {doc.documentType.name}
+                              </span>
+                            </div>
+
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              readOnly
+                              className="accent-emerald-600"
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  <div className="mt-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Message
+                    </label>
+
+                    <textarea
+                      placeholder="Enter a message for the client (optional)..."
+                      className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm 
+               focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500
+               transition resize-none min-h-[90px]"
+                      value={requestMessage}
+                      onChange={(e) => setRequestMessage(e.target.value)}
+                    />
+
+                    <p className="text-xs text-gray-400 mt-1">
+                      This message will be sent along with the document request.
+                    </p>
+                  </div>
+
+                  {/* FOOTER */}
+                  <div className="flex items-center justify-between mt-6">
+                    <p className="text-sm text-gray-500">
+                      {docSelectModal.selectedDocs.length} selected
+                    </p>
+
+                    <button
+                      onClick={handleRequestDocuments}
+                      disabled={docSelectModal.selectedDocs.length === 0}
+                      className="bg-emerald-600 text-white px-5 py-2 rounded-lg text-sm hover:bg-emerald-700 disabled:opacity-50"
+                    >
+                      Request Documents
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>,

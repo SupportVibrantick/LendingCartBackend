@@ -14,7 +14,7 @@ const Pricing = () => {
     },
     {
       title: "No Onboarding or Setup Fees",
-      desc: "Unlike others, Lending Automator doesn’t charge big fees to get started.",
+      desc: "Unlike others, Loan AI doesn’t charge big fees to get started.",
     },
   ];
 
