@@ -16,21 +16,23 @@ module.exports = async function viewSubmission(fastify) {
             },
           },
           application: {
-            include: {
-              applicationLenders: {
-                include: {
-                  lender: true,
-                  lenderProduct: true,
-                  lenderReviews: {
-                    include: {
-                      reviewedByUser: true,
-                      conditions: true,
-                    },
-                  },
-                },
-              },
-            },
+  select: {
+    applicationNumber: true, // ✅ ADD HERE
+
+    applicationLenders: {
+      include: {
+        lender: true,
+        lenderProduct: true,
+        lenderReviews: {
+          include: {
+            reviewedByUser: true,
+            conditions: true,
           },
+        },
+      },
+    },
+  },
+},
         },
       });
 
@@ -49,6 +51,7 @@ module.exports = async function viewSubmission(fastify) {
       data: {
         submissionId: submission.id,
         applicationId: submission.applicationId,
+        applicationNumber: submission.application.applicationNumber,
         applicationProductId: submission.applicationProductId,
         status: submission.status,
         submittedAt: submission.createdAt,
