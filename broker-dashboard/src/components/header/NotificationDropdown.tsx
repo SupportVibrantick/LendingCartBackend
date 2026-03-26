@@ -207,11 +207,33 @@ export default function NotificationDropdown() {
         }
         closeDropdown();
       }}
-      className={`flex justify-between items-start gap-3 rounded-lg border-b p-3 px-4.5 py-3 hover:bg-gray-100
-    ${!n.isRead ? "bg-orange-50 dark:bg-orange-500/10" : ""}`}
+      className={`
+      flex justify-between items-start gap-3 
+      rounded-lg border-b 
+      px-4 py-3
+      border-slate-200 dark:border-slate-800
+      transition-all duration-200
+      hover:bg-slate-100 dark:hover:bg-slate-800
+
+      ${
+        !n.isRead
+          ? "bg-orange-50 dark:bg-orange-500/10 border-orange-200 dark:border-orange-500/20"
+          : ""
+      }
+    `}
     >
+      {/* LEFT CONTENT */}
       <div className="flex gap-3">
-        <span className="relative flex items-center justify-center w-10 h-10 rounded-full text-indigo-600 text-sm font-semibold">
+        {/* Avatar */}
+        <span
+          className="
+          relative flex items-center justify-center 
+          w-10 h-10 rounded-full 
+          text-sm font-semibold
+           text-indigo-600
+           dark:text-indigo-400
+        "
+        >
           {n.metadata?.lenderName
             ?.trim()
             .split(" ")
@@ -221,25 +243,36 @@ export default function NotificationDropdown() {
             .toUpperCase() || "NA"}
         </span>
 
+        {/* Text */}
         <span className="block">
-          <span className="mb-1.5 block text-theme-sm text-gray-700">
+          {/* Main Text */}
+          <span className="mb-1 block text-sm text-slate-700 dark:text-slate-200">
             {n.body}
           </span>
 
-          <span className="flex items-center gap-2 text-gray-500 text-xs">
+          {/* Meta Info */}
+          <span className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
             <span>{(n.metadata?.lenderName || "Lender").slice(0, 12)}...</span>
-            <span className="w-1 h-1 bg-gray-400 rounded-full"></span>
+
+            <span className="w-1 h-1 bg-slate-400 rounded-full"></span>
+
             <span>{new Date(n.createdAt).toLocaleString()}</span>
           </span>
         </span>
       </div>
 
+      {/* DELETE BUTTON */}
       <button
         onClick={(e) => {
           e.stopPropagation();
           deleteNotification(n.id);
         }}
-        className="text-gray-400 hover:text-red-500"
+        className="
+        text-slate-400 
+        hover:text-red-500 
+        dark:hover:text-red-400
+        transition
+      "
       >
         ✕
       </button>
@@ -310,7 +343,7 @@ export default function NotificationDropdown() {
   return (
     <div className="relative">
       <button
-        className="relative flex items-center justify-center text-gray-500 transition-colors bg-white border border-gray-200 rounded-full dropdown-toggle hover:text-gray-700 h-11 w-11 hover:bg-gray-100 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white"
+        className="relative flex items-center justify-center text-gray-500 transition-colors bg-white border border-gray-200 rounded-full dropdown-toggle hover:text-gray-700 h-11 w-11  dark:border-gray-800 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white"
         onClick={handleClick}
       >
         <span
@@ -338,10 +371,10 @@ export default function NotificationDropdown() {
       <Dropdown
         isOpen={isOpen}
         onClose={closeDropdown}
-        className="absolute -right-[240px] mt-[17px] flex h-[480px] w-[350px] flex-col rounded-2xl border border-gray-200 bg-white p-3 shadow-theme-lg dark:border-gray-800 dark:bg-gray-dark sm:w-[361px] lg:right-0"
+        className="absolute -right-[240px] mt-[17px] flex h-[480px] w-[350px] flex-col rounded-2xl border border-gray-200  bg-white p-3 shadow-theme-lg dark:border-gray-800 dark:bg-slate-900 sm:w-[361px] lg:right-0"
       >
         <div className="flex items-center justify-between pb-3 mb-3 border-b border-gray-100 dark:border-gray-700">
-          <h5 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
+          <h5 className="text-lg font-semibold text-gray-800 dark:text-slate-100">
             Notification
           </h5>
           <button
@@ -512,7 +545,7 @@ export default function NotificationDropdown() {
                       </span>
 
                       <div className="flex flex-col">
-                        <span className="text-sm text-gray-800 dark:text-gray-200">
+                        <span className="text-sm text-gray-800 dark:text-slate-100">
                           {n.body}
                         </span>
 

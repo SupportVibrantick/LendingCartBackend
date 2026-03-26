@@ -612,7 +612,7 @@ export default function LoanApplicationsPage() {
       normalize(r.borrowerName).includes(query) ||
       normalize(r.company).includes(query) ||
       normalize(r.loanType).includes(query) ||
-      normalize(r.applicationNumber || "").includes(query) // 🔥 MAIN FIX
+      normalize(r.applicationNumber || "").includes(query) // MAIN FIX
     );
   });
 
@@ -684,7 +684,7 @@ export default function LoanApplicationsPage() {
     } catch (err: any) {
       toast.error(err.message || "Failed to load documents");
 
-      // ✅ FIX: stop loading
+      // FIX: stop loading
       setDocSelectModal((prev) => ({
         ...prev,
         loading: false,
@@ -726,9 +726,9 @@ export default function LoanApplicationsPage() {
         throw new Error(data.message || "Failed to request documents");
       }
 
-      toast.success("Documents requested successfully ✅");
+      toast.success("Documents requested successfully");
 
-      // ✅ CLOSE MODAL
+      // CLOSE MODAL
       setDocSelectModal({
         isOpen: false,
         applicationId: "",
@@ -737,7 +737,7 @@ export default function LoanApplicationsPage() {
         loading: false,
       });
 
-      // ✅ OPTIONAL: refresh table
+      // OPTIONAL: refresh table
       // fetchApplications();
     } catch (err: any) {
       toast.error(err.message || "Something went wrong");
