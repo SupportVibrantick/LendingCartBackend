@@ -1,3 +1,5 @@
+// routes/admin/lenderProducts/sync.js
+
 const { Prisma } = require("@prisma/client");
 const { adminLogs } = require("../../../services/logger/contextLogger");
 
@@ -7,33 +9,18 @@ async function syncLenderProductsRoutes(fastify) {
     {
       schema: {
         tags: ["Admin -> Lender Products"],
-        summary: "Sync lender products configuration",
+        summary: "Sync lender products (per-product config)",
       },
     },
     async (request, reply) => {
       const prisma = fastify.prisma;
 
       try {
-        const data = request.body;
+        const { lenderOrgId, products = [] } = request.body;
 
-        const {
-          lenderOrgId,
-          loanProductCodes = [],
-          businessTypes,
-          equipmentTypes,
-          otherEquipmentExplanation,
-          minLoanAmount,
-          maxLoanAmount,
-          minTermMonths,
-          maxTermMonths,
-          minLtvPercent,
-          maxLtvPercent,
-          minCreditScore,
-          minExperience,
-          interestRateRange,
-          statesSupported,
-        } = data;
-
+        // -----------------------------
+        // Validation
+        // -----------------------------
         if (!lenderOrgId) {
           return reply.status(400).send({
             success: false,
@@ -41,10 +28,16 @@ async function syncLenderProductsRoutes(fastify) {
           });
         }
 
-        /* ------------------------------------------------ */
-        /* Validate lender organization */
-        /* ------------------------------------------------ */
+        if (!Array.isArray(products) || !products.length) {
+          return reply.status(400).send({
+            success: false,
+            message: "products array is required",
+          });
+        }
 
+        // -----------------------------
+        // Validate lender
+        // -----------------------------
         const lender = await prisma.organization.findFirst({
           where: {
             id: lenderOrgId,
@@ -60,95 +53,96 @@ async function syncLenderProductsRoutes(fastify) {
           });
         }
 
-        /* ------------------------------------------------ */
-        /* Fetch existing lender products */
-        /* ------------------------------------------------ */
-
+        // -----------------------------
+        // Existing products
+        // -----------------------------
         const existingProducts = await prisma.lenderProduct.findMany({
           where: { lenderOrgId },
         });
 
-        const existingMap = new Map();
+        const existingMap = new Map(
+          existingProducts.map((p) => [p.loanProductCode, p])
+        );
 
-        existingProducts.forEach((p) => {
-          existingMap.set(p.loanProductCode, p);
-        });
-
-        /* ------------------------------------------------ */
-        /* Fetch loan product master */
-        /* ------------------------------------------------ */
+        // -----------------------------
+        // Fetch loan products
+        // -----------------------------
+        const codes = products.map((p) => p.loanProductCode);
 
         const loanProducts = await prisma.loanProduct.findMany({
           where: {
-            code: { in: loanProductCodes },
+            code: { in: codes },
             isActive: true,
           },
         });
 
-        const loanProductMap = new Map();
+        const loanProductMap = new Map(
+          loanProducts.map((p) => [p.code, p])
+        );
 
-        loanProducts.forEach((p) => {
-          loanProductMap.set(p.code, p);
-        });
-
-        /* ------------------------------------------------ */
-        /* Helpers */
-        /* ------------------------------------------------ */
-
-        const toDecimal = (value) =>
-          value !== undefined && value !== null
-            ? new Prisma.Decimal(value)
-            : null;
+        // -----------------------------
+        // Helpers
+        // -----------------------------
+        const toDecimal = (val) => {
+          if (val === undefined) return null;
+          if (val === null || val === "") return null;
+          if (isNaN(val)) throw new Error(`Invalid number: ${val}`);
+          return new Prisma.Decimal(val);
+        };
 
         const toCsv = (arr) =>
           Array.isArray(arr) && arr.length ? arr.join(",") : null;
 
         const operations = [];
 
-        /* ------------------------------------------------ */
-        /* Handle selected products (create or update) */
-        /* ------------------------------------------------ */
-
-        for (const code of loanProductCodes) {
-          const existing = existingMap.get(code);
-          const loanProduct = loanProductMap.get(code);
+        // -----------------------------
+        // CREATE / UPDATE
+        // -----------------------------
+        for (const item of products) {
+          const existing = existingMap.get(item.loanProductCode);
+          const loanProduct = loanProductMap.get(item.loanProductCode);
 
           if (!loanProduct) continue;
 
-          const isEquipmentFinance = code === "EQUIPMENT_FINANCE";
+          const isEquipmentFinance =
+            item.loanProductCode === "EQUIPMENT_FINANCE";
 
           const payload = {
-            businessTypes: toCsv(businessTypes),
+            // ✅ JSON fields
+            businessTypes: item.businessTypes ?? null,
+            propertyTypes: item.propertyTypes ?? null,
 
-            equipmentTypes: isEquipmentFinance
-              ? toCsv(equipmentTypes)
-              : null,
+            // ✅ Equipment (string)
+            equipmentTypes:
+              isEquipmentFinance && Array.isArray(item.equipmentTypes)
+                ? item.equipmentTypes.join(",")
+                : null,
 
             otherEquipmentExplanation: isEquipmentFinance
-              ? otherEquipmentExplanation || null
+              ? item.otherEquipmentExplanation ?? null
               : null,
 
-            minLoanAmount: toDecimal(minLoanAmount),
-            maxLoanAmount: toDecimal(maxLoanAmount),
+            // financials
+            minLoanAmount: toDecimal(item.minLoanAmount),
+            maxLoanAmount: toDecimal(item.maxLoanAmount),
 
-            minTermMonths: minTermMonths ?? null,
-            maxTermMonths: maxTermMonths ?? null,
+            minTermMonths: item.minTermMonths ?? null,
+            maxTermMonths: item.maxTermMonths ?? null,
 
-            minLtvPercent: toDecimal(minLtvPercent),
-            maxLtvPercent: toDecimal(maxLtvPercent),
+            minLtvPercent: toDecimal(item.minLtvPercent),
+            maxLtvPercent: toDecimal(item.maxLtvPercent),
 
-            minCreditScore: minCreditScore ?? null,
-            minExperience: minExperience ?? null,
+            minCreditScore: item.minCreditScore ?? null,
+            minExperience: item.minExperience ?? null,
 
-            interestRateRange: interestRateRange ?? null,
+            interestRateRange: item.interestRateRange ?? null,
 
-            statesSupported: toCsv(statesSupported),
+            statesSupported: toCsv(item.statesSupported),
 
-            isActive: true,
+            isActive: item.isActive ?? true,
           };
 
-          /* UPDATE existing */
-
+          // UPDATE
           if (existing) {
             operations.push(
               prisma.lenderProduct.update({
@@ -158,8 +152,7 @@ async function syncLenderProductsRoutes(fastify) {
             );
           }
 
-          /* CREATE new */
-
+          // CREATE
           else {
             operations.push(
               prisma.lenderProduct.create({
@@ -174,12 +167,11 @@ async function syncLenderProductsRoutes(fastify) {
           }
         }
 
-        /* ------------------------------------------------ */
-        /* Deactivate unselected products */
-        /* ------------------------------------------------ */
-
+        // -----------------------------
+        // DEACTIVATE removed products
+        // -----------------------------
         for (const existing of existingProducts) {
-          if (!loanProductCodes.includes(existing.loanProductCode)) {
+          if (!codes.includes(existing.loanProductCode)) {
             operations.push(
               prisma.lenderProduct.update({
                 where: { id: existing.id },
@@ -189,16 +181,14 @@ async function syncLenderProductsRoutes(fastify) {
           }
         }
 
-        /* ------------------------------------------------ */
-        /* Execute transaction */
-        /* ------------------------------------------------ */
-
+        // -----------------------------
+        // Execute transaction
+        // -----------------------------
         await prisma.$transaction(operations);
 
-        /* ------------------------------------------------ */
-        /* Return updated list */
-        /* ------------------------------------------------ */
-
+        // -----------------------------
+        // Return updated list
+        // -----------------------------
         const finalProducts = await prisma.lenderProduct.findMany({
           where: { lenderOrgId },
           include: {
@@ -219,11 +209,17 @@ async function syncLenderProductsRoutes(fastify) {
           data: finalProducts,
         });
       } catch (error) {
-        adminLogs.error("Lender product sync failed", error);
+        adminLogs.error("Lender product sync failed", {
+          error: error.message,
+          payload: request.body,
+        });
 
         return reply.status(500).send({
           success: false,
-          message: "Server error while syncing lender products",
+          message:
+            process.env.NODE_ENV === "development"
+              ? error.message
+              : "Server error while syncing lender products",
         });
       }
     }

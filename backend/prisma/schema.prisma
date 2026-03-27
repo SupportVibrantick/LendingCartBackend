@@ -247,7 +247,8 @@ model LenderProduct {
   loanProductId   String?         @db.Uuid
   loanProductCode LoanProductCode
 
-  businessTypes String?
+  businessTypes Json?
+  propertyTypes Json?
 
   equipmentTypes String? 
   otherEquipmentExplanation String?
