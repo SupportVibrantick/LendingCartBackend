@@ -47,6 +47,7 @@ import LoanPipeline from "./pages/LoanPipeline/LoanPipeline";
 import BrokerPortal from "./pages/ViewPortal/BrokerPortal";
 import LenderPortal from "./pages/ViewPortal/LenderPortal";
 import SystemSettings from "./pages/SystemSettings/SystemSettings";
+import LoanCriteria from "./pages/Lenders/LoanCriteria/Main"
 
 export default function App() {
   return (
@@ -84,6 +85,7 @@ export default function App() {
             <Route index path="/all-loan-products" element={<AllLoanProducts/>} />
             <Route index path="/lender-assigned-products" element={<LenderProductAssign/>} />
             <Route index path="/lender-all-assigned-products" element={<LenderAllAssignProducts/>} />
+            <Route index path="/assigned-products" element={<LoanCriteria />} />
             <Route index path="/assigned-products" element={<AssignedProducts/>} />
             <Route index path="/all-super-admins" element={<AllSuperadmin/>} />
             <Route index path="/loan-pipeline" element={<LoanPipeline/>} />

@@ -910,7 +910,7 @@ export default function AllLendersPage() {
             </button>
 
             <button
-              onClick={() => navigate("/lender-all-assigned-products")}
+              onClick={() => navigate("/assigned-products")}
               className="inline-flex items-center whitespace-nowrap px-4 py-2.5 bg-[#13538A] text-white text-sm font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-500/20 active:scale-95 transition-all"
             >
               <PackagePlus className="mr-2 h-5 w-5" />
