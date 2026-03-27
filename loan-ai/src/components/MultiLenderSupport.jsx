@@ -1,70 +1,78 @@
+import { FileText, Layers, Upload, Database } from "lucide-react";
+
 const MultiLenderSupport = () => {
+  const features = [
+    {
+      title: "Top Lenders Ready",
+      icon: <Layers size={20} />,
+    },
+    {
+      title: "Custom Formats",
+      icon: <FileText size={20} />,
+    },
+    {
+      title: "Easy Exports",
+      icon: <Upload size={20} />,
+    },
+    {
+      title: "Centralized Management",
+      icon: <Database size={20} />,
+    },
+  ];
+
   return (
-    <div className="bg-[#F2F5F8] py-20 px-5">
-      
-      {/* Top Content */}
-      <div className="max-w-4xl mx-auto grid md:grid-cols-2 gap-10 items-center">
-        
-        {/* Left Image */}
-        <div>
+    <section className="relative bg-[#0b0f2a] py-28 px-6 overflow-hidden">
+
+      {/* Background Glow */}
+      <div className="absolute top-[-120px] right-[-100px] w-[500px] h-[500px] bg-blue-500/20 blur-[120px] rounded-full"></div>
+
+      <div className="relative max-w-6xl mx-auto grid md:grid-cols-2 gap-14 items-center">
+
+        {/* LEFT: Image */}
+        <div className="group">
           <img
-            src="https://static.wixstatic.com/media/4cbb8e_feb509696b574fd7a0b6ddb298e8af1e~mv2.png/v1/fill/w_703,h_316,al_c,lg_1,q_85,enc_avif,quality_auto/Home%20page%20image%202a.png"
+            src="./MultiLenderSupport.png"
             alt="multi lender"
-            className="w-full rounded-xl shadow"
+            className="w-full rounded-2xl shadow-[0_20px_80px_rgba(0,0,0,0.7)] group-hover:scale-105 transition duration-500"
           />
         </div>
 
-        {/* Right Text */}
+        {/* RIGHT: Content */}
         <div>
-          <h3 className="text-2xl md:text-3xl font-semibold text-gray-900 mb-4">
-            Multi-Lender Support
+          <h3 className="text-3xl md:text-4xl font-bold text-white mb-6">
+            Multi-Lender{" "}
+            <span className="bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
+              Support
+            </span>
           </h3>
 
-          <p className="text-gray-700 leading-relaxed">
+          <p className="text-gray-300 leading-relaxed mb-8">
             Loan AI allows you to work with virtually any private money lender,
-            and supports custom document formats for each. Switching lenders midway
-            through an application is simple because previously collected data can
-            automatically be converted to the new lender's format, ensuring minimal
-            disruption to your applicants.
+            supporting custom document formats for each. Easily switch lenders
+            mid-application while automatically converting existing data —
+            ensuring zero disruption.
           </p>
+
+          {/* Feature Pills */}
+          <div className="grid grid-cols-2 gap-4">
+            {features.map((item, index) => (
+              <div
+                key={index}
+                className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl px-4 py-3 backdrop-blur-xl hover:bg-white/10 transition"
+              >
+                <div className="w-9 h-9 flex items-center justify-center rounded-lg bg-gradient-to-r from-blue-500 to-indigo-500 text-white">
+                  {item.icon}
+                </div>
+
+                <span className="text-gray-200 text-sm font-medium">
+                  {item.title}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
-
-      {/* Feature Cards */}
-      <div className="max-w-4xl mx-auto mt-16 grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
-        
-        {[
-          "Preconfigured for the Top Lenders",
-          "Custom Document Formats",
-          "Easy File Exports",
-          "Centralized Loan Management",
-        ].map((item, index) => (
-          
-          <div
-            key={index}
-            className="bg-[#F2F5F8] py-5 px-5 rounded-xl shadow-xl hover:shadow-lg transition duration-300 flex flex-col items-center"
-          >
-            
-            {/* Icon */}
-            <div className="w-12 h-12 mb-5">
-              <img
-                src="https://static.wixstatic.com/media/4cbb8e_71e372ebba94426fb075f5fe43e5f8f3~mv2.png"
-                alt="icon"
-                className="w-full h-full object-contain"
-              />
-            </div>
-
-            {/* Text */}
-            <p className="text-gray-800 font-medium leading-snug text-sm">
-              {item}
-            </p>
-
-          </div>
-
-        ))}
-      </div>
-
-    </div>
+    </section>
   );
 };
 

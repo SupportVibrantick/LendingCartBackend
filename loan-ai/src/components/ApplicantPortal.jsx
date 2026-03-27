@@ -1,3 +1,5 @@
+import { CheckCircle } from "lucide-react";
+
 const ApplicantPortal = () => {
   const leftFeatures = [
     "Lender matching and quote requests",
@@ -25,110 +27,86 @@ const ApplicantPortal = () => {
     "No set-up fees",
   ];
 
+  const highlights = [
+    {
+      title: "Complete Tasks Online",
+      desc: "Applicants finish everything digitally without manual follow-ups.",
+    },
+    {
+      title: "Real-Time Messaging",
+      desc: "Communicate instantly with applicants for faster approvals.",
+    },
+    {
+      title: "Works Everywhere",
+      desc: "Fully responsive on mobile, tablet, and desktop devices.",
+    },
+  ];
+
   return (
-    <div className="bg-white py-20 px-5">
-      <div className="max-w-4xl mx-auto text-center">
+    <section className="relative bg-[#0b0f2a] py-28 px-6 overflow-hidden">
+
+      {/* Glow */}
+      <div className="absolute top-[-120px] left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-indigo-500/20 blur-[120px] rounded-full"></div>
+
+      <div className="relative max-w-6xl mx-auto">
+
         {/* Heading */}
-        <h2 className="text-3xl md:text-4xl font-bold text-blue-900 mb-6">
-          Applicant Portal Included
-        </h2>
+        <div className="text-center mb-16">
+          <h2 className="text-3xl md:text-5xl font-bold text-white mb-6">
+            Applicant{" "}
+            <span className="bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
+              Portal
+            </span>
+          </h2>
 
-        {/* Description */}
-        <p className="text-gray-700 max-w-2xl mx-auto leading-relaxed mb-12">
-          Give your applicants a seamless experience with a fully-featured
-          portal. They can complete tasks, upload documents, and track progress
-          — all in one place. No confusion, no delays.
-        </p>
+          <p className="text-gray-300 max-w-2xl mx-auto">
+            Give your applicants a seamless, modern experience — complete tasks,
+            upload documents, and track progress in one place.
+          </p>
+        </div>
 
-        {/* Features Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8">
-          {[
-            {
-              title: "Complete Tasks Online",
-              desc: "Applicants can finish all required steps digitally without manual follow-ups.",
-            },
-            {
-              title: "Two-Way Messaging",
-              desc: "Communicate directly with applicants in real-time for faster processing.",
-            },
-            {
-              title: "Works On Any Device",
-              desc: "Fully responsive portal accessible on mobile, tablet, and desktop.",
-            },
-          ].map((item, index) => (
+        {/* Top Highlights */}
+        <div className="grid md:grid-cols-3 gap-6 mb-20">
+          {highlights.map((item, i) => (
             <div
-              key={index}
-              className="bg-white p-8 rounded-2xl shadow-lg hover:shadow-xl transition duration-300 text-left flex flex-col justify-center items-center"
+              key={i}
+              className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 text-center hover:bg-white/10 transition"
             >
-              {/* Icon */}
-              <div className="w-12 h-12 mb-5">
-                <img
-                  src="https://static.wixstatic.com/media/4cbb8e_71e372ebba94426fb075f5fe43e5f8f3~mv2.png"
-                  alt="icon"
-                  className="w-full h-full object-contain"
-                />
-              </div>
-
-              {/* Title */}
-              <h3 className="text-lg font-semibold mb-2">{item.title}</h3>
-
-              {/* Desc */}
-              <p className="text-gray-600 text-sm leading-relaxed">
+              <h3 className="text-white font-semibold mb-2">
+                {item.title}
+              </h3>
+              <p className="text-gray-400 text-sm">
                 {item.desc}
               </p>
             </div>
           ))}
         </div>
-      </div>
 
-      <div className="max-w-4xl mx-auto pt-14">
-        {/* Heading */}
-        <h2 className="text-3xl md:text-4xl font-bold text-center text-blue-900 mb-14">
-          Comprehensive Feature Set
-        </h2>
-
-        {/* Grid */}
-        <div className="grid md:grid-cols-2 gap-8">
-          {/* Left Card */}
-          <div className="bg-[#F2F5F8] rounded-xl p-8 shadow-xl hover:shadow-2xl transition">
-            <ul className="space-y-5">
-              {leftFeatures.map((item, index) => (
-                <li key={index} className="flex items-start gap-3">
-                  {/* Icon */}
-                  <div className="mt-1">
-                    <div className="w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs">
-                      ✓
-                    </div>
-                  </div>
-
-                  {/* Text */}
-                  <p className="text-gray-700 text-sm md:text-base">{item}</p>
-                </li>
+        {/* Feature List (clean, not heavy cards) */}
+        <div className="grid md:grid-cols-2 gap-12">
+          
+          {[leftFeatures, rightFeatures].map((list, idx) => (
+            <div key={idx} className="space-y-4">
+              {list.map((item, i) => (
+                <div
+                  key={i}
+                  className="flex items-start gap-3 text-gray-300"
+                >
+                  <CheckCircle
+                    size={18}
+                    className="text-blue-400 mt-1"
+                  />
+                  <span className="text-sm md:text-base">
+                    {item}
+                  </span>
+                </div>
               ))}
-            </ul>
-          </div>
+            </div>
+          ))}
 
-          {/* Right Card */}
-          <div className="bg-[#F2F5F8] rounded-2xl p-8 shadow-xl hover:shadow-2xl transition">
-            <ul className="space-y-5">
-              {rightFeatures.map((item, index) => (
-                <li key={index} className="flex items-start gap-3">
-                  {/* Icon */}
-                  <div className="mt-1">
-                    <div className="w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs">
-                      ✓
-                    </div>
-                  </div>
-
-                  {/* Text */}
-                  <p className="text-gray-700 text-sm md:text-base">{item}</p>
-                </li>
-              ))}
-            </ul>
-          </div>
         </div>
       </div>
-    </div>
+    </section>
   );
 };
 

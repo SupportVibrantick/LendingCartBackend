@@ -1,73 +1,79 @@
+import { Zap, MousePointerClick, Phone, Trophy } from "lucide-react";
+
 const Benefits = () => {
   const features = [
-    "Best Matches Appear First",
-    "One Click Quote Requests",
-    "Contact Info Provided",
-    "Lenders Compete For Your Business",
+    {
+      title: "Best Matches First",
+      desc: "Smart AI ranks lenders so you always see the best options upfront.",
+      icon: <Zap size={22} />,
+    },
+    {
+      title: "One Click Quotes",
+      desc: "Request quotes instantly without manual follow-ups or delays.",
+      icon: <MousePointerClick size={22} />,
+    },
+    {
+      title: "Direct Contact Info",
+      desc: "Get instant access to lender contact details and close deals faster.",
+      icon: <Phone size={22} />,
+    },
+    {
+      title: "Lenders Compete",
+      desc: "Multiple lenders compete to offer you the best possible deal.",
+      icon: <Trophy size={22} />,
+    },
   ];
 
   return (
-    <div id="benefits" className="scroll-mt-24 bg-white py-0 px-5 mx-w-4xl mb-4">
-      {/* Heading */}
-      <h2 className="text-3xl md:text-4xl font-bold text-center text-blue-900 mb-12">
-        Loan AI Saves You <br /> Time & Money
-      </h2>
+    <section
+      id="benefits"
+      className="scroll-mt-24 bg-[#0b0f2a] py-28 px-6 relative overflow-hidden"
+    >
+      {/* Glow */}
+      <div className="absolute top-[-120px] left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-indigo-500/20 blur-[120px] rounded-full"></div>
 
-      {/* Content Row */}
-      <div className="max-w-4xl mx-auto grid md:grid-cols-2 gap-10 items-center">
-        {/* Left Text */}
-        <div>
-          <h3 className="text-2xl font-semibold mb-4">
-            Lender Matching/Quote Requests
-          </h3>
+      <div className="relative max-w-6xl mx-auto text-center">
 
-          <p className="text-gray-800 leading-relaxed">
-            Loan AI analyzes pre-application data to identify lenders
-            who may be a good fit to fund your deal. We then allow you to
-            request quotes with a single click! No more struggling to find
-            someone who can get it done. Loan AI helps you discover
-            new lenders to keep your loans moving forward.
-          </p>
-        </div>
+        {/* Heading */}
+        <h2 className="text-3xl md:text-5xl font-bold text-white mb-6">
+          Why Choose{" "}
+          <span className="bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
+            Loan AI
+          </span>
+        </h2>
 
-        {/* Right Image */}
-        <div>
-          <img
-            src="https://static.wixstatic.com/media/4cbb8e_a92b159bfabc44a5a5af32ce31d89fa0~mv2.png/v1/fill/w_907,h_533,al_c,q_90,enc_avif,quality_auto/4cbb8e_a92b159bfabc44a5a5af32ce31d89fa0~mv2.png"
-            alt="lender matching"
-            className="w-full rounded-xl shadow"
-          />
-        </div>
-      </div>
+        <p className="text-gray-300 max-w-2xl mx-auto mb-16">
+          Powerful automation tools designed to save your time, reduce effort,
+          and maximize deal success.
+        </p>
 
-      <div className="max-w-4xl mx-auto mt-16 grid grid-cols-2 md:grid-cols-4 gap-8 text-center pb-8">
-        {[
-          "Best Matches Appear First",
-          "One Click Quote Requests",
-          "Contact Info Provided",
-          "Lenders Compete For Your Business",
-        ].map((item, index) => (
-          <div
-            key={index}
-            className="bg-white shadow-2xl py-5 px-5 rounded-xl hover:shadow-xl transition duration-300 flex flex-col items-center"
-          >
-            {/* Icon */}
-            <div className="w-12 h-12 mb-5">
-              <img
-                src="https://static.wixstatic.com/media/4cbb8e_71e372ebba94426fb075f5fe43e5f8f3~mv2.png"
-                alt="icon"
-                className="w-full h-full object-contain"
-              />
+        {/* Feature Cards */}
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+
+          {features.map((item, index) => (
+            <div
+              key={index}
+              className="group bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 text-left hover:bg-white/10 hover:-translate-y-2 transition duration-300"
+            >
+              {/* Icon */}
+              <div className="w-12 h-12 flex items-center justify-center rounded-lg bg-gradient-to-r from-blue-500 to-indigo-500 text-white mb-4 shadow-lg group-hover:shadow-blue-500/40 transition">
+                {item.icon}
+              </div>
+
+              {/* Title */}
+              <h3 className="text-white font-semibold text-lg mb-2">
+                {item.title}
+              </h3>
+
+              {/* Description */}
+              <p className="text-gray-400 text-sm leading-relaxed">
+                {item.desc}
+              </p>
             </div>
-
-            {/* Text */}
-            <p className="text-gray-800 font-medium leading-snug text-sm">
-              {item}
-            </p>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
-    </div>
+    </section>
   );
 };
 

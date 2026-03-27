@@ -1,72 +1,77 @@
+import { Check } from "lucide-react";
+
 const Pricing = () => {
   const features = [
-    {
-      title: "Unlimited Applications",
-      desc: "Enter as many deals as you want for one low price.",
-    },
-    {
-      title: "Virtual Processor™",
-      desc: "Automation on each application saves you time & money.",
-    },
-    {
-      title: "No Long-Term Contract",
-      desc: "Pay month-to-month or save when you enroll for a full year.",
-    },
-    {
-      title: "No Onboarding or Setup Fees",
-      desc: "Unlike others, Loan AI doesn’t charge big fees to get started.",
-    },
+    "Unlimited Applications",
+    "Virtual Processor™ Automation",
+    "No Long-Term Contracts",
+    "No Setup Fees",
   ];
 
   return (
-    <div id="pricing" className="scroll-mt-24 bg-[#F2F5F8] py-20 px-5">
-      <div className="max-w-4xl mx-auto text-center">
-        
+    <section
+      id="pricing"
+      className="scroll-mt-24 bg-[#0b0f2a] py-28 px-6 relative overflow-hidden"
+    >
+      {/* Glow */}
+      <div className="absolute top-[-120px] left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-indigo-500/20 blur-[120px] rounded-full"></div>
+
+      <div className="relative max-w-5xl mx-auto text-center">
+
         {/* Heading */}
-        <h2 className="text-2xl md:text-3xl font-semibold text-gray-700">
-          Pricing
+        <h2 className="text-3xl md:text-5xl font-bold text-white mb-6">
+          Simple{" "}
+          <span className="bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
+            Pricing
+          </span>
         </h2>
 
-        <h3 className="text-3xl md:text-4xl font-bold text-blue-900 mt-3">
-          $99/Month Per User
-        </h3>
-
-        <p className="text-blue-900 mt-2 font-medium">
-          (Seriously, no other charges!)
+        <p className="text-gray-300 mb-16">
+          One plan. No hidden fees. Everything included.
         </p>
 
-        {/* Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 mt-14">
-          {features.map((item, index) => (
-            <div
-              key={index}
-              className="bg-[#F2F5F8] rounded-2xl p-6 shadow-lg hover:shadow-lg transition duration-300"
-            >
-              <h4 className="text-blue-900 font-bold text-lg mb-3">
-                {item.title}
-              </h4>
+        {/* Pricing Card */}
+        <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-10 max-w-xl mx-auto shadow-[0_20px_80px_rgba(0,0,0,0.7)]">
 
-              <p className="text-gray-600 text-sm leading-relaxed">
-                {item.desc}
-              </p>
-            </div>
-          ))}
+          {/* Price */}
+          <h3 className="text-white text-4xl md:text-5xl font-bold mb-4">
+            $99<span className="text-lg text-gray-400">/month</span>
+          </h3>
+
+          <p className="text-gray-400 mb-8">
+            Per user — no extra charges
+          </p>
+
+          {/* Features */}
+          <div className="space-y-4 text-left mb-10">
+            {features.map((item, index) => (
+              <div key={index} className="flex items-center gap-3">
+                <Check className="text-blue-400" size={18} />
+                <span className="text-gray-200 text-sm md:text-base">
+                  {item}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          {/* CTA */}
+          <div className="flex flex-col sm:flex-row gap-4">
+            <button className="w-full bg-gradient-to-r from-blue-500 to-indigo-500 text-white py-3 rounded-xl font-semibold shadow-lg hover:scale-105 hover:shadow-blue-500/30 transition">
+              Get Started
+            </button>
+
+            <button className="w-full bg-white/10 border border-white/20 text-white py-3 rounded-xl hover:bg-white/20 transition">
+              Book Demo
+            </button>
+          </div>
         </div>
 
-        {/* Buttons */}
-        <div className="mt-12 flex flex-col sm:flex-row items-center justify-center gap-4">
-          
-          <button className="bg-blue-900 text-white px-6 py-3 rounded-lg shadow hover:bg-blue-800 transition">
-            Register Now
-          </button>
-
-          <button className="bg-white border border-gray-300 px-6 py-3 rounded-lg shadow-sm hover:shadow-md transition">
-            Book a Demo
-          </button>
-
-        </div>
+        {/* Bottom Note */}
+        <p className="text-gray-400 text-sm mt-6">
+          No contracts. Cancel anytime.
+        </p>
       </div>
-    </div>
+    </section>
   );
 };
 
