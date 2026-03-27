@@ -1,4 +1,5 @@
 // routes/admin/lenderProducts/create.js
+
 const { Prisma } = require("@prisma/client");
 const { adminLogs } = require("../../../services/logger/contextLogger");
 const {
@@ -11,7 +12,8 @@ async function createLenderProductRoutes(fastify) {
     {
       schema: {
         tags: ["Admin -> Lender Products"],
-        summary: "Assign multiple loan products to a lender",
+        summary:
+          "Assign lender products with per-product config + per-product business/property types",
         body: { type: "object" },
       },
     },
@@ -20,7 +22,7 @@ async function createLenderProductRoutes(fastify) {
 
       try {
         // ---------------------------
-        // Validate request body
+        // Validate request
         // ---------------------------
         const parsed = createLenderProductSchema.safeParse(request.body);
 
@@ -33,6 +35,52 @@ async function createLenderProductRoutes(fastify) {
         }
 
         const data = parsed.data;
+
+        const isNewFormat = Array.isArray(data.products);
+
+        if (!isNewFormat && !data.loanProductCodes) {
+          return reply.status(400).send({
+            success: false,
+            message:
+              "Either 'products' or 'loanProductCodes' must be provided.",
+          });
+        }
+
+        // ---------------------------
+        // Normalize products
+        // ---------------------------
+        let normalizedProducts = [];
+
+        if (isNewFormat) {
+          normalizedProducts = data.products;
+        } else {
+          normalizedProducts = data.loanProductCodes.map((code) => ({
+            loanProductCode: code,
+
+            // fallback (no types in old format)
+            businessTypes: data.businessTypes,
+            propertyTypes: data.propertyTypes,
+
+            minLoanAmount: data.minLoanAmount,
+            maxLoanAmount: data.maxLoanAmount,
+            minTermMonths: data.minTermMonths,
+            maxTermMonths: data.maxTermMonths,
+            minLtvPercent: data.minLtvPercent,
+            maxLtvPercent: data.maxLtvPercent,
+            minCreditScore: data.minCreditScore,
+            minExperience: data.minExperience,
+            interestRateRange: data.interestRateRange,
+            statesSupported: data.statesSupported,
+            isActive: data.isActive,
+          }));
+        }
+
+        if (!normalizedProducts.length) {
+          return reply.status(400).send({
+            success: false,
+            message: "No products provided.",
+          });
+        }
 
         // ---------------------------
         // Validate lender org
@@ -55,17 +103,22 @@ async function createLenderProductRoutes(fastify) {
         // ---------------------------
         // Fetch loan products
         // ---------------------------
+        const codes = normalizedProducts.map(
+          (p) => p.loanProductCode
+        );
+
         const loanProducts = await prisma.loanProduct.findMany({
           where: {
-            code: { in: data.loanProductCodes },
+            code: { in: codes },
             isActive: true,
           },
         });
 
-        if (loanProducts.length !== data.loanProductCodes.length) {
+        if (loanProducts.length !== codes.length) {
           return reply.status(404).send({
             success: false,
-            message: "One or more loan products not found or inactive.",
+            message:
+              "One or more loan products not found or inactive.",
           });
         }
 
@@ -75,68 +128,85 @@ async function createLenderProductRoutes(fastify) {
         const existing = await prisma.lenderProduct.findMany({
           where: {
             lenderOrgId: data.lenderOrgId,
-            loanProductCode: { in: data.loanProductCodes },
+            loanProductCode: { in: codes },
           },
           select: { loanProductCode: true },
         });
 
-        const existingCodes = new Set(existing.map((e) => e.loanProductCode));
+        const existingCodes = new Set(
+          existing.map((e) => e.loanProductCode)
+        );
 
         // ---------------------------
-        // Prepare create payload
+        // Prepare payload
         // ---------------------------
-        const createPayload = loanProducts
-          .filter((p) => !existingCodes.has(p.code))
-          .map((product) => {
+        const createPayload = normalizedProducts
+          .filter(
+            (item) => !existingCodes.has(item.loanProductCode)
+          )
+          .map((item) => {
+            const product = loanProducts.find(
+              (p) => p.code === item.loanProductCode
+            );
+
+            if (!product) {
+              throw new Error(
+                `Invalid loan product code: ${item.loanProductCode}`
+              );
+            }
 
             const isEquipmentFinance =
-              product.code === "EQUIPMENT_FINANCE";
+              item.loanProductCode === "EQUIPMENT_FINANCE";
 
             return {
               lenderOrgId: data.lenderOrgId,
               loanProductId: product.id,
               loanProductCode: product.code,
 
-              businessTypes: data.businessTypes?.join(",") ?? null,
+              // ✅ PER PRODUCT TYPES (FINAL FIX)
+              businessTypes: item.businessTypes ?? null,
+              propertyTypes: item.propertyTypes ?? null,
 
-              // equipment fields only for equipment finance
+              // financial fields
+              minLoanAmount: item.minLoanAmount
+                ? new Prisma.Decimal(item.minLoanAmount)
+                : null,
+
+              maxLoanAmount: item.maxLoanAmount
+                ? new Prisma.Decimal(item.maxLoanAmount)
+                : null,
+
+              minTermMonths: item.minTermMonths ?? null,
+              maxTermMonths: item.maxTermMonths ?? null,
+
+              minLtvPercent: item.minLtvPercent
+                ? new Prisma.Decimal(item.minLtvPercent)
+                : null,
+
+              maxLtvPercent: item.maxLtvPercent
+                ? new Prisma.Decimal(item.maxLtvPercent)
+                : null,
+
+              minCreditScore: item.minCreditScore ?? null,
+              minExperience: item.minExperience ?? null,
+
+              interestRateRange: item.interestRateRange ?? null,
+
+              statesSupported:
+                item.statesSupported?.join(",") ?? null,
+
+              // equipment
               equipmentTypes:
-                isEquipmentFinance && data.equipmentTypes?.length
-                  ? data.equipmentTypes.join(",")
+                isEquipmentFinance && item.equipmentTypes?.length
+                  ? item.equipmentTypes.join(",")
                   : null,
 
               otherEquipmentExplanation:
                 isEquipmentFinance
-                  ? data.otherEquipmentExplanation ?? null
+                  ? item.otherEquipmentExplanation ?? null
                   : null,
 
-              minLoanAmount: data.minLoanAmount
-                ? new Prisma.Decimal(data.minLoanAmount)
-                : null,
-
-              maxLoanAmount: data.maxLoanAmount
-                ? new Prisma.Decimal(data.maxLoanAmount)
-                : null,
-
-              minTermMonths: data.minTermMonths ?? null,
-              maxTermMonths: data.maxTermMonths ?? null,
-
-              minLtvPercent: data.minLtvPercent
-                ? new Prisma.Decimal(data.minLtvPercent)
-                : null,
-
-              maxLtvPercent: data.maxLtvPercent
-                ? new Prisma.Decimal(data.maxLtvPercent)
-                : null,
-
-              minCreditScore: data.minCreditScore ?? null,
-              minExperience: data.minExperience ?? null,
-
-              interestRateRange: data.interestRateRange ?? null,
-
-              statesSupported: data.statesSupported?.join(",") ?? null,
-
-              isActive: data.isActive ?? true,
+              isActive: item.isActive ?? true,
             };
           });
 
@@ -149,7 +219,7 @@ async function createLenderProductRoutes(fastify) {
         }
 
         // ---------------------------
-        // Create records
+        // Transaction
         // ---------------------------
         const created = await prisma.$transaction(
           createPayload.map((d) =>
@@ -170,6 +240,7 @@ async function createLenderProductRoutes(fastify) {
         return reply.status(500).send({
           success: false,
           message:
+            error.message ||
             "Server error while creating lender products",
         });
       }

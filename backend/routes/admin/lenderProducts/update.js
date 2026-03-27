@@ -7,7 +7,6 @@ const {
 } = require("../../../schemas/admin/lenderProducts/update.schema");
 
 async function updateLenderProductRoutes(fastify) {
-
   fastify.patch(
     "/:id",
     {
@@ -17,12 +16,10 @@ async function updateLenderProductRoutes(fastify) {
       },
     },
     async (request, reply) => {
-
       const prisma = fastify.prisma;
       const productId = request.params.id;
 
       try {
-
         // -----------------------------
         // Validate request body
         // -----------------------------
@@ -60,10 +57,12 @@ async function updateLenderProductRoutes(fastify) {
         // -----------------------------
         // Helpers
         // -----------------------------
-        const toDecimal = (value) =>
-          value !== undefined && value !== null && value !== ""
-            ? new Prisma.Decimal(value)
-            : undefined;
+        const toDecimal = (value) => {
+          if (value === undefined) return undefined;
+          if (value === null || value === "") return null;
+          if (isNaN(value)) throw new Error(`Invalid number: ${value}`);
+          return new Prisma.Decimal(value);
+        };
 
         const toCsv = (value) => {
           if (value === undefined) return undefined;
@@ -72,25 +71,30 @@ async function updateLenderProductRoutes(fastify) {
         };
 
         // -----------------------------
-        // Business types
+        // ✅ Business & Property Types (JSON)
         // -----------------------------
-        const businessTypes = toCsv(data.businessTypes);
-        if (businessTypes !== undefined)
-          updatePayload.businessTypes = businessTypes;
+        if (data.businessTypes !== undefined) {
+          updatePayload.businessTypes = data.businessTypes ?? null;
+        }
+
+        if (data.propertyTypes !== undefined) {
+          updatePayload.propertyTypes = data.propertyTypes ?? null;
+        }
 
         // -----------------------------
-        // Equipment fields
+        // Equipment fields (STRING)
         // -----------------------------
         if (isEquipmentFinance) {
-
           const equipmentTypes = toCsv(data.equipmentTypes);
-          if (equipmentTypes !== undefined)
-            updatePayload.equipmentTypes = equipmentTypes;
 
-          if (data.otherEquipmentExplanation !== undefined)
+          if (equipmentTypes !== undefined) {
+            updatePayload.equipmentTypes = equipmentTypes;
+          }
+
+          if (data.otherEquipmentExplanation !== undefined) {
             updatePayload.otherEquipmentExplanation =
               data.otherEquipmentExplanation || null;
-
+          }
         }
 
         // -----------------------------
@@ -137,7 +141,7 @@ async function updateLenderProductRoutes(fastify) {
           updatePayload.interestRateRange = data.interestRateRange;
 
         // -----------------------------
-        // States
+        // States (STRING CSV)
         // -----------------------------
         const states = toCsv(data.statesSupported);
         if (states !== undefined)
@@ -149,6 +153,9 @@ async function updateLenderProductRoutes(fastify) {
         if (typeof data.isActive === "boolean")
           updatePayload.isActive = data.isActive;
 
+        // -----------------------------
+        // Prevent empty update
+        // -----------------------------
         if (!Object.keys(updatePayload).length) {
           return reply.status(400).send({
             success: false,
@@ -174,7 +181,7 @@ async function updateLenderProductRoutes(fastify) {
         });
 
         // -----------------------------
-        // Return updated lender products
+        // Return updated list
         // -----------------------------
         const products = await prisma.lenderProduct.findMany({
           where: {
@@ -198,17 +205,19 @@ async function updateLenderProductRoutes(fastify) {
           updatedProduct,
           data: products,
         });
-
       } catch (error) {
-
         adminLogs.error("Update lender product failed", {
           productId,
-          error,
+          error: error.message,
+          payload: request.body,
         });
 
         return reply.status(500).send({
           success: false,
-          message: "Server error while updating lender product",
+          message:
+            process.env.NODE_ENV === "development"
+              ? error.message
+              : "Server error while updating lender product",
         });
       }
     }
