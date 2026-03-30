@@ -422,6 +422,7 @@ export default function AllLendersPage() {
       setRowLoadingId(null);
     }
   };
+
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
     setFormError(null);
@@ -546,46 +547,46 @@ export default function AllLendersPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  const openEditModal = async (b: Lender) => {
-    try {
-      const token = sessionStorage.getItem("admin_token");
+  // const openEditModal = async (b: Lender) => {
+  //   try {
+  //     const token = sessionStorage.getItem("admin_token");
 
-      const res = await fetch(`${API_BASE}/admin/lenders/read?search=${b.id}`, {
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-      });
+  //     const res = await fetch(`${API_BASE}/admin/lenders/read?search=${b.id}`, {
+  //       headers: {
+  //         "Content-Type": "application/json",
+  //         ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  //       },
+  //     });
 
-      if (!res.ok) throw new Error("Failed to fetch lender");
+  //     if (!res.ok) throw new Error("Failed to fetch lender");
 
-      const json = await res.json();
+  //     const json = await res.json();
 
-      const lender = json?.data?.results?.[0];
+  //     const lender = json?.data?.results?.[0];
 
-      if (!lender) {
-        toast.error("Lender not found");
-        return;
-      }
+  //     if (!lender) {
+  //       toast.error("Lender not found");
+  //       return;
+  //     }
 
-      setEditingLender({
-        id: lender.id,
+  //     setEditingLender({
+  //       id: lender.id,
 
-        name: lender.organizationName,
-        email: lender.organizationEmail,
-        phone: lender.organizationPhone,
+  //       name: lender.organizationName,
+  //       email: lender.organizationEmail,
+  //       phone: lender.organizationPhone,
 
-        brokerOrgId: lender.brokerOrgId || "",
+  //       brokerOrgId: lender.brokerOrgId || "",
 
-        adminFirstName: lender.adminFirstName || "",
-        adminLastName: lender.adminLastName || "",
-        adminEmail: lender.adminEmail || "",
-      });
-    } catch (err) {
-      console.error("Failed to load lender details", err);
-      toast.error("Failed to load lender details");
-    }
-  };
+  //       adminFirstName: lender.adminFirstName || "",
+  //       adminLastName: lender.adminLastName || "",
+  //       adminEmail: lender.adminEmail || "",
+  //     });
+  //   } catch (err) {
+  //     console.error("Failed to load lender details", err);
+  //     toast.error("Failed to load lender details");
+  //   }
+  // };
 
   const handleEditSave = async (payload: {
     id: string;
@@ -902,25 +903,25 @@ export default function AllLendersPage() {
               />
             </button>
             <button
-              onClick={openAdd}
-              className="inline-flex items-center whitespace-nowrap px-4 py-2.5 bg-[#13538A] text-white text-sm font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-500/20 active:scale-95 transition-all"
+              onClick={() => navigate("/add-lender")}
+              className="inline-flex items-center whitespace-nowrap px-4 py-2.5 bg-[#13538A] text-white text-xs font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-500/20 active:scale-95 transition-all"
             >
-              <TiPlus className="mr-2 text-lg" />
+              <TiPlus className="mr-2  h-4 w-4" />
               Add Lender
             </button>
 
             <button
               onClick={() => navigate("/assigned-products")}
-              className="inline-flex items-center whitespace-nowrap px-4 py-2.5 bg-[#13538A] text-white text-sm font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-500/20 active:scale-95 transition-all"
+              className="inline-flex items-center whitespace-nowrap px-4 py-2.5 bg-[#13538A] text-white text-xs font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-500/20 active:scale-95 transition-all"
             >
-              <PackagePlus className="mr-2 h-5 w-5" />
+              <PackagePlus className="mr-2 h-4 w-4" />
               Assign Products
             </button>
             <button
-              onClick={() => navigate("/assigned-products")}
-              className="inline-flex items-center whitespace-nowrap px-4 py-2.5 bg-emerald-600 text-white text-sm font-bold rounded-xl hover:bg-emerald-700 shadow-lg shadow-emerald-500/20 active:scale-95 transition-all"
+              onClick={() => navigate("/view-assigned-products")}
+              className="inline-flex items-center whitespace-nowrap px-4 py-2.5 bg-emerald-600 text-white text-xs font-bold rounded-xl hover:bg-emerald-700 shadow-lg shadow-emerald-500/20 active:scale-95 transition-all"
             >
-              <Eye className="mr-2 h-5 w-5" />
+              <Eye className="mr-2 h-4 w-4" />
               View Assign Products
             </button>
 
@@ -928,7 +929,7 @@ export default function AllLendersPage() {
               onClick={() => setIsInviteOpen(true)}
               className="inline-flex items-center gap-2 whitespace-nowrap px-5 py-2.5 
   bg-gradient-to-r from-indigo-600 to-blue-600 
-  text-white text-sm font-semibold 
+  text-white text-xs font-semibold 
   rounded-xl shadow-lg shadow-indigo-500/30 
   hover:from-indigo-700 hover:to-blue-700 
   active:scale-95 transition-all"
@@ -1231,7 +1232,7 @@ export default function AllLendersPage() {
                   <div className="flex items-center gap-1">
                     <button
                       disabled={!!rowLoadingId}
-                      onClick={() => openEditModal(l)}
+                      onClick={() => navigate(`/update-lender/${l.id}`)}
                       className="p-2 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors"
                       title="Edit Lender"
                     >

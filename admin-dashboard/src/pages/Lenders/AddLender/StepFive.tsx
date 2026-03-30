@@ -116,7 +116,7 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
 
     handleChange(productId, "states", updatedStates);
 
-    // IMPORTANT: validation
+    // validation
     setErrors((prev: any) => ({
       ...prev,
       [productId]: {
@@ -157,8 +157,7 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
       error = "Required";
     }
 
-    // ✅ IMPORTANT: use outer value (form data)
-    const current = value?.[productId] || {};
+    const current = value?.[productId] || {}; // ✅ correct usage
 
     // Min-Max validation
     if (
@@ -290,16 +289,9 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
                         onChange={(e) => {
                           const val = e.target.value;
 
-                          // create updated object manually
-                          // const updatedProduct = {
-                          //   ...value?.[product.id],
-                          //   [field.key]: val,
-                          // };
-
-                          // pass updated data to validation
-                          const err = validateField(product.id, field.key, val);
-
                           handleChange(product.id, field.key, val);
+
+                          const err = validateField(product.id, field.key, val);
 
                           setErrors((prev: any) => ({
                             ...prev,
