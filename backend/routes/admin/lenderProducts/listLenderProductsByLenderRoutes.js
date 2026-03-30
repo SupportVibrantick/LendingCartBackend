@@ -59,6 +59,31 @@ async function listLenderProductsByLenderRoutes(fastify) {
         });
 
         // ---------------------------
+        // 🔧 Normalize response (IMPORTANT)
+        // ---------------------------
+        const formatted = products.map((item) => ({
+          ...item,
+
+          // ✅ CSV → ARRAY
+          statesSupported: item.statesSupported
+            ? item.statesSupported.split(",").map((s) => s.trim()).filter(Boolean)
+            : [],
+
+          equipmentTypes: item.equipmentTypes
+            ? item.equipmentTypes.split(",").map((e) => e.trim()).filter(Boolean)
+            : [],
+
+          // ✅ Ensure JSON consistency
+          businessTypes: Array.isArray(item.businessTypes)
+            ? item.businessTypes
+            : [],
+
+          propertyTypes: Array.isArray(item.propertyTypes)
+            ? item.propertyTypes
+            : [],
+        }));
+
+        // ---------------------------
         // Response
         // ---------------------------
         return reply.send({
@@ -67,10 +92,9 @@ async function listLenderProductsByLenderRoutes(fastify) {
             id: lender.id,
             name: lender.name,
           },
-          count: products.length,
-          data: products,
+          count: formatted.length,
+          data: formatted,
         });
-
       } catch (error) {
         fastify.log.error(error);
 
