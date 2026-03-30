@@ -1,4 +1,5 @@
 // routes/admin/lenderProducts/list.js
+
 async function listLenderProductRoutes(fastify) {
   fastify.get(
     "/",
@@ -21,18 +22,13 @@ async function listLenderProductRoutes(fastify) {
         });
 
         // ---------------------------
-        // Normalize response for frontend
+        // Normalize response for frontend (Production-safe)
         // ---------------------------
         const formatted = result.map((item) => ({
           ...item,
 
-          businessTypes: item.businessTypes
-            ? item.businessTypes.split(",")
-            : [],
-
-          statesSupported: item.statesSupported
-            ? item.statesSupported.split(",")
-            : [],
+          businessTypes: normalizeToArray(item.businessTypes),
+          statesSupported: normalizeToArray(item.statesSupported),
         }));
 
         return reply.send({
@@ -50,6 +46,30 @@ async function listLenderProductRoutes(fastify) {
       }
     }
   );
+}
+
+/**
+ * Utility: Safely normalize any value to array
+ * Handles:
+ * - comma-separated string
+ * - array
+ * - null / undefined
+ */
+function normalizeToArray(value) {
+  if (!value) return [];
+
+  if (Array.isArray(value)) {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    return value
+      .split(",")
+      .map((v) => v.trim())
+      .filter(Boolean); // remove empty values
+  }
+
+  return [];
 }
 
 module.exports = listLenderProductRoutes;

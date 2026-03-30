@@ -17,7 +17,16 @@ async function updateLenderProductRoutes(fastify) {
     },
     async (request, reply) => {
       const prisma = fastify.prisma;
+
+      // ✅ FIX: UUID → do NOT convert to Number
       const productId = request.params.id;
+
+      if (!productId) {
+        return reply.status(400).send({
+          success: false,
+          message: "Invalid product ID",
+        });
+      }
 
       try {
         // -----------------------------
@@ -55,34 +64,59 @@ async function updateLenderProductRoutes(fastify) {
         const updatePayload = {};
 
         // -----------------------------
-        // Helpers
+        // 🔧 Helpers
         // -----------------------------
         const toDecimal = (value) => {
           if (value === undefined) return undefined;
           if (value === null || value === "") return null;
-          if (isNaN(value)) throw new Error(`Invalid number: ${value}`);
-          return new Prisma.Decimal(value);
+
+          const num = Number(value);
+          if (isNaN(num)) {
+            throw new Error(`Invalid number: ${value}`);
+          }
+
+          return new Prisma.Decimal(num);
         };
 
         const toCsv = (value) => {
           if (value === undefined) return undefined;
-          if (Array.isArray(value)) return value.length ? value.join(",") : null;
-          return value;
+          if (value === null || value === "") return null;
+
+          if (Array.isArray(value)) {
+            const cleaned = value
+              .map((v) => String(v).trim())
+              .filter(Boolean);
+
+            return cleaned.length ? cleaned.join(",") : null;
+          }
+
+          return String(value).trim() || null;
+        };
+
+        const normalizeArray = (value) => {
+          if (value === undefined) return undefined;
+          if (!Array.isArray(value)) return null;
+
+          const cleaned = value
+            .map((v) => v) // keep objects intact (important for your case)
+            .filter(Boolean);
+
+          return cleaned.length ? cleaned : null;
         };
 
         // -----------------------------
-        // ✅ Business & Property Types (JSON)
+        // Business & Property Types (JSON)
         // -----------------------------
         if (data.businessTypes !== undefined) {
-          updatePayload.businessTypes = data.businessTypes ?? null;
+          updatePayload.businessTypes = normalizeArray(data.businessTypes);
         }
 
         if (data.propertyTypes !== undefined) {
-          updatePayload.propertyTypes = data.propertyTypes ?? null;
+          updatePayload.propertyTypes = normalizeArray(data.propertyTypes);
         }
 
         // -----------------------------
-        // Equipment fields (STRING)
+        // Equipment fields
         // -----------------------------
         if (isEquipmentFinance) {
           const equipmentTypes = toCsv(data.equipmentTypes);
@@ -93,12 +127,12 @@ async function updateLenderProductRoutes(fastify) {
 
           if (data.otherEquipmentExplanation !== undefined) {
             updatePayload.otherEquipmentExplanation =
-              data.otherEquipmentExplanation || null;
+              data.otherEquipmentExplanation?.trim() || null;
           }
         }
 
         // -----------------------------
-        // Loan amounts
+        // Loan Amounts
         // -----------------------------
         const minLoanAmount = toDecimal(data.minLoanAmount);
         if (minLoanAmount !== undefined)
@@ -112,10 +146,10 @@ async function updateLenderProductRoutes(fastify) {
         // Terms
         // -----------------------------
         if (data.minTermMonths !== undefined)
-          updatePayload.minTermMonths = data.minTermMonths;
+          updatePayload.minTermMonths = data.minTermMonths ?? null;
 
         if (data.maxTermMonths !== undefined)
-          updatePayload.maxTermMonths = data.maxTermMonths;
+          updatePayload.maxTermMonths = data.maxTermMonths ?? null;
 
         // -----------------------------
         // LTV
@@ -132,16 +166,17 @@ async function updateLenderProductRoutes(fastify) {
         // Credit & Experience
         // -----------------------------
         if (data.minCreditScore !== undefined)
-          updatePayload.minCreditScore = data.minCreditScore;
+          updatePayload.minCreditScore = data.minCreditScore ?? null;
 
         if (data.minExperience !== undefined)
-          updatePayload.minExperience = data.minExperience;
+          updatePayload.minExperience = data.minExperience ?? null;
 
         if (data.interestRateRange !== undefined)
-          updatePayload.interestRateRange = data.interestRateRange;
+          updatePayload.interestRateRange =
+            data.interestRateRange?.trim() || null;
 
         // -----------------------------
-        // States (STRING CSV)
+        // States
         // -----------------------------
         const states = toCsv(data.statesSupported);
         if (states !== undefined)
@@ -181,7 +216,7 @@ async function updateLenderProductRoutes(fastify) {
         });
 
         // -----------------------------
-        // Return updated list
+        // Fetch updated list
         // -----------------------------
         const products = await prisma.lenderProduct.findMany({
           where: {
@@ -199,11 +234,21 @@ async function updateLenderProductRoutes(fastify) {
           orderBy: { createdAt: "desc" },
         });
 
+        // -----------------------------
+        // Normalize response
+        // -----------------------------
+        const formatted = products.map((item) => ({
+          ...item,
+          statesSupported: item.statesSupported
+            ? item.statesSupported.split(",")
+            : [],
+        }));
+
         return reply.send({
           success: true,
           message: "Lender product updated successfully",
           updatedProduct,
-          data: products,
+          data: formatted,
         });
       } catch (error) {
         adminLogs.error("Update lender product failed", {

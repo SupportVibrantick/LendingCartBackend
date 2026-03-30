@@ -7,10 +7,11 @@ module.exports = async function listSubmissionsTable(fastify) {
       orderBy: {
         createdAt: "desc",
       },
+      distinct: ["applicationId"], // ✅ FIX: only latest submission per application
       include: {
         application: {
           select: {
-            applicationNumber: true, // ✅ ADD HERE
+            applicationNumber: true,
             documentRequirements: {
               select: {
                 status: true,
@@ -25,7 +26,7 @@ module.exports = async function listSubmissionsTable(fastify) {
       success: true,
       data: submissions.map((s) => {
         const pendingDocumentsCount = s.application.documentRequirements.filter(
-          (doc) => doc.status !== "COMPLETE",
+          (doc) => doc.status !== "COMPLETE"
         ).length;
 
         return {
