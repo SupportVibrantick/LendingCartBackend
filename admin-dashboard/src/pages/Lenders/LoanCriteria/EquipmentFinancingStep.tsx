@@ -61,7 +61,7 @@ const EquipmentFinancingStep = ({ value = [], setValue }: any) => {
         <div>
           <h2 className="font-semibold text-lg flex items-center gap-2">
             <Settings size={16} />
-            Equipment Financing
+            Equipment Types
             {selected.length > 0 && (
               <span className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full">
                 {selected.length} selected
@@ -117,21 +117,14 @@ const EquipmentFinancingStep = ({ value = [], setValue }: any) => {
               {/* COLOR DOT */}
               <span
                 className={`w-2.5 h-2.5 rounded-full ${getColor(
-                  item
+                  item,
                 )} shadow-sm ring-2 ring-white`}
               />
 
-              <span className="text-sm font-medium flex-1">
-                {item}
-              </span>
+              <span className="text-sm font-medium flex-1">{item}</span>
 
               {/* CHECK ICON */}
-              {isChecked && (
-                <CheckCircle
-                  size={16}
-                  className="text-blue-600"
-                />
-              )}
+              {isChecked && <CheckCircle size={16} className="text-blue-600" />}
             </label>
           );
         })}

@@ -33,7 +33,9 @@ export default function Main() {
   const [loadingLenders, setLoadingLenders] = useState(false);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
-  const pageSize = 10;
+  const pageSize = 20;
+
+  const [hasStep5Errors, setHasStep5Errors] = useState(false);
 
   const [form, setForm] = useState<FormType>({
     lenderId: "",
@@ -55,7 +57,7 @@ export default function Main() {
     "Loan Programs",
     "Property Types",
     "Business Types",
-    ...(isEquipmentSelected ? ["Equipment Financing"] : []),
+    ...(isEquipmentSelected ? ["Equipment Types"] : []),
     "Loan Criteria",
   ];
 
@@ -298,12 +300,12 @@ export default function Main() {
               </p>
 
               {/* ACTION */}
-              <button
+              {/* <button
                 onClick={() => setSearch("")}
                 className="mt-4 text-xs font-medium text-blue-600 hover:underline"
               >
                 Clear search
-              </button>
+              </button> */}
             </div>
           )}
 
@@ -367,9 +369,10 @@ export default function Main() {
     if (step === loanCriteriaStepIndex) {
       return (
         <StepFive
-          products={products}
+          products={selectedProducts}
           value={form.loanCriteria}
           setValue={(val: any) => setForm((p) => ({ ...p, loanCriteria: val }))}
+          setHasErrors={setHasStep5Errors}
         />
       );
     }
@@ -448,10 +451,51 @@ export default function Main() {
     return json;
   };
 
+  const validateStep5 = () => {
+    for (const product of selectedProducts) {
+      const data = form.loanCriteria?.[product.id];
+
+      if (!data) {
+        return `Please fill details for ${product.name}`;
+      }
+
+      const requiredFields = [
+        "minLoan",
+        "maxLoan",
+        "minRate",
+        "maxRate",
+        "maxLtv",
+        "maxLtc",
+        "fico",
+        "minTerm",
+        "maxTerm",
+        "points",
+      ];
+
+      for (const field of requiredFields) {
+        if (!data[field] && data[field] !== 0) {
+          return `${product.name}: ${field} is required`;
+        }
+      }
+
+      if (!data.states || data.states.length === 0) {
+        return `${product.name}: Select at least one state`;
+      }
+    }
+
+    return null;
+  };
+
   const handleSubmit = async () => {
     try {
       if (!form.lenderId) {
         toast.error("Please select lender");
+        return;
+      }
+
+      const step5Error = validateStep5();
+      if (step5Error) {
+        toast.error(step5Error);
         return;
       }
 
@@ -471,6 +515,14 @@ export default function Main() {
   };
 
   const isLastStep = step === steps.length - 1;
+
+  const selectedProducts = products.filter((p) =>
+    form.loanPrograms.includes(p.id),
+  );
+
+  const isStep5Valid = () => {
+    return validateStep5() === null;
+  };
 
   return (
     <div className="h-screen flex flex-col bg-gray-50">
@@ -586,12 +638,15 @@ export default function Main() {
             <button
               onClick={isLastStep ? handleSubmit : () => setStep((p) => p + 1)}
               disabled={
-                !isLastStep &&
-                ((step === 0 && !form.lenderId) || // ✅ FIXED
-                  (step === 1 && form.loanPrograms.length === 0) || // ✅ FIXED
-                  (step === 2 &&
-                    Object.keys(form.propertyTypes).length === 0) ||
-                  (step === 3 && Object.keys(form.businessTypes).length === 0))
+                (!isLastStep &&
+                  ((step === 0 && !form.lenderId) || // ✅ FIXED
+                    (step === 1 && form.loanPrograms.length === 0) || // ✅ FIXED
+                    (step === 2 &&
+                      Object.keys(form.propertyTypes).length === 0) ||
+                    (step === 3 &&
+                      Object.keys(form.businessTypes).length === 0))) ||
+                (isLastStep && !isStep5Valid()) ||
+                hasStep5Errors
               }
               className="flex items-center gap-2 px-6 py-2 rounded-lg text-sm font-medium bg-gradient-to-r from-black to-gray-800 text-white shadow hover:scale-[1.03] active:scale-[0.98] transition disabled:opacity-40"
             >

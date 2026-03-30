@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { createPortal } from "react-dom";
 import { Eye, Loader2, SearchX } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
 
 /* ================= API ================= */
 const api = axios.create({
@@ -39,6 +41,7 @@ type AssignedProduct = {
 
 /* ================= COMPONENT ================= */
 const AssignedProducts: React.FC = () => {
+  const navigate = useNavigate();
   const tableTopRef = React.useRef<HTMLDivElement | null>(null);
   const [assignments, setAssignments] = useState<AssignedProduct[]>([]);
   const [loading, setLoading] = useState(false);
@@ -160,13 +163,32 @@ const AssignedProducts: React.FC = () => {
       >
         {/* Header */}
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
-              Assigned Lender Products
-            </h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400">
-              Lender ↔ Product mapping
-            </p>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              {/* BACK BUTTON */}
+              <button
+                onClick={() => navigate("/all-lenders-Organization")}
+                className="flex items-center gap-2 px-3 py-1.5 text-sm rounded-full
+                 border border-slate-300 dark:border-slate-700
+                 bg-white dark:bg-slate-800
+                 text-slate-700 dark:text-slate-200
+                 hover:bg-slate-50 dark:hover:bg-slate-700
+                 transition-colors"
+              >
+                <ArrowLeft className="w-4 h-4" />
+              </button>
+
+              <div>
+                <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
+                  Assigned Lender Products
+                </h2>
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  Lender ↔ Product mapping
+                </p>
+              </div>
+            </div>
+
+            {/* existing right side controls */}
           </div>
 
           <div className="flex items-center gap-2">
