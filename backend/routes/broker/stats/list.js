@@ -34,7 +34,7 @@ module.exports = async function brokerStatsList(fastify) {
         }
 
         /* =====================================================
-           2️⃣ PARALLEL CORE AGGREGATIONS
+           2️⃣ PARALLEL CORE AGGREGATIONS + PRODUCT STATS
         ===================================================== */
 
         const [
@@ -46,6 +46,7 @@ module.exports = async function brokerStatsList(fastify) {
           fundedCount,
           withdrawnCount,
           fundedVolume,
+          productWiseVolume,
         ] = await Promise.all([
           prisma.loanApplication.count({
             where: { brokerOrgId },
@@ -84,10 +85,22 @@ module.exports = async function brokerStatsList(fastify) {
               amountRequested: true,
             },
           }),
+
+          // ✅ CHANGED: NOW BASED ON APPROVED
+          prisma.loanApplication.groupBy({
+            by: ["loanProductCode"],
+            where: {
+              brokerOrgId,
+              status: "LENDER_APPROVED", // 🔥 KEY CHANGE
+            },
+            _sum: {
+              amountRequested: true,
+            },
+          }),
         ]);
 
         /* =====================================================
-           3️⃣ UNIQUE LENDERS COUNT (FIXED VERSION)
+           3️⃣ UNIQUE LENDERS COUNT
         ===================================================== */
 
         const uniqueLenders = await prisma.applicationLender.findMany({
@@ -103,7 +116,16 @@ module.exports = async function brokerStatsList(fastify) {
         });
 
         /* =====================================================
-           4️⃣ SAFE RESPONSE BUILD
+           4️⃣ FORMAT PRODUCT-WISE DATA
+        ===================================================== */
+
+        const productWiseStats = productWiseVolume.map((item) => ({
+          product: item.loanProductCode,
+          totalApprovedAmount: item._sum?.amountRequested ?? 0,
+        }));
+
+        /* =====================================================
+           5️⃣ RESPONSE
         ===================================================== */
 
         return reply.send({
@@ -128,6 +150,9 @@ module.exports = async function brokerStatsList(fastify) {
               FUNDED: fundedCount,
               WITHDRAWN: withdrawnCount,
             },
+
+            // ✅ NEW APPROVED-BASED PRODUCT STATS
+            productWiseApprovedVolume: productWiseStats,
           },
         });
 
