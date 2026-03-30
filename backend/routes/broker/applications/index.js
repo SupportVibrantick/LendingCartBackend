@@ -14,7 +14,7 @@ async function brokerApplicationsRoutes(fastify) {
 
   
   fastify.register(require("./brokerSubmitApplication"));
-
+  fastify.register(require("./editSubmittedApplication"));
   // ─────────────────────────────────────────────
   // Application → Products (admin-approved only)
   // ─────────────────────────────────────────────
