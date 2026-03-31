@@ -4,68 +4,65 @@ const { Prisma } = require("@prisma/client");
 const { adminLogs } = require("../../../services/logger/contextLogger");
 
 async function updateLenderProductRoutes(fastify) {
-  fastify.patch(
-    "/",
-    {
-      schema: {
-        tags: ["Admin -> Lender Products"],
-        summary: "Bulk update lender products (Production Level)",
-      },
-    },
-    async (request, reply) => {
-      const prisma = fastify.prisma;
+  fastify.patch("/", async (request, reply) => {
+    const prisma = fastify.prisma;
 
-      const { lenderOrgId, products } = request.body;
+    const { lenderOrgId, products } = request.body;
 
-      // -----------------------------
-      // Validate input
-      // -----------------------------
-      if (!lenderOrgId || !Array.isArray(products)) {
-        return reply.status(400).send({
+    if (!lenderOrgId || !Array.isArray(products)) {
+      return reply.status(400).send({
+        success: false,
+        message: "lenderOrgId and products[] are required",
+      });
+    }
+
+    try {
+      // ---------------------------
+      // Validate lender
+      // ---------------------------
+      const lender = await prisma.organization.findFirst({
+        where: {
+          id: lenderOrgId,
+          type: "LENDER",
+          isDeleted: { not: true },
+        },
+      });
+
+      if (!lender) {
+        return reply.status(404).send({
           success: false,
-          message: "lenderOrgId and products[] are required",
+          message: "Lender not found",
         });
       }
 
-      if (!products.length) {
-        return reply.status(400).send({
-          success: false,
-          message: "No products provided",
-        });
-      }
+      // ---------------------------
+      // Get all product codes
+      // ---------------------------
+      const codes = products
+        .filter((p) => !p.id && p.loanProductCode)
+        .map((p) => p.loanProductCode);
 
-      try {
-        // -----------------------------
-        // Validate lender
-        // -----------------------------
-        const lender = await prisma.organization.findFirst({
-          where: {
-            id: lenderOrgId,
-            type: "LENDER",
-            isDeleted: { not: true },
-          },
-        });
+      const loanProducts = await prisma.loanProduct.findMany({
+        where: {
+          code: { in: codes },
+          isActive: true,
+        },
+      });
 
-        if (!lender) {
-          return reply.status(404).send({
-            success: false,
-            message: "Lender not found",
-          });
-        }
+      // ---------------------------
+      // Transaction
+      // ---------------------------
+      const result = await prisma.$transaction(async (tx) => {
+        const finalProducts = [];
 
-        // -----------------------------
-        // Transaction (CRITICAL)
-        // -----------------------------
-        const result = await prisma.$transaction(async (tx) => {
-          const updatedProducts = [];
+        for (const item of products) {
+          let existing = null;
 
-          for (const item of products) {
-            if (!item.id) continue;
-
-            // -----------------------------
-            // Fetch existing
-            // -----------------------------
-            const existing = await tx.lenderProduct.findUnique({
+          // =========================
+          // UPDATE FLOW
+          // =========================
+          if (item.id) {
+            existing = await tx.lenderProduct.findUnique({
               where: { id: item.id },
             });
 
@@ -73,191 +70,152 @@ async function updateLenderProductRoutes(fastify) {
               throw new Error(`NOT_FOUND_${item.id}`);
             }
 
-            // -----------------------------
-            // Ownership validation
-            // -----------------------------
             if (existing.lenderOrgId !== lenderOrgId) {
               throw new Error(`INVALID_OWNER_${item.id}`);
             }
+          }
 
-            const isEquipmentFinance =
-              existing.loanProductCode === "EQUIPMENT_FINANCE";
+          // =========================
+          // CREATE FLOW (SAME AS CREATE API)
+          // =========================
+          let loanProduct = null;
 
-            // -----------------------------
-            // Helpers
-            // -----------------------------
-            const toDecimal = (value) => {
-              if (value === undefined) return undefined;
-              if (value === null || value === "") return null;
-
-              const num = Number(value);
-              if (isNaN(num)) {
-                throw new Error(`Invalid number: ${value}`);
-              }
-
-              return new Prisma.Decimal(num);
-            };
-
-            const toCsv = (value) => {
-              if (value === undefined) return undefined;
-              if (value === null || value === "") return null;
-
-              if (Array.isArray(value)) {
-                return value
-                  .map((v) => String(v).trim())
-                  .filter(Boolean)
-                  .join(",") || null;
-              }
-
-              return String(value).trim() || null;
-            };
-
-            const normalizeArray = (value) => {
-              if (value === undefined) return undefined;
-              if (!Array.isArray(value)) return null;
-              return value.length ? value : null;
-            };
-
-            // -----------------------------
-            // Build update payload
-            // -----------------------------
-            const updateData = {};
-
-            // JSON fields
-            if (item.businessTypes !== undefined)
-              updateData.businessTypes = normalizeArray(item.businessTypes);
-
-            if (item.propertyTypes !== undefined)
-              updateData.propertyTypes = normalizeArray(item.propertyTypes);
-
-            // Equipment
-            if (isEquipmentFinance) {
-              const equipment = toCsv(item.equipmentTypes);
-              if (equipment !== undefined)
-                updateData.equipmentTypes = equipment;
-
-              if (item.otherEquipmentExplanation !== undefined)
-                updateData.otherEquipmentExplanation =
-                  item.otherEquipmentExplanation?.trim() || null;
+          if (!existing) {
+            if (!item.loanProductCode) {
+              throw new Error("loanProductCode required");
             }
 
-            // Loan validation
-            const minLoan = toDecimal(item.minLoanAmount);
-            const maxLoan = toDecimal(item.maxLoanAmount);
+            loanProduct = loanProducts.find(
+              (lp) => lp.code === item.loanProductCode
+            );
 
-            if (minLoan && maxLoan && minLoan.gt(maxLoan)) {
-              throw new Error(`INVALID_LOAN_RANGE_${item.id}`);
+            if (!loanProduct) {
+              throw new Error(
+                `INVALID_LOAN_PRODUCT_${item.loanProductCode}`
+              );
             }
 
-            if (minLoan !== undefined)
-              updateData.minLoanAmount = minLoan;
-
-            if (maxLoan !== undefined)
-              updateData.maxLoanAmount = maxLoan;
-
-            // Terms
-            if (item.minTermMonths !== undefined)
-              updateData.minTermMonths = item.minTermMonths ?? null;
-
-            if (item.maxTermMonths !== undefined)
-              updateData.maxTermMonths = item.maxTermMonths ?? null;
-
-            // LTV validation
-            const minLtv = toDecimal(item.minLtvPercent);
-            const maxLtv = toDecimal(item.maxLtvPercent);
-
-            if (minLtv && maxLtv && minLtv.gt(maxLtv)) {
-              throw new Error(`INVALID_LTV_${item.id}`);
-            }
-
-            if (minLtv !== undefined)
-              updateData.minLtvPercent = minLtv;
-
-            if (maxLtv !== undefined)
-              updateData.maxLtvPercent = maxLtv;
-
-            // Other fields
-            if (item.minCreditScore !== undefined)
-              updateData.minCreditScore = item.minCreditScore ?? null;
-
-            if (item.minExperience !== undefined)
-              updateData.minExperience = item.minExperience ?? null;
-
-            if (item.interestRateRange !== undefined)
-              updateData.interestRateRange =
-                item.interestRateRange?.trim() || null;
-
-            const states = toCsv(item.statesSupported);
-            if (states !== undefined)
-              updateData.statesSupported = states;
-
-            if (typeof item.isActive === "boolean")
-              updateData.isActive = item.isActive;
-
-            // Skip empty updates
-            if (!Object.keys(updateData).length) continue;
-
-            // -----------------------------
-            // Update
-            // -----------------------------
-            const updated = await tx.lenderProduct.update({
-              where: { id: item.id },
-              data: updateData,
-              include: {
-                loanProduct: {
-                  select: {
-                    id: true,
-                    name: true,
-                    code: true,
-                  },
-                },
+            // prevent duplicate
+            const duplicate = await tx.lenderProduct.findFirst({
+              where: {
+                lenderOrgId,
+                loanProductCode: item.loanProductCode,
               },
             });
 
-            updatedProducts.push(updated);
+            if (duplicate) {
+              existing = duplicate;
+            }
           }
 
-          return updatedProducts;
-        });
+          const isEquipmentFinance =
+            (existing?.loanProductCode ||
+              item.loanProductCode) === "EQUIPMENT_FINANCE";
 
-        // -----------------------------
-        // Normalize response
-        // -----------------------------
-        const formatted = result.map((item) => ({
-          ...item,
-          statesSupported: item.statesSupported
-            ? item.statesSupported.split(",").map((s) => s.trim())
-            : [],
-          equipmentTypes: item.equipmentTypes
-            ? item.equipmentTypes.split(",").map((e) => e.trim())
-            : [],
-          businessTypes: Array.isArray(item.businessTypes)
-            ? item.businessTypes
-            : [],
-          propertyTypes: Array.isArray(item.propertyTypes)
-            ? item.propertyTypes
-            : [],
-        }));
+          // =========================
+          // HELPERS
+          // =========================
+          const toDecimal = (val) =>
+            val ? new Prisma.Decimal(val) : null;
 
-        return reply.send({
-          success: true,
-          message: "Lender products updated successfully",
-          updatedCount: formatted.length,
-          data: formatted,
-        });
-      } catch (error) {
-        adminLogs.error("Bulk update failed", {
-          error: error.message,
-          payload: request.body,
-        });
+          const toCsv = (arr) =>
+            Array.isArray(arr) && arr.length
+              ? arr.join(",")
+              : null;
 
-        return reply.status(500).send({
-          success: false,
-          message: error.message || "Bulk update failed",
-        });
-      }
+          // =========================
+          // BUILD PAYLOAD (SAME AS CREATE)
+          // =========================
+          const payload = {
+            businessTypes: item.businessTypes ?? null,
+            propertyTypes: item.propertyTypes ?? null,
+
+            minLoanAmount: item.minLoanAmount
+              ? toDecimal(item.minLoanAmount)
+              : null,
+
+            maxLoanAmount: item.maxLoanAmount
+              ? toDecimal(item.maxLoanAmount)
+              : null,
+
+            minTermMonths: item.minTermMonths ?? null,
+            maxTermMonths: item.maxTermMonths ?? null,
+
+            minLtvPercent: item.minLtvPercent
+              ? toDecimal(item.minLtvPercent)
+              : null,
+
+            maxLtvPercent: item.maxLtvPercent
+              ? toDecimal(item.maxLtvPercent)
+              : null,
+
+            minCreditScore: item.minCreditScore ?? null,
+            minExperience: item.minExperience ?? null,
+
+            interestRateRange: item.interestRateRange ?? null,
+
+            statesSupported: toCsv(item.statesSupported),
+
+            equipmentTypes:
+              isEquipmentFinance && item.equipmentTypes?.length
+                ? toCsv(item.equipmentTypes)
+                : null,
+
+            otherEquipmentExplanation: isEquipmentFinance
+              ? item.otherEquipmentExplanation ?? null
+              : null,
+
+            isActive: item.isActive ?? true,
+          };
+
+          // =========================
+          // EXECUTE
+          // =========================
+          let final;
+
+          if (existing) {
+            final = await tx.lenderProduct.update({
+              where: { id: existing.id },
+              data: payload,
+              include: {
+                loanProduct: true,
+              },
+            });
+          } else {
+            final = await tx.lenderProduct.create({
+              data: {
+                lenderOrgId,
+                loanProductId: loanProduct.id,
+                loanProductCode: loanProduct.code,
+                ...payload,
+              },
+              include: {
+                loanProduct: true,
+              },
+            });
+          }
+
+          finalProducts.push(final);
+        }
+
+        return finalProducts;
+      });
+
+      return reply.send({
+        success: true,
+        message: "Products upserted successfully",
+        count: result.length,
+        data: result,
+      });
+    } catch (error) {
+      adminLogs.error("UPSERT failed", error);
+
+      return reply.status(500).send({
+        success: false,
+        message: error.message || "Server error",
+      });
     }
-  );
+  });
 }
 
 module.exports = updateLenderProductRoutes;
