@@ -37,6 +37,7 @@ type AssignedProduct = {
   interestRateRange?: string;
   businessTypes?: string[];
   statesSupported?: string[];
+  equipmentTypes?: string[];
 };
 
 /* ================= COMPONENT ================= */
@@ -66,26 +67,42 @@ const AssignedProducts: React.FC = () => {
         ? res.data.data
         : res.data?.data?.results || [];
 
+      const normalizeArray = (val: any) =>
+        Array.isArray(val) ? val : val ? val.split(",") : [];
+
       setAssignments(
         list.map((a: any) => ({
           id: a.id,
+
           lenderName: a.lender?.name || "-",
           productName: a.loanProduct?.name || "-",
           productCode: a.loanProduct?.code || "-",
+
           isActive: a.isActive,
           createdAt: a.createdAt,
 
           minLoanAmount: a.minLoanAmount,
           maxLoanAmount: a.maxLoanAmount,
+
           minTermMonths: a.minTermMonths,
           maxTermMonths: a.maxTermMonths,
+
           minLtvPercent: a.minLtvPercent,
           maxLtvPercent: a.maxLtvPercent,
+
           minCreditScore: a.minCreditScore,
           minExperience: a.minExperience,
+
           interestRateRange: a.interestRateRange,
-          businessTypes: a.businessTypes,
-          statesSupported: a.statesSupported,
+
+          // ✅ FIXED
+          businessTypes: (a.businessTypes || []).map((b: any) => b.name),
+
+          // ✅ FIXED
+          statesSupported: normalizeArray(a.statesSupported),
+
+          // ✅ NEW (IMPORTANT)
+          equipmentTypes: normalizeArray(a.equipmentTypes),
         })),
       );
     } catch (err) {
@@ -103,6 +120,9 @@ const AssignedProducts: React.FC = () => {
     setCurrentPage(1);
   }, [selectedLender]);
 
+  const normalizeArray = (val: any) =>
+    Array.isArray(val) ? val : val ? val.split(",") : [];
+
   /* ================= FETCH DETAIL ================= */
   const fetchAssignmentDetail = async (id: string) => {
     try {
@@ -114,7 +134,23 @@ const AssignedProducts: React.FC = () => {
         ? res.data.data
         : res.data?.data?.results || [];
 
-      setDetail(list.find((x: any) => x.id === id) || null);
+      const found = list.find((x: any) => x.id === id);
+
+      if (!found) {
+        setDetail(null);
+        return;
+      }
+
+      // ✅ NORMALIZE DATA
+      setDetail({
+        ...found,
+
+        businessTypes: (found.businessTypes || []).map((b: any) => b.name),
+
+        statesSupported: normalizeArray(found.statesSupported),
+
+        equipmentTypes: normalizeArray(found.equipmentTypes),
+      });
     } catch (err) {
       console.error("Failed to fetch detail", err);
     } finally {
@@ -161,62 +197,73 @@ const AssignedProducts: React.FC = () => {
         className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm
                       dark:border-slate-800 dark:bg-slate-900"
       >
-        {/* Header */}
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              {/* BACK BUTTON */}
-              <button
-                onClick={() => navigate("/all-lenders-Organization")}
-                className="flex items-center gap-2 px-3 py-1.5 text-sm rounded-full
-                 border border-slate-300 dark:border-slate-700
-                 bg-white dark:bg-slate-800
-                 text-slate-700 dark:text-slate-200
-                 hover:bg-slate-50 dark:hover:bg-slate-700
-                 transition-colors"
-              >
-                <ArrowLeft className="w-4 h-4" />
-              </button>
+        {/* ================= HEADER ================= */}
+        <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          {/* LEFT SECTION */}
+          <div className="flex items-center gap-4">
+            {/* BACK BUTTON (MODERN) */}
+            <button
+              onClick={() => navigate("/all-lenders-Organization")}
+              className="flex items-center justify-center w-10 h-10 rounded-xl
+      bg-slate-100 hover:bg-blue-100 
+      dark:bg-slate-800 dark:hover:bg-blue-500/20
+      transition-all duration-200 shadow-sm"
+            >
+              <ArrowLeft className="w-4 h-4 text-slate-700 dark:text-slate-200" />
+            </button>
 
-              <div>
-                <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
-                  Assigned Lender Products
-                </h2>
-                <p className="text-sm text-slate-500 dark:text-slate-400">
-                  Lender ↔ Product mapping
-                </p>
-              </div>
+            {/* TITLE */}
+            <div>
+              <h2 className="text-md font-semibold text-slate-900 dark:text-white tracking-tight">
+                Assigned Lender Products
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Manage lender ↔ product mappings efficiently
+              </p>
             </div>
-
-            {/* existing right side controls */}
           </div>
 
-          <div className="flex items-center gap-2">
-            <select
-              value={selectedLender}
-              onChange={(e) => setSelectedLender(e.target.value)}
-              className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm
-                         text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/30
-                         dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-            >
-              <option value="">All Lenders</option>
-              {lenders.map((l) => (
-                <option key={l} value={l}>
-                  {l}
-                </option>
-              ))}
-            </select>
+          {/* RIGHT SECTION */}
+          <div className="flex flex-wrap items-center gap-3">
+            {/* FILTER */}
+            <div className="relative">
+              <select
+                value={selectedLender}
+                onChange={(e) => setSelectedLender(e.target.value)}
+                className="appearance-none pl-3 pr-8 py-2 text-xs rounded-lg border 
+        border-slate-300 dark:border-slate-700
+        bg-white dark:bg-slate-800
+        text-slate-900 dark:text-slate-100
+        focus:outline-none focus:ring-2 focus:ring-blue-500/30
+        hover:border-blue-400 transition-all"
+              >
+                <option value="">All Lenders</option>
+                {lenders.map((l) => (
+                  <option key={l} value={l}>
+                    {l}
+                  </option>
+                ))}
+              </select>
 
+              {/* Dropdown Icon */}
+              <span className="absolute right-2 top-2.5 text-slate-400 text-xs">
+                ⌄
+              </span>
+            </div>
+
+            {/* REFRESH BUTTON */}
             <button
               onClick={fetchAssignments}
               disabled={loading}
-              className="rounded-md border border-slate-300 px-4 py-1.5 text-sm
-                         text-slate-700 hover:bg-slate-50 disabled:opacity-50
-                         dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+              className="flex items-center gap-2 px-4 py-2 text-xs rounded-lg
+      bg-[#13538A] text-white hover:bg-blue-700
+      disabled:opacity-50 shadow-sm transition-all"
             >
-              {loading ? "Loading..." : "Refresh"}
+              {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+              Refresh
             </button>
-            {/* Page Size */}
+
+            {/* PAGE SIZE */}
             <select
               value={pageSize}
               onChange={(e) => {
@@ -224,14 +271,12 @@ const AssignedProducts: React.FC = () => {
                 setCurrentPage(1);
                 scrollToTop();
               }}
-              className="ml-3 px-3 py-1.5 text-sm rounded-md border
-             border-slate-300 dark:border-slate-700
-             bg-white dark:bg-slate-800
-             text-slate-900 dark:text-slate-100
-             focus:outline-none focus:ring-2 focus:ring-blue-500/30
-             dark:focus:ring-blue-400/30
-             hover:bg-slate-50 dark:hover:bg-slate-700
-             transition-colors"
+              className="px-3 py-2 text-xs rounded-lg border
+      border-slate-300 dark:border-slate-700
+      bg-white dark:bg-slate-800
+      text-slate-900 dark:text-slate-100
+      focus:outline-none focus:ring-2 focus:ring-blue-500/30
+      hover:border-blue-400 transition-all"
             >
               <option value={5}>5 / page</option>
               <option value={10}>10 / page</option>
@@ -302,20 +347,20 @@ const AssignedProducts: React.FC = () => {
                                hover:bg-slate-50
                                dark:border-slate-800 dark:hover:bg-slate-800/50"
                   >
-                    <td className="py-3 pr-4 text-slate-900 dark:text-slate-100">
+                    <td className="py-3 pr-4 text-slate-900 font-semibold text-xs dark:text-slate-100">
                       {a.lenderName}
                     </td>
-                    <td className="py-3 pr-4 dark:text-white">
+                    <td className="py-3 pr-4 dark:text-white text-xs">
                       {a.productName}
                     </td>
-                    <td className="py-3 pr-4 dark:text-white">
+                    <td className="py-3 pr-4 dark:text-white text-xs">
                       {a.productCode}
                     </td>
-                    <td className="py-3 pr-4 dark:text-slate-100">
+                    <td className="py-3 pr-4 dark:text-slate-100 text-xs">
                       {a.minLoanAmount} – {a.maxLoanAmount}
                     </td>
 
-                    <td className="py-3 pr-4 dark:text-slate-100">
+                    <td className="py-3 pr-4 dark:text-slate-100 text-xs">
                       {a.minTermMonths} – {a.maxTermMonths} mo
                     </td>
 
@@ -339,12 +384,12 @@ const AssignedProducts: React.FC = () => {
                         {a.isActive ? "ACTIVE" : "INACTIVE"}
                       </span>
                     </td>
-                    <td className="py-3 pr-4 dark:text-white">
+                    <td className="py-3 pr-4 dark:text-white text-xs">
                       {a.createdAt
                         ? new Date(a.createdAt).toLocaleDateString()
                         : "-"}
                     </td>
-                    <td className="py-3 pr-2">
+                    <td className="py-3 pr-2 text-xs">
                       <button
                         onClick={() => {
                           setViewId(a.id);
@@ -605,6 +650,32 @@ const AssignedProducts: React.FC = () => {
                       </div>
                     </div>
 
+                    {/* EQUIPMENT TYPES */}
+                    <div>
+                      <h4 className="font-semibold text-slate-900 dark:text-white mb-3">
+                        Equipment Types
+                      </h4>
+
+                      <div className="flex flex-wrap gap-2">
+                        {detail.equipmentTypes?.length ? (
+                          detail.equipmentTypes.map((e: string) => (
+                            <span
+                              key={e}
+                              className="px-3 py-1 text-xs rounded-full
+          bg-purple-100 text-purple-700
+          dark:bg-purple-500/15 dark:text-purple-400"
+                            >
+                              {e}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-slate-500 dark:text-slate-400">
+                            -
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
                     {/* STATES */}
                     <div>
                       <h4 className="font-semibold text-slate-900 dark:text-white mb-3">
@@ -651,13 +722,13 @@ const FieldCard = ({ label, value }: { label: string; value: any }) => (
     </div>
 
     <div
-      className="w-full rounded-lg px-4 py-2.5 text-sm
+      className="w-full rounded-lg px-4 py-2.5 text-xs
                  bg-slate-100 text-slate-900
                  border border-slate-200
                  dark:bg-slate-800 dark:text-slate-100
                  dark:border-slate-700 cursor-not-allowed"
     >
-      {value || "0"}
+      {value ?? "-"}
     </div>
   </div>
 );
@@ -671,8 +742,8 @@ const Section = ({
 }) => (
   <div className="space-y-4">
     <h4
-      className="text-sm font-semibold uppercase tracking-wide
-                   text-slate-600 dark:text-slate-300"
+      className="text-xs uppercase tracking-wide
+                    font-semibold text-slate-900 dark:text-white mb-3"
     >
       {title}
     </h4>

@@ -52,6 +52,7 @@ import ClientUpload from "./pages/ClientPortal/ClientUpload";
 import ClientProtected from "./pages/ClientPortal/ClientProtected";
 import ClientAuth from "./pages/ClientPortal/ClientAuth";
 import CustomerLogin from "./pages/ClientPortal/CustomerLogin";
+import LoanPreview from "./pages/submitedApplications/LoanPreview";
 
 export default function App() {
   return (
@@ -150,6 +151,12 @@ export default function App() {
               index
               path="/loan-application"
               element={<LoanApplication />}
+            />
+
+            <Route
+              index
+              path="/loan-preview"
+              element={<LoanPreview />}
             />
 
             <Route index path="/find-lenders" element={<FindLenders />} />

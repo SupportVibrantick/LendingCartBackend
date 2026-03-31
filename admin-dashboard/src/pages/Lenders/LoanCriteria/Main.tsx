@@ -391,7 +391,6 @@ export default function Main() {
       return {
         loanProductCode: product.code,
 
-        // BUSINESS TYPES
         businessTypes: Object.entries(form.businessTypes || {}).map(
           ([name, subTypes]: any) => ({
             name,
@@ -399,7 +398,6 @@ export default function Main() {
           }),
         ),
 
-        // PROPERTY TYPES
         propertyTypes: Object.entries(form.propertyTypes || {}).map(
           ([type, subTypes]: any) => ({
             type,
@@ -407,19 +405,30 @@ export default function Main() {
           }),
         ),
 
-        // EQUIPMENT ONLY IF SELECTED
         ...(product.code === "EQUIPMENT_FINANCE" && {
           equipmentTypes: form.equipmentFinance || [],
           otherEquipmentExplanation: "",
         }),
 
-        // LOAN CRITERIA
-        minLoanAmount: Number(criteria.minLoan) || 0,
-        maxLoanAmount: Number(criteria.maxLoan) || 0,
+        // ✅ FIX: STRING (backend expects string)
+        minLoanAmount: String(criteria.minLoan || 0),
+        maxLoanAmount: String(criteria.maxLoan || 0),
+
         minTermMonths: Number(criteria.minTerm) || 0,
         maxTermMonths: Number(criteria.maxTerm) || 0,
+
+        // ✅ ADD MISSING FIELDS
+        minLtvPercent: Number(criteria.maxLtv) || 0,
+        maxLtvPercent: Number(criteria.maxLtv) || 0,
+
+        minCreditScore: Number(criteria.fico) || 0,
+
+        // ✅ IMPORTANT FIX
+        minExperience: String(criteria.experience || 0),
+
         interestRateRange: `${criteria.minRate || 0}-${criteria.maxRate || 0}%`,
 
+        // ✅ CORRECT (array)
         statesSupported: criteria.states || [],
 
         isActive: true,
@@ -465,11 +474,10 @@ export default function Main() {
         "minRate",
         "maxRate",
         "maxLtv",
-        "maxLtc",
         "fico",
+        "experience",
         "minTerm",
-        "maxTerm",
-        "points",
+        "maxTerm"
       ];
 
       for (const field of requiredFields) {

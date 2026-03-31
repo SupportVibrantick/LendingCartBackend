@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 
 import Swal from "sweetalert2";
+import { MdEdit } from "react-icons/md";
 
 /* ================= TYPES ================= */
 type SubmissionListItem = {
@@ -1130,8 +1131,24 @@ export default function LoanApplicationsPage() {
                               View Details
                             </button>
 
-                            {/* Send Client Link */}
+                            {/* Update Application */}
                             <button
+                              onClick={() => navigate(`/loan-preview`)}
+                              className="
+        flex items-center gap-3 w-full px-4 py-3 text-sm
+        text-yellow-500 dark:text-yellow-300
+        hover:bg-blue-50 dark:hover:bg-blue-500/10
+        transition
+      "
+                            >
+                              <div className="p-1.5 rounded-md bg-yellow-100 dark:bg-blue-500/20">
+                                <MdEdit size={14} />
+                              </div>
+                              App Preview
+                            </button>
+
+                            {/* Send Client Link */}
+                            <button 
                               onClick={() => {
                                 handleSendClientLink(row.applicationId);
                                 setActiveDropdown(null);

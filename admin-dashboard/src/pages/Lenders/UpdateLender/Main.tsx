@@ -12,12 +12,12 @@ import {
   EyeOff,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import EquipmentFinancingStep from "./EquipmentFinancingStep";
 
 type FormType = {
   lenderId: string;
   loanPrograms: string[];
 
-  // NEW FIELDS
   organizationName: string;
   organizationEmail: string;
   organizationPhone: string;
@@ -32,7 +32,11 @@ type FormType = {
   businessTypes: Record<string, any>;
   loanCriteria: Record<string, any>;
   equipmentFinance: string[];
+  otherEquipmentExplanation: string;
+
+  productIdMap: Record<string, string>;
 };
+
 type Product = {
   id: string;
   name: string;
@@ -82,6 +86,9 @@ export default function Main() {
     businessTypes: {},
     loanCriteria: {},
     equipmentFinance: [],
+    otherEquipmentExplanation: "",
+
+    productIdMap: {},
   });
 
   const validateStep0 = () => {
@@ -159,7 +166,7 @@ export default function Main() {
       }
     } catch (err) {
       console.error("Failed to fetch brokers", err);
-    } 
+    }
   };
 
   useEffect(() => {
@@ -187,6 +194,50 @@ export default function Main() {
 
     fetchProducts();
   }, []);
+
+  const fetchLenderProductId = async () => {
+    try {
+      if (!id) return;
+
+      const res = await fetch(
+        `${API_BASE}/admin/lender-products/read?search=${id}`,
+        {
+          headers: {
+            Authorization: `Bearer ${sessionStorage.getItem("admin_token")}`,
+          },
+        },
+      );
+
+      const json = await res.json();
+
+      if (!json?.success) return;
+
+      const data = json.data || [];
+
+      // ✅ FIND CORRECT PRODUCT
+      const matched = data.find((item: any) => item.lenderOrgId === id);
+
+      if (!matched) {
+        toast.error("No lender product found");
+        return;
+      }
+
+      // ✅ SET UPDATE ID
+      setLenderProductId(matched.id);
+
+      // ✅ OPTIONAL PREFILL
+      console.log("Selected Product 👉", matched);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to fetch lender product");
+    }
+  };
+
+  useEffect(() => {
+    if (id) {
+      fetchLenderProductId();
+    }
+  }, [id]);
 
   const handleUpdateLender = async () => {
     const error = validateStep0();
@@ -409,6 +460,18 @@ export default function Main() {
       );
     }
 
+    // ✅ EQUIPMENT STEP
+    if (isEquipmentSelected && step === 4) {
+      return (
+        <EquipmentFinancingStep
+          value={form.equipmentFinance}
+          setValue={(val: any) =>
+            setForm((p) => ({ ...p, equipmentFinance: val }))
+          }
+        />
+      );
+    }
+
     // ✅ STEP 5 (filtered products already correct)
     const loanCriteriaStepIndex = isEquipmentSelected ? 5 : 4;
 
@@ -427,17 +490,12 @@ export default function Main() {
   };
 
   const buildPayload = () => {
-    const selectedProducts = products.filter((p) =>
-      form.loanPrograms.includes(p.id),
-    );
-
     const mappedProducts = selectedProducts.map((product) => {
       const criteria = form.loanCriteria?.[product.id] || {};
+      const existingId = form.productIdMap?.[product.id];
 
-      return {
-        loanProductCode: product.code,
-
-        // BUSINESS TYPES
+      const base = {
+        // ✅ COMMON FIELDS
         businessTypes: Object.entries(form.businessTypes || {}).map(
           ([name, subTypes]: any) => ({
             name,
@@ -445,7 +503,6 @@ export default function Main() {
           }),
         ),
 
-        // PROPERTY TYPES
         propertyTypes: Object.entries(form.propertyTypes || {}).map(
           ([type, subTypes]: any) => ({
             type,
@@ -453,22 +510,39 @@ export default function Main() {
           }),
         ),
 
-        // EQUIPMENT ONLY IF SELECTED
-        ...(product.code === "EQUIPMENT_FINANCE" && {
-          equipmentTypes: form.equipmentFinance || [],
-          otherEquipmentExplanation: "",
-        }),
+        minLoanAmount: String(criteria.minLoan || ""),
+        maxLoanAmount: String(criteria.maxLoan || ""),
 
-        // LOAN CRITERIA
-        minLoanAmount: Number(criteria.minLoan) || 0,
-        maxLoanAmount: Number(criteria.maxLoan) || 0,
         minTermMonths: Number(criteria.minTerm) || 0,
         maxTermMonths: Number(criteria.maxTerm) || 0,
+
+        minLtvPercent: Number(criteria.minLtv || ""),
+        maxLtvPercent: Number(criteria.maxLtv || ""),
+
+        minCreditScore: Number(criteria.fico) || 0,
+        minExperience: String(criteria.experience || 0),
+
         interestRateRange: `${criteria.minRate || 0}-${criteria.maxRate || 0}%`,
 
         statesSupported: criteria.states || [],
 
         isActive: true,
+      };
+
+      return {
+        // ✅ EXISTING PRODUCT → ID
+        ...(existingId
+          ? { id: existingId }
+          : { loanProductCode: product.code }),
+
+        ...base,
+
+        // ✅ EQUIPMENT ONLY WHEN NEEDED
+        ...(product.code === "EQUIPMENT_FINANCE" &&
+          form.equipmentFinance?.length > 0 && {
+            equipmentTypes: form.equipmentFinance,
+            otherEquipmentExplanation: form.otherEquipmentExplanation || "",
+          }),
       };
     });
 
@@ -492,11 +566,10 @@ export default function Main() {
         "minRate",
         "maxRate",
         "maxLtv",
-        "maxLtc",
         "fico",
+        "experience",
         "minTerm",
         "maxTerm",
-        "points",
       ];
 
       for (const field of requiredFields) {
@@ -526,6 +599,8 @@ export default function Main() {
         return;
       }
 
+      setUpdating(true);
+
       const payload = buildPayload();
 
       console.log("UPDATE PAYLOAD 👉", payload);
@@ -540,42 +615,72 @@ export default function Main() {
 
         const maxRate = maxRateRaw?.replace("%", "") || "";
 
+        // ✅ HANDLE STATES (STRING + ARRAY)
+        const states = Array.isArray(updated.statesSupported)
+          ? updated.statesSupported
+          : updated.statesSupported
+            ? updated.statesSupported.split(",")
+            : [];
+
+        // ✅ HANDLE EQUIPMENT (STRING + ARRAY)
+        const equipment = Array.isArray(updated.equipmentTypes)
+          ? updated.equipmentTypes
+          : updated.equipmentTypes
+            ? updated.equipmentTypes.split(",")
+            : [];
+
         setForm((prev) => ({
           ...prev,
+
           loanPrograms: [updated.loanProductId],
 
           propertyTypes: Object.fromEntries(
-            updated.propertyTypes.map((p: any) => [p.type, p.subTypes || []]),
+            (updated.propertyTypes || []).map((p: any) => [
+              p.type,
+              p.subTypes || [],
+            ]),
           ),
 
           businessTypes: Object.fromEntries(
-            updated.businessTypes.map((b: any) => [b.name, b.subTypes || []]),
+            (updated.businessTypes || []).map((b: any) => [
+              b.name,
+              b.subTypes || [],
+            ]),
           ),
 
           loanCriteria: {
             [updated.loanProductId]: {
               minLoan: updated.minLoanAmount || "",
               maxLoan: updated.maxLoanAmount || "",
+
               minRate: minRate || "",
               maxRate: maxRate || "",
+
               minTerm: updated.minTermMonths || "",
               maxTerm: updated.maxTermMonths || "",
 
-              // IMPORTANT FIX
-              states: Array.isArray(updated.statesSupported)
-                ? updated.statesSupported
-                : updated.statesSupported?.split(",") || [],
+              minLtv: updated.minLtvPercent || "",
+              maxLtv: updated.maxLtvPercent || "",
+
+              fico: updated.minCreditScore || "",
+              experience: updated.minExperience || "",
+
+              states, // ✅ FIXED
             },
           },
+
+          equipmentFinance: equipment,
         }));
       }
 
-      toast.success("Updated successfully");
+      toast.success("Lender product updated successfully");
 
       navigate("/all-lenders-Organization");
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      toast.error("Failed to update");
+      toast.error(err.message || "Failed to update");
+    } finally {
+      setUpdating(false);
     }
   };
 
@@ -593,14 +698,11 @@ export default function Main() {
     try {
       if (!id) return;
 
-      const res = await fetch(
-        `${API_BASE}/admin/lenders/read?search=6bfbf48d-cf1b-4e8f-a81d-dd041b94e077`,
-        {
-          headers: {
-            Authorization: `Bearer ${sessionStorage.getItem("admin_token")}`,
-          },
+      const res = await fetch(`${API_BASE}/admin/lenders/read?search=${id}`, {
+        headers: {
+          Authorization: `Bearer ${sessionStorage.getItem("admin_token")}`,
         },
-      );
+      });
 
       const json = await res.json();
 
@@ -640,10 +742,10 @@ export default function Main() {
 
   const fetchLenderProducts = async () => {
     try {
-      if (!createdLenderId) return;
+      if (!id) return;
 
       const res = await fetch(
-        `${API_BASE}/admin/lender-products/lender/${createdLenderId}`,
+        `${API_BASE}/admin/lender-products/lender/${id}`,
         {
           headers: {
             Authorization: `Bearer ${sessionStorage.getItem("admin_token")}`,
@@ -652,7 +754,6 @@ export default function Main() {
       );
 
       const json = await res.json();
-
       if (!json?.success) return;
 
       const data = json.data || [];
@@ -661,12 +762,25 @@ export default function Main() {
         setLenderProductId(data[0].id);
       }
 
+      const productIdMap: any = {};
+
+      data.forEach((item: any) => {
+        productIdMap[item.loanProductId] = item.id;
+      });
+
+      let equipmentFinance: string[] = [];
+
+      data.forEach((item: any) => {
+        if (item.loanProductCode === "EQUIPMENT_FINANCE") {
+          equipmentFinance = item.equipmentTypes || [];
+        }
+      });
+
       // ✅ STEP 1: Loan Programs
       const loanPrograms = data.map((item: any) => item.loanProductId);
 
-      // ✅ STEP 2: Property Types (MERGE + UNIQUE)
+      // ✅ STEP 2: Property Types
       const propertyTypes: any = {};
-
       data.forEach((item: any) => {
         item.propertyTypes?.forEach((p: any) => {
           if (!propertyTypes[p.type]) {
@@ -679,9 +793,8 @@ export default function Main() {
         });
       });
 
-      // ✅ STEP 3: Business Types (MERGE + UNIQUE)
+      // ✅ STEP 3: Business Types
       const businessTypes: any = {};
-
       data.forEach((item: any) => {
         item.businessTypes?.forEach((b: any) => {
           if (!businessTypes[b.name]) {
@@ -694,7 +807,7 @@ export default function Main() {
         });
       });
 
-      // ✅ STEP 5: Loan Criteria (FIXED)
+      // ✅ STEP 4: Loan Criteria (FIXED)
       const loanCriteria: any = {};
 
       data.forEach((item: any) => {
@@ -705,25 +818,34 @@ export default function Main() {
         loanCriteria[item.loanProductId] = {
           minLoan: item.minLoanAmount || "",
           maxLoan: item.maxLoanAmount || "",
+
           minRate: minRate || "",
           maxRate: maxRate || "",
+
           minTerm: item.minTermMonths || "",
           maxTerm: item.maxTermMonths || "",
 
-          // ✅ FIX: already array
+          // ✅ IMPORTANT FIELDS
+          minLtv: item.minLtvPercent || "",
+          maxLtv: item.maxLtvPercent || "",
+          fico: item.minCreditScore || "",
+          experience: item.minExperience || "",
+
           states: Array.isArray(item.statesSupported)
             ? item.statesSupported
             : [],
         };
       });
 
-      // ✅ SET FORM
+      // FINAL SET FORM (OUTSIDE LOOP)
       setForm((prev) => ({
         ...prev,
         loanPrograms,
         propertyTypes,
         businessTypes,
         loanCriteria,
+        equipmentFinance,
+        productIdMap,
       }));
     } catch (err) {
       console.error("Failed to fetch lender products", err);
@@ -741,22 +863,20 @@ export default function Main() {
       throw new Error("Lender product ID missing");
     }
 
-    const res = await fetch(
-      `${API_BASE}/admin/lender-products/update/${lenderProductId}`,
-      {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${sessionStorage.getItem("admin_token")}`,
-        },
-        body: JSON.stringify(payload),
+    console.log(lenderProductId);
+    const res = await fetch(`${API_BASE}/admin/lender-products/update`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${sessionStorage.getItem("admin_token")}`,
       },
-    );
+      body: JSON.stringify(payload),
+    });
 
     const json = await res.json();
 
-    if (!json.success) {
-      throw new Error(json.message || "Update failed");
+    if (!res.ok || !json.success) {
+      throw new Error(json.message || "Failed to update lender products");
     }
 
     return json;
@@ -893,14 +1013,17 @@ export default function Main() {
                 (step === 1 && form.loanPrograms.length === 0) ||
                 (step === 2 && Object.keys(form.propertyTypes).length === 0) ||
                 (step === 3 && Object.keys(form.businessTypes).length === 0) ||
-                // NEW: Step 5 validation
+                // ✅ NEW
+                (step === 4 &&
+                  isEquipmentSelected &&
+                  form.equipmentFinance.length === 0) ||
                 (isLastStep && (!isStep5Valid() || hasStep5Errors))
               }
               className="flex items-center gap-2 px-6 py-2 rounded-lg text-sm font-medium 
   bg-gradient-to-r from-black to-gray-800 text-white shadow 
   hover:scale-[1.03] active:scale-[0.98] transition disabled:opacity-40"
             >
-              {isLastStep ? "Submit" : "Next Step"}
+              {isLastStep ? (updating ? "Updating..." : "Submit") : "Next Step"}
 
               {step !== 0 && !isLastStep && <ChevronRight size={16} />}
             </button>
