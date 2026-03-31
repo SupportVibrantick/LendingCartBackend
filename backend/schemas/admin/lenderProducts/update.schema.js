@@ -3,10 +3,13 @@
 const { z } = require("zod");
 const { LoanProductCode } = require("@prisma/client");
 
+// -----------------------------
+// Common
+// -----------------------------
 const decimalField = z.union([z.string(), z.number()]).optional();
 
 // -----------------------------
-// Nested Schemas
+// Nested Schemas (JSON fields)
 // -----------------------------
 const businessTypeSchema = z.object({
   name: z.string(),
@@ -21,46 +24,55 @@ const propertyTypeSchema = z.object({
 // -----------------------------
 // Product Schema (UPSERT)
 // -----------------------------
-const productSchema = z.object({
-  id: z.string().uuid().optional(), // update
-  loanProductCode: z.nativeEnum(LoanProductCode).optional(), // create
+const productSchema = z
+  .object({
+    // ✅ UPDATE
+    id: z.string().uuid().optional(),
 
-  businessTypes: z.array(businessTypeSchema).optional(),
-  propertyTypes: z.array(propertyTypeSchema).optional(),
+    // ✅ CREATE
+    loanProductCode: z.nativeEnum(LoanProductCode).optional(),
 
-  equipmentTypes: z.array(z.string()).optional(),
-  otherEquipmentExplanation: z.string().optional(),
+    // JSON fields
+    businessTypes: z.array(businessTypeSchema).optional(),
+    propertyTypes: z.array(propertyTypeSchema).optional(),
 
-  minLoanAmount: decimalField,
-  maxLoanAmount: decimalField,
+    // Equipment
+    equipmentTypes: z.array(z.string()).optional(),
+    otherEquipmentExplanation: z.string().optional(),
 
-  minTermMonths: z.number().int().nonnegative().optional(),
-  maxTermMonths: z.number().int().nonnegative().optional(),
+    // Financial
+    minLoanAmount: decimalField,
+    maxLoanAmount: decimalField,
 
-  minLtvPercent: decimalField,
-  maxLtvPercent: decimalField,
+    minTermMonths: z.number().int().nonnegative().optional(),
+    maxTermMonths: z.number().int().nonnegative().optional(),
 
-  minCreditScore: z.number().int().nonnegative().optional(),
+    minLtvPercent: decimalField,
+    maxLtvPercent: decimalField,
 
-  // ✅ FIXED TYPE
-  minExperience: z.union([z.string(), z.number()]).optional(),
+    minCreditScore: z.number().int().nonnegative().optional(),
 
-  interestRateRange: z.string().optional(),
+    // ✅ Important fix
+    minExperience: z.union([z.string(), z.number()]).optional(),
 
-  // ✅ FIXED TYPE
-  statesSupported: z.array(z.string()).optional(),
+    interestRateRange: z.string().optional(),
 
-  isActive: z.boolean().optional(),
-})
-.refine((data) => data.id || data.loanProductCode, {
-  message: "Either id or loanProductCode is required",
-});
+    // ✅ Array (will convert to CSV in controller)
+    statesSupported: z.array(z.string()).optional(),
+
+    isActive: z.boolean().optional(),
+  })
+  .refine((data) => data.id || data.loanProductCode, {
+    message: "Either id (update) or loanProductCode (create) is required",
+  });
 
 // -----------------------------
 // Main Schema
 // -----------------------------
 const updateLenderProductSchema = z.object({
   lenderOrgId: z.string().uuid(),
+
+  // ✅ REQUIRED (matches your API)
   products: z.array(productSchema).min(1),
 });
 

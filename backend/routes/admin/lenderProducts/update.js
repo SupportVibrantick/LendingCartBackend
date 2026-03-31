@@ -36,7 +36,7 @@ async function updateLenderProductRoutes(fastify) {
       }
 
       // ---------------------------
-      // Get all product codes
+      // Pre-fetch loan products
       // ---------------------------
       const codes = products
         .filter((p) => !p.id && p.loanProductCode)
@@ -50,7 +50,20 @@ async function updateLenderProductRoutes(fastify) {
       });
 
       // ---------------------------
-      // Transaction
+      // HELPERS (FIXED)
+      // ---------------------------
+      const toDecimal = (val) =>
+        val !== undefined && val !== null && val !== ""
+          ? new Prisma.Decimal(val)
+          : null;
+
+      const toCsv = (arr) =>
+        Array.isArray(arr) && arr.length
+          ? arr.map((v) => String(v).trim()).filter(Boolean).join(",")
+          : null;
+
+      // ---------------------------
+      // TRANSACTION
       // ---------------------------
       const result = await prisma.$transaction(async (tx) => {
         const finalProducts = [];
@@ -76,7 +89,7 @@ async function updateLenderProductRoutes(fastify) {
           }
 
           // =========================
-          // CREATE FLOW (SAME AS CREATE API)
+          // CREATE FLOW
           // =========================
           let loanProduct = null;
 
@@ -95,7 +108,7 @@ async function updateLenderProductRoutes(fastify) {
               );
             }
 
-            // prevent duplicate
+            // Prevent duplicate (UNIQUE constraint safe)
             const duplicate = await tx.lenderProduct.findFirst({
               where: {
                 lenderOrgId,
@@ -113,73 +126,89 @@ async function updateLenderProductRoutes(fastify) {
               item.loanProductCode) === "EQUIPMENT_FINANCE";
 
           // =========================
-          // HELPERS
-          // =========================
-          const toDecimal = (val) =>
-            val ? new Prisma.Decimal(val) : null;
-
-          const toCsv = (arr) =>
-            Array.isArray(arr) && arr.length
-              ? arr.join(",")
-              : null;
-
-          // =========================
-          // BUILD PAYLOAD (SAME AS CREATE)
+          // BUILD SAFE PAYLOAD
           // =========================
           const payload = {
-            businessTypes: item.businessTypes ?? null,
-            propertyTypes: item.propertyTypes ?? null,
+            ...(item.businessTypes !== undefined && {
+              businessTypes: item.businessTypes,
+            }),
 
-            minLoanAmount: item.minLoanAmount
-              ? toDecimal(item.minLoanAmount)
-              : null,
+            ...(item.propertyTypes !== undefined && {
+              propertyTypes: item.propertyTypes,
+            }),
 
-            maxLoanAmount: item.maxLoanAmount
-              ? toDecimal(item.maxLoanAmount)
-              : null,
+            ...(item.minLoanAmount !== undefined && {
+              minLoanAmount: toDecimal(item.minLoanAmount),
+            }),
 
-            minTermMonths: item.minTermMonths ?? null,
-            maxTermMonths: item.maxTermMonths ?? null,
+            ...(item.maxLoanAmount !== undefined && {
+              maxLoanAmount: toDecimal(item.maxLoanAmount),
+            }),
 
-            minLtvPercent: item.minLtvPercent
-              ? toDecimal(item.minLtvPercent)
-              : null,
+            ...(item.minTermMonths !== undefined && {
+              minTermMonths: item.minTermMonths ?? null,
+            }),
 
-            maxLtvPercent: item.maxLtvPercent
-              ? toDecimal(item.maxLtvPercent)
-              : null,
+            ...(item.maxTermMonths !== undefined && {
+              maxTermMonths: item.maxTermMonths ?? null,
+            }),
 
-            minCreditScore: item.minCreditScore ?? null,
-            minExperience: item.minExperience ?? null,
+            ...(item.minLtvPercent !== undefined && {
+              minLtvPercent: toDecimal(item.minLtvPercent),
+            }),
 
-            interestRateRange: item.interestRateRange ?? null,
+            ...(item.maxLtvPercent !== undefined && {
+              maxLtvPercent: toDecimal(item.maxLtvPercent),
+            }),
 
-            statesSupported: toCsv(item.statesSupported),
+            ...(item.minCreditScore !== undefined && {
+              minCreditScore: item.minCreditScore ?? null,
+            }),
 
-            equipmentTypes:
-              isEquipmentFinance && item.equipmentTypes?.length
-                ? toCsv(item.equipmentTypes)
-                : null,
+            // ✅ FIXED (STRING)
+            ...(item.minExperience !== undefined && {
+              minExperience:
+                item.minExperience === null
+                  ? null
+                  : String(item.minExperience),
+            }),
 
-            otherEquipmentExplanation: isEquipmentFinance
-              ? item.otherEquipmentExplanation ?? null
-              : null,
+            ...(item.interestRateRange !== undefined && {
+              interestRateRange:
+                item.interestRateRange?.trim() || null,
+            }),
 
-            isActive: item.isActive ?? true,
+            ...(item.statesSupported !== undefined && {
+              statesSupported: toCsv(item.statesSupported),
+            }),
+
+            // ✅ EQUIPMENT SAFE
+            ...(isEquipmentFinance &&
+              item.equipmentTypes !== undefined && {
+                equipmentTypes: toCsv(item.equipmentTypes),
+              }),
+
+            ...(isEquipmentFinance &&
+              item.otherEquipmentExplanation !== undefined && {
+                otherEquipmentExplanation:
+                  item.otherEquipmentExplanation?.trim() || null,
+              }),
+
+            ...(typeof item.isActive === "boolean" && {
+              isActive: item.isActive,
+            }),
           };
 
-          // =========================
-          // EXECUTE
-          // =========================
           let final;
 
+          // =========================
+          // EXECUTE UPSERT
+          // =========================
           if (existing) {
             final = await tx.lenderProduct.update({
               where: { id: existing.id },
               data: payload,
-              include: {
-                loanProduct: true,
-              },
+              include: { loanProduct: true },
             });
           } else {
             final = await tx.lenderProduct.create({
@@ -189,9 +218,7 @@ async function updateLenderProductRoutes(fastify) {
                 loanProductCode: loanProduct.code,
                 ...payload,
               },
-              include: {
-                loanProduct: true,
-              },
+              include: { loanProduct: true },
             });
           }
 
