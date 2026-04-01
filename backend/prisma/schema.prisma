@@ -1401,6 +1401,7 @@ enum LoanApplicationStatus {
   LENDER_DECLINED
   FUNDED
   WITHDRAWN
+  CLIENT_PENDING
 }
 
 enum DocRequirementSource {

@@ -76,15 +76,12 @@ async function sendClientLinkRoute(fastify) {
         =============================== */
 
         const primaryContact = loan.client.contacts.find(
-          (c) => c.isPrimary && c.email
+          (c) => c.isPrimary && c.email,
         );
 
-        const fallbackContact = loan.client.contacts.find(
-          (c) => c.email
-        );
+        const fallbackContact = loan.client.contacts.find((c) => c.email);
 
-        const clientEmail =
-          primaryContact?.email || fallbackContact?.email;
+        const clientEmail = primaryContact?.email || fallbackContact?.email;
 
         if (!clientEmail) {
           return reply.code(400).send({
@@ -108,7 +105,7 @@ async function sendClientLinkRoute(fastify) {
               clientId: loan.clientId,
               token,
               expiresAt: new Date(
-                Date.now() + 7 * 24 * 60 * 60 * 1000 // 7 days
+                Date.now() + 7 * 24 * 60 * 60 * 1000, // 7 days
               ),
             },
           });
@@ -117,7 +114,7 @@ async function sendClientLinkRoute(fastify) {
           if (loan.status === "DRAFT") {
             await tx.loanApplication.update({
               where: { id: loan.id },
-              data: { status: "SUBMITTED" },
+              data: { status: "CLIENT_PENDING" },
             });
           }
         });
@@ -168,7 +165,7 @@ async function sendClientLinkRoute(fastify) {
               clientEmail,
               loanId,
             },
-            "Email sent successfully via SMTP"
+            "Email sent successfully via SMTP",
           );
         } catch (err) {
           fastify.log.error(
@@ -177,7 +174,7 @@ async function sendClientLinkRoute(fastify) {
               clientEmail,
               loanId,
             },
-            "Email sending failed"
+            "Email sending failed",
           );
 
           return reply.code(500).send({
@@ -204,7 +201,7 @@ async function sendClientLinkRoute(fastify) {
             loanId: req.params.loanId,
             brokerOrgId: req.user?.organizationId,
           },
-          "Failed to send client portal link"
+          "Failed to send client portal link",
         );
 
         return reply.code(500).send({
@@ -212,7 +209,7 @@ async function sendClientLinkRoute(fastify) {
           message: error.message || "Unexpected server error",
         });
       }
-    }
+    },
   );
 }
 

@@ -16,8 +16,8 @@ async function clientLoginRoute(fastify) {
           type: "object",
           required: ["email", "password"],
           properties: {
-            email: { type: "string" },
-            password: { type: "string" },
+            email: { type: "string", format: "email" },
+            password: { type: "string", minLength: 6 },
           },
         },
       },
@@ -27,7 +27,13 @@ async function clientLoginRoute(fastify) {
       const prisma = fastify.prisma;
 
       try {
-        const { email, password } = req.body;
+        let { email, password } = req.body;
+
+        /* ===============================
+           NORMALIZE INPUT
+        =============================== */
+
+        email = email.toLowerCase().trim();
 
         /* ===============================
            FIND USER
@@ -37,7 +43,22 @@ async function clientLoginRoute(fastify) {
           where: { email },
         });
 
-        if (!user || user.isDeleted) {
+        /* ===============================
+           DUMMY HASH (ANTI-TIMING ATTACK)
+        =============================== */
+
+        const dummyHash =
+          "$2b$10$CwTycUXWue0Thq9StjUM0uJ8GqzGwdrDam6DCQE4k74vNysGEKMlu";
+
+        const passwordHash = user?.passwordHash || dummyHash;
+
+        const isMatch = await bcrypt.compare(password, passwordHash);
+
+        /* ===============================
+           INVALID LOGIN
+        =============================== */
+
+        if (!user || user.isDeleted || !isMatch) {
           return reply.code(401).send({
             success: false,
             message: "Invalid email or password",
@@ -45,18 +66,13 @@ async function clientLoginRoute(fastify) {
         }
 
         /* ===============================
-           CHECK PASSWORD
+           OPTIONAL ACCOUNT CHECKS
         =============================== */
 
-        const isMatch = await bcrypt.compare(
-          password,
-          user.passwordHash
-        );
-
-        if (!isMatch) {
-          return reply.code(401).send({
+        if (user.isActive === false) {
+          return reply.code(403).send({
             success: false,
-            message: "Invalid email or password",
+            message: "Account is disabled. Contact support.",
           });
         }
 
@@ -71,7 +87,10 @@ async function clientLoginRoute(fastify) {
             role: "CLIENT",
           },
           process.env.JWT_SECRET,
-          { expiresIn: "7d" }
+          {
+            expiresIn: "7d",
+            issuer: "your-app-name",
+          }
         );
 
         /* ===============================
@@ -86,7 +105,7 @@ async function clientLoginRoute(fastify) {
         });
 
         /* ===============================
-           RESPONSE
+           SUCCESS RESPONSE
         =============================== */
 
         return reply.send({
@@ -106,7 +125,6 @@ async function clientLoginRoute(fastify) {
         fastify.log.error(
           {
             error: error.message,
-            body: req.body,
           },
           "Client login failed"
         );

@@ -19,7 +19,7 @@ fastify.register(require("./login"), {
 
 fastify.register(require("./verifyToken"));
 fastify.register(require("./uploadDocuments"));
-
+fastify.register(require("./submitApplication"));
   //  Future APIs (you will add later)
   // fastify.register(require("./uploadDocuments"), { prefix: "/upload" });
   // fastify.register(require("./getNotifications"), { prefix: "/notifications" });
