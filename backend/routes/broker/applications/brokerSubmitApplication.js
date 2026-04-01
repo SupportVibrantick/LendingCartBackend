@@ -8,7 +8,7 @@ async function brokerSubmitApplication(fastify) {
     {
       schema: {
         tags: ["Broker -> Applications"],
-        summary: "Submit Loan Application from Broker Dashboard"
+        summary: "Create Loan Application (Client Pending)"
       }
     },
     async (req, reply) => {
@@ -51,10 +51,7 @@ async function brokerSubmitApplication(fastify) {
             },
             select: {
               id: true,
-              loanProductCode: true,
-              brokerApplication: {
-                select: { brokerOrgId: true }
-              }
+              loanProductCode: true
             }
           });
 
@@ -68,7 +65,8 @@ async function brokerSubmitApplication(fastify) {
         /* ================= TRANSACTION ================= */
 
         const result = await prisma.$transaction(async (tx) => {
-          // Required fields
+          /* ================= REQUIRED FIELDS ================= */
+
           const emailField = fields.find(f => f.fieldKey === "email");
           const firstNameField = fields.find(f => f.fieldKey === "first_name");
           const lastNameField = fields.find(f => f.fieldKey === "last_name");
@@ -77,51 +75,71 @@ async function brokerSubmitApplication(fastify) {
             throw new Error("Email is required");
           }
 
-          /* 1️⃣ Create Client */
-          const client = await tx.client.create({
-            data: {
-              id: randomUUID(),
-              legalName:
-                `${firstNameField?.value || ""} ${lastNameField?.value || ""}`.trim() ||
-                "Individual Applicant",
-              entityType: "INDIVIDUAL",
-              primaryBrokerOrgId: brokerOrgId
+          const email = emailField.value;
+
+          /* ================= CREATE OR REUSE CLIENT ================= */
+
+          let client = await tx.client.findFirst({
+            where: {
+              primaryBrokerOrgId: brokerOrgId,
+              contacts: {
+                some: {
+                  email
+                }
+              }
             }
           });
 
-          /* 2️⃣ Create Client Contact */
-          await tx.clientContact.create({
-            data: {
-              clientId: client.id,
-              firstName: firstNameField?.value || "Applicant",
-              lastName: lastNameField?.value || "",
-              email: emailField.value,
-              isPrimary: true
-            }
-          });
+          if (!client) {
+            client = await tx.client.create({
+              data: {
+                id: randomUUID(),
+                legalName:
+                  `${firstNameField?.value || ""} ${lastNameField?.value || ""}`.trim() ||
+                  "Individual Applicant",
+                entityType: "INDIVIDUAL",
+                primaryBrokerOrgId: brokerOrgId,
+                contacts: {
+                  create: {
+                    firstName: firstNameField?.value || "Applicant",
+                    lastName: lastNameField?.value || "",
+                    email,
+                    isPrimary: true
+                  }
+                }
+              }
+            });
+          }
 
-          /* 3️⃣ Create Loan Application */
+          /* ================= CREATE LOAN APPLICATION ================= */
+
           const loanApplication = await tx.loanApplication.create({
             data: {
               id: randomUUID(),
               applicationNumber: `APP-${Date.now()}`,
-              brokerOrgId: brokerOrgId,
+              brokerOrgId,
               clientId: client.id,
               loanProductCode: brokerProduct.loanProductCode,
-              status: "SUBMITTED"
+
+              //  FIXED: Do NOT mark submitted
+              status: "DRAFT"
             }
           });
 
-          /* 4️⃣ Create Submission */
+          /* ================= CREATE SUBMISSION ================= */
+
           const submission = await tx.applicationSubmission.create({
             data: {
               applicationId: loanApplication.id,
               applicationProductId,
-              status: "NEW"
+
+              // FIXED: waiting for client action
+              status: "PENDING_CLIENT"
             }
           });
 
-          /* 5️⃣ Save Fields */
+          /* ================= SAVE FIELDS ================= */
+
           const submissionFields = fields.map(f => ({
             submissionId: submission.id,
             fieldId: f.fieldId || null,
@@ -148,7 +166,10 @@ async function brokerSubmitApplication(fastify) {
           category: "APPLICATION",
           entityType: "LoanApplication",
           entityId: result.loanApplication.id,
-          action: "SUBMIT_APPLICATION",
+
+          //FIXED ACTION
+          action: "CREATE_APPLICATION",
+
           newValue: {
             submissionId: result.submission.id
           }
@@ -158,7 +179,7 @@ async function brokerSubmitApplication(fastify) {
 
         return reply.code(201).send({
           success: true,
-          message: "Application submitted successfully",
+          message: "Application created successfully (awaiting client action)",
           data: {
             submissionId: result.submission.id,
             applicationId: result.loanApplication.id
@@ -180,7 +201,7 @@ async function brokerSubmitApplication(fastify) {
 
         return reply.code(500).send({
           success: false,
-          message: "Internal server error while submitting application"
+          message: "Internal server error while creating application"
         });
       }
     }
