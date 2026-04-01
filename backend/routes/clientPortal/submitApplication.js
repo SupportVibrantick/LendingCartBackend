@@ -118,7 +118,7 @@ async function submitClientApplication(fastify) {
 
           loan = await prisma.loanApplication.findFirst({
             where: {
-              id: loanApplicationId, // ✅ FIXED
+              id: loanApplicationId, // FIXED
               clientId
             },
             include: { submissions: true }
@@ -165,7 +165,7 @@ async function submitClientApplication(fastify) {
           .filter(s => s.status === "PENDING_CLIENT")
           .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
 
-        if (!submission) {
+        if (!submission) { 
           return reply.code(404).send({
             success: false,
             message: "No pending submission found"
