@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import { Upload, FileText, CheckCircle } from "lucide-react";
 import toast from "react-hot-toast";
+import SignatureCanvas from "react-signature-canvas";
+import { useRef } from "react";
 
 /* ================= TYPES ================= */
 
@@ -19,6 +21,9 @@ const API_BASE =
 
 export default function ClientUpload() {
   const { token } = useParams<{ token: string }>();
+  const sigRef = useRef<SignatureCanvas | null>(null);
+  const [signature, setSignature] = useState<string>("");
+  const [submittingSign, setSubmittingSign] = useState(false);
 
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
   const [files, setFiles] = useState<Record<string, File[]>>({});
@@ -41,34 +46,33 @@ export default function ClientUpload() {
     "documents",
   );
 
+  const getClientPortalAuthConfig = () => {
+    const brokerToken = sessionStorage.getItem("broker_token");
+    const clientToken = sessionStorage.getItem("client_token");
+
+    const headers: Record<string, string> = {};
+
+    if (token && brokerToken) {
+      headers.Authorization = `Bearer ${brokerToken}`;
+    } else if (clientToken) {
+      headers.Authorization = `Bearer ${clientToken}`;
+    }
+
+    return { headers };
+  };
   useEffect(() => {
     verifyToken();
-  }, []);
+  }, [token]);
 
   const verifyToken = async () => {
     try {
-      const brokerToken = sessionStorage.getItem("broker_token");
-      const clientToken = sessionStorage.getItem("client_token");
-
-      let headers: any = {};
       let url = `${API_BASE}/client-portal/loan`;
 
-      // CASE 1: Token present (invite flow)
       if (token) {
         url += `?token=${token}`;
-
-        headers = {
-          Authorization: `Bearer ${brokerToken}`, // broker auth
-        };
-      }
-      // CASE 2: No token (logged-in user)
-      else {
-        headers = {
-          Authorization: `Bearer ${clientToken}`, // client auth
-        };
       }
 
-      const res = await axios.get(url, { headers });
+      const res = await axios.get(url, getClientPortalAuthConfig());
       const data = res.data?.data;
 
       const docs = (data?.documents || []).map((doc: any) => ({
@@ -103,6 +107,67 @@ export default function ClientUpload() {
       setInvalidToken(true);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleClearSignature = () => {
+    sigRef.current?.clear();
+    setSignature(""); // disable submit again
+  };
+
+  const handleUndoSignature = () => {
+    if (!sigRef.current) return;
+
+    const strokes = sigRef.current.toData();
+    if (!strokes || strokes.length === 0) return;
+
+    strokes.pop();
+    sigRef.current.clear();
+
+    if (strokes.length > 0) {
+      sigRef.current.fromData(strokes);
+      const dataUrl = sigRef.current.getCanvas().toDataURL("image/png");
+      setSignature(dataUrl);
+    } else {
+      setSignature("");
+    }
+  };
+
+  const handleSubmitSignature = async () => {
+    if (!sigRef.current || sigRef.current.isEmpty()) {
+      toast.error("Please provide your signature first");
+      return;
+    }
+
+    try {
+      setSubmittingSign(true);
+
+      const capturedSignature = sigRef.current
+        .getCanvas()
+        .toDataURL("image/png");
+
+      let submitUrl = `${API_BASE}/client-portal/e-sign/submit`;
+      if (token) {
+        submitUrl += `?token=${token}`;
+      }
+
+      await axios.post(
+        submitUrl,
+        {
+          loanApplicationId: applicationId,
+          signature: capturedSignature,
+        },
+        getClientPortalAuthConfig(),
+      );
+
+      setSignature(capturedSignature);
+      setStatus("SUBMITTED");
+      toast.success("Signature submitted successfully");
+      sigRef.current?.clear();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "Signature failed");
+    } finally {
+      setSubmittingSign(false);
     }
   };
 
@@ -231,6 +296,13 @@ export default function ClientUpload() {
       applicationData?.fullApplication?.find((item: any) => item.key === key)
         ?.value || "-"
     );
+  };
+
+  const handleEndSignature = () => {
+    if (!sigRef.current || sigRef.current.isEmpty()) return;
+
+    const dataUrl = sigRef.current.getCanvas().toDataURL("image/png");
+    setSignature(dataUrl);
   };
 
   const handleLogout = () => {
@@ -542,18 +614,78 @@ export default function ClientUpload() {
                 Digital Signature
               </h3>
 
-              {getValue("borrowerSignature") && (
-                <div className="border rounded-xl p-4 bg-gray-50">
-                  <img
-                    src={getValue("borrowerSignature")}
-                    alt="Signature"
-                    className="h-32 object-contain mx-auto"
-                  />
+              {/* Signature Pad */}
+              <div className="bg-gradient-to-br from-white to-gray-50 border rounded-xl p-4 shadow-sm">
+                <SignatureCanvas
+                  ref={sigRef}
+                  penColor="black"
+                  onEnd={handleEndSignature}
+                  canvasProps={{
+                    width: 900,
+                    height: 220,
+                    className:
+                      "w-full max-w-full border-2 border-dashed border-gray-300 rounded-lg bg-white",
+                  }}
+                />
+
+                <div className="mt-3 flex items-center justify-between gap-3">
+                  <p className="text-xs text-gray-400">Sign above</p>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleUndoSignature}
+                      disabled={!signature}
+                      className={`rounded-md px-3 py-1 text-xs transition ${
+                        !signature
+                          ? "cursor-not-allowed bg-slate-100 text-slate-400"
+                          : "bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50"
+                      }`}
+                    >
+                      Undo Last Stroke
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleClearSignature}
+                      disabled={!signature}
+                      className={`rounded-md px-3 py-1 text-xs transition ${
+                        !signature
+                          ? "cursor-not-allowed bg-slate-100 text-slate-400"
+                          : "bg-gray-200 text-slate-700 hover:bg-gray-300"
+                      }`}
+                    >
+                      Reset Signature
+                    </button>
+                  </div>
                 </div>
-              )}
+              </div>
+
+              {/* Preview */}
+              {/* {signature && (
+                <div className="mt-4">
+                  <p className="text-xs text-gray-400 mb-1">Preview</p>
+                  <div className="border rounded-xl p-3 bg-gray-50">
+                    <img src={signature} className="h-24 mx-auto" />
+                  </div>
+                </div>
+              )} */}
+
+              {/* Submit */}
+              <button
+                onClick={handleSubmitSignature}
+                disabled={!signature || submittingSign}
+                className={`mt-4 w-full rounded-lg py-2 font-medium transition ${
+                  !signature || submittingSign
+                    ? "cursor-not-allowed bg-slate-200 text-slate-500 shadow-none"
+                    : "bg-emerald-600 text-white shadow-[0_12px_24px_rgba(5,150,105,0.22)] hover:bg-emerald-700"
+                }`}
+              >
+                {submittingSign ? "Submitting..." : "Submit Signature"}
+              </button>
             </div>
 
-            {/* 🔹 FOOTER */}
+            {/* FOOTER */}
             <div className="flex justify-between mt-6 text-sm text-gray-500">
               <span>Submitted Date: {applicationData.createdAt}</span>
               <span>Status: {applicationData.status}</span>

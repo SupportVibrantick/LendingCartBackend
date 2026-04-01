@@ -155,7 +155,7 @@ export default function App() {
 
             <Route
               index
-              path="/loan-preview"
+              path="/loan-preview/:submittedid"
               element={<LoanPreview />}
             />
 
@@ -240,3 +240,4 @@ export default function App() {
     </>
   );
 }
+
