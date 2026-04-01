@@ -3,7 +3,6 @@ import toast from "react-hot-toast";
 import { IoIosArrowBack } from "react-icons/io";
 import { MdDeleteForever } from "react-icons/md";
 import { useNavigate } from "react-router";
-import SignatureCanvas from "react-signature-canvas";
 import { IoClose } from "react-icons/io5";
 
 interface Borrower {
@@ -178,7 +177,6 @@ const ALL_LOAN_PURPOSES = [
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
 const LoanApplication = () => {
-  const signatureRef = useRef<SignatureCanvas | null>(null);
   const coBorrowerRefs = useRef<Record<number, HTMLDivElement | null>>({});
   const [lastAddedId, setLastAddedId] = useState<number | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<string>("");
@@ -261,22 +259,6 @@ const LoanApplication = () => {
     }
   };
 
-  /* ================= SIGNATURE ACTIONS ================= */
-
-  const handleClearSignature = () => {
-    signatureRef.current?.clear();
-  };
-
-  const handleUndoSignature = () => {
-    if (!signatureRef.current) return;
-
-    const data = signatureRef.current.toData();
-    if (data.length === 0) return;
-
-    data.pop();
-    signatureRef.current.fromData(data);
-  };
-
   const toTitleCase = (text: string) => {
     return text
       .toLowerCase()
@@ -288,7 +270,6 @@ const LoanApplication = () => {
   const allSteps = [
     ...baseSteps,
     ...dynamicSections.map((section) => toTitleCase(section.sectionName)),
-    ...(selectedProduct ? ["Signature"] : []),
   ];
 
   const [currentStep, setCurrentStep] = useState(0);
@@ -657,13 +638,6 @@ const LoanApplication = () => {
       });
     }
 
-    /* ================= SIGNATURE ================= */
-    if (currentStep === allSteps.length - 1) {
-      if (!signatureRef.current || signatureRef.current.isEmpty()) {
-        newErrors["signature"] = "Signature is required";
-      }
-    }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -672,11 +646,6 @@ const LoanApplication = () => {
     try {
       if (!activeProduct) {
         toast.error("Please select a loan product");
-        return;
-      }
-
-      if (!signatureRef.current || signatureRef.current.isEmpty()) {
-        toast.error("Please provide your signature");
         return;
       }
 
@@ -810,13 +779,6 @@ const LoanApplication = () => {
         addField(key, value);
       });
 
-      /* ================= SIGNATURE ================= */
-
-      const canvas = signatureRef.current.getCanvas();
-      const signatureBase64 = canvas.toDataURL("image/png");
-
-      addField("borrowerSignature", signatureBase64);
-
       /* ================= CALCULATED STATS ================= */
       addField("ltvPercentage", ltv !== "—" ? Number(ltv) : 0);
       addField("ltcPercentage", ltc !== "—" ? Number(ltc) : 0);
@@ -862,16 +824,6 @@ const LoanApplication = () => {
       toast.error(error.message || "Something went wrong");
     } finally {
       setSubmitting(false);
-    }
-  };
-
-  const handleSignatureEnd = () => {
-    if (!signatureRef.current?.isEmpty()) {
-      setErrors((prev) => {
-        const updated = { ...prev };
-        delete updated["signature"];
-        return updated;
-      });
     }
   };
 
@@ -3154,78 +3106,6 @@ focus:border-blue-500 outline-none text-sm ${
                     )}
                   </div>
                 </div>
-              </div>
-            </div>
-          )}
-
-          {selectedProduct && currentStep === allSteps.length - 1 && (
-            <div
-              className="
-    border border-slate-200 dark:border-slate-700
-    rounded-2xl p-6
-    bg-white dark:bg-slate-800
-    mt-6
-    shadow-sm
-    "
-            >
-              <h3 className="text-lg font-semibold mb-6 text-slate-800 dark:text-slate-200">
-                Digital Signature
-              </h3>
-
-              <div
-                className={`border rounded-xl p-4 ${
-                  errors["signature"]
-                    ? "border-red-500 bg-red-50 dark:bg-red-900/20"
-                    : "border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900"
-                }`}
-              >
-                <SignatureCanvas
-                  ref={signatureRef}
-                  penColor="blue"
-                  onEnd={handleSignatureEnd}
-                  canvasProps={{
-                    width: 900,
-                    height: 250,
-                    className:
-                      "w-full border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-900",
-                  }}
-                />
-              </div>
-
-              {errors["signature"] && (
-                <p className="text-xs text-red-500 mt-2">
-                  {errors["signature"]}
-                </p>
-              )}
-
-              <div className="flex gap-3 mt-4 flex-wrap">
-                <button
-                  type="button"
-                  onClick={handleUndoSignature}
-                  className="
-        px-4 py-2 text-sm rounded-md border
-        border-slate-300 dark:border-slate-600
-        text-slate-700 dark:text-slate-200
-        hover:bg-slate-100 dark:hover:bg-slate-700
-        transition
-        "
-                >
-                  Undo
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleClearSignature}
-                  className="
-        px-4 py-2 text-sm rounded-md border
-        border-red-300 dark:border-red-500
-        text-red-600 dark:text-red-400
-        hover:bg-red-50 dark:hover:bg-red-900/20
-        transition
-        "
-                >
-                  Reset
-                </button>
               </div>
             </div>
           )}

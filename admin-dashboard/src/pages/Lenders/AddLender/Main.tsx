@@ -12,6 +12,7 @@ import {
   EyeOff,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import EquipmentFinancingStep from "./EquipmentFinancingStep";
 
 type FormType = {
   lenderId: string;
@@ -147,14 +148,11 @@ export default function Main() {
     // setLoadingBrokers(true);
 
     try {
-      const res = await fetch(
-        `${API_BASE}/admin/brokers/read`,
-        {
-          headers: {
-            Authorization: `Bearer ${sessionStorage.getItem("admin_token")}`,
-          },
+      const res = await fetch(`${API_BASE}/admin/brokers/read`, {
+        headers: {
+          Authorization: `Bearer ${sessionStorage.getItem("admin_token")}`,
         },
-      );
+      });
 
       const json = await res.json();
 
@@ -355,6 +353,18 @@ export default function Main() {
       );
     }
 
+    // ✅ EQUIPMENT STEP (NEW)
+    if (isEquipmentSelected && step === 4) {
+      return (
+        <EquipmentFinancingStep
+          value={form.equipmentFinance}
+          setValue={(val: any) =>
+            setForm((p) => ({ ...p, equipmentFinance: val }))
+          }
+        />
+      );
+    }
+
     // ✅ STEP 5 (filtered products already correct)
     const loanCriteriaStepIndex = isEquipmentSelected ? 5 : 4;
 
@@ -383,7 +393,6 @@ export default function Main() {
       return {
         loanProductCode: product.code,
 
-        // BUSINESS TYPES
         businessTypes: Object.entries(form.businessTypes || {}).map(
           ([name, subTypes]: any) => ({
             name,
@@ -391,7 +400,6 @@ export default function Main() {
           }),
         ),
 
-        // PROPERTY TYPES
         propertyTypes: Object.entries(form.propertyTypes || {}).map(
           ([type, subTypes]: any) => ({
             type,
@@ -399,19 +407,22 @@ export default function Main() {
           }),
         ),
 
-        // EQUIPMENT ONLY IF SELECTED
         ...(product.code === "EQUIPMENT_FINANCE" && {
           equipmentTypes: form.equipmentFinance || [],
           otherEquipmentExplanation: "",
         }),
+        minLoanAmount: String(criteria.minLoan || 0),
+        maxLoanAmount: String(criteria.maxLoan || 0),
 
-        // LOAN CRITERIA
-        minLoanAmount: Number(criteria.minLoan) || 0,
-        maxLoanAmount: Number(criteria.maxLoan) || 0,
         minTermMonths: Number(criteria.minTerm) || 0,
         maxTermMonths: Number(criteria.maxTerm) || 0,
-        interestRateRange: `${criteria.minRate || 0}-${criteria.maxRate || 0}%`,
+        minLtvPercent: Number(criteria.minLtv) || 0,
+        maxLtvPercent: Number(criteria.maxLtv) || 0,
+        maxLtcPercent: Number(criteria.maxLtc) || 0,
 
+        minCreditScore: Number(criteria.fico) || 0,
+        minExperience: String(criteria.experience || 0),
+        interestRateRange: `${criteria.minRate || 0}-${criteria.maxRate || 0}%`,
         statesSupported: criteria.states || [],
 
         isActive: true,
@@ -502,10 +513,10 @@ export default function Main() {
         return;
       }
 
-      // ✅ save lender id
+      // save lender id
       setCreatedLenderId(createdId);
 
-      // ✅ move to next step
+      // move to next step
       setStep(1);
 
       toast.success("Lender created successfully");
@@ -528,12 +539,12 @@ export default function Main() {
         "maxLoan",
         "minRate",
         "maxRate",
+        "minLtv",
         "maxLtv",
-        "maxLtc",
         "fico",
+        "experience",
         "minTerm",
         "maxTerm",
-        "points",
       ];
 
       for (const field of requiredFields) {
@@ -587,6 +598,12 @@ export default function Main() {
   const isStep5Valid = () => {
     return validateStep5() === null;
   };
+
+  useEffect(() => {
+    if (!isEquipmentSelected) {
+      setForm((p) => ({ ...p, equipmentFinance: [] }));
+    }
+  }, [isEquipmentSelected]);
 
   return (
     <div className="h-screen flex flex-col bg-gray-50">
@@ -726,7 +743,9 @@ export default function Main() {
                 (step === 1 && form.loanPrograms.length === 0) ||
                 (step === 2 && Object.keys(form.propertyTypes).length === 0) ||
                 (step === 3 && Object.keys(form.businessTypes).length === 0) ||
-                // NEW: Step 5 validation
+                (step === 4 &&
+                  isEquipmentSelected &&
+                  form.equipmentFinance.length === 0) ||
                 (isLastStep && (!isStep5Valid() || hasStep5Errors))
               }
               className="flex items-center gap-2 px-6 py-2 rounded-lg text-sm font-medium 

@@ -6,12 +6,16 @@ const fields = [
   { label: "Max Loan Amount ($)", key: "maxLoan" },
   { label: "Min Rate (%)", key: "minRate" },
   { label: "Max Rate (%)", key: "maxRate" },
+
+  { label: "Min LTV (%)", key: "minLtv" },
   { label: "Max LTV (%)", key: "maxLtv" },
-  { label: "Max LTC (%)", key: "maxLtc" },
+
   { label: "Min FICO Score", key: "fico" },
+
+  { label: "Min Experience (Years)", key: "experience" },
+
   { label: "Min Term (months)", key: "minTerm" },
   { label: "Max Term (months)", key: "maxTerm" },
-  { label: "Origination Points (%)", key: "points" },
 ];
 
 const US_STATES = [
@@ -121,7 +125,7 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
       ...prev,
       [productId]: {
         ...prev?.[productId],
-        states: updatedStates.length === 0 ? "Select at least one state" : "",
+        states: updatedStates.length === 0 ? "Please select at least one state where lending is available" : "",
       },
     }));
   };
@@ -145,70 +149,87 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
       ...prev,
       [productId]: {
         ...prev?.[productId],
-        states: "Select at least one state",
+        states: "Please select at least one state where lending is available",
       },
     }));
   };
 
   const validateField = (productId: string, key: string, val: any) => {
-    let error = "";
+    const current = value?.[productId] || {};
 
-    if (!val && val !== 0) {
-      error = "Required";
+    // ✅ EMPTY CHECK
+    if (val === "" || val === null || val === undefined) {
+      return "This field is required";
     }
 
-    const current = value?.[productId] || {}; // ✅ correct usage
+    const numVal = Number(val);
 
-    // Min-Max validation
-    if (
-      key === "minLoan" &&
-      current.maxLoan &&
-      Number(val) > Number(current.maxLoan)
-    ) {
-      error = "Min > Max";
+    // ✅ GENERIC NUMBER VALIDATION
+    if (numVal < 0) {
+      return "Value cannot be negative";
     }
 
-    if (
-      key === "maxLoan" &&
-      current.minLoan &&
-      Number(val) < Number(current.minLoan)
-    ) {
-      error = "Max < Min";
+    // ✅ LOAN AMOUNT
+    if (key === "minLoan" && current.maxLoan) {
+      if (numVal > Number(current.maxLoan)) {
+        return "Minimum loan amount cannot exceed maximum loan amount";
+      }
     }
 
-    if (
-      key === "minRate" &&
-      current.maxRate &&
-      Number(val) > Number(current.maxRate)
-    ) {
-      error = "Min > Max";
+    if (key === "maxLoan" && current.minLoan) {
+      if (numVal < Number(current.minLoan)) {
+        return "Maximum loan amount cannot be less than minimum loan amount";
+      }
     }
 
-    if (
-      key === "maxRate" &&
-      current.minRate &&
-      Number(val) < Number(current.minRate)
-    ) {
-      error = "Max < Min";
+    // ✅ INTEREST RATE
+    if (key === "minRate" && current.maxRate) {
+      if (numVal > Number(current.maxRate)) {
+        return "Minimum interest rate cannot exceed maximum rate";
+      }
     }
 
-    if (
-      key === "minTerm" &&
-      current.maxTerm &&
-      Number(val) > Number(current.maxTerm)
-    ) {
-      error = "Min > Max";
+    if (key === "maxRate" && current.minRate) {
+      if (numVal < Number(current.minRate)) {
+        return "Maximum interest rate cannot be less than minimum rate";
+      }
     }
 
-    if (
-      key === "maxTerm" &&
-      current.minTerm &&
-      Number(val) < Number(current.minTerm)
-    ) {
-      error = "Max < Min";
+    // ✅ TERM
+    if (key === "minTerm" && current.maxTerm) {
+      if (numVal > Number(current.maxTerm)) {
+        return "Minimum term cannot exceed maximum term";
+      }
     }
 
-    return error;
+    if (key === "maxTerm" && current.minTerm) {
+      if (numVal < Number(current.minTerm)) {
+        return "Maximum term cannot be less than minimum term";
+      }
+    }
+
+    // ✅ LTV VALIDATION
+    if (key === "minLtv" || key === "maxLtv") {
+      if (numVal > 100) {
+        return "LTV cannot exceed 100%";
+      }
+    }
+
+    // ✅ FICO VALIDATION
+    if (key === "fico") {
+      if (numVal < 300 || numVal > 900) {
+        return "FICO score must be between 300 and 900";
+      }
+    }
+
+    // ✅ EXPERIENCE
+    if (key === "experience") {
+      if (numVal > 100) {
+        return "Experience seems too high";
+      }
+    }
+
+    return "";
   };
 
   useEffect(() => {
@@ -226,7 +247,7 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
           ...prev,
           [p.id]: {
             ...prev?.[p.id],
-            states: "Select at least one state",
+            states: "Please select at least one state where lending is available",
           },
         }));
       }
@@ -287,7 +308,8 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
                         type="number"
                         value={value?.[product.id]?.[field.key] || ""}
                         onChange={(e) => {
-                          const val = e.target.value;
+                          const val =
+                            e.target.value === "" ? "" : Number(e.target.value);
 
                           handleChange(product.id, field.key, val);
 
