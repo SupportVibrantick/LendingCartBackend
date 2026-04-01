@@ -134,7 +134,7 @@ async function brokerSubmitApplication(fastify) {
               applicationProductId,
 
               // FIXED: waiting for client action
-              status: "PENDING_CLIENT"
+              status: "CLIENT_PENDING"
             }
           });
 
