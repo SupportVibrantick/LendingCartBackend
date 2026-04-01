@@ -13,6 +13,7 @@ async function submitClientApplication(fastify) {
           required: ["signature"],
           properties: {
             token: { type: "string" },
+            loanApplicationId: { type: "string" }, //  FIXED
             signature: { type: "string", minLength: 5 }
           }
         }
@@ -22,10 +23,10 @@ async function submitClientApplication(fastify) {
       const prisma = fastify.prisma;
 
       try {
-        const { token, signature } = req.body;
+        const { token, signature, loanApplicationId } = req.body;
 
         /* ===============================
-           BASIC VALIDATION
+           VALIDATION
         =============================== */
 
         if (!signature) {
@@ -35,8 +36,10 @@ async function submitClientApplication(fastify) {
           });
         }
 
-        // Optional strict validation (can relax if needed)
-        if (!signature.startsWith("data:image") && signature !== "test-signature") {
+        if (
+          !signature.startsWith("data:image") &&
+          signature !== "test-signature"
+        ) {
           return reply.code(400).send({
             success: false,
             message: "Invalid signature format"
@@ -48,7 +51,7 @@ async function submitClientApplication(fastify) {
         let tokenRecord = null;
 
         /* =========================================
-           CASE 1: TOKEN FLOW
+           TOKEN FLOW
         ========================================= */
 
         if (token) {
@@ -86,7 +89,7 @@ async function submitClientApplication(fastify) {
         }
 
         /* =========================================
-           CASE 2: JWT FLOW
+           JWT FLOW (FIXED)
         ========================================= */
 
         else if (req.headers.authorization) {
@@ -104,18 +107,18 @@ async function submitClientApplication(fastify) {
             });
           }
 
-          const { clientId, loanId } = decoded;
+          const { clientId } = decoded;
 
-          if (!clientId || !loanId) {
+          if (!clientId || !loanApplicationId) {
             return reply.code(400).send({
               success: false,
-              message: "Invalid JWT payload"
+              message: "Missing loanApplicationId"
             });
           }
 
           loan = await prisma.loanApplication.findFirst({
             where: {
-              id: loanId,
+              id: loanApplicationId, // ✅ FIXED
               clientId
             },
             include: { submissions: true }
@@ -129,10 +132,6 @@ async function submitClientApplication(fastify) {
           }
         }
 
-        /* =========================================
-           NO ACCESS METHOD
-        ========================================= */
-
         else {
           return reply.code(401).send({
             success: false,
@@ -141,7 +140,7 @@ async function submitClientApplication(fastify) {
         }
 
         /* =========================================
-           COMMON VALIDATIONS
+           COMMON VALIDATION
         ========================================= */
 
         if (!loan) {
@@ -159,7 +158,7 @@ async function submitClientApplication(fastify) {
         }
 
         /* =========================================
-           GET CORRECT SUBMISSION
+           GET LATEST PENDING SUBMISSION
         ========================================= */
 
         submission = loan.submissions
@@ -179,7 +178,7 @@ async function submitClientApplication(fastify) {
 
         await prisma.$transaction(async (tx) => {
 
-          /* TOKEN SAFETY FIRST (race condition safe) */
+          /* TOKEN SAFETY */
           if (tokenRecord) {
             const updated = await tx.clientUploadToken.updateMany({
               where: {
@@ -194,7 +193,7 @@ async function submitClientApplication(fastify) {
             }
           }
 
-          /* REMOVE OLD SIGNATURE (IMPORTANT FIX) */
+          /* REMOVE OLD SIGNATURE */
           await tx.applicationSubmissionField.deleteMany({
             where: {
               submissionId: submission.id,
@@ -202,7 +201,7 @@ async function submitClientApplication(fastify) {
             }
           });
 
-          /* SAVE NEW SIGNATURE */
+          /* SAVE SIGNATURE */
           await tx.applicationSubmissionField.create({
             data: {
               submissionId: submission.id,
