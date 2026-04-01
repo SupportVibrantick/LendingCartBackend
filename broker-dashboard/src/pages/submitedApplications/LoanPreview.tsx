@@ -35,6 +35,45 @@ const parseValue = (val: string): any => {
   }
 };
 
+const getStatusChip = (status?: string) => {
+  switch (status) {
+    case "DRAFT":
+      return "bg-slate-100 text-slate-700 ring-1 ring-slate-200";
+
+    case "CLIENT_PENDING":
+      return "bg-yellow-100 text-yellow-700 ring-1 ring-yellow-200";
+
+    case "SUBMITTED":
+      return "bg-blue-100 text-blue-700 ring-1 ring-blue-200";
+
+    case "IN_REVIEW":
+      return "bg-indigo-100 text-indigo-700 ring-1 ring-indigo-200";
+
+    case "AUTO_APPROVED":
+    case "LENDER_APPROVED":
+      return "bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200";
+
+    case "AUTO_DECLINED":
+    case "LENDER_DECLINED":
+      return "bg-red-100 text-red-700 ring-1 ring-red-200";
+
+    case "LENDER_SELECTED":
+      return "bg-purple-100 text-purple-700 ring-1 ring-purple-200";
+
+    case "COMPLETED":
+      return "bg-green-100 text-green-700 ring-1 ring-green-200";
+
+    case "FUNDED":
+      return "bg-green-100 text-green-800 ring-1 ring-green-200";
+
+    case "WITHDRAWN":
+      return "bg-gray-200 text-gray-700 ring-1 ring-gray-300";
+
+    default:
+      return "bg-slate-100 text-slate-600 ring-1 ring-slate-200";
+  }
+};
+
 const getFieldValue = (fields: SubmissionField[], key: string) => {
   const field = fields.find((f) => f.fieldKey === key || f.fieldId === key);
   return field ? parseValue(field.value) : undefined;
@@ -58,21 +97,6 @@ const formatFieldKey = (key: string | null | undefined) => {
     .replace(/\s+/g, " ")
     .trim()
     .replace(/\b\w/g, (char) => char.toUpperCase());
-};
-
-const getStatusChip = (status?: string) => {
-  switch (status) {
-    case "NEW":
-      return "bg-blue-100 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400";
-    case "SENT":
-      return "bg-purple-100 text-purple-700 dark:bg-purple-500/10 dark:text-purple-400";
-    case "APPROVED":
-      return "bg-green-100 text-green-700 dark:bg-green-500/10 dark:text-green-400";
-    case "DECLINED":
-      return "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400";
-    default:
-      return "bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300";
-  }
 };
 
 const LoanPreview = () => {
@@ -1272,7 +1296,7 @@ const LoanPreview = () => {
             <div className="py-20 text-center text-slate-500">Loading...</div>
           ) : (
             <>
-              <div className="mb-6 overflow-hidden rounded-[30px] border border-white/30 bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.24),_transparent_28%),linear-gradient(135deg,_#1d4ed8_0%,_#0f766e_55%,_#0891b2_100%)] p-6 text-white shadow-[0_24px_60px_rgba(8,145,178,0.28)]">
+              <div className="mb-6 overflow-hidden rounded-[30px] border border-white/30 bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.24),_transparent_28%),linear-gradient(135deg,_#1d4ed8_0%,_#0f766e_55%,_#0891b2_100%)] p-6 text-white">
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
                   <Metric label="LTV" value={ltv ? `${ltv}%` : "-"} />
                   <Metric label="LTC" value={ltc ? `${ltc}%` : "-"} />
