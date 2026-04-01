@@ -45,6 +45,7 @@ export default function ClientUpload() {
   const [activeTab, setActiveTab] = useState<"documents" | "application">(
     "documents",
   );
+  const [isSignedFromAPI, setIsSignedFromAPI] = useState(false);
 
   const getClientPortalAuthConfig = () => {
     const brokerToken = sessionStorage.getItem("broker_token");
@@ -75,6 +76,14 @@ export default function ClientUpload() {
       const res = await axios.get(url, getClientPortalAuthConfig());
       const data = res.data?.data;
 
+      const signatureFromAPI = data?.fullApplication?.find(
+        (item: any) => item.key === "borrowerSignature",
+      )?.value;
+
+      if (signatureFromAPI) {
+        setSignature(signatureFromAPI);
+        setIsSignedFromAPI(true);
+      }
       const docs = (data?.documents || []).map((doc: any) => ({
         id: doc.id,
         name: doc.name,
@@ -82,7 +91,6 @@ export default function ClientUpload() {
         uploadedFiles: doc.uploadedFiles || [],
         required: doc.required,
       }));
-
       setApplicationId(data?.loanApplicationId || "");
       setDocuments(docs);
       setApplicationNumber(data?.applicationNumber || "");
@@ -162,6 +170,7 @@ export default function ClientUpload() {
 
       setSignature(capturedSignature);
       setStatus("SUBMITTED");
+      await verifyToken();
       toast.success("Signature submitted successfully");
       sigRef.current?.clear();
     } catch (err: any) {
@@ -321,17 +330,38 @@ export default function ClientUpload() {
           <div className="bg-white rounded-2xl shadow p-5 mb-6 border">
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
               {/* STATUS */}
-              <div>
-                <p className="text-xs text-gray-400">Status</p>
+              <div className="flex flex-col">
+                <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">
+                  Status
+                </p>
+
                 <span
-                  className={`inline-block px-2 py-1 mt-1 text-xs font-semibold rounded-full
-        ${
-          status === "SUBMITTED"
-            ? "bg-green-100 text-green-700"
-            : "bg-yellow-100 text-yellow-700"
-        }`}
+                  className={`inline-flex items-center gap-2 w-fit px-3 py-1.5 mt-2 text-xs font-semibold rounded-full transition
+    ${
+      status === "SUBMITTED"
+        ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
+        : status === "PENDING"
+          ? "bg-amber-50 text-amber-700 ring-1 ring-amber-200"
+          : status === "REJECTED"
+            ? "bg-red-50 text-red-700 ring-1 ring-red-200"
+            : "bg-gray-100 text-gray-700 ring-1 ring-gray-200"
+    }`}
                 >
-                  {status}
+                  {/* Dot Indicator */}
+                  <span
+                    className={`h-2 w-2 rounded-full
+      ${
+        status === "SUBMITTED"
+          ? "bg-emerald-500"
+          : status === "PENDING"
+            ? "bg-amber-500"
+            : status === "REJECTED"
+              ? "bg-red-500"
+              : "bg-gray-400"
+      }`}
+                  />
+
+                  {status || "N/A"}
                 </span>
               </div>
 
@@ -614,81 +644,117 @@ export default function ClientUpload() {
                 Digital Signature
               </h3>
 
-              {/* Signature Pad */}
-              <div className="bg-gradient-to-br from-white to-gray-50 border rounded-xl p-4 shadow-sm">
-                <SignatureCanvas
-                  ref={sigRef}
-                  penColor="black"
-                  onEnd={handleEndSignature}
-                  canvasProps={{
-                    width: 900,
-                    height: 220,
-                    className:
-                      "w-full max-w-full border-2 border-dashed border-gray-300 rounded-lg bg-white",
-                  }}
-                />
+              {isSignedFromAPI ? (
+                <div className="bg-gray-50 border rounded-xl p-4 text-center">
+                  <p className="text-xs text-gray-400 mb-2">
+                    ✔ Signed by client
+                  </p>
 
-                <div className="mt-3 flex items-center justify-between gap-3">
-                  <p className="text-xs text-gray-400">Sign above</p>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={handleUndoSignature}
-                      disabled={!signature}
-                      className={`rounded-md px-3 py-1 text-xs transition ${
-                        !signature
-                          ? "cursor-not-allowed bg-slate-100 text-slate-400"
-                          : "bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50"
-                      }`}
-                    >
-                      Undo Last Stroke
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={handleClearSignature}
-                      disabled={!signature}
-                      className={`rounded-md px-3 py-1 text-xs transition ${
-                        !signature
-                          ? "cursor-not-allowed bg-slate-100 text-slate-400"
-                          : "bg-gray-200 text-slate-700 hover:bg-gray-300"
-                      }`}
-                    >
-                      Reset Signature
-                    </button>
-                  </div>
+                  <img
+                    src={signature}
+                    className="h-28 mx-auto object-contain"
+                  />
                 </div>
-              </div>
+              ) : (
+                <>
+                  <div className="bg-gradient-to-br from-white to-gray-50 border rounded-xl p-4 shadow-sm">
+                    <SignatureCanvas
+                      ref={sigRef}
+                      penColor="black"
+                      onEnd={handleEndSignature}
+                      canvasProps={{
+                        width: 900,
+                        height: 220,
+                        className:
+                          "w-full max-w-full border-2 border-dashed border-gray-300 rounded-lg bg-white",
+                      }}
+                    />
 
-              {/* Preview */}
-              {/* {signature && (
-                <div className="mt-4">
-                  <p className="text-xs text-gray-400 mb-1">Preview</p>
-                  <div className="border rounded-xl p-3 bg-gray-50">
-                    <img src={signature} className="h-24 mx-auto" />
+                    <div className="mt-3 flex items-center justify-between gap-3">
+                      <p className="text-xs text-gray-400">Sign above</p>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={handleUndoSignature}
+                          disabled={!signature}
+                          className={`rounded-md px-3 py-1 text-xs transition ${
+                            !signature
+                              ? "cursor-not-allowed bg-slate-100 text-slate-400"
+                              : "bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50"
+                          }`}
+                        >
+                          Undo Last Stroke
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={handleClearSignature}
+                          disabled={!signature}
+                          className={`rounded-md px-3 py-1 text-xs transition ${
+                            !signature
+                              ? "cursor-not-allowed bg-slate-100 text-slate-400"
+                              : "bg-gray-200 text-slate-700 hover:bg-gray-300"
+                          }`}
+                        >
+                          Reset Signature
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              )} */}
 
-              {/* Submit */}
-              <button
-                onClick={handleSubmitSignature}
-                disabled={!signature || submittingSign}
-                className={`mt-4 w-full rounded-lg py-2 font-medium transition ${
-                  !signature || submittingSign
-                    ? "cursor-not-allowed bg-slate-200 text-slate-500 shadow-none"
-                    : "bg-emerald-600 text-white shadow-[0_12px_24px_rgba(5,150,105,0.22)] hover:bg-emerald-700"
-                }`}
-              >
-                {submittingSign ? "Submitting..." : "Submit Signature"}
-              </button>
+                  {/* Submit */}
+                  <button
+                    onClick={handleSubmitSignature}
+                    disabled={!signature || submittingSign}
+                    className={`mt-4 w-full rounded-lg py-2 font-medium transition ${
+                      !signature || submittingSign
+                        ? "cursor-not-allowed bg-slate-200 text-slate-500 shadow-none"
+                        : "bg-emerald-600 text-white shadow-[0_12px_24px_rgba(5,150,105,0.22)] hover:bg-emerald-700"
+                    }`}
+                  >
+                    {submittingSign ? "Submitting..." : "Submit Signature"}
+                  </button>
+                </>
+              )}
             </div>
 
             {/* FOOTER */}
-            <div className="flex justify-between mt-6 text-sm text-gray-500">
-              <span>Submitted Date: {applicationData.createdAt}</span>
-              <span>Status: {applicationData.status}</span>
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mt-6">
+              {/* Date */}
+              <span className="text-sm text-gray-500">
+                Submitted Date: {applicationData.createdAt}
+              </span>
+
+              {/* Status Badge */}
+              <span
+                className={`inline-flex items-center gap-2 px-4 py-1.5 text-xs font-semibold rounded-full shadow-sm
+    ${
+      applicationData.status === "SUBMITTED"
+        ? "bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200"
+        : applicationData.status === "PENDING"
+          ? "bg-amber-100 text-amber-700 ring-1 ring-amber-200"
+          : applicationData.status === "REJECTED"
+            ? "bg-red-100 text-red-700 ring-1 ring-red-200"
+            : "bg-gray-100 text-gray-700 ring-1 ring-gray-200"
+    }`}
+              >
+                {/* Dot indicator */}
+                <span
+                  className={`h-2 w-2 rounded-full
+      ${
+        applicationData.status === "SUBMITTED"
+          ? "bg-emerald-500"
+          : applicationData.status === "PENDING"
+            ? "bg-amber-500"
+            : applicationData.status === "REJECTED"
+              ? "bg-red-500"
+              : "bg-gray-400"
+      }`}
+                />
+
+                {applicationData.status}
+              </span>
             </div>
           </div>
         )}

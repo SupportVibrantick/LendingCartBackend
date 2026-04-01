@@ -51,7 +51,7 @@ import ContactPage from "./pages/Contacts/ContactPage";
 import ClientUpload from "./pages/ClientPortal/ClientUpload";
 import ClientProtected from "./pages/ClientPortal/ClientProtected";
 import ClientAuth from "./pages/ClientPortal/ClientAuth";
-import CustomerLogin from "./pages/ClientPortal/CustomerLogin";
+// import CustomerLogin from "./pages/ClientPortal/CustomerLogin";
 import LoanPreview from "./pages/submitedApplications/LoanPreview";
 
 export default function App() {
@@ -231,7 +231,7 @@ export default function App() {
             }
           />
 
-          <Route path="/customer" element={<CustomerLogin />} />
+          {/* <Route path="/customer" element={<CustomerLogin />} /> */}
 
           {/* Fallback Route */}
           <Route path="*" element={<NotFound />} />

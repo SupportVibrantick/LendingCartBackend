@@ -189,6 +189,9 @@ export default function LoanApplicationsPage() {
       case "pending":
         return "bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400";
 
+      case "client_pending":
+        return "bg-red-500/10 border-red-500/20 text-red-600 dark:text-red-400";
+
       case "submitted":
       case "sent":
         return "bg-indigo-500/10 border-indigo-500/20 text-indigo-600 dark:text-indigo-400";
@@ -198,6 +201,9 @@ export default function LoanApplicationsPage() {
 
       case "declined":
         return "bg-red-500/10 border-red-500/20 text-red-600 dark:text-red-400";
+
+      case "completed":
+        return "bg-green-500/10 border-green-500/20 text-green-600 dark:text-green-400";
 
       default:
         return "bg-slate-500/10 border-slate-500/20 text-slate-600 dark:text-slate-400";
@@ -905,7 +911,7 @@ export default function LoanApplicationsPage() {
                     { label: "Location", width: "w-[180px]" },
                     { label: "Amount", width: "w-[100px]" },
                     { label: "Submitted On", width: "w-[120px]" },
-                    { label: "Status", width: "w-[100px]" },
+                    { label: "Status", width: "w-[130px]" },
                     { label: "Lenders", width: "w-[100px]" },
                     { label: "Action", width: "w-[80px]" },
                   ].map((h) => (
