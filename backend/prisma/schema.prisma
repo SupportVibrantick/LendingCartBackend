@@ -633,6 +633,7 @@ model ApplicationDocumentRequirement {
   source            DocRequirementSource
   isRequired        Boolean                     @default(true)
   status            DocRequirementStatus        @default(PENDING)
+  lastRequestedAt   DateTime?                   @db.Timestamptz(6)
   createdAt         DateTime                    @default(now()) @db.Timestamptz(6)
   updatedAt         DateTime                    @updatedAt @db.Timestamptz(6)
   documentType      DocumentType                @relation(fields: [documentTypeId], references: [id])
@@ -653,6 +654,10 @@ model ApplicationDocumentUpload {
   fileName               String
   fileUrl                String
   fileMimeType           String?
+  
+  isSubmittedToLender    Boolean  @default(false)
+  submittedAt            DateTime? @db.Timestamptz(6)
+
   uploadedAt             DateTime                        @default(now()) @db.Timestamptz(6)
   documentRequirement    ApplicationDocumentRequirement? @relation(fields: [documentRequirementId], references: [id])
   loanApplication        LoanApplication                 @relation(fields: [loanApplicationId], references: [id])
@@ -663,6 +668,9 @@ model ApplicationDocumentUpload {
   @@index([documentRequirementId])
   @@map("application_document_uploads")
 }
+
+
+
 
 model ApplicationRuleEvaluation {
   id String @id @default(uuid()) @db.Uuid

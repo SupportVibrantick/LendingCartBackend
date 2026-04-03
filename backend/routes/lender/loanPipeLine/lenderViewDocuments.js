@@ -6,9 +6,9 @@ module.exports = async function lenderViewDocuments(fastify) {
     "/lender/applications/:applicationLenderId/documents",
     async (req, reply) => {
       try {
-        // ===============================
-        //  AUTH CHECK (LENDER ONLY)
-        // ===============================
+        /* ===============================
+           AUTH CHECK (LENDER ONLY)
+        =============================== */
         if (!req.user || req.user.orgType !== "LENDER") {
           return reply.code(403).send({
             success: false,
@@ -27,9 +27,16 @@ module.exports = async function lenderViewDocuments(fastify) {
 
         const { applicationLenderId } = req.params;
 
-        // ===============================
-        // VALIDATE APPLICATION ACCESS
-        // ===============================
+        if (!applicationLenderId) {
+          return reply.code(400).send({
+            success: false,
+            message: "applicationLenderId is required",
+          });
+        }
+
+        /* ===============================
+           VALIDATE APPLICATION ACCESS
+        =============================== */
         const applicationLender =
           await fastify.prisma.applicationLender.findFirst({
             where: {
@@ -38,11 +45,17 @@ module.exports = async function lenderViewDocuments(fastify) {
             },
             include: {
               loanApplication: {
-                include: {
+                select: {
+                  id: true,
                   documentRequirements: {
                     include: {
                       documentType: true,
+
+                      // 🔥 CRITICAL FIX: ONLY SUBMITTED DOCS
                       uploads: {
+                        where: {
+                          isSubmittedToLender: true,
+                        },
                         include: {
                           uploadedByUser: {
                             select: {
@@ -70,7 +83,7 @@ module.exports = async function lenderViewDocuments(fastify) {
             },
           });
 
-        if (!applicationLender) {
+        if (!applicationLender || !applicationLender.loanApplication) {
           return reply.code(404).send({
             success: false,
             message: "Application not found for this lender",
@@ -79,64 +92,89 @@ module.exports = async function lenderViewDocuments(fastify) {
 
         const loanApplication = applicationLender.loanApplication;
 
-        // ===============================
-        // FORMAT DOCUMENTS
-        // ===============================
-        const documents =
-          loanApplication.documentRequirements.map((req) => {
-            const uploadedCount = req.uploads.length;
+        /* ===============================
+           FORMAT DOCUMENTS (SAFE)
+        =============================== */
+        const documents = loanApplication.documentRequirements.map((reqDoc) => {
+          const uploads = reqDoc.uploads || [];
+          const uploadedCount = uploads.length;
 
-            return {
-              requirementId: req.id,
-              documentTypeId: req.documentTypeId,
-              documentName: req.documentType?.name ?? null,
-              source: req.source, // LENDER_DEFAULT / PRODUCT_DEFAULT
-              isRequired: req.isRequired,
-              status: req.status, // PENDING / PARTIAL / COMPLETE
-              uploadedCount,
-              uploadedFiles: req.uploads.map((upload) => ({
-                uploadId: upload.id,
-                fileName: upload.fileName,
-                fileUrl: upload.fileUrl,
-                fileMimeType: upload.fileMimeType,
-                uploadedAt: upload.uploadedAt,
-                uploadedBy:
-                  upload.uploadedByUser
-                    ? {
-                        type: "BROKER",
-                        userId: upload.uploadedByUser.id,
-                        name: `${upload.uploadedByUser.firstName ?? ""} ${upload.uploadedByUser.lastName ?? ""}`.trim(),
-                        email: upload.uploadedByUser.email,
-                      }
-                    : upload.uploadedByClientUser
-                    ? {
-                        type: "CLIENT",
-                        userId: upload.uploadedByClientUser.id,
-                        email: upload.uploadedByClientUser.email,
-                      }
-                    : null,
-              })),
-            };
-          });
+          return {
+            requirementId: reqDoc.id,
+            documentTypeId: reqDoc.documentTypeId,
+            documentName: reqDoc.documentType?.name ?? null,
+            source: reqDoc.source,
+            isRequired: reqDoc.isRequired,
 
-        const pendingCount = documents.filter(
-          (d) => d.status !== "COMPLETE"
+            // 🔥 IMPORTANT: status should reflect ONLY submitted files
+            status:
+              uploadedCount === 0
+                ? "PENDING"
+                : reqDoc.status === "COMPLETE"
+                ? "COMPLETE"
+                : "PARTIAL",
+
+            uploadedCount,
+
+            uploadedFiles: uploads.map((upload) => ({
+              uploadId: upload.id,
+              fileName: upload.fileName,
+              fileUrl: upload.fileUrl,
+              fileMimeType: upload.fileMimeType,
+              uploadedAt: upload.uploadedAt,
+
+              uploadedBy: upload.uploadedByUser
+                ? {
+                    type: "BROKER",
+                    userId: upload.uploadedByUser.id,
+                    name: `${upload.uploadedByUser.firstName ?? ""} ${
+                      upload.uploadedByUser.lastName ?? ""
+                    }`.trim(),
+                    email: upload.uploadedByUser.email,
+                  }
+                : upload.uploadedByClientUser
+                ? {
+                    type: "CLIENT",
+                    userId: upload.uploadedByClientUser.id,
+                    email: upload.uploadedByClientUser.email,
+                  }
+                : null,
+            })),
+          };
+        });
+
+        /* ===============================
+           FILTER EMPTY DOCS (OPTIONAL CLEAN UX)
+        =============================== */
+        const visibleDocuments = documents.filter(
+          (doc) => doc.uploadedCount > 0 || doc.isRequired
+        );
+
+        /* ===============================
+           PENDING COUNT (SUBMITTED CONTEXT)
+        =============================== */
+        const pendingCount = visibleDocuments.filter(
+          (d) => d.uploadedCount === 0
         ).length;
 
-        // ===============================
-        //  RESPONSE
-        // ===============================
+        /* ===============================
+           RESPONSE
+        =============================== */
         return reply.send({
           success: true,
           data: {
             applicationLenderId,
             loanApplicationId: loanApplication.id,
             documentsPendingCount: pendingCount,
-            documents,
+            documents: visibleDocuments,
           },
         });
+
       } catch (error) {
-        fastify.log.error(error);
+        fastify.log.error({
+          error: error.message,
+          route: "lender-view-documents",
+        });
 
         return reply.code(500).send({
           success: false,

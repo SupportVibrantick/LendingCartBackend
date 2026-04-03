@@ -8,6 +8,7 @@ async function loanPipelineRoutes(fastify) {
 
   fastify.register(require("./sendClientLink"));
   fastify.register(require("./requestDocuments"));
+  fastify.register(require("./submitDocumentsToLender"));
   
 }
 
