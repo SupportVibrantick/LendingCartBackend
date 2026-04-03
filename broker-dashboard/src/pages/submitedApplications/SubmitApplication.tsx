@@ -196,6 +196,9 @@ export default function LoanApplicationsPage() {
       case "sent":
         return "bg-indigo-500/10 border-indigo-500/20 text-indigo-600 dark:text-indigo-400";
 
+      case "updated":
+        return "bg-cyan-100 text-cyan-700 ring-1 ring-cyan-200";
+
       case "approved":
         return "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400";
 
@@ -646,58 +649,58 @@ export default function LoanApplicationsPage() {
     setCurrentPage(1);
   }, [searchTerm]);
 
-  const fetchDocumentTypes = async (applicationId: string) => {
-    try {
-      const brokerToken = sessionStorage.getItem("broker_token");
+  // const fetchDocumentTypes = async (applicationId: string) => {
+  //   try {
+  //     const brokerToken = sessionStorage.getItem("broker_token");
 
-      setDocSelectModal({
-        isOpen: true,
-        applicationId,
-        documents: [],
-        selectedDocs: [],
-        loading: true,
-      });
+  //     setDocSelectModal({
+  //       isOpen: true,
+  //       applicationId,
+  //       documents: [],
+  //       selectedDocs: [],
+  //       loading: true,
+  //     });
 
-      const res = await fetch(`${API_BASE}/document-types/active`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          ...(brokerToken && {
-            Authorization: `Bearer ${brokerToken}`,
-          }),
-        },
-      });
+  //     const res = await fetch(`${API_BASE}/document-types/active`, {
+  //       method: "GET",
+  //       headers: {
+  //         "Content-Type": "application/json",
+  //         ...(brokerToken && {
+  //           Authorization: `Bearer ${brokerToken}`,
+  //         }),
+  //       },
+  //     });
 
-      const json = await res.json();
+  //     const json = await res.json();
 
-      if (!res.ok || !json.success) {
-        throw new Error(json.message || "Failed to fetch document types");
-      }
+  //     if (!res.ok || !json.success) {
+  //       throw new Error(json.message || "Failed to fetch document types");
+  //     }
 
-      const formattedDocs = json.data.map((doc: any) => ({
-        documentTypeId: doc.id,
-        documentType: {
-          name: doc.name,
-        },
-      }));
+  //     const formattedDocs = json.data.map((doc: any) => ({
+  //       documentTypeId: doc.id,
+  //       documentType: {
+  //         name: doc.name,
+  //       },
+  //     }));
 
-      setDocSelectModal({
-        isOpen: true,
-        applicationId,
-        documents: formattedDocs,
-        selectedDocs: [],
-        loading: false,
-      });
-    } catch (err: any) {
-      toast.error(err.message || "Failed to load documents");
+  //     setDocSelectModal({
+  //       isOpen: true,
+  //       applicationId,
+  //       documents: formattedDocs,
+  //       selectedDocs: [],
+  //       loading: false,
+  //     });
+  //   } catch (err: any) {
+  //     toast.error(err.message || "Failed to load documents");
 
-      // FIX: stop loading
-      setDocSelectModal((prev) => ({
-        ...prev,
-        loading: false,
-      }));
-    }
-  };
+  //     // FIX: stop loading
+  //     setDocSelectModal((prev) => ({
+  //       ...prev,
+  //       loading: false,
+  //     }));
+  //   }
+  // };
 
   const handleRequestDocuments = async () => {
     try {
@@ -1121,14 +1124,18 @@ export default function LoanApplicationsPage() {
                             {/* Application Preview */}
                             <button
                               onClick={() =>
-                                navigate(`/loan-preview/${row.submissionId}`)
+                                navigate("/loan-preview", {
+                                  state: {
+                                    submissionId: row.submissionId,
+                                  },
+                                })
                               }
                               className="
-        flex items-center gap-3 w-full px-4 py-3 text-sm
-        text-yellow-500 dark:text-yellow-300
-        hover:bg-blue-50 dark:hover:bg-blue-500/10
-        transition
-      "
+    flex items-center gap-3 w-full px-4 py-3 text-sm
+    text-yellow-500 dark:text-yellow-300
+    hover:bg-yellow-50 dark:hover:bg-yellow-500/10
+    transition
+  "
                             >
                               <div className="p-1.5 rounded-md bg-yellow-100 dark:bg-blue-500/20">
                                 <MdEdit size={14} />
@@ -1175,7 +1182,7 @@ export default function LoanApplicationsPage() {
                             </button>
 
                             {/* Request Document */}
-                            <button
+                            {/* <button
                               onClick={() => {
                                 fetchDocumentTypes(row.applicationId);
                                 setActiveDropdown(null);
@@ -1191,7 +1198,7 @@ export default function LoanApplicationsPage() {
                                 <FileText size={14} />
                               </div>
                               Request Document
-                            </button>
+                            </button> */}
 
                             <button
                               onClick={() => {
@@ -1209,7 +1216,7 @@ export default function LoanApplicationsPage() {
                             </button>
 
                             {/* Documents */}
-                            <button
+                            {/* <button
                               onClick={() => {
                                 fetchSubmissionDocuments(row.submissionId);
                                 setActiveDropdown(null);
@@ -1225,7 +1232,7 @@ export default function LoanApplicationsPage() {
                                 <FileText size={14} />
                               </div>
                               Documents
-                            </button>
+                            </button> */}
                           </div>
                         )}
                       </td>

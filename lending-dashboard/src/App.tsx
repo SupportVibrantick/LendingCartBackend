@@ -40,6 +40,7 @@ import LoanPipeline from "./pages/LoanPipeline/LoanPipeline";
 import ImpersonateLogin from "./pages/ImpersonateLogin";
 import LoiPreview from "./pages/LoanPipeline/LoiPreview";
 import ClientUpload from "./pages/ClientPortal/ClientUpload";
+import LoanPreview from "./pages/LoanPipeline/LoanPreview";
 
 export default function App() {
   return (
@@ -98,6 +99,7 @@ export default function App() {
             <Route index path="/find-broker" element={<FindBroker />} />
 
             <Route index path="/loan-pipeline" element={<LoanPipeline />} />
+            <Route index path="/loan-preview" element={<LoanPreview />} />
             <Route index path="/loi-preview" element={<LoiPreview />} />
 
             {/* Others Page */}
@@ -141,3 +143,5 @@ export default function App() {
     </>
   );
 }
+
+
