@@ -162,7 +162,7 @@ async function submitClientApplication(fastify) {
         ========================================= */
 
         submission = loan.submissions
-          .filter(s => s.status === "PENDING_CLIENT")
+          .filter(s => s.status === "CLIENT_PENDING")
           .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
 
         if (!submission) { 
