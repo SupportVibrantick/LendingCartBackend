@@ -10,8 +10,8 @@ async function requestDocumentsRoute(fastify) {
     "/:loanId/request-documents",
     {
       schema: {
-        tags: ["Broker -> Loan Pipeline"],
-        summary: "Broker requests documents from client",
+        tags: ["Loan Pipeline"],
+        summary: "Request documents from client (Broker / Lender)",
         params: {
           type: "object",
           required: ["loanId"],
@@ -43,38 +43,51 @@ async function requestDocumentsRoute(fastify) {
 
         if (
           !req.user ||
-          req.user.orgType !== "BROKER" ||
-          !req.user.organizationId
+          !req.user.organizationId ||
+          !["BROKER", "LENDER"].includes(req.user.orgType)
         ) {
           return reply.code(403).send({
             success: false,
-            message: "Broker access only",
+            message: "Unauthorized access",
           });
         }
 
-        const brokerOrgId = req.user.organizationId;
-        const brokerName =
-          req.user.firstName || "Your Broker";
+        const orgId = req.user.organizationId;
+        const actorName = req.user.firstName || "Team";
 
         const { loanId } = req.params;
         const { documentTypeIds, message } = req.body;
 
-        if (!documentTypeIds || documentTypeIds.length === 0) {
+        /* ===============================
+           VALIDATION
+        =============================== */
+
+        if (!Array.isArray(documentTypeIds) || documentTypeIds.length === 0) {
           return reply.code(400).send({
             success: false,
-            message: "Please select at least one document",
+            message: "Please provide at least one document type",
           });
         }
+
+        // Remove duplicates from input
+        const uniqueDocIds = [...new Set(documentTypeIds)];
 
         /* ===============================
            FETCH LOAN + CLIENT
         =============================== */
 
         const loan = await prisma.loanApplication.findFirst({
-          where: {
-            id: loanId,
-            brokerOrgId,
-          },
+          where:
+            req.user.orgType === "BROKER"
+              ? { id: loanId, brokerOrgId: orgId }
+              : {
+                  id: loanId,
+                  applicationLenders: {
+                    some: {
+                      lenderOrgId: orgId,
+                    },
+                  },
+                },
           include: {
             client: {
               include: {
@@ -87,7 +100,7 @@ async function requestDocumentsRoute(fastify) {
         if (!loan) {
           return reply.code(404).send({
             success: false,
-            message: "Loan application not found",
+            message: "Loan application not found or access denied",
           });
         }
 
@@ -105,12 +118,21 @@ async function requestDocumentsRoute(fastify) {
         if (!clientEmail) {
           return reply.code(400).send({
             success: false,
-            message: "Client email not found",
+            message: "Client email not available",
           });
         }
 
         /* ===============================
-           CREATE DOCUMENT REQUIREMENTS
+           DETERMINE SOURCE
+        =============================== */
+
+        const source =
+          req.user.orgType === "BROKER"
+            ? "BROKER_ADDED"
+            : "LENDER_ADDED";
+
+        /* ===============================
+           TRANSACTION: UPSERT LOGIC
         =============================== */
 
         await prisma.$transaction(async (tx) => {
@@ -119,62 +141,68 @@ async function requestDocumentsRoute(fastify) {
               where: {
                 loanApplicationId: loan.id,
               },
-              select: { documentTypeId: true },
             });
 
-          const existingSet = new Set(
-            existingDocs.map((d) => d.documentTypeId)
-          );
+          for (const docTypeId of uniqueDocIds) {
+            const existing = existingDocs.find(
+              (d) => d.documentTypeId === docTypeId
+            );
 
-          const newDocs = documentTypeIds
-            .filter((id) => !existingSet.has(id))
-            .map((id) => ({
-              loanApplicationId: loan.id,
-              documentTypeId: id,
-              source: "BROKER_ADDED", // 🔥 important
-              isRequired: true,
-              status: "PENDING",
-            }));
-
-          if (newDocs.length > 0) {
-            await tx.applicationDocumentRequirement.createMany({
-              data: newDocs,
-            });
+            if (existing) {
+              // 🔁 RE-REQUEST
+              await tx.applicationDocumentRequirement.update({
+                where: { id: existing.id },
+                data: {
+                  status: "PENDING",
+                  lastRequestedAt: new Date(),
+                  updatedAt: new Date(),
+                },
+              });
+            } else {
+              // 🆕 NEW REQUEST
+              await tx.applicationDocumentRequirement.create({
+                data: {
+                  loanApplicationId: loan.id,
+                  documentTypeId: docTypeId,
+                  source,
+                  isRequired: true,
+                  status: "PENDING",
+                  lastRequestedAt: new Date(),
+                },
+              });
+            }
           }
         });
 
         /* ===============================
-           EMAIL LINK (NO NEW TOKEN)
+           EMAIL PREPARATION
         =============================== */
 
         const portalLink = `${process.env.FRONTEND_URL}/client`;
-
-        /* ===============================
-           EMAIL TEMPLATE
-        =============================== */
 
         const html = loadTemplate("broker/clientLink", {
           clientName: loan.client?.legalName || "Customer",
           uploadLink: portalLink,
           applicationNumber: loan.applicationNumber,
-          brokerName,
+          brokerName: actorName,
           message:
-            message || "New documents have been requested for your application.",
+            message ||
+            "New documents have been requested for your application.",
         });
 
-        const subject = "New Documents Requested for Your Loan";
+        const subject = "Document Request Update for Your Loan";
 
         const text = `
 Hello,
 
-Your broker has requested additional documents.
+There is an update regarding your document requirements.
 
-Login here:
+Please login here:
 ${portalLink}
-`;
+        `;
 
         /* ===============================
-           SEND EMAIL
+           SEND EMAIL (NON-BLOCKING SAFE)
         =============================== */
 
         try {
@@ -186,10 +214,15 @@ ${portalLink}
           });
 
           fastify.log.info(
-            { clientEmail, loanId },
+            {
+              clientEmail,
+              loanId,
+              requestedBy: req.user.orgType,
+            },
             "Document request email sent"
           );
         } catch (err) {
+          // 🔥 Do NOT fail entire request if email fails
           fastify.log.error(
             {
               error: err.message,
@@ -198,15 +231,10 @@ ${portalLink}
             },
             "Email sending failed"
           );
-
-          return reply.code(500).send({
-            success: false,
-            message: "Failed to send email",
-          });
         }
 
         /* ===============================
-           RESPONSE
+           SUCCESS RESPONSE
         =============================== */
 
         return reply.send({
@@ -219,9 +247,9 @@ ${portalLink}
           {
             error: error.message,
             loanId: req.params.loanId,
-            brokerOrgId: req.user?.organizationId,
+            orgId: req.user?.organizationId,
           },
-          "Broker document request failed"
+          "Document request failed"
         );
 
         return reply.code(500).send({

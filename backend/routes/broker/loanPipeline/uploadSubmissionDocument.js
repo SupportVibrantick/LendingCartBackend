@@ -11,9 +11,9 @@ module.exports = async function uploadSubmissionDocument(fastify) {
     "/submissions/:submissionId/documents/:requirementId/upload",
     async (req, reply) => {
       try {
-        // ===============================
-        // AUTH CHECK (BROKER ONLY)
-        // ===============================
+        /* ===============================
+           AUTH CHECK (BROKER ONLY)
+        =============================== */
         if (!req.user || req.user.orgType !== "BROKER") {
           return reply.code(403).send({
             success: false,
@@ -33,9 +33,9 @@ module.exports = async function uploadSubmissionDocument(fastify) {
 
         const { submissionId, requirementId } = req.params;
 
-        // ===============================
-        // VALIDATE SUBMISSION + OWNERSHIP
-        // ===============================
+        /* ===============================
+           VALIDATE SUBMISSION + OWNERSHIP
+        =============================== */
         const submission =
           await fastify.prisma.applicationSubmission.findUnique({
             where: { id: submissionId },
@@ -56,9 +56,9 @@ module.exports = async function uploadSubmissionDocument(fastify) {
           });
         }
 
-        // ===============================
-        // VALIDATE REQUIREMENT
-        // ===============================
+        /* ===============================
+           VALIDATE REQUIREMENT
+        =============================== */
         const requirement =
           await fastify.prisma.applicationDocumentRequirement.findUnique({
             where: { id: requirementId },
@@ -78,9 +78,9 @@ module.exports = async function uploadSubmissionDocument(fastify) {
           });
         }
 
-        // ===============================
-        // HANDLE FILE
-        // ===============================
+        /* ===============================
+           HANDLE FILE
+        =============================== */
         const file = await req.file();
 
         if (!file) {
@@ -104,9 +104,20 @@ module.exports = async function uploadSubmissionDocument(fastify) {
           });
         }
 
-        // ===============================
-        // CREATE SAFE FILE NAME
-        // ===============================
+        /* ===============================
+           FILE SIZE LIMIT (OPTIONAL SAFE)
+        =============================== */
+        const MAX_SIZE = 10 * 1024 * 1024; // 10MB
+        if (file.file.truncated) {
+          return reply.code(400).send({
+            success: false,
+            message: "File too large",
+          });
+        }
+
+        /* ===============================
+           CREATE SAFE FILE NAME
+        =============================== */
         const randomName = crypto.randomBytes(16).toString("hex");
 
         const originalExt = path.extname(file.filename || "");
@@ -114,79 +125,94 @@ module.exports = async function uploadSubmissionDocument(fastify) {
 
         const safeFileName = `${randomName}${safeExt}`;
 
-        // ===============================
-        // FIXED UPLOAD DIRECTORY
-        // ===============================
+        /* ===============================
+           UPLOAD DIRECTORY
+        =============================== */
         const uploadDir = path.join(
           process.cwd(),
           "uploads",
-          "loan-documents"
+          "loan-documents",
+          submission.application.id,
+          requirementId,
         );
 
         await fs.promises.mkdir(uploadDir, { recursive: true });
 
         const filePath = path.join(uploadDir, safeFileName);
 
-        // ===============================
-        // SAVE FILE (STREAM SAFE)
-        // ===============================
+        /* ===============================
+           SAVE FILE (STREAM SAFE)
+        =============================== */
         const writeStream = fs.createWriteStream(filePath);
         await pipeline(file.file, writeStream);
 
-        const fileUrl = `/uploads/loan-documents/${safeFileName}`;
+        const fileUrl = `/uploads/loan-documents/${submission.application.id}/${requirementId}/${safeFileName}`;
 
-        // ===============================
-        // TRANSACTION (SAVE + UPDATE STATUS)
-        // ===============================
+        /* ===============================
+           TRANSACTION (SAVE + STATUS)
+        =============================== */
         await fastify.prisma.$transaction(async (tx) => {
+          //  CREATE UPLOAD (IMPORTANT CHANGE HERE)
           await tx.applicationDocumentUpload.create({
             data: {
               loanApplicationId: submission.application.id,
               documentRequirementId: requirementId,
               uploadedByUserId: userId,
+
               fileName: file.filename,
               fileUrl,
               fileMimeType: file.mimetype,
+
+              // 🔥 KEY FIELD (VERY IMPORTANT)
+              isSubmittedToLender: false,
             },
           });
 
-          const totalUploads =
-            await tx.applicationDocumentUpload.count({
-              where: { documentRequirementId: requirementId },
-            });
+          // 🔥 COUNT TOTAL FILES
+          const totalUploads = await tx.applicationDocumentUpload.count({
+            where: { documentRequirementId: requirementId },
+          });
 
+          // 🔥 DETERMINE STATUS
           let newStatus = "PARTIAL";
 
           if (requirement.minFiles && totalUploads >= requirement.minFiles) {
             newStatus = "COMPLETE";
           }
 
+          // 🔥 UPDATE REQUIREMENT STATUS
           await tx.applicationDocumentRequirement.update({
             where: { id: requirementId },
             data: { status: newStatus },
           });
         });
 
+        /* ===============================
+           RESPONSE
+        =============================== */
         return reply.send({
           success: true,
           message: "Document uploaded successfully",
           fileUrl,
         });
       } catch (error) {
-        fastify.log.error(error);
+        fastify.log.error({
+          error: error.message,
+          route: "upload-document",
+        });
 
         return reply.code(500).send({
           success: false,
           message: "Server error while uploading document",
         });
       }
-    }
+    },
   );
 };
 
-// ===============================
-// Helper function for extension fallback
-// ===============================
+/* ===============================
+   HELPER: MIME → EXTENSION
+=============================== */
 function getExtensionFromMime(mime) {
   switch (mime) {
     case "application/pdf":
