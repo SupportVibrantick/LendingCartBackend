@@ -35,21 +35,20 @@ async function checkUserByTokenRoute(fastify) {
         if (req.query.token) {
           const token = req.query.token;
 
-          const tokenRecord = await prisma.clientUploadToken.findUnique({
-            where: { token },
+          const tokenRecord = await prisma.clientUploadToken.findFirst({
+            where: {
+              token,
+              isUsed: false,
+              expiresAt: {
+                gt: new Date(),
+              },
+            },
           });
 
           if (!tokenRecord) {
             return reply.code(404).send({
               success: false,
-              message: "Invalid access link",
-            });
-          }
-
-          if (tokenRecord.expiresAt < new Date()) {
-            return reply.code(400).send({
-              success: false,
-              message: "Link expired",
+              message: "Invalid or expired access link",
             });
           }
 

@@ -29,93 +29,94 @@ async function setPasswordRoute(fastify) {
         const { token, password } = req.body;
 
         /* ===============================
-           VALIDATE TOKEN
+           VALIDATE TOKEN (SECURE)
         =============================== */
 
-        const tokenRecord = await prisma.clientUploadToken.findUnique({
-          where: { token },
+        const tokenRecord = await prisma.clientUploadToken.findFirst({
+          where: {
+            token,
+            isUsed: false,
+            expiresAt: {
+              gt: new Date(),
+            },
+          },
         });
 
         if (!tokenRecord) {
-          return reply.code(404).send({
-            success: false,
-            message: "Invalid access link",
-          });
-        }
-
-        if (tokenRecord.expiresAt < new Date()) {
           return reply.code(400).send({
             success: false,
-            message: "Link expired",
+            message: "Invalid or expired link",
           });
         }
 
         /* ===============================
-           CHECK IF USER ALREADY EXISTS
+           TRANSACTION (CRITICAL)
         =============================== */
 
-        const existingUser = await prisma.clientPortalUser.findFirst({
-          where: {
-            clientId: tokenRecord.clientId,
-            isDeleted: false,
-          },
-        });
+        const result = await prisma.$transaction(async (tx) => {
+          /* ===============================
+             CHECK USER AGAIN (LOCK SAFE)
+          =============================== */
 
-        if (existingUser) {
-          return reply.code(400).send({
-            success: false,
-            message: "User already exists. Please login.",
+          const existingUser = await tx.clientPortalUser.findFirst({
+            where: {
+              clientId: tokenRecord.clientId,
+              isDeleted: false,
+            },
           });
-        }
 
-        /* ===============================
-           GET CLIENT EMAIL
-        =============================== */
+          if (existingUser) {
+            throw new Error("USER_ALREADY_EXISTS");
+          }
 
-        const contact = await prisma.clientContact.findFirst({
-          where: {
-            clientId: tokenRecord.clientId,
-          },
-          orderBy: {
-            isPrimary: "desc",
-          },
-          select: {
-            email: true,
-          },
-        });
+          /* ===============================
+             GET EMAIL
+          =============================== */
 
-        if (!contact?.email) {
-          return reply.code(400).send({
-            success: false,
-            message: "Client email not found",
+          const contact = await tx.clientContact.findFirst({
+            where: {
+              clientId: tokenRecord.clientId,
+            },
+            orderBy: {
+              isPrimary: "desc",
+            },
+            select: {
+              email: true,
+            },
           });
-        }
 
-        /* ===============================
-           HASH PASSWORD
-        =============================== */
+          if (!contact?.email) {
+            throw new Error("EMAIL_NOT_FOUND");
+          }
 
-        const hashedPassword = await bcrypt.hash(password, 10);
+          /* ===============================
+             HASH PASSWORD
+          =============================== */
 
-        /* ===============================
-           CREATE CLIENT USER
-        =============================== */
+          const hashedPassword = await bcrypt.hash(password, 10);
 
-        const user = await prisma.clientPortalUser.create({
-          data: {
-            clientId: tokenRecord.clientId,
-            email: contact.email,
-            passwordHash: hashedPassword,
-          },
-        });
+          /* ===============================
+             CREATE USER
+          =============================== */
 
-        /* ===============================
-           OPTIONAL: MARK TOKEN USED
-        =============================== */
+          const user = await tx.clientPortalUser.create({
+            data: {
+              clientId: tokenRecord.clientId,
+              email: contact.email,
+              passwordHash: hashedPassword,
+            },
+          });
 
-        await prisma.clientUploadToken.update({
-          where: { token },
-          data: { isUsed: true },
+          /* ===============================
+             MARK TOKEN USED (IMPORTANT)
+          =============================== */
+
+          await tx.clientUploadToken.update({
+            where: { id: tokenRecord.id },
+            data: { isUsed: true },
+          });
+
+          return user;
         });
 
         /* ===============================
@@ -126,8 +127,8 @@ async function setPasswordRoute(fastify) {
           success: true,
           message: "Account created successfully",
           data: {
-            userId: user.id,
-            email: user.email,
+            userId: result.id,
+            email: result.email,
           },
         });
 
@@ -139,6 +140,20 @@ async function setPasswordRoute(fastify) {
           },
           "Failed to set client password"
         );
+
+        if (error.message === "USER_ALREADY_EXISTS") {
+          return reply.code(400).send({
+            success: false,
+            message: "User already exists. Please login.",
+          });
+        }
+
+        if (error.message === "EMAIL_NOT_FOUND") {
+          return reply.code(400).send({
+            success: false,
+            message: "Client email not found",
+          });
+        }
 
         return reply.code(500).send({
           success: false,

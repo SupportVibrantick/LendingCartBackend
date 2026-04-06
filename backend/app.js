@@ -36,6 +36,8 @@ const app = Fastify({
   },
 });
 
+
+
 // Start the Kafka consumer for sending emails
 runEmailConsumerKafka().catch((error) => {
   console.error("Error starting the email consumer:", error);
