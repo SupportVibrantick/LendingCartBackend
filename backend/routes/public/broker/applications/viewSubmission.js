@@ -16,23 +16,33 @@ module.exports = async function viewSubmission(fastify) {
             },
           },
           application: {
-  select: {
-    applicationNumber: true, // ✅ ADD HERE
+            select: {
+              applicationNumber: true,
 
-    applicationLenders: {
-      include: {
-        lender: true,
-        lenderProduct: true,
-        lenderReviews: {
-          include: {
-            reviewedByUser: true,
-            conditions: true,
+              applicationLenders: {
+                include: {
+                  lender: {
+                    include: {
+                      // ✅ PROFILE IMAGE (SAFE FETCH)
+                      users: {
+                        select: {
+                          profileImage: true,
+                        },
+                        take: 1,
+                      },
+                    },
+                  },
+                  lenderProduct: true,
+                  lenderReviews: {
+                    include: {
+                      reviewedByUser: true,
+                      conditions: true,
+                    },
+                  },
+                },
+              },
+            },
           },
-        },
-      },
-    },
-  },
-},
         },
       });
 
@@ -68,38 +78,44 @@ module.exports = async function viewSubmission(fastify) {
         })),
 
         /* ================= LENDER REVIEWS ================= */
-        lenders: submission.application.applicationLenders.map((l) => ({
-          applicationLenderId: l.id,
-          lenderOrgId: l.lenderOrgId,
-          lenderName: l.lender?.name ?? null,
-          lenderStatus: l.status,
-          sentAt: l.sentAt,
-          lastUpdatedAt: l.lastUpdatedAt,
+        lenders: submission.application.applicationLenders
+          .filter((l) => l.sentAt) // ✅ ONLY SUBMITTED LENDERS
+          .map((l) => ({
+            applicationLenderId: l.id,
+            lenderOrgId: l.lenderOrgId,
+            lenderName: l.lender?.name ?? null,
 
-          reviews: l.lenderReviews.map((r) => ({
-            reviewId: r.id,
-            reviewStatus: r.reviewStatus, // APPROVED / DECLINED / CONDITIONAL
-            approvedAmount: r.approvedAmount,
-            interestRate: r.interestRate,
-            notes: r.notes, // reason for rejection/approval
-            reviewedAt: r.createdAt,
+            // ✅ PROFILE IMAGE (SAFE)
+            profileImage: l.lender?.users?.[0]?.profileImage || null,
 
-            reviewedBy: r.reviewedByUser
-              ? {
-                  userId: r.reviewedByUser.id,
-                  name: `${r.reviewedByUser.firstName ?? ""} ${r.reviewedByUser.lastName ?? ""}`.trim(),
-                  email: r.reviewedByUser.email,
-                }
-              : null,
+            lenderStatus: l.status,
+            sentAt: l.sentAt,
+            lastUpdatedAt: l.lastUpdatedAt,
 
-            conditions: r.conditions.map((c) => ({
-              conditionId: c.id,
-              description: c.description,
-              status: c.status,
-              satisfiedAt: c.satisfiedAt,
+            reviews: l.lenderReviews.map((r) => ({
+              reviewId: r.id,
+              reviewStatus: r.reviewStatus,
+              approvedAmount: r.approvedAmount,
+              interestRate: r.interestRate,
+              notes: r.notes,
+              reviewedAt: r.createdAt,
+
+              reviewedBy: r.reviewedByUser
+                ? {
+                    userId: r.reviewedByUser.id,
+                    name: `${r.reviewedByUser.firstName ?? ""} ${r.reviewedByUser.lastName ?? ""}`.trim(),
+                    email: r.reviewedByUser.email,
+                  }
+                : null,
+
+              conditions: r.conditions.map((c) => ({
+                conditionId: c.id,
+                description: c.description,
+                status: c.status,
+                satisfiedAt: c.satisfiedAt,
+              })),
             })),
           })),
-        })),
       },
     });
   });
