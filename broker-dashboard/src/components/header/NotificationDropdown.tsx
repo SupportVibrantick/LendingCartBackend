@@ -52,6 +52,32 @@ export default function NotificationDropdown() {
     }
   }
 
+  async function deleteAllNotifications() {
+    try {
+      const token = sessionStorage.getItem("broker_token");
+
+      const res = await fetch(`${API_BASE}/broker/notifications/delete-all`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        throw new Error("Failed to delete all notifications");
+      }
+
+      // ✅ clear UI instantly
+      setNotifications([]);
+      setUnreadCount(0);
+      setHasMore(false);
+    } catch (err) {
+      console.error("Delete all error", err);
+    }
+  }
+
   async function markAllAsRead() {
     try {
       setReading(true);
@@ -408,7 +434,22 @@ export default function NotificationDropdown() {
           )}
 
           {!loading && notifications.length === 0 && (
-            <li className="p-4 text-sm text-gray-500">No notifications</li>
+            <li className="flex flex-col items-center justify-center py-10 text-center">
+              {/* Icon */}
+              <div className="w-12 h-12 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800 mb-3">
+                🔔
+              </div>
+
+              {/* Title */}
+              <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+                No Notifications
+              </p>
+
+              {/* Subtitle */}
+              <p className="text-xs text-gray-500 mt-1">
+                You're all caught up 🎉
+              </p>
+            </li>
           )}
 
           {(() => {
@@ -419,8 +460,19 @@ export default function NotificationDropdown() {
               <>
                 {today.length > 0 && (
                   <>
-                    <li className="px-3 py-1 text-xs font-semibold text-gray-500">
-                      Today
+                    <li className="flex items-center justify-between px-3 py-1">
+                      <span className="text-xs font-semibold text-gray-500">
+                        Today
+                      </span>
+
+                      {today.length > 0 && (
+                        <button
+                          onClick={deleteAllNotifications}
+                          className="text-xs text-red-500 hover:underline"
+                        >
+                          Delete All
+                        </button>
+                      )}
                     </li>
                     {today.map((n) => (
                       <li key={n.id}>{renderDropdownItem(n)}</li>
@@ -430,8 +482,19 @@ export default function NotificationDropdown() {
 
                 {yesterday.length > 0 && (
                   <>
-                    <li className="px-3 py-1 text-xs font-semibold text-gray-500">
-                      Yesterday
+                    <li className="flex items-center justify-between px-3 py-1">
+                      <span className="text-xs font-semibold text-gray-500">
+                        Yesterday
+                      </span>
+
+                      {yesterday.length > 0 && (
+                        <button
+                          onClick={deleteAllNotifications}
+                          className="text-xs text-red-500 hover:underline"
+                        >
+                          Delete All
+                        </button>
+                      )}
                     </li>
                     {yesterday.map((n) => (
                       <li key={n.id}>{renderDropdownItem(n)}</li>
@@ -441,8 +504,19 @@ export default function NotificationDropdown() {
 
                 {thisWeek.length > 0 && (
                   <>
-                    <li className="px-3 py-1 text-xs font-semibold text-gray-500">
-                      This Week
+                    <li className="flex items-center justify-between px-3 py-1">
+                      <span className="text-xs font-semibold text-gray-500">
+                        This Week
+                      </span>
+
+                      {thisWeek.length > 0 && (
+                        <button
+                          onClick={deleteAllNotifications}
+                          className="text-xs text-red-500 hover:underline"
+                        >
+                          Delete All
+                        </button>
+                      )}
                     </li>
                     {thisWeek.map((n) => (
                       <li key={n.id}>{renderDropdownItem(n)}</li>
@@ -452,8 +526,19 @@ export default function NotificationDropdown() {
 
                 {earlier.length > 0 && (
                   <>
-                    <li className="px-3 py-1 text-xs font-semibold text-gray-500">
-                      Earlier
+                    <li className="flex items-center justify-between px-3 py-1">
+                      <span className="text-xs font-semibold text-gray-500">
+                        Earlier
+                      </span>
+
+                      {earlier.length > 0 && (
+                        <button
+                          onClick={deleteAllNotifications}
+                          className="text-xs text-red-500 hover:underline"
+                        >
+                          Delete All
+                        </button>
+                      )}
                     </li>
                     {earlier.map((n) => (
                       <li key={n.id}>{renderDropdownItem(n)}</li>
@@ -469,15 +554,17 @@ export default function NotificationDropdown() {
             Loading more...
           </li>
         )}
-        <button
-          onClick={() => {
-            setIsModalOpen(true);
-            closeDropdown();
-          }}
-          className="block w-full px-4 py-2 mt-3 text-sm font-medium text-center text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
-        >
-          View All Notifications
-        </button>
+        {notifications.length > 0 && (
+          <button
+            onClick={() => {
+              setIsModalOpen(true);
+              closeDropdown();
+            }}
+            className="block w-full px-4 py-2 mt-3 text-sm font-medium text-center text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
+          >
+            View All Notifications
+          </button>
+        )}
       </Dropdown>
 
       {isModalOpen && (
@@ -572,36 +659,80 @@ export default function NotificationDropdown() {
                   <>
                     {today.length > 0 && (
                       <>
-                        <p className="text-xs font-semibold text-gray-500 px-1">
-                          Today
-                        </p>
+                        <div className="flex items-center justify-between px-1">
+                          <p className="text-xs font-semibold text-gray-500">
+                            Today
+                          </p>
+
+                          {today.length > 0 && (
+                            <button
+                              onClick={deleteAllNotifications}
+                              className="text-xs text-red-500 hover:underline"
+                            >
+                              Delete All
+                            </button>
+                          )}
+                        </div>
                         {today.map(renderItem)}
                       </>
                     )}
 
                     {yesterday.length > 0 && (
                       <>
-                        <p className="text-xs font-semibold text-gray-500 px-1 mt-4">
-                          Yesterday
-                        </p>
+                        <div className="flex items-center justify-between px-1 mt-4">
+                          <p className="text-xs font-semibold text-gray-500">
+                            Yesterday
+                          </p>
+
+                          {yesterday.length > 0 && (
+                            <button
+                              onClick={deleteAllNotifications}
+                              className="text-xs text-red-500 hover:underline"
+                            >
+                              Delete All
+                            </button>
+                          )}
+                        </div>
                         {yesterday.map(renderItem)}
                       </>
                     )}
 
                     {thisWeek.length > 0 && (
                       <>
-                        <p className="text-xs font-semibold text-gray-500 px-1 mt-4">
-                          This Week
-                        </p>
+                        <div className="flex items-center justify-between px-1 mt-4">
+                          <p className="text-xs font-semibold text-gray-500">
+                            This Week
+                          </p>
+
+                          {thisWeek.length > 0 && (
+                            <button
+                              onClick={deleteAllNotifications}
+                              className="text-xs text-red-500 hover:underline"
+                            >
+                              Delete All
+                            </button>
+                          )}
+                        </div>
                         {thisWeek.map(renderItem)}
                       </>
                     )}
 
                     {earlier.length > 0 && (
                       <>
-                        <p className="text-xs font-semibold text-gray-500 px-1 mt-4">
-                          Earlier
-                        </p>
+                        <div className="flex items-center justify-between px-1 mt-4">
+                          <p className="text-xs font-semibold text-gray-500">
+                            Earlier
+                          </p>
+
+                          {earlier.length > 0 && (
+                            <button
+                              onClick={deleteAllNotifications}
+                              className="text-xs text-red-500 hover:underline"
+                            >
+                              Delete All
+                            </button>
+                          )}
+                        </div>
                         {earlier.map(renderItem)}
                       </>
                     )}
