@@ -1,15 +1,21 @@
 import {
   ArrowLeft,
+  Download,
   Eye,
+  FileSearch,
   FileText,
   FolderOpen,
   Loader2,
+  MoreVertical,
+  Pencil,
   Send,
+  Upload,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
-import { useNavigate, useParams } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import { motion } from "framer-motion";
+import { FiSend } from "react-icons/fi";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
@@ -19,13 +25,18 @@ type SubmissionField = {
   value: string;
 };
 
-type UploadedPreview = {
-  url: string;
-  type: string;
-  name: string;
-};
+// type UploadedPreview = {
+//   url: string;
+//   type: string;
+//   name: string;
+// };
 
-type TabKey = "view-details" | "request-document" | "view-loi" | "documents";
+type TabKey =
+  | "view-details"
+  | "update-application"
+  | "request-document"
+  | "view-loi"
+  | "documents";
 
 const parseValue = (val: string): any => {
   try {
@@ -41,7 +52,7 @@ const getStatusChip = (status?: string) => {
       return "bg-slate-100 text-slate-700 ring-1 ring-slate-200";
 
     case "CLIENT_PENDING":
-      return "bg-yellow-100 text-yellow-700 ring-1 ring-yellow-200";
+      return "bg-red-100 text-red-700 ring-1 ring-red-200";
 
     case "SUBMITTED":
       return "bg-blue-100 text-blue-700 ring-1 ring-blue-200";
@@ -63,11 +74,17 @@ const getStatusChip = (status?: string) => {
     case "COMPLETED":
       return "bg-green-100 text-green-700 ring-1 ring-green-200";
 
+    case "UPDATED":
+      return "bg-cyan-100 text-cyan-700 ring-1 ring-cyan-200";
+
     case "FUNDED":
       return "bg-green-100 text-green-800 ring-1 ring-green-200";
 
     case "WITHDRAWN":
       return "bg-gray-200 text-gray-700 ring-1 ring-gray-300";
+
+    case "NEW":
+      return "bg-blue-200 text-blue-700 ring-1 ring-blue-300";
 
     default:
       return "bg-slate-100 text-slate-600 ring-1 ring-slate-200";
@@ -87,6 +104,19 @@ function getAuthHeaders(): HeadersInit {
   };
 }
 
+const getDocumentStatusChip = (status: string) => {
+  switch (status) {
+    case "COMPLETED":
+      return "bg-emerald-100 text-emerald-700";
+    case "PARTIAL":
+      return "bg-amber-100 text-amber-700";
+    case "PENDING":
+      return "bg-yellow-100 text-yellow-600";
+    default:
+      return "bg-slate-100 text-slate-500";
+  }
+};
+
 const formatFieldKey = (key: string | null | undefined) => {
   if (!key) return "";
 
@@ -99,8 +129,180 @@ const formatFieldKey = (key: string | null | undefined) => {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 };
 
+const stringifyFieldValue = (value: unknown) => {
+  if (value === undefined || value === null) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "boolean") return value ? "true" : "false";
+
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+};
+
+const buildEditableFieldValues = (submissionFields: SubmissionField[]) => {
+  return submissionFields.reduce(
+    (acc: Record<string, string>, field: SubmissionField) => {
+      if (!field.fieldKey || field.fieldKey === "borrowerSignature") {
+        return acc;
+      }
+
+      acc[field.fieldKey] = stringifyFieldValue(parseValue(field.value));
+      return acc;
+    },
+    {},
+  );
+};
+
+const Metric = ({
+  label,
+  value,
+  variant = "hero",
+}: {
+  label: string;
+  value: string;
+  variant?: "hero" | "panel";
+}) => {
+  const isHero = variant === "hero";
+
+  return (
+    <motion.div
+      whileHover={{ y: -6, scale: 1.03 }}
+      whileTap={{ scale: 0.97 }}
+      transition={{ duration: 0.25 }}
+      className="group relative cursor-pointer overflow-hidden rounded-2xl p-4 transition-all duration-300"
+    >
+      <div className="absolute inset-0 opacity-0 blur-xl transition duration-300 group-hover:opacity-100 bg-gradient-to-r from-cyan-400/10 to-blue-500/10" />
+      <p
+        className={`text-[11px] font-semibold uppercase tracking-widest transition ${
+          isHero
+            ? "text-white/70 group-hover:text-white"
+            : "text-slate-500 group-hover:text-slate-700"
+        }`}
+      >
+        {label}
+      </p>
+      <p
+        className={`mt-2 text-md font-bold transition-all duration-300 ${
+          isHero
+            ? "text-white group-hover:scale-105"
+            : "bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-transparent group-hover:from-blue-600 group-hover:to-cyan-500"
+        }`}
+      >
+        {value}
+      </p>
+      <div
+        className={`mt-3 h-[3px] w-0 rounded-full transition-all duration-300 group-hover:w-full ${
+          isHero
+            ? "bg-gradient-to-r from-white/80 to-cyan-300"
+            : "bg-gradient-to-r from-cyan-500 to-blue-500"
+        }`}
+      />
+    </motion.div>
+  );
+};
+
+const FieldItem = ({ field }: { field: SubmissionField }) => {
+  const parsedValue = parseValue(field.value);
+
+  return (
+    <div className="space-y-1">
+      <label className="text-xs font-semibold uppercase text-slate-500">
+        {formatFieldKey(field.fieldKey)}
+      </label>
+      <div className="break-words rounded-lg border bg-slate-50 px-3 py-2 text-sm font-medium dark:border-slate-800 dark:bg-slate-900">
+        {parsedValue !== undefined && parsedValue !== null
+          ? typeof parsedValue === "boolean"
+            ? parsedValue
+              ? "Yes"
+              : "No"
+            : String(parsedValue)
+          : "-"}
+      </div>
+    </div>
+  );
+};
+
+const EditableFieldItem = ({
+  field,
+  value,
+  onChange,
+  errors,
+}: {
+  field: SubmissionField;
+  value: string;
+  onChange: (fieldKey: string, nextValue: string) => void;
+  errors: Record<string, string>;
+}) => {
+  const fieldKey = field.fieldKey;
+  const parsedValue = parseValue(field.value);
+  const isBoolean = typeof parsedValue === "boolean";
+  const shouldUseTextarea =
+    !isBoolean &&
+    (value.length > 80 ||
+      /address|notes|description|message/i.test(fieldKey || ""));
+
+  return (
+    <div className="space-y-1">
+      <label className="text-xs font-semibold uppercase text-slate-500">
+        {formatFieldKey(field.fieldKey)}
+      </label>
+      {isBoolean ? (
+        <select
+          value={value}
+          onChange={(e) => {
+            if (!fieldKey) return;
+            onChange(fieldKey, e.target.value);
+          }}
+          className="w-full rounded-lg border bg-slate-50 px-3 py-2 text-sm font-medium outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 dark:border-slate-800 dark:bg-slate-900"
+        >
+          <option value="true">Yes</option>
+          <option value="false">No</option>
+        </select>
+      ) : shouldUseTextarea ? (
+        <textarea
+          value={value}
+          onChange={(e) => {
+            if (!fieldKey) return;
+            onChange(fieldKey, e.target.value);
+          }}
+          rows={3}
+          className="w-full resize-y rounded-lg border bg-slate-50 px-3 py-2 text-sm font-medium outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 dark:border-slate-800 dark:bg-slate-900"
+        />
+      ) : (
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => {
+            if (!fieldKey) return;
+
+            let val = e.target.value;
+
+            if (/amount|price|cost|rate|score|value|footage/i.test(fieldKey)) {
+              val = val.replace(/[^0-9.]/g, "");
+            }
+
+            onChange(fieldKey, val);
+          }}
+          className={`w-full rounded-lg border bg-slate-50 px-3 py-2 text-sm outline-none transition
+  ${
+    errors[fieldKey || ""]
+      ? "border-red-500 focus:ring-2 focus:ring-red-200"
+      : "border-slate-300 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200"
+  }`}
+        />
+      )}
+      {fieldKey && errors[fieldKey] && (
+        <p className="mt-1 text-xs text-red-500">{errors[fieldKey]}</p>
+      )}
+    </div>
+  );
+};
+
 const LoanPreview = () => {
-  const { submittedid } = useParams();
+  const Location = useLocation();
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState<TabKey>("view-details");
@@ -116,27 +318,146 @@ const LoanPreview = () => {
   const [requestMessage, setRequestMessage] = useState("");
   const [requestSubmitting, setRequestSubmitting] = useState(false);
 
-  const [documentsData, setDocumentsData] = useState<any>(null);
   const [documentsLoading, setDocumentsLoading] = useState(false);
+  const [documentsData, setDocumentsData] = useState<any>(null);
   const [documentsLoadedFor, setDocumentsLoadedFor] = useState<string | null>(
     null,
   );
-  const [uploadingDocId, setUploadingDocId] = useState<string | null>(null);
-  const [selectedFiles, setSelectedFiles] = useState<Record<string, File[]>>(
-    {},
-  );
-  const [previewFiles, setPreviewFiles] = useState<
-    Record<string, UploadedPreview[]>
-  >({});
+  // const [uploadingDocId, setUploadingDocId] = useState<string | null>(null);
+  // const [selectedFiles, setSelectedFiles] = useState<Record<string, File[]>>(
+  //   {},
+  // );
+  const [searchInput, setSearchInput] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  const [previewFiles, setPreviewFiles] = useState<any[]>([]);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [activeAction, setActiveAction] = useState<string | null>(null);
 
   const [lois, setLois] = useState<any[]>([]);
   const [loiLoading, setLoiLoading] = useState(false);
   const [loiLoadedFor, setLoiLoadedFor] = useState<string | null>(null);
-  const [previewFile, setPreviewFile] = useState<UploadedPreview | null>(null);
+  // const [previewFile, setPreviewFile] = useState<UploadedPreview | null>(null);
+  const [editableFieldValues, setEditableFieldValues] = useState<
+    Record<string, string>
+  >({});
+  const [updateSubmitting, setUpdateSubmitting] = useState(false);
+
+  const [page, setPage] = useState(1);
+  const [limit] = useState(10);
+  const [pagination, setPagination] = useState<any>(null);
+  // const [search, setSearch] = useState("");
+  const [selectedRows, setSelectedRows] = useState<string[]>([]);
+  const [sending, setSending] = useState(false);
+
+  const isAllSelected =
+    documentsData?.documents?.length > 0 &&
+    selectedRows.length === documentsData.documents.length;
+
+  const handleSelectAll = () => {
+    if (isAllSelected) {
+      setSelectedRows([]);
+    } else {
+      setSelectedRows(documentsData.documents.map((d: any) => d.requirementId));
+    }
+  };
+
+  const handleSelectRow = (id: string) => {
+    setSelectedRows((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
+    );
+  };
+
+  const handleSendToLender = async () => {
+    if (!submissionId || selectedRows.length === 0) {
+      toast.error("Please select at least one document");
+      return;
+    }
+
+    setSending(true);
+    try {
+      const token = sessionStorage.getItem("broker_token");
+
+      const res = await fetch(
+        `${API_BASE}/broker/loan-pipeline/submissions/${submissionId}/documents/submit`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+          body: JSON.stringify({
+            requirementIds: selectedRows,
+          }),
+        },
+      );
+
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Failed to send documents");
+      }
+
+      setSending(false);
+
+      toast.success("Documents sent to lender 🚀");
+
+      // ✅ reset selection
+      setSelectedRows([]);
+
+      // ✅ refresh table
+      await fetchSubmissionDocuments(submissionId, page, debouncedSearch);
+    } catch (err: any) {
+      toast.error(err.message || "Something went wrong ❌");
+    }
+  };
 
   const fields = submissionDetail?.fields || [];
   const applicationId = submissionDetail?.applicationId;
-  const submissionId = submittedid;
+  const submissionId = Location.state?.submissionId;
+
+  const validateFields = () => {
+    const newErrors: Record<string, string> = {};
+
+    Object.keys(editableFieldValues).forEach((key) => {
+      const value = editableFieldValues[key]?.trim();
+
+      // 🔴 Required validation
+      if (!value) {
+        newErrors[key] = "This field is required";
+        return;
+      }
+
+      // 🔢 Number fields
+      if (
+        /amount|price|cost|rate|score|value|footage/i.test(key) &&
+        isNaN(Number(value))
+      ) {
+        newErrors[key] = "Only numbers allowed";
+        return;
+      }
+
+      // 📞 Phone validation (US)
+      if (/phone/i.test(key)) {
+        const phoneRegex = /^\d{3}-\d{3}-\d{4}$/;
+        if (!phoneRegex.test(value)) {
+          newErrors[key] = "Format: 222-222-2222";
+        }
+      }
+    });
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const formatPhoneNumber = (value: string) => {
+    const digits = value.replace(/\D/g, "").slice(0, 10);
+
+    if (digits.length <= 3) return digits;
+    if (digits.length <= 6) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+
+    return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+  };
 
   const fetchSubmissionDetails = async (id: string) => {
     try {
@@ -148,6 +469,7 @@ const LoanPreview = () => {
       if (!res.ok || !json.success)
         throw new Error(json.message || "Failed to fetch submission");
       setSubmissionDetail(json.data);
+      setEditableFieldValues(buildEditableFieldValues(json.data?.fields || []));
     } catch (err: any) {
       toast.error(err.message || "Failed to fetch submission details");
     } finally {
@@ -179,27 +501,36 @@ const LoanPreview = () => {
     }
   };
 
-  const fetchSubmissionDocuments = async (id: string) => {
+  const fetchSubmissionDocuments = async (
+    submissionId: string,
+    pageNo = 1,
+    searchQuery = "",
+  ) => {
     try {
-      setDocumentsLoading(true);
+       setDocumentsLoading(true);
+      const token = sessionStorage.getItem("broker_token");
+
       const res = await fetch(
-        `${API_BASE}/broker/loan-pipeline/submissions/${id}/documents`,
+        `${API_BASE}/broker/loan-pipeline/submissions/${submissionId}/documents?page=${pageNo}&limit=${limit}&search=${searchQuery}`,
         {
-          method: "GET",
-          headers: getAuthHeaders(),
+          headers: {
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
         },
       );
+
       const json = await res.json();
-      if (!res.ok || !json.success) {
-        throw new Error(json.message || "Failed to load documents");
+
+      if (json.success) {
+        setDocumentsData(json.data);
+        setPagination(json.data.pagination);
+        setPage(json.data.pagination.page);
       }
-      setDocumentsData(json.data);
-      setDocumentsLoadedFor(id);
-    } catch (err: any) {
-      toast.error(err.message || "Failed to fetch documents");
-    } finally {
-      setDocumentsLoading(false);
-    }
+    } catch (err) {
+      console.error(err);
+    }finally {
+    setDocumentsLoading(false); 
+  }
   };
 
   const fetchLois = async (id: string) => {
@@ -273,59 +604,61 @@ const LoanPreview = () => {
     }
   };
 
-  const handleDocumentUpload = async (
-    currentSubmissionId: string,
-    requirementId: string,
-  ) => {
-    const filesForRequirement = selectedFiles[requirementId];
-    if (!filesForRequirement || filesForRequirement.length === 0) {
-      toast.error("Please select at least one file");
-      return;
-    }
+  // const handleDocumentUpload = async (
+  //   currentSubmissionId: string,
+  //   requirementId: string,
+  // ) => {
+  //   const filesForRequirement = selectedFiles[requirementId];
 
-    try {
-      setUploadingDocId(requirementId);
-      const token = sessionStorage.getItem("broker_token");
+  //   if (!filesForRequirement || filesForRequirement.length === 0) {
+  //     toast.error("Please select at least one file");
+  //     return;
+  //   }
 
-      for (const file of filesForRequirement) {
-        const formData = new FormData();
-        formData.append("file", file);
+  //   try {
+  //     setUploadingDocId(requirementId);
 
-        const res = await fetch(
-          `${API_BASE}/broker/loan-pipeline/submissions/${currentSubmissionId}/documents/${requirementId}/upload`,
-          {
-            method: "POST",
-            headers: {
-              ...(token && { Authorization: `Bearer ${token}` }),
-            },
-            body: formData,
-          },
-        );
+  //     const token = sessionStorage.getItem("broker_token");
 
-        const json = await res.json();
-        if (!res.ok || !json.success) {
-          throw new Error(json.message || "Upload failed");
-        }
-      }
+  //     for (const file of filesForRequirement) {
+  //       const formData = new FormData();
+  //       formData.append("file", file);
 
-      toast.success("All documents uploaded successfully");
-      setSelectedFiles((prev) => {
-        const copy = { ...prev };
-        delete copy[requirementId];
-        return copy;
-      });
-      setPreviewFiles((prev) => {
-        const copy = { ...prev };
-        delete copy[requirementId];
-        return copy;
-      });
-      await fetchSubmissionDocuments(currentSubmissionId);
-    } catch (err: any) {
-      toast.error(err.message || "Upload failed");
-    } finally {
-      setUploadingDocId(null);
-    }
-  };
+  //       const res = await fetch(
+  //         `${API_BASE}/broker/loan-pipeline/submissions/${currentSubmissionId}/documents/${requirementId}/upload`,
+  //         {
+  //           method: "POST",
+  //           headers: {
+  //             ...(token && { Authorization: `Bearer ${token}` }),
+  //           },
+  //           body: formData,
+  //         },
+  //       );
+
+  //       const json = await res.json();
+
+  //       if (!res.ok || !json.success) {
+  //         throw new Error(json.message || "Upload failed");
+  //       }
+  //     }
+
+  //     toast.success("Document uploaded successfully ✅");
+
+  //     // 🧹 clear selected file
+  //     setSelectedFiles((prev) => {
+  //       const copy = { ...prev };
+  //       delete copy[requirementId];
+  //       return copy;
+  //     });
+
+  //     // 🔄 refresh table
+  //     await fetchSubmissionDocuments(currentSubmissionId);
+  //   } catch (err: any) {
+  //     toast.error(err.message || "Upload failed ❌");
+  //   } finally {
+  //     setUploadingDocId(null);
+  //   }
+  // };
 
   useEffect(() => {
     setSubmissionDetail(null);
@@ -335,10 +668,11 @@ const LoanPreview = () => {
     setDocumentsLoadedFor(null);
     setLois([]);
     setLoiLoadedFor(null);
-    setSelectedFiles({});
-    setPreviewFiles({});
+    // setSelectedFiles({});
+    setPreviewFiles([]);
     setSelectedRequestDocs([]);
     setRequestMessage("");
+    setEditableFieldValues({});
     setActiveTab("view-details");
 
     if (submissionId) {
@@ -359,7 +693,7 @@ const LoanPreview = () => {
       submissionId &&
       documentsLoadedFor !== submissionId
     ) {
-      fetchSubmissionDocuments(submissionId);
+      fetchSubmissionDocuments(submissionId, 1, debouncedSearch);
     }
     if (
       activeTab === "view-loi" &&
@@ -376,6 +710,20 @@ const LoanPreview = () => {
     documentsLoadedFor,
     loiLoadedFor,
   ]);
+
+  useEffect(() => {
+    if (submissionId) {
+      fetchSubmissionDocuments(submissionId, page, debouncedSearch);
+    }
+  }, [page, debouncedSearch, submissionId]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchInput);
+    }, 500); // 500ms delay
+
+    return () => clearTimeout(timer);
+  }, [searchInput]);
 
   const groupedFields = useMemo(() => {
     const signatureField = fields.find(
@@ -436,6 +784,12 @@ const LoanPreview = () => {
       color: "text-blue-600",
     },
     {
+      key: "update-application" as const,
+      label: "Update Application",
+      icon: Pencil,
+      color: "text-cyan-600",
+    },
+    {
       key: "request-document" as const,
       label: "Request Document",
       icon: Send,
@@ -455,84 +809,75 @@ const LoanPreview = () => {
     },
   ];
 
-  const Metric = ({
-    label,
-    value,
-    variant = "hero",
-  }: {
-    label: string;
-    value: string;
-    variant?: "hero" | "panel";
-  }) => {
-    const isHero = variant === "hero";
+  const handleEditableFieldChange = (fieldKey: string, nextValue: string) => {
+    let value = nextValue;
 
-    return (
-      <motion.div
-        whileHover={{ y: -6, scale: 1.03 }}
-        whileTap={{ scale: 0.97 }}
-        transition={{ duration: 0.25 }}
-        className={`group relative overflow-hidden rounded-2xl p-4 transition-all duration-300 cursor-pointer
-       `}
-      >
-        {/* Glow Effect */}
-        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition duration-300 bg-gradient-to-r from-cyan-400/10 to-blue-500/10 blur-xl" />
+    // 📞 Phone formatting
+    if (/phone/i.test(fieldKey)) {
+      value = formatPhoneNumber(nextValue);
+    }
 
-        {/* Label */}
-        <p
-          className={`text-[11px] font-semibold uppercase tracking-widest transition
-        ${
-          isHero
-            ? "text-white/70 group-hover:text-white"
-            : "text-slate-500 group-hover:text-slate-700"
-        }`}
-        >
-          {label}
-        </p>
+    setEditableFieldValues((prev) => {
+      if (prev[fieldKey] === value) return prev;
+      return { ...prev, [fieldKey]: value };
+    });
 
-        {/* Value */}
-        <p
-          className={`mt-2 text-md font-bold transition-all duration-300
-        ${
-          isHero
-            ? "text-white group-hover:scale-105"
-            : "bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-transparent group-hover:from-blue-600 group-hover:to-cyan-500"
-        }`}
-        >
-          {value}
-        </p>
-
-        {/* Bottom Accent Line */}
-        <div
-          className={`mt-3 h-[3px] w-0 rounded-full transition-all duration-300 group-hover:w-full
-        ${
-          isHero
-            ? "bg-gradient-to-r from-white/80 to-cyan-300"
-            : "bg-gradient-to-r from-cyan-500 to-blue-500"
-        }`}
-        />
-      </motion.div>
-    );
+    // ❌ error remove on typing
+    setErrors((prev) => {
+      const copy = { ...prev };
+      delete copy[fieldKey];
+      return copy;
+    });
   };
 
-  const FieldItem = ({ field }: { field: any }) => {
-    const parsedValue = parseValue(field.value);
-    return (
-      <div className="space-y-1">
-        <label className="text-xs font-semibold uppercase text-slate-500">
-          {formatFieldKey(field.fieldKey)}
-        </label>
-        <div className="break-words rounded-lg border bg-slate-50 px-3 py-2 text-sm font-medium dark:border-slate-800 dark:bg-slate-900">
-          {parsedValue !== undefined && parsedValue !== null
-            ? typeof parsedValue === "boolean"
-              ? parsedValue
-                ? "Yes"
-                : "No"
-              : String(parsedValue)
-            : "-"}
-        </div>
-      </div>
-    );
+  const handleUpdateApplication = async () => {
+    if (!validateFields()) {
+      toast.error("Please fix validation errors");
+      return;
+    }
+
+    if (!applicationId) {
+      toast.error("Application ID not found");
+      return;
+    }
+
+    const payloadFields = Object.keys(editableFieldValues).map((key) => ({
+      fieldKey: key,
+      value: editableFieldValues[key],
+    }));
+
+    try {
+      setUpdateSubmitting(true);
+      const res = await fetch(
+        `${API_BASE}/broker/applications/${applicationId}/edit`,
+        {
+          method: "PUT",
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ fields: payloadFields }),
+        },
+      );
+
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Failed to update application");
+      }
+
+      navigate("/submit-applications");
+
+      toast.success("Application updated successfully");
+
+      if (submissionId) {
+        await fetchSubmissionDetails(submissionId);
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update application");
+    } finally {
+      setUpdateSubmitting(false);
+    }
   };
+
+  const currentFile = previewFiles[activeIndex];
 
   const renderViewDetails = () => (
     <div className="space-y-6">
@@ -685,14 +1030,9 @@ const LoanPreview = () => {
                 Primary Borrower
               </h3>
               <div className="grid gap-6 md:grid-cols-2">
-                {groupedFields.primaryFields.map(
-                  (field: any, index: number) => (
-                    <FieldItem
-                      key={`${field.fieldKey}-${index}`}
-                      field={field}
-                    />
-                  ),
-                )}
+                {groupedFields.primaryFields.map((field: any) => (
+                  <FieldItem key={`${field.fieldKey}`} field={field} />
+                ))}
               </div>
             </div>
           )}
@@ -703,14 +1043,15 @@ const LoanPreview = () => {
                 Co Borrower {index}
               </h3>
               <div className="grid gap-6 md:grid-cols-2">
-                {groupedFields.coBorrowerGroups[index].map(
-                  (field: any, fieldIndex: number) => (
-                    <FieldItem
-                      key={`${field.fieldKey}-${fieldIndex}`}
-                      field={field}
-                    />
-                  ),
-                )}
+                {groupedFields.coBorrowerGroups[index].map((field: any) => (
+                  <EditableFieldItem
+                    key={field.fieldKey}
+                    field={field}
+                    value={editableFieldValues[field.fieldKey || ""] ?? ""}
+                    onChange={handleEditableFieldChange}
+                    errors={errors}
+                  />
+                ))}
               </div>
             </div>
           ))}
@@ -721,8 +1062,8 @@ const LoanPreview = () => {
                 Loan Details
               </h3>
               <div className="grid gap-6 md:grid-cols-2">
-                {groupedFields.otherFields.map((field: any, index: number) => (
-                  <FieldItem key={`${field.fieldKey}-${index}`} field={field} />
+                {groupedFields.otherFields.map((field: any) => (
+                  <FieldItem key={`${field.fieldKey}`} field={field} />
                 ))}
               </div>
             </div>
@@ -755,6 +1096,162 @@ const LoanPreview = () => {
             <div>
               <span className="font-semibold">Submitted Time:</span>{" "}
               {submittedDate.toLocaleTimeString()}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  const renderUpdateApplication = () => (
+    <div className="space-y-6">
+      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+        <div className="mb-6 flex flex-col gap-3 text-sm font-medium md:flex-row md:items-center md:justify-between">
+          <div>
+            <span className="font-semibold">Application No:</span>{" "}
+            <span className="text-slate-700 dark:text-slate-300">
+              {submissionDetail?.applicationNumber || "-"}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="font-semibold">Status:</span>
+            <span
+              className={`rounded-full px-3 py-1 text-xs font-semibold tracking-wide ${getStatusChip(submissionDetail?.status)}`}
+            >
+              {submissionDetail?.status === "DECLINED"
+                ? "REJECTED"
+                : submissionDetail?.status || "-"}
+            </span>
+          </div>
+        </div>
+
+        <div className="mb-6 rounded-[28px] border border-sky-100 bg-gradient-to-br from-white via-sky-50 to-cyan-50 p-6 shadow-[0_18px_40px_rgba(14,116,144,0.08)] dark:border-blue-900/30 dark:bg-blue-950/20">
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+            <Metric
+              label="Loan Amount"
+              value={`$${loanAmount.toLocaleString()}`}
+              variant="panel"
+            />
+            <Metric
+              label="LTV %"
+              value={ltv ? `${ltv.toFixed(2)}%` : "-"}
+              variant="panel"
+            />
+            <Metric
+              label="LTC %"
+              value={ltc ? `${ltc.toFixed(2)}%` : "-"}
+              variant="panel"
+            />
+            <Metric
+              label="ARV %"
+              value={arv ? `${arv.toFixed(2)}%` : "-"}
+              variant="panel"
+            />
+            <Metric
+              label="DSCR"
+              value={dscr ? dscr.toFixed(2) : "-"}
+              variant="panel"
+            />
+            <Metric
+              label="Net Worth"
+              value={`$${netWorth.toLocaleString()}`}
+              variant="panel"
+            />
+          </div>
+        </div>
+
+        <div className="mb-6 flex items-start justify-between gap-4 rounded-2xl border border-cyan-100 bg-cyan-50/70 px-5 py-4 text-sm text-cyan-900 dark:border-cyan-900/40 dark:bg-cyan-950/20 dark:text-cyan-100">
+          <div>
+            <h3 className="font-bold text-lg">Update Application</h3>
+          </div>
+          <button
+            onClick={handleUpdateApplication}
+            disabled={updateSubmitting}
+            className="inline-flex min-w-[170px] items-center justify-center rounded-xl bg-cyan-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {updateSubmitting ? (
+              <span className="inline-flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Updating...
+              </span>
+            ) : (
+              "Update Application"
+            )}
+          </button>
+        </div>
+
+        <div className="space-y-10 rounded-xl border p-6 dark:border-slate-800">
+          {groupedFields.primaryFields.length > 0 && (
+            <div>
+              <h3 className="mb-4 border-b pb-2 text-md font-bold">
+                Primary Borrower
+              </h3>
+              <div className="grid gap-6 md:grid-cols-2">
+                {groupedFields.primaryFields.map((field: any) => (
+                  <EditableFieldItem
+                    key={field.fieldKey}
+                    field={field}
+                    value={editableFieldValues[field.fieldKey || ""] ?? ""}
+                    onChange={handleEditableFieldChange}
+                    errors={errors}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {Object.keys(groupedFields.coBorrowerGroups).map((index) => (
+            <div key={index}>
+              <h3 className="mb-4 border-b pb-2 text-md font-bold">
+                Co Borrower {index}
+              </h3>
+              <div className="grid gap-6 md:grid-cols-2">
+                {groupedFields.coBorrowerGroups[index].map((field: any) => (
+                  <EditableFieldItem
+                    key={field.fieldKey}
+                    field={field}
+                    value={editableFieldValues[field.fieldKey || ""] ?? ""}
+                    onChange={handleEditableFieldChange}
+                    errors={errors}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
+
+          {groupedFields.otherFields.length > 0 && (
+            <div>
+              <h3 className="mb-4 border-b pb-2 text-md font-bold">
+                Loan Details
+              </h3>
+              <div className="grid gap-6 md:grid-cols-2">
+                {groupedFields.otherFields.map((field: any) => (
+                  <EditableFieldItem
+                    key={field.fieldKey}
+                    field={field}
+                    value={editableFieldValues[field.fieldKey || ""] ?? ""}
+                    onChange={handleEditableFieldChange}
+                    errors={errors}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {groupedFields.signatureField && (
+          <div className="mt-8 space-y-4 text-center">
+            <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+              Digital Signature
+            </h3>
+            <div className="flex justify-center">
+              <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800/70">
+                <img
+                  src={parseValue(groupedFields.signatureField.value)}
+                  alt="Digital Signature"
+                  className="h-40 object-contain"
+                />
+              </div>
             </div>
           </div>
         )}
@@ -959,7 +1456,7 @@ const LoanPreview = () => {
                 </div>
               )}
 
-              <div className="flex justify-end border-t pt-3 dark:border-slate-800">
+              {/* <div className="flex justify-end border-t pt-3 dark:border-slate-800">
                 <button
                   onClick={() =>
                     setPreviewFile({
@@ -972,7 +1469,7 @@ const LoanPreview = () => {
                 >
                   View LOI PDF
                 </button>
-              </div>
+              </div> */}
             </div>
           ))}
         </div>
@@ -981,253 +1478,275 @@ const LoanPreview = () => {
   );
 
   const renderDocuments = () => (
-    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950">
-      <div className="mb-5">
-        <h2 className="text-lg font-semibold tracking-wide text-slate-700 dark:text-slate-200">
-          Requested Documents
-        </h2>
-        <p className="text-sm text-slate-500">
-          Upload and review the requested submission documents.
-        </p>
+    <div className="min-h-screen h-[90vh] rounded-3xl  p-6">
+      {/* HEADER */}
+      <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        {/* LEFT */}
+        <div>
+          <h2 className="text-xl font-bold text-slate-800 dark:text-white">
+            Requested Documents
+          </h2>
+          <p className="text-sm text-slate-500">
+            Upload and manage submission documents
+          </p>
+        </div>
+
+        {/* RIGHT - SEARCH */}
+        <div className="relative w-full md:w-80">
+          <input
+            type="text"
+            placeholder="Search documents..."
+            value={searchInput}
+            onChange={(e) => {
+              setSearchInput(e.target.value);
+              setPage(1);
+            }}
+            className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 pr-10 text-sm outline-none transition
+      focus:border-blue-500 focus:ring-2 focus:ring-blue-200
+      dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+          />
+
+          {/* ICON */}
+          <FileSearch
+            size={18}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
+          />
+        </div>
       </div>
 
+      {selectedRows.length > 0 && (
+        <div className="mb-4 flex items-center justify-between rounded-2xl border border-blue-200 bg-gradient-to-r from-blue-50 to-cyan-50 px-5 py-3 shadow-sm dark:border-blue-900/40 dark:from-slate-900 dark:to-slate-800">
+          {/* LEFT TEXT */}
+          <p className="text-sm font-medium text-blue-700 dark:text-cyan-300">
+            {selectedRows.length} document(s) selected
+          </p>
+
+          {/* BUTTON */}
+          <button
+            onClick={handleSendToLender}
+            className="inline-flex items-center gap-2 px-3 py-2 text-xs font-semibold
+      bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-xl
+      shadow-md hover:shadow-lg hover:scale-[1.03] active:scale-95
+      transition-all duration-200"
+          >
+            {sending ? (
+              "Sending..."
+            ) : (
+              <>
+                <FiSend size={16} />
+                Send To Lender
+              </>
+            )}
+          </button>
+        </div>
+      )}
+
       {documentsLoading ? (
-        <div className="py-10 text-center text-slate-500">
-          Loading documents...
+        <div className="flex flex-col items-center justify-center py-16">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-500 border-t-transparent"></div>
+          <p className="mt-3 text-sm text-slate-500">Loading documents...</p>
         </div>
       ) : documentsData?.documents?.length > 0 ? (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {documentsData.documents.map((doc: any, index: number) => {
-            const hasFiles = doc.uploadedFiles && doc.uploadedFiles.length > 0;
-            return (
-              <div
-                key={`${doc.requirementId}-${index}`}
-                className="flex h-[320px] flex-col rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900"
-              >
-                <div className="mb-4 flex items-center justify-between gap-4">
-                  <h3 className="truncate text-[13px] font-medium text-slate-900 dark:text-slate-200">
-                    {doc.documentName}
-                  </h3>
-                  {(previewFiles[doc.requirementId]?.length > 0 ||
-                    selectedFiles[doc.requirementId]?.length > 0) && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setPreviewFiles((prev) => {
-                          const copy = { ...prev };
-                          delete copy[doc.requirementId];
-                          return copy;
-                        });
-                        setSelectedFiles((prev) => {
-                          const copy = { ...prev };
-                          delete copy[doc.requirementId];
-                          return copy;
-                        });
-                      }}
-                      className="rounded-md bg-red-50 px-2 py-1 text-[10px] text-red-600 transition hover:bg-red-100 dark:bg-red-500/10 dark:text-red-400"
+        <div className="h-[85vh] my-4 flex flex-col rounded-2xl border border-slate-200 dark:border-slate-800">
+          {/* TABLE */}
+          <div className="h-full overflow-y-auto">
+            <table className="w-full text-sm">
+              {/* HEADER */}
+              <thead className="sticky top-0 z-10 bg-white/80 backdrop-blur border-b dark:bg-slate-900/80">
+                <tr className="text-xs uppercase text-slate-500">
+                  <th className="px-5 py-4 text-left">
+                    <input
+                      type="checkbox"
+                      checked={isAllSelected}
+                      onChange={handleSelectAll}
+                      className="h-4 w-4 accent-emerald-600 cursor-pointer"
+                    />
+                  </th>
+                  <th className="px-5 py-4 text-left">Document</th>
+                  <th className="px-5 py-4 text-center">Source</th>
+                  <th className="px-5 py-4 text-center">Status</th>
+                  <th className="px-5 py-4 text-center">Files</th>
+                  <th className="px-5 py-4 text-right">Actions</th>
+                </tr>
+              </thead>
+
+              {/* BODY */}
+              <tbody className="divide-y dark:divide-slate-800">
+                {documentsData.documents.map((doc: any) => {
+                  const isOpen = activeAction === doc.requirementId;
+
+                  return (
+                    <tr
+                      key={doc.requirementId}
+                      className="group hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-all hover:shadow-sm"
                     >
-                      Clear
-                    </button>
-                  )}
-                </div>
-
-                {!hasFiles ? (
-                  <div className="flex flex-1 flex-col overflow-hidden">
-                    {previewFiles[doc.requirementId]?.length > 0 && (
-                      <div className="mb-3 flex max-h-[220px] flex-wrap gap-2 overflow-y-auto pr-1">
-                        {previewFiles[doc.requirementId].map(
-                          (file, fileIndex) => (
-                            <div
-                              key={`${file.name}-${fileIndex}`}
-                              className="relative flex h-16 w-16 items-center justify-center overflow-hidden rounded-lg border-2 border-blue-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800"
-                            >
-                              {file.type.startsWith("image") ? (
-                                <img
-                                  src={file.url}
-                                  alt={file.name}
-                                  className="h-full w-full object-cover"
-                                />
-                              ) : file.type.includes("pdf") ? (
-                                <div className="text-xs font-semibold text-red-500">
-                                  PDF
-                                </div>
-                              ) : (
-                                <div className="text-xs text-slate-500">
-                                  File
-                                </div>
-                              )}
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setPreviewFiles((prev) => {
-                                    const updated = [
-                                      ...(prev[doc.requirementId] || []),
-                                    ];
-                                    updated.splice(fileIndex, 1);
-                                    const copy = { ...prev };
-                                    if (updated.length === 0) {
-                                      delete copy[doc.requirementId];
-                                    } else {
-                                      copy[doc.requirementId] = updated;
-                                    }
-                                    return copy;
-                                  });
-                                  setSelectedFiles((prev) => {
-                                    const updated = [
-                                      ...(prev[doc.requirementId] || []),
-                                    ];
-                                    updated.splice(fileIndex, 1);
-                                    const copy = { ...prev };
-                                    if (updated.length === 0) {
-                                      delete copy[doc.requirementId];
-                                    } else {
-                                      copy[doc.requirementId] = updated;
-                                    }
-                                    return copy;
-                                  });
-                                }}
-                                className="absolute right-1 top-1 rounded bg-black/60 px-1 text-xs text-white transition hover:bg-red-500"
-                              >
-                                x
-                              </button>
-                            </div>
-                          ),
-                        )}
-                      </div>
-                    )}
-
-                    {!selectedFiles[doc.requirementId] && (
-                      <label className="flex h-full cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-slate-300 p-6 text-center transition hover:border-amber-400 dark:border-slate-700">
+                      <td className="px-5 py-4">
                         <input
-                          type="file"
-                          multiple
-                          accept=".pdf,.png,.jpg,.jpeg"
-                          className="hidden"
-                          onChange={(e) => {
-                            const fileList = Array.from(e.target.files || []);
-                            if (!fileList.length) return;
-                            const validFiles: File[] = [];
-                            const previews: UploadedPreview[] = [];
-
-                            fileList.forEach((file) => {
-                              if (file.size > 5 * 1024 * 1024) {
-                                toast.error(`${file.name} exceeds 5MB limit`);
-                                return;
-                              }
-                              validFiles.push(file);
-                              previews.push({
-                                url: URL.createObjectURL(file),
-                                type: file.type,
-                                name: file.name,
-                              });
-                            });
-
-                            if (!validFiles.length) return;
-
-                            setSelectedFiles((prev) => ({
-                              ...prev,
-                              [doc.requirementId]: [
-                                ...(prev[doc.requirementId] || []),
-                                ...validFiles,
-                              ],
-                            }));
-                            setPreviewFiles((prev) => ({
-                              ...prev,
-                              [doc.requirementId]: [
-                                ...(prev[doc.requirementId] || []),
-                                ...previews,
-                              ],
-                            }));
-                          }}
+                          type="checkbox"
+                          checked={selectedRows.includes(doc.requirementId)}
+                          onChange={() => handleSelectRow(doc.requirementId)}
+                          className="h-4 w-4 accent-emerald-600 cursor-pointer"
                         />
-                        <p className="text-xs font-medium text-amber-600">
-                          Click to Select File
-                        </p>
-                        <p className="mt-1 text-[10px] text-slate-400">
-                          PDF / JPG / PNG (Max 5MB)
-                        </p>
-                      </label>
-                    )}
-
-                    {selectedFiles[doc.requirementId]?.length > 0 && (
-                      <button
-                        onClick={() =>
-                          handleDocumentUpload(
-                            documentsData.submissionId,
-                            doc.requirementId,
-                          )
-                        }
-                        disabled={uploadingDocId === doc.requirementId}
-                        className="mt-auto w-full rounded-lg bg-blue-600 py-2 text-xs font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
-                      >
-                        {uploadingDocId === doc.requirementId ? (
-                          <span className="inline-flex items-center gap-2">
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                            Uploading...
+                      </td>
+                      {/* NAME */}
+                      <td className="px-5 py-4">
+                        <div className="flex flex-col">
+                          <span className="font-semibold text-slate-800 dark:text-white">
+                            {doc.documentName}
                           </span>
-                        ) : (
-                          "Upload Document"
-                        )}
-                      </button>
-                    )}
-                  </div>
-                ) : (
-                  <div className="flex w-full flex-wrap gap-2 overflow-y-auto pr-1">
-                    {doc.uploadedFiles.map((file: any, fileIndex: number) => {
-                      const isImage = file.fileMimeType?.startsWith("image");
-                      return (
-                        <div
-                          key={`${file.fileName}-${fileIndex}`}
-                          className="relative flex h-16 w-16 items-center justify-center overflow-hidden rounded-lg border-2 border-[#98bfe1] bg-slate-100 dark:bg-slate-800"
-                        >
-                          {isImage ? (
-                            <img
-                              src={`${API_BASE}${file.fileUrl}`}
-                              alt={file.fileName}
-                              className="h-full w-full object-cover"
-                            />
-                          ) : (
-                            <div className="text-xs text-slate-600 dark:text-slate-300">
-                              PDF
-                            </div>
+                          {doc.isRequired && (
+                            <span className="text-[10px] text-rose-500 font-semibold">
+                              Required
+                            </span>
                           )}
-                          <a
-                            href={`${API_BASE}${file.fileUrl}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="absolute inset-0 flex items-center justify-center bg-black/40 text-xs font-semibold text-white opacity-0 transition hover:opacity-100"
-                          >
-                            View
-                          </a>
                         </div>
-                      );
-                    })}
-                  </div>
-                )}
+                      </td>
 
-                <div className="mt-auto pt-3">
-                  <div className="mt-4 flex items-center justify-between">
-                    <span
-                      className={`rounded-full px-3 py-1 text-[10px] ${
-                        doc.status === "PENDING"
-                          ? "bg-amber-100 text-amber-600"
-                          : "bg-emerald-100 text-emerald-600"
-                      }`}
-                    >
-                      {doc.status}
-                    </span>
-                    <span className="text-[11px] font-semibold text-red-400">
-                      {doc.uploadedCount} Uploaded
-                    </span>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+                      {/* SOURCE */}
+                      <td className="px-5 py-4 text-center">
+                        <span className="px-3 py-1 text-xs rounded-full bg-indigo-100 text-indigo-700 font-medium">
+                          {doc.source === "BROKER_ADDED" ? "Broker" : "Lender"}
+                        </span>
+                      </td>
+
+                      {/* STATUS */}
+                      <td className="px-5 py-4 text-center">
+                        <span
+                          className={`px-3 py-1 rounded-full text-xs font-semibold ${getDocumentStatusChip(
+                            doc.status,
+                          )}`}
+                        >
+                          {doc.status}
+                        </span>
+                      </td>
+
+                      {/* FILES */}
+                      <td className="px-5 py-4 text-center">
+                        {doc.uploadedCount > 0 ? (
+                          <div className="flex justify-center items-center gap-2">
+                            <span className="px-3 py-1 text-xs rounded-full bg-emerald-100 text-emerald-700 font-semibold">
+                              {doc.uploadedCount} Files
+                            </span>
+
+                            <button
+                              onClick={() => {
+                                setPreviewFiles(doc.uploadedFiles);
+                                setActiveIndex(0);
+                              }}
+                              className="p-2 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition-all"
+                            >
+                              <Eye size={16} />
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-slate-400 text-xs">
+                            No files
+                          </span>
+                        )}
+                      </td>
+
+                      {/* ACTION */}
+                      <td className="px-5 py-4 text-right relative">
+                        <button
+                          onClick={() =>
+                            setActiveAction(isOpen ? null : doc.requirementId)
+                          }
+                          className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition"
+                        >
+                          <MoreVertical size={16} />
+                        </button>
+
+                        {isOpen && (
+                          <div className="absolute right-0 mt-2 w-44 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in-95">
+                            <label className="flex items-center gap-2 px-4 py-3 text-sm text-amber-600 hover:bg-amber-50 cursor-pointer transition">
+                              <Upload size={14} />
+                              Upload Files
+                              <input
+                                type="file"
+                                multiple
+                                className="hidden"
+                                onChange={async (e) => {
+                                  const files = e.target.files;
+                                  if (!files) return;
+
+                                  try {
+                                    const token =
+                                      sessionStorage.getItem("broker_token");
+
+                                    for (const file of Array.from(files)) {
+                                      const formData = new FormData();
+                                      formData.append("file", file);
+
+                                      const res = await fetch(
+                                        `${API_BASE}/broker/loan-pipeline/submissions/${documentsData.submissionId}/documents/${doc.requirementId}/upload`,
+                                        {
+                                          method: "POST",
+                                          headers: {
+                                            ...(token && {
+                                              Authorization: `Bearer ${token}`,
+                                            }),
+                                          },
+                                          body: formData,
+                                        },
+                                      );
+
+                                      const json = await res.json();
+                                      if (!res.ok || !json.success) {
+                                        throw new Error(`${file.name} failed`);
+                                      }
+                                    }
+
+                                    toast.success("Uploaded successfully 🚀");
+                                    await fetchSubmissionDocuments(
+                                      documentsData.submissionId,
+                                    );
+                                  } catch (err: any) {
+                                    toast.error(err.message);
+                                  } finally {
+                                    setActiveAction(null);
+                                  }
+                                }}
+                              />
+                            </label>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* PAGINATION */}
+          <div className="flex items-center justify-between px-4 py-3 border-t dark:border-slate-800 bg-white dark:bg-slate-900">
+            <p className="text-sm text-slate-500">
+              Page <span className="font-semibold">{pagination?.page}</span> of{" "}
+              <span className="font-semibold">{pagination?.totalPages}</span>
+            </p>
+
+            <div className="flex items-center gap-2">
+              <button
+                disabled={page === 1}
+                onClick={() => setPage((p) => p - 1)}
+                className="px-3 py-1.5 rounded-lg border text-sm hover:bg-slate-100 disabled:opacity-40"
+              >
+                ← Prev
+              </button>
+
+              <button
+                disabled={page === pagination?.totalPages}
+                onClick={() => setPage((p) => p + 1)}
+                className="px-3 py-1.5 rounded-lg border text-sm hover:bg-slate-100 disabled:opacity-40"
+              >
+                Next →
+              </button>
+            </div>
+          </div>
         </div>
       ) : (
-        <div className="py-10 text-center text-slate-500">
-          No documents found
+        <div className="flex flex-col items-center justify-center py-16 text-slate-500">
+          <p className="text-sm">No documents found</p>
         </div>
       )}
     </div>
@@ -1235,6 +1754,8 @@ const LoanPreview = () => {
 
   const renderTabContent = () => {
     switch (activeTab) {
+      case "update-application":
+        return renderUpdateApplication();
       case "request-document":
         return renderRequestDocument();
       case "view-loi":
@@ -1340,54 +1861,185 @@ const LoanPreview = () => {
         </div>
       </div>
 
-      {previewFile && (
-        <div className="fixed inset-0 z-[99999999] flex items-center justify-center bg-black/80 p-4 backdrop-blur-md">
-          <div className="flex h-[90vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-slate-900">
-            <div className="flex items-center justify-between border-b px-6 py-3 dark:border-slate-800">
+      {previewFiles.length > 0 && (
+        <div className="fixed inset-0 z-[99999999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="w-full max-w-6xl h-[90vh] rounded-3xl overflow-hidden 
+    bg-white dark:bg-slate-900 shadow-2xl flex flex-col"
+          >
+            {/* HEADER */}
+            <div
+              className="flex justify-between items-center px-6 py-4 
+  bg-gradient-to-r from-blue-600 to-teal-600 text-white"
+            >
+              {/* LEFT */}
               <div>
-                <h2 className="max-w-md truncate text-lg font-bold dark:text-white">
-                  {previewFile.name}
+                <h2 className="text-sm font-semibold truncate max-w-md">
+                  {currentFile.fileName}
                 </h2>
-                <p className="text-xs text-slate-500">PDF Preview</p>
+                <p className="text-xs text-white/70">
+                  {activeIndex + 1} / {previewFiles.length}
+                </p>
               </div>
+
+              {/* RIGHT ACTIONS */}
               <div className="flex items-center gap-2">
+                {/* DOWNLOAD */}
                 <button
                   onClick={async () => {
                     try {
-                      const res = await fetch(previewFile.url);
+                      const res = await fetch(
+                        `${API_BASE}${currentFile.fileUrl}`,
+                      );
                       const blob = await res.blob();
+
                       const url = window.URL.createObjectURL(blob);
                       const link = document.createElement("a");
+
                       link.href = url;
-                      link.download = previewFile.name || "LOI.pdf";
+                      link.download = currentFile.fileName || "file";
+
                       document.body.appendChild(link);
                       link.click();
                       link.remove();
+
                       window.URL.revokeObjectURL(url);
                     } catch (err) {
-                      console.error("Download failed", err);
+                      toast.error("Download failed ❌");
                     }
                   }}
-                  className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
+                  className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium 
+      bg-white/20 hover:bg-white/30 rounded-lg transition backdrop-blur"
                 >
+                  <Download size={14} />
                   Download
                 </button>
+
+                {/* CLOSE */}
                 <button
-                  onClick={() => setPreviewFile(null)}
-                  className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700"
+                  onClick={() => {
+                    setPreviewFiles([]);
+                    setActiveIndex(0);
+                  }}
+                  className="bg-red-500 hover:bg-red-600 px-3 py-1.5 rounded-lg text-xs transition"
                 >
                   Close
                 </button>
               </div>
             </div>
-            <div className="flex-1 bg-slate-100 dark:bg-slate-950">
-              <iframe
-                src={`https://docs.google.com/gview?url=${previewFile.url}&embedded=true`}
-                title={previewFile.name}
-                className="h-full w-full border-none"
-              />
+
+            {/* CONTENT */}
+            <div className="flex-1 flex items-center justify-center bg-slate-100 relative">
+              {/* LEFT */}
+              {activeIndex > 0 && (
+                <button
+                  onClick={() => setActiveIndex((p) => p - 1)}
+                  className="absolute left-4 bg-white p-2 rounded-full shadow"
+                >
+                  ←
+                </button>
+              )}
+
+              {/* RIGHT */}
+              {activeIndex < previewFiles.length - 1 && (
+                <button
+                  onClick={() => setActiveIndex((p) => p + 1)}
+                  className="absolute right-4 bg-white p-2 rounded-full shadow"
+                >
+                  →
+                </button>
+              )}
+
+              {/* FILE VIEW */}
+              {currentFile.fileMimeType?.includes("image") ? (
+                <img
+                  src={`${API_BASE}${currentFile.fileUrl}`}
+                  className="max-h-full max-w-full object-contain rounded-xl shadow"
+                />
+              ) : currentFile.fileMimeType?.includes("pdf") ? (
+                <object
+                  data={`${API_BASE}${currentFile.fileUrl}`}
+                  type="application/pdf"
+                  className="w-full h-full rounded-xl bg-white"
+                >
+                  {/* FALLBACK */}
+                  <div className="flex flex-col items-center justify-center h-full text-center px-6">
+                    {/* ICON CONTAINER */}
+                    <div
+                      className="flex items-center justify-center w-20 h-20 rounded-2xl 
+    bg-gradient-to-br from-blue-100 to-cyan-100 
+    dark:from-slate-800 dark:to-slate-700 shadow-md mb-4"
+                    >
+                      <FileText
+                        size={36}
+                        className="text-blue-600 dark:text-cyan-400"
+                      />
+                    </div>
+
+                    {/* TITLE */}
+                    <h3 className="text-lg font-semibold text-slate-800 dark:text-white">
+                      Preview not available
+                    </h3>
+
+                    {/* DESCRIPTION */}
+                    <p className="text-sm text-slate-500 mt-1 max-w-xs">
+                      This PDF cannot be previewed here. Click below to open it
+                      in a new tab.
+                    </p>
+
+                    {/* BUTTON */}
+                    <button
+                      onClick={() =>
+                        window.open(
+                          `${API_BASE}${currentFile.fileUrl}`,
+                          "_blank",
+                        )
+                      }
+                      className="mt-5 inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium
+    bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-xl 
+    shadow-md hover:shadow-lg hover:scale-[1.02] active:scale-95
+    transition-all duration-200"
+                    >
+                      Open PDF
+                    </button>
+                  </div>
+                </object>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full text-slate-500">
+                  <FileText size={40} className="mb-2 opacity-50" />
+                  <p>Preview not supported</p>
+                </div>
+              )}
             </div>
-          </div>
+
+            {/* THUMBNAILS */}
+            <div className="flex gap-2 p-3 overflow-x-auto bg-slate-50">
+              {previewFiles.map((file, i) => (
+                <div
+                  key={i}
+                  onClick={() => setActiveIndex(i)}
+                  className={`h-14 w-20 flex items-center justify-center rounded-lg cursor-pointer border-2 overflow-hidden ${
+                    i === activeIndex ? "border-blue-500" : "border-transparent"
+                  }`}
+                >
+                  {file.fileMimeType?.includes("image") ? (
+                    <img
+                      src={`${API_BASE}${file.fileUrl}`}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : file.fileMimeType?.includes("pdf") ? (
+                    <div className="flex flex-col items-center justify-center text-[10px] text-red-600 font-semibold">
+                      📄 PDF
+                    </div>
+                  ) : (
+                    <div className="text-xs text-slate-400">FILE</div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </motion.div>
         </div>
       )}
     </>

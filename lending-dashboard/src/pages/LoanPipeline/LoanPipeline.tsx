@@ -659,7 +659,7 @@ export default function LoanPipeline() {
               shadow-sm hover:shadow-md
               transition-all duration-200
               flex items-center justify-between
-  "
+            "
           >
             <div>
               <p className="text-sm text-slate-500 dark:text-slate-400">
@@ -882,8 +882,28 @@ export default function LoanPipeline() {
                                       top: dropdownPos.top,
                                       left: dropdownPos.left,
                                     }}
-                                    className="w-56 bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-200 dark:border-slate-800 py-2 z-50 animate-in fade-in zoom-in-95"
+                                    className="w-56 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 py-2 z-50 animate-in fade-in zoom-in-95 backdrop-blur"
                                   >
+                                    {/* App Preview */}
+                                    <button
+                                      onClick={() =>
+                                        navigate("/loan-preview", {
+                                          state: {
+                                            applicationLenderId:
+                                              row.applicationLenderId,
+                                            isLoi: row.loiGenerated
+                                          },
+                                        })
+                                      }
+                                      className="flex items-center gap-3 w-full px-4 py-2.5 text-sm 
+text-blue-600 bg-blue-50/50 dark:bg-blue-900/10 
+hover:bg-blue-100 dark:hover:bg-blue-900/20 
+transition rounded-lg mx-1"
+                                    >
+                                      <Eye size={16} />
+                                      App Preview
+                                    </button>
+
                                     {/* View */}
                                     <button
                                       onClick={() => {
@@ -892,7 +912,10 @@ export default function LoanPipeline() {
                                         );
                                         setActiveDropdown(null);
                                       }}
-                                      className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 transition"
+                                      className="flex items-center gap-3 w-full px-4 py-2.5 text-sm 
+text-indigo-600 bg-indigo-50/50 dark:bg-indigo-900/10 
+hover:bg-indigo-100 dark:hover:bg-indigo-900/20 
+transition rounded-lg mx-1"
                                     >
                                       <Eye size={16} />
                                       View Details
@@ -904,12 +927,15 @@ export default function LoanPipeline() {
                                         fetchDocuments(row.applicationLenderId);
                                         setActiveDropdown(null);
                                       }}
-                                      className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-amber-50 dark:hover:bg-amber-900/20 hover:text-amber-600 transition"
+                                      className="flex items-center gap-3 w-full px-4 py-2.5 text-sm 
+text-amber-600 bg-amber-50/50 dark:bg-amber-900/10 
+hover:bg-amber-100 dark:hover:bg-amber-900/20 
+transition rounded-lg mx-1"
                                     >
                                       <FileIcon size={16} />
                                       Documents
                                       {(row.pendingDocumentsCount ?? 0) > 0 && (
-                                        <span className="ml-auto bg-amber-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">
+                                        <span className="ml-auto bg-amber-500 text-white text-[10px] px-2 py-0.5 rounded-full shadow">
                                           {row.pendingDocumentsCount}
                                         </span>
                                       )}
@@ -926,7 +952,10 @@ export default function LoanPipeline() {
                                           );
                                           setActiveDropdown(null);
                                         }}
-                                        className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition"
+                                        className="flex items-center gap-3 w-full px-4 py-2.5 text-sm 
+text-purple-600 bg-purple-50/50 dark:bg-purple-900/10 
+hover:bg-purple-100 dark:hover:bg-purple-900/20 
+transition rounded-lg mx-1"
                                       >
                                         <FileText size={16} />
                                         Generate LOI
@@ -942,7 +971,10 @@ export default function LoanPipeline() {
                                           );
                                           setActiveDropdown(null);
                                         }}
-                                        className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition"
+                                        className="flex items-center gap-3 w-full px-4 py-2.5 text-sm 
+text-purple-600 bg-purple-50/50 dark:bg-purple-900/10 
+hover:bg-purple-100 dark:hover:bg-purple-900/20 
+transition rounded-lg mx-1"
                                       >
                                         <Eye size={16} />
                                         View LOI
@@ -969,10 +1001,10 @@ export default function LoanPipeline() {
                                           openDocumentSelector(row);
                                         }
                                       }}
-                                      className={`flex items-center gap-3 w-full px-4 py-2.5 text-sm whitespace-nowrap transition ${
+                                      className={`flex items-center gap-3 w-full px-4 py-2.5 text-sm rounded-lg mx-1 transition ${
                                         isActionAllowed
-                                          ? "text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
-                                          : "text-slate-300 cursor-not-allowed"
+                                          ? "text-emerald-600 bg-emerald-50/50 dark:bg-emerald-900/10 hover:bg-emerald-100 dark:hover:bg-emerald-900/20"
+                                          : "text-slate-300 bg-slate-50 cursor-not-allowed"
                                       }`}
                                     >
                                       <CheckCircle size={16} />
@@ -993,10 +1025,10 @@ export default function LoanPipeline() {
                                             row.applicationLenderId,
                                         });
                                       }}
-                                      className={`flex items-center gap-3 w-full px-4 py-2.5 text-sm transition ${
+                                      className={`flex items-center gap-3 w-full px-4 py-2.5 text-sm rounded-lg mx-1 transition ${
                                         isActionAllowed
-                                          ? "text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20"
-                                          : "text-slate-300 cursor-not-allowed"
+                                          ? "text-rose-600 bg-rose-50/50 dark:bg-rose-900/10 hover:bg-rose-100 dark:hover:bg-rose-900/20"
+                                          : "text-slate-300 bg-slate-50 cursor-not-allowed"
                                       }`}
                                     >
                                       <XCircle size={16} />
