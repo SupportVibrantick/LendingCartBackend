@@ -1,10 +1,12 @@
 // backend/routes/lender/index.js
+
 const authRoutes = require("./auth");
 const loanProductRoutes = require("./loanProduct");
 const documentConfigRoutes = require("./documentConfig");
 const eligibilityRoutes = require("./eligibility");
 const brokerRoutes = require("./broker");
 const loanPipelineRoutes = require("./loanPipeLine");
+const notificationRoutes = require("./notifications");
 
 // const brokerRoutes = require("./broker");
 // const commonRoutes = require("./common");
@@ -66,6 +68,10 @@ module.exports = async function lenderRoutes(fastify, opts) {
 
     instance.register(loanPipelineRoutes, {
       prefix: "/loan-pipeline",
+    });
+
+    instance.register(notificationRoutes,{
+      prefix: "/notifications",
     });
 
     // Later:
