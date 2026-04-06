@@ -73,7 +73,7 @@ module.exports = async function sendToLenders(fastify) {
           });
         }
 
-        if (!["SUBMITTED", "IN_REVIEW"].includes(application.status)) {
+        if (!["CLIENT_PENDING","SUBMITTED", "IN_REVIEW" ].includes(application.status)) {
           return reply.code(400).send({
             success: false,
             message:
