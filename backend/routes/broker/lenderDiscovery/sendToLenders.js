@@ -166,6 +166,29 @@ module.exports = async function sendToLenders(fastify) {
                 },
               });
 
+              await tx.notification.create({
+  data: {
+    eventType: "APPLICATION_SENT",
+    category: "APPLICATION",
+
+    channel: "IN_APP",
+    status: "SENT",
+
+    recipientType: "LENDER",
+    recipientOrgId: lp.lenderOrgId,
+
+    subject: "New Loan Application Received",
+    body: `A new loan application has been submitted for ${application.loanProductCode}.`,
+
+    metadata: {
+      applicationId,
+      submissionId,
+      lenderProductId: lp.id,
+      loanProductCode: application.loanProductCode,
+    },
+  },
+});
+
               processed.push({
                 lenderProductId: lp.id,
                 lenderOrgId: lp.lenderOrgId,
