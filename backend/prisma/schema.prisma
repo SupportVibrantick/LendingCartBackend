@@ -1153,8 +1153,9 @@ model ClientUploadToken {
   loanApplication LoanApplication @relation(fields: [loanApplicationId], references: [id])
   client Client @relation(fields: [clientId], references: [id])
 
-  @@index([loanApplicationId])
+  @@unique([loanApplicationId]) // ENFORCES 1 TOKEN PER LOAN
   @@index([token])
+  @@index([loanApplicationId])
 }
 
 model LenderLoiTemplate {

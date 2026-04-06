@@ -32,21 +32,21 @@ async function clientLoginRoute(fastify) {
         /* ===============================
            NORMALIZE INPUT
         =============================== */
-
         email = email.toLowerCase().trim();
 
         /* ===============================
-           FIND USER
+           FIND USER (SAFE)
         =============================== */
-
-        const user = await prisma.clientPortalUser.findUnique({
-          where: { email },
+        const user = await prisma.clientPortalUser.findFirst({
+          where: {
+            email,
+            isDeleted: false,
+          },
         });
 
         /* ===============================
-           DUMMY HASH (ANTI-TIMING ATTACK)
+           DUMMY HASH (ANTI-TIMING)
         =============================== */
-
         const dummyHash =
           "$2b$10$CwTycUXWue0Thq9StjUM0uJ8GqzGwdrDam6DCQE4k74vNysGEKMlu";
 
@@ -57,8 +57,7 @@ async function clientLoginRoute(fastify) {
         /* ===============================
            INVALID LOGIN
         =============================== */
-
-        if (!user || user.isDeleted || !isMatch) {
+        if (!user || !isMatch) {
           return reply.code(401).send({
             success: false,
             message: "Invalid email or password",
@@ -66,20 +65,18 @@ async function clientLoginRoute(fastify) {
         }
 
         /* ===============================
-           OPTIONAL ACCOUNT CHECKS
+           ACCOUNT CHECK
         =============================== */
-
-        if (user.isActive === false) {
+        if (!user.isActive) {
           return reply.code(403).send({
             success: false,
-            message: "Account is disabled. Contact support.",
+            message: "Account is disabled",
           });
         }
 
         /* ===============================
-           GENERATE JWT
+           GENERATE JWT (KEEP jsonwebtoken)
         =============================== */
-
         const token = jwt.sign(
           {
             id: user.id,
@@ -89,14 +86,12 @@ async function clientLoginRoute(fastify) {
           process.env.JWT_SECRET,
           {
             expiresIn: "7d",
-            issuer: "your-app-name",
           }
         );
 
         /* ===============================
            UPDATE LAST LOGIN
         =============================== */
-
         await prisma.clientPortalUser.update({
           where: { id: user.id },
           data: {
@@ -105,9 +100,8 @@ async function clientLoginRoute(fastify) {
         });
 
         /* ===============================
-           SUCCESS RESPONSE
+           RESPONSE
         =============================== */
-
         return reply.send({
           success: true,
           message: "Login successful",
@@ -123,9 +117,7 @@ async function clientLoginRoute(fastify) {
 
       } catch (error) {
         fastify.log.error(
-          {
-            error: error.message,
-          },
+          { error: error.message },
           "Client login failed"
         );
 

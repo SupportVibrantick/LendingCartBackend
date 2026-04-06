@@ -31,7 +31,6 @@ async function sendClientLinkRoute(fastify) {
         /* ===============================
            AUTH CHECK
         =============================== */
-
         if (
           !req.user ||
           req.user.orgType !== "BROKER" ||
@@ -49,7 +48,6 @@ async function sendClientLinkRoute(fastify) {
         /* ===============================
            FETCH LOAN + CLIENT
         =============================== */
-
         const loan = await prisma.loanApplication.findFirst({
           where: {
             id: loanId,
@@ -74,9 +72,8 @@ async function sendClientLinkRoute(fastify) {
         /* ===============================
            GET CLIENT EMAIL (SAFE)
         =============================== */
-
         const primaryContact = loan.client.contacts.find(
-          (c) => c.isPrimary && c.email,
+          (c) => c.isPrimary && c.email
         );
 
         const fallbackContact = loan.client.contacts.find((c) => c.email);
@@ -91,24 +88,50 @@ async function sendClientLinkRoute(fastify) {
         }
 
         /* ===============================
-           GENERATE TOKEN (TRANSACTION)
+           GENERATE / REPLACE TOKEN (CORE FIX)
         =============================== */
-
         let tokenRecord;
 
         await prisma.$transaction(async (tx) => {
           const token = crypto.randomBytes(32).toString("hex");
 
-          tokenRecord = await tx.clientUploadToken.create({
-            data: {
-              loanApplicationId: loan.id,
-              clientId: loan.clientId,
-              token,
-              expiresAt: new Date(
-                Date.now() + 7 * 24 * 60 * 60 * 1000, // 7 days
-              ),
-            },
-          });
+          const expiresAt = new Date(
+            Date.now() + 7 * 24 * 60 * 60 * 1000
+          );
+
+          try {
+            // 🔥 UPSERT → ensures ONE token per loan
+            tokenRecord = await tx.clientUploadToken.upsert({
+              where: {
+                loanApplicationId: loan.id,
+              },
+              update: {
+                token,
+                expiresAt,
+                isUsed: false,
+              },
+              create: {
+                loanApplicationId: loan.id,
+                clientId: loan.clientId,
+                token,
+                expiresAt,
+              },
+            });
+          } catch (err) {
+            // 🔒 fallback for rare race condition
+            if (err.code === "P2002") {
+              tokenRecord = await tx.clientUploadToken.update({
+                where: { loanApplicationId: loan.id },
+                data: {
+                  token,
+                  expiresAt,
+                  isUsed: false,
+                },
+              });
+            } else {
+              throw err;
+            }
+          }
 
           // OPTIONAL: update loan status
           if (loan.status === "DRAFT") {
@@ -126,7 +149,6 @@ async function sendClientLinkRoute(fastify) {
         /* ===============================
            PREPARE LINK
         =============================== */
-
         if (!process.env.FRONTEND_URL) {
           throw new Error("FRONTEND_URL not configured");
         }
@@ -136,7 +158,6 @@ async function sendClientLinkRoute(fastify) {
         /* ===============================
            EMAIL TEMPLATE
         =============================== */
-
         const html = loadTemplate("broker/clientLink", {
           clientName: loan.client?.legalName || "Customer",
           uploadLink,
@@ -149,9 +170,8 @@ async function sendClientLinkRoute(fastify) {
         const text = `Access your loan application using this secure link:\n${uploadLink}`;
 
         /* ===============================
-           SEND EMAIL (DIRECT SMTP)
+           SEND EMAIL
         =============================== */
-
         try {
           await sendMail({
             to: clientEmail,
@@ -161,20 +181,13 @@ async function sendClientLinkRoute(fastify) {
           });
 
           fastify.log.info(
-            {
-              clientEmail,
-              loanId,
-            },
-            "Email sent successfully via SMTP",
+            { clientEmail, loanId },
+            "Email sent successfully"
           );
         } catch (err) {
           fastify.log.error(
-            {
-              error: err.message,
-              clientEmail,
-              loanId,
-            },
-            "Email sending failed",
+            { error: err.message, clientEmail, loanId },
+            "Email sending failed"
           );
 
           return reply.code(500).send({
@@ -186,7 +199,6 @@ async function sendClientLinkRoute(fastify) {
         /* ===============================
            SUCCESS RESPONSE
         =============================== */
-
         return reply.send({
           success: true,
           message: "Client portal link sent successfully",
@@ -201,7 +213,7 @@ async function sendClientLinkRoute(fastify) {
             loanId: req.params.loanId,
             brokerOrgId: req.user?.organizationId,
           },
-          "Failed to send client portal link",
+          "Failed to send client portal link"
         );
 
         return reply.code(500).send({
@@ -209,7 +221,7 @@ async function sendClientLinkRoute(fastify) {
           message: error.message || "Unexpected server error",
         });
       }
-    },
+    }
   );
 }
 
