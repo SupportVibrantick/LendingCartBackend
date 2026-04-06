@@ -15,7 +15,8 @@ import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { useLocation, useNavigate } from "react-router";
 import { motion } from "framer-motion";
-import { FiSend } from "react-icons/fi";
+import { FiSearch, FiSend } from "react-icons/fi";
+import Swal from "sweetalert2";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
@@ -36,7 +37,8 @@ type TabKey =
   | "update-application"
   | "request-document"
   | "view-loi"
-  | "documents";
+  | "documents"
+  | "submitted-lenders";
 
 const parseValue = (val: string): any => {
   try {
@@ -349,6 +351,10 @@ const LoanPreview = () => {
   // const [search, setSearch] = useState("");
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [sending, setSending] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [search, setSearch] = useState("");
+  const [debouncedLenderSearch, setDebouncedLenderSearch] = useState("");
+  const itemsPerPage = 9;
 
   const isAllSelected =
     documentsData?.documents?.length > 0 &&
@@ -374,8 +380,33 @@ const LoanPreview = () => {
       return;
     }
 
-    setSending(true);
+    // ✅ Confirmation
+    const result = await Swal.fire({
+      title: "Send Documents?",
+      text: "Selected documents will be sent to lender.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Yes, send",
+      cancelButtonText: "Cancel",
+      confirmButtonColor: "#2563eb",
+      cancelButtonColor: "#ef4444",
+    });
+
+    if (!result.isConfirmed) return;
+
     try {
+      setSending(true);
+
+      // Loader inside alert
+      Swal.fire({
+        title: "Sending...",
+        text: "Please wait while we send documents",
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        },
+      });
+
       const token = sessionStorage.getItem("broker_token");
 
       const res = await fetch(
@@ -398,20 +429,30 @@ const LoanPreview = () => {
         throw new Error(json.message || "Failed to send documents");
       }
 
-      setSending(false);
+      // Success
+      await Swal.fire({
+        title: "Success 🚀",
+        text: "Documents sent to lender successfully",
+        icon: "success",
+        confirmButtonColor: "#22c55e",
+      });
 
-      toast.success("Documents sent to lender 🚀");
-
-      // ✅ reset selection
+      // reset
       setSelectedRows([]);
 
-      // ✅ refresh table
+      // refresh
       await fetchSubmissionDocuments(submissionId, page, debouncedSearch);
     } catch (err: any) {
-      toast.error(err.message || "Something went wrong ❌");
+      Swal.fire({
+        title: "Error",
+        text: err.message || "Something went wrong",
+        icon: "error",
+        confirmButtonColor: "#ef4444",
+      });
+    } finally {
+      setSending(false);
     }
   };
-
   const fields = submissionDetail?.fields || [];
   const applicationId = submissionDetail?.applicationId;
   const submissionId = Location.state?.submissionId;
@@ -507,7 +548,7 @@ const LoanPreview = () => {
     searchQuery = "",
   ) => {
     try {
-       setDocumentsLoading(true);
+      setDocumentsLoading(true);
       const token = sessionStorage.getItem("broker_token");
 
       const res = await fetch(
@@ -528,9 +569,9 @@ const LoanPreview = () => {
       }
     } catch (err) {
       console.error(err);
-    }finally {
-    setDocumentsLoading(false); 
-  }
+    } finally {
+      setDocumentsLoading(false);
+    }
   };
 
   const fetchLois = async (id: string) => {
@@ -673,7 +714,7 @@ const LoanPreview = () => {
     setSelectedRequestDocs([]);
     setRequestMessage("");
     setEditableFieldValues({});
-    setActiveTab("view-details");
+    setActiveTab("update-application");
 
     if (submissionId) {
       fetchSubmissionDetails(submissionId);
@@ -777,15 +818,15 @@ const LoanPreview = () => {
     : null;
 
   const tabs = [
-    {
-      key: "view-details" as const,
-      label: "View Details",
-      icon: Eye,
-      color: "text-blue-600",
-    },
+    // {
+    //   key: "view-details" as const,
+    //   label: "View Details",
+    //   icon: Eye,
+    //   color: "text-blue-600",
+    // },
     {
       key: "update-application" as const,
-      label: "Update Application",
+      label: "View Details",
       icon: Pencil,
       color: "text-cyan-600",
     },
@@ -807,8 +848,13 @@ const LoanPreview = () => {
       icon: FolderOpen,
       color: "text-amber-600",
     },
+    {
+      key: "submitted-lenders" as const,
+      label: "Submitted To Lenders",
+      icon: Send,
+      color: "text-blue-600",
+    },
   ];
-
   const handleEditableFieldChange = (fieldKey: string, nextValue: string) => {
     let value = nextValue;
 
@@ -822,13 +868,25 @@ const LoanPreview = () => {
       return { ...prev, [fieldKey]: value };
     });
 
-    // ❌ error remove on typing
+    // error remove on typing
     setErrors((prev) => {
       const copy = { ...prev };
       delete copy[fieldKey];
       return copy;
     });
   };
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedLenderSearch(search);
+    }, 400); // ⏱ 400ms delay
+
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedLenderSearch]);
 
   const handleUpdateApplication = async () => {
     if (!validateFields()) {
@@ -846,8 +904,23 @@ const LoanPreview = () => {
       value: editableFieldValues[key],
     }));
 
+    // Confirmation Alert
+    const result = await Swal.fire({
+      title: "Are you sure?",
+      text: "Do you want to update this application?",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Yes, update it!",
+      cancelButtonText: "Cancel",
+      confirmButtonColor: "#22c55e",
+      cancelButtonColor: "#ef4444",
+    });
+
+    if (!result.isConfirmed) return;
+
     try {
       setUpdateSubmitting(true);
+
       const res = await fetch(
         `${API_BASE}/broker/applications/${applicationId}/edit`,
         {
@@ -863,15 +936,27 @@ const LoanPreview = () => {
         throw new Error(json.message || "Failed to update application");
       }
 
-      navigate("/submit-applications");
+      // Success Alert
+      await Swal.fire({
+        title: "Updated!",
+        text: "Application updated successfully.",
+        icon: "success",
+        confirmButtonColor: "#22c55e",
+      });
 
-      toast.success("Application updated successfully");
+      navigate("/submit-applications");
 
       if (submissionId) {
         await fetchSubmissionDetails(submissionId);
       }
     } catch (err: any) {
-      toast.error(err.message || "Failed to update application");
+      // Error Alert
+      Swal.fire({
+        title: "Error!",
+        text: err.message || "Failed to update application",
+        icon: "error",
+        confirmButtonColor: "#ef4444",
+      });
     } finally {
       setUpdateSubmitting(false);
     }
@@ -1477,6 +1562,144 @@ const LoanPreview = () => {
     </div>
   );
 
+  const renderSubmittedLenders = () => {
+    const lenders = submissionDetail.lenders || [];
+
+    const filteredLenders = lenders.filter((lender: any) =>
+      lender.lenderName
+        ?.toLowerCase()
+        .includes(debouncedLenderSearch.toLowerCase()),
+    );
+
+    const totalPages = Math.ceil(filteredLenders.length / itemsPerPage);
+
+    const paginatedLenders = filteredLenders.slice(
+      (currentPage - 1) * itemsPerPage,
+      currentPage * itemsPerPage,
+    );
+
+    return (
+      <div className="rounded-2xl border bg-white p-6 dark:bg-slate-950 dark:border-slate-800">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold">Submitted To Lenders</h2>
+
+          <div className="relative w-60">
+            {/* ICON */}
+            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
+
+            {/* INPUT */}
+            <input
+              type="text"
+              placeholder="Search lender..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-900 dark:border-slate-700"
+            />
+          </div>
+        </div>
+
+        {filteredLenders.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            {/* ICON */}
+            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-blue-100 to-cyan-100 shadow-sm">
+              <Send className="h-7 w-7 text-blue-600" />
+            </div>
+
+            {/* TITLE */}
+            <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">
+              No Lenders Yet
+            </h3>
+
+            {/* SUBTEXT */}
+            <p className="mt-1 max-w-sm text-sm text-slate-500 dark:text-slate-400">
+              This application has not been submitted to any lenders yet. Once
+              you send documents, lenders will appear here.
+            </p>
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {paginatedLenders.map((lender: any, index: number) => (
+                <div
+                  key={index}
+                  className="flex items-center justify-between p-4 rounded-xl border bg-white dark:bg-slate-900 dark:border-slate-700 hover:shadow-md hover:scale-[1.02] transition cursor-pointer"
+                >
+                  {/* LEFT */}
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="h-10 w-10 rounded-full overflow-hidden flex items-center justify-center bg-gradient-to-br from-blue-500 to-indigo-600 text-white font-semibold text-sm">
+                      {lender.profileImage ? (
+                        <img
+                          src={`${API_BASE}${lender.profileImage}`}
+                          alt={lender.lenderName}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <span>{lender.lenderName?.charAt(0) || "L"}</span>
+                      )}
+                    </div>
+
+                    {/* INFO */}
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-slate-800 dark:text-white truncate">
+                        {lender.lenderName || "Unknown"}
+                      </p>
+
+                      <p className="text-xs text-slate-500 truncate">
+                        {lender.sentAt
+                          ? new Date(lender.sentAt).toLocaleDateString()
+                          : "No date"}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* STATUS */}
+                  <span
+                    className={`px-2.5 py-1 text-[10px] rounded-full font-semibold whitespace-nowrap ${getStatusChip(
+                      lender.lenderStatus,
+                    )}`}
+                  >
+                    {lender.lenderStatus || "PENDING"}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {lenders.length > itemsPerPage && (
+              <div className="flex items-center justify-between mt-6">
+                {/* PREVIOUS */}
+                <button
+                  onClick={() =>
+                    setCurrentPage((prev) => Math.max(prev - 1, 1))
+                  }
+                  disabled={currentPage === 1}
+                  className="px-4 py-2 text-sm rounded-lg border disabled:opacity-50 hover:bg-slate-100 dark:hover:bg-slate-800"
+                >
+                  ← Previous
+                </button>
+
+                {/* PAGE INFO */}
+                <p className="text-sm text-slate-500">
+                  Page {currentPage} of {totalPages}
+                </p>
+
+                {/* NEXT */}
+                <button
+                  onClick={() =>
+                    setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+                  }
+                  disabled={currentPage === totalPages}
+                  className="px-4 py-2 text-sm rounded-lg border disabled:opacity-50 hover:bg-slate-100 dark:hover:bg-slate-800"
+                >
+                  Next →
+                </button>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    );
+  };
+
   const renderDocuments = () => (
     <div className="min-h-screen h-[90vh] rounded-3xl  p-6">
       {/* HEADER */}
@@ -1762,6 +1985,8 @@ const LoanPreview = () => {
         return renderViewLoi();
       case "documents":
         return renderDocuments();
+      case "submitted-lenders":
+        return renderSubmittedLenders();
       default:
         return renderViewDetails();
     }

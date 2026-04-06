@@ -867,3 +867,12 @@ body.swal2-shown > *:not(.swal2-container) {
 .dark .loan-table-scroll::-webkit-scrollbar-thumb:hover {
   background-color: #64748b; /* gray-500 */
 }
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #134E4A;
+  border-radius: 10px;
+}
