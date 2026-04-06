@@ -27,7 +27,7 @@ module.exports = async function sendToLenders(fastify) {
       let { applicationId, submissionId } = req.params;
       const { lenderProductIds } = req.body;
 
-      // Defensive UUID cleanup
+      // ================= SAFE CLEANUP =================
       applicationId = applicationId.replace(/"/g, "").trim();
       submissionId = submissionId.replace(/"/g, "").trim();
 
@@ -40,6 +40,21 @@ module.exports = async function sendToLenders(fastify) {
 
       const userId = req.user.id;
       const brokerOrgId = req.user.organizationId;
+
+      // ================= CONSTANTS (PRODUCTION SAFE) =================
+      const ALLOWED_APP_STATUSES = ["CLIENT_PENDING", "SUBMITTED", "IN_REVIEW"];
+      const BLOCKED_APP_STATUSES = [
+        "LENDER_SELECTED",
+        "LENDER_APPROVED",
+        "FUNDED",
+        "WITHDRAWN",
+      ];
+
+      const ALLOWED_SUBMISSION_STATUSES = [
+        "NEW",
+        "SENT",
+        "CLIENT_PENDING",
+      ];
 
       try {
         /* ================= APPLICATION ================= */
@@ -61,11 +76,7 @@ module.exports = async function sendToLenders(fastify) {
           });
         }
 
-        if (
-          ["LENDER_SELECTED", "LENDER_APPROVED", "FUNDED", "WITHDRAWN"].includes(
-            application.status
-          )
-        ) {
+        if (BLOCKED_APP_STATUSES.includes(application.status)) {
           return reply.code(400).send({
             success: false,
             message:
@@ -73,11 +84,11 @@ module.exports = async function sendToLenders(fastify) {
           });
         }
 
-        if (!["CLIENT_PENDING","SUBMITTED", "IN_REVIEW" ].includes(application.status)) {
+        if (!ALLOWED_APP_STATUSES.includes(application.status)) {
           return reply.code(400).send({
             success: false,
             message:
-              "Application must be SUBMITTED or IN_REVIEW before sending",
+              "Application must be CLIENT_PENDING, SUBMITTED or IN_REVIEW before sending",
           });
         }
 
@@ -94,7 +105,7 @@ module.exports = async function sendToLenders(fastify) {
           });
         }
 
-        if (!["NEW", "SENT"].includes(submission.status)) {
+        if (!ALLOWED_SUBMISSION_STATUSES.includes(submission.status)) {
           return reply.code(400).send({
             success: false,
             message: "Submission cannot be sent in current status",
@@ -155,6 +166,7 @@ module.exports = async function sendToLenders(fastify) {
             const processed = [];
 
             for (const lp of newLenderProducts) {
+              // 🔹 Create lender entry
               await tx.applicationLender.create({
                 data: {
                   loanApplicationId: applicationId,
@@ -166,28 +178,25 @@ module.exports = async function sendToLenders(fastify) {
                 },
               });
 
+              // 🔹 Create notification
               await tx.notification.create({
-  data: {
-    eventType: "APPLICATION_SENT",
-    category: "APPLICATION",
-
-    channel: "IN_APP",
-    status: "SENT",
-
-    recipientType: "LENDER",
-    recipientOrgId: lp.lenderOrgId,
-
-    subject: "New Loan Application Received",
-    body: `A new loan application has been submitted for ${application.loanProductCode}.`,
-
-    metadata: {
-      applicationId,
-      submissionId,
-      lenderProductId: lp.id,
-      loanProductCode: application.loanProductCode,
-    },
-  },
-});
+                data: {
+                  eventType: "APPLICATION_SENT",
+                  category: "APPLICATION",
+                  channel: "IN_APP",
+                  status: "SENT",
+                  recipientType: "LENDER",
+                  recipientOrgId: lp.lenderOrgId,
+                  subject: "New Loan Application Received",
+                  body: `A new loan application has been submitted for ${application.loanProductCode}.`,
+                  metadata: {
+                    applicationId,
+                    submissionId,
+                    lenderProductId: lp.id,
+                    loanProductCode: application.loanProductCode,
+                  },
+                },
+              });
 
               processed.push({
                 lenderProductId: lp.id,
@@ -197,14 +206,18 @@ module.exports = async function sendToLenders(fastify) {
               });
             }
 
-            if (application.status === "SUBMITTED") {
+            // 🔹 Application status update
+            if (["SUBMITTED", "CLIENT_PENDING"].includes(application.status)) {
               await tx.loanApplication.update({
                 where: { id: applicationId },
                 data: { status: "IN_REVIEW" },
               });
             }
 
-            if (submission.status === "NEW") {
+            // 🔹 Submission status update (IMPORTANT FIX)
+            if (
+              ["NEW", "CLIENT_PENDING"].includes(submission.status)
+            ) {
               await tx.applicationSubmission.update({
                 where: { id: submissionId },
                 data: { status: "SENT" },
@@ -216,7 +229,7 @@ module.exports = async function sendToLenders(fastify) {
           { isolationLevel: "Serializable" }
         );
 
-        /* ================= EMAIL WITH BASE64 PDF ================= */
+        /* ================= EMAIL ================= */
         for (const r of results) {
           if (r.status === "SENT" && r.lenderEmail) {
             try {
@@ -224,8 +237,6 @@ module.exports = async function sendToLenders(fastify) {
                 application,
                 submission
               );
-
-              console.log("PDF size:", pdfBuffer.length);
 
               const base64PDF = pdfBuffer.toString("base64");
 
