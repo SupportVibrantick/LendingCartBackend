@@ -38,7 +38,8 @@ type TabKey =
   | "request-document"
   | "view-loi"
   | "documents"
-  | "submitted-lenders";
+  | "submitted-lenders"
+  | "chat";
 
 const parseValue = (val: string): any => {
   try {
@@ -854,7 +855,14 @@ const LoanPreview = () => {
       icon: Send,
       color: "text-blue-600",
     },
+    {
+      key: "chat" as const,
+      label: "Chat",
+      icon: Send,
+      color: "text-green-600",
+    },
   ];
+
   const handleEditableFieldChange = (fieldKey: string, nextValue: string) => {
     let value = nextValue;
 
@@ -1627,7 +1635,7 @@ const LoanPreview = () => {
                   {/* LEFT */}
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="h-10 w-10 rounded-full overflow-hidden flex items-center justify-center bg-gradient-to-br from-blue-500 to-indigo-600 text-white font-semibold text-sm">
-                      {lender.profileImage ? (
+                      {lender.profileImage && lender.profileImage != null ? (
                         <img
                           src={`${API_BASE}${lender.profileImage}`}
                           alt={lender.lenderName}
@@ -1975,6 +1983,146 @@ const LoanPreview = () => {
     </div>
   );
 
+  const renderChat = () => {
+    const dummyChats = [
+      {
+        id: 1,
+        name: "Lender John",
+        lastMessage: "Please share documents",
+        time: "2 min ago",
+        unread: 2,
+      },
+      {
+        id: 2,
+        name: "Support Team",
+        lastMessage: "Application received",
+        time: "10 min ago",
+        unread: 0,
+      },
+    ];
+
+    const dummyMessages = [
+      { id: 1, text: "Hello 👋", sender: "other", time: "10:00 AM" },
+      { id: 2, text: "Hi, need docs", sender: "other", time: "10:01 AM" },
+      { id: 3, text: "Sure, uploading...", sender: "me", time: "10:02 AM" },
+    ];
+
+    return (
+      <div className="h-[80vh] flex rounded-2xl overflow-hidden border dark:border-slate-800">
+        {/* LEFT SIDEBAR */}
+        <div className="w-[30%] bg-white dark:bg-slate-900 border-r dark:border-slate-800 flex flex-col">
+          {/* HEADER */}
+          <div className="p-4 border-b dark:border-slate-800">
+            <h2 className="font-semibold text-lg">Chats</h2>
+          </div>
+
+          {/* SEARCH */}
+          <div className="p-3">
+            <input
+              placeholder="Search chats..."
+              className="w-full px-3 py-2 text-sm rounded-lg border dark:bg-slate-800 dark:border-slate-700"
+            />
+          </div>
+
+          {/* CHAT LIST */}
+          <div className="flex-1 overflow-y-auto">
+            {dummyChats.map((chat) => (
+              <div
+                key={chat.id}
+                className="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 dark:hover:bg-slate-800 cursor-pointer transition"
+              >
+                {/* AVATAR */}
+                <div className="h-10 w-10 rounded-full bg-gradient-to-br from-green-400 to-emerald-600 flex items-center justify-center text-white font-bold">
+                  {chat.name.charAt(0)}
+                </div>
+
+                {/* INFO */}
+                <div className="flex-1">
+                  <p className="text-sm font-semibold">{chat.name}</p>
+                  <p className="text-xs text-gray-500 truncate">
+                    {chat.lastMessage}
+                  </p>
+                </div>
+
+                {/* RIGHT */}
+                <div className="text-right">
+                  <p className="text-[10px] text-gray-400">{chat.time}</p>
+                  {chat.unread > 0 && (
+                    <span className="text-xs bg-green-500 text-white px-2 py-0.5 rounded-full">
+                      {chat.unread}
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* RIGHT CHAT WINDOW */}
+        <div className="w-[70%] flex flex-col bg-gray-50 dark:bg-[#0b1120]">
+          {/* HEADER */}
+          <div className="flex items-center gap-3 p-4 border-b dark:border-slate-800 bg-white dark:bg-slate-900">
+            <div className="h-10 w-10 rounded-full bg-green-500 flex items-center justify-center text-white">
+              J
+            </div>
+            <div>
+              <p className="font-semibold">Lender John</p>
+              <p className="text-xs text-gray-500">Online</p>
+            </div>
+          </div>
+
+          {/* MESSAGES */}
+          <div className="relative flex-1 overflow-y-auto p-4 space-y-3 bg-[#efeae2] dark:bg-[#0b141a]">
+            {/* Pattern Layer */}
+            <div
+              className="absolute inset-0 opacity-[0.25] pointer-events-none
+                  bg-[radial-gradient(circle_at_1px_1px,#d1d5db_1px,transparent_0)]
+                  dark:bg-[radial-gradient(circle_at_1px_1px,#1f2937_1px,transparent_0)]
+                  bg-[size:20px_20px]"
+            />
+
+            {/* Chat Content */}
+            <div className="relative z-10 space-y-3">
+              {dummyMessages.map((msg) => (
+                <div
+                  key={msg.id}
+                  className={`flex ${
+                    msg.sender === "me" ? "justify-end" : "justify-start"
+                  }`}
+                >
+                  <div
+                    className={`max-w-xs px-4 py-2 rounded-2xl text-sm shadow ${
+                      msg.sender === "me"
+                        ? "bg-green-500 text-white rounded-br-none"
+                        : "bg-white dark:bg-slate-800 rounded-bl-none"
+                    }`}
+                  >
+                    <p>{msg.text}</p>
+                    <p className="text-[10px] mt-1 opacity-70 text-right">
+                      {msg.time}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* INPUT */}
+          <div className="p-3 border-t dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center gap-2">
+            <input
+              placeholder="Type a message..."
+              className="flex-1 px-4 py-2 rounded-full border dark:bg-slate-800 dark:border-slate-700 text-sm outline-none"
+            />
+
+            <button className="p-2 rounded-full bg-green-500 text-white hover:bg-green-600 transition">
+              <FiSend size={16} />
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const renderTabContent = () => {
     switch (activeTab) {
       case "update-application":
@@ -1987,6 +2135,8 @@ const LoanPreview = () => {
         return renderDocuments();
       case "submitted-lenders":
         return renderSubmittedLenders();
+      case "chat":
+        return renderChat();
       default:
         return renderViewDetails();
     }

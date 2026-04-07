@@ -5,6 +5,14 @@ import { Upload, FileText, CheckCircle } from "lucide-react";
 import toast from "react-hot-toast";
 import SignatureCanvas from "react-signature-canvas";
 import { useRef } from "react";
+import {
+  FiUploadCloud,
+  FiFileText,
+  FiMessageCircle,
+  FiLogOut,
+  FiMail,
+  FiTrendingUp,
+} from "react-icons/fi";
 
 /* ================= TYPES ================= */
 
@@ -42,9 +50,9 @@ export default function ClientUpload() {
   const [loanProductCode, setLoanProductCode] = useState("");
   const [applicationData, setApplicationData] = useState<any>(null);
 
-  const [activeTab, setActiveTab] = useState<"documents" | "application">(
-    "documents",
-  );
+  const [activeTab, setActiveTab] = useState<
+    "documents" | "application" | "chat"
+  >("documents");
   const [isSignedFromAPI, setIsSignedFromAPI] = useState(false);
 
   const getClientPortalAuthConfig = () => {
@@ -322,79 +330,223 @@ export default function ClientUpload() {
     window.location.href = "/client-portal";
   };
 
+  const renderChat = () => {
+    const dummyChats = [
+      {
+        id: 1,
+        name: "Support",
+        lastMessage: "Upload documents please",
+        time: "2 min ago",
+        unread: 1,
+      },
+      {
+        id: 1,
+        name: "Help",
+        lastMessage: "Upload documents please",
+        time: "21min ago",
+        unread: 1,
+      },
+    ];
+
+    const dummyMessages = [
+      { id: 1, text: "Hello 👋", sender: "other", time: "10:00 AM" },
+      {
+        id: 2,
+        text: "Please upload documents",
+        sender: "other",
+        time: "10:01 AM",
+      },
+      { id: 3, text: "Uploading now", sender: "me", time: "10:02 AM" },
+    ];
+
+    return (
+      <div className="h-[80vh] flex rounded-2xl overflow-hidden border shadow-xl">
+        {/* LEFT SIDEBAR */}
+        <div className="w-[30%] bg-white border-r flex flex-col">
+          <div className="p-4 border-b font-semibold">Chats</div>
+
+          <div className="flex-1 overflow-y-auto">
+            {dummyChats.map((chat) => (
+              <div
+                key={chat.id}
+                className="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 cursor-pointer"
+              >
+                <div className="h-10 w-10 rounded-full bg-green-500 text-white flex items-center justify-center font-bold">
+                  {chat.name.charAt(0)}
+                </div>
+
+                <div className="flex-1">
+                  <p className="text-sm font-semibold">{chat.name}</p>
+                  <p className="text-xs text-gray-500 truncate">
+                    {chat.lastMessage}
+                  </p>
+                </div>
+
+                {chat.unread > 0 && (
+                  <span className="text-xs bg-green-500 text-white px-2 py-0.5 rounded-full">
+                    {chat.unread}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* RIGHT CHAT */}
+        <div className="w-[70%] flex flex-col bg-[#efeae2] relative">
+          {/* PATTERN BG */}
+          <div
+            className="absolute inset-0 opacity-20 pointer-events-none
+          bg-[radial-gradient(circle_at_1px_1px,#d1d5db_1px,transparent_0)]
+          bg-[size:20px_20px]"
+          />
+
+          {/* HEADER */}
+          <div className="p-4 border-b bg-white flex items-center gap-3 z-10">
+            <div className="h-10 w-10 rounded-full bg-green-500 text-white flex items-center justify-center">
+              S
+            </div>
+            <div>
+              <p className="font-semibold">Support</p>
+              <p className="text-xs text-gray-500">Online</p>
+            </div>
+          </div>
+
+          {/* MESSAGES */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-3 z-10">
+            {dummyMessages.map((msg) => (
+              <div
+                key={msg.id}
+                className={`flex ${
+                  msg.sender === "me" ? "justify-end" : "justify-start"
+                }`}
+              >
+                <div
+                  className={`max-w-xs px-4 py-2 rounded-2xl text-sm shadow ${
+                    msg.sender === "me"
+                      ? "bg-green-500 text-white rounded-br-none"
+                      : "bg-white rounded-bl-none"
+                  }`}
+                >
+                  {msg.text}
+                  <p className="text-[10px] mt-1 text-right opacity-70">
+                    {msg.time}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* INPUT */}
+          <div className="p-3 bg-white border-t flex gap-2 z-10">
+            <input
+              placeholder="Type a message..."
+              className="flex-1 px-4 py-2 rounded-full border text-sm outline-none"
+            />
+            <button className="bg-green-500 text-white px-4 rounded-full">
+              Send
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white p-6">
-      <div className="max-w-5xl mx-auto">
-        <div className="flex">
-          {/* CLIENT INFO BOX */}
-          <div className="bg-white rounded-2xl shadow p-5 mb-6 border">
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="max-w-8xl mx-auto">
+        <div className="mb-6">
+          <div
+            className="relative overflow-hidden rounded-2xl border border-white/40 
+                bg-gradient-to-br from-white via-blue-50/60 to-emerald-50/60
+                backdrop-blur-xl p-5 
+                transition-all duration-300"
+          >
+            {/* Gradient Glow */}
+            <div className="absolute inset-0 pointer-events-none">
+              <div className="absolute -top-10 -left-10 w-40 h-40 bg-blue-200 opacity-20 blur-3xl rounded-full" />
+              <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-emerald-200 opacity-20 blur-3xl rounded-full" />
+            </div>
+
+            <div className="relative grid grid-cols-2 md:grid-cols-5 gap-5">
               {/* STATUS */}
               <div className="flex flex-col">
-                <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">
+                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">
                   Status
                 </p>
 
                 <span
                   className={`inline-flex items-center gap-2 w-fit px-3 py-1.5 mt-2 text-xs font-semibold rounded-full transition
-    ${
-      status === "SUBMITTED"
-        ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
-        : status === "PENDING"
-          ? "bg-amber-50 text-amber-700 ring-1 ring-amber-200"
-          : status === "REJECTED"
-            ? "bg-red-50 text-red-700 ring-1 ring-red-200"
-            : "bg-gray-100 text-gray-700 ring-1 ring-gray-200"
-    }`}
+          ${
+            status === "SUBMITTED"
+              ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
+              : status === "PENDING"
+                ? "bg-amber-50 text-amber-700 ring-1 ring-amber-200"
+                : status === "REJECTED"
+                  ? "bg-red-50 text-red-700 ring-1 ring-red-200"
+                  : "bg-gray-100 text-gray-700 ring-1 ring-gray-200"
+          }`}
                 >
-                  {/* Dot Indicator */}
                   <span
                     className={`h-2 w-2 rounded-full
-      ${
-        status === "SUBMITTED"
-          ? "bg-emerald-500"
-          : status === "PENDING"
-            ? "bg-amber-500"
-            : status === "REJECTED"
-              ? "bg-red-500"
-              : "bg-gray-400"
-      }`}
+            ${
+              status === "SUBMITTED"
+                ? "bg-emerald-500"
+                : status === "PENDING"
+                  ? "bg-amber-500"
+                  : status === "REJECTED"
+                    ? "bg-red-500"
+                    : "bg-gray-400"
+            }`}
                   />
-
                   {status || "N/A"}
                 </span>
               </div>
 
               {/* NAME */}
-              <div>
-                <p className="text-xs text-gray-400">Name</p>
-                <p className="font-medium text-gray-800 mt-1 text-sm">
-                  {clientName}
-                </p>
+              <div className="flex flex-col">
+                <p className="text-xs text-gray-400">Client</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center text-sm font-bold">
+                    {clientName?.charAt(0) || "C"}
+                  </div>
+                  <p className="font-medium text-gray-800 text-sm">
+                    {clientName}
+                  </p>
+                </div>
               </div>
 
               {/* EMAIL */}
-              <div>
+              <div className="flex flex-col">
                 <p className="text-xs text-gray-400">Email</p>
-                <p className="font-medium text-gray-800 mt-1 break-all text-sm">
-                  {email}
-                </p>
+                <div className="flex items-center gap-2 mt-1">
+                  <FiMail className="text-gray-400" size={14} />
+                  <p className="font-medium text-gray-800 text-sm break-all">
+                    {email}
+                  </p>
+                </div>
               </div>
 
               {/* CREDIT SCORE */}
-              <div>
+              <div className="flex flex-col">
                 <p className="text-xs text-gray-400">Credit Score</p>
-                <p className="font-semibold text-blue-600 text-sm mt-1">
-                  {creditScore || "-"}
-                </p>
+                <div className="flex items-center gap-2 mt-1">
+                  <FiTrendingUp className="text-blue-500" size={14} />
+                  <p className="font-semibold text-blue-600 text-sm">
+                    {creditScore || "-"}
+                  </p>
+                </div>
               </div>
 
               {/* LOAN PRODUCT */}
-              <div>
+              <div className="flex flex-col">
                 <p className="text-xs text-gray-400">Loan Product</p>
-                <p className="font-medium text-gray-800 mt-1 text-xs">
-                  {loanProductCode}
-                </p>
+                <div className="flex items-center gap-2 mt-1">
+                  <FiFileText className="text-gray-400" size={14} />
+                  <p className="font-medium text-gray-800 text-xs">
+                    {loanProductCode}
+                  </p>
+                </div>
               </div>
             </div>
           </div>
@@ -402,37 +554,58 @@ export default function ClientUpload() {
 
         <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
           {/* LEFT SIDE BUTTONS */}
-          <div className="flex gap-3">
+          <div className="flex gap-3 flex-wrap">
+            {/* Upload Documents */}
             <button
               onClick={() => setActiveTab("documents")}
-              className={`px-4 py-2 rounded-xl text-sm font-medium border transition
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all duration-200
       ${
         activeTab === "documents"
-          ? "bg-blue-600 text-white"
-          : "bg-white text-gray-600 hover:bg-gray-100"
+          ? "bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-md scale-[1.02]"
+          : "bg-white text-gray-600 border hover:bg-blue-50 hover:text-blue-600"
       }`}
             >
+              <FiUploadCloud size={16} />
               Upload Documents
             </button>
 
+            {/* Loan Application */}
             <button
               onClick={() => setActiveTab("application")}
-              className={`px-4 py-2 rounded-xl text-sm font-medium border transition
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all duration-200
       ${
         activeTab === "application"
-          ? "bg-blue-600 text-white"
-          : "bg-white text-gray-600 hover:bg-gray-100"
+          ? "bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-md scale-[1.02]"
+          : "bg-white text-gray-600 border hover:bg-indigo-50 hover:text-indigo-600"
       }`}
             >
+              <FiFileText size={16} />
               Loan Application
+            </button>
+
+            {/* Chat */}
+            <button
+              onClick={() => setActiveTab("chat")}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all duration-200
+      ${
+        activeTab === "chat"
+          ? "bg-gradient-to-r from-green-600 to-emerald-600 text-white shadow-md scale-[1.02]"
+          : "bg-white text-gray-600 border hover:bg-green-50 hover:text-green-600"
+      }`}
+            >
+              <FiMessageCircle size={16} />
+              Chat
             </button>
           </div>
 
           {/* RIGHT SIDE LOGOUT */}
           <button
             onClick={handleLogout}
-            className="text-sm px-4 py-2 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 transition whitespace-nowrap"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold 
+               border border-red-200 text-red-600 bg-white
+               hover:bg-red-50 hover:shadow-md transition-all duration-200"
           >
+            <FiLogOut size={16} />
             Logout
           </button>
         </div>
@@ -758,6 +931,8 @@ export default function ClientUpload() {
             </div>
           </div>
         )}
+
+        {activeTab === "chat" && renderChat()}
       </div>
     </div>
   );

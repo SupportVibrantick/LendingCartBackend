@@ -25,7 +25,6 @@ const getColor = (name: string) => {
     "bg-cyan-500",
   ];
 
-  // generate consistent color based on name
   let hash = 0;
   for (let i = 0; i < name.length; i++) {
     hash = name.charCodeAt(i) + ((hash << 5) - hash);
@@ -35,9 +34,9 @@ const getColor = (name: string) => {
   return colors[index];
 };
 
-function getAuthHeaders(): Record<string, string> {
+function getAuthHeaders(tokenStorageKey = "admin_token"): Record<string, string> {
   try {
-    const token = sessionStorage.getItem("admin_token");
+    const token = sessionStorage.getItem(tokenStorageKey);
     if (token) {
       return {
         "Content-Type": "application/json",
@@ -50,7 +49,19 @@ function getAuthHeaders(): Record<string, string> {
   return { "Content-Type": "application/json" };
 }
 
-const StepTwo = ({ value, setValue }: any) => {
+type StepTwoProps = {
+  value: string[];
+  setValue: (value: string[]) => void;
+  mode?: "admin" | "lender";
+  onProductsLoad?: (products: LoanProduct[]) => void;
+};
+
+const StepTwo = ({
+  value,
+  setValue,
+  mode = "admin",
+  onProductsLoad,
+}: StepTwoProps) => {
   const safeValue = Array.isArray(value) ? value : [];
   const [products, setProducts] = useState<LoanProduct[]>([]);
 
@@ -61,17 +72,19 @@ const StepTwo = ({ value, setValue }: any) => {
       ? current.filter((i: string) => i !== id)
       : [...current, id];
 
-    setValue(next); // direct value pass karo
+    setValue(next);
   };
 
-  // ===== API Calls =====
   const fetchLoanProducts = async () => {
     try {
-      // setLoadingList(true);
+      const isLenderMode = mode === "lender";
+      const endpoint = isLenderMode
+        ? `${API_BASE}/common/loan-products/loan-product-code`
+        : `${API_BASE}/admin/loan-products/list`;
 
-      const res = await fetch(`${API_BASE}/admin/loan-products/list`, {
+      const res = await fetch(endpoint, {
         method: "GET",
-        headers: getAuthHeaders(),
+        headers: getAuthHeaders(isLenderMode ? "lender_token" : "admin_token"),
       });
 
       if (!res.ok) {
@@ -80,36 +93,35 @@ const StepTwo = ({ value, setValue }: any) => {
       }
 
       const json = await res.json();
-      if (!json.success) {
+      if (!isLenderMode && !json.success) {
         console.error("Failed to load loan products:", json.message);
         return;
       }
 
-      const items = (json.data || []) as any[];
+      const items = (isLenderMode ? json.data || json : json.data || []) as any[];
 
       const mapped: LoanProduct[] = items.map((p) => ({
         id: String(p.id),
         code: p.code,
-        name: p.name ?? "",
+        name: p.name ?? p.code ?? "",
         description: p.description ?? "",
         isActive: Boolean(p.isActive),
         createdAt: p.createdAt ?? undefined,
       }));
 
       setProducts(mapped);
+      onProductsLoad?.(mapped);
     } catch (err) {
       console.error("Failed to load loan products", err);
     }
   };
 
-  // ===== Effects =====
   useEffect(() => {
     fetchLoanProducts();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [mode]);
 
   return (
-    <div className="border border-gray-200 rounded-2xl p-6 shadow-sm">
+    <div className="border border-gray-200 rounded-2xl p-6 shadow-sm bg-white">
       {value?.length > 0 && (
         <div className="flex flex-wrap gap-2 mb-4">
           {products
@@ -131,12 +143,11 @@ const StepTwo = ({ value, setValue }: any) => {
           )}
         </div>
       )}
-      {/* Header */}
+
       <div className="flex justify-between items-start mb-5">
         <div>
           <h2 className="font-semibold text-lg flex items-center gap-2">
             Loan Programs Offered
-            {/* Selected Count Badge */}
             {value?.length > 0 && (
               <span className="text-xs bg-blue-100 text-blue-600 px-2.5 py-0.5 rounded-full font-medium">
                 {value.length} selected
@@ -145,11 +156,10 @@ const StepTwo = ({ value, setValue }: any) => {
           </h2>
 
           <p className="text-sm text-gray-500 mt-1">
-            Select which loan programs this lender offers.
+            Select which loan programs you want to add.
           </p>
         </div>
 
-        {/* Actions */}
         <div className="flex items-center gap-4 text-sm mt-1">
           <button
             onClick={() => setValue(products.map((p) => p.id))}
@@ -169,7 +179,6 @@ const StepTwo = ({ value, setValue }: any) => {
         </div>
       </div>
 
-      {/* Grid */}
       <div className="grid grid-cols-3 gap-3">
         {products.map((item) => {
           const isChecked = safeValue.includes(item.id);
