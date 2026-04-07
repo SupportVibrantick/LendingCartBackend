@@ -2,25 +2,152 @@ async function listLenderLoanProductsRoutes(fastify) {
   fastify.get(
     "/",
     {
+      preHandler: [fastify.authenticate],
       schema: {
         tags: ["Lender -> Loan Products"],
-        summary: "List configured loan products",
+        summary: "List configured loan products (Advanced)",
+        querystring: {
+          type: "object",
+          properties: {
+            page: { type: "number", minimum: 1, default: 1 },
+            limit: { type: "number", minimum: 1, maximum: 100, default: 10 },
+            isActive: { type: "boolean" },
+            search: { type: "string" },
+          },
+        },
       },
     },
     async (req, reply) => {
       const prisma = fastify.prisma;
-      const lenderOrgId = req.user.organizationId;
 
-      const products = await prisma.lenderProduct.findMany({
-        where: { lenderOrgId },
-        include: { loanProduct: true },
-        orderBy: { createdAt: "desc" },
-      });
+      try {
+        // ---------------------------
+        // 🔐 AUTH CHECK
+        // ---------------------------
+        if (
+          !req.user ||
+          req.user.orgType !== "LENDER" ||
+          !req.user.organizationId
+        ) {
+          return reply.status(403).send({
+            success: false,
+            message: "Lender access only",
+          });
+        }
 
-      return reply.send({
-        success: true,
-        data: products,
-      });
+        const lenderOrgId = req.user.organizationId;
+
+        // ---------------------------
+        // 📄 QUERY PARAMS
+        // ---------------------------
+        const {
+          page = 1,
+          limit = 10,
+          isActive,
+          search,
+        } = req.query;
+
+        const skip = (page - 1) * limit;
+
+        // ---------------------------
+        // 🔍 FILTERS
+        // ---------------------------
+        const where = {
+          lenderOrgId,
+        };
+
+        if (typeof isActive === "boolean") {
+          where.isActive = isActive;
+        }
+
+        if (search) {
+          where.OR = [
+            {
+              loanProductCode: {
+                contains: search,
+                mode: "insensitive",
+              },
+            },
+            {
+              loanProduct: {
+                name: {
+                  contains: search,
+                  mode: "insensitive",
+                },
+              },
+            },
+          ];
+        }
+
+        // ---------------------------
+        // 📊 QUERY
+        // ---------------------------
+        const [products, total] = await Promise.all([
+          prisma.lenderProduct.findMany({
+            where,
+            include: {
+              loanProduct: {
+                select: {
+                  id: true,
+                  name: true,
+                  code: true,
+                },
+              },
+            },
+            orderBy: { createdAt: "desc" },
+            skip,
+            take: limit,
+          }),
+
+          prisma.lenderProduct.count({ where }),
+        ]);
+
+        // ---------------------------
+        // 🧠 FORMAT RESPONSE
+        // ---------------------------
+        const formatted = products.map((p) => ({
+          ...p,
+
+          businessTypes: p.businessTypes
+            ? p.businessTypes.split(",")
+            : [],
+
+          propertyTypes: p.propertyTypes
+            ? p.propertyTypes.split(",")
+            : [],
+
+          statesSupported: p.statesSupported
+            ? p.statesSupported.split(",")
+            : [],
+
+          equipmentTypes: p.equipmentTypes
+            ? p.equipmentTypes.split(",")
+            : [],
+        }));
+
+        // ---------------------------
+        // 📦 RESPONSE
+        // ---------------------------
+        return reply.send({
+          success: true,
+          meta: {
+            page,
+            limit,
+            total,
+            totalPages: Math.ceil(total / limit),
+          },
+          data: formatted,
+        });
+      } catch (error) {
+        req.log.error(error);
+
+        return reply.status(500).send({
+          success: false,
+          message:
+            error.message ||
+            "Server error while fetching loan products",
+        });
+      }
     }
   );
 }
