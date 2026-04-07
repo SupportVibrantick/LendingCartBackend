@@ -1,16 +1,24 @@
 const { z } = require("zod");
 const { LoanProductCode } = require("@prisma/client");
 
-// 🔥 flexible object schema (category → subtypes)
+// flexible object schema (category → subtypes)
 const nestedTypeSchema = z.record(
   z.string(),
   z.array(z.string())
 );
 
+// ✅ allow number OR string, normalize to string
+const experienceSchema = z
+  .union([z.number().int(), z.string()])
+  .optional()
+  .transform((val) => {
+    if (val === undefined || val === null) return undefined;
+    return String(val);
+  });
+
 const baseProductSchema = z.object({
   loanProductCode: z.nativeEnum(LoanProductCode),
 
-  // ✅ NOW SUPPORTS SUBTYPES
   businessTypes: nestedTypeSchema.optional(),
   propertyTypes: nestedTypeSchema.optional(),
 
@@ -24,13 +32,14 @@ const baseProductSchema = z.object({
   maxLtvPercent: z.number().positive().optional(),
 
   minCreditScore: z.number().int().optional(),
-  minExperience: z.number().int().optional(),
+
+  // ✅ FIXED HERE
+  minExperience: experienceSchema,
 
   interestRateRange: z.string().optional(),
 
   statesSupported: z.array(z.string()).optional(),
 
-  // ✅ equipment also supports subtype
   equipmentTypes: nestedTypeSchema.optional(),
   otherEquipmentExplanation: z.string().optional(),
 
@@ -45,7 +54,6 @@ const createLenderLoanProductSchema = z
       .array(z.nativeEnum(LoanProductCode))
       .optional(),
 
-    // shared fields (old format)
     businessTypes: nestedTypeSchema.optional(),
     propertyTypes: nestedTypeSchema.optional(),
 
@@ -59,7 +67,9 @@ const createLenderLoanProductSchema = z
     maxLtvPercent: z.number().positive().optional(),
 
     minCreditScore: z.number().int().optional(),
-    minExperience: z.number().int().optional(),
+
+    
+    minExperience: experienceSchema,
 
     interestRateRange: z.string().optional(),
 

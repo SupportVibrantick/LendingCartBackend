@@ -20,9 +20,7 @@ async function createLenderLoanProductRoutes(fastify) {
       const prisma = fastify.prisma;
 
       try {
-        // ---------------------------
-        //  AUTH CHECK
-        // ---------------------------
+        // 🔐 AUTH CHECK
         if (
           !req.user ||
           req.user.orgType !== "LENDER" ||
@@ -36,12 +34,8 @@ async function createLenderLoanProductRoutes(fastify) {
 
         const lenderOrgId = req.user.organizationId;
 
-        // ---------------------------
-        //  VALIDATION
-        // ---------------------------
-        const parsed = createLenderLoanProductSchema.safeParse(
-          req.body
-        );
+        // 🧪 VALIDATION
+        const parsed = createLenderLoanProductSchema.safeParse(req.body);
 
         if (!parsed.success) {
           return reply.status(400).send({
@@ -63,9 +57,7 @@ async function createLenderLoanProductRoutes(fastify) {
           });
         }
 
-        // ---------------------------
-        //  NORMALIZATION
-        // ---------------------------
+        // 🔄 NORMALIZATION
         let normalizedProducts = [];
 
         if (isNewFormat) {
@@ -87,6 +79,8 @@ async function createLenderLoanProductRoutes(fastify) {
             minExperience: data.minExperience,
             interestRateRange: data.interestRateRange,
             statesSupported: data.statesSupported,
+            equipmentTypes: data.equipmentTypes,
+            otherEquipmentExplanation: data.otherEquipmentExplanation,
             isActive: data.isActive,
           }));
         }
@@ -98,9 +92,7 @@ async function createLenderLoanProductRoutes(fastify) {
           });
         }
 
-        // ---------------------------
-        //  VALIDATE MASTER PRODUCTS
-        // ---------------------------
+        // 🏦 VALIDATE MASTER PRODUCTS
         const codes = normalizedProducts.map(
           (p) => p.loanProductCode
         );
@@ -120,9 +112,7 @@ async function createLenderLoanProductRoutes(fastify) {
           });
         }
 
-        // ---------------------------
-        // CHECK EXISTING
-        // ---------------------------
+        // 🔁 CHECK EXISTING
         const existing = await prisma.lenderProduct.findMany({
           where: {
             lenderOrgId,
@@ -135,9 +125,7 @@ async function createLenderLoanProductRoutes(fastify) {
           existing.map((e) => e.loanProductCode)
         );
 
-        // ---------------------------
-        //  PREPARE PAYLOAD
-        // ---------------------------
+        // 📦 PREPARE PAYLOAD
         const createPayload = normalizedProducts
           .filter(
             (item) => !existingCodes.has(item.loanProductCode)
@@ -157,60 +145,59 @@ async function createLenderLoanProductRoutes(fastify) {
               item.loanProductCode === "EQUIPMENT_FINANCE";
 
             return {
-  lenderOrgId,
-  loanProductId: product.id,
-  loanProductCode: product.code,
+              lenderOrgId,
+              loanProductId: product.id,
+              loanProductCode: product.code,
 
-  // ✅ FULL STRUCTURE SUPPORT
-  businessTypes: item.businessTypes
-    ? JSON.stringify(item.businessTypes)
-    : null,
+              // ✅ TYPE → SUBTYPE STRUCTURE
+              businessTypes: item.businessTypes ?? null,
+              propertyTypes: item.propertyTypes ?? null,
 
-  propertyTypes: item.propertyTypes
-    ? JSON.stringify(item.propertyTypes)
-    : null,
+              // 💰 FINANCIAL
+              minLoanAmount: item.minLoanAmount
+                ? new Prisma.Decimal(item.minLoanAmount)
+                : null,
 
-  // financial fields
-  minLoanAmount: item.minLoanAmount
-    ? new Prisma.Decimal(item.minLoanAmount)
-    : null,
+              maxLoanAmount: item.maxLoanAmount
+                ? new Prisma.Decimal(item.maxLoanAmount)
+                : null,
 
-  maxLoanAmount: item.maxLoanAmount
-    ? new Prisma.Decimal(item.maxLoanAmount)
-    : null,
+              minTermMonths: item.minTermMonths ?? null,
+              maxTermMonths: item.maxTermMonths ?? null,
 
-  minTermMonths: item.minTermMonths ?? null,
-  maxTermMonths: item.maxTermMonths ?? null,
+              minLtvPercent: item.minLtvPercent
+                ? new Prisma.Decimal(item.minLtvPercent)
+                : null,
 
-  minLtvPercent: item.minLtvPercent
-    ? new Prisma.Decimal(item.minLtvPercent)
-    : null,
+              maxLtvPercent: item.maxLtvPercent
+                ? new Prisma.Decimal(item.maxLtvPercent)
+                : null,
 
-  maxLtvPercent: item.maxLtvPercent
-    ? new Prisma.Decimal(item.maxLtvPercent)
-    : null,
+              minCreditScore: item.minCreditScore ?? null,
 
-  minCreditScore: item.minCreditScore ?? null,
-  minExperience: item.minExperience ?? null,
+              // ✅ STRING FOR DB
+              minExperience:
+                item.minExperience !== undefined
+                  ? String(item.minExperience)
+                  : null,
 
-  interestRateRange: item.interestRateRange ?? null,
+              interestRateRange: item.interestRateRange ?? null,
 
-  statesSupported:
-    item.statesSupported?.join(",") ?? null,
+              // ⚠️ CSV (as per DB)
+              statesSupported:
+                item.statesSupported?.join(",") ?? null,
 
-  // ✅ EQUIPMENT WITH SUBTYPE
-  equipmentTypes:
-    isEquipmentFinance && item.equipmentTypes
-      ? JSON.stringify(item.equipmentTypes)
-      : null,
+              // ✅ ONLY ARRAY (NO SUBTYPE)
+              equipmentTypes: isEquipmentFinance
+                ? item.equipmentTypes ?? null
+                : null,
 
-  otherEquipmentExplanation:
-    isEquipmentFinance
-      ? item.otherEquipmentExplanation ?? null
-      : null,
+              otherEquipmentExplanation: isEquipmentFinance
+                ? item.otherEquipmentExplanation ?? null
+                : null,
 
-  isActive: item.isActive ?? true,
-};
+              isActive: item.isActive ?? true,
+            };
           });
 
         if (!createPayload.length) {
@@ -221,9 +208,7 @@ async function createLenderLoanProductRoutes(fastify) {
           });
         }
 
-        // ---------------------------
-        //  TRANSACTION
-        // ---------------------------
+        // 💥 TRANSACTION
         const created = await prisma.$transaction(
           createPayload.map((d) =>
             prisma.lenderProduct.create({ data: d })
