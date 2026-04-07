@@ -1,18 +1,10 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { MdModeEdit } from "react-icons/md";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { MdModeEdit, MdOutlineRemoveRedEye } from "react-icons/md";
 import { TiPlus } from "react-icons/ti";
-import EditLoanProductModal from "./EditLoanProductModal"; // you can reuse this for lenders too
+import { BsThreeDotsVertical } from "react-icons/bs";
 import toast from "react-hot-toast";
-
-type LoanProductForm = {
-  loanProductCode: string;
-  minLoanAmount: number;
-  maxLoanAmount: number;
-  minTermMonths: number;
-  maxTermMonths: number;
-  regionsSupported: string[];
-  industriesSupported: string[];
-};
+import EditLoanProductModal from "./EditLoanProductModal";
 
 type LoanProductList = {
   id: string;
@@ -31,12 +23,6 @@ type LoanProductList = {
   updatedAt: string;
 };
 
-type LoanProductCode = {
-  id: string;
-  code: string;
-  name: string;
-};
-
 const safeParseArray = (value: any): string[] => {
   if (Array.isArray(value)) return value;
 
@@ -45,7 +31,6 @@ const safeParseArray = (value: any): string[] => {
   try {
     let parsed = JSON.parse(value);
 
-    // handle double-stringified case
     if (typeof parsed === "string") {
       parsed = JSON.parse(parsed);
     }
@@ -55,8 +40,6 @@ const safeParseArray = (value: any): string[] => {
     return [];
   }
 };
-
-// const STATUS_ORDER = ["ACTIVE", "INACTIVE"]; // keep real backend enum
 
 function statusClass(status?: string) {
   switch (status) {
@@ -70,37 +53,23 @@ function statusClass(status?: string) {
 }
 
 export default function AlloanProducts() {
+  const navigate = useNavigate();
   const [lenders, setLenders] = useState<LoanProductList[]>([]);
   const [loading, setLoading] = useState(false);
-  const [loanProductCode, setLoanProductCode] = useState<LoanProductCode[]>([]);
-  const [rowLoadingId, setRowLoadingId] = useState<any | null>(null);
-
-  const [isAddOpen, setIsAddOpen] = useState(false);
-  const [form, setForm] = useState<LoanProductForm>({
-    loanProductCode: "",
-    minLoanAmount: 0,
-    maxLoanAmount: 0,
-    minTermMonths: 0,
-    maxTermMonths: 0,
-    regionsSupported: [],
-    industriesSupported: [],
-  });
-  const [formError, setFormError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-
+  const [rowLoadingId, setRowLoadingId] = useState<string | null>(null);
   const [editingLender, setEditingLender] = useState<LoanProductList | null>(
     null,
   );
-
   const [query, setQuery] = useState("");
   const [pageSize, setPageSize] = useState<number>(10);
   const [currentPage, setCurrentPage] = useState<number>(1);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [viewDetails, setViewDetails] = useState<any | null>(null);
 
-  const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001"; // adjust if needed
+  const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001";
 
   useEffect(() => {
     fetchLoanProducts();
-    fetchLoanProductCodeList();
   }, []);
 
   useEffect(() => {
@@ -122,7 +91,6 @@ export default function AlloanProducts() {
     return { "Content-Type": "application/json" };
   }
 
-  // -------- LENDERS LIST --------
   async function fetchLoanProducts() {
     setLoading(true);
     try {
@@ -132,140 +100,44 @@ export default function AlloanProducts() {
         headers,
       });
 
-      if (!res.ok)
-        throw new Error(`Failed to fetch loan products: ${res.status}`);
-
-      const json = await res.json();
-
-      const list = Array.isArray(json)
-        ? json
-        : json.data?.results || json.data || [];
-      const normalized = (list as LoanProductList[]).map((p) => ({
-        ...p,
-        industriesSupported: safeParseArray(p.industriesSupported),
-        regionsSupported: safeParseArray(p.regionsSupported),
-      }));
-      setLenders(normalized as any);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  // ------- Loan Product Code List ---------
-  async function fetchLoanProductCodeList() {
-    setLoading(true);
-    try {
-      const headers = getAuthHeaders();
-      const res = await fetch(
-        `${API_BASE}/common/loan-products/loan-product-code`,
-        {
-          method: "GET",
-          headers,
-        },
-      );
-
-      if (!res.ok)
-        throw new Error(`Failed to fetch loan product codes: ${res.status}`);
-
-      const json = await res.json();
-
-      const list = Array.isArray(json)
-        ? json
-        : json.data?.results || json.data || [];
-
-      setLoanProductCode(list);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  const openAdd = () => {
-    setForm({
-      loanProductCode: "",
-      minLoanAmount: 0,
-      maxLoanAmount: 0,
-      minTermMonths: 0,
-      maxTermMonths: 0,
-      regionsSupported: [],
-      industriesSupported: [],
-    });
-    setFormError(null);
-    setIsAddOpen(true);
-  };
-
-  const handleSubmit = async (e?: React.FormEvent) => {
-    e?.preventDefault();
-    setFormError(null);
-
-    if (
-      !form.loanProductCode ||
-      !form.minLoanAmount ||
-      !form.maxLoanAmount ||
-      !form.minTermMonths ||
-      !form.maxTermMonths ||
-      !form.regionsSupported ||
-      !form.industriesSupported
-    ) {
-      setFormError("Please fill required fields.");
-      return;
-    }
-
-    setSubmitting(true);
-    try {
-      const payload: any = {
-        loanProductCode: form.loanProductCode,
-        minLoanAmount: form.minLoanAmount,
-        maxLoanAmount: form.maxLoanAmount,
-        minTermMonths: form.minTermMonths,
-        maxTermMonths: form.maxTermMonths,
-        regionsSupported: form.regionsSupported,
-        industriesSupported: form.industriesSupported,
-      };
-
-      const headers = getAuthHeaders();
-
-      const res = await fetch(`${API_BASE}/lender/loan-products/create`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(payload),
-      });
-
-      const json = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.error(json.message || "Failed to create loan product");
-        setFormError(json?.message || `Server returned ${res.status}`);
-        return;
-      } else {
-        toast.success(json.message || "Loan product created successfully");
+        throw new Error(`Failed to fetch loan products: ${res.status}`);
       }
 
-      setIsAddOpen(false);
-      await fetchLoanProducts();
-    } catch (err: any) {
+      const json = await res.json();
+      const list = Array.isArray(json)
+        ? json
+        : json.data?.results || json.data || [];
+      const normalized = (list as LoanProductList[]).map((product) => ({
+        ...product,
+        industriesSupported: safeParseArray(product.industriesSupported),
+        regionsSupported: safeParseArray(product.regionsSupported),
+      }));
+
+      setLenders(normalized);
+    } catch (err) {
       console.error(err);
-      setFormError(err.message || "Network error");
     } finally {
-      setSubmitting(false);
+      setLoading(false);
     }
-  };
+  }
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return lenders;
-    return lenders.filter((b) => {
-      return (b.loanProductCode || "").toLowerCase().includes(q);
-    });
+
+    return lenders.filter((item) =>
+      (item.loanProductCode || "").toLowerCase().includes(q),
+    );
   }, [lenders, query]);
 
   const total = filtered.length;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   useEffect(() => {
-    if (currentPage > totalPages) setCurrentPage(totalPages);
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
   }, [currentPage, totalPages]);
 
   const paginated = useMemo(() => {
@@ -280,18 +152,15 @@ export default function AlloanProducts() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  const openEditModal = (b: LoanProductList) => {
-    setEditingLender(b);
-  };
-
   const handleEditSave = async (updated: LoanProductList) => {
     const normalizedUpdated = {
       ...updated,
       regionsSupported: safeParseArray(updated.regionsSupported),
       industriesSupported: safeParseArray(updated.industriesSupported),
     };
+
     setLenders((prev) =>
-      prev.map((p) => (p.id === updated.id ? normalizedUpdated : p)),
+      prev.map((item) => (item.id === updated.id ? normalizedUpdated : item)),
     );
     setEditingLender(null);
 
@@ -316,6 +185,7 @@ export default function AlloanProducts() {
           }),
         },
       );
+
       const json = await res.json();
       if (!res.ok) {
         toast.error(json.message || "Update failed");
@@ -335,16 +205,16 @@ export default function AlloanProducts() {
     const prevStatus = loan.isActive;
     const nextStatus = !loan.isActive;
 
-    // optimistic UI update
     setLenders((prev) =>
-      prev.map((b) => (b.id === loan.id ? { ...b, isActive: nextStatus } : b)),
+      prev.map((item) =>
+        item.id === loan.id ? { ...item, isActive: nextStatus } : item,
+      ),
     );
 
     setRowLoadingId(loan.id);
 
     try {
       const token = sessionStorage.getItem("lender_token");
-
       const res = await fetch(
         `${API_BASE}/lender/loan-products/status/${loan.id}`,
         {
@@ -353,14 +223,11 @@ export default function AlloanProducts() {
             "Content-Type": "application/json",
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
-          body: JSON.stringify({
-            isActive: nextStatus,
-          }),
+          body: JSON.stringify({ isActive: nextStatus }),
         },
       );
 
       const json = await res.json();
-
       if (!res.ok || json?.success === false) {
         throw new Error(json?.message || "Status update failed");
       }
@@ -369,10 +236,9 @@ export default function AlloanProducts() {
     } catch (err: any) {
       console.error(err);
 
-      // rollback UI on failure
       setLenders((prev) =>
-        prev.map((b) =>
-          b.id === loan.id ? { ...b, isActive: prevStatus } : b,
+        prev.map((item) =>
+          item.id === loan.id ? { ...item, isActive: prevStatus } : item,
         ),
       );
 
@@ -381,17 +247,6 @@ export default function AlloanProducts() {
       setRowLoadingId(null);
     }
   };
-
-  function toggleChip(
-    key: "regionsSupported" | "industriesSupported",
-    value: string,
-  ) {
-    setForm((prev) => {
-      const set = new Set(prev[key]);
-      set.has(value) ? set.delete(value) : set.add(value);
-      return { ...prev, [key]: Array.from(set) };
-    });
-  }
 
   return (
     <div className="px-6 py-6 text-gray-900 dark:text-gray-100">
@@ -432,10 +287,10 @@ export default function AlloanProducts() {
           </div>
 
           <button
-            onClick={openAdd}
+            onClick={() => navigate("/add-loan-product")}
             className="inline-flex items-center whitespace-nowrap px-4 py-2 bg-[#18B6B4] text-white rounded-md hover:bg-[#159e9c] transition"
             type="button"
-            aria-label="Add Lender"
+            aria-label="Add Loan"
           >
             <TiPlus className="mr-2" />
             Add Loan
@@ -454,7 +309,7 @@ export default function AlloanProducts() {
           </div>
         ) : (
           <>
-            <div className="overflow-auto">
+            <div>
               <table className="min-w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-100 text-xs text-gray-500 uppercase tracking-wide dark:border-slate-700 dark:text-slate-400">
@@ -462,56 +317,41 @@ export default function AlloanProducts() {
                     <th className="py-2 pr-4 text-left">Min Amount</th>
                     <th className="py-2 pr-4 text-left">Max Amount</th>
                     <th className="py-2 pr-4 text-left">Tenure</th>
-                    <th className="py-2 pr-4 text-left">Industries</th>
-                    <th className="py-2 pr-4 text-left">Regions</th>
                     <th className="py-2 pr-4 text-left">Status</th>
                     <th className="py-2 pr-4 text-left">Created</th>
                     <th className="py-2 pr-4 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {paginated.map((b) => {
-                    const isLoading = rowLoadingId === b.id;
-                    const industries = b.industriesSupported;
-                    const regions = b.regionsSupported;
+                  {paginated.map((item) => {
+                    const isLoading = rowLoadingId === item.id;
 
                     return (
                       <tr
-                        key={b.id}
+                        key={item.id}
                         className="border-b border-gray-100 last:border-0 hover:bg-gray-50/40 dark:border-slate-800 dark:hover:bg-slate-800/60"
                       >
                         <td className="py-3 pr-4 text-gray-900 whitespace-nowrap dark:text-gray-100">
-                          {b.loanProductCode}
-                        </td>
-
-                        <td className="py-3 pr-4 text-gray-600 whitespace-nowrap dark:text-slate-300">
-                          {b.minLoanAmount}
+                          {item.loanProductCode}
                         </td>
                         <td className="py-3 pr-4 text-gray-600 whitespace-nowrap dark:text-slate-300">
-                          {b.maxLoanAmount}
+                          {item.minLoanAmount}
                         </td>
-
                         <td className="py-3 pr-4 text-gray-600 whitespace-nowrap dark:text-slate-300">
-                          {b.minTermMonths} - {b.maxTermMonths} months
+                          {item.maxLoanAmount}
                         </td>
-
                         <td className="py-3 pr-4 text-gray-600 whitespace-nowrap dark:text-slate-300">
-                          {industries.join(", ")}
+                          {item.minTermMonths} - {item.maxTermMonths} months
                         </td>
-
-                        <td className="py-3 pr-4 text-gray-600 whitespace-nowrap dark:text-slate-300">
-                          {regions.join(", ")}
-                        </td>
-
                         <td className="py-3 pr-4 whitespace-nowrap">
                           <button
-                            onClick={() => !isLoading && changeStatusFor(b)}
+                            onClick={() => !isLoading && changeStatusFor(item)}
                             disabled={isLoading}
                             className={`inline-flex items-center gap-2 px-3 py-1 text-xs font-medium rounded-full border ${statusClass(
-                              b.isActive ? "ACTIVE" : "INACTIVE",
+                              item.isActive ? "ACTIVE" : "INACTIVE",
                             )} disabled:opacity-60`}
                             title="Click to change status"
-                            aria-label={`Change status for ${b.isActive}`}
+                            aria-label={`Change status for ${item.isActive}`}
                           >
                             {isLoading ? (
                               <svg
@@ -526,7 +366,7 @@ export default function AlloanProducts() {
                                   strokeWidth="3"
                                   fill="none"
                                   className="opacity-25"
-                                ></circle>
+                                />
                                 <path
                                   fill="currentColor"
                                   className="opacity-75"
@@ -534,27 +374,66 @@ export default function AlloanProducts() {
                                 />
                               </svg>
                             ) : null}
-                            <span> {b.isActive ? "ACTIVE" : "INACTIVE"}</span>
+                            <span>{item.isActive ? "ACTIVE" : "INACTIVE"}</span>
                           </button>
                         </td>
-
                         <td className="py-3 pr-4 text-gray-600 whitespace-nowrap dark:text-slate-300">
-                          {b.createdAt
-                            ? new Date(b.createdAt).toLocaleDateString()
+                          {item.createdAt
+                            ? new Date(item.createdAt).toLocaleDateString()
                             : "-"}
                         </td>
-
-                        <td className="py-3 pr-4">
-                          <div className="flex items-center justify-end gap-2">
+                        <td className="py-3 pr-4 relative overflow-visible">
+                          <div className="flex items-center justify-end">
+                            {/* THREE DOT BUTTON */}
                             <button
-                              disabled={isLoading}
-                              onClick={() => openEditModal(b)}
-                              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100 hover:text-gray-800 disabled:opacity-40
-                                         dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
-                              aria-label={`Edit ${b.loanProductCode}`}
+                              onClick={() =>
+                                setOpenMenuId(
+                                  openMenuId === item.id ? null : item.id,
+                                )
+                              }
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 
+                 text-gray-500 hover:bg-gray-100 hover:text-gray-800 transition
+                 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
                             >
-                              <MdModeEdit />
+                              <BsThreeDotsVertical size={16} />
                             </button>
+
+                            {/* DROPDOWN */}
+                            {openMenuId === item.id && (
+                              <div
+                                className="absolute right-2 top-11 z-50 w-44 bg-white border rounded-lg shadow-lg overflow-hidden
+                      dark:bg-slate-900 dark:border-slate-700 animate-in fade-in zoom-in-95"
+                              >
+                                {/* VIEW DETAILS */}
+                                <button
+                                  onClick={() => {
+                                    setViewDetails(item);
+                                    setOpenMenuId(null);
+                                  }}
+                                  className="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-emerald-600
+                     hover:bg-emerald-50 hover:text-emerald-600 transition
+                     dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-emerald-400"
+                                >
+                                  <MdOutlineRemoveRedEye size={16} />
+                                  View Details
+                                </button>
+
+                                {/* UPDATE */}
+                                <button
+                                  onClick={() =>
+                                    navigate("/update-loan-product", {
+                                      state: { loanProduct: item },
+                                    })
+                                  }
+                                  className="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-blue-600 
+                     hover:bg-blue-50 hover:text-blue-600 transition
+                     dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-blue-400"
+                                >
+                                  <MdModeEdit size={16} />
+                                  Update
+                                </button>
+                              </div>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -601,6 +480,7 @@ export default function AlloanProducts() {
 
                       const page = start + i;
                       if (page > totalPages) return null;
+
                       return (
                         <button
                           key={page}
@@ -633,193 +513,6 @@ export default function AlloanProducts() {
         )}
       </div>
 
-      {/* Add Lender Modal */}
-      {isAddOpen && (
-        <div className="fixed inset-0 z-500000 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-xl p-6 w-full max-w-2xl shadow-lg dark:bg-slate-900 dark:border dark:border-slate-700">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                Create Loan Product
-              </h2>
-              <button
-                onClick={() => setIsAddOpen(false)}
-                className="text-gray-500 hover:text-red-500 dark:text-slate-400 dark:hover:text-red-500"
-              >
-                Close
-              </button>
-            </div>
-
-            <form
-              onSubmit={handleSubmit}
-              className="grid grid-cols-1 md:grid-cols-2 gap-3"
-            >
-              {/* 🔹 loanProductCode dropdown */}
-              <label className="block md:col-span-2">
-                <span className="text-sm text-gray-700 dark:text-slate-200">
-                  Loan Product Code
-                </span>
-                <select
-                  value={form.loanProductCode}
-                  onChange={(e) =>
-                    setForm({ ...form, loanProductCode: e.target.value })
-                  }
-                  className="w-full px-3 py-2 mt-1 border rounded-md bg-white text-gray-900
-                             border-gray-300
-                             dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
-                >
-                  <option value="">No Loan Product Code (none)</option>
-                  {!loanProductCode && (
-                    <option value="" disabled>
-                      Loading products...
-                    </option>
-                  )}
-                  {loanProductCode &&
-                    loanProductCode.map((p) => (
-                      <option key={p.id} value={p.code}>
-                        {p.code}
-                      </option>
-                    ))}
-                </select>
-              </label>
-              <label className="block">
-                <span className="text-sm text-gray-700 dark:text-slate-200">
-                  Min Loan Amount
-                </span>
-                <input
-                  type="number"
-                  // value={form.minLoanAmount}
-                  min={0}
-                  max={form.maxLoanAmount || undefined}
-                  required
-                  onChange={(e) =>
-                    setForm({ ...form, minLoanAmount: Number(e.target.value) })
-                  }
-                  className="w-full px-3 py-2 mt-1 border rounded-md
-                             border-gray-300 bg-white text-gray-900
-                             dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
-                />
-              </label>
-
-              <label className="block">
-                <span className="text-sm text-gray-700 dark:text-slate-200">
-                  Max Loan Amount
-                </span>
-                <input
-                  type="number"
-                  min={form.minLoanAmount || 0}
-                  required
-                  // value={form.maxLoanAmount}
-                  onChange={(e) =>
-                    setForm({ ...form, maxLoanAmount: Number(e.target.value) })
-                  }
-                  className="w-full px-3 py-2 mt-1 border rounded-md
-                             border-gray-300 bg-white text-gray-900
-                             dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
-                />
-              </label>
-
-              <label className="block">
-                <span className="text-sm text-gray-700 dark:text-slate-200">
-                  Min Term Months
-                </span>
-                <input
-                  type="number"
-                  min={0}
-                  max={form.maxTermMonths || undefined}
-                  required
-                  // value={form.minTermMonths}
-                  onChange={(e) =>
-                    setForm({ ...form, minTermMonths: Number(e.target.value) })
-                  }
-                  className="w-full px-3 py-2 mt-1 border rounded-md
-                             border-gray-300 bg-white text-gray-900
-                             dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
-                />
-              </label>
-
-              <label className="block">
-                <span className="text-sm text-gray-700 dark:text-slate-200">
-                  Max Term Months
-                </span>
-                <input
-                  type="number"
-                  min={form.minTermMonths || 0}
-                  required
-                  // value={form.maxTermMonths}
-                  onChange={(e) =>
-                    setForm({ ...form, maxTermMonths: Number(e.target.value) })
-                  }
-                  className="w-full px-3 py-2 mt-1 border rounded-md
-                             border-gray-300 bg-white text-gray-900
-                             dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
-                />
-              </label>
-
-              <div>
-                <label className="block text-sm text-gray-700 dark:text-slate-200">
-                  Regions Supported
-                </label>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {["CA", "TX", "FL", "NY", "NJ"].map((r) => (
-                    <button
-                      type="button"
-                      key={r}
-                      onClick={() => toggleChip("regionsSupported", r)}
-                      className={`px-3 py-1 rounded-full border ${form.regionsSupported.includes(r) ? "bg-blue-600 text-white" : "bg-white text-gray-700"}`}
-                    >
-                      {r}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm text-gray-700 dark:text-slate-200">
-                  Industries Supported
-                </label>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {["Real Estate", "Hospitality"].map((r) => (
-                    <button
-                      type="button"
-                      key={r}
-                      onClick={() => toggleChip("industriesSupported", r)}
-                      className={`px-3 py-1 rounded-full border ${form.industriesSupported.includes(r) ? "bg-blue-600 text-white" : "bg-white text-gray-700"}`}
-                    >
-                      {r}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {formError && (
-                <div className="text-sm text-red-600 col-span-2">
-                  {formError}
-                </div>
-              )}
-
-              <div className="col-span-2 flex justify-end gap-3 mt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsAddOpen(false)}
-                  className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md
-                             dark:text-slate-200 dark:hover:bg-slate-800"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="px-4 py-2 bg-[#18B6B4] text-white rounded-md hover:bg-[#159e9c] transition disabled:opacity-70 disabled:cursor-not-allowed"
-                >
-                  {submitting ? "Creating..." : "Create Loan Product"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Edit Lender Modal (reusing EditBrokerModal for now) */}
       {editingLender && (
         <EditLoanProductModal
           isOpen={Boolean(editingLender)}
@@ -828,6 +521,126 @@ export default function AlloanProducts() {
           onSave={handleEditSave as any}
         />
       )}
+
+      {/* View details Modal */}
+      {viewDetails && (
+        <div className="fixed inset-0 z-999999 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div
+            className="w-[95%] max-w-3xl bg-white rounded-xl shadow-xl p-6 overflow-y-auto max-h-[90vh]
+                    dark:bg-slate-900"
+          >
+            {/* HEADER */}
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-semibold text-gray-800 dark:text-white">
+                Loan Product Details
+              </h2>
+              <button
+                onClick={() => setViewDetails(null)}
+                className="text-gray-500 hover:text-red-500 text-lg"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* CONTENT */}
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <Detail
+                label="Product Code"
+                value={viewDetails.loanProductCode}
+              />
+              <Detail
+                label="Product Name"
+                value={viewDetails.loanProduct?.name}
+              />
+              <Detail label="Min Amount" value={viewDetails.minLoanAmount} />
+              <Detail label="Max Amount" value={viewDetails.maxLoanAmount} />
+              <Detail
+                label="Tenure"
+                value={`${viewDetails.minTermMonths} - ${viewDetails.maxTermMonths}`}
+              />
+              <Detail
+                label="Interest Rate"
+                value={viewDetails.interestRateRange}
+              />
+              <Detail
+                label="LTV Range"
+                value={`${viewDetails.minLtvPercent} - ${viewDetails.maxLtvPercent}`}
+              />
+              <Detail label="Credit Score" value={viewDetails.minCreditScore} />
+              <Detail label="Experience" value={viewDetails.minExperience} />
+
+              {/* STATES */}
+              <div className="col-span-2">
+                <p className="font-medium text-gray-700 dark:text-slate-300 mb-1">
+                  States Supported
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {viewDetails.statesSupported?.map((s: string) => (
+                    <span
+                      key={s}
+                      className="px-2 py-1 text-xs rounded-full bg-emerald-100 text-emerald-700
+                           dark:bg-emerald-500/10 dark:text-emerald-300"
+                    >
+                      {s}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* BUSINESS TYPES */}
+              <div className="col-span-2">
+                <p className="font-medium text-gray-700 dark:text-slate-300 mb-1">
+                  Business Types
+                </p>
+                {Object.entries(viewDetails.businessTypes || {}).map(
+                  ([category, list]: any) => (
+                    <div key={category} className="mb-2">
+                      <p className="text-xs font-semibold text-gray-500">
+                        {category}
+                      </p>
+                      <ul className="list-disc ml-5 text-gray-700 dark:text-slate-300">
+                        {list.map((item: string) => (
+                          <li key={item}>{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ),
+                )}
+              </div>
+
+              {/* PROPERTY TYPES */}
+              <div className="col-span-2">
+                <p className="font-medium text-gray-700 dark:text-slate-300 mb-1">
+                  Property Types
+                </p>
+                {Object.entries(viewDetails.propertyTypes || {}).map(
+                  ([category, list]: any) => (
+                    <div key={category} className="mb-2">
+                      <p className="text-xs font-semibold text-gray-500">
+                        {category}
+                      </p>
+                      <ul className="list-disc ml-5 text-gray-700 dark:text-slate-300">
+                        {list.map((item: string) => (
+                          <li key={item}>{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ),
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
+const Detail = ({ label, value }: any) => (
+  <div>
+    <p className="text-gray-500 text-xs">{label}</p>
+    <p className="font-medium text-gray-800 dark:text-white bg-blue-100 px-2 py-1 rounded-sm text-xs">
+      {value || "-"}
+    </p>
+  </div>
+);
