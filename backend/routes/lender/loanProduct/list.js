@@ -1,3 +1,6 @@
+/**
+ * @param {import("fastify").FastifyInstance} fastify
+ */
 async function listLenderLoanProductsRoutes(fastify) {
   fastify.get(
     "/",
@@ -21,9 +24,7 @@ async function listLenderLoanProductsRoutes(fastify) {
       const prisma = fastify.prisma;
 
       try {
-        // ---------------------------
         // 🔐 AUTH CHECK
-        // ---------------------------
         if (
           !req.user ||
           req.user.orgType !== "LENDER" ||
@@ -37,9 +38,7 @@ async function listLenderLoanProductsRoutes(fastify) {
 
         const lenderOrgId = req.user.organizationId;
 
-        // ---------------------------
         // 📄 QUERY PARAMS
-        // ---------------------------
         const {
           page = 1,
           limit = 10,
@@ -49,9 +48,7 @@ async function listLenderLoanProductsRoutes(fastify) {
 
         const skip = (page - 1) * limit;
 
-        // ---------------------------
         // 🔍 FILTERS
-        // ---------------------------
         const where = {
           lenderOrgId,
         };
@@ -79,9 +76,7 @@ async function listLenderLoanProductsRoutes(fastify) {
           ];
         }
 
-        // ---------------------------
         // 📊 QUERY
-        // ---------------------------
         const [products, total] = await Promise.all([
           prisma.lenderProduct.findMany({
             where,
@@ -102,32 +97,24 @@ async function listLenderLoanProductsRoutes(fastify) {
           prisma.lenderProduct.count({ where }),
         ]);
 
-        // ---------------------------
-        // 🧠 FORMAT RESPONSE
-        // ---------------------------
+        // 🧠 FORMAT RESPONSE (FIXED)
         const formatted = products.map((p) => ({
           ...p,
 
-          businessTypes: p.businessTypes
-            ? p.businessTypes.split(",")
-            : [],
+          // ✅ JSON fields (NO split)
+          businessTypes: p.businessTypes ?? {},
+          propertyTypes: p.propertyTypes ?? {},
 
-          propertyTypes: p.propertyTypes
-            ? p.propertyTypes.split(",")
-            : [],
-
+          // ✅ CSV → array
           statesSupported: p.statesSupported
             ? p.statesSupported.split(",")
             : [],
 
-          equipmentTypes: p.equipmentTypes
-            ? p.equipmentTypes.split(",")
-            : [],
+          // ✅ array or null
+          equipmentTypes: p.equipmentTypes ?? [],
         }));
 
-        // ---------------------------
         // 📦 RESPONSE
-        // ---------------------------
         return reply.send({
           success: true,
           meta: {
