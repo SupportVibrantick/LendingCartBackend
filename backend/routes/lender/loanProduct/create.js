@@ -157,52 +157,60 @@ async function createLenderLoanProductRoutes(fastify) {
               item.loanProductCode === "EQUIPMENT_FINANCE";
 
             return {
-              lenderOrgId,
-              loanProductId: product.id,
-              loanProductCode: product.code,
+  lenderOrgId,
+  loanProductId: product.id,
+  loanProductCode: product.code,
 
-              businessTypes: item.businessTypes ?? null,
-              propertyTypes: item.propertyTypes ?? null,
+  // ✅ FULL STRUCTURE SUPPORT
+  businessTypes: item.businessTypes
+    ? JSON.stringify(item.businessTypes)
+    : null,
 
-              minLoanAmount: item.minLoanAmount
-                ? new Prisma.Decimal(item.minLoanAmount)
-                : null,
+  propertyTypes: item.propertyTypes
+    ? JSON.stringify(item.propertyTypes)
+    : null,
 
-              maxLoanAmount: item.maxLoanAmount
-                ? new Prisma.Decimal(item.maxLoanAmount)
-                : null,
+  // financial fields
+  minLoanAmount: item.minLoanAmount
+    ? new Prisma.Decimal(item.minLoanAmount)
+    : null,
 
-              minTermMonths: item.minTermMonths ?? null,
-              maxTermMonths: item.maxTermMonths ?? null,
+  maxLoanAmount: item.maxLoanAmount
+    ? new Prisma.Decimal(item.maxLoanAmount)
+    : null,
 
-              minLtvPercent: item.minLtvPercent
-                ? new Prisma.Decimal(item.minLtvPercent)
-                : null,
+  minTermMonths: item.minTermMonths ?? null,
+  maxTermMonths: item.maxTermMonths ?? null,
 
-              maxLtvPercent: item.maxLtvPercent
-                ? new Prisma.Decimal(item.maxLtvPercent)
-                : null,
+  minLtvPercent: item.minLtvPercent
+    ? new Prisma.Decimal(item.minLtvPercent)
+    : null,
 
-              minCreditScore: item.minCreditScore ?? null,
-              minExperience: item.minExperience ?? null,
+  maxLtvPercent: item.maxLtvPercent
+    ? new Prisma.Decimal(item.maxLtvPercent)
+    : null,
 
-              interestRateRange: item.interestRateRange ?? null,
+  minCreditScore: item.minCreditScore ?? null,
+  minExperience: item.minExperience ?? null,
 
-              statesSupported:
-                item.statesSupported?.join(",") ?? null,
+  interestRateRange: item.interestRateRange ?? null,
 
-              equipmentTypes:
-                isEquipmentFinance && item.equipmentTypes?.length
-                  ? item.equipmentTypes.join(",")
-                  : null,
+  statesSupported:
+    item.statesSupported?.join(",") ?? null,
 
-              otherEquipmentExplanation:
-                isEquipmentFinance
-                  ? item.otherEquipmentExplanation ?? null
-                  : null,
+  // ✅ EQUIPMENT WITH SUBTYPE
+  equipmentTypes:
+    isEquipmentFinance && item.equipmentTypes
+      ? JSON.stringify(item.equipmentTypes)
+      : null,
 
-              isActive: item.isActive ?? true,
-            };
+  otherEquipmentExplanation:
+    isEquipmentFinance
+      ? item.otherEquipmentExplanation ?? null
+      : null,
+
+  isActive: item.isActive ?? true,
+};
           });
 
         if (!createPayload.length) {
