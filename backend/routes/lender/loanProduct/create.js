@@ -21,7 +21,7 @@ async function createLenderLoanProductRoutes(fastify) {
 
       try {
         // ---------------------------
-        // 🔐 AUTH CHECK
+        //  AUTH CHECK
         // ---------------------------
         if (
           !req.user ||
@@ -37,7 +37,7 @@ async function createLenderLoanProductRoutes(fastify) {
         const lenderOrgId = req.user.organizationId;
 
         // ---------------------------
-        // 🧪 VALIDATION
+        //  VALIDATION
         // ---------------------------
         const parsed = createLenderLoanProductSchema.safeParse(
           req.body
@@ -64,7 +64,7 @@ async function createLenderLoanProductRoutes(fastify) {
         }
 
         // ---------------------------
-        // 🔄 NORMALIZATION
+        //  NORMALIZATION
         // ---------------------------
         let normalizedProducts = [];
 
@@ -99,7 +99,7 @@ async function createLenderLoanProductRoutes(fastify) {
         }
 
         // ---------------------------
-        // 🏦 VALIDATE MASTER PRODUCTS
+        //  VALIDATE MASTER PRODUCTS
         // ---------------------------
         const codes = normalizedProducts.map(
           (p) => p.loanProductCode
@@ -121,7 +121,7 @@ async function createLenderLoanProductRoutes(fastify) {
         }
 
         // ---------------------------
-        // 🔁 CHECK EXISTING
+        // CHECK EXISTING
         // ---------------------------
         const existing = await prisma.lenderProduct.findMany({
           where: {
@@ -136,7 +136,7 @@ async function createLenderLoanProductRoutes(fastify) {
         );
 
         // ---------------------------
-        // 📦 PREPARE PAYLOAD
+        //  PREPARE PAYLOAD
         // ---------------------------
         const createPayload = normalizedProducts
           .filter(
@@ -214,7 +214,7 @@ async function createLenderLoanProductRoutes(fastify) {
         }
 
         // ---------------------------
-        // 💥 TRANSACTION
+        //  TRANSACTION
         // ---------------------------
         const created = await prisma.$transaction(
           createPayload.map((d) =>
