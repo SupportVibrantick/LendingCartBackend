@@ -6,7 +6,7 @@ const commonLoanProducts = require("./common/loanProducts");
 const landingPagesLeads = require("./public/LandingPagesLeads");
 const publicBrokerApplications = require("./public/broker/applications");
 const clientPortalRoutes = require("../routes/clientPortal");
-
+const messagingRoutes = require("../routes/common/messaging");
 
 async function indexRoutes(fastify, options) {
   fastify.get("/", async (request, reply) => {
@@ -42,6 +42,10 @@ async function indexRoutes(fastify, options) {
   fastify.register(commonLoanProducts, {
     prefix: "/common/loan-products",
   });
+
+  fastify.register(messagingRoutes, {
+  prefix: "/messaging",
+});
 
   //  Role-specific
   fastify.register(adminRoutes, { prefix: "/admin" });

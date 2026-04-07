@@ -1173,6 +1173,81 @@ model LenderLoiTemplate {
   @@map("lender_loi_templates")
 }
 
+model Conversation {
+  id String @id @default(uuid()) @db.Uuid
+
+  loanApplicationId   String? @db.Uuid
+  applicationLenderId String? @db.Uuid
+
+  type ConversationType
+
+  lastMessageAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  messages Message[]
+  participants ConversationParticipant[]
+
+  @@index([loanApplicationId])
+  @@index([applicationLenderId])
+}
+
+model Message {
+  id String @id @default(uuid()) @db.Uuid
+
+  conversationId String @db.Uuid
+
+  senderUserId String? @db.Uuid
+  senderClientUserId String? @db.Uuid
+
+  type MessageType
+  text String?
+
+  metadata Json?
+
+  createdAt DateTime @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id])
+
+  @@index([conversationId])
+  @@index([createdAt])
+}
+
+model ConversationParticipant {
+  id String @id @default(uuid()) @db.Uuid
+
+  conversationId String @db.Uuid
+
+  userId String? @db.Uuid
+  clientUserId String? @db.Uuid
+
+  role ParticipantRole
+
+  lastReadAt DateTime?
+
+  conversation Conversation @relation(fields: [conversationId], references: [id])
+
+  @@index([conversationId])
+}
+
+enum ConversationType {
+  CLIENT_BROKER
+  BROKER_LENDER
+}
+
+enum MessageType {
+  TEXT
+  FILE
+  SYSTEM
+}
+
+enum ParticipantRole {
+  CLIENT
+  BROKER
+  LENDER
+}
+
 enum LenderProfileStatus {
   DRAFT // created but not completed
   INCOMPLETE // partially filled
