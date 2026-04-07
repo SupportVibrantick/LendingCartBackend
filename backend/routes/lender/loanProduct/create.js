@@ -1,3 +1,4 @@
+const { Prisma } = require("@prisma/client");
 const {
   createLenderLoanProductSchema,
 } = require("../../../schemas/lender/loanProduct/create.schema");
@@ -11,38 +12,16 @@ async function createLenderLoanProductRoutes(fastify) {
     {
       schema: {
         tags: ["Lender -> Loan Products"],
-        summary: "Configure Loan Product",
-        description:
-          "Lender configures an admin-created loan product category",
-        consumes: ["application/json"],
-        body: {
-          type: "object",
-          required: ["loanProductCode"],
-          additionalProperties: false,
-          properties: {
-            loanProductCode: { type: "string" },
-            minLoanAmount: { type: "number" },
-            maxLoanAmount: { type: "number" },
-            minTermMonths: { type: "number" },
-            maxTermMonths: { type: "number" },
-            regionsSupported: {
-              type: "array",
-              items: { type: "string" },
-            },
-            industriesSupported: {
-              type: "array",
-              items: { type: "string" },
-            },
-            isActive: { type: "boolean" },
-          },
-        },
+        summary: "Create lender loan product configurations (Admin-level)",
+        body: { type: "object" },
       },
     },
     async (req, reply) => {
       const prisma = fastify.prisma;
+
       try {
         // ---------------------------
-        // Auth safety (middleware-aligned)
+        // 🔐 AUTH CHECK
         // ---------------------------
         if (
           !req.user ||
@@ -58,9 +37,12 @@ async function createLenderLoanProductRoutes(fastify) {
         const lenderOrgId = req.user.organizationId;
 
         // ---------------------------
-        // Zod validation
+        // 🧪 VALIDATION
         // ---------------------------
-        const parsed = createLenderLoanProductSchema.safeParse(req.body);
+        const parsed = createLenderLoanProductSchema.safeParse(
+          req.body
+        );
+
         if (!parsed.success) {
           return reply.status(400).send({
             success: false,
@@ -71,79 +53,190 @@ async function createLenderLoanProductRoutes(fastify) {
 
         const data = parsed.data;
 
+        const isNewFormat = Array.isArray(data.products);
+
+        if (!isNewFormat && !data.loanProductCodes) {
+          return reply.status(400).send({
+            success: false,
+            message:
+              "Either 'products' or 'loanProductCodes' must be provided.",
+          });
+        }
+
         // ---------------------------
-        // Validate loan product category
+        // 🔄 NORMALIZATION
         // ---------------------------
-        const loanProduct = await prisma.loanProduct.findFirst({
+        let normalizedProducts = [];
+
+        if (isNewFormat) {
+          normalizedProducts = data.products;
+        } else {
+          normalizedProducts = data.loanProductCodes.map((code) => ({
+            loanProductCode: code,
+
+            businessTypes: data.businessTypes,
+            propertyTypes: data.propertyTypes,
+
+            minLoanAmount: data.minLoanAmount,
+            maxLoanAmount: data.maxLoanAmount,
+            minTermMonths: data.minTermMonths,
+            maxTermMonths: data.maxTermMonths,
+            minLtvPercent: data.minLtvPercent,
+            maxLtvPercent: data.maxLtvPercent,
+            minCreditScore: data.minCreditScore,
+            minExperience: data.minExperience,
+            interestRateRange: data.interestRateRange,
+            statesSupported: data.statesSupported,
+            isActive: data.isActive,
+          }));
+        }
+
+        if (!normalizedProducts.length) {
+          return reply.status(400).send({
+            success: false,
+            message: "No products provided.",
+          });
+        }
+
+        // ---------------------------
+        // 🏦 VALIDATE MASTER PRODUCTS
+        // ---------------------------
+        const codes = normalizedProducts.map(
+          (p) => p.loanProductCode
+        );
+
+        const loanProducts = await prisma.loanProduct.findMany({
           where: {
-            code: data.loanProductCode,
+            code: { in: codes },
             isActive: true,
           },
         });
 
-        if (!loanProduct) {
+        if (loanProducts.length !== codes.length) {
           return reply.status(404).send({
             success: false,
-            message: "Loan product category not found",
+            message:
+              "One or more loan products not found or inactive.",
           });
         }
 
         // ---------------------------
-        // Prevent duplicate configuration
+        // 🔁 CHECK EXISTING
         // ---------------------------
-        const existing = await prisma.lenderProduct.findFirst({
+        const existing = await prisma.lenderProduct.findMany({
           where: {
             lenderOrgId,
-            loanProductCode: data.loanProductCode,
+            loanProductCode: { in: codes },
           },
+          select: { loanProductCode: true },
         });
 
-        if (existing) {
+        const existingCodes = new Set(
+          existing.map((e) => e.loanProductCode)
+        );
+
+        // ---------------------------
+        // 📦 PREPARE PAYLOAD
+        // ---------------------------
+        const createPayload = normalizedProducts
+          .filter(
+            (item) => !existingCodes.has(item.loanProductCode)
+          )
+          .map((item) => {
+            const product = loanProducts.find(
+              (p) => p.code === item.loanProductCode
+            );
+
+            if (!product) {
+              throw new Error(
+                `Invalid loan product code: ${item.loanProductCode}`
+              );
+            }
+
+            const isEquipmentFinance =
+              item.loanProductCode === "EQUIPMENT_FINANCE";
+
+            return {
+              lenderOrgId,
+              loanProductId: product.id,
+              loanProductCode: product.code,
+
+              businessTypes: item.businessTypes ?? null,
+              propertyTypes: item.propertyTypes ?? null,
+
+              minLoanAmount: item.minLoanAmount
+                ? new Prisma.Decimal(item.minLoanAmount)
+                : null,
+
+              maxLoanAmount: item.maxLoanAmount
+                ? new Prisma.Decimal(item.maxLoanAmount)
+                : null,
+
+              minTermMonths: item.minTermMonths ?? null,
+              maxTermMonths: item.maxTermMonths ?? null,
+
+              minLtvPercent: item.minLtvPercent
+                ? new Prisma.Decimal(item.minLtvPercent)
+                : null,
+
+              maxLtvPercent: item.maxLtvPercent
+                ? new Prisma.Decimal(item.maxLtvPercent)
+                : null,
+
+              minCreditScore: item.minCreditScore ?? null,
+              minExperience: item.minExperience ?? null,
+
+              interestRateRange: item.interestRateRange ?? null,
+
+              statesSupported:
+                item.statesSupported?.join(",") ?? null,
+
+              equipmentTypes:
+                isEquipmentFinance && item.equipmentTypes?.length
+                  ? item.equipmentTypes.join(",")
+                  : null,
+
+              otherEquipmentExplanation:
+                isEquipmentFinance
+                  ? item.otherEquipmentExplanation ?? null
+                  : null,
+
+              isActive: item.isActive ?? true,
+            };
+          });
+
+        if (!createPayload.length) {
           return reply.status(409).send({
             success: false,
-            message: "Loan product already configured",
+            message:
+              "All loan products already configured.",
           });
         }
 
         // ---------------------------
-        // Create lender product configuration
+        // 💥 TRANSACTION
         // ---------------------------
-        const result = await prisma.lenderProduct.create({
-          data: {
-            lenderOrgId,
-            loanProductId: loanProduct.id,
-            loanProductCode: data.loanProductCode,
-
-            minLoanAmount: data.minLoanAmount
-              ? new Prisma.Decimal(data.minLoanAmount)
-              : null,
-            maxLoanAmount: data.maxLoanAmount
-              ? new Prisma.Decimal(data.maxLoanAmount)
-              : null,
-
-            minTermMonths: data.minTermMonths ?? null,
-            maxTermMonths: data.maxTermMonths ?? null,
-
-            regionsSupported: data.regionsSupported
-              ? JSON.stringify(data.regionsSupported)
-              : null,
-            industriesSupported: data.industriesSupported
-              ? JSON.stringify(data.industriesSupported)
-              : null,
-
-            isActive: data.isActive ?? true,
-          },
-        });
+        const created = await prisma.$transaction(
+          createPayload.map((d) =>
+            prisma.lenderProduct.create({ data: d })
+          )
+        );
 
         return reply.status(201).send({
           success: true,
-          message: "Loan product configured successfully",
-          data: result,
+          message: "Loan products configured successfully",
+          createdCount: created.length,
+          skippedLoanProductCodes: [...existingCodes],
+          data: created,
         });
       } catch (error) {
+        req.log.error(error);
+
         return reply.status(500).send({
           success: false,
-          message: "Server error while configuring loan product",
+          message:
+            error.message ||
+            "Server error while configuring loan product",
         });
       }
     }

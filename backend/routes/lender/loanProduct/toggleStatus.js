@@ -8,8 +8,9 @@ async function toggleLenderLoanProductStatusRoutes(fastify) {
       preHandler: [fastify.authenticate],
       schema: {
         tags: ["Lender -> Loan Products"],
-        summary: "Toggle Loan Product Status",
-        description: "Enable or disable a lender loan product configuration",
+        summary: "Toggle or set Loan Product Status",
+        description:
+          "Enable/Disable lender loan product. If 'isActive' is passed, it will be set explicitly; otherwise it toggles.",
         params: {
           type: "object",
           required: ["id"],
@@ -17,13 +18,21 @@ async function toggleLenderLoanProductStatusRoutes(fastify) {
             id: { type: "string", format: "uuid" },
           },
         },
+        body: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            isActive: { type: "boolean" }, // optional (explicit set)
+          },
+        },
       },
     },
     async (req, reply) => {
       const prisma = fastify.prisma;
+
       try {
         // ---------------------------
-        // Auth check
+        // 🔐 AUTH CHECK
         // ---------------------------
         if (
           !req.user ||
@@ -38,14 +47,19 @@ async function toggleLenderLoanProductStatusRoutes(fastify) {
 
         const lenderOrgId = req.user.organizationId;
         const { id } = req.params;
+        const { isActive } = req.body || {};
 
         // ---------------------------
-        // Verify ownership
+        // 🔍 FIND & VERIFY OWNERSHIP
         // ---------------------------
         const existing = await prisma.lenderProduct.findFirst({
           where: {
             id,
             lenderOrgId,
+          },
+          select: {
+            id: true,
+            isActive: true,
           },
         });
 
@@ -57,12 +71,29 @@ async function toggleLenderLoanProductStatusRoutes(fastify) {
         }
 
         // ---------------------------
-        // Toggle status
+        // 🧠 DETERMINE NEW STATE
+        // ---------------------------
+        const newStatus =
+          typeof isActive === "boolean"
+            ? isActive // explicit control
+            : !existing.isActive; // toggle fallback
+
+        // Avoid unnecessary DB write
+        if (newStatus === existing.isActive) {
+          return reply.status(200).send({
+            success: true,
+            message: "No change in status",
+            data: existing,
+          });
+        }
+
+        // ---------------------------
+        // 💾 UPDATE (SAFE)
         // ---------------------------
         const updated = await prisma.lenderProduct.update({
           where: { id },
           data: {
-            isActive: !existing.isActive,
+            isActive: newStatus,
           },
         });
 
@@ -74,9 +105,13 @@ async function toggleLenderLoanProductStatusRoutes(fastify) {
           data: updated,
         });
       } catch (error) {
+        req.log.error(error);
+
         return reply.status(500).send({
           success: false,
-          message: "Server error while toggling status",
+          message:
+            error.message ||
+            "Server error while toggling loan product status",
         });
       }
     }

@@ -1,6 +1,5 @@
 const { Prisma } = require("@prisma/client");
 
-
 const {
   updateLenderLoanProductSchema,
 } = require("../../../schemas/lender/loanProduct/update.schema");
@@ -15,8 +14,7 @@ async function updateLenderLoanProductRoutes(fastify) {
       preHandler: [fastify.authenticate],
       schema: {
         tags: ["Lender -> Loan Products"],
-        summary: "Update Loan Product Configuration",
-        description: "Lender updates configured loan product rules",
+        summary: "Update Loan Product Configuration (Advanced)",
         params: {
           type: "object",
           required: ["id"],
@@ -32,14 +30,28 @@ async function updateLenderLoanProductRoutes(fastify) {
             maxLoanAmount: { type: "number" },
             minTermMonths: { type: "number" },
             maxTermMonths: { type: "number" },
-            regionsSupported: {
+            minLtvPercent: { type: "number" },
+            maxLtvPercent: { type: "number" },
+            minCreditScore: { type: "number" },
+            minExperience: { type: "number" },
+            interestRateRange: { type: "string" },
+            businessTypes: {
               type: "array",
               items: { type: "string" },
             },
-            industriesSupported: {
+            propertyTypes: {
               type: "array",
               items: { type: "string" },
             },
+            statesSupported: {
+              type: "array",
+              items: { type: "string" },
+            },
+            equipmentTypes: {
+              type: "array",
+              items: { type: "string" },
+            },
+            otherEquipmentExplanation: { type: "string" },
             isActive: { type: "boolean" },
           },
         },
@@ -47,9 +59,10 @@ async function updateLenderLoanProductRoutes(fastify) {
     },
     async (req, reply) => {
       const prisma = fastify.prisma;
+
       try {
         // ---------------------------
-        // Auth check (middleware-aligned)
+        // 🔐 AUTH CHECK
         // ---------------------------
         if (
           !req.user ||
@@ -66,9 +79,11 @@ async function updateLenderLoanProductRoutes(fastify) {
         const { id } = req.params;
 
         // ---------------------------
-        // Zod validation
+        // 🧪 VALIDATION
         // ---------------------------
-        const parsed = updateLenderLoanProductSchema.safeParse(req.body);
+        const parsed =
+          updateLenderLoanProductSchema.safeParse(req.body);
+
         if (!parsed.success) {
           return reply.status(400).send({
             success: false,
@@ -80,13 +95,10 @@ async function updateLenderLoanProductRoutes(fastify) {
         const data = parsed.data;
 
         // ---------------------------
-        // Verify ownership
+        // 🔍 FETCH EXISTING
         // ---------------------------
         const existing = await prisma.lenderProduct.findFirst({
-          where: {
-            id,
-            lenderOrgId,
-          },
+          where: { id, lenderOrgId },
         });
 
         if (!existing) {
@@ -97,36 +109,99 @@ async function updateLenderLoanProductRoutes(fastify) {
         }
 
         // ---------------------------
-        // Update configuration
+        // ⚠️ BUSINESS VALIDATION
+        // ---------------------------
+        if (
+          data.minLoanAmount &&
+          data.maxLoanAmount &&
+          data.minLoanAmount > data.maxLoanAmount
+        ) {
+          return reply.status(400).send({
+            success: false,
+            message: "minLoanAmount cannot be greater than maxLoanAmount",
+          });
+        }
+
+        if (
+          data.minTermMonths &&
+          data.maxTermMonths &&
+          data.minTermMonths > data.maxTermMonths
+        ) {
+          return reply.status(400).send({
+            success: false,
+            message: "minTermMonths cannot be greater than maxTermMonths",
+          });
+        }
+
+        // ---------------------------
+        // 🧠 BUILD UPDATE PAYLOAD
+        // ---------------------------
+        const updateData = {};
+
+        const setDecimal = (field, value) => {
+          if (value !== undefined) {
+            updateData[field] =
+              value === null ? null : new Prisma.Decimal(value);
+          }
+        };
+
+        const setValue = (field, value) => {
+          if (value !== undefined) {
+            updateData[field] = value;
+          }
+        };
+
+        const setArrayAsCSV = (field, arr) => {
+          if (arr !== undefined) {
+            updateData[field] =
+              arr === null ? null : arr.join(",");
+          }
+        };
+
+        // financial
+        setDecimal("minLoanAmount", data.minLoanAmount);
+        setDecimal("maxLoanAmount", data.maxLoanAmount);
+        setDecimal("minLtvPercent", data.minLtvPercent);
+        setDecimal("maxLtvPercent", data.maxLtvPercent);
+
+        // numeric
+        setValue("minTermMonths", data.minTermMonths);
+        setValue("maxTermMonths", data.maxTermMonths);
+        setValue("minCreditScore", data.minCreditScore);
+        setValue("minExperience", data.minExperience);
+
+        // string
+        setValue("interestRateRange", data.interestRateRange);
+        setValue(
+          "otherEquipmentExplanation",
+          data.otherEquipmentExplanation
+        );
+
+        // arrays
+        setArrayAsCSV("businessTypes", data.businessTypes);
+        setArrayAsCSV("propertyTypes", data.propertyTypes);
+        setArrayAsCSV("statesSupported", data.statesSupported);
+        setArrayAsCSV("equipmentTypes", data.equipmentTypes);
+
+        // boolean
+        setValue("isActive", data.isActive);
+
+        // ---------------------------
+        // 🚫 NO UPDATE CASE
+        // ---------------------------
+        if (Object.keys(updateData).length === 0) {
+          return reply.status(400).send({
+            success: false,
+            message: "No valid fields provided for update",
+          });
+        }
+
+        // ---------------------------
+        // 💾 UPDATE
         // ---------------------------
         const updated = await prisma.lenderProduct.update({
           where: { id },
-          data: {
-            minLoanAmount:
-              data.minLoanAmount !== undefined
-                ? new Prisma.Decimal(data.minLoanAmount)
-                : undefined,
-
-            maxLoanAmount:
-              data.maxLoanAmount !== undefined
-                ? new Prisma.Decimal(data.maxLoanAmount)
-                : undefined,
-
-            minTermMonths: data.minTermMonths ?? undefined,
-            maxTermMonths: data.maxTermMonths ?? undefined,
-
-            regionsSupported:
-              data.regionsSupported !== undefined
-                ? JSON.stringify(data.regionsSupported)
-                : undefined,
-
-            industriesSupported:
-              data.industriesSupported !== undefined
-                ? JSON.stringify(data.industriesSupported)
-                : undefined,
-
-            isActive: data.isActive ?? undefined,
-          },
+          data: updateData,
         });
 
         return reply.send({
@@ -135,10 +210,13 @@ async function updateLenderLoanProductRoutes(fastify) {
           data: updated,
         });
       } catch (error) {
-        console.log(error);
+        req.log.error(error);
+
         return reply.status(500).send({
           success: false,
-          message: "Server error while updating loan product",
+          message:
+            error.message ||
+            "Server error while updating loan product",
         });
       }
     }
