@@ -14,7 +14,7 @@ async function updateLenderLoanProductRoutes(fastify) {
       preHandler: [fastify.authenticate],
       schema: {
         tags: ["Lender -> Loan Products"],
-        summary: "Update Loan Product Configuration (Advanced)",
+        summary: "Update lender loan product (Same as create logic)",
         params: {
           type: "object",
           required: ["id"],
@@ -22,48 +22,14 @@ async function updateLenderLoanProductRoutes(fastify) {
             id: { type: "string", format: "uuid" },
           },
         },
-        body: {
-          type: "object",
-          additionalProperties: false,
-          properties: {
-            minLoanAmount: { type: "number" },
-            maxLoanAmount: { type: "number" },
-            minTermMonths: { type: "number" },
-            maxTermMonths: { type: "number" },
-            minLtvPercent: { type: "number" },
-            maxLtvPercent: { type: "number" },
-            minCreditScore: { type: "number" },
-            minExperience: { type: "number" },
-            interestRateRange: { type: "string" },
-            businessTypes: {
-              type: "array",
-              items: { type: "string" },
-            },
-            propertyTypes: {
-              type: "array",
-              items: { type: "string" },
-            },
-            statesSupported: {
-              type: "array",
-              items: { type: "string" },
-            },
-            equipmentTypes: {
-              type: "array",
-              items: { type: "string" },
-            },
-            otherEquipmentExplanation: { type: "string" },
-            isActive: { type: "boolean" },
-          },
-        },
+        body: { type: "object" },
       },
     },
     async (req, reply) => {
       const prisma = fastify.prisma;
 
       try {
-        // ---------------------------
-        // 🔐 AUTH CHECK
-        // ---------------------------
+        // 🔐 AUTH
         if (
           !req.user ||
           req.user.orgType !== "LENDER" ||
@@ -78,9 +44,7 @@ async function updateLenderLoanProductRoutes(fastify) {
         const lenderOrgId = req.user.organizationId;
         const { id } = req.params;
 
-        // ---------------------------
         // 🧪 VALIDATION
-        // ---------------------------
         const parsed =
           updateLenderLoanProductSchema.safeParse(req.body);
 
@@ -94,9 +58,7 @@ async function updateLenderLoanProductRoutes(fastify) {
 
         const data = parsed.data;
 
-        // ---------------------------
-        // 🔍 FETCH EXISTING
-        // ---------------------------
+        // 🔍 CHECK OWNERSHIP
         const existing = await prisma.lenderProduct.findFirst({
           where: { id, lenderOrgId },
         });
@@ -108,36 +70,10 @@ async function updateLenderLoanProductRoutes(fastify) {
           });
         }
 
-        // ---------------------------
-        // ⚠️ BUSINESS VALIDATION
-        // ---------------------------
-        if (
-          data.minLoanAmount &&
-          data.maxLoanAmount &&
-          data.minLoanAmount > data.maxLoanAmount
-        ) {
-          return reply.status(400).send({
-            success: false,
-            message: "minLoanAmount cannot be greater than maxLoanAmount",
-          });
-        }
-
-        if (
-          data.minTermMonths &&
-          data.maxTermMonths &&
-          data.minTermMonths > data.maxTermMonths
-        ) {
-          return reply.status(400).send({
-            success: false,
-            message: "minTermMonths cannot be greater than maxTermMonths",
-          });
-        }
-
-        // ---------------------------
-        // 🧠 BUILD UPDATE PAYLOAD
-        // ---------------------------
+        // 🧠 BUILD UPDATE DATA (SAME AS CREATE)
         const updateData = {};
 
+        // helper functions
         const setDecimal = (field, value) => {
           if (value !== undefined) {
             updateData[field] =
@@ -151,54 +87,62 @@ async function updateLenderLoanProductRoutes(fastify) {
           }
         };
 
-        const setArrayAsCSV = (field, arr) => {
-          if (arr !== undefined) {
-            updateData[field] =
-              arr === null ? null : arr.join(",");
-          }
-        };
-
-        // financial
+        // 💰 FINANCIAL
         setDecimal("minLoanAmount", data.minLoanAmount);
         setDecimal("maxLoanAmount", data.maxLoanAmount);
         setDecimal("minLtvPercent", data.minLtvPercent);
         setDecimal("maxLtvPercent", data.maxLtvPercent);
 
-        // numeric
+        // 🔢 NUMERIC
         setValue("minTermMonths", data.minTermMonths);
         setValue("maxTermMonths", data.maxTermMonths);
         setValue("minCreditScore", data.minCreditScore);
-        setValue("minExperience", data.minExperience);
 
-        // string
+        // ✅ SAME AS CREATE (STRING)
+        if (data.minExperience !== undefined) {
+          updateData.minExperience =
+            data.minExperience !== null
+              ? String(data.minExperience)
+              : null;
+        }
+
+        // 📝 STRING
         setValue("interestRateRange", data.interestRateRange);
-        setValue(
-          "otherEquipmentExplanation",
-          data.otherEquipmentExplanation
-        );
 
-        // arrays
-        setArrayAsCSV("businessTypes", data.businessTypes);
-        setArrayAsCSV("propertyTypes", data.propertyTypes);
-        setArrayAsCSV("statesSupported", data.statesSupported);
-        setArrayAsCSV("equipmentTypes", data.equipmentTypes);
+        // ✅ JSON (NO stringify)
+        setValue("businessTypes", data.businessTypes);
+        setValue("propertyTypes", data.propertyTypes);
 
-        // boolean
+        // ⚠️ CSV (same as create)
+        if (data.statesSupported !== undefined) {
+          updateData.statesSupported =
+            data.statesSupported?.join(",") ?? null;
+        }
+
+        // ✅ EQUIPMENT (ONLY ARRAY, ONLY FOR EQUIPMENT_FINANCE)
+        const isEquipmentFinance =
+          existing.loanProductCode === "EQUIPMENT_FINANCE";
+
+        if (isEquipmentFinance) {
+          setValue("equipmentTypes", data.equipmentTypes);
+          setValue(
+            "otherEquipmentExplanation",
+            data.otherEquipmentExplanation
+          );
+        }
+
+        // 🔘 BOOLEAN
         setValue("isActive", data.isActive);
 
-        // ---------------------------
-        // 🚫 NO UPDATE CASE
-        // ---------------------------
+        // 🚫 NOTHING TO UPDATE
         if (Object.keys(updateData).length === 0) {
           return reply.status(400).send({
             success: false,
-            message: "No valid fields provided for update",
+            message: "No fields provided for update",
           });
         }
 
-        // ---------------------------
         // 💾 UPDATE
-        // ---------------------------
         const updated = await prisma.lenderProduct.update({
           where: { id },
           data: updateData,
