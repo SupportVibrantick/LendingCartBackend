@@ -26,7 +26,7 @@ async function toggleLenderLoanProductStatusRoutes(fastify) {
       const prisma = fastify.prisma;
 
       try {
-        // 🔐 AUTH
+        //  AUTH
         if (
           !req.user ||
           req.user.orgType !== "LENDER" ||
@@ -42,7 +42,7 @@ async function toggleLenderLoanProductStatusRoutes(fastify) {
         const { id } = req.params;
         const { isActive } = req.body || {};
 
-        // 🔍 FETCH EXISTING
+        //  FETCH EXISTING
         const existing = await prisma.lenderProduct.findFirst({
           where: { id, lenderOrgId },
           select: { id: true, isActive: true },
@@ -55,13 +55,13 @@ async function toggleLenderLoanProductStatusRoutes(fastify) {
           });
         }
 
-        // 🧠 DETERMINE STATUS
+        //  DETERMINE STATUS
         const newStatus =
           typeof isActive === "boolean"
             ? isActive
             : !existing.isActive;
 
-        // 🚫 NO CHANGE
+        //  NO CHANGE
         if (newStatus === existing.isActive) {
           return reply.send({
             success: true,
@@ -70,7 +70,7 @@ async function toggleLenderLoanProductStatusRoutes(fastify) {
           });
         }
 
-        // 💾 UPDATE
+        //  UPDATE
         const updated = await prisma.lenderProduct.update({
           where: { id },
           data: { isActive: newStatus },

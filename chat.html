@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Messaging Test (Broker ↔ Client)</title>
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial;
+      display: flex;
+      height: 100vh;
+      background: #ece5dd;
+    }
+
+    .user {
+      width: 50%;
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid #ccc;
+    }
+
+    .header {
+      background: #075e54;
+      color: white;
+      padding: 10px;
+      text-align: center;
+      font-weight: bold;
+    }
+
+    .controls {
+      padding: 10px;
+      background: #f5f5f5;
+    }
+
+    .chat {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .msg {
+      max-width: 70%;
+      padding: 8px;
+      margin: 5px;
+      border-radius: 10px;
+    }
+
+    .sent {
+      background: #dcf8c6;
+      align-self: flex-end;
+    }
+
+    .received {
+      background: white;
+      border: 1px solid #ccc;
+      align-self: flex-start;
+    }
+
+    .footer {
+      display: flex;
+      padding: 10px;
+    }
+
+    input {
+      width: 100%;
+      margin: 3px 0;
+      padding: 5px;
+    }
+
+    button {
+      margin-top: 5px;
+      padding: 6px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+
+<body>
+
+<!-- BROKER -->
+<div class="user">
+  <div class="header">BROKER</div>
+
+  <div class="controls">
+    <input id="brokerToken" placeholder="Broker JWT Token">
+    <input id="brokerId" placeholder="Broker User ID">
+    <input id="conversationId" placeholder="Conversation ID">
+
+    <button onclick="connectBroker()">Connect</button>
+    <button onclick="joinBroker()">Join Chat</button>
+    <button onclick="loadBrokerMessages()">Load Messages</button>
+  </div>
+
+  <div id="brokerChat" class="chat"></div>
+
+  <div class="footer">
+    <input id="brokerMsg" placeholder="Type message">
+    <button onclick="sendBroker()">Send</button>
+  </div>
+</div>
+
+<!-- CLIENT -->
+<div class="user">
+  <div class="header">CLIENT</div>
+
+  <div class="controls">
+    <input id="clientToken" placeholder="Client JWT Token">
+    <input id="clientId" placeholder="Client ID">
+
+    <button onclick="connectClient()">Connect</button>
+    <button onclick="joinClient()">Join Chat</button>
+    <button onclick="loadClientMessages()">Load Messages</button>
+  </div>
+
+  <div id="clientChat" class="chat"></div>
+
+  <div class="footer">
+    <input id="clientMsg" placeholder="Type message">
+    <button onclick="sendClient()">Send</button>
+  </div>
+</div>
+
+<script>
+let brokerSocket, clientSocket;
+let conversationId = "";
+
+/* ===============================
+   CONNECT
+=============================== */
+function connectBroker() {
+  brokerSocket = io("http://localhost:3001");
+
+  brokerSocket.on("new_message", (msg) => {
+    render("brokerChat", msg, "broker");
+  });
+
+  console.log("Broker connected");
+}
+
+function connectClient() {
+  clientSocket = io("http://localhost:3001");
+
+  clientSocket.on("new_message", (msg) => {
+    render("clientChat", msg, "client");
+  });
+
+  console.log("Client connected");
+}
+
+/* ===============================
+   JOIN
+=============================== */
+function joinBroker() {
+  conversationId = document.getElementById("conversationId").value;
+  brokerSocket.emit("join_conversation", { conversationId });
+}
+
+function joinClient() {
+  conversationId = document.getElementById("conversationId").value;
+  clientSocket.emit("join_conversation", { conversationId });
+}
+
+/* ===============================
+   LOAD MESSAGES (API)
+=============================== */
+function loadBrokerMessages() {
+  const token = document.getElementById("brokerToken").value;
+
+  fetch(`http://localhost:3001/messaging/messages?conversationId=${conversationId}`, {
+    headers: { Authorization: "Bearer " + token }
+  })
+  .then(res => res.json())
+  .then(data => {
+    document.getElementById("brokerChat").innerHTML = "";
+    data.data.reverse().forEach(m => render("brokerChat", m, "broker"));
+  });
+}
+
+function loadClientMessages() {
+  const token = document.getElementById("clientToken").value;
+
+  fetch(`http://localhost:3001/messaging/messages?conversationId=${conversationId}`, {
+    headers: { Authorization: "Bearer " + token }
+  })
+  .then(res => res.json())
+  .then(data => {
+    document.getElementById("clientChat").innerHTML = "";
+    data.data.reverse().forEach(m => render("clientChat", m, "client"));
+  });
+}
+
+/* ===============================
+   SEND MESSAGE
+=============================== */
+function sendBroker() {
+  const text = document.getElementById("brokerMsg").value;
+  const token = document.getElementById("brokerToken").value;
+  const brokerId = document.getElementById("brokerId").value;
+
+  // show instantly
+  render("brokerChat", { text, senderUserId: brokerId }, "broker");
+
+  fetch("http://localhost:3001/messaging/send", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: "Bearer " + token
+    },
+    body: JSON.stringify({ conversationId, text })
+  });
+
+  document.getElementById("brokerMsg").value = "";
+}
+
+function sendClient() {
+  const text = document.getElementById("clientMsg").value;
+  const token = document.getElementById("clientToken").value;
+  const clientId = document.getElementById("clientId").value;
+
+  render("clientChat", { text, senderClientUserId: clientId }, "client");
+
+  fetch("http://localhost:3001/messaging/send", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: "Bearer " + token
+    },
+    body: JSON.stringify({ conversationId, text })
+  });
+
+  document.getElementById("clientMsg").value = "";
+}
+
+/* ===============================
+   RENDER MESSAGE
+=============================== */
+function render(chatId, msg, side) {
+  const chat = document.getElementById(chatId);
+  const div = document.createElement("div");
+
+  const brokerId = document.getElementById("brokerId").value;
+  const clientId = document.getElementById("clientId").value;
+
+  let isMine = false;
+
+  if (side === "broker") {
+    isMine = msg.senderUserId === brokerId;
+  } else {
+    isMine = msg.senderClientUserId === clientId;
+  }
+
+  div.className = "msg " + (isMine ? "sent" : "received");
+  div.innerText = msg.text;
+
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+}
+</script>
+
+</body>
+</html>
