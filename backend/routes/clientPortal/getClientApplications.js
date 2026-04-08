@@ -17,6 +17,7 @@ async function getClientApplicationsRoute(fastify) {
             page: { type: "integer", minimum: 1, default: 1 },
             limit: { type: "integer", minimum: 1, maximum: 50, default: 10 },
             status: { type: "string" },
+            search: { type: "string" }, // ✅ NEW
           },
         },
       },
@@ -68,14 +69,39 @@ async function getClientApplicationsRoute(fastify) {
         const limit = Math.min(parseInt(req.query.limit) || 10, 50);
         const skip = (page - 1) * limit;
 
-        const where = { clientId };
+        /* ===============================
+           WHERE CLAUSE (UPDATED)
+        =============================== */
 
+        const where = {
+          clientId,
+        };
+
+        // status filter
         if (req.query.status) {
           where.status = req.query.status;
         }
 
+        // ✅ SEARCH FILTER (SAFE ADD)
+        if (req.query.search) {
+          where.OR = [
+            {
+              applicationNumber: {
+                contains: req.query.search,
+                mode: "insensitive",
+              },
+            },
+            {
+              status: {
+                contains: req.query.search,
+                mode: "insensitive",
+              },
+            },
+          ];
+        }
+
         /* ===============================
-           FETCH (NO LENDERS)
+           FETCH
         =============================== */
 
         const [applications, total] = await Promise.all([
