@@ -14,6 +14,7 @@ import {
   FileIcon,
   Download,
   EllipsisVertical,
+  X,
 } from "lucide-react";
 import { useNavigate } from "react-router";
 
@@ -30,7 +31,8 @@ type TableRow = {
   sentAt: string;
   brokerName: string;
   lenderDecision: string;
-  pendingDocumentsCount?: number; // ADD THIS
+  pendingDocumentsCount?: number;
+  loiGenerated?: boolean;
 };
 
 /* ================= HELPERS ================= */
@@ -118,6 +120,14 @@ export default function LoanPipeline() {
     approvedAmount: "",
     interestRate: "",
     notes: "",
+  });
+
+  const [docSelectModal, setDocSelectModal] = useState({
+    isOpen: false,
+    applicationId: "",
+    documents: [] as any[],
+    selectedDocs: [] as string[],
+    loading: false,
   });
 
   // Documents Modal State
@@ -280,6 +290,47 @@ export default function LoanPipeline() {
     }
   };
 
+  const openDocumentSelector = async (row: any) => {
+    try {
+      setDocSelectModal((prev) => ({
+        ...prev,
+        isOpen: true,
+        applicationId: row.applicationLenderId,
+        loading: true,
+      }));
+
+      const res = await fetch(`${API_BASE}/lender/document-config/list`, {
+        headers: getAuthHeaders(),
+      });
+
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        throw new Error("Failed to fetch documents");
+      }
+
+      // 🔥 FILTER BASED ON PRODUCT
+      const filtered = json.data.filter(
+        (doc: any) => doc.lenderProduct.loanProductCode === row.loanType,
+      );
+
+      setDocSelectModal({
+        isOpen: true,
+        applicationId: row.applicationLenderId,
+        documents: filtered,
+        selectedDocs: [],
+        loading: false,
+      });
+    } catch (err: any) {
+      toast.error(err.message);
+      setDocSelectModal((prev) => ({
+        ...prev,
+        isOpen: false,
+        loading: false,
+      }));
+    }
+  };
+
   const loadSubmissions = async () => {
     try {
       setLoading(true);
@@ -307,6 +358,7 @@ export default function LoanPipeline() {
         brokerName: item.broker?.name || "-",
         lenderDecision: item.lenderDecision, // MAP THIS
         pendingDocumentsCount: item.pendingDocumentsCount ?? 0,
+        loiGenerated: item.loiGenerated,
       }));
 
       setRows(mappedRows);
@@ -393,37 +445,37 @@ export default function LoanPipeline() {
     }
   }, [totalPages, currentPage]);
 
-  const handleConditionalApproval = async (applicationId: string) => {
-    try {
-      setLoading(true);
-      const payload = {
-        decision: "CONDITIONAL",
-        notes: "Please upload required documents",
-      };
+  // const handleConditionalApproval = async (applicationId: string) => {
+  //   try {
+  //     setLoading(true);
+  //     const payload = {
+  //       decision: "CONDITIONAL",
+  //       notes: "Please upload required documents",
+  //     };
 
-      const res = await fetch(
-        `${API_BASE}/lender/loan-pipeline/${applicationId}/decision`,
-        {
-          method: "PATCH",
-          headers: getAuthHeaders(),
-          body: JSON.stringify(payload),
-        },
-      );
+  //     const res = await fetch(
+  //       `${API_BASE}/lender/loan-pipeline/${applicationId}/decision`,
+  //       {
+  //         method: "PATCH",
+  //         headers: getAuthHeaders(),
+  //         body: JSON.stringify(payload),
+  //       },
+  //     );
 
-      const json = await res.json();
+  //     const json = await res.json();
 
-      if (!res.ok || !json.success) {
-        throw new Error(json.message || "Conditional approval failed");
-      }
+  //     if (!res.ok || !json.success) {
+  //       throw new Error(json.message || "Conditional approval failed");
+  //     }
 
-      toast.success("Application Conditionally Approved");
-      loadSubmissions();
-    } catch (err: any) {
-      toast.error(err.message || "Something went wrong");
-    } finally {
-      setLoading(false);
-    }
-  };
+  //     toast.success("Application Conditionally Approved");
+  //     loadSubmissions();
+  //   } catch (err: any) {
+  //     toast.error(err.message || "Something went wrong");
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
 
   const handleDecisionSubmit = async () => {
     try {
@@ -607,7 +659,7 @@ export default function LoanPipeline() {
               shadow-sm hover:shadow-md
               transition-all duration-200
               flex items-center justify-between
-  "
+            "
           >
             <div>
               <p className="text-sm text-slate-500 dark:text-slate-400">
@@ -796,7 +848,7 @@ export default function LoanPipeline() {
 
                                 setDropdownPos({
                                   top: rect.bottom + window.scrollY + 6,
-                                  left: rect.right - 192, // 192 = w-48
+                                  left: rect.right - 192,
                                 });
 
                                 setActiveDropdown(
@@ -830,8 +882,28 @@ export default function LoanPipeline() {
                                       top: dropdownPos.top,
                                       left: dropdownPos.left,
                                     }}
-                                    className="w-56 bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-200 dark:border-slate-800 py-2 z-50 animate-in fade-in zoom-in-95"
+                                    className="w-56 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 py-2 z-50 animate-in fade-in zoom-in-95 backdrop-blur"
                                   >
+                                    {/* App Preview */}
+                                    <button
+                                      onClick={() =>
+                                        navigate("/loan-preview", {
+                                          state: {
+                                            applicationLenderId:
+                                              row.applicationLenderId,
+                                            isLoi: row.loiGenerated
+                                          },
+                                        })
+                                      }
+                                      className="flex items-center gap-3 w-full px-4 py-2.5 text-sm 
+text-blue-600 bg-blue-50/50 dark:bg-blue-900/10 
+hover:bg-blue-100 dark:hover:bg-blue-900/20 
+transition rounded-lg mx-1"
+                                    >
+                                      <Eye size={16} />
+                                      App Preview
+                                    </button>
+
                                     {/* View */}
                                     <button
                                       onClick={() => {
@@ -840,7 +912,10 @@ export default function LoanPipeline() {
                                         );
                                         setActiveDropdown(null);
                                       }}
-                                      className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 transition"
+                                      className="flex items-center gap-3 w-full px-4 py-2.5 text-sm 
+text-indigo-600 bg-indigo-50/50 dark:bg-indigo-900/10 
+hover:bg-indigo-100 dark:hover:bg-indigo-900/20 
+transition rounded-lg mx-1"
                                     >
                                       <Eye size={16} />
                                       View Details
@@ -852,12 +927,15 @@ export default function LoanPipeline() {
                                         fetchDocuments(row.applicationLenderId);
                                         setActiveDropdown(null);
                                       }}
-                                      className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-amber-50 dark:hover:bg-amber-900/20 hover:text-amber-600 transition"
+                                      className="flex items-center gap-3 w-full px-4 py-2.5 text-sm 
+text-amber-600 bg-amber-50/50 dark:bg-amber-900/10 
+hover:bg-amber-100 dark:hover:bg-amber-900/20 
+transition rounded-lg mx-1"
                                     >
                                       <FileIcon size={16} />
                                       Documents
                                       {(row.pendingDocumentsCount ?? 0) > 0 && (
-                                        <span className="ml-auto bg-amber-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">
+                                        <span className="ml-auto bg-amber-500 text-white text-[10px] px-2 py-0.5 rounded-full shadow">
                                           {row.pendingDocumentsCount}
                                         </span>
                                       )}
@@ -865,30 +943,43 @@ export default function LoanPipeline() {
 
                                     <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
 
-                                    {/* Generate LOI */}
-                                    <button
-                                      onClick={() => {
-                                        handleGenerateLOI(
-                                          row.applicationLenderId,
-                                        );
-                                        setActiveDropdown(null);
-                                      }}
-                                      className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition"
-                                    >
-                                      <FileText size={16} />
-                                      Generate LOI
-                                    </button>
+                                    {/* Generate LOI (only if NOT generated) */}
+                                    {!row.loiGenerated && (
+                                      <button
+                                        onClick={() => {
+                                          handleGenerateLOI(
+                                            row.applicationLenderId,
+                                          );
+                                          setActiveDropdown(null);
+                                        }}
+                                        className="flex items-center gap-3 w-full px-4 py-2.5 text-sm 
+text-purple-600 bg-purple-50/50 dark:bg-purple-900/10 
+hover:bg-purple-100 dark:hover:bg-purple-900/20 
+transition rounded-lg mx-1"
+                                      >
+                                        <FileText size={16} />
+                                        Generate LOI
+                                      </button>
+                                    )}
 
-                                    <button
-                                      onClick={() => {
-                                        handleViewLOI(row.applicationLenderId);
-                                        setActiveDropdown(null);
-                                      }}
-                                      className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition"
-                                    >
-                                      <Eye size={16} />
-                                      View LOI
-                                    </button>
+                                    {/* View LOI (only if generated) */}
+                                    {row.loiGenerated && (
+                                      <button
+                                        onClick={() => {
+                                          handleViewLOI(
+                                            row.applicationLenderId,
+                                          );
+                                          setActiveDropdown(null);
+                                        }}
+                                        className="flex items-center gap-3 w-full px-4 py-2.5 text-sm 
+text-purple-600 bg-purple-50/50 dark:bg-purple-900/10 
+hover:bg-purple-100 dark:hover:bg-purple-900/20 
+transition rounded-lg mx-1"
+                                      >
+                                        <Eye size={16} />
+                                        View LOI
+                                      </button>
+                                    )}
 
                                     {/* Approve */}
                                     <button
@@ -907,15 +998,13 @@ export default function LoanPipeline() {
                                               row.applicationLenderId,
                                           });
                                         } else {
-                                          handleConditionalApproval(
-                                            row.applicationLenderId,
-                                          );
+                                          openDocumentSelector(row);
                                         }
                                       }}
-                                      className={`flex items-center gap-3 w-full px-4 py-2.5 text-sm whitespace-nowrap transition ${
+                                      className={`flex items-center gap-3 w-full px-4 py-2.5 text-sm rounded-lg mx-1 transition ${
                                         isActionAllowed
-                                          ? "text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
-                                          : "text-slate-300 cursor-not-allowed"
+                                          ? "text-emerald-600 bg-emerald-50/50 dark:bg-emerald-900/10 hover:bg-emerald-100 dark:hover:bg-emerald-900/20"
+                                          : "text-slate-300 bg-slate-50 cursor-not-allowed"
                                       }`}
                                     >
                                       <CheckCircle size={16} />
@@ -936,10 +1025,10 @@ export default function LoanPipeline() {
                                             row.applicationLenderId,
                                         });
                                       }}
-                                      className={`flex items-center gap-3 w-full px-4 py-2.5 text-sm transition ${
+                                      className={`flex items-center gap-3 w-full px-4 py-2.5 text-sm rounded-lg mx-1 transition ${
                                         isActionAllowed
-                                          ? "text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20"
-                                          : "text-slate-300 cursor-not-allowed"
+                                          ? "text-rose-600 bg-rose-50/50 dark:bg-rose-900/10 hover:bg-rose-100 dark:hover:bg-rose-900/20"
+                                          : "text-slate-300 bg-slate-50 cursor-not-allowed"
                                       }`}
                                     >
                                       <XCircle size={16} />
@@ -1862,6 +1951,270 @@ export default function LoanPipeline() {
                         className="w-full flex-1 border-none"
                       />
                     )}
+                  </div>
+                </div>,
+                document.body,
+              )}
+
+            {docSelectModal.isOpen &&
+              createPortal(
+                <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+                  <div className="w-full max-w-3xl bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+                    {/* HEADER */}
+                    <div className="px-6 py-4 border-b dark:border-slate-800 flex items-center justify-between">
+                      <h2 className="text-lg font-semibold text-[#134E4A] dark:text-teal-300">
+                        Select Documents
+                      </h2>
+
+                      <button
+                        onClick={() =>
+                          setDocSelectModal({
+                            isOpen: false,
+                            applicationId: "",
+                            documents: [],
+                            selectedDocs: [],
+                            loading: false,
+                          })
+                        }
+                        className="
+    flex items-center justify-center
+    w-9 h-9 rounded-lg
+    bg-slate-100 dark:bg-slate-800
+    text-slate-500 dark:text-slate-400
+    hover:bg-red-100 hover:text-red-600
+    transition-all duration-200
+    active:scale-95
+  "
+                      >
+                        <X size={18} />
+                      </button>
+                    </div>
+
+                    {/* CONTENT */}
+                    <div className="p-6">
+                      {docSelectModal.loading ? (
+                        <div className="flex items-center justify-center py-10">
+                          <span className="animate-pulse text-slate-500 text-sm">
+                            Loading documents...
+                          </span>
+                        </div>
+                      ) : (
+                        <>
+                          {/* TOP ACTIONS */}
+                          <div className="flex items-center justify-between mb-4">
+                            <p className="text-xs text-slate-500">
+                              Select which documents are required.
+                            </p>
+
+                            <div className="flex gap-2 text-xs">
+                              {/* Select All */}
+                              <button
+                                onClick={() =>
+                                  setDocSelectModal({
+                                    ...docSelectModal,
+                                    selectedDocs: docSelectModal.documents.map(
+                                      (d: any) => d.documentTypeId,
+                                    ),
+                                  })
+                                }
+                                className="
+      px-3 py-1.5 rounded-lg font-medium
+      bg-[#134E4A]/10 text-[#134E4A] dark:text-[#45c8bf]
+      hover:bg-[#134E4A] hover:text-white
+      border border-[#134E4A]/20
+      transition-all duration-200
+      active:scale-95
+    "
+                              >
+                                Select All
+                              </button>
+
+                              {/* Clear */}
+                              <button
+                                onClick={() =>
+                                  setDocSelectModal({
+                                    ...docSelectModal,
+                                    selectedDocs: [],
+                                  })
+                                }
+                                className="
+      px-3 py-1.5 rounded-lg font-medium
+      bg-slate-100 dark:bg-slate-800
+      text-slate-600 dark:text-slate-300
+      hover:bg-red-50 hover:text-red-600
+      border border-slate-200 dark:border-slate-700
+      transition-all duration-200
+      active:scale-95
+    "
+                              >
+                                Clear
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* GRID */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 max-h-72 overflow-y-auto pr-1">
+                            {docSelectModal.documents.map(
+                              (doc: any, index: number) => {
+                                const isChecked =
+                                  docSelectModal.selectedDocs.includes(
+                                    doc.documentTypeId,
+                                  );
+
+                                const colors = [
+                                  "bg-orange-400",
+                                  "bg-purple-400",
+                                  "bg-blue-400",
+                                  "bg-pink-400",
+                                  "bg-green-400",
+                                  "bg-yellow-400",
+                                ];
+
+                                return (
+                                  <label
+                                    key={doc.documentTypeId}
+                                    className={`
+                        flex items-center justify-between p-4 rounded-2xl cursor-pointer
+                        border transition-all duration-200 shadow-sm
+                        ${
+                          isChecked
+                            ? "border-[#134E4A] bg-[#134E4A]/5"
+                            : "border-slate-200 dark:border-slate-700 hover:border-[#134E4A]/40 hover:shadow-md"
+                        }
+                      `}
+                                  >
+                                    {/* LEFT */}
+                                    <div className="flex items-center gap-3">
+                                      {/* Dot */}
+                                      <span
+                                        className={`w-2.5 h-2.5 rounded-full ${
+                                          colors[index % colors.length]
+                                        }`}
+                                      />
+
+                                      {/* TEXT */}
+                                      <div className="flex flex-col">
+                                        <span className="text-sm font-medium text-slate-800 dark:text-slate-200">
+                                          {doc.documentType.name}
+                                        </span>
+
+                                        {/* {doc.isRequired && (
+                                          <span className="text-[10px] text-red-500 font-semibold">
+                                            Required
+                                          </span>
+                                        )} */}
+                                      </div>
+                                    </div>
+
+                                    {/* CHECKBOX */}
+                                    <div
+                                      className={`
+                          w-6 h-6 flex items-center justify-center rounded-md border
+                          transition-all
+                          ${
+                            isChecked
+                              ? "bg-[#134E4A] border-[#134E4A]"
+                              : "border-slate-300 dark:border-slate-600"
+                          }
+                        `}
+                                    >
+                                      {isChecked && (
+                                        <svg
+                                          xmlns="http://www.w3.org/2000/svg"
+                                          className="w-4 h-4 text-white"
+                                          viewBox="0 0 20 20"
+                                          fill="currentColor"
+                                        >
+                                          <path
+                                            fillRule="evenodd"
+                                            d="M16.707 5.293a1 1 0 010 1.414l-7.25 7.25a1 1 0 01-1.414 0l-3.25-3.25a1 1 0 011.414-1.414l2.543 2.543 6.543-6.543a1 1 0 011.414 0z"
+                                            clipRule="evenodd"
+                                          />
+                                        </svg>
+                                      )}
+                                    </div>
+
+                                    {/* Hidden Input */}
+                                    <input
+                                      type="checkbox"
+                                      checked={isChecked}
+                                      onChange={(e) => {
+                                        const updated = e.target.checked
+                                          ? [
+                                              ...docSelectModal.selectedDocs,
+                                              doc.documentTypeId,
+                                            ]
+                                          : docSelectModal.selectedDocs.filter(
+                                              (id) => id !== doc.documentTypeId,
+                                            );
+
+                                        setDocSelectModal({
+                                          ...docSelectModal,
+                                          selectedDocs: updated,
+                                        });
+                                      }}
+                                      className="hidden"
+                                    />
+                                  </label>
+                                );
+                              },
+                            )}
+                          </div>
+                        </>
+                      )}
+
+                      {/* FOOTER */}
+                      <div className="flex justify-between items-center mt-6 pt-4 border-t dark:border-slate-800">
+                        <span className="text-xs text-slate-500">
+                          {docSelectModal.selectedDocs.length} selected
+                        </span>
+
+                        <button
+                          onClick={async () => {
+                            try {
+                              const payload = {
+                                decision: "CONDITIONAL",
+                                notes: "Please upload required documents",
+                                documentTypeIds: docSelectModal.selectedDocs,
+                              };
+
+                              const res = await fetch(
+                                `${API_BASE}/lender/loan-pipeline/${docSelectModal.applicationId}/decision`,
+                                {
+                                  method: "PATCH",
+                                  headers: getAuthHeaders(),
+                                  body: JSON.stringify(payload),
+                                },
+                              );
+
+                              const json = await res.json();
+
+                              if (!res.ok || !json.success) {
+                                throw new Error(json.message);
+                              }
+
+                              toast.success("Documents requested");
+
+                              setDocSelectModal({
+                                isOpen: false,
+                                applicationId: "",
+                                documents: [],
+                                selectedDocs: [],
+                                loading: false,
+                              });
+
+                              loadSubmissions();
+                            } catch (err: any) {
+                              toast.error(err.message);
+                            }
+                          }}
+                          className="px-5 py-2 text-sm font-semibold text-white rounded-xl
+              bg-[#134E4A] hover:bg-[#0f3d3a] active:scale-95 transition-all shadow"
+                        >
+                          Request Documents
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>,
                 document.body,

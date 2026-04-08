@@ -47,6 +47,9 @@ import LoanPipeline from "./pages/LoanPipeline/LoanPipeline";
 import BrokerPortal from "./pages/ViewPortal/BrokerPortal";
 import LenderPortal from "./pages/ViewPortal/LenderPortal";
 import SystemSettings from "./pages/SystemSettings/SystemSettings";
+import LoanCriteria from "./pages/Lenders/LoanCriteria/Main";
+import AddLender from "./pages/Lenders/AddLender/Main";
+import UpdateLender from "./pages/Lenders/UpdateLender/Main";
 
 export default function App() {
   return (
@@ -54,44 +57,99 @@ export default function App() {
       <Router>
         <ScrollToTop />
         <ToastProvider />
-         <Routes>
-        {/* Dashboard Layout - protected */}
-        <Route
-          element={
-            <RequireAuth>
-              <AppLayout />
-            </RequireAuth>
-          }
-        >
+        <Routes>
+          {/* Dashboard Layout - protected */}
+          <Route
+            element={
+              <RequireAuth>
+                <AppLayout />
+              </RequireAuth>
+            }
+          >
             <Route index path="/" element={<Home />} />
 
             <Route index path="/add-user" element={<AddUser />} />
             <Route index path="/all-user" element={<AllUsers />} />
 
-            <Route index path="/all-brokers-database" element={<BrokersPage />} />
-            <Route index path="/all-brokers-lenders" element={<BrokersLenders/>} />
-            <Route index path="/active-application" element={<ActiveApplication/>} />
-            <Route index path="/create-application" element={<CreateApplication/>} />
-            <Route index path="/application-builder" element={<ApplicationBuilder/>} />
-            <Route index path="/loan-application-config" element={<LoanApplicationConfig/>} />
-            <Route index path="/create-template" element={<CreateTemplate/>} />
-            <Route index path="/all-templates" element={<AllTemplates/>} />
-            <Route index path="/add-loan-product" element={<AddLoanProduct />} />
+            <Route
+              index
+              path="/all-brokers-database"
+              element={<BrokersPage />}
+            />
+            <Route
+              index
+              path="/all-brokers-lenders"
+              element={<BrokersLenders />}
+            />
+            <Route
+              index
+              path="/active-application"
+              element={<ActiveApplication />}
+            />
+            <Route
+              index
+              path="/create-application"
+              element={<CreateApplication />}
+            />
+            <Route
+              index
+              path="/application-builder"
+              element={<ApplicationBuilder />}
+            />
+            <Route
+              index
+              path="/loan-application-config"
+              element={<LoanApplicationConfig />}
+            />
+            <Route index path="/create-template" element={<CreateTemplate />} />
+            <Route index path="/all-templates" element={<AllTemplates />} />
+            <Route
+              index
+              path="/add-loan-product"
+              element={<AddLoanProduct />}
+            />
             <Route index path="/add-fields" element={<AddFields />} />
             <Route index path="/add-sections" element={<AddSection />} />
             <Route index path="/add-app-sections" element={<AddAppSection />} />
-            <Route index path="/all-lenders-Organization" element={<AllLendersPage/>} />
-            <Route index path="/all-loan-products" element={<AllLoanProducts/>} />
-            <Route index path="/lender-assigned-products" element={<LenderProductAssign/>} />
-            <Route index path="/lender-all-assigned-products" element={<LenderAllAssignProducts/>} />
-            <Route index path="/assigned-products" element={<AssignedProducts/>} />
-            <Route index path="/all-super-admins" element={<AllSuperadmin/>} />
-            <Route index path="/loan-pipeline" element={<LoanPipeline/>} />
+            <Route
+              index
+              path="/all-lenders-Organization"
+              element={<AllLendersPage />}
+            />
+            <Route
+              index
+              path="/all-loan-products"
+              element={<AllLoanProducts />}
+            />
+            <Route
+              index
+              path="/lender-assigned-products"
+              element={<LenderProductAssign />}
+            />
+            <Route
+              index
+              path="/lender-all-assigned-products"
+              element={<LenderAllAssignProducts />}
+            />
+            <Route index path="/add-lender" element={<AddLender />} />
+            <Route index path="/update-lender/:id" element={<UpdateLender />} />
+            <Route index path="/assigned-products" element={<LoanCriteria />} />
+            <Route
+              index
+              path="/view-assigned-products"
+              element={<AssignedProducts />}
+            />
+            <Route index path="/all-super-admins" element={<AllSuperadmin />} />
+            <Route index path="/loan-pipeline" element={<LoanPipeline />} />
 
-            <Route index path="/all-documents" element={<AllDocuments/>} />
-            <Route index path="/all-landing-pages-leads" element={<AllLeads/>} />
-            <Route index path="/admin-logs" element={<AdminLogs/>} />
-            <Route index path="/system-settings" element={<SystemSettings/>} />
+            <Route index path="/all-documents" element={<AllDocuments />} />
+            <Route
+              index
+              path="/all-landing-pages-leads"
+              element={<AllLeads />}
+            />
+            <Route index path="/admin-logs" element={<AdminLogs />} />
+            <Route index path="/system-settings" element={<SystemSettings />} />
 
             {/* Others Page */}
             <Route path="/broker-portal" element={<BrokerPortal />} />
