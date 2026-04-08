@@ -17,7 +17,7 @@ async function getClientApplicationsRoute(fastify) {
             page: { type: "integer", minimum: 1, default: 1 },
             limit: { type: "integer", minimum: 1, maximum: 50, default: 10 },
             status: { type: "string" },
-            search: { type: "string" }, // ✅ NEW
+            search: { type: "string" },
           },
         },
       },
@@ -70,82 +70,133 @@ async function getClientApplicationsRoute(fastify) {
         const skip = (page - 1) * limit;
 
         /* ===============================
-           WHERE CLAUSE (UPDATED)
+           BASE WHERE
         =============================== */
 
-        const where = {
+        const baseWhere = {
           clientId,
+          ...(req.query.status && { status: req.query.status }),
         };
 
-        // status filter
-        if (req.query.status) {
-          where.status = req.query.status;
-        }
-
-        // ✅ SEARCH FILTER (SAFE ADD)
-        if (req.query.search) {
-          where.OR = [
-            {
-              applicationNumber: {
-                contains: req.query.search,
-                mode: "insensitive",
-              },
-            },
-            {
-              status: {
-                contains: req.query.search,
-                mode: "insensitive",
-              },
-            },
-          ];
-        }
-
         /* ===============================
-           FETCH
+           FETCH APPLICATIONS (IMPORTANT FIX)
         =============================== */
 
-        const [applications, total] = await Promise.all([
-          prisma.loanApplication.findMany({
-            where,
-            skip,
-            take: limit,
-            orderBy: { createdAt: "desc" },
-            select: {
-              id: true,
-              applicationNumber: true,
-              status: true,
-              amountRequested: true,
-              createdAt: true,
+        let applications = await prisma.loanApplication.findMany({
+          where: baseWhere,
+          orderBy: { createdAt: "desc" },
+          skip,
+          take: limit,
+          select: {
+            id: true,
+            applicationNumber: true,
+            status: true,
+            amountRequested: true,
+            loanProductCode: true,
+            createdAt: true,
 
-              documentRequirements: {
-                select: { id: true },
-              },
-
-              documentUploads: {
-                select: { id: true },
+            // ✅ FIX: get latest submission
+            submissions: {
+              orderBy: { createdAt: "desc" },
+              take: 1,
+              include: {
+                fields: true,
               },
             },
-          }),
 
-          prisma.loanApplication.count({ where }),
-        ]);
+            documentRequirements: {
+              select: { id: true },
+            },
 
-        /* ===============================
-           FORMAT RESPONSE
-        =============================== */
-
-        const formatted = applications.map((app) => ({
-          id: app.id,
-          applicationNumber: app.applicationNumber,
-          status: app.status,
-          amountRequested: app.amountRequested,
-          createdAt: app.createdAt,
-
-          documentProgress: {
-            total: app.documentRequirements.length,
-            uploaded: app.documentUploads.length,
+            documentUploads: {
+              select: { id: true },
+            },
           },
-        }));
+        });
+
+        /* ===============================
+           SEARCH (ENHANCED)
+        =============================== */
+
+        if (req.query.search) {
+          const search = req.query.search.toLowerCase().trim();
+
+          applications = applications.filter((app) => {
+            const latestSubmission = app.submissions?.[0];
+
+            const getFieldValue = (key) => {
+              const field = latestSubmission?.fields?.find(
+                (f) => f.fieldKey === key
+              );
+              return field?.value || "";
+            };
+
+            const applicationNumber = String(app.applicationNumber || "").toLowerCase();
+            const status = String(app.status || "").toLowerCase();
+            const amount =
+              String(getFieldValue("amountRequested") || app.amountRequested || "").toLowerCase();
+
+            return (
+              applicationNumber.includes(search) ||
+              status.includes(search) ||
+              amount.includes(search)
+            );
+          });
+        }
+
+        /* ===============================
+           TOTAL
+        =============================== */
+
+        const total = applications.length;
+
+        /* ===============================
+           FORMAT RESPONSE (FINAL FIX)
+        =============================== */
+
+        const formatted = applications.map((app) => {
+          const latestSubmission = app.submissions?.[0];
+
+          const getFieldValue = (key) => {
+            const field = latestSubmission?.fields?.find(
+              (f) => f.fieldKey === key
+            );
+            return field?.value || null;
+          };
+
+          const amountFromField = getFieldValue("amountRequested");
+          const productFromField = getFieldValue("loanProductCode");
+
+          return {
+            id: app.id,
+            applicationNumber: app.applicationNumber,
+            status: app.status,
+
+            // ✅ Priority: submission > root
+            loanProduct: productFromField || app.loanProductCode || null,
+
+            amountRequested: amountFromField
+              ? Number(amountFromField).toLocaleString("en-IN", {
+                  style: "currency",
+                  currency: "INR",
+                  maximumFractionDigits: 0,
+                })
+              : app.amountRequested
+              ? Number(app.amountRequested).toLocaleString("en-IN", {
+                  style: "currency",
+                  currency: "INR",
+                  maximumFractionDigits: 0,
+                })
+              : null,
+
+            createdAt: app.createdAt,
+
+            documentProgress: {
+              total: app.documentRequirements.length,
+              uploaded: app.documentUploads.length,
+            },
+          };
+        });
 
         /* ===============================
            RESPONSE
