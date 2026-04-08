@@ -1,19 +1,44 @@
 /**
  * Messaging Routes Index
- * Registers all messaging-related APIs
- * @param {import("fastify").FastifyInstance} fastify
+ * Registers all messaging-related routes
  */
-async function messagingRoutes(fastify) {
-  console.log("createConversation:", typeof require("./createConversation"));
-  console.log("getConversations:", typeof require("./getConversations"));
-  console.log("getMessages:", typeof require("./getMessages"));
-  console.log("sendMessage:", typeof require("./sendMessage"));
 
-  fastify.register(require("./createConversation"));
-  fastify.register(require("./getConversations"));
-  fastify.register(require("./getMessages"));
-  fastify.register(require("./sendMessage"));
-  fastify.register(require("./deleteConversation"));
-}
+module.exports = async function messagingRoutes(fastify) {
+  /* ===============================
+     Conversation Routes
+  =============================== */
 
-module.exports = messagingRoutes;
+  await fastify.register(
+    require("./conversation/getConversations"),
+    { prefix: "/" }
+  );
+
+  await fastify.register(
+    require("./conversation/getConversationById"),
+    { prefix: "/" }
+  );
+
+  await fastify.register(
+    require("./conversation/createConversation"),
+    { prefix: "/" }
+  );
+
+  await fastify.register(
+    require("./conversation/markAsRead"),
+    { prefix: "/" }
+  );
+
+  // /* ===============================
+  //    Message Routes
+  // =============================== */
+
+  await fastify.register(
+    require("./message/getMessages"),
+    { prefix: "/" }
+  );
+
+  await fastify.register(
+    require("./message/sendMessage"),
+    { prefix: "/" }
+  );
+};
