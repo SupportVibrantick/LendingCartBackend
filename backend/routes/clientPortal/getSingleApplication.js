@@ -14,7 +14,10 @@ async function getClientApplicationDetailsRoute(fastify) {
       const authHeader = req.headers.authorization;
 
       if (!authHeader || !authHeader.startsWith("Bearer ")) {
-        return reply.code(401).send({ success: false, message: "Unauthorized" });
+        return reply.code(401).send({
+          success: false,
+          message: "Unauthorized",
+        });
       }
 
       const token = authHeader.split(" ")[1];
@@ -23,18 +26,24 @@ async function getClientApplicationDetailsRoute(fastify) {
       try {
         decoded = jwt.verify(token, process.env.JWT_SECRET);
       } catch {
-        return reply.code(401).send({ success: false, message: "Invalid token" });
+        return reply.code(401).send({
+          success: false,
+          message: "Invalid token",
+        });
       }
 
       if (!decoded.clientId || decoded.role !== "CLIENT") {
-        return reply.code(403).send({ success: false, message: "Access denied" });
+        return reply.code(403).send({
+          success: false,
+          message: "Access denied",
+        });
       }
 
       const clientId = decoded.clientId;
       const applicationId = req.params.id;
 
       /* ===============================
-         FETCH FULL DATA (ALL FIELDS)
+         FETCH DATA
       =============================== */
       const application = await prisma.loanApplication.findFirst({
         where: {
@@ -70,15 +79,85 @@ async function getClientApplicationDetailsRoute(fastify) {
       }
 
       /* ===============================
-         RETURN EVERYTHING (NO FILTER)
+         GET LATEST VALID SUBMISSION
+      =============================== */
+      const latestSubmission = (application.submissions || [])
+        .filter((s) => s.status !== "SUPERSEDED")
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
+
+      /* ===============================
+         BUILD FIELD MAP
+      =============================== */
+      const fieldMap = new Map();
+
+      if (latestSubmission?.fields?.length) {
+        for (const field of latestSubmission.fields) {
+          if (!field?.fieldKey) continue;
+
+          fieldMap.set(field.fieldKey.trim(), field.value ?? null);
+        }
+      }
+
+      const getField = (key) => fieldMap.get(key) ?? null;
+
+      const toNumber = (val) => {
+        if (val === null || val === undefined) return null;
+        const num = Number(val);
+        return isNaN(num) ? null : num;
+      };
+
+      /* ===============================
+         🔥 CRITICAL FIX (MAIN ISSUE)
+      =============================== */
+
+      // ✅ ALWAYS PRIORITIZE SUBMISSION
+      let amountRequested = null;
+
+      if (getField("amountRequested") !== null) {
+        amountRequested = toNumber(getField("amountRequested"));
+      } else if (getField("loan_amount") !== null) {
+        amountRequested = toNumber(getField("loan_amount"));
+      } else if (getField("loanAmount") !== null) {
+        amountRequested = toNumber(getField("loanAmount"));
+      } else if (application.amountRequested !== null) {
+        amountRequested = Number(application.amountRequested);
+      }
+
+      let loanProductCode = null;
+
+      if (getField("loanProductCode")) {
+        loanProductCode = getField("loanProductCode");
+      } else if (getField("loan_product")) {
+        loanProductCode = getField("loan_product");
+      } else if (application.loanProductCode) {
+        loanProductCode = application.loanProductCode;
+      }
+
+      /* ===============================
+         FINAL RESPONSE
       =============================== */
       return reply.send({
         success: true,
-        data: application,
-      });
+        data: {
+          ...application,
 
+          // 🔥 FIXED VALUES
+          amountRequested,
+          loanProductCode,
+
+          // 🔍 DEBUG (REMOVE IN PROD)
+          _debug: {
+            submissionAmount: getField("amountRequested"),
+            dbAmount: application.amountRequested,
+            fieldKeys: [...fieldMap.keys()],
+          },
+        },
+      });
     } catch (error) {
-      fastify.log.error({ error: error.message }, "Fetch failed");
+      fastify.log.error(
+        { error: error.message },
+        "Fetch application failed"
+      );
 
       return reply.code(500).send({
         success: false,
