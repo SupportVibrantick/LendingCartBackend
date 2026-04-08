@@ -1,94 +1,123 @@
-/**
- * Chat Socket (Per Connection)
- * @param {import("socket.io").Socket} socket
- * @param {import("socket.io").Server} io
- * @param {import("@prisma/client").PrismaClient} prisma
- */
 module.exports = function chatSocket(socket, io, prisma) {
 
-  /* ===============================
-     JOIN CONVERSATION
-  =============================== */
-  socket.on("join_conversation", ({ conversationId }) => {
-    if (!conversationId) {
-      console.log("⚠️ [JOIN] Missing conversationId");
-      return;
-    }
-
-    socket.join(conversationId);
-
-    console.log(`💬 [JOIN CONVERSATION] Socket ${socket.id} joined ${conversationId}`);
-  });
-
-  /* ===============================
-     LEAVE CONVERSATION
-  =============================== */
-  socket.on("leave_conversation", ({ conversationId }) => {
-    socket.leave(conversationId);
-
-    console.log(`🚪 [LEAVE CONVERSATION] Socket ${socket.id} left ${conversationId}`);
-  });
-
-  /* ===============================
-     SEND MESSAGE
-  =============================== */
-  socket.on("send_message", async (data) => {
+  /* =====================================================
+     HELPER: GET SENDER NAME
+  ===================================================== */
+  const getSenderName = async (senderId, senderType) => {
     try {
-      const {
-        conversationId,
-        text,
-        senderUserId,
-        senderClientUserId,
-        type = "TEXT",
-        metadata
-      } = data;
+      if (senderType === "BROKER" || senderType === "LENDER") {
+        const user = await prisma.userAccount.findUnique({
+          where: { id: senderId },
+          select: {
+            firstName: true,
+            lastName: true,
+            organization: {
+              select: { name: true },
+            },
+          },
+        });
 
-      console.log("📨 [SEND MESSAGE REQUEST]", data);
-
-      if (!conversationId) {
-        console.log("❌ [ERROR] conversationId missing");
-        return;
+        return (
+          user?.organization?.name ||
+          `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
+          senderType
+        );
       }
 
-      /* ===============================
-         VALIDATE PARTICIPANT
-      =============================== */
+      if (senderType === "CLIENT") {
+        const user = await prisma.clientPortalUser.findUnique({
+          where: { id: senderId },
+          select: { legalName: true },
+        });
+
+        return user?.legalName || "Client";
+      }
+
+      return "Unknown";
+    } catch (err) {
+      console.error("❌ Sender name fetch error:", err.message);
+      return "Unknown";
+    }
+  };
+
+  /* =====================================================
+     1️⃣ JOIN CONVERSATION ROOM (SECURED)
+  ===================================================== */
+  socket.on("joinConversation", async ({ conversationId }) => {
+    try {
+      if (!conversationId) return;
+
+      const userId = socket.user.id;
+
       const participant = await prisma.conversationParticipant.findFirst({
         where: {
           conversationId,
-          OR: [
-            senderUserId ? { userId: senderUserId } : {},
-            senderClientUserId ? { clientUserId: senderClientUserId } : {},
-          ],
+          participantId: userId,
         },
       });
 
       if (!participant) {
-        console.log("❌ [UNAUTHORIZED] User not part of conversation");
-        return;
+        return socket.emit("error", {
+          message: "Access denied to this conversation",
+        });
       }
 
-      console.log("✅ [AUTHORIZED] Participant verified");
+      socket.join(`conversation_${conversationId}`);
 
-      /* ===============================
-         CREATE MESSAGE
-      =============================== */
-      const message = await prisma.message.create({
-        data: {
+      console.log(`💬 [JOIN] ${userId} → ${conversationId}`);
+    } catch (err) {
+      console.error("❌ Join error:", err.message);
+    }
+  });
+
+  /* =====================================================
+     2️⃣ SEND MESSAGE
+  ===================================================== */
+  socket.on("sendMessage", async (payload) => {
+    try {
+      const { conversationId, type, text, fileUrl, fileName } = payload;
+
+      const senderId = socket.user.id;
+      const senderType = socket.user.orgType;
+
+      if (!conversationId) {
+        return socket.emit("error", { message: "Conversation ID required" });
+      }
+
+      if (type === "TEXT" && !text) {
+        return socket.emit("error", {
+          message: "Text message cannot be empty",
+        });
+      }
+
+      const participant = await prisma.conversationParticipant.findFirst({
+        where: {
           conversationId,
-          senderUserId: senderUserId || null,
-          senderClientUserId: senderClientUserId || null,
-          type,
-          text,
-          metadata,
+          participantId: senderId,
         },
       });
 
-      console.log("💾 [DB] Message saved:", message.id);
+      if (!participant) {
+        return socket.emit("error", {
+          message: "You are not part of this conversation",
+        });
+      }
 
-      /* ===============================
-         UPDATE CONVERSATION
-      =============================== */
+      const senderName = await getSenderName(senderId, senderType);
+
+      const message = await prisma.message.create({
+        data: {
+          conversationId,
+          senderId,
+          senderType,
+          senderName,
+          type,
+          text: type === "TEXT" ? text : null,
+          fileUrl: type === "FILE" ? fileUrl : null,
+          fileName: type === "FILE" ? fileName : null,
+        },
+      });
+
       await prisma.conversation.update({
         where: { id: conversationId },
         data: {
@@ -96,33 +125,73 @@ module.exports = function chatSocket(socket, io, prisma) {
         },
       });
 
-      console.log("🔄 [DB] Conversation updated");
+      const response = {
+        id: message.id,
+        conversationId,
+        senderId,
+        senderType,
+        senderName,
+        type,
+        text,
+        fileUrl,
+        fileName,
+        createdAt: message.createdAt,
+      };
 
-      /* ===============================
-         EMIT MESSAGE
-      =============================== */
-      io.to(conversationId).emit("new_message", message);
+      // send message
+      io.to(`conversation_${conversationId}`).emit("newMessage", response);
 
-      console.log(`📡 [EMIT] Message sent to room ${conversationId}`);
+      // 🔥 trigger unread for others
+      socket.to(`conversation_${conversationId}`).emit("newUnread", {
+        conversationId,
+      });
 
-    } catch (error) {
-      console.error("🔥 [SOCKET ERROR] send_message:", error.message);
+    } catch (err) {
+      console.error("❌ Send message error:", err);
+      socket.emit("error", { message: "Failed to send message" });
     }
   });
 
-  /* ===============================
-     TYPING INDICATOR
-  =============================== */
-  socket.on("typing", ({ conversationId, userId }) => {
-    socket.to(conversationId).emit("typing", { userId });
-
-    console.log(`⌨️ [TYPING] ${userId} in ${conversationId}`);
+  /* =====================================================
+     3️⃣ TYPING INDICATOR
+  ===================================================== */
+  socket.on("typing", ({ conversationId }) => {
+    socket.to(`conversation_${conversationId}`).emit("typing", {
+      userId: socket.user.id,
+    });
   });
 
-  socket.on("stop_typing", ({ conversationId, userId }) => {
-    socket.to(conversationId).emit("stop_typing", { userId });
+  socket.on("stopTyping", ({ conversationId }) => {
+    socket.to(`conversation_${conversationId}`).emit("stopTyping", {
+      userId: socket.user.id,
+    });
+  });
 
-    console.log(`✋ [STOP TYPING] ${userId} in ${conversationId}`);
+  /* =====================================================
+     4️⃣ MARK AS READ (SEEN)
+  ===================================================== */
+  socket.on("markAsRead", async ({ conversationId }) => {
+    try {
+      const userId = socket.user.id;
+
+      await prisma.conversationParticipant.updateMany({
+        where: {
+          conversationId,
+          participantId: userId,
+        },
+        data: {
+          lastReadAt: new Date(),
+        },
+      });
+
+      socket.to(`conversation_${conversationId}`).emit("messageRead", {
+        userId,
+        conversationId,
+      });
+
+    } catch (err) {
+      console.error("❌ Read error:", err);
+    }
   });
 
 };

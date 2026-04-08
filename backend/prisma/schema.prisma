@@ -1176,7 +1176,7 @@ model LenderLoiTemplate {
 model Conversation {
   id String @id @default(uuid()) @db.Uuid
 
-  loanApplicationId   String? @db.Uuid
+  loanApplicationId   String @db.Uuid
   applicationLenderId String? @db.Uuid
 
   type ConversationType
@@ -1191,19 +1191,30 @@ model Conversation {
 
   @@index([loanApplicationId])
   @@index([applicationLenderId])
+  @@unique([applicationLenderId])
 }
 
 model Message {
   id String @id @default(uuid()) @db.Uuid
 
   conversationId String @db.Uuid
-
-  senderUserId String? @db.Uuid
-  senderClientUserId String? @db.Uuid
+  senderName String?
+  // CLEAN sender system
+  senderType ParticipantRole
+  senderId   String @db.Uuid
 
   type MessageType
+
+  // TEXT MESSAGE
   text String?
 
+  // FILE SUPPORT (IMPORTANT)
+  fileUrl   String?
+  fileName  String?
+  fileSize  Int?
+  mimeType  String?
+
+  // SYSTEM EVENTS / FLEXIBLE DATA
   metadata Json?
 
   createdAt DateTime @default(now())
@@ -1219,16 +1230,16 @@ model ConversationParticipant {
 
   conversationId String @db.Uuid
 
-  userId String? @db.Uuid
-  clientUserId String? @db.Uuid
-
-  role ParticipantRole
+  //  unified participant system (NO NULL CONFUSION)
+  participantType ParticipantRole
+  participantId   String @db.Uuid
 
   lastReadAt DateTime?
 
   conversation Conversation @relation(fields: [conversationId], references: [id])
 
   @@index([conversationId])
+  @@unique([conversationId, participantId])
 }
 
 enum ConversationType {

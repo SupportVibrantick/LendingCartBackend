@@ -1,20 +1,42 @@
 const { Server } = require("socket.io");
+const jwt = require("jsonwebtoken"); //  added
 const chatSocket = require("../sockets/chat.socket");
 
 async function socketPlugin(fastify) {
-
   const io = new Server(fastify.server, {
     cors: {
-      origin: "*"
-    }
+      origin: "*",
+    },
   });
 
   fastify.decorate("io", io);
 
   console.log("✅ Socket.IO server initialized");
 
-  io.on("connection", (socket) => {
+  /* ===============================
+     🔐 SOCKET AUTH MIDDLEWARE (ADDED)
+  =============================== */
+  io.use((socket, next) => {
+    try {
+      const token = socket.handshake.auth?.token;
 
+      if (!token) {
+        console.log("❌ Socket Unauthorized: No token");
+        return next(new Error("Unauthorized"));
+      }
+
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+      socket.user = decoded; //  attach user safely
+
+      next();
+    } catch (err) {
+      console.log("❌ Socket Unauthorized: Invalid token");
+      return next(new Error("Unauthorized"));
+    }
+  });
+
+  io.on("connection", (socket) => {
     console.log(`🔌 [CONNECTED] Socket ID: ${socket.id}`);
 
     /* ===============================
@@ -28,7 +50,7 @@ async function socketPlugin(fastify) {
     });
 
     /* ===============================
-       CHAT SOCKET (ADDED SAFELY)
+       CHAT SOCKET (UNCHANGED)
     =============================== */
     chatSocket(socket, io, fastify.prisma);
 
@@ -36,11 +58,11 @@ async function socketPlugin(fastify) {
        DISCONNECT
     =============================== */
     socket.on("disconnect", (reason) => {
-      console.log(`❌ [DISCONNECTED] Socket ${socket.id} | Reason: ${reason}`);
+      console.log(
+        `❌ [DISCONNECTED] Socket ${socket.id} | Reason: ${reason}`
+      );
     });
-
   });
-
 }
 
 module.exports = socketPlugin;
