@@ -892,7 +892,7 @@ export default function ClientUpload() {
                 </p>
               </div>
             ) : (
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
                 {applications.map((app) => {
                   const progress =
                     app.documentProgress.total === 0
@@ -910,94 +910,104 @@ export default function ClientUpload() {
                     <div
                       key={app.id}
                       onClick={() => fetchApplicationDetails(app.id)}
-                      className="group relative border border-gray-100 rounded-2xl p-5 shadow-sm 
-                transition-all duration-500 cursor-pointer 
-               hover:-translate-y-1 overflow-hidden bg-white"
+                      className="group relative border border-slate-100 rounded-xl p-4
+             shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer 
+             overflow-hidden bg-white"
                     >
-                      {/* HOVER OVERLAY - Modern Blur Effect */}
+                      {/* 🔥 MINIMAL HOVER OVERLAY */}
                       <div
                         className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 
-                 transition-all duration-300 flex items-center justify-center z-20 
-                 backdrop-blur-[2px]"
+               transition-all duration-300 flex items-center justify-center z-20 backdrop-blur-[1px]"
                       >
                         <div
-                          className="text-white text-xs font-bold flex items-center gap-2 
-                   px-6 py-2.5 rounded-xl bg-blue-600 shadow-2xl 
-                   transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300"
+                          className="text-white text-[10px] font-bold uppercase tracking-wider flex items-center gap-2 
+                 px-4 py-2 rounded-lg bg-slate-800/80 border border-white/10 
+                 backdrop-blur-md shadow-2xl transform translate-y-2 
+                 group-hover:translate-y-0 transition-all duration-300"
                         >
-                          <FiEye size={18} />
-                          <span>Click to View</span>
+                          <FiEye size={14} />
+                          View Details
                         </div>
                       </div>
 
-                      {/* CONTENT SECTION */}
-                      <div className="relative z-10 group-hover:filter group-hover:blur-[1px] transition duration-300">
-                        {/* HEADER: App ID & Status */}
-                        <div className="flex justify-between items-start mb-4">
+                      {/* CONTENT */}
+                      <div className="relative z-10 group-hover:opacity-20 transition duration-300">
+                        {/* HEADER */}
+                        <div className="flex justify-between items-start mb-3">
                           <div>
-                            <p className="text-[10px] uppercase tracking-wider text-gray-400 font-bold mb-0.5">
+                            <p className="text-[9px] uppercase tracking-[0.05em] text-slate-400 font-bold mb-0.5">
                               Application ID
                             </p>
-                            <p className="text-sm font-bold text-gray-900 font-mono">
+                            <p className="text-[12px] font-bold text-slate-800 font-mono">
                               {app.applicationNumber}
                             </p>
                           </div>
 
                           <span
-                            className={`inline-flex items-center gap-1.5 px-3 py-1 text-[10px] font-bold rounded-lg shadow-sm border ${getStatusStyles(
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 text-[9px] font-bold rounded-md uppercase tracking-tight ${getStatusStyles(
                               app.status,
                             )}`}
                           >
                             <span
-                              className={`h-2 w-2 rounded-full animate-pulse ${getStatusDot(app.status)}`}
+                              className={`h-1.5 w-1.5 rounded-full ${getStatusDot(app.status)}`}
                             />
                             {app.status.replace("_", " ")}
                           </span>
                         </div>
 
-                        {/* DATE & DETAILS */}
-                        <div className="space-y-1 mb-4">
-                          <p className="text-xs text-gray-500 flex items-center gap-1">
-                            <span className="opacity-70">Submitted:</span>
-                            {new Date(app.createdAt).toLocaleDateString()}
-                            <span className="text-[10px] text-gray-300">|</span>
-                            {new Date(app.createdAt).toLocaleTimeString([], {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}
+                        {/* PRODUCT INFO */}
+                        <div className="mb-3">
+                          <p className="text-[11px] font-semibold text-slate-600 truncate">
+                            {app.loanProduct?.replace(/_/g, " ")}
                           </p>
-                          <p className="text-sm font-medium text-gray-700">
-                            Amount:{" "}
-                            <span className="text-gray-900 font-bold">
-                              {app.amountRequested || "—"}
-                            </span>
+                          <p className="text-[10px] text-slate-400">
+                            {new Date(app.createdAt).toLocaleDateString(
+                              undefined,
+                              {
+                                day: "numeric",
+                                month: "short",
+                                year: "numeric",
+                              },
+                            )}
                           </p>
                         </div>
 
-                        {/* PROGRESS BAR SECTION */}
-                        <div className="mt-auto">
+                        {/* AMOUNT & PROGRESS BAR */}
+                        <div className="pt-3 border-t border-slate-50">
                           <div className="flex justify-between items-end mb-1.5">
-                            <span className="text-[11px] font-bold text-gray-500 uppercase">
-                              Documents ({app.documentProgress.uploaded}/
-                              {app.documentProgress.total})
-                            </span>
+                            <div>
+                              <p className="text-[9px] text-slate-400 font-bold uppercase">
+                                Amount
+                              </p>
+                              <p className="text-[13px] font-black text-slate-900">
+                                {app.amountRequested || "—"}
+                              </p>
+                            </div>
                             <span
-                              className={`text-xs font-bold ${progress === 100 ? "text-green-600" : "text-blue-600"}`}
+                              className={`text-[10px] font-bold ${progress === 100 ? "text-emerald-600" : "text-slate-500"}`}
                             >
                               {progress}%
                             </span>
                           </div>
 
-                          <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
+                          <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
                             <div
                               className={`h-full rounded-full transition-all duration-1000 ease-out ${
                                 progress === 100
-                                  ? "bg-green-500"
-                                  : "bg-blue-600"
+                                  ? "bg-emerald-500"
+                                  : "bg-slate-800"
                               }`}
                               style={{ width: `${progress}%` }}
                             />
                           </div>
+
+                          <p className="text-[9px] text-slate-400 mt-1.5 font-medium">
+                            Documents:{" "}
+                            <span className="text-slate-600">
+                              {app.documentProgress.uploaded}/
+                              {app.documentProgress.total}
+                            </span>
+                          </p>
                         </div>
                       </div>
                     </div>
@@ -1408,28 +1418,28 @@ export default function ClientUpload() {
                     {/* Status Badge */}
                     <span
                       className={`inline-flex items-center gap-2 px-4 py-1.5 text-xs font-semibold rounded-full shadow-sm
-    ${
-      applicationData.status === "SUBMITTED"
-        ? "bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200"
-        : applicationData.status === "PENDING"
-          ? "bg-amber-100 text-amber-700 ring-1 ring-amber-200"
-          : applicationData.status === "REJECTED"
-            ? "bg-red-100 text-red-700 ring-1 ring-red-200"
-            : "bg-gray-100 text-gray-700 ring-1 ring-gray-200"
-    }`}
+                      ${
+                        applicationData.status === "SUBMITTED"
+                          ? "bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200"
+                          : applicationData.status === "PENDING"
+                            ? "bg-amber-100 text-amber-700 ring-1 ring-amber-200"
+                            : applicationData.status === "REJECTED"
+                              ? "bg-red-100 text-red-700 ring-1 ring-red-200"
+                              : "bg-gray-100 text-gray-700 ring-1 ring-gray-200"
+                      }`}
                     >
                       {/* Dot indicator */}
                       <span
                         className={`h-2 w-2 rounded-full
-      ${
-        applicationData.status === "SUBMITTED"
-          ? "bg-emerald-500"
-          : applicationData.status === "PENDING"
-            ? "bg-amber-500"
-            : applicationData.status === "REJECTED"
-              ? "bg-red-500"
-              : "bg-gray-400"
-      }`}
+                        ${
+                          applicationData.status === "SUBMITTED"
+                            ? "bg-emerald-500"
+                            : applicationData.status === "PENDING"
+                              ? "bg-amber-500"
+                              : applicationData.status === "REJECTED"
+                                ? "bg-red-500"
+                                : "bg-gray-400"
+                        }`}
                       />
 
                       {applicationData.status}
