@@ -124,7 +124,7 @@ export default function UpdateLoanProduct() {
     try {
       const headers = getAuthHeaders();
 
-      const product = selectedProducts[0]; // update ek hi hoga
+      const product = selectedProducts[0];
       const criteria = form.loanCriteria?.[product.id] || {};
 
       const payload = {

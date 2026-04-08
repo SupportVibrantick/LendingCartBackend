@@ -1,5 +1,8 @@
 import {
   ArrowLeft,
+  Building2,
+  ChevronLeft,
+  ChevronRight,
   Download,
   Eye,
   FileSearch,
@@ -8,6 +11,8 @@ import {
   Loader2,
   MoreVertical,
   Pencil,
+  Search,
+  SearchX,
   Send,
   Upload,
 } from "lucide-react";
@@ -15,8 +20,9 @@ import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { useLocation, useNavigate } from "react-router";
 import { motion } from "framer-motion";
-import { FiSearch, FiSend } from "react-icons/fi";
+import { FiFolder, FiSearch, FiSend, FiTag, FiUser } from "react-icons/fi";
 import Swal from "sweetalert2";
+import { FaRegCreditCard } from "react-icons/fa6";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
@@ -24,6 +30,24 @@ type SubmissionField = {
   fieldId: string | null;
   fieldKey: string | null;
   value: string;
+};
+
+type Lender = {
+  id: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  profileImage?: string | null;
+  loanProductCode: string;
+  minFunding: string;
+  maxFunding: string;
+  minMonths: number;
+  maxMonths: number;
+  interestRateRange: string;
+  fundingSpeedDays?: number;
+  summary?: string;
+  eligibilityStatus: string;
+  lenderProductId: string;
 };
 
 // type UploadedPreview = {
@@ -35,6 +59,7 @@ type SubmissionField = {
 type TabKey =
   | "view-details"
   | "update-application"
+  | "find-lenders"
   | "request-document"
   | "view-loi"
   | "documents"
@@ -340,6 +365,16 @@ const LoanPreview = () => {
   const [lois, setLois] = useState<any[]>([]);
   const [loiLoading, setLoiLoading] = useState(false);
   const [loiLoadedFor, setLoiLoadedFor] = useState<string | null>(null);
+  const [lenders, setLenders] = useState<Lender[]>([]);
+  const [borrowerSummary, setBorrowerSummary] = useState<any>(null);
+  const [sendingId, setSendingId] = useState<string | null>(null);
+  const [sentLenders, setSentLenders] = useState<Record<string, boolean>>({});
+  const [lenderLoading, setLenderLoading] = useState(false);
+  const [lenderSearchQ, setLenderSearchQ] = useState("");
+  const [lenderPage, setLenderPage] = useState(1);
+  const [lenderLimit, setLenderLimit] = useState(6);
+  const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
+  const [lendersLoadedFor, setLendersLoadedFor] = useState<string | null>(null);
   // const [previewFile, setPreviewFile] = useState<UploadedPreview | null>(null);
   const [editableFieldValues, setEditableFieldValues] = useState<
     Record<string, string>
@@ -646,6 +681,98 @@ const LoanPreview = () => {
     }
   };
 
+  const fetchLenders = async (id: string) => {
+    setLenderPage(1);
+    setLenders([]);
+    setBorrowerSummary(null);
+    setSentLenders({});
+    setImageErrors({});
+    setLenderLoading(true);
+
+    try {
+      const res = await fetch(
+        `${API_BASE}/broker/lender-discovery/applications/submissions/${id}/eligible`,
+        {
+          headers: getAuthHeaders(),
+          method: "GET",
+        },
+      );
+
+      const json = await res.json();
+
+      if (!res.ok || json.success !== true) {
+        throw new Error(json.message || "Failed to load eligible lenders");
+      }
+
+      const data = json.data;
+      setBorrowerSummary(data.borrowerData);
+      setLenders(
+        (data.eligibleLenders || []).map((l: any) => ({
+          id: l.lenderOrgId,
+          name: l.lenderName,
+          email: l.lenderEmail,
+          phone: l.lenderPhone,
+          profileImage: l.profileImage
+            ? `${API_BASE}/public/${l.profileImage}`
+            : null,
+          loanProductCode: l.loanProductCode,
+          minFunding: l.fundingRange?.min,
+          maxFunding: l.fundingRange?.max,
+          minMonths: l.terms?.minMonths,
+          maxMonths: l.terms?.maxMonths,
+          interestRateRange: l.interestRateRange,
+          fundingSpeedDays: l.lenderProfile?.fundingSpeedDays,
+          summary: l.lenderProfile?.summary,
+          eligibilityStatus: l.eligible ? "Eligible" : "Rejected",
+          lenderProductId: l.lenderProductId,
+        })),
+      );
+      setLendersLoadedFor(id);
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Failed to load eligible lenders");
+    } finally {
+      setLenderLoading(false);
+    }
+  };
+
+  const sendApplicationToLender = async (lenderProductId: string) => {
+    if (!submissionId || !applicationId) return;
+
+    try {
+      setSendingId(lenderProductId);
+
+      const res = await fetch(
+        `${API_BASE}/broker/lender-discovery/applications/${applicationId}/submissions/${submissionId}/send-to-lenders`,
+        {
+          method: "POST",
+          headers: getAuthHeaders(),
+          body: JSON.stringify({
+            lenderProductIds: [lenderProductId],
+          }),
+        },
+      );
+
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Failed to send");
+      }
+
+      toast.success("Submission processed successfully");
+      setSentLenders((prev) => ({
+        ...prev,
+        [lenderProductId]: true,
+      }));
+
+      await fetchSubmissionDetails(submissionId);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to send");
+    } finally {
+      setSendingId(null);
+    }
+  };
+
   // const handleDocumentUpload = async (
   //   currentSubmissionId: string,
   //   requirementId: string,
@@ -710,6 +837,13 @@ const LoanPreview = () => {
     setDocumentsLoadedFor(null);
     setLois([]);
     setLoiLoadedFor(null);
+    setLenders([]);
+    setBorrowerSummary(null);
+    setSentLenders({});
+    setImageErrors({});
+    setLendersLoadedFor(null);
+    setLenderSearchQ("");
+    setLenderPage(1);
     // setSelectedFiles({});
     setPreviewFiles([]);
     setSelectedRequestDocs([]);
@@ -723,6 +857,13 @@ const LoanPreview = () => {
   }, [submissionId]);
 
   useEffect(() => {
+    if (
+      activeTab === "find-lenders" &&
+      submissionId &&
+      lendersLoadedFor !== submissionId
+    ) {
+      fetchLenders(submissionId);
+    }
     if (
       activeTab === "request-document" &&
       applicationId &&
@@ -748,6 +889,7 @@ const LoanPreview = () => {
     activeTab,
     applicationId,
     submissionId,
+    lendersLoadedFor,
     requestDocsLoadedFor,
     documentsLoadedFor,
     loiLoadedFor,
@@ -830,6 +972,12 @@ const LoanPreview = () => {
       label: "View Details",
       icon: Pencil,
       color: "text-cyan-600",
+    },
+    {
+      key: "find-lenders" as const,
+      label: "Find Lenders",
+      icon: FileSearch,
+      color: "text-blue-600",
     },
     {
       key: "request-document" as const,
@@ -1199,13 +1347,34 @@ const LoanPreview = () => {
   const renderUpdateApplication = () => (
     <div className="space-y-6">
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950">
-        <div className="mb-6 flex flex-col gap-3 text-sm font-medium md:flex-row md:items-center md:justify-between">
+        <div className="mb-6 flex flex-col gap-3 text-sm font-medium md:flex-row md:flex-wrap md:items-center md:justify-between">
+          {/* Application No */}
           <div>
             <span className="font-semibold">Application No:</span>{" "}
             <span className="text-slate-700 dark:text-slate-300">
               {submissionDetail?.applicationNumber || "-"}
             </span>
           </div>
+
+          {/* Client Name */}
+          <div>
+            <span className="font-semibold">Borrower Name:</span>{" "}
+            <span className="text-slate-700 dark:text-slate-300">
+              {submissionDetail?.borrowerName || "-"}
+            </span>
+          </div>
+
+          {/* Product Code */}
+          <div>
+            <span className="font-semibold">Product Code:</span>{" "}
+            <span className="text-slate-700 dark:text-slate-300">
+              {submissionDetail &&
+                submissionDetail?.loanProduct &&
+                submissionDetail?.loanProduct?.name}
+            </span>
+          </div>
+
+          {/* Status */}
           <div className="flex items-center gap-2">
             <span className="font-semibold">Status:</span>
             <span
@@ -1569,6 +1738,267 @@ const LoanPreview = () => {
       )}
     </div>
   );
+
+  const renderFindLenders = () => {
+    const filteredEligibleLenders = lenders.filter(
+      (lender) =>
+        lender.name.toLowerCase().includes(lenderSearchQ.toLowerCase()) ||
+        lender.email?.toLowerCase().includes(lenderSearchQ.toLowerCase()),
+    );
+
+    const paginatedEligibleLenders = filteredEligibleLenders.slice(
+      (lenderPage - 1) * lenderLimit,
+      lenderPage * lenderLimit,
+    );
+
+    const totalEligiblePages = Math.ceil(
+      filteredEligibleLenders.length / lenderLimit,
+    );
+
+    return (
+      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+        <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+              Find Lenders
+            </h2>
+            <p className="text-sm text-slate-500">
+              Connect with verified lenders for this submission.
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-3 md:flex-row">
+            <div className="relative md:w-80">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                value={lenderSearchQ}
+                onChange={(e) => {
+                  setLenderPage(1);
+                  setLenderSearchQ(e.target.value);
+                }}
+                placeholder="Search lenders by name or email..."
+                className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:border-slate-800 dark:bg-slate-900"
+              />
+            </div>
+
+            <select
+              value={lenderLimit}
+              onChange={(e) => {
+                setLenderPage(1);
+                setLenderLimit(Number(e.target.value));
+              }}
+              className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm dark:border-slate-800 dark:bg-slate-900"
+            >
+              <option value={6}>6 / page</option>
+              <option value={9}>9 / page</option>
+              <option value={12}>12 / page</option>
+            </select>
+          </div>
+        </div>
+
+        {borrowerSummary &&
+          borrowerSummary.loanAmount &&
+          borrowerSummary.borrowerMinTerm &&
+          borrowerSummary.borrowerMaxTerm &&
+          borrowerSummary.creditScore && (
+            <div className="mb-6 rounded-xl border border-blue-200 bg-blue-50 p-4 dark:border-blue-500/20 dark:bg-blue-500/10">
+              <div className="mb-2 text-sm font-semibold text-[#2C92D5] dark:text-blue-400">
+                Borrower Summary
+              </div>
+              <div className="grid grid-cols-2 gap-4 text-sm md:grid-cols-4">
+                <div>
+                  <span className="font-semibold">Loan Amount:</span>
+                  <div>
+                    ${Number(borrowerSummary.loanAmount).toLocaleString()}
+                  </div>
+                </div>
+
+                <div>
+                  <span className="font-semibold">Term:</span>
+                  <div>
+                    {borrowerSummary.borrowerMinTerm} -{" "}
+                    {borrowerSummary.borrowerMaxTerm} months
+                  </div>
+                </div>
+
+                <div>
+                  <span className="font-semibold">Credit Score:</span>
+                  <div>{borrowerSummary.creditScore}</div>
+                </div>
+
+                <div>
+                  <span className="font-semibold">Eligible Lenders:</span>
+                  <div>{lenders.length}</div>
+                </div>
+              </div>
+            </div>
+          )}
+
+        {lenderLoading && (
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {[1, 2, 3].map((item) => (
+              <div
+                key={item}
+                className="h-64 animate-pulse rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"
+              />
+            ))}
+          </div>
+        )}
+
+        {!lenderLoading && lenders.length === 0 && (
+          <div className="py-10 text-center">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-900">
+              <SearchX className="h-8 w-8 text-slate-400" />
+            </div>
+            <h3 className="font-bold text-slate-700 dark:text-slate-300">
+              No lenders found
+            </h3>
+            <p className="text-sm text-slate-500">
+              Try adjusting your search terms
+            </p>
+          </div>
+        )}
+
+        {!lenderLoading && lenders.length > 0 && (
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {paginatedEligibleLenders.map((lender) => (
+              <div
+                key={lender.id}
+                className="group relative rounded-xl border border-slate-200 bg-white p-5 transition-all duration-300 hover:shadow-md dark:border-slate-800 dark:bg-slate-900"
+              >
+                <div className="mb-3 flex items-start justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-800">
+                      {lender.profileImage && !imageErrors[lender.id] ? (
+                        <img
+                          src={lender.profileImage}
+                          alt={lender.name}
+                          className="h-full w-full object-cover"
+                          onError={() =>
+                            setImageErrors((prev) => ({
+                              ...prev,
+                              [lender.id]: true,
+                            }))
+                          }
+                        />
+                      ) : (
+                        <Building2 className="h-6 w-6 text-slate-500 dark:text-slate-400" />
+                      )}
+                    </div>
+
+                    <div>
+                      <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                        {lender.name}
+                      </h3>
+                      <div className="text-xs text-slate-500 dark:text-slate-400">
+                        {lender.email || "No email available"}
+                      </div>
+                    </div>
+                  </div>
+
+                  <span
+                    className={`rounded-full px-2 py-1 text-xs font-bold ${
+                      lender.eligibilityStatus === "Eligible"
+                        ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400"
+                        : "bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400"
+                    }`}
+                  >
+                    {lender.eligibilityStatus}
+                  </span>
+                </div>
+
+                <div className="mb-3 text-sm font-semibold text-slate-600 dark:text-slate-400">
+                  Product: {lender.loanProductCode}
+                </div>
+
+                <div className="text-sm font-medium text-slate-800 dark:text-slate-200">
+                  Funding: ${Number(lender.minFunding).toLocaleString()} - $
+                  {Number(lender.maxFunding).toLocaleString()}
+                </div>
+
+                <div className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                  Term: {lender.minMonths} - {lender.maxMonths} months
+                </div>
+
+                <div className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                  Interest: {lender.interestRateRange}
+                </div>
+
+                <div className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                  Funding Speed: {lender.fundingSpeedDays} Days
+                </div>
+
+                <div className="mt-4 border-t border-slate-200 pt-4 dark:border-slate-800">
+                  <button
+                    disabled={
+                      sendingId === lender.lenderProductId ||
+                      sentLenders[lender.lenderProductId]
+                    }
+                    onClick={async () => {
+                      const result = await Swal.fire({
+                        title: "Send to Lender?",
+                        text: `Are you sure you want to send this application to ${lender.name}?`,
+                        icon: "question",
+                        showCancelButton: true,
+                        confirmButtonColor: "#2563eb",
+                        cancelButtonColor: "#d33",
+                        confirmButtonText: "Yes, Send",
+                        cancelButtonText: "Cancel",
+                      });
+
+                      if (result.isConfirmed) {
+                        sendApplicationToLender(lender.lenderProductId);
+                      }
+                    }}
+                    className={`w-full rounded-lg py-2 text-sm font-semibold transition-all ${
+                      sentLenders[lender.lenderProductId]
+                        ? "cursor-not-allowed bg-emerald-500 text-white"
+                        : "bg-[#2C92D5] text-white hover:bg-[#227dba]"
+                    } disabled:cursor-not-allowed disabled:opacity-60`}
+                  >
+                    {sendingId === lender.lenderProductId ? (
+                      <div className="flex items-center justify-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Sending...
+                      </div>
+                    ) : sentLenders[lender.lenderProductId] ? (
+                      "Sent"
+                    ) : (
+                      "Send to Lender"
+                    )}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {!lenderLoading && filteredEligibleLenders.length > lenderLimit && (
+          <div className="mt-8 flex items-center justify-between border-t border-slate-200 pt-4 dark:border-slate-800">
+            <p className="text-xs text-slate-500">
+              Page {lenderPage} of {totalEligiblePages}
+            </p>
+            <div className="flex gap-2">
+              <button
+                disabled={lenderPage === 1}
+                onClick={() => setLenderPage((prev) => prev - 1)}
+                className="rounded-lg border p-2 hover:bg-slate-100 disabled:opacity-30 dark:border-slate-800 dark:hover:bg-slate-800"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <button
+                disabled={lenderPage >= totalEligiblePages}
+                onClick={() => setLenderPage((prev) => prev + 1)}
+                className="rounded-lg border p-2 hover:bg-slate-100 disabled:opacity-30 dark:border-slate-800 dark:hover:bg-slate-800"
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const renderSubmittedLenders = () => {
     const lenders = submissionDetail.lenders || [];
@@ -1976,8 +2406,28 @@ const LoanPreview = () => {
           </div>
         </div>
       ) : (
-        <div className="flex flex-col items-center justify-center py-16 text-slate-500">
-          <p className="text-sm">No documents found</p>
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          {/* ICON */}
+          <motion.div
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ duration: 0.4 }}
+            className="mb-6 flex h-20 w-20 items-center justify-center rounded-full 
+    bg-gradient-to-br from-blue-100 to-cyan-100 
+    text-blue-600 shadow-md"
+          >
+            <FiFolder size={36} />
+          </motion.div>
+
+          {/* TITLE */}
+          <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">
+            No Documents Found
+          </h3>
+
+          {/* DESCRIPTION */}
+          <p className="mt-2 max-w-sm text-sm text-slate-500 dark:text-slate-400">
+            You haven’t requested documents yet.
+          </p>
         </div>
       )}
     </div>
@@ -2127,6 +2577,8 @@ const LoanPreview = () => {
     switch (activeTab) {
       case "update-application":
         return renderUpdateApplication();
+      case "find-lenders":
+        return renderFindLenders();
       case "request-document":
         return renderRequestDocument();
       case "view-loi":
@@ -2161,25 +2613,138 @@ const LoanPreview = () => {
     <>
       <div className="min-h-screen bg-slate-50 p-6 dark:bg-[#0b1120] dark:text-slate-100">
         <div className="mx-auto max-w-7xl">
-          <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="mb-6 flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+            {/* LEFT SIDE */}
             <div>
+              {/* BACK BUTTON */}
               <button
                 onClick={() => navigate(-1)}
-                className="mb-2 flex items-center gap-2 text-sm text-gray-600 dark:text-slate-400"
+                className="mb-3 inline-flex items-center gap-2 text-sm text-slate-500 hover:text-blue-600 transition"
               >
-                <ArrowLeft size={16} /> Back to Submitted Applications
+                <ArrowLeft size={16} />
+                Back to Submitted Applications
               </button>
-              <h1 className="text-2xl font-semibold text-slate-900 dark:text-white">
+
+              {/* TITLE */}
+              <h1 className="text-xl font-bold text-slate-900 dark:text-white">
                 Loan Application Preview
               </h1>
-              <p className="text-sm text-gray-500 dark:text-slate-400">
+
+              {/* SUBTEXT */}
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 {submissionDetail?.applicationNumber || submissionId}
               </p>
+
+              {/* EXTRA INFO (Client + Product + Amount) */}
+              <div className="mt-4 flex flex-wrap items-center gap-4">
+                {/* BORROWER */}
+                <div
+                  className="flex items-center gap-3 px-4 py-2 rounded-2xl 
+    bg-gradient-to-r from-blue-50 to-cyan-50 
+    shadow-sm hover:shadow-md transition-all"
+                >
+                  <div
+                    className="h-9 w-9 flex items-center justify-center rounded-full 
+      bg-gradient-to-br from-blue-500 to-cyan-500 text-white"
+                  >
+                    <FiUser size={16} />
+                  </div>
+
+                  <div className="flex flex-col leading-tight">
+                    <span className="text-[11px] font-medium text-blue-500">
+                      Borrower Name
+                    </span>
+                    <span className="text-sm font-semibold text-blue-900">
+                      {submissionDetail?.borrowerName ||
+                        `${getFieldValue(fields, "borrowerFirstName") || ""} ${
+                          getFieldValue(fields, "borrowerLastName") || ""
+                        }`.trim() ||
+                        "Unknown"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* PRODUCT */}
+                <div
+                  className="flex items-center gap-3 px-4 py-2 rounded-2xl 
+    bg-gradient-to-r from-purple-50 to-indigo-50 
+    shadow-sm hover:shadow-md transition-all"
+                >
+                  <div
+                    className="h-9 w-9 flex items-center justify-center rounded-full 
+      bg-gradient-to-br from-purple-500 to-indigo-500 text-white"
+                  >
+                    <FiTag size={16} />
+                  </div>
+
+                  <div className="flex flex-col leading-tight">
+                    <span className="text-[11px] font-medium text-indigo-500">
+                      Product Name
+                    </span>
+                    <span className="text-sm font-semibold text-indigo-900">
+                      {submissionDetail?.loanProduct?.name ||
+                        getFieldValue(fields, "loanProductCode") ||
+                        "No Product"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* AMOUNT REQUESTED */}
+                <div
+                  className="flex items-center gap-3 px-4 py-2 rounded-2xl 
+    bg-gradient-to-r from-emerald-50 to-green-50 
+    shadow-sm hover:shadow-md transition-all"
+                >
+                  <div
+                    className="h-9 w-9 flex items-center justify-center rounded-full 
+      bg-gradient-to-br from-emerald-500 to-green-500 text-white"
+                  >
+                    $
+                  </div>
+
+                  <div className="flex flex-col leading-tight">
+                    <span className="text-[11px] font-medium text-emerald-600">
+                      Amount Requested
+                    </span>
+                    <span className="text-sm font-semibold text-emerald-900">
+                      ${submissionDetail?.amountRequested || 0}
+                    </span>
+                  </div>
+                </div>
+
+                {/* CREDIT SCORE */}
+                <div
+                  className="flex items-center gap-3 px-4 py-2 rounded-2xl 
+  bg-gradient-to-r from-amber-50 to-yellow-50 
+  shadow-sm hover:shadow-md transition-all"
+                >
+                  {/* ICON */}
+                  <div
+                    className="h-9 w-9 flex items-center justify-center rounded-full 
+    bg-gradient-to-br from-amber-500 to-yellow-500 text-white font-bold text-sm"
+                  >
+                    <FaRegCreditCard />
+                  </div>
+
+                  {/* TEXT */}
+                  <div className="flex flex-col leading-tight">
+                    <span className="text-[11px] font-medium text-amber-600">
+                      Credit Score
+                    </span>
+                    <span className="text-sm font-semibold text-amber-900">
+                      {submissionDetail?.creditScore || "N/A"}
+                    </span>
+                  </div>
+                </div>
+              </div>
             </div>
 
+            {/* RIGHT SIDE STATUS */}
             <div className="flex gap-3">
               <span
-                className={`rounded-full px-3 py-1 text-xs font-semibold ${getStatusChip(submissionDetail?.status)}`}
+                className={`rounded-full px-4 py-1.5 text-xs font-semibold tracking-wide shadow-sm ${getStatusChip(
+                  submissionDetail?.status,
+                )}`}
               >
                 {submissionDetail?.status === "DECLINED"
                   ? "REJECTED"
@@ -2205,26 +2770,48 @@ const LoanPreview = () => {
                 </div>
               </div>
 
-              <div className="mb-6 flex flex-wrap gap-3 border-b border-slate-200 pb-3 dark:border-slate-800">
+              <div className="mb-6 flex flex-wrap gap-2 border-b border-slate-200 pb-3 dark:border-slate-800">
                 {tabs.map((tab) => {
                   const Icon = tab.icon;
                   const isActive = activeTab === tab.key;
+
                   return (
                     <button
                       key={tab.key}
                       onClick={() => setActiveTab(tab.key)}
-                      className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition ${
-                        isActive
-                          ? "border border-slate-200 bg-white text-slate-900 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-white"
-                          : "text-slate-500 hover:bg-white hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-900"
-                      }`}
+                      className={`group relative inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium transition-all duration-200
+          
+          ${
+            isActive
+              ? "bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-md"
+              : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white"
+          }
+        `}
                     >
+                      {/* ICON */}
                       <span
-                        className={`rounded-md p-1 ${isActive ? "bg-slate-100 dark:bg-slate-800" : "bg-slate-100/70 dark:bg-slate-800/70"}`}
+                        className={`flex items-center justify-center rounded-md p-1 transition-all
+          ${
+            isActive
+              ? "bg-white/20"
+              : "bg-slate-100 group-hover:bg-slate-200 dark:bg-slate-800 dark:group-hover:bg-slate-700"
+          }`}
                       >
-                        <Icon size={14} className={tab.color} />
+                        <Icon
+                          size={13}
+                          className={`transition ${
+                            isActive ? "text-white" : tab.color
+                          }`}
+                        />
                       </span>
-                      {tab.label}
+
+                      {/* LABEL */}
+                      <span className="whitespace-nowrap">{tab.label}</span>
+
+                      {/* ACTIVE UNDERLINE GLOW */}
+                      {isActive && (
+                        <span className="absolute bottom-0 left-2 right-2 h-[2px] rounded-full bg-white/70 blur-[1px]" />
+                      )}
                     </button>
                   );
                 })}
