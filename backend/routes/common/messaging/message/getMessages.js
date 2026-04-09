@@ -32,9 +32,7 @@ module.exports = async function getMessages(fastify) {
       const { page = 1, limit = 20 } = req.query;
 
       try {
-        /* =====================================================
-           1️⃣ AUTH CHECK
-        ===================================================== */
+        /* ================= AUTH CHECK ================= */
 
         if (!req.user) {
           return reply.code(401).send({
@@ -43,16 +41,22 @@ module.exports = async function getMessages(fastify) {
           });
         }
 
-        /* =====================================================
-           2️⃣ VERIFY CONVERSATION EXISTS
-        ===================================================== */
+        // ✅ SAFE USER ID (ALL CASES COVERED)
+        const userId =
+          req.user?.id || req.user?.userId || req.user?.clientId;
+
+        if (!userId) {
+          return reply.code(401).send({
+            success: false,
+            message: "Invalid user token",
+          });
+        }
+
+        /* ================= VERIFY CONVERSATION ================= */
 
         const conversation = await prisma.conversation.findUnique({
           where: { id: conversationId },
-          select: {
-            id: true,
-            loanApplicationId: true,
-          },
+          select: { id: true },
         });
 
         if (!conversation) {
@@ -62,14 +66,12 @@ module.exports = async function getMessages(fastify) {
           });
         }
 
-        /* =====================================================
-           3️⃣ CHECK USER IS PARTICIPANT
-        ===================================================== */
+        /* ================= CHECK PARTICIPATION ================= */
 
         const participant = await prisma.conversationParticipant.findFirst({
           where: {
             conversationId,
-            participantId: req.user.id,
+            participantId: userId,
           },
         });
 
@@ -80,23 +82,15 @@ module.exports = async function getMessages(fastify) {
           });
         }
 
-        /* =====================================================
-           4️⃣ PAGINATION CALC
-        ===================================================== */
+        /* ================= PAGINATION ================= */
 
         const skip = (page - 1) * limit;
 
-        /* =====================================================
-           5️⃣ FETCH MESSAGES
-        ===================================================== */
+        /* ================= FETCH MESSAGES ================= */
 
         const messages = await prisma.message.findMany({
-          where: {
-            conversationId,
-          },
-          orderBy: {
-            createdAt: "desc",
-          },
+          where: { conversationId },
+          orderBy: { createdAt: "desc" },
           skip,
           take: limit,
         });
@@ -105,9 +99,7 @@ module.exports = async function getMessages(fastify) {
           where: { conversationId },
         });
 
-        /* =====================================================
-           6️⃣ FORMAT RESPONSE
-        ===================================================== */
+        /* ================= FORMAT RESPONSE ================= */
 
         const formatted = messages.map((msg) => ({
           id: msg.id,
@@ -115,14 +107,14 @@ module.exports = async function getMessages(fastify) {
           text: msg.text,
           fileUrl: msg.fileUrl,
           fileName: msg.fileName,
+          fileSize: msg.fileSize,
+          mimeType: msg.mimeType,
           senderType: msg.senderType,
           senderId: msg.senderId,
           createdAt: msg.createdAt,
         }));
 
-        /* =====================================================
-           7️⃣ RESPONSE
-        ===================================================== */
+        /* ================= RESPONSE ================= */
 
         return reply.send({
           success: true,
@@ -139,7 +131,10 @@ module.exports = async function getMessages(fastify) {
           {
             error: error.message,
             conversationId,
-            userId: req.user?.id,
+            userId:
+              req.user?.id ||
+              req.user?.userId ||
+              req.user?.clientId,
           },
           "Failed to fetch messages"
         );

@@ -27,10 +27,14 @@ module.exports = function chatSocket(socket, io, prisma) {
       if (senderType === "CLIENT") {
         const user = await prisma.clientPortalUser.findUnique({
           where: { id: senderId },
-          select: { legalName: true },
+          select: {
+            client: {
+              select: { legalName: true },
+            },
+          },
         });
 
-        return user?.legalName || "Client";
+        return user?.client?.legalName || "Client";
       }
 
       return "Unknown";
@@ -78,7 +82,7 @@ module.exports = function chatSocket(socket, io, prisma) {
       const { conversationId, type, text, fileUrl, fileName } = payload;
 
       const senderId = socket.user.id;
-      const senderType = socket.user.orgType;
+      const senderType = socket.user.orgType || socket.user.role; // ✅ FIXED
 
       if (!conversationId) {
         return socket.emit("error", { message: "Conversation ID required" });

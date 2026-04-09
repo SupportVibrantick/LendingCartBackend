@@ -69,14 +69,14 @@ module.exports = async function getConversations(fastify) {
 
         // Client access (optional depending on your auth)
         if (
-          req.user.orgType === "CLIENT" &&
-          loan.clientId !== req.user.clientId
-        ) {
-          return reply.code(403).send({
-            success: false,
-            message: "Access denied",
-          });
-        }
+  (req.user.orgType === "CLIENT" || req.user.role === "CLIENT") &&
+  loan.clientId !== req.user.clientId
+) {
+  return reply.code(403).send({
+    success: false,
+    message: "Access denied",
+  });
+}
 
         /* =====================================================
            3️⃣ FETCH CONVERSATIONS
