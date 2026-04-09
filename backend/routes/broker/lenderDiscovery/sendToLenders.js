@@ -27,7 +27,6 @@ module.exports = async function sendToLenders(fastify) {
       let { applicationId, submissionId } = req.params;
       const { lenderProductIds } = req.body;
 
-      // ================= SAFE CLEANUP =================
       applicationId = applicationId.replace(/"/g, "").trim();
       submissionId = submissionId.replace(/"/g, "").trim();
 
@@ -41,7 +40,6 @@ module.exports = async function sendToLenders(fastify) {
       const userId = req.user.id;
       const brokerOrgId = req.user.organizationId;
 
-      // ================= CONSTANTS (PRODUCTION SAFE) =================
       const ALLOWED_APP_STATUSES = ["CLIENT_PENDING", "SUBMITTED", "IN_REVIEW"];
       const BLOCKED_APP_STATUSES = [
         "LENDER_SELECTED",
@@ -57,7 +55,6 @@ module.exports = async function sendToLenders(fastify) {
       ];
 
       try {
-        /* ================= APPLICATION ================= */
         const application = await prisma.loanApplication.findUnique({
           where: { id: applicationId },
         });
@@ -92,7 +89,6 @@ module.exports = async function sendToLenders(fastify) {
           });
         }
 
-        /* ================= SUBMISSION ================= */
         const submission = await prisma.applicationSubmission.findUnique({
           where: { id: submissionId },
           include: { fields: true },
@@ -112,7 +108,6 @@ module.exports = async function sendToLenders(fastify) {
           });
         }
 
-        /* ================= LENDER PRODUCTS ================= */
         const lenderProducts = await prisma.lenderProduct.findMany({
           where: {
             id: { in: lenderProductIds },
@@ -135,7 +130,6 @@ module.exports = async function sendToLenders(fastify) {
           });
         }
 
-        /* ================= DUPLICATE CHECK ================= */
         const alreadySent = await prisma.applicationLender.findMany({
           where: {
             loanApplicationId: applicationId,
@@ -166,8 +160,7 @@ module.exports = async function sendToLenders(fastify) {
             const processed = [];
 
             for (const lp of newLenderProducts) {
-              // 🔹 Create lender entry
-              await tx.applicationLender.create({
+              const appLender = await tx.applicationLender.create({
                 data: {
                   loanApplicationId: applicationId,
                   lenderOrgId: lp.lenderOrgId,
@@ -178,7 +171,6 @@ module.exports = async function sendToLenders(fastify) {
                 },
               });
 
-              // 🔹 Create notification
               await tx.notification.create({
                 data: {
                   eventType: "APPLICATION_SENT",
@@ -203,10 +195,10 @@ module.exports = async function sendToLenders(fastify) {
                 lenderOrgId: lp.lenderOrgId,
                 lenderEmail: lp.lender.email,
                 status: "SENT",
+                applicationLenderId: appLender.id, // ✅ important
               });
             }
 
-            // 🔹 Application status update
             if (["SUBMITTED", "CLIENT_PENDING"].includes(application.status)) {
               await tx.loanApplication.update({
                 where: { id: applicationId },
@@ -214,10 +206,7 @@ module.exports = async function sendToLenders(fastify) {
               });
             }
 
-            // 🔹 Submission status update (IMPORTANT FIX)
-            if (
-              ["NEW", "CLIENT_PENDING"].includes(submission.status)
-            ) {
+            if (["NEW", "CLIENT_PENDING"].includes(submission.status)) {
               await tx.applicationSubmission.update({
                 where: { id: submissionId },
                 data: { status: "SENT" },
@@ -228,6 +217,64 @@ module.exports = async function sendToLenders(fastify) {
           },
           { isolationLevel: "Serializable" }
         );
+
+        /* ================= ✅ CREATE BROKER-LENDER CONVERSATIONS ================= */
+
+        try {
+          for (const r of results) {
+            const existing = await prisma.conversation.findFirst({
+              where: {
+                applicationLenderId: r.applicationLenderId,
+              },
+            });
+
+            if (!existing) {
+              const conversation = await prisma.conversation.create({
+                data: {
+                  loanApplicationId: applicationId,
+                  applicationLenderId: r.applicationLenderId,
+                  type: "BROKER_LENDER",
+                },
+              });
+
+              const participants = [];
+
+              // Broker
+              participants.push({
+                conversationId: conversation.id,
+                participantType: "BROKER",
+                participantId: userId,
+              });
+
+              // Lender users
+              const lenderUsers = await prisma.userAccount.findMany({
+                where: {
+                  organizationId: r.lenderOrgId,
+                },
+                select: { id: true },
+              });
+
+              lenderUsers.forEach((u) => {
+                participants.push({
+                  conversationId: conversation.id,
+                  participantType: "LENDER",
+                  participantId: u.id,
+                });
+              });
+
+              if (participants.length > 0) {
+                await prisma.conversationParticipant.createMany({
+                  data: participants,
+                });
+              }
+            }
+          }
+        } catch (err) {
+          fastify.log.error(
+            { error: err.message },
+            "Broker-Lender conversation creation failed"
+          );
+        }
 
         /* ================= EMAIL ================= */
         for (const r of results) {
