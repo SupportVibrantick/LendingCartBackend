@@ -38,6 +38,7 @@ module.exports = async function sendMessage(fastify) {
     async (req, reply) => {
       const prisma = fastify.prisma;
       const { conversationId } = req.params;
+
       const {
         type,
         text,
@@ -57,6 +58,16 @@ module.exports = async function sendMessage(fastify) {
           return reply.code(401).send({
             success: false,
             message: "Unauthorized",
+          });
+        }
+
+        // ✅ FIX: handle both id formats safely
+        const userId = req.user?.id || req.user?.userId;
+
+        if (!userId) {
+          return reply.code(401).send({
+            success: false,
+            message: "Invalid user token",
           });
         }
 
@@ -101,7 +112,7 @@ module.exports = async function sendMessage(fastify) {
         const participant = await prisma.conversationParticipant.findFirst({
           where: {
             conversationId,
-            participantId: req.user.id,
+            participantId: userId, // ✅ FIXED
           },
         });
 
@@ -119,8 +130,8 @@ module.exports = async function sendMessage(fastify) {
         const message = await prisma.message.create({
           data: {
             conversationId,
-            senderType: req.user.orgType, // BROKER / LENDER / CLIENT
-            senderId: req.user.id,
+            senderType: req.user.orgType,
+            senderId: userId, // ✅ FIXED
             type,
             text: type === "TEXT" ? text : null,
             fileUrl: type === "FILE" ? fileUrl : null,
@@ -163,7 +174,7 @@ module.exports = async function sendMessage(fastify) {
           {
             error: error.message,
             conversationId,
-            userId: req.user?.id,
+            userId: req.user?.id || req.user?.userId,
           },
           "Failed to send message"
         );
