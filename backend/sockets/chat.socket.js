@@ -1,5 +1,11 @@
 module.exports = function chatSocket(socket, io, prisma) {
 
+  /* ================= HELPER ================= */
+
+  const normalizeUser = (user) => {
+    return user?.id || user?.userId || user?.clientId;
+  };
+
   /* =====================================================
      HELPER: GET SENDER NAME
   ===================================================== */
@@ -45,13 +51,11 @@ module.exports = function chatSocket(socket, io, prisma) {
   };
 
   /* =====================================================
-     1️⃣ JOIN CONVERSATION ROOM (SECURED)
+     1️⃣ JOIN CONVERSATION
   ===================================================== */
   socket.on("joinConversation", async ({ conversationId }) => {
     try {
-      if (!conversationId) return;
-
-      const userId = socket.user.id;
+      const userId = normalizeUser(socket.user);
 
       const participant = await prisma.conversationParticipant.findFirst({
         where: {
@@ -81,11 +85,10 @@ module.exports = function chatSocket(socket, io, prisma) {
     try {
       const { conversationId, type, text, fileUrl, fileName } = payload;
 
-      const senderId = socket.user.id;
-      const senderType = socket.user.orgType || socket.user.role; // ✅ FIXED
+      const userId = normalizeUser(socket.user);
 
-      if (!conversationId) {
-        return socket.emit("error", { message: "Conversation ID required" });
+      if (!userId) {
+        return socket.emit("error", { message: "Invalid user" });
       }
 
       if (type === "TEXT" && !text) {
@@ -97,7 +100,7 @@ module.exports = function chatSocket(socket, io, prisma) {
       const participant = await prisma.conversationParticipant.findFirst({
         where: {
           conversationId,
-          participantId: senderId,
+          participantId: userId,
         },
       });
 
@@ -107,13 +110,30 @@ module.exports = function chatSocket(socket, io, prisma) {
         });
       }
 
-      const senderName = await getSenderName(senderId, senderType);
+      /* ================= DETERMINE SENDER ================= */
+
+      let senderType = "CLIENT";
+      let senderUserId = null;
+      let senderClientUserId = null;
+
+      if (socket.user.orgType === "BROKER" || socket.user.orgType === "LENDER") {
+        senderType = socket.user.orgType;
+        senderUserId = userId;
+      } else {
+        senderType = "CLIENT";
+        senderClientUserId = userId;
+      }
+
+      const senderName = await getSenderName(userId, senderType);
+
+      /* ================= CREATE MESSAGE ================= */
 
       const message = await prisma.message.create({
         data: {
           conversationId,
-          senderId,
           senderType,
+          senderUserId,
+          senderClientUserId,
           senderName,
           type,
           text: type === "TEXT" ? text : null,
@@ -124,16 +144,15 @@ module.exports = function chatSocket(socket, io, prisma) {
 
       await prisma.conversation.update({
         where: { id: conversationId },
-        data: {
-          lastMessageAt: new Date(),
-        },
+        data: { lastMessageAt: new Date() },
       });
 
       const response = {
         id: message.id,
         conversationId,
-        senderId,
         senderType,
+        senderUserId,
+        senderClientUserId,
         senderName,
         type,
         text,
@@ -142,41 +161,24 @@ module.exports = function chatSocket(socket, io, prisma) {
         createdAt: message.createdAt,
       };
 
-      // send message
       io.to(`conversation_${conversationId}`).emit("newMessage", response);
 
-      // 🔥 trigger unread for others
       socket.to(`conversation_${conversationId}`).emit("newUnread", {
         conversationId,
       });
 
     } catch (err) {
-      console.error("❌ Send message error:", err);
+      console.error("❌ Send message error:", err.message);
       socket.emit("error", { message: "Failed to send message" });
     }
   });
 
   /* =====================================================
-     3️⃣ TYPING INDICATOR
-  ===================================================== */
-  socket.on("typing", ({ conversationId }) => {
-    socket.to(`conversation_${conversationId}`).emit("typing", {
-      userId: socket.user.id,
-    });
-  });
-
-  socket.on("stopTyping", ({ conversationId }) => {
-    socket.to(`conversation_${conversationId}`).emit("stopTyping", {
-      userId: socket.user.id,
-    });
-  });
-
-  /* =====================================================
-     4️⃣ MARK AS READ (SEEN)
+     3️⃣ MARK AS READ
   ===================================================== */
   socket.on("markAsRead", async ({ conversationId }) => {
     try {
-      const userId = socket.user.id;
+      const userId = normalizeUser(socket.user);
 
       await prisma.conversationParticipant.updateMany({
         where: {
@@ -194,7 +196,7 @@ module.exports = function chatSocket(socket, io, prisma) {
       });
 
     } catch (err) {
-      console.error("❌ Read error:", err);
+      console.error("❌ Read error:", err.message);
     }
   });
 
