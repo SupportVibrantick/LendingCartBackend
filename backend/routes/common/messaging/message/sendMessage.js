@@ -61,8 +61,9 @@ module.exports = async function sendMessage(fastify) {
           });
         }
 
-        // ✅ FIX: handle both id formats safely
-        const userId = req.user?.id || req.user?.userId;
+        // ✅ FINAL FIX: supports broker, lender, client
+        const userId =
+          req.user?.id || req.user?.userId || req.user?.clientId;
 
         if (!userId) {
           return reply.code(401).send({
@@ -109,12 +110,13 @@ module.exports = async function sendMessage(fastify) {
            4️⃣ CHECK PARTICIPATION
         ===================================================== */
 
-        const participant = await prisma.conversationParticipant.findFirst({
-          where: {
-            conversationId,
-            participantId: userId, // ✅ FIXED
-          },
-        });
+        const participant =
+          await prisma.conversationParticipant.findFirst({
+            where: {
+              conversationId,
+              participantId: userId,
+            },
+          });
 
         if (!participant) {
           return reply.code(403).send({
@@ -130,8 +132,8 @@ module.exports = async function sendMessage(fastify) {
         const message = await prisma.message.create({
           data: {
             conversationId,
-            senderType: req.user.orgType,
-            senderId: userId, // ✅ FIXED
+            senderType: req.user.orgType || req.user.role, // fallback safe
+            senderId: userId,
             type,
             text: type === "TEXT" ? text : null,
             fileUrl: type === "FILE" ? fileUrl : null,
@@ -174,7 +176,10 @@ module.exports = async function sendMessage(fastify) {
           {
             error: error.message,
             conversationId,
-            userId: req.user?.id || req.user?.userId,
+            userId:
+              req.user?.id ||
+              req.user?.userId ||
+              req.user?.clientId,
           },
           "Failed to send message"
         );
