@@ -35,10 +35,14 @@ module.exports = async function getConversationById(fastify) {
           });
         }
 
-        // ✅ FIX: support both id formats
-        const userId = req.user?.id || req.user?.userId;
+        // ✅ FINAL SAFE USER ID (supports all cases)
+        const possibleIds = [
+          req.user?.id,
+          req.user?.userId,
+          req.user?.clientId,
+        ].filter(Boolean);
 
-        if (!userId) {
+        if (!possibleIds.length) {
           return reply.code(401).send({
             success: false,
             message: "Invalid user token",
@@ -67,8 +71,8 @@ module.exports = async function getConversationById(fastify) {
            3️⃣ VERIFY USER IS PARTICIPANT
         ===================================================== */
 
-        const isParticipant = conversation.participants.find(
-          (p) => p.participantId === userId
+        const isParticipant = conversation.participants.find((p) =>
+          possibleIds.includes(p.participantId)
         );
 
         if (!isParticipant) {
@@ -139,7 +143,7 @@ module.exports = async function getConversationById(fastify) {
           {
             error: error.message,
             conversationId,
-            userId: req.user?.id || req.user?.userId,
+            user: req.user,
           },
           "Failed to fetch conversation"
         );
