@@ -24,9 +24,7 @@ module.exports = async function getConversationById(fastify) {
       const { conversationId } = req.params;
 
       try {
-        /* =====================================================
-           1️⃣ AUTH CHECK
-        ===================================================== */
+        /* ================= AUTH CHECK ================= */
 
         if (!req.user) {
           return reply.code(401).send({
@@ -35,23 +33,17 @@ module.exports = async function getConversationById(fastify) {
           });
         }
 
-        // ✅ FINAL SAFE USER ID (supports all cases)
-        const possibleIds = [
-          req.user?.id,
-          req.user?.userId,
-          req.user?.clientId,
-        ].filter(Boolean);
+        // ✅ SINGLE SOURCE OF TRUTH (FIXED)
+        const userId = req.user?.id || req.user?.userId;
 
-        if (!possibleIds.length) {
+        if (!userId) {
           return reply.code(401).send({
             success: false,
             message: "Invalid user token",
           });
         }
 
-        /* =====================================================
-           2️⃣ FETCH CONVERSATION
-        ===================================================== */
+        /* ================= FETCH CONVERSATION ================= */
 
         const conversation = await prisma.conversation.findUnique({
           where: { id: conversationId },
@@ -67,12 +59,10 @@ module.exports = async function getConversationById(fastify) {
           });
         }
 
-        /* =====================================================
-           3️⃣ VERIFY USER IS PARTICIPANT
-        ===================================================== */
+        /* ================= PARTICIPANT VALIDATION ================= */
 
-        const isParticipant = conversation.participants.find((p) =>
-          possibleIds.includes(p.participantId)
+        const isParticipant = conversation.participants.some(
+          (p) => p.participantId === userId
         );
 
         if (!isParticipant) {
@@ -82,48 +72,52 @@ module.exports = async function getConversationById(fastify) {
           });
         }
 
-        /* =====================================================
-           4️⃣ BUILD RESPONSE DATA
-        ===================================================== */
+        /* ================= BUILD TITLE ================= */
 
         let title = "Conversation";
 
-        // CLIENT CHAT
-        if (conversation.type === "CLIENT_BROKER") {
-          const loan = await prisma.loanApplication.findUnique({
-            where: { id: conversation.loanApplicationId },
-            include: {
-              client: {
-                select: { legalName: true },
+        try {
+          // CLIENT CHAT
+          if (conversation.type === "CLIENT_BROKER") {
+            const loan = await prisma.loanApplication.findUnique({
+              where: { id: conversation.loanApplicationId },
+              select: {
+                client: {
+                  select: { legalName: true },
+                },
               },
-            },
-          });
+            });
 
-          title = `Client - ${loan?.client?.legalName || "Unknown"}`;
+            title = `Client - ${loan?.client?.legalName || "Unknown"}`;
+          }
+
+          // LENDER CHAT
+          if (
+            conversation.type === "BROKER_LENDER" &&
+            conversation.applicationLenderId
+          ) {
+            const appLender = await prisma.applicationLender.findUnique({
+              where: { id: conversation.applicationLenderId },
+              select: {
+                lender: {
+                  select: { name: true },
+                },
+              },
+            });
+
+            title = `Lender - ${
+              appLender?.lender?.name || "Unknown"
+            }`;
+          }
+        } catch (err) {
+          // non-blocking (title failure should not break API)
+          fastify.log.error(
+            { error: err.message, conversationId },
+            "Title generation failed"
+          );
         }
 
-        // LENDER CHAT
-        if (
-          conversation.type === "BROKER_LENDER" &&
-          conversation.applicationLenderId
-        ) {
-          const appLender = await prisma.applicationLender.findUnique({
-            where: { id: conversation.applicationLenderId },
-            include: {
-              lender: {
-                select: { name: true },
-              },
-            },
-          });
-
-          title = `Lender - ${
-            appLender?.lender?.name || "Unknown"
-          }`;
-        }
-
-        /* =====================================================
-           5️⃣ RESPONSE
-        ===================================================== */
+        /* ================= RESPONSE ================= */
 
         return reply.send({
           success: true,
@@ -138,12 +132,14 @@ module.exports = async function getConversationById(fastify) {
             createdAt: conversation.createdAt,
           },
         });
+
       } catch (error) {
         fastify.log.error(
           {
             error: error.message,
+            stack: error.stack,
             conversationId,
-            user: req.user,
+            userId: req.user?.id || req.user?.userId,
           },
           "Failed to fetch conversation"
         );
