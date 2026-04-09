@@ -203,8 +203,11 @@ async function brokerSubmitApplication(fastify) {
             });
 
             if (participants.length > 0) {
+              console.log("Participants:", participants); // ✅ debug
+
               await prisma.conversationParticipant.createMany({
                 data: participants,
+                skipDuplicates: true, // ✅ FIX
               });
             }
           }

@@ -132,7 +132,7 @@ module.exports = async function sendMessage(fastify) {
         const message = await prisma.message.create({
           data: {
             conversationId,
-            senderType: req.user.orgType || req.user.role, // fallback safe
+            senderType: req.user.orgType || req.user.role || "CLIENT", // fallback safe
             senderId: userId,
             type,
             text: type === "TEXT" ? text : null,
