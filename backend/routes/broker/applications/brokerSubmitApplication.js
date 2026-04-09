@@ -182,7 +182,7 @@ async function brokerSubmitApplication(fastify) {
             participants.push({
               conversationId: conversation.id,
               participantType: "BROKER",
-              participantId: req.user.userId,
+              participantId: req.user.id,
             });
 
             // Client users
