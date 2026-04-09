@@ -1198,23 +1198,23 @@ model Message {
   id String @id @default(uuid()) @db.Uuid
 
   conversationId String @db.Uuid
-  senderName String?
-  // CLEAN sender system
+
   senderType ParticipantRole
-  senderId   String @db.Uuid
+
+  senderUserId        String? @db.Uuid   // broker/lender
+  senderClientUserId  String? @db.Uuid   // client
+
+  senderName String?
 
   type MessageType
 
-  // TEXT MESSAGE
   text String?
 
-  // FILE SUPPORT (IMPORTANT)
   fileUrl   String?
   fileName  String?
   fileSize  Int?
   mimeType  String?
 
-  // SYSTEM EVENTS / FLEXIBLE DATA
   metadata Json?
 
   createdAt DateTime @default(now())
@@ -1230,15 +1230,18 @@ model ConversationParticipant {
 
   conversationId String @db.Uuid
 
-  //  unified participant system (NO NULL CONFUSION)
   participantType ParticipantRole
-  participantId   String @db.Uuid
+
+  
+  participantId    String? @db.Uuid   // UserAccount OR ClientPortalUser
+  participantEmail String?           // for pre-signup client
 
   lastReadAt DateTime?
 
   conversation Conversation @relation(fields: [conversationId], references: [id])
 
   @@index([conversationId])
+  @@index([participantEmail])
   @@unique([conversationId, participantId])
 }
 

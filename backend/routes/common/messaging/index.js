@@ -28,6 +28,11 @@ module.exports = async function messagingRoutes(fastify) {
     { prefix: "/" }
   );
 
+   await fastify.register(
+    require("./conversation/unReadCount"),
+    { prefix: "/" }
+  );
+
   // /* ===============================
   //    Message Routes
   // =============================== */

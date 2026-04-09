@@ -29,7 +29,7 @@ async function setPasswordRoute(fastify) {
         const { token, password } = req.body;
 
         /* ===============================
-           VALIDATE TOKEN (SECURE)
+           VALIDATE TOKEN
         =============================== */
 
         const tokenRecord = await prisma.clientUploadToken.findFirst({
@@ -50,12 +50,12 @@ async function setPasswordRoute(fastify) {
         }
 
         /* ===============================
-           TRANSACTION (CRITICAL)
+           TRANSACTION
         =============================== */
 
         const result = await prisma.$transaction(async (tx) => {
           /* ===============================
-             CHECK USER AGAIN (LOCK SAFE)
+             CHECK EXISTING USER
           =============================== */
 
           const existingUser = await tx.clientPortalUser.findFirst({
@@ -89,6 +89,8 @@ async function setPasswordRoute(fastify) {
             throw new Error("EMAIL_NOT_FOUND");
           }
 
+          const clientEmail = contact.email;
+
           /* ===============================
              HASH PASSWORD
           =============================== */
@@ -102,13 +104,41 @@ async function setPasswordRoute(fastify) {
           const user = await tx.clientPortalUser.create({
             data: {
               clientId: tokenRecord.clientId,
-              email: contact.email,
+              email: clientEmail,
               passwordHash: hashedPassword,
             },
           });
 
           /* ===============================
-             MARK TOKEN USED (IMPORTANT)
+             ✅ FIX: LINK CLIENT TO EXISTING CONVERSATION
+          =============================== */
+
+          try {
+            await tx.conversationParticipant.updateMany({
+              where: {
+                participantType: "CLIENT",
+                participantEmail: clientEmail,
+                participantId: null,
+              },
+              data: {
+                participantId: user.id,
+                // optional cleanup:
+                // participantEmail: null,
+              },
+            });
+          } catch (err) {
+            // ❗ do NOT break user creation
+            fastify.log.error(
+              {
+                error: err.message,
+                clientId: tokenRecord.clientId,
+              },
+              "Failed to link client to conversations"
+            );
+          }
+
+          /* ===============================
+             MARK TOKEN USED
           =============================== */
 
           await tx.clientUploadToken.update({
@@ -136,6 +166,7 @@ async function setPasswordRoute(fastify) {
         fastify.log.error(
           {
             error: error.message,
+            stack: error.stack,
             body: req.body,
           },
           "Failed to set client password"

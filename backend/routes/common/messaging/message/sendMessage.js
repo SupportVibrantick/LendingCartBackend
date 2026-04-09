@@ -50,9 +50,7 @@ module.exports = async function sendMessage(fastify) {
       } = req.body;
 
       try {
-        /* =====================================================
-           1️⃣ AUTH CHECK
-        ===================================================== */
+        /* ================= AUTH ================= */
 
         if (!req.user) {
           return reply.code(401).send({
@@ -61,7 +59,6 @@ module.exports = async function sendMessage(fastify) {
           });
         }
 
-        // ✅ FINAL FIX: supports broker, lender, client
         const userId =
           req.user?.id || req.user?.userId || req.user?.clientId;
 
@@ -72,9 +69,9 @@ module.exports = async function sendMessage(fastify) {
           });
         }
 
-        /* =====================================================
-           2️⃣ VALIDATE MESSAGE CONTENT
-        ===================================================== */
+        console.log("👤 Sender:", req.user);
+
+        /* ================= VALIDATION ================= */
 
         if (type === "TEXT" && !text) {
           return reply.code(400).send({
@@ -90,13 +87,10 @@ module.exports = async function sendMessage(fastify) {
           });
         }
 
-        /* =====================================================
-           3️⃣ VERIFY CONVERSATION
-        ===================================================== */
+        /* ================= VERIFY CONVERSATION ================= */
 
         const conversation = await prisma.conversation.findUnique({
           where: { id: conversationId },
-          select: { id: true },
         });
 
         if (!conversation) {
@@ -106,9 +100,7 @@ module.exports = async function sendMessage(fastify) {
           });
         }
 
-        /* =====================================================
-           4️⃣ CHECK PARTICIPATION
-        ===================================================== */
+        /* ================= CHECK PARTICIPANT ================= */
 
         const participant =
           await prisma.conversationParticipant.findFirst({
@@ -125,15 +117,28 @@ module.exports = async function sendMessage(fastify) {
           });
         }
 
-        /* =====================================================
-           5️⃣ CREATE MESSAGE
-        ===================================================== */
+        /* ================= DETERMINE SENDER ================= */
+
+        let senderType = "CLIENT";
+        let senderUserId = null;
+        let senderClientUserId = null;
+
+        if (req.user.orgType === "BROKER" || req.user.orgType === "LENDER") {
+          senderType = req.user.orgType;
+          senderUserId = userId;
+        } else {
+          senderType = "CLIENT";
+          senderClientUserId = userId;
+        }
+
+        /* ================= CREATE MESSAGE ================= */
 
         const message = await prisma.message.create({
           data: {
             conversationId,
-            senderType: req.user.orgType || req.user.role || "CLIENT", // fallback safe
-            senderId: userId,
+            senderType,
+            senderUserId,
+            senderClientUserId,
             type,
             text: type === "TEXT" ? text : null,
             fileUrl: type === "FILE" ? fileUrl : null,
@@ -144,9 +149,7 @@ module.exports = async function sendMessage(fastify) {
           },
         });
 
-        /* =====================================================
-           6️⃣ UPDATE CONVERSATION LAST MESSAGE
-        ===================================================== */
+        /* ================= UPDATE CONVERSATION ================= */
 
         await prisma.conversation.update({
           where: { id: conversationId },
@@ -155,9 +158,7 @@ module.exports = async function sendMessage(fastify) {
           },
         });
 
-        /* =====================================================
-           7️⃣ RESPONSE
-        ===================================================== */
+        /* ================= RESPONSE ================= */
 
         return reply.send({
           success: true,
@@ -165,13 +166,16 @@ module.exports = async function sendMessage(fastify) {
             id: message.id,
             type: message.type,
             text: message.text,
-            fileUrl: message.fileUrl,
             senderType: message.senderType,
-            senderId: message.senderId,
+            senderUserId: message.senderUserId,
+            senderClientUserId: message.senderClientUserId,
             createdAt: message.createdAt,
           },
         });
+
       } catch (error) {
+        console.error("💥 SEND MESSAGE ERROR:", error.message);
+
         fastify.log.error(
           {
             error: error.message,

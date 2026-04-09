@@ -27,16 +27,23 @@ module.exports = async function getConversationById(fastify) {
         /* ================= AUTH CHECK ================= */
 
         if (!req.user) {
+          console.error("❌ No user found in request");
           return reply.code(401).send({
             success: false,
             message: "Unauthorized",
           });
         }
 
-        // ✅ SINGLE SOURCE OF TRUTH (FIXED)
         const userId = req.user?.id || req.user?.userId;
+        const userEmail = req.user?.email;
+
+        console.log("🔍 Auth User:", {
+          userId,
+          userEmail,
+        });
 
         if (!userId) {
+          console.error("❌ Invalid user token - missing userId");
           return reply.code(401).send({
             success: false,
             message: "Invalid user token",
@@ -53,19 +60,47 @@ module.exports = async function getConversationById(fastify) {
         });
 
         if (!conversation) {
+          console.error("❌ Conversation not found:", conversationId);
           return reply.code(404).send({
             success: false,
             message: "Conversation not found",
           });
         }
 
+        console.log("📦 Conversation fetched:", {
+          conversationId,
+          participantsCount: conversation.participants.length,
+        });
+
         /* ================= PARTICIPANT VALIDATION ================= */
 
-        const isParticipant = conversation.participants.some(
-          (p) => p.participantId === userId
-        );
+        const isParticipant = conversation.participants.some((p) => {
+          const matchById = p.participantId === userId;
+          const matchByEmail =
+            p.participantEmail &&
+            userEmail &&
+            p.participantEmail === userEmail;
+
+          if (matchById || matchByEmail) {
+            console.log("✅ Participant matched:", {
+              participantId: p.participantId,
+              participantEmail: p.participantEmail,
+              userId,
+              userEmail,
+            });
+          }
+
+          return matchById || matchByEmail;
+        });
 
         if (!isParticipant) {
+          console.error("❌ Access denied:", {
+            userId,
+            userEmail,
+            conversationId,
+            participants: conversation.participants,
+          });
+
           return reply.code(403).send({
             success: false,
             message: "Access denied",
@@ -77,7 +112,6 @@ module.exports = async function getConversationById(fastify) {
         let title = "Conversation";
 
         try {
-          // CLIENT CHAT
           if (conversation.type === "CLIENT_BROKER") {
             const loan = await prisma.loanApplication.findUnique({
               where: { id: conversation.loanApplicationId },
@@ -91,7 +125,6 @@ module.exports = async function getConversationById(fastify) {
             title = `Client - ${loan?.client?.legalName || "Unknown"}`;
           }
 
-          // LENDER CHAT
           if (
             conversation.type === "BROKER_LENDER" &&
             conversation.applicationLenderId
@@ -105,12 +138,11 @@ module.exports = async function getConversationById(fastify) {
               },
             });
 
-            title = `Lender - ${
-              appLender?.lender?.name || "Unknown"
-            }`;
+            title = `Lender - ${appLender?.lender?.name || "Unknown"}`;
           }
         } catch (err) {
-          // non-blocking (title failure should not break API)
+          console.error("⚠️ Title generation failed:", err.message);
+
           fastify.log.error(
             { error: err.message, conversationId },
             "Title generation failed"
@@ -118,6 +150,8 @@ module.exports = async function getConversationById(fastify) {
         }
 
         /* ================= RESPONSE ================= */
+
+        console.log("✅ Conversation access granted:", conversationId);
 
         return reply.send({
           success: true,
@@ -134,6 +168,12 @@ module.exports = async function getConversationById(fastify) {
         });
 
       } catch (error) {
+        console.error("💥 SERVER ERROR:", {
+          message: error.message,
+          stack: error.stack,
+          conversationId,
+        });
+
         fastify.log.error(
           {
             error: error.message,
