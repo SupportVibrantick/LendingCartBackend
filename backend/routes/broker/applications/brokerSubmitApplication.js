@@ -65,8 +65,6 @@ async function brokerSubmitApplication(fastify) {
         /* ================= TRANSACTION ================= */
 
         const result = await prisma.$transaction(async (tx) => {
-          /* ================= REQUIRED FIELDS ================= */
-
           const emailField = fields.find(f => f.fieldKey === "email");
           const firstNameField = fields.find(f => f.fieldKey === "first_name");
           const lastNameField = fields.find(f => f.fieldKey === "last_name");
@@ -76,8 +74,6 @@ async function brokerSubmitApplication(fastify) {
           }
 
           const email = emailField.value;
-
-          /* ================= CREATE OR REUSE CLIENT ================= */
 
           let client = await tx.client.findFirst({
             where: {
@@ -111,8 +107,6 @@ async function brokerSubmitApplication(fastify) {
             });
           }
 
-          /* ================= CREATE LOAN APPLICATION ================= */
-
           const loanApplication = await tx.loanApplication.create({
             data: {
               id: randomUUID(),
@@ -120,25 +114,17 @@ async function brokerSubmitApplication(fastify) {
               brokerOrgId,
               clientId: client.id,
               loanProductCode: brokerProduct.loanProductCode,
-
-              //  FIXED: Do NOT mark submitted
               status: "DRAFT"
             }
           });
-
-          /* ================= CREATE SUBMISSION ================= */
 
           const submission = await tx.applicationSubmission.create({
             data: {
               applicationId: loanApplication.id,
               applicationProductId,
-
-              // FIXED: waiting for client action
               status: "CLIENT_PENDING"
             }
           });
-
-          /* ================= SAVE FIELDS ================= */
 
           const submissionFields = fields.map(f => ({
             submissionId: submission.id,
@@ -166,14 +152,68 @@ async function brokerSubmitApplication(fastify) {
           category: "APPLICATION",
           entityType: "LoanApplication",
           entityId: result.loanApplication.id,
-
-          //FIXED ACTION
           action: "CREATE_APPLICATION",
-
           newValue: {
             submissionId: result.submission.id
           }
         });
+
+        /* ================= ✅ CREATE CLIENT-BROKER CONVERSATION ================= */
+
+        try {
+          const existing = await prisma.conversation.findFirst({
+            where: {
+              loanApplicationId: result.loanApplication.id,
+              type: "CLIENT_BROKER",
+            },
+          });
+
+          if (!existing) {
+            const conversation = await prisma.conversation.create({
+              data: {
+                loanApplicationId: result.loanApplication.id,
+                type: "CLIENT_BROKER",
+              },
+            });
+
+            const participants = [];
+
+            // Broker
+            participants.push({
+              conversationId: conversation.id,
+              participantType: "BROKER",
+              participantId: req.user.userId,
+            });
+
+            // Client users
+            const clientUsers = await prisma.clientPortalUser.findMany({
+              where: {
+                clientId: result.client.id,
+                isDeleted: false,
+              },
+              select: { id: true },
+            });
+
+            clientUsers.forEach((u) => {
+              participants.push({
+                conversationId: conversation.id,
+                participantType: "CLIENT",
+                participantId: u.id,
+              });
+            });
+
+            if (participants.length > 0) {
+              await prisma.conversationParticipant.createMany({
+                data: participants,
+              });
+            }
+          }
+        } catch (err) {
+          fastify.log.error(
+            { error: err.message },
+            "Conversation creation failed (non-blocking)"
+          );
+        }
 
         /* ================= SUCCESS ================= */
 
