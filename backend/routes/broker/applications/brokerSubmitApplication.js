@@ -24,6 +24,16 @@ async function brokerSubmitApplication(fastify) {
           });
         }
 
+        // 🔥 FIX: normalize userId (CRITICAL)
+        const brokerUserId = req.user?.id || req.user?.userId;
+
+        console.log("🔥 Broker User Object:", req.user);
+        console.log("🔥 Broker User ID:", brokerUserId);
+
+        if (!brokerUserId) {
+          throw new Error("BROKER_ID_MISSING");
+        }
+
         const brokerOrgId = req.user.organizationId;
 
         /* ================= BODY VALIDATION ================= */
@@ -79,11 +89,10 @@ async function brokerSubmitApplication(fastify) {
             where: {
               primaryBrokerOrgId: brokerOrgId,
               contacts: {
-                some: {
-                  email
-                }
+                some: { email }
               }
-            }
+            },
+            include: { contacts: true }
           });
 
           if (!client) {
@@ -103,7 +112,8 @@ async function brokerSubmitApplication(fastify) {
                     isPrimary: true
                   }
                 }
-              }
+              },
+              include: { contacts: true }
             });
           }
 
@@ -158,7 +168,7 @@ async function brokerSubmitApplication(fastify) {
           }
         });
 
-        /* ================= ✅ CREATE CLIENT-BROKER CONVERSATION ================= */
+        /* ================= ✅ CREATE CONVERSATION ================= */
 
         try {
           const existing = await prisma.conversation.findFirst({
@@ -178,40 +188,34 @@ async function brokerSubmitApplication(fastify) {
 
             const participants = [];
 
-            // Broker
+            // ✅ FIXED BROKER
             participants.push({
               conversationId: conversation.id,
               participantType: "BROKER",
-              participantId: req.user.id,
+              participantId: brokerUserId, // 🔥 FIXED
             });
 
-            // Client users
-            const clientUsers = await prisma.clientPortalUser.findMany({
-              where: {
-                clientId: result.client.id,
-                isDeleted: false,
-              },
-              select: { id: true },
-            });
+            // ✅ CLIENT (EMAIL)
+            const clientEmail = result.client.contacts?.[0]?.email;
 
-            clientUsers.forEach((u) => {
+            if (clientEmail) {
               participants.push({
                 conversationId: conversation.id,
                 participantType: "CLIENT",
-                participantId: u.id,
-              });
-            });
-
-            if (participants.length > 0) {
-              console.log("Participants:", participants); // ✅ debug
-
-              await prisma.conversationParticipant.createMany({
-                data: participants,
-                skipDuplicates: true, // ✅ FIX
+                participantEmail: clientEmail,
               });
             }
+
+            console.log("👥 Participants to insert:", participants);
+
+            await prisma.conversationParticipant.createMany({
+              data: participants,
+              skipDuplicates: true,
+            });
           }
         } catch (err) {
+          console.error("💥 Conversation creation error:", err.message);
+
           fastify.log.error(
             { error: err.message },
             "Conversation creation failed (non-blocking)"
@@ -230,6 +234,8 @@ async function brokerSubmitApplication(fastify) {
         });
 
       } catch (error) {
+        console.error("💥 SUBMIT ERROR:", error.message);
+
         fastify.log.error({
           message: error.message,
           stack: error.stack
@@ -239,6 +245,13 @@ async function brokerSubmitApplication(fastify) {
           return reply.code(400).send({
             success: false,
             message: error.message
+          });
+        }
+
+        if (error.message === "BROKER_ID_MISSING") {
+          return reply.code(401).send({
+            success: false,
+            message: "Invalid broker token (missing userId)"
           });
         }
 

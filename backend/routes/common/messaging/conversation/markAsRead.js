@@ -24,9 +24,7 @@ module.exports = async function markAsRead(fastify) {
       const { conversationId } = req.params;
 
       try {
-        /* =====================================================
-           1️⃣ AUTH CHECK
-        ===================================================== */
+        /* ================= AUTH ================= */
 
         if (!req.user) {
           return reply.code(401).send({
@@ -35,27 +33,54 @@ module.exports = async function markAsRead(fastify) {
           });
         }
 
-        /* =====================================================
-           2️⃣ VERIFY PARTICIPANT
-        ===================================================== */
+        // 🔥 FIX: normalize user
+        const userId =
+          req.user?.id || req.user?.userId || req.user?.clientId;
 
-        const participant = await prisma.conversationParticipant.findFirst({
-          where: {
-            conversationId,
-            participantId: req.user.id,
-          },
-        });
+        const userEmail = req.user?.email;
+
+        console.log("👤 MarkRead User:", { userId, userEmail });
+
+        if (!userId && !userEmail) {
+          return reply.code(401).send({
+            success: false,
+            message: "Invalid user token",
+          });
+        }
+
+        /* ================= VERIFY PARTICIPANT ================= */
+
+        const normalize = (str) => str?.trim().toLowerCase();
+
+        const participant =
+          await prisma.conversationParticipant.findFirst({
+            where: {
+              conversationId,
+              OR: [
+                { participantId: userId },
+                {
+                  participantEmail: userEmail
+                    ? normalize(userEmail)
+                    : undefined,
+                },
+              ],
+            },
+          });
 
         if (!participant) {
+          console.error("❌ MarkRead access denied:", {
+            conversationId,
+            userId,
+            userEmail,
+          });
+
           return reply.code(403).send({
             success: false,
             message: "Access denied",
           });
         }
 
-        /* =====================================================
-           3️⃣ UPDATE lastReadAt
-        ===================================================== */
+        /* ================= UPDATE lastReadAt ================= */
 
         await prisma.conversationParticipant.update({
           where: {
@@ -66,20 +91,29 @@ module.exports = async function markAsRead(fastify) {
           },
         });
 
-        /* =====================================================
-           4️⃣ RESPONSE
-        ===================================================== */
+        console.log("✅ Marked as read:", {
+          conversationId,
+          participantId: participant.id,
+        });
+
+        /* ================= RESPONSE ================= */
 
         return reply.send({
           success: true,
           message: "Conversation marked as read",
         });
+
       } catch (error) {
+        console.error("💥 MARK READ ERROR:", error.message);
+
         fastify.log.error(
           {
             error: error.message,
             conversationId,
-            userId: req.user?.id,
+            userId:
+              req.user?.id ||
+              req.user?.userId ||
+              req.user?.clientId,
           },
           "Failed to mark conversation as read"
         );
