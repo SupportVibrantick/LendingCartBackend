@@ -37,7 +37,22 @@ module.exports = async function sendToLenders(fastify) {
         });
       }
 
-      const userId = req.user.id;
+      /* =====================================================
+         🔥 FIX: UNIVERSAL USER ID (CRITICAL)
+      ===================================================== */
+      const userId =
+        req.user?.id ||
+        req.user?.userId ||
+        req.user?.clientId;
+
+      if (!userId) {
+        fastify.log.error("❌ USER ID MISSING", req.user);
+        return reply.code(401).send({
+          success: false,
+          message: "Invalid user token",
+        });
+      }
+
       const brokerOrgId = req.user.organizationId;
 
       try {
@@ -125,16 +140,22 @@ module.exports = async function sendToLenders(fastify) {
               },
             });
 
+            /* ================= PARTICIPANTS ================= */
+
             const lenderUsers = await tx.userAccount.findMany({
               where: { organizationId: lp.lenderOrgId },
               select: { id: true },
             });
 
+            if (!userId) {
+              throw new Error("❌ Broker ID missing while creating participants");
+            }
+
             const participants = [
               {
                 conversationId: conversation.id,
                 participantType: "BROKER",
-                participantId: userId,
+                participantId: userId, // ✅ FIXED
               },
               ...lenderUsers.map((u) => ({
                 conversationId: conversation.id,
@@ -145,7 +166,14 @@ module.exports = async function sendToLenders(fastify) {
 
             await tx.conversationParticipant.createMany({
               data: participants,
-              skipDuplicates: true, // ✅ FIX
+              skipDuplicates: true,
+            });
+
+            fastify.log.info({
+              msg: "✅ Conversation created",
+              conversationId: conversation.id,
+              brokerId: userId,
+              lenderCount: lenderUsers.length,
             });
 
             created.push({
@@ -158,7 +186,7 @@ module.exports = async function sendToLenders(fastify) {
           return created;
         });
 
-        /* ================= EMAIL (ASYNC - NON BLOCKING) ================= */
+        /* ================= EMAIL (NON BLOCKING) ================= */
 
         (async () => {
           for (const r of results) {
