@@ -18,6 +18,7 @@ import {
   FiSearch,
   FiEye,
 } from "react-icons/fi";
+import Chat from "./Chat";
 
 /* ================= TYPES ================= */
 const SigCanvas = SignatureCanvas as unknown as React.FC<any>;
@@ -372,6 +373,7 @@ export default function ClientUpload() {
 
       const res = await axios.get(url, getClientPortalAuthConfig());
 
+      verifyToken();
       setApplications(res.data?.data || []);
       setPage(res.data?.meta?.page || 1);
       setTotalPages(res.data?.meta?.totalPages || 1);
@@ -396,7 +398,7 @@ export default function ClientUpload() {
 
       setSelectedApplication(data);
 
-      // 👇 IMPORTANT: convert API fields → your UI format
+      // IMPORTANT: convert API fields → your UI format
       const fields =
         data?.submissions?.[0]?.fields?.map((f: any) => ({
           key: f.fieldKey,
@@ -454,128 +456,6 @@ export default function ClientUpload() {
     window.location.href = "/client-portal";
   };
 
-  const renderChat = () => {
-    const dummyChats = [
-      {
-        id: 1,
-        name: "Support",
-        lastMessage: "Upload documents please",
-        time: "2 min ago",
-        unread: 1,
-      },
-      {
-        id: 1,
-        name: "Help",
-        lastMessage: "Upload documents please",
-        time: "21min ago",
-        unread: 1,
-      },
-    ];
-
-    const dummyMessages = [
-      { id: 1, text: "Hello 👋", sender: "other", time: "10:00 AM" },
-      {
-        id: 2,
-        text: "Please upload documents",
-        sender: "other",
-        time: "10:01 AM",
-      },
-      { id: 3, text: "Uploading now", sender: "me", time: "10:02 AM" },
-    ];
-
-    return (
-      <div className="h-[88vh] flex rounded-2xl overflow-hidden border shadow-xl">
-        {/* LEFT SIDEBAR */}
-        <div className="w-[30%] bg-white border-r flex flex-col">
-          <div className="p-4 border-b font-semibold">Chats</div>
-
-          <div className="flex-1 overflow-y-auto">
-            {dummyChats.map((chat) => (
-              <div
-                key={chat.id}
-                className="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 cursor-pointer"
-              >
-                <div className="h-10 w-10 rounded-full bg-green-500 text-white flex items-center justify-center font-bold">
-                  {chat.name.charAt(0)}
-                </div>
-
-                <div className="flex-1">
-                  <p className="text-sm font-semibold">{chat.name}</p>
-                  <p className="text-xs text-gray-500 truncate">
-                    {chat.lastMessage}
-                  </p>
-                </div>
-
-                {chat.unread > 0 && (
-                  <span className="text-xs bg-green-500 text-white px-2 py-0.5 rounded-full">
-                    {chat.unread}
-                  </span>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* RIGHT CHAT */}
-        <div className="w-[70%] flex flex-col bg-[#efeae2] relative">
-          {/* PATTERN BG */}
-          <div
-            className="absolute inset-0 opacity-20 pointer-events-none
-          bg-[radial-gradient(circle_at_1px_1px,#d1d5db_1px,transparent_0)]
-          bg-[size:20px_20px]"
-          />
-
-          {/* HEADER */}
-          <div className="p-4 border-b bg-white flex items-center gap-3 z-10">
-            <div className="h-10 w-10 rounded-full bg-green-500 text-white flex items-center justify-center">
-              S
-            </div>
-            <div>
-              <p className="font-semibold">Support</p>
-              <p className="text-xs text-gray-500">Online</p>
-            </div>
-          </div>
-
-          {/* MESSAGES */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-3 z-10">
-            {dummyMessages.map((msg) => (
-              <div
-                key={msg.id}
-                className={`flex ${
-                  msg.sender === "me" ? "justify-end" : "justify-start"
-                }`}
-              >
-                <div
-                  className={`max-w-xs px-4 py-2 rounded-2xl text-sm shadow ${
-                    msg.sender === "me"
-                      ? "bg-green-500 text-white rounded-br-none"
-                      : "bg-white rounded-bl-none"
-                  }`}
-                >
-                  {msg.text}
-                  <p className="text-[10px] mt-1 text-right opacity-70">
-                    {msg.time}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* INPUT */}
-          <div className="p-3 bg-white border-t flex gap-2 z-10">
-            <input
-              placeholder="Type a message..."
-              className="flex-1 px-4 py-2 rounded-full border text-sm outline-none"
-            />
-            <button className="bg-green-500 text-white px-4 rounded-full">
-              Send
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(search);
@@ -602,6 +482,74 @@ export default function ClientUpload() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white p-6">
       <div className="max-w-8xl mx-auto">
+        {/* TOP SUMMARY CARD - TABS SE UPAR */}
+        {(activeTab === "documents" || activeTab === "applications") &&
+          applicationData && (
+            <div className="mb-6 rounded-2xl bg-white border border-slate-200 shadow-sm p-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                {/* Application No */}
+                {/* <div className="rounded-xl bg-slate-50 p-4">
+                <p className="text-[11px] uppercase text-slate-400 font-semibold">
+                  Application No
+                </p>
+                <p className="text-sm font-bold text-slate-800 mt-1">
+                  {applicationData?.applicationNumber || "-"}
+                </p>
+              </div> */}
+
+                {/* Status */}
+                {/* <div className="rounded-xl bg-slate-50 p-4">
+                <p className="text-[11px] uppercase text-slate-400 font-semibold">
+                  Status
+                </p>
+                <div className="mt-1">
+                  <span
+                    className={`inline-flex items-center gap-2 px-3 py-1 text-xs font-semibold rounded-full ${getStatusStyles(
+                      applicationData?.status,
+                    )}`}
+                  >
+                    <span
+                      className={`h-2 w-2 rounded-full ${getStatusDot(
+                        applicationData?.status,
+                      )}`}
+                    />
+                    {applicationData?.status || "-"}
+                  </span>
+                </div>
+              </div> */}
+
+                {/* Name */}
+                <div className="rounded-xl bg-slate-50 p-4">
+                  <p className="text-[11px] uppercase text-slate-400 font-semibold">
+                    Borrower Name
+                  </p>
+                  <p className="text-sm font-bold text-slate-800 mt-1">
+                    {applicationData?.borrower?.name || "-"}
+                  </p>
+                </div>
+
+                {/* Email */}
+                <div className="rounded-xl bg-slate-50 p-4">
+                  <p className="text-[11px] uppercase text-slate-400 font-semibold">
+                    Email
+                  </p>
+                  <p className="text-sm font-medium text-slate-700 mt-1 break-all">
+                    {applicationData?.borrower?.email || "-"}
+                  </p>
+                </div>
+
+                {/* Credit Score */}
+                {/* <div className="rounded-xl bg-slate-50 p-4">
+                <p className="text-[11px] uppercase text-slate-400 font-semibold">
+                  Credit Score
+                </p>
+                <p className="text-sm font-bold text-slate-800 mt-1">
+                  {applicationData?.borrower?.creditScore || "-"}
+                </p>
+              </div> */}
+              </div>
+            </div>
+          )}
         <div className="flex items-center justify-between mb-6 border-b pb-2">
           {/* LEFT SIDE ACTIONS */}
           <div className="flex items-center gap-6">
@@ -640,7 +588,7 @@ export default function ClientUpload() {
             </button>
 
             {/* CHAT */}
-            <button
+            {/* <button
               onClick={() => setActiveTab("chat")}
               className={`relative flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium transition-all
       ${
@@ -654,7 +602,7 @@ export default function ClientUpload() {
               {activeTab === "chat" && (
                 <span className="absolute -bottom-2 left-2 right-2 h-[2px] bg-green-500 rounded-full" />
               )}
-            </button>
+            </button> */}
           </div>
 
           {/* RIGHT SIDE */}
@@ -914,7 +862,7 @@ export default function ClientUpload() {
              shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer 
              overflow-hidden bg-white"
                     >
-                      {/* 🔥 MINIMAL HOVER OVERLAY */}
+                      {/*  MINIMAL HOVER OVERLAY */}
                       <div
                         className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 
                transition-all duration-300 flex items-center justify-center z-20 backdrop-blur-[1px]"
@@ -1081,6 +1029,7 @@ export default function ClientUpload() {
                       onClick={() => {
                         setSelectedApplication(null);
                         setActiveTab("applications");
+                        verifyToken();
                       }}
                       className="flex items-center gap-2 text-sm text-gray-500 hover:text-blue-600 mb-3"
                     >
@@ -1088,7 +1037,7 @@ export default function ClientUpload() {
                     </button>
 
                     {/* TITLE */}
-                    <div className="flex items-center justify-between mb-4">
+                    <div className="mb-4 flex items-center justify-between">
                       <div>
                         <h1 className="text-xl font-semibold text-gray-800">
                           Loan Application Preview
@@ -1098,13 +1047,44 @@ export default function ClientUpload() {
                         </p>
                       </div>
 
-                      {/* STATUS */}
-                      <span
-                        className={`px-4 py-1.5 text-xs font-semibold rounded-full
-        ${getStatusStyles(selectedApplication?.status)}`}
-                      >
-                        {selectedApplication?.status}
-                      </span>
+                      <div className="flex items-center gap-3">
+                        {/* Chat Button */}
+                        <button
+                          type="button"
+                          onClick={() => setActiveTab("chat")}
+                          className="group relative flex items-center gap-3 overflow-hidden rounded-2xl border border-emerald-200 bg-gradient-to-r from-emerald-500 via-emerald-600 to-green-600 px-5 py-3 text-white shadow-[0_12px_28px_rgba(16,185,129,0.22)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_18px_36px_rgba(16,185,129,0.3)]"
+                        >
+                          {/* soft glow */}
+                          <span className="absolute inset-0 bg-gradient-to-r from-white/10 via-transparent to-white/5 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+
+                          {/* live pulse */}
+                          <span className="absolute right-3 top-2 flex h-2.5 w-2.5">
+                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/70 opacity-75" />
+                            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-white" />
+                          </span>
+
+                          {/* icon */}
+                          <span className="relative flex h-10 w-10 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm transition duration-300 group-hover:scale-110 group-hover:bg-white/25">
+                            <FiMessageCircle size={18} />
+                          </span>
+
+                          {/* text */}
+                          <span className="relative flex flex-col items-start leading-tight">
+                            <span className="text-sm font-semibold tracking-wide">
+                              Open Chat
+                            </span>
+                          </span>
+                        </button>
+
+                        {/* STATUS */}
+                        <span
+                          className={`rounded-full px-4 py-1.5 text-xs font-semibold ${getStatusStyles(
+                            selectedApplication?.status,
+                          )}`}
+                        >
+                          {selectedApplication?.status}
+                        </span>
+                      </div>
                     </div>
 
                     {/* CARDS CONTAINER */}
@@ -1418,15 +1398,7 @@ export default function ClientUpload() {
                     {/* Status Badge */}
                     <span
                       className={`inline-flex items-center gap-2 px-4 py-1.5 text-xs font-semibold rounded-full shadow-sm
-                      ${
-                        applicationData.status === "SUBMITTED"
-                          ? "bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200"
-                          : applicationData.status === "PENDING"
-                            ? "bg-amber-100 text-amber-700 ring-1 ring-amber-200"
-                            : applicationData.status === "REJECTED"
-                              ? "bg-red-100 text-red-700 ring-1 ring-red-200"
-                              : "bg-gray-100 text-gray-700 ring-1 ring-gray-200"
-                      }`}
+                      ${getStatusStyles(applicationData.status)}`}
                     >
                       {/* Dot indicator */}
                       <span
@@ -1450,7 +1422,15 @@ export default function ClientUpload() {
             </div>
           ) : null)}
 
-        {activeTab === "chat" && renderChat()}
+        {activeTab === "chat" && (
+          <Chat
+            applicationId={
+              selectedApplication?.id ||
+              selectedApplication?.loanApplicationId ||
+              applicationId
+            }
+          />
+        )}
       </div>
     </div>
   );

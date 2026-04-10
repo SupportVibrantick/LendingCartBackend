@@ -4,8 +4,9 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { ArrowLeft, Download, Eye, FileIcon, Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
 import { motion } from "framer-motion";
+import Chat from "./Chat";
 
-type PreviewTab = "details" | "documents" | "loi";
+type PreviewTab = "details" | "documents" | "loi" | "chat";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
@@ -47,6 +48,7 @@ const tabMeta: Array<{ id: PreviewTab; label: string }> = [
   { id: "details", label: "View Details" },
   { id: "documents", label: "Documents" },
   { id: "loi", label: "View LOI" },
+  { id: "chat", label: "Chat" },
 ];
 
 export default function LoanPreview() {
@@ -292,6 +294,24 @@ export default function LoanPreview() {
       fetchLoi();
     }
   }, [activeTab, applicationLenderId]);
+
+  const resolvedChatApplicationId =
+    submissionDetail?.loanApplication?.id ||
+    submissionDetail?.loanApplicationId ||
+    submissionDetail?.loanApplication?.loanApplicationId ||
+    "";
+
+  const renderChat = () => {
+    if (!resolvedChatApplicationId) {
+      return (
+        <div className="text-center py-16 text-slate-500">
+          Chat is not available for this application yet.
+        </div>
+      );
+    }
+
+    return <Chat applicationId={resolvedChatApplicationId} />;
+  };
 
   const onTabChange = (tab: PreviewTab) => {
     setActiveTab(tab);
@@ -784,6 +804,7 @@ export default function LoanPreview() {
             {activeTab === "details" && renderDetails()}
             {activeTab === "documents" && renderDocuments()}
             {activeTab === "loi" && renderLoi()}
+            {activeTab === "chat" && renderChat()}
           </div>
         </div>
       </div>
