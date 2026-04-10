@@ -1,5 +1,5 @@
 /**
- * Get single conversation details
+ * Get single conversation details (FINAL - SAFE + ENHANCED)
  */
 
 module.exports = async function getConversationById(fastify) {
@@ -34,16 +34,18 @@ module.exports = async function getConversationById(fastify) {
           });
         }
 
-        const userId = req.user?.id || req.user?.userId;
+        // ✅ FIX: universal userId (no breaking)
+        const userId =
+          req.user?.id ||
+          req.user?.userId ||
+          req.user?.clientId;
+
         const userEmail = req.user?.email;
 
-        console.log("🔍 Auth User:", {
-          userId,
-          userEmail,
-        });
+        console.log("🔍 Auth User:", { userId, userEmail });
 
-        if (!userId) {
-          console.error("❌ Invalid user token - missing userId");
+        if (!userId && !userEmail) {
+          console.error("❌ Invalid user token");
           return reply.code(401).send({
             success: false,
             message: "Invalid user token",
@@ -75,18 +77,20 @@ module.exports = async function getConversationById(fastify) {
         /* ================= PARTICIPANT VALIDATION ================= */
 
         const isParticipant = conversation.participants.some((p) => {
-          const matchById = p.participantId === userId;
+          const matchById =
+            p.participantId &&
+            userId &&
+            p.participantId === userId;
+
           const matchByEmail =
             p.participantEmail &&
             userEmail &&
-            p.participantEmail === userEmail;
+            p.participantEmail.toLowerCase() === userEmail.toLowerCase();
 
           if (matchById || matchByEmail) {
             console.log("✅ Participant matched:", {
               participantId: p.participantId,
               participantEmail: p.participantEmail,
-              userId,
-              userEmail,
             });
           }
 
@@ -142,11 +146,80 @@ module.exports = async function getConversationById(fastify) {
           }
         } catch (err) {
           console.error("⚠️ Title generation failed:", err.message);
+        }
 
-          fastify.log.error(
-            { error: err.message, conversationId },
-            "Title generation failed"
-          );
+        /* ================= 🔥 ENRICH PARTICIPANTS (NAMES - OPTIMIZED) ================= */
+
+        let enrichedParticipants = [];
+
+        try {
+          const userIds = conversation.participants
+            .filter(
+              (p) =>
+                p.participantId &&
+                (p.participantType === "BROKER" ||
+                  p.participantType === "LENDER")
+            )
+            .map((p) => p.participantId);
+
+          const clientIds = conversation.participants
+            .filter(
+              (p) =>
+                p.participantId && p.participantType === "CLIENT"
+            )
+            .map((p) => p.participantId);
+
+          const users = await prisma.userAccount.findMany({
+            where: { id: { in: userIds } },
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              organization: { select: { name: true } },
+            },
+          });
+
+          const clients = await prisma.clientPortalUser.findMany({
+            where: { id: { in: clientIds } },
+            select: {
+              id: true,
+              client: { select: { legalName: true } },
+            },
+          });
+
+          const userMap = new Map(users.map((u) => [u.id, u]));
+          const clientMap = new Map(clients.map((c) => [c.id, c]));
+
+          enrichedParticipants = conversation.participants.map((p) => {
+            let name = "Unknown";
+
+            if (
+              p.participantType === "BROKER" ||
+              p.participantType === "LENDER"
+            ) {
+              const user = userMap.get(p.participantId);
+              name =
+                user?.organization?.name ||
+                `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
+                "User";
+            }
+
+            if (p.participantType === "CLIENT") {
+              const client = clientMap.get(p.participantId);
+              name =
+                client?.client?.legalName ||
+                p.participantEmail ||
+                "Client";
+            }
+
+            return {
+              ...p,
+              name, // ✅ added
+            };
+          });
+        } catch (err) {
+          console.error("❌ Name enrichment failed:", err.message);
+          enrichedParticipants = conversation.participants;
         }
 
         /* ================= RESPONSE ================= */
@@ -161,7 +234,7 @@ module.exports = async function getConversationById(fastify) {
             loanApplicationId: conversation.loanApplicationId,
             applicationLenderId: conversation.applicationLenderId,
             title,
-            participants: conversation.participants,
+            participants: enrichedParticipants, // ✅ enhanced
             lastMessageAt: conversation.lastMessageAt,
             createdAt: conversation.createdAt,
           },
@@ -179,7 +252,10 @@ module.exports = async function getConversationById(fastify) {
             error: error.message,
             stack: error.stack,
             conversationId,
-            userId: req.user?.id || req.user?.userId,
+            userId:
+              req.user?.id ||
+              req.user?.userId ||
+              req.user?.clientId,
           },
           "Failed to fetch conversation"
         );
