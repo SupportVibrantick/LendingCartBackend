@@ -26,10 +26,10 @@ module.exports = async function submitDocumentsToLender(fastify) {
         }
 
         const { submissionId } = req.params;
-        const { requirementIds } = req.body || {};
+        const { requirementIds, applicationLenderId } = req.body || {};
 
         /* ===============================
-           VALIDATE BODY (OPTIONAL)
+           VALIDATE BODY
         =============================== */
         if (
           requirementIds &&
@@ -39,6 +39,13 @@ module.exports = async function submitDocumentsToLender(fastify) {
           return reply.code(400).send({
             success: false,
             message: "requirementIds must be an array of strings",
+          });
+        }
+
+        if (!applicationLenderId || typeof applicationLenderId !== "string") {
+          return reply.code(400).send({
+            success: false,
+            message: "applicationLenderId is required",
           });
         }
 
@@ -70,6 +77,21 @@ module.exports = async function submitDocumentsToLender(fastify) {
         const loanApplicationId = submission.application.id;
 
         /* ===============================
+           VALIDATE LENDER
+        =============================== */
+        const lender =
+          await fastify.prisma.applicationLender.findUnique({
+            where: { id: applicationLenderId },
+          });
+
+        if (!lender || lender.loanApplicationId !== loanApplicationId) {
+          return reply.code(400).send({
+            success: false,
+            message: "Invalid lender for this application",
+          });
+        }
+
+        /* ===============================
            VALIDATE REQUIREMENTS (IF PROVIDED)
         =============================== */
         if (requirementIds && requirementIds.length > 0) {
@@ -92,14 +114,12 @@ module.exports = async function submitDocumentsToLender(fastify) {
         }
 
         /* ===============================
-           BUILD FILTER (CORE LOGIC)
+           BUILD FILTER
         =============================== */
         let uploadFilter = {
           loanApplicationId,
-          isSubmittedToLender: false,
         };
 
-        // 🔥 SELECTIVE SUPPORT
         if (requirementIds && requirementIds.length > 0) {
           uploadFilter.documentRequirementId = {
             in: requirementIds,
@@ -107,11 +127,12 @@ module.exports = async function submitDocumentsToLender(fastify) {
         }
 
         /* ===============================
-           FETCH UNSUBMITTED UPLOADS
+           FETCH UPLOADS
         =============================== */
         const uploads =
           await fastify.prisma.applicationDocumentUpload.findMany({
             where: uploadFilter,
+            select: { id: true },
           });
 
         if (!uploads || uploads.length === 0) {
@@ -119,25 +140,43 @@ module.exports = async function submitDocumentsToLender(fastify) {
             success: false,
             message:
               requirementIds && requirementIds.length > 0
-                ? "No documents available to submit for selected requirements"
+                ? "No documents available for selected requirements"
                 : "No documents available to submit",
           });
         }
 
-        /* ===============================
-           UPDATE DOCUMENTS → SUBMITTED
-        =============================== */
         const uploadIds = uploads.map((u) => u.id);
 
-        await fastify.prisma.applicationDocumentUpload.updateMany({
-          where: {
-            id: { in: uploadIds },
-          },
-          data: {
-            isSubmittedToLender: true,
-            submittedAt: new Date(),
-          },
+        /* ===============================
+           CREATE DOCUMENT → LENDER MAPPING
+        =============================== */
+        const submissionData = uploadIds.map((docId) => ({
+          documentUploadId: docId,
+          applicationLenderId,
+        }));
+
+        await fastify.prisma.applicationDocumentSubmission.createMany({
+          data: submissionData,
+          skipDuplicates: true,
         });
+
+        /* ===============================
+           UPDATE LENDER STATUS (OPTIONAL)
+        =============================== */
+        try {
+          await fastify.prisma.applicationLender.update({
+            where: { id: applicationLenderId },
+            data: {
+              status: "IN_REVIEW",
+              sentAt: new Date(),
+            },
+          });
+        } catch (err) {
+          fastify.log.warn({
+            error: err.message,
+            message: "Failed to update lender status",
+          });
+        }
 
         /* ===============================
            OPTIONAL: UPDATE APPLICATION STATUS
@@ -150,7 +189,6 @@ module.exports = async function submitDocumentsToLender(fastify) {
             },
           });
         } catch (err) {
-          // do not fail request if this fails
           fastify.log.warn({
             error: err.message,
             message: "Failed to update loan status",
@@ -162,8 +200,9 @@ module.exports = async function submitDocumentsToLender(fastify) {
         =============================== */
         return reply.send({
           success: true,
-          message: "Documents submitted to lender successfully",
+          message: "Documents submitted to selected lender successfully",
           submittedCount: uploadIds.length,
+          lenderId: applicationLenderId,
           mode:
             requirementIds && requirementIds.length > 0
               ? "SELECTIVE"

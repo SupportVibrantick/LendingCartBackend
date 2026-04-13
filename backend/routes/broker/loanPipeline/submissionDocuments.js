@@ -60,6 +60,31 @@ module.exports = async function submissionDocuments(fastify) {
       const loanApplicationId = submission.application.id;
 
       /* ===============================
+         FETCH LENDER REQUESTS (🔥 NEW)
+      =============================== */
+      const lenderRequests =
+        await fastify.prisma.lenderDocumentRequest.findMany({
+          where: {
+            loanApplicationId,
+          },
+          select: {
+            documentTypeId: true,
+            applicationLenderId: true,
+          },
+        });
+
+      const lenderMap = new Map();
+
+      for (const reqItem of lenderRequests) {
+        if (!lenderMap.has(reqItem.documentTypeId)) {
+          lenderMap.set(reqItem.documentTypeId, []);
+        }
+        lenderMap
+          .get(reqItem.documentTypeId)
+          .push(reqItem.applicationLenderId);
+      }
+
+      /* ===============================
          BUILD WHERE (SEARCH SUPPORT)
       =============================== */
       const whereCondition = {
@@ -113,7 +138,12 @@ module.exports = async function submissionDocuments(fastify) {
           source: d.source,
           isRequired: d.isRequired,
           status: d.status,
+
+          // 🔥 NEW FIELD (LENDER-WISE VISIBILITY)
+          requestedByLenders: lenderMap.get(d.documentTypeId) || [],
+
           uploadedCount,
+
           uploadedFiles: d.uploads.map((u) => ({
             uploadId: u.id,
             fileName: u.fileName,

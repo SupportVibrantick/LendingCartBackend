@@ -35,11 +35,11 @@ model Organization {
   lenderProducts           LenderProduct[]
   brokerLoanApplications   LoanApplication[]         @relation("BrokerLoanApplications")
   users                    UserAccount[]
-  contacts Contact[] 
-  loiTemplates LenderLoiTemplate[]
+  contacts                 Contact[]
+  loiTemplates             LenderLoiTemplate[]
   // soft-delete fields (additive, non-breaking)
-  isDeleted Boolean?  @default(false) @map("is_deleted")
-  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+  isDeleted                Boolean?                  @default(false) @map("is_deleted")
+  deletedAt                DateTime?                 @map("deleted_at") @db.Timestamptz(6)
 
   @@map("organizations")
 }
@@ -68,11 +68,11 @@ model UserAccount {
   organization               Organization?               @relation(fields: [organizationId], references: [id])
   roles                      UserRole[]
   brokerProfile              BrokerUserProfile?
-  createdContacts Contact[]
+  createdContacts            Contact[]
   // soft-delete fields (additive, non-breaking)
   isDeleted                  Boolean?                    @default(false) @map("is_deleted")
   deletedAt                  DateTime?                   @map("deleted_at") @db.Timestamptz(6)
-  
+
   @@map("user_accounts")
 }
 
@@ -148,23 +148,23 @@ model UserRole {
 }
 
 model Client {
-  id                 String             @id @default(uuid()) @db.Uuid
-  primaryBrokerOrgId String             @db.Uuid
+  id                 String              @id @default(uuid()) @db.Uuid
+  primaryBrokerOrgId String              @db.Uuid
   legalName          String
   entityType         ClientEntityType
   taxId              String?
   industry           String?
-  isActive           Boolean            @default(true)
-  createdAt          DateTime           @default(now()) @db.Timestamptz(6)
-  updatedAt          DateTime           @updatedAt @db.Timestamptz(6)
+  isActive           Boolean             @default(true)
+  createdAt          DateTime            @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime            @updatedAt @db.Timestamptz(6)
   contacts           ClientContact[]
   portalUsers        ClientPortalUser[]
-  primaryBroker      Organization       @relation("BrokerClients", fields: [primaryBrokerOrgId], references: [id])
+  primaryBroker      Organization        @relation("BrokerClients", fields: [primaryBrokerOrgId], references: [id])
   loanApplications   LoanApplication[]
-  uploadTokens ClientUploadToken[]
+  uploadTokens       ClientUploadToken[]
   // soft-delete fields (additive, non-breaking)
-  isDeleted Boolean?  @default(false) @map("is_deleted")
-  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+  isDeleted          Boolean?            @default(false) @map("is_deleted")
+  deletedAt          DateTime?           @map("deleted_at") @db.Timestamptz(6)
 
   @@map("clients")
 }
@@ -251,7 +251,7 @@ model LenderProduct {
   businessTypes Json?
   propertyTypes Json?
 
-  equipmentTypes String? 
+  equipmentTypes            String?
   otherEquipmentExplanation String?
 
   minLoanAmount Decimal? @db.Decimal(20, 2)
@@ -375,6 +375,7 @@ model DocumentType {
   applicationRequirements ApplicationDocumentRequirement[]
   lenderRequirements      LenderDocumentRequirement[]
   productRequirements     ProductDocumentRequirement[]
+  lenderDocumentRequests  LenderDocumentRequest[]
 
   @@map("document_types")
 }
@@ -417,6 +418,30 @@ model LenderDocumentRequirement {
   @@index([lenderProductId])
   @@index([documentTypeId])
   @@map("lender_document_requirements")
+}
+
+model LenderDocumentRequest {
+  id String @id @default(uuid()) @db.Uuid
+
+  loanApplicationId   String @db.Uuid
+  applicationLenderId String @db.Uuid
+  documentTypeId      String @db.Uuid
+
+  status DocRequirementStatus @default(PENDING)
+
+  requestedAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(6)
+
+  // relations
+  loanApplication   LoanApplication   @relation(fields: [loanApplicationId], references: [id])
+  applicationLender ApplicationLender @relation(fields: [applicationLenderId], references: [id])
+  documentType      DocumentType      @relation(fields: [documentTypeId], references: [id])
+
+  @@unique([applicationLenderId, documentTypeId])
+  @@index([loanApplicationId])
+  @@index([applicationLenderId])
+  @@index([documentTypeId])
+  @@map("lender_document_requests")
 }
 
 model BrokerWhiteLabelSetting {
@@ -471,32 +496,33 @@ model AffiliateLink {
 }
 
 model LoanApplication {
-  id                   String                           @id @default(uuid()) @db.Uuid
-  applicationNumber    String                           @unique
-  brokerOrgId          String                           @db.Uuid
-  brokerUserId         String?                          @db.Uuid
-  clientId             String                           @db.Uuid
-  loanProductCode      LoanProductCode
-  status               LoanApplicationStatus            @default(DRAFT)
-  amountRequested      Decimal?                         @db.Decimal(20, 2)
-  termMonthsRequested  Int?
-  purpose              String?
-  createdAt            DateTime                         @default(now()) @db.Timestamptz(6)
-  updatedAt            DateTime                         @updatedAt @db.Timestamptz(6)
-  submittedAt          DateTime?                        @db.Timestamptz(6)
-  collaterals          ApplicationCollateral[]
-  documentRequirements ApplicationDocumentRequirement[]
-  documentUploads      ApplicationDocumentUpload[]
-  financials           ApplicationFinancial?
-  applicationLenders   ApplicationLender[]
-  ruleEvaluations      ApplicationRuleEvaluation[]
-  statusHistory        ApplicationStatusHistory[]
-  escrowInstructions   EscrowInstruction[]
-  brokerOrg            Organization                     @relation("BrokerLoanApplications", fields: [brokerOrgId], references: [id])
-  brokerUser           UserAccount?                     @relation("BrokerUserLoanApplications", fields: [brokerUserId], references: [id])
-  client               Client                           @relation(fields: [clientId], references: [id])
-  submissions          ApplicationSubmission[]
-  clientUploadTokens ClientUploadToken[]
+  id                     String                           @id @default(uuid()) @db.Uuid
+  applicationNumber      String                           @unique
+  brokerOrgId            String                           @db.Uuid
+  brokerUserId           String?                          @db.Uuid
+  clientId               String                           @db.Uuid
+  loanProductCode        LoanProductCode
+  status                 LoanApplicationStatus            @default(DRAFT)
+  amountRequested        Decimal?                         @db.Decimal(20, 2)
+  termMonthsRequested    Int?
+  purpose                String?
+  createdAt              DateTime                         @default(now()) @db.Timestamptz(6)
+  updatedAt              DateTime                         @updatedAt @db.Timestamptz(6)
+  submittedAt            DateTime?                        @db.Timestamptz(6)
+  collaterals            ApplicationCollateral[]
+  documentRequirements   ApplicationDocumentRequirement[]
+  documentUploads        ApplicationDocumentUpload[]
+  lenderDocumentRequests LenderDocumentRequest[]
+  financials             ApplicationFinancial?
+  applicationLenders     ApplicationLender[]
+  ruleEvaluations        ApplicationRuleEvaluation[]
+  statusHistory          ApplicationStatusHistory[]
+  escrowInstructions     EscrowInstruction[]
+  brokerOrg              Organization                     @relation("BrokerLoanApplications", fields: [brokerOrgId], references: [id])
+  brokerUser             UserAccount?                     @relation("BrokerUserLoanApplications", fields: [brokerUserId], references: [id])
+  client                 Client                           @relation(fields: [clientId], references: [id])
+  submissions            ApplicationSubmission[]
+  clientUploadTokens     ClientUploadToken[]
 
   @@index([brokerOrgId])
   @@index([clientId])
@@ -647,31 +673,45 @@ model ApplicationDocumentRequirement {
 }
 
 model ApplicationDocumentUpload {
-  id                     String                          @id @default(uuid()) @db.Uuid
-  loanApplicationId      String                          @db.Uuid
-  documentRequirementId  String?                         @db.Uuid
-  uploadedByUserId       String?                         @db.Uuid
-  uploadedByClientUserId String?                         @db.Uuid
+  id                     String  @id @default(uuid()) @db.Uuid
+  loanApplicationId      String  @db.Uuid
+  documentRequirementId  String? @db.Uuid
+  uploadedByUserId       String? @db.Uuid
+  uploadedByClientUserId String? @db.Uuid
   fileName               String
   fileUrl                String
   fileMimeType           String?
-  
-  isSubmittedToLender    Boolean  @default(false)
-  submittedAt            DateTime? @db.Timestamptz(6)
 
-  uploadedAt             DateTime                        @default(now()) @db.Timestamptz(6)
-  documentRequirement    ApplicationDocumentRequirement? @relation(fields: [documentRequirementId], references: [id])
-  loanApplication        LoanApplication                 @relation(fields: [loanApplicationId], references: [id])
-  uploadedByClientUser   ClientPortalUser?               @relation("UploadedByClient", fields: [uploadedByClientUserId], references: [id])
-  uploadedByUser         UserAccount?                    @relation("UploadedByUser", fields: [uploadedByUserId], references: [id])
+  isSubmittedToLender  Boolean                         @default(false)
+  submittedAt          DateTime?                       @db.Timestamptz(6)
+  documentSubmissions  ApplicationDocumentSubmission[]
+  uploadedAt           DateTime                        @default(now()) @db.Timestamptz(6)
+  documentRequirement  ApplicationDocumentRequirement? @relation(fields: [documentRequirementId], references: [id])
+  loanApplication      LoanApplication                 @relation(fields: [loanApplicationId], references: [id])
+  uploadedByClientUser ClientPortalUser?               @relation("UploadedByClient", fields: [uploadedByClientUserId], references: [id])
+  uploadedByUser       UserAccount?                    @relation("UploadedByUser", fields: [uploadedByUserId], references: [id])
 
   @@index([loanApplicationId])
   @@index([documentRequirementId])
   @@map("application_document_uploads")
 }
 
+model ApplicationDocumentSubmission {
+  id String @id @default(uuid()) @db.Uuid
 
+  documentUploadId    String @db.Uuid
+  applicationLenderId String @db.Uuid
 
+  submittedAt DateTime @default(now()) @db.Timestamptz(6)
+
+  documentUpload    ApplicationDocumentUpload @relation(fields: [documentUploadId], references: [id])
+  applicationLender ApplicationLender         @relation(fields: [applicationLenderId], references: [id])
+
+  @@unique([documentUploadId, applicationLenderId])
+  @@index([documentUploadId])
+  @@index([applicationLenderId])
+  @@map("application_document_submissions")
+}
 
 model ApplicationRuleEvaluation {
   id String @id @default(uuid()) @db.Uuid
@@ -730,20 +770,22 @@ model ApplicationStatusHistory {
 }
 
 model ApplicationLender {
-  id                String                  @id @default(uuid()) @db.Uuid
-  loanApplicationId String                  @db.Uuid
-  lenderOrgId       String                  @db.Uuid
-  lenderProductId   String?                 @db.Uuid
-  status            ApplicationLenderStatus @default(SENT)
-  sentByUserId      String?                 @db.Uuid
-  sentAt            DateTime?               @db.Timestamptz(6)
-  lastUpdatedAt     DateTime?               @db.Timestamptz(6)
-  loiUrl            String?
-  lender            Organization            @relation("LenderApplications", fields: [lenderOrgId], references: [id])
-  lenderProduct     LenderProduct?          @relation(fields: [lenderProductId], references: [id])
-  loanApplication   LoanApplication         @relation(fields: [loanApplicationId], references: [id])
-  sentByUser        UserAccount?            @relation("SentByUser", fields: [sentByUserId], references: [id])
-  lenderReviews     LenderReview[]
+  id                     String                          @id @default(uuid()) @db.Uuid
+  loanApplicationId      String                          @db.Uuid
+  lenderOrgId            String                          @db.Uuid
+  lenderProductId        String?                         @db.Uuid
+  status                 ApplicationLenderStatus         @default(SENT)
+  sentByUserId           String?                         @db.Uuid
+  sentAt                 DateTime?                       @db.Timestamptz(6)
+  lastUpdatedAt          DateTime?                       @db.Timestamptz(6)
+  loiUrl                 String?
+  lender                 Organization                    @relation("LenderApplications", fields: [lenderOrgId], references: [id])
+  lenderProduct          LenderProduct?                  @relation(fields: [lenderProductId], references: [id])
+  loanApplication        LoanApplication                 @relation(fields: [loanApplicationId], references: [id])
+  sentByUser             UserAccount?                    @relation("SentByUser", fields: [sentByUserId], references: [id])
+  lenderReviews          LenderReview[]
+  documentSubmissions    ApplicationDocumentSubmission[]
+  lenderDocumentRequests LenderDocumentRequest[]
 
   @@unique([loanApplicationId, lenderProductId]) //  ADD THIS
   @@index([loanApplicationId])
@@ -844,32 +886,32 @@ model NotificationRule {
 }
 
 model Notification {
-  id              String   @id @default(uuid()) @db.Uuid
+  id String @id @default(uuid()) @db.Uuid
 
-  eventType       String   // LOI_GENERATED, APPLICATION_SENT, etc
-  category        String?  // LOI, APPLICATION, OFFER, SYSTEM
+  eventType String // LOI_GENERATED, APPLICATION_SENT, etc
+  category  String? // LOI, APPLICATION, OFFER, SYSTEM
 
-  channel         String   // IN_APP, EMAIL, SMS
-  status          String   // QUEUED, SENT, FAILED
+  channel String // IN_APP, EMAIL, SMS
+  status  String // QUEUED, SENT, FAILED
 
-  recipientType   String   // BROKER, LENDER, PLATFORM, CLIENT
+  recipientType String // BROKER, LENDER, PLATFORM, CLIENT
 
-  recipientUserId String?  @db.Uuid
-  recipientOrgId  String?  @db.Uuid
+  recipientUserId   String? @db.Uuid
+  recipientOrgId    String? @db.Uuid
   recipientClientId String? @db.Uuid
 
-  subject         String?
-  body            String?
+  subject String?
+  body    String?
 
-  metadata        Json?    // flexible payload (applicationId, loiPath, lenderName)
+  metadata Json? // flexible payload (applicationId, loiPath, lenderName)
 
-  isRead          Boolean  @default(false)
-  readAt          DateTime? @db.Timestamptz(6)
+  isRead Boolean   @default(false)
+  readAt DateTime? @db.Timestamptz(6)
 
-  createdAt       DateTime @default(now()) @db.Timestamptz(6)
-  sentAt          DateTime? @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @db.Timestamptz(6)
+  sentAt    DateTime? @db.Timestamptz(6)
 
-  deletedAt       DateTime? @db.Timestamptz(6)
+  deletedAt DateTime? @db.Timestamptz(6)
 
   @@index([recipientUserId])
   @@index([recipientOrgId])
@@ -894,27 +936,27 @@ enum LogCategory {
 }
 
 model AuditLog {
-  id           String        @id @default(uuid()) @db.Uuid
-  actorUserId  String?       @db.Uuid
-  actorOrgId   String?       @db.Uuid
+  id          String  @id @default(uuid()) @db.Uuid
+  actorUserId String? @db.Uuid
+  actorOrgId  String? @db.Uuid
 
-  dashboard    DashboardType
-  category     LogCategory
+  dashboard DashboardType
+  category  LogCategory
 
-  entityType   String
-  entityId     String
-  action       String
+  entityType String
+  entityId   String
+  action     String
 
   oldValueJson String?
   newValueJson String?
 
-  ipAddress    String?
-  userAgent    String?
+  ipAddress String?
+  userAgent String?
 
-  createdAt    DateTime      @default(now()) @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
 
-  actorOrg     Organization? @relation("OrgAuditLogs", fields: [actorOrgId], references: [id])
-  actorUser    UserAccount?  @relation("UserAuditLogs", fields: [actorUserId], references: [id])
+  actorOrg  Organization? @relation("OrgAuditLogs", fields: [actorOrgId], references: [id])
+  actorUser UserAccount?  @relation("UserAuditLogs", fields: [actorUserId], references: [id])
 
   @@index([actorOrgId])
   @@index([dashboard])
@@ -1094,15 +1136,15 @@ model Contact {
   id String @id @default(uuid()) @db.Uuid
 
   // ownership (broker dashboard)
-  brokerOrgId String @db.Uuid
+  brokerOrgId String  @db.Uuid
   createdById String? @db.Uuid
 
   // contact details
   contactType ContactType
 
-  firstName String?
-  lastName  String?
-  email     String?
+  firstName   String?
+  lastName    String?
+  email       String?
   companyName String?
   website     String?
 
@@ -1141,17 +1183,17 @@ model ClientUploadToken {
   id String @id @default(uuid()) @db.Uuid
 
   loanApplicationId String @db.Uuid
-  clientId String @db.Uuid
+  clientId          String @db.Uuid
 
   token String @unique
 
   expiresAt DateTime @db.Timestamptz(6)
-  isUsed Boolean @default(false)
+  isUsed    Boolean  @default(false)
 
   createdAt DateTime @default(now()) @db.Timestamptz(6)
 
   loanApplication LoanApplication @relation(fields: [loanApplicationId], references: [id])
-  client Client @relation(fields: [clientId], references: [id])
+  client          Client          @relation(fields: [clientId], references: [id])
 
   @@unique([loanApplicationId]) // ENFORCES 1 TOKEN PER LOAN
   @@index([token])
@@ -1159,14 +1201,14 @@ model ClientUploadToken {
 }
 
 model LenderLoiTemplate {
-  id          String   @id @default(uuid()) @db.Uuid
-  lenderOrgId String   @unique @db.Uuid
+  id          String @id @default(uuid()) @db.Uuid
+  lenderOrgId String @unique @db.Uuid
 
-  fileUrl     String
-  fileName    String
+  fileUrl  String
+  fileName String
 
-  createdAt   DateTime @default(now()) @db.Timestamptz(6)
-  updatedAt   DateTime @updatedAt @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
 
   lender Organization @relation(fields: [lenderOrgId], references: [id])
 
@@ -1176,7 +1218,7 @@ model LenderLoiTemplate {
 model Conversation {
   id String @id @default(uuid()) @db.Uuid
 
-  loanApplicationId   String @db.Uuid
+  loanApplicationId   String  @db.Uuid
   applicationLenderId String? @db.Uuid
 
   type ConversationType
@@ -1186,12 +1228,12 @@ model Conversation {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  messages Message[]
+  messages     Message[]
   participants ConversationParticipant[]
 
+  @@unique([applicationLenderId])
   @@index([loanApplicationId])
   @@index([applicationLenderId])
-  @@unique([applicationLenderId])
 }
 
 model Message {
@@ -1201,8 +1243,8 @@ model Message {
 
   senderType ParticipantRole
 
-  senderUserId        String? @db.Uuid   // broker/lender
-  senderClientUserId  String? @db.Uuid   // client
+  senderUserId       String? @db.Uuid // broker/lender
+  senderClientUserId String? @db.Uuid // client
 
   senderName String?
 
@@ -1210,10 +1252,10 @@ model Message {
 
   text String?
 
-  fileUrl   String?
-  fileName  String?
-  fileSize  Int?
-  mimeType  String?
+  fileUrl  String?
+  fileName String?
+  fileSize Int?
+  mimeType String?
 
   metadata Json?
 
@@ -1232,17 +1274,16 @@ model ConversationParticipant {
 
   participantType ParticipantRole
 
-  
-  participantId    String? @db.Uuid   // UserAccount OR ClientPortalUser
-  participantEmail String?           // for pre-signup client
+  participantId    String? @db.Uuid // UserAccount OR ClientPortalUser
+  participantEmail String? // for pre-signup client
 
   lastReadAt DateTime?
 
   conversation Conversation @relation(fields: [conversationId], references: [id])
 
+  @@unique([conversationId, participantId])
   @@index([conversationId])
   @@index([participantEmail])
-  @@unique([conversationId, participantId])
 }
 
 enum ConversationType {
@@ -1357,7 +1398,7 @@ enum LoanProductCode {
   /**
    * ================= SBA / GOVERNMENT =================
    */
-   SBA
+  SBA
   SBA_7A
   SBA_7A_BUSINESS_ACQUISITION
   SBA_7A_WORKING_CAPITAL
@@ -1371,7 +1412,7 @@ enum LoanProductCode {
   SBA_DISASTER
   SBA_EXPORT
   VA_BUSINESS
-  AGENCY_LOAN   
+  AGENCY_LOAN
 
   /**
    * ================= USDA =================
@@ -1380,7 +1421,7 @@ enum LoanProductCode {
   USDA_RURAL_DEVELOPMENT
   USDA_FARM_OWNERSHIP
   USDA_FARM_OPERATING
-  USDA_BI   
+  USDA_BI
 
   /**
    * ================= COMMERCIAL REAL ESTATE =================
@@ -1401,7 +1442,7 @@ enum LoanProductCode {
   COMMERCIAL_CONSTRUCTION
   LAND_DEVELOPMENT
   LAND_ACQUISITION
-  CONSTRUCTION_LOAN   
+  CONSTRUCTION_LOAN
 
   /**
    * ================= RESIDENTIAL / MORTGAGE =================
@@ -1449,11 +1490,11 @@ enum LoanProductCode {
    */
   ASSET_BASED_LENDING
   ACCOUNTS_RECEIVABLE
-  ACCOUNTS_RECEIVABLE_FINANCE   
-  ACCOUNTS_PAYABLE_FINANCE      
+  ACCOUNTS_RECEIVABLE_FINANCE
+  ACCOUNTS_PAYABLE_FINANCE
   INVOICE_FACTORING
   PURCHASE_ORDER
-  PURCHASE_ORDER_FINANCE        
+  PURCHASE_ORDER_FINANCE
   INVENTORY_FINANCE
   TRADE_FINANCE
 
@@ -1464,7 +1505,7 @@ enum LoanProductCode {
   REVENUE_BASED_FINANCE
   PRIVATE_CREDIT
   MEZZANINE_FINANCE
-  MEZZ_FINANCE_PREF_EQUITY   
+  MEZZ_FINANCE_PREF_EQUITY
   VENTURE_DEBT
 
   /**

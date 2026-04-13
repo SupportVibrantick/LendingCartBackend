@@ -43,39 +43,57 @@ module.exports = async function lenderViewDocuments(fastify) {
               id: applicationLenderId,
               lenderOrgId,
             },
-            include: {
-              loanApplication: {
-                select: {
-                  id: true,
-                  documentRequirements: {
-                    include: {
-                      documentType: true,
+            select: {
+              id: true,
+              loanApplicationId: true,
+            },
+          });
 
-                      // 🔥 CRITICAL FIX: ONLY SUBMITTED DOCS
-                      uploads: {
-                        where: {
-                          isSubmittedToLender: true,
-                        },
-                        include: {
-                          uploadedByUser: {
-                            select: {
-                              id: true,
-                              firstName: true,
-                              lastName: true,
-                              email: true,
-                            },
-                          },
-                          uploadedByClientUser: {
-                            select: {
-                              id: true,
-                              email: true,
-                            },
-                          },
-                        },
-                        orderBy: {
-                          uploadedAt: "desc",
-                        },
-                      },
+        if (!applicationLender) {
+          return reply.code(404).send({
+            success: false,
+            message: "Application not found for this lender",
+          });
+        }
+
+        const loanApplicationId = applicationLender.loanApplicationId;
+
+        /* ===============================
+           FETCH REQUIREMENTS (GLOBAL)
+        =============================== */
+        const requirements =
+          await fastify.prisma.applicationDocumentRequirement.findMany({
+            where: {
+              loanApplicationId,
+            },
+            include: {
+              documentType: true,
+            },
+          });
+
+        /* ===============================
+           FETCH SUBMISSIONS (🔥 CORE FIX)
+        =============================== */
+        const submissions =
+          await fastify.prisma.applicationDocumentSubmission.findMany({
+            where: {
+              applicationLenderId,
+            },
+            include: {
+              documentUpload: {
+                include: {
+                  uploadedByUser: {
+                    select: {
+                      id: true,
+                      firstName: true,
+                      lastName: true,
+                      email: true,
+                    },
+                  },
+                  uploadedByClientUser: {
+                    select: {
+                      id: true,
+                      email: true,
                     },
                   },
                 },
@@ -83,20 +101,27 @@ module.exports = async function lenderViewDocuments(fastify) {
             },
           });
 
-        if (!applicationLender || !applicationLender.loanApplication) {
-          return reply.code(404).send({
-            success: false,
-            message: "Application not found for this lender",
-          });
+        /* ===============================
+           MAP SUBMISSIONS → REQUIREMENTS
+        =============================== */
+        const submissionMap = new Map();
+
+        for (const sub of submissions) {
+          const upload = sub.documentUpload;
+          if (!upload || !upload.documentRequirementId) continue;
+
+          if (!submissionMap.has(upload.documentRequirementId)) {
+            submissionMap.set(upload.documentRequirementId, []);
+          }
+
+          submissionMap.get(upload.documentRequirementId).push(upload);
         }
 
-        const loanApplication = applicationLender.loanApplication;
-
         /* ===============================
-           FORMAT DOCUMENTS (SAFE)
+           FORMAT DOCUMENTS
         =============================== */
-        const documents = loanApplication.documentRequirements.map((reqDoc) => {
-          const uploads = reqDoc.uploads || [];
+        const documents = requirements.map((reqDoc) => {
+          const uploads = submissionMap.get(reqDoc.id) || [];
           const uploadedCount = uploads.length;
 
           return {
@@ -106,7 +131,6 @@ module.exports = async function lenderViewDocuments(fastify) {
             source: reqDoc.source,
             isRequired: reqDoc.isRequired,
 
-            // 🔥 IMPORTANT: status should reflect ONLY submitted files
             status:
               uploadedCount === 0
                 ? "PENDING"
@@ -144,14 +168,14 @@ module.exports = async function lenderViewDocuments(fastify) {
         });
 
         /* ===============================
-           FILTER EMPTY DOCS (OPTIONAL CLEAN UX)
+           FILTER (OPTIONAL CLEAN UX)
         =============================== */
         const visibleDocuments = documents.filter(
           (doc) => doc.uploadedCount > 0 || doc.isRequired
         );
 
         /* ===============================
-           PENDING COUNT (SUBMITTED CONTEXT)
+           PENDING COUNT
         =============================== */
         const pendingCount = visibleDocuments.filter(
           (d) => d.uploadedCount === 0
@@ -164,7 +188,7 @@ module.exports = async function lenderViewDocuments(fastify) {
           success: true,
           data: {
             applicationLenderId,
-            loanApplicationId: loanApplication.id,
+            loanApplicationId,
             documentsPendingCount: pendingCount,
             documents: visibleDocuments,
           },
