@@ -1,5 +1,3 @@
-const crypto = require("crypto");
-
 const { loadTemplate } = require("../../../utils/loadTemplate");
 const sendMail = require("../../../services/mail");
 const {
@@ -124,13 +122,6 @@ async function lenderDecisionRoutes(fastify) {
           }
         }
 
-        if (!clientEmail) {
-          return reply.status(400).send({
-            success: false,
-            message: "Client email not found",
-          });
-        }
-
         /* ===============================
            DECISION MAP
         =============================== */
@@ -153,8 +144,6 @@ async function lenderDecisionRoutes(fastify) {
         }
 
         const previousLoanStatus = record.loanApplication.status;
-
-        let uploadToken = null;
 
         /* ===============================
            TRANSACTION
@@ -182,20 +171,17 @@ async function lenderDecisionRoutes(fastify) {
           });
 
           /* ===============================
-             CONDITIONAL FLOW (FIXED + EXTENDED)
+             CONDITIONAL FLOW
           =============================== */
           if (decision === "CONDITIONAL") {
             if (!documentTypeIds || documentTypeIds.length === 0) {
               throw new Error("Please select at least one document");
             }
 
-            // -------------------------------
-            // GLOBAL REQUIREMENTS (UNCHANGED)
-            // -------------------------------
             const existingRequirements =
               await tx.applicationDocumentRequirement.findMany({
                 where: {
-                  loanApplicationId: record.loanApplicationId,
+                  loanApplicationId: record.loanApplication.id,
                 },
                 select: { id: true, documentTypeId: true },
               });
@@ -220,7 +206,7 @@ async function lenderDecisionRoutes(fastify) {
               } else {
                 await tx.applicationDocumentRequirement.create({
                   data: {
-                    loanApplicationId: record.loanApplicationId,
+                    loanApplicationId: record.loanApplication.id,
                     documentTypeId: docId,
                     source: "LENDER_ADDED",
                     isRequired: true,
@@ -231,84 +217,52 @@ async function lenderDecisionRoutes(fastify) {
               }
             }
 
-            // -------------------------------
-            // 🔥 LENDER-SPECIFIC TRACKING (NEW)
-            // -------------------------------
-            const existingLenderRequests =
-              await tx.lenderDocumentRequest.findMany({
-                where: {
-                  applicationLenderId,
-                },
-                select: { id: true, documentTypeId: true },
-              });
-
-            const lenderMap = new Map(
-              existingLenderRequests.map((r) => [r.documentTypeId, r])
-            );
-
+            /* ===============================
+               LENDER-SPECIFIC TRACKING
+            =============================== */
             for (const docId of documentTypeIds) {
-              const existing = lenderMap.get(docId);
-
-              if (existing) {
-                await tx.lenderDocumentRequest.update({
-                  where: { id: existing.id },
-                  data: {
-                    status: "PENDING",
-                    updatedAt: new Date(),
-                  },
-                });
-              } else {
-                await tx.lenderDocumentRequest.create({
-                  data: {
-                    loanApplicationId: record.loanApplicationId,
+              await tx.lenderDocumentRequest.upsert({
+                where: {
+                  applicationLenderId_documentTypeId: {
                     applicationLenderId,
                     documentTypeId: docId,
-                    status: "PENDING",
                   },
-                });
-              }
+                },
+                update: {
+                  status: "PENDING",
+                  updatedAt: new Date(),
+                },
+                create: {
+                  loanApplicationId: record.loanApplication.id,
+                  applicationLenderId,
+                  documentTypeId: docId,
+                  status: "PENDING",
+                },
+              });
             }
-
-            // -------------------------------
-            // TOKEN (UNCHANGED)
-            // -------------------------------
-            const token = crypto.randomBytes(32).toString("hex");
-
-            const tokenRecord = await tx.clientUploadToken.create({
-              data: {
-                loanApplicationId: record.loanApplicationId,
-                clientId: record.loanApplication.clientId,
-                token,
-                expiresAt: new Date(
-                  Date.now() + 7 * 24 * 60 * 60 * 1000
-                ),
-              },
-            });
-
-            uploadToken = tokenRecord.token;
 
             if (previousLoanStatus !== "IN_REVIEW") {
               await tx.loanApplication.update({
-                where: { id: record.loanApplicationId },
+                where: { id: record.loanApplication.id },
                 data: { status: "IN_REVIEW" },
               });
             }
           }
 
           /* ===============================
-             DECLINED FLOW (UNCHANGED)
+             DECLINED FLOW
           =============================== */
           if (decision === "DECLINED") {
             const remaining = await tx.applicationLender.count({
               where: {
-                loanApplicationId: record.loanApplicationId,
+                loanApplicationId: record.loanApplication.id,
                 status: { notIn: ["DECLINED"] },
               },
             });
 
             if (remaining === 0) {
               await tx.loanApplication.update({
-                where: { id: record.loanApplicationId },
+                where: { id: record.loanApplication.id },
                 data: { status: "LENDER_DECLINED" },
               });
             }
@@ -316,23 +270,18 @@ async function lenderDecisionRoutes(fastify) {
         });
 
         /* ===============================
-           EMAIL NOTIFICATION (UNCHANGED)
+           OPTIONAL EMAIL (NO TOKEN NOW)
         =============================== */
-        if (decision === "CONDITIONAL" && uploadToken) {
-          const uploadLink = `${process.env.FRONTEND_URL}/client-upload/${uploadToken}`;
-
+        if (decision === "CONDITIONAL" && clientEmail) {
           const html = loadTemplate("clientPortal/document", {
             clientName:
               record.loanApplication.client?.legalName || "Customer",
-            uploadLink,
             applicationNumber:
               record.loanApplication.applicationNumber,
           });
 
-          const subject =
-            "Documents Required for Your Loan Application";
-
-          const text = `Please upload required documents using this link: ${uploadLink}`;
+          const subject = "Documents Required for Your Loan Application";
+          const text = `Additional documents are required. Please contact your broker.`;
 
           try {
             await sendEmailUsingKafka(clientEmail, subject, text, html);
@@ -358,7 +307,7 @@ async function lenderDecisionRoutes(fastify) {
 
         return reply.status(500).send({
           success: false,
-          message: "Server error while processing decision",
+          message: error.message, // easier debugging
         });
       }
     }
