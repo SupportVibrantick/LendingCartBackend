@@ -14,12 +14,14 @@ import {
   FiVideo,
   FiX,
 } from "react-icons/fi";
+import { Search } from "lucide-react";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
 type ConversationParticipant = {
   id: string;
   conversationId: string;
+  name: string;
   participantType: "LENDER" | "BROKER" | string;
   participantId: string;
   participantEmail?: string | null;
@@ -98,17 +100,15 @@ const getInitials = (value?: string) => {
 };
 
 const getBrokerLabel = (conversation?: Conversation | null) => {
-  if (!conversation) return "Conversation";
+  if (!conversation) return "Broker";
+
   if (conversation.brokerLabel) return conversation.brokerLabel;
 
-  if (conversation.type === "BROKER_LENDER") {
-    const cleanedTitle = conversation.title
-      ?.replace(/^Lender\s*-\s*/i, "")
-      ?.trim();
-    if (cleanedTitle) return `Broker - ${cleanedTitle}`;
-  }
+  const broker = (conversation.participants || []).find(
+    (p) => p.participantType === "BROKER",
+  );
 
-  return getDisplayTitle(conversation.title);
+  return broker?.name || "Broker";
 };
 
 const getParticipantSummary = (conversation?: Conversation | null) => {
@@ -132,15 +132,6 @@ const getParticipantSummary = (conversation?: Conversation | null) => {
 
   return `${participants.length} participant${participants.length > 1 ? "s" : ""}`;
 };
-const getDisplayTitle = (title?: string) => {
-  if (!title) return "Conversation";
-
-  if (title.startsWith("Client -")) {
-    return title.replace("Client -", "Broker -");
-  }
-
-  return title;
-};
 
 const getAvatarTone = (value?: string) => {
   const tones = [
@@ -160,6 +151,7 @@ const getAvatarTone = (value?: string) => {
 
 const Chat = ({ applicationId }: LoanPreviewChatProps) => {
   const socketRef = useRef<Socket | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const emojiPickerRef = useRef<HTMLDivElement | null>(null);
@@ -181,10 +173,9 @@ const Chat = ({ applicationId }: LoanPreviewChatProps) => {
     const query = searchTerm.trim().toLowerCase();
 
     return conversations.filter((chat) => {
-      // ✅ only show chats having BROKER participant
+      // only show chats having BROKER participant
       const hasBroker = (chat.participants || []).some(
-        (participant: ConversationParticipant) =>
-          participant.participantType === "BROKER",
+        (participant) => participant.participantType === "BROKER",
       );
 
       if (!hasBroker) return false;
@@ -220,7 +211,12 @@ const Chat = ({ applicationId }: LoanPreviewChatProps) => {
   );
 
   const scrollToBottom = (behavior: ScrollBehavior = "smooth") => {
-    messagesEndRef.current?.scrollIntoView({ behavior, block: "end" });
+    if (!containerRef.current) return;
+
+    containerRef.current.scrollTo({
+      top: containerRef.current.scrollHeight,
+      behavior,
+    });
   };
 
   const removeSelectedFile = () => {
@@ -313,13 +309,13 @@ const Chat = ({ applicationId }: LoanPreviewChatProps) => {
               ...item,
               ...detail,
               participants,
+
               brokerLabel:
+                brokerParticipant?.name ||
                 brokerParticipant?.participantEmail ||
-                getDisplayTitle(detail.title || item.title),
-              participantSummary:
-                participants.length > 0
-                  ? `${participants.filter((participant: ConversationParticipant) => participant.participantType === "BROKER").length} broker • ${participants.filter((participant: ConversationParticipant) => participant.participantType === "LENDER").length} lender`
-                  : getDisplayTitle(detail.title || item.title),
+                "Broker",
+
+              participantSummary: "Broker", // simplify kar do
             };
           } catch {
             return item;
@@ -567,13 +563,15 @@ const Chat = ({ applicationId }: LoanPreviewChatProps) => {
 
   useEffect(() => {
     if (selectedConversation?.id) {
-      window.setTimeout(() => scrollToBottom("auto"), 100);
+      setTimeout(() => {
+        scrollToBottom("auto"); // open chat at bottom
+      }, 100);
     }
   }, [selectedConversation?.id]);
 
   useEffect(() => {
     if (messages.length > 0) {
-      scrollToBottom();
+      scrollToBottom("smooth");
     }
   }, [messages]);
 
@@ -592,7 +590,7 @@ const Chat = ({ applicationId }: LoanPreviewChatProps) => {
               className="h-10 w-full rounded-full border border-slate-200 bg-[#f2f2ef] pl-10 pr-10 text-sm text-slate-700 outline-none placeholder:text-slate-400 focus:border-slate-300"
             />
             <span className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full border border-slate-200 px-1.5 py-0.5 text-[10px] text-slate-400">
-              /f
+              <Search size={14} />
             </span>
           </div>
         </div>
@@ -755,7 +753,10 @@ const Chat = ({ applicationId }: LoanPreviewChatProps) => {
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto bg-[#f8f8f6] px-4 py-5 sm:px-7">
+            <div
+              ref={containerRef}
+              className="flex-1 overflow-y-auto bg-[#f8f8f6] px-4 py-5 sm:px-7"
+            >
               {messagesLoading ? (
                 <div className="space-y-4">
                   {[1, 2, 3].map((item) => (

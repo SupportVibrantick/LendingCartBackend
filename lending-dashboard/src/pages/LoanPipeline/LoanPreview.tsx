@@ -1,12 +1,21 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useLocation, useNavigate } from "react-router-dom";
-import { ArrowLeft, Download, Eye, FileIcon, Loader2 } from "lucide-react";
+import {
+  ArrowLeft,
+  Download,
+  Eye,
+  FileIcon,
+  Loader2,
+  User,
+} from "lucide-react";
 import toast from "react-hot-toast";
-import { motion } from "framer-motion";
 import Chat from "./Chat";
+import { MdEmail } from "react-icons/md";
+import { BiLogoProductHunt } from "react-icons/bi";
+import { FaDollarSign } from "react-icons/fa6";
 
-type PreviewTab = "details" | "documents" | "loi" | "chat";
+type PreviewTab = "details" | "documents" | "requestDocs" | "loi" | "chat";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
@@ -47,6 +56,7 @@ const InfoCard = ({ label, value }: { label: string; value: any }) => (
 const tabMeta: Array<{ id: PreviewTab; label: string }> = [
   { id: "details", label: "View Details" },
   { id: "documents", label: "Documents" },
+  { id: "requestDocs", label: "Request Documents" },
   { id: "loi", label: "View LOI" },
   { id: "chat", label: "Chat" },
 ];
@@ -71,10 +81,15 @@ export default function LoanPreview() {
 
   const isLoi = location.state?.isLoi;
 
-  const initialTab: PreviewTab =
-    requestedTab === "documents" || requestedTab === "loi"
-      ? requestedTab
-      : "details";
+  const initialTab: PreviewTab = [
+    "details",
+    "documents",
+    "requestDocs",
+    "loi",
+    "chat",
+  ].includes(requestedTab)
+    ? (requestedTab as PreviewTab)
+    : "details";
 
   const [activeTab, setActiveTab] = useState<PreviewTab>(initialTab);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -95,6 +110,12 @@ export default function LoanPreview() {
     isOpen: false,
     doc: null,
   });
+  const [docSelectModal, setDocSelectModal] = useState({
+    documents: [] as any[],
+    selectedDocs: [] as string[],
+    loading: false,
+  });
+  const [requestLoading, setRequestLoading] = useState(false);
 
   useEffect(() => {
     setActiveTab(initialTab);
@@ -108,51 +129,15 @@ export default function LoanPreview() {
     };
   }, [loiUrl]);
 
-  const Metric = ({
-    label,
-    value,
-    variant = "hero",
-  }: {
-    label: string;
-    value: string;
-    variant?: "hero" | "panel";
-  }) => {
-    const isHero = variant === "hero";
-
+  const Metric = ({ label, value }: any) => {
     return (
-      <motion.div
-        whileHover={{ y: -6, scale: 1.03 }}
-        whileTap={{ scale: 0.97 }}
-        transition={{ duration: 0.25 }}
-        className="group relative cursor-pointer overflow-hidden rounded-2xl p-4 transition-all duration-300"
-      >
-        <div className="absolute inset-0 opacity-0 blur-xl transition duration-300 group-hover:opacity-100 bg-gradient-to-r from-cyan-400/10 to-blue-500/10" />
-        <p
-          className={`text-[11px] font-semibold uppercase tracking-widest transition ${
-            isHero
-              ? "text-white/70 group-hover:text-white"
-              : "text-slate-500 group-hover:text-slate-700"
-          }`}
-        >
+      <div className="flex flex-col gap-1 border-r border-white/20 pr-4 last:border-none">
+        <span className="text-xs uppercase tracking-wider text-white/70 font-medium">
           {label}
-        </p>
-        <p
-          className={`mt-2 text-sm font-bold transition-all duration-300 ${
-            isHero
-              ? "text-white group-hover:scale-105"
-              : "bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-transparent group-hover:from-blue-600 group-hover:to-cyan-500"
-          }`}
-        >
-          {value}
-        </p>
-        <div
-          className={`mt-3 h-[3px] w-0 rounded-full transition-all duration-300 group-hover:w-full ${
-            isHero
-              ? "bg-gradient-to-r from-white/80 to-cyan-300"
-              : "bg-gradient-to-r from-cyan-500 to-blue-500"
-          }`}
-        />
-      </motion.div>
+        </span>
+
+        <span className="text-md font-bold tracking-tight">{value}</span>
+      </div>
     );
   };
 
@@ -233,6 +218,82 @@ export default function LoanPreview() {
     }
   };
 
+  const fetchDocumentConfig = async () => {
+    try {
+      setDocSelectModal((prev) => ({ ...prev, loading: true }));
+
+      const res = await fetch(`${API_BASE}/lender/document-config/list`, {
+        headers: getAuthHeaders(),
+      });
+
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        throw new Error("Failed to fetch documents");
+      }
+
+      const loanType = submissionDetail?.loanApplication?.loanProductCode;
+
+      const filtered = json.data.filter(
+        (doc: any) => doc.lenderProduct.loanProductCode === loanType,
+      );
+
+      setDocSelectModal({
+        documents: filtered,
+        selectedDocs: [],
+        loading: false,
+      });
+    } catch (err: any) {
+      toast.error(err.message);
+      setDocSelectModal((prev) => ({ ...prev, loading: false }));
+    }
+  };
+
+  const handleRequestDocuments = async () => {
+    try {
+      setRequestLoading(true);
+
+      const payload = {
+        decision: "CONDITIONAL",
+        notes: "Please upload required documents",
+        documentTypeIds: docSelectModal.selectedDocs,
+      };
+
+      const res = await fetch(
+        `${API_BASE}/lender/loan-pipeline/${applicationLenderId}/decision`,
+        {
+          method: "PATCH",
+          headers: getAuthHeaders(),
+          body: JSON.stringify(payload),
+        },
+      );
+
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        throw new Error(json.message);
+      }
+
+      toast.success("Documents requested");
+
+      // reset selection
+      setDocSelectModal((prev) => ({
+        ...prev,
+        selectedDocs: [],
+      }));
+
+      // refresh UI
+      setSubmissionDetail(null);
+      fetchLenderApplicationDetail();
+
+      setActiveTab("documents");
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setRequestLoading(false);
+    }
+  };
+
   const fetchLoi = async () => {
     if (!applicationLenderId || loiUrl) return;
 
@@ -294,6 +355,12 @@ export default function LoanPreview() {
       fetchLoi();
     }
   }, [activeTab, applicationLenderId]);
+
+  useEffect(() => {
+    if (activeTab === "requestDocs" && docSelectModal.documents.length === 0) {
+      fetchDocumentConfig();
+    }
+  }, [activeTab]);
 
   const resolvedChatApplicationId =
     submissionDetail?.loanApplication?.id ||
@@ -610,7 +677,7 @@ export default function LoanPreview() {
                   <td className="px-4 py-4">
                     <div className="flex flex-col">
                       <span className="text-sm font-semibold">
-                        {doc.documentName}
+                        {doc.documentType?.name}
                       </span>
                       <span className="text-[10px] text-slate-400">
                         Source: {doc.source}
@@ -687,6 +754,128 @@ export default function LoanPreview() {
     );
   };
 
+  const renderRequestDocs = () => {
+    if (docSelectModal.loading) {
+      return (
+        <div className="text-center py-10 text-slate-500">
+          Loading documents...
+        </div>
+      );
+    }
+
+    return (
+      <div className=" mx-auto bg-white rounded-2xl shadow-lg p-6 space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Select Documents</h2>
+
+          <div className="flex gap-2">
+            <button
+              onClick={() =>
+                setDocSelectModal({
+                  ...docSelectModal,
+                  selectedDocs: docSelectModal.documents.map(
+                    (d: any) => d.documentTypeId,
+                  ),
+                })
+              }
+              className="px-3 py-1.5 text-xs bg-slate-100 rounded-lg hover:bg-slate-200"
+            >
+              Select All
+            </button>
+
+            <button
+              onClick={() =>
+                setDocSelectModal({
+                  ...docSelectModal,
+                  selectedDocs: [],
+                })
+              }
+              className="px-3 py-1.5 text-xs bg-slate-100 rounded-lg hover:bg-slate-200"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+
+        <p className="text-sm text-slate-500">
+          Select which documents are required.
+        </p>
+
+        {/* Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {docSelectModal.documents.map((doc: any, index: number) => {
+            const docId = doc.documentTypeId;
+            const isChecked = docSelectModal.selectedDocs.includes(docId);
+
+            return (
+              <div
+                key={docId}
+                onClick={() => {
+                  const updated = isChecked
+                    ? docSelectModal.selectedDocs.filter((id) => id !== docId)
+                    : [...docSelectModal.selectedDocs, docId];
+
+                  setDocSelectModal({
+                    ...docSelectModal,
+                    selectedDocs: updated,
+                  });
+                }}
+                className={`flex items-center justify-between p-4 rounded-xl border cursor-pointer transition ${
+                  isChecked
+                    ? "border-[#18B6B4] bg-[#E6F7F6]"
+                    : "border-slate-200 hover:border-[#18B6B4]"
+                }`}
+              >
+                {/* Left side */}
+                <div className="flex items-center gap-3">
+                  {/* Colored dot */}
+                  <div
+                    className="w-2.5 h-2.5 rounded-full"
+                    style={{
+                      backgroundColor: ["#f97316", "#a855f7", "#3b82f6"][
+                        index % 3
+                      ],
+                    }}
+                  />
+
+                  <p className="text-sm font-medium">
+                    {doc.documentType?.name}
+                  </p>
+                </div>
+
+                {/* Checkbox */}
+                <input
+                  type="checkbox"
+                  checked={isChecked}
+                  onChange={() => {}}
+                  className="w-4 h-4 accent-[#18B6B4]"
+                />
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-between pt-4 border-t">
+          <p className="text-sm text-slate-500">
+            {docSelectModal.selectedDocs.length} selected
+          </p>
+
+          <button
+            onClick={handleRequestDocuments}
+            disabled={
+              requestLoading || docSelectModal.selectedDocs.length === 0
+            }
+            className="px-5 py-2 rounded-xl bg-[#0F766E] text-white font-medium disabled:opacity-40"
+          >
+            {requestLoading ? "Requesting..." : "Request Documents"}
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   const renderLoi = () => {
     if (loiLoading) {
       return (
@@ -731,49 +920,154 @@ export default function LoanPreview() {
     );
   }
 
+  const getFieldValue = (key: string) => {
+    const fields =
+      submissionDetail?.loanApplication?.submissions?.[0]?.fields || [];
+
+    return fields.find((f: any) => f.fieldKey === key)?.value;
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#0b1120] p-4 md:p-6 text-slate-900 dark:text-slate-100">
       <div className="max-w-7xl mx-auto space-y-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => navigate(-1)}
-              className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm hover:border-[#18B6B4] transition-all"
-            >
-              <ArrowLeft size={18} />
-            </button>
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight text-[#18B6B4] dark:text-[#6ee7e5]">
-                Loan Preview
-              </h1>
+          <div className="flex items-start justify-between flex-wrap gap-4">
+            {/* LEFT SIDE */}
+            <div className="flex items-start gap-3">
+              {/* Back Button */}
+              <button
+                onClick={() => navigate(-1)}
+                className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-[#18B6B4] transition-all"
+              >
+                <ArrowLeft size={18} />
+              </button>
+
+              {/* Title Section */}
+              <div>
+                <h1 className="text-xl font-bold text-slate-800 dark:text-white">
+                  Loan Application Preview
+                </h1>
+
+                {/* Application ID */}
+                <p className="text-xs text-slate-500 mt-1">
+                  {submissionDetail?.loanApplication?.applicationNumber}
+                </p>
+              </div>
             </div>
           </div>
+
+          <div>
+            <h1 className="text-xs bg-gray-100 border-2 px-2 py-1 rounded-md text-purple-700 font-semibold">
+              {submissionDetail && submissionDetail?.status}
+            </h1>
+          </div>
+        </div>
+
+        <div>
+          {submissionDetail?.loanApplication?.brokerOrg && (
+            <div className="flex flex-wrap items-center gap-3 mt-3">
+              {/* BROKER NAME CHIP */}
+              <div className="flex items-center gap-3 px-4 py-2 rounded-xl bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 shadow-sm">
+                {/* Icon */}
+                <div className="w-7 h-7 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs font-bold">
+                  <User size={14} />
+                </div>
+
+                {/* Text */}
+                <div className="flex flex-col leading-tight">
+                  <span className="text-[10px] uppercase tracking-wide text-blue-500 font-semibold">
+                    Broker Name
+                  </span>
+                  <span className="text-sm font-semibold text-blue-900">
+                    {submissionDetail.loanApplication.brokerOrg.name}
+                  </span>
+                </div>
+              </div>
+
+              {/* EMAIL CHIP */}
+              <div className="flex items-center gap-3 px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-50 to-emerald-100 border border-emerald-200 shadow-sm">
+                {/* Icon */}
+                <div className="w-7 h-7 rounded-full bg-emerald-500 text-white flex items-center justify-center text-xs">
+                  <MdEmail />
+                </div>
+
+                {/* Text */}
+                <div className="flex flex-col leading-tight">
+                  <span className="text-[10px] uppercase tracking-wide text-emerald-500 font-semibold">
+                    Email
+                  </span>
+                  <span className="text-sm font-medium text-emerald-900">
+                    {submissionDetail.loanApplication.brokerOrg.email}
+                  </span>
+                </div>
+              </div>
+
+              {/* Loan Product  */}
+              <div className="flex items-center gap-3 px-4 py-2 rounded-xl bg-gradient-to-r from-purple-50 to-purple-100 border border-purple-200 shadow-sm">
+                {/* Icon */}
+                <div className="w-7 h-7 rounded-full bg-purple-500 text-white flex items-center justify-center text-xs font-bold">
+                  <BiLogoProductHunt size={14} />
+                </div>
+
+                {/* Text */}
+                <div className="flex flex-col leading-tight">
+                  <span className="text-[10px] uppercase tracking-wide text-purple-500 font-semibold">
+                    Loan Product
+                  </span>
+                  <span className="text-sm font-semibold text-purple-900">
+                    {submissionDetail.loanApplication.loanProductCode}
+                  </span>
+                </div>
+              </div>
+
+              {/* Amount  */}
+              <div className="flex items-center gap-3 px-4 py-2 rounded-xl bg-gradient-to-r from-orange-50 to-orange-100 border border-orange-200 shadow-sm">
+                {/* Icon */}
+                <div className="w-7 h-7 rounded-full bg-[#F7A400] text-white flex items-center justify-center text-xs font-bold">
+                  <FaDollarSign size={14} />
+                </div>
+
+                {/* Text */}
+                <div className="flex flex-col leading-tight">
+                  <span className="text-[10px] uppercase tracking-wide text-[#F7A400] font-semibold">
+                    Loan Amount
+                  </span>
+                  <span className="text-sm font-semibold text-[#F7A400]">
+                    {submissionDetail.loanApplication.amountRequested || "-"}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {submissionDetail && (
           <div
             className="mb-6 overflow-hidden rounded-[30px] border border-white/30 
-  bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.24),_transparent_28%),linear-gradient(135deg,_#1d4ed8_0%,_#0f766e_55%,_#0891b2_100%)] 
-  p-6 text-white"
+            bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.24),_transparent_28%),linear-gradient(135deg,_#1d4ed8_0%,_#0f766e_55%,_#0891b2_100%)] 
+            px-6 py-8 text-white shadow-lg"
           >
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-6">
               <Metric
-                label="Application ID"
-                value={
-                  submissionDetail.loanApplication?.applicationNumber || "-"
-                }
-              />
-
-              <Metric label="Status" value={submissionDetail.status || "-"} />
-
-              <Metric
-                label="Loan Product"
-                value={submissionDetail.loanApplication?.loanProductCode || "-"}
+                label="LTV"
+                value={`${getFieldValue("ltvPercentage") ?? "-"}%`}
               />
 
               <Metric
-                label="Broker"
-                value={submissionDetail.loanApplication?.brokerOrg?.name || "-"}
+                label="LTC"
+                value={`${getFieldValue("ltcPercentage") ?? "-"}%`}
+              />
+
+              <Metric
+                label="ARV %"
+                value={`${getFieldValue("arvPercentage") ?? "-"}%`}
+              />
+
+              <Metric label="DSCR RATIO" value={getFieldValue("dscr") ?? "-"} />
+
+              <Metric
+                label="NET WORTH"
+                value={`$${getFieldValue("netWorth") ?? "-"}`}
               />
             </div>
           </div>
@@ -803,6 +1097,7 @@ export default function LoanPreview() {
           <div className="p-4 md:p-6">
             {activeTab === "details" && renderDetails()}
             {activeTab === "documents" && renderDocuments()}
+            {activeTab === "requestDocs" && renderRequestDocs()}
             {activeTab === "loi" && renderLoi()}
             {activeTab === "chat" && renderChat()}
           </div>
@@ -818,7 +1113,7 @@ export default function LoanPreview() {
                 <div>
                   <h2 className="text-lg font-bold">Select File to Preview</h2>
                   <p className="text-xs text-slate-500">
-                    {multiFileModal.doc.documentName} (
+                    {multiFileModal.doc.documentType.name} (
                     {multiFileModal.doc.uploadedCount} uploads)
                   </p>
                 </div>
