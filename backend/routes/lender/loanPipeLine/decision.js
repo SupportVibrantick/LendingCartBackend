@@ -16,7 +16,6 @@ async function lenderDecisionRoutes(fastify) {
       schema: {
         tags: ["Lender -> Loan Pipeline"],
         summary: "Lender decision (Conditional / Approved / Declined)",
-
         params: {
           type: "object",
           required: ["applicationLenderId"],
@@ -24,7 +23,6 @@ async function lenderDecisionRoutes(fastify) {
             applicationLenderId: { type: "string" },
           },
         },
-
         body: {
           type: "object",
           required: ["decision"],
@@ -36,8 +34,6 @@ async function lenderDecisionRoutes(fastify) {
             approvedAmount: { type: "number" },
             interestRate: { type: "number" },
             notes: { type: "string" },
-
-            // NEW FIELD (for checkbox selection)
             documentTypeIds: {
               type: "array",
               items: { type: "string", format: "uuid" },
@@ -51,10 +47,9 @@ async function lenderDecisionRoutes(fastify) {
       const prisma = fastify.prisma;
 
       try {
-        // ===============================
-        // AUTH CHECK
-        // ===============================
-
+        /* ===============================
+           AUTH CHECK
+        =============================== */
         if (
           !req.user ||
           req.user.orgType !== "LENDER" ||
@@ -79,10 +74,9 @@ async function lenderDecisionRoutes(fastify) {
           documentTypeIds,
         } = req.body;
 
-        // ===============================
-        // FETCH APPLICATION
-        // ===============================
-
+        /* ===============================
+           FETCH APPLICATION
+        =============================== */
         const record = await prisma.applicationLender.findFirst({
           where: {
             id: applicationLenderId,
@@ -114,15 +108,14 @@ async function lenderDecisionRoutes(fastify) {
           });
         }
 
-        // ===============================
-        // EXTRACT CLIENT EMAIL
-        // ===============================
-
+        /* ===============================
+           EXTRACT CLIENT EMAIL
+        =============================== */
         let clientEmail = null;
 
         for (const submission of record.loanApplication.submissions || []) {
           const emailField = submission.fields.find(
-            (f) => f.fieldKey === "email",
+            (f) => f.fieldKey === "email"
           );
 
           if (emailField) {
@@ -138,10 +131,9 @@ async function lenderDecisionRoutes(fastify) {
           });
         }
 
-        // ===============================
-        // DECISION MAP
-        // ===============================
-
+        /* ===============================
+           DECISION MAP
+        =============================== */
         let lenderStatus;
         let reviewStatus;
 
@@ -150,12 +142,10 @@ async function lenderDecisionRoutes(fastify) {
             lenderStatus = "IN_REVIEW";
             reviewStatus = "CONDITIONAL";
             break;
-
           case "APPROVED":
             lenderStatus = "APPROVED";
             reviewStatus = "APPROVED";
             break;
-
           case "DECLINED":
             lenderStatus = "DECLINED";
             reviewStatus = "DECLINED";
@@ -166,10 +156,9 @@ async function lenderDecisionRoutes(fastify) {
 
         let uploadToken = null;
 
-        // ===============================
-        // TRANSACTION
-        // ===============================
-
+        /* ===============================
+           TRANSACTION
+        =============================== */
         await prisma.$transaction(async (tx) => {
           // Update lender status
           await tx.applicationLender.update({
@@ -192,43 +181,97 @@ async function lenderDecisionRoutes(fastify) {
             },
           });
 
-          // ===============================
-          // CONDITIONAL FLOW
-          // ===============================
-
+          /* ===============================
+             CONDITIONAL FLOW (FIXED + EXTENDED)
+          =============================== */
           if (decision === "CONDITIONAL") {
             if (!documentTypeIds || documentTypeIds.length === 0) {
               throw new Error("Please select at least one document");
             }
 
+            // -------------------------------
+            // GLOBAL REQUIREMENTS (UNCHANGED)
+            // -------------------------------
             const existingRequirements =
               await tx.applicationDocumentRequirement.findMany({
                 where: {
                   loanApplicationId: record.loanApplicationId,
                 },
-                select: { documentTypeId: true },
+                select: { id: true, documentTypeId: true },
               });
 
-            const existingDocIds = new Set(
-              existingRequirements.map((r) => r.documentTypeId),
+            const existingMap = new Map(
+              existingRequirements.map((r) => [r.documentTypeId, r])
             );
 
-            const newRequirements = documentTypeIds
-              .filter((docId) => !existingDocIds.has(docId))
-              .map((docId) => ({
-                loanApplicationId: record.loanApplicationId,
-                documentTypeId: docId,
-                source: "LENDER_ADDED",
-                isRequired: true,
-                status: "PENDING",
-              }));
+            for (const docId of documentTypeIds) {
+              const existing = existingMap.get(docId);
 
-            if (newRequirements.length > 0) {
-              await tx.applicationDocumentRequirement.createMany({
-                data: newRequirements,
-              });
+              if (existing) {
+                await tx.applicationDocumentRequirement.update({
+                  where: { id: existing.id },
+                  data: {
+                    status: "PENDING",
+                    lastRequestedAt: new Date(),
+                    updatedAt: new Date(),
+                    source: "LENDER_ADDED",
+                  },
+                });
+              } else {
+                await tx.applicationDocumentRequirement.create({
+                  data: {
+                    loanApplicationId: record.loanApplicationId,
+                    documentTypeId: docId,
+                    source: "LENDER_ADDED",
+                    isRequired: true,
+                    status: "PENDING",
+                    lastRequestedAt: new Date(),
+                  },
+                });
+              }
             }
 
+            // -------------------------------
+            // 🔥 LENDER-SPECIFIC TRACKING (NEW)
+            // -------------------------------
+            const existingLenderRequests =
+              await tx.lenderDocumentRequest.findMany({
+                where: {
+                  applicationLenderId,
+                },
+                select: { id: true, documentTypeId: true },
+              });
+
+            const lenderMap = new Map(
+              existingLenderRequests.map((r) => [r.documentTypeId, r])
+            );
+
+            for (const docId of documentTypeIds) {
+              const existing = lenderMap.get(docId);
+
+              if (existing) {
+                await tx.lenderDocumentRequest.update({
+                  where: { id: existing.id },
+                  data: {
+                    status: "PENDING",
+                    updatedAt: new Date(),
+                  },
+                });
+              } else {
+                await tx.lenderDocumentRequest.create({
+                  data: {
+                    loanApplicationId: record.loanApplicationId,
+                    applicationLenderId,
+                    documentTypeId: docId,
+                    status: "PENDING",
+                  },
+                });
+              }
+            }
+
+            // -------------------------------
+            // TOKEN (UNCHANGED)
+            // -------------------------------
             const token = crypto.randomBytes(32).toString("hex");
 
             const tokenRecord = await tx.clientUploadToken.create({
@@ -236,7 +279,9 @@ async function lenderDecisionRoutes(fastify) {
                 loanApplicationId: record.loanApplicationId,
                 clientId: record.loanApplication.clientId,
                 token,
-                expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+                expiresAt: new Date(
+                  Date.now() + 7 * 24 * 60 * 60 * 1000
+                ),
               },
             });
 
@@ -250,10 +295,9 @@ async function lenderDecisionRoutes(fastify) {
             }
           }
 
-          // ===============================
-          // DECLINED FLOW
-          // ===============================
-
+          /* ===============================
+             DECLINED FLOW (UNCHANGED)
+          =============================== */
           if (decision === "DECLINED") {
             const remaining = await tx.applicationLender.count({
               where: {
@@ -271,20 +315,22 @@ async function lenderDecisionRoutes(fastify) {
           }
         });
 
-        // ===============================
-        // EMAIL NOTIFICATION
-        // ===============================
-
+        /* ===============================
+           EMAIL NOTIFICATION (UNCHANGED)
+        =============================== */
         if (decision === "CONDITIONAL" && uploadToken) {
           const uploadLink = `${process.env.FRONTEND_URL}/client-upload/${uploadToken}`;
 
           const html = loadTemplate("clientPortal/document", {
-            clientName: record.loanApplication.client?.legalName || "Customer",
+            clientName:
+              record.loanApplication.client?.legalName || "Customer",
             uploadLink,
-            applicationNumber: record.loanApplication.applicationNumber,
+            applicationNumber:
+              record.loanApplication.applicationNumber,
           });
 
-          const subject = "Documents Required for Your Loan Application";
+          const subject =
+            "Documents Required for Your Loan Application";
 
           const text = `Please upload required documents using this link: ${uploadLink}`;
 
@@ -305,12 +351,17 @@ async function lenderDecisionRoutes(fastify) {
           message: `Application ${decision} processed successfully`,
         });
       } catch (error) {
+        fastify.log.error({
+          error: error.message,
+          route: "lender-decision",
+        });
+
         return reply.status(500).send({
           success: false,
           message: "Server error while processing decision",
         });
       }
-    },
+    }
   );
 }
 
