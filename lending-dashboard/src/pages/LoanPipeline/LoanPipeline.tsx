@@ -311,7 +311,7 @@ export default function LoanPipeline() {
 
       // 🔥 FILTER BASED ON PRODUCT
       const filtered = json.data.filter(
-        (doc: any) => doc.lenderProduct.loanProductCode === row.loanType,
+        (doc: any) => doc.lenderProduct.loanProductCode === row.loanType
       );
 
       setDocSelectModal({

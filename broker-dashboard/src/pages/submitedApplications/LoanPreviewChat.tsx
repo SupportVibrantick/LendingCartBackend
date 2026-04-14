@@ -14,6 +14,7 @@ import {
   FiVideo,
   FiX,
 } from "react-icons/fi";
+import { Search } from "lucide-react";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
@@ -102,6 +103,7 @@ const getAvatarTone = (value?: string) => {
 const LoanPreviewChat = ({ applicationId }: LoanPreviewChatProps) => {
   const socketRef = useRef<Socket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const emojiPickerRef = useRef<HTMLDivElement | null>(null);
 
@@ -140,7 +142,12 @@ const LoanPreviewChat = ({ applicationId }: LoanPreviewChatProps) => {
   );
 
   const scrollToBottom = (behavior: ScrollBehavior = "smooth") => {
-    messagesEndRef.current?.scrollIntoView({ behavior, block: "end" });
+    if (!containerRef.current) return;
+
+    containerRef.current.scrollTo({
+      top: containerRef.current.scrollHeight,
+      behavior,
+    });
   };
 
   const removeSelectedFile = () => {
@@ -435,13 +442,15 @@ const LoanPreviewChat = ({ applicationId }: LoanPreviewChatProps) => {
 
   useEffect(() => {
     if (selectedConversation?.id) {
-      window.setTimeout(() => scrollToBottom("auto"), 100);
+      setTimeout(() => {
+        scrollToBottom("auto"); // instant open at bottom
+      }, 100);
     }
   }, [selectedConversation?.id]);
 
   useEffect(() => {
     if (messages.length > 0) {
-      scrollToBottom();
+      scrollToBottom("smooth");
     }
   }, [messages]);
 
@@ -460,7 +469,7 @@ const LoanPreviewChat = ({ applicationId }: LoanPreviewChatProps) => {
               className="h-10 w-full rounded-full border border-slate-200 bg-[#f2f2ef] pl-10 pr-10 text-sm text-slate-700 outline-none placeholder:text-slate-400 focus:border-slate-300"
             />
             <span className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full border border-slate-200 px-1.5 py-0.5 text-[10px] text-slate-400">
-              /f
+              <Search size={14} />
             </span>
           </div>
         </div>
@@ -621,7 +630,10 @@ const LoanPreviewChat = ({ applicationId }: LoanPreviewChatProps) => {
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto bg-[#f8f8f6] px-4 py-5 sm:px-7">
+            <div
+              ref={containerRef}
+              className="flex-1 overflow-y-auto bg-[#f8f8f6] px-4 py-5 sm:px-7"
+            >
               {messagesLoading ? (
                 <div className="space-y-4">
                   {[1, 2, 3].map((item) => (

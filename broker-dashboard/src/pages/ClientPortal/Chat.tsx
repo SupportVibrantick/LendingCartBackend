@@ -19,6 +19,7 @@ const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
 type Conversation = {
   id: string;
+  brokerName: string;
   title?: string;
   type?: string;
   lastMessage?: string;
@@ -210,20 +211,50 @@ const Chat = ({ applicationId }: LoanPreviewChatProps) => {
         throw new Error(json.message || "Failed to load chats");
       }
 
-      // ✅ hide BROKER_LENDER chats
-      const nextConversations = (json?.data?.conversations || []).filter(
-        (item: Conversation) => item.type !== "BROKER_LENDER",
+      // STEP 1: only CLIENT_BROKER
+      const clientBrokerChats = (json?.data?.conversations || []).filter(
+        (item: Conversation) => item.type === "CLIENT_BROKER",
       );
 
+      // STEP 2: fetch details + extract BROKER
+      const nextConversations = await Promise.all(
+        clientBrokerChats.map(async (item: Conversation) => {
+          try {
+            const detailRes = await fetch(
+              `${API_BASE}/messaging/conversation/${item.id}`,
+              {
+                method: "GET",
+                headers: {
+                  ...(token && { Authorization: `Bearer ${token}` }),
+                },
+              },
+            );
+
+            const detailJson = await detailRes.json();
+            if (!detailRes.ok || !detailJson.success) return item;
+
+            const participants = detailJson.data.participants || [];
+
+            const broker = participants.find(
+              (p: any) => p.participantType === "BROKER",
+            );
+
+            return {
+              ...item,
+              brokerName: broker?.name || "Broker",
+            };
+          } catch {
+            return item;
+          }
+        }),
+      );
+
+      // set state
       setConversations(nextConversations);
 
       setSelectedConversation((prev) => {
         if (!prev) return null;
-
-        return (
-          nextConversations.find((item: Conversation) => item.id === prev.id) ||
-          null
-        );
+        return nextConversations.find((c) => c.id === prev.id) || null;
       });
     } catch (err: any) {
       toast.error(err.message || "Failed to load chats");
@@ -564,7 +595,7 @@ const Chat = ({ applicationId }: LoanPreviewChatProps) => {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-2">
                         <p className="truncate text-sm font-semibold text-slate-900">
-                          {getDisplayTitle(chat.title)}
+                         {chat.brokerName}
                         </p>
                         <span className="text-[10px] text-slate-400">
                           {formatTime(chat.lastMessageAt)}
