@@ -24,7 +24,7 @@ async function listLoanProducts(fastify) {
         },
       });
 
-      // 👇 Priority based on ENUM (BEST PRACTICE)
+      //  Priority based on ENUM (BEST PRACTICE)
       const priorityOrder = ["BRIDGE", "FIX_AND_FLIP", "DSCR"];
 
       const sortedProducts = products.sort((a, b) => {

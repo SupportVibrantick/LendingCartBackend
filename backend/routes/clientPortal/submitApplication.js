@@ -1,6 +1,9 @@
 const fp = require("fastify-plugin");
 const jwt = require("jsonwebtoken");
 
+// ADDED (Fee Agreement)
+const createFeeAgreement = require("../../routes/broker/loanPipeline/feeAgreement/createFeeAgreement");
+
 async function submitClientApplication(fastify) {
   fastify.post(
     "/e-sign/submit",
@@ -228,6 +231,16 @@ async function submitClientApplication(fastify) {
             }
           });
         });
+
+        // ✅ ADDED (Fee Agreement creation - SAFE)
+        try {
+          await createFeeAgreement(fastify, loan.id);
+        } catch (err) {
+          fastify.log.error(
+            { error: err.message },
+            "Fee Agreement creation failed (non-blocking)"
+          );
+        }
 
         return reply.send({
           success: true,
