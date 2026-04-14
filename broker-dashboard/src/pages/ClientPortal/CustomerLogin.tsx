@@ -88,7 +88,7 @@ export default function CustomerLogin() {
           disabled={!email || !password}
           className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 text-white py-2.5 rounded-xl text-sm font-semibold shadow-md hover:shadow-lg hover:scale-[1.01] transition-all disabled:opacity-50"
         >
-          Login
+          Login 
         </motion.button>
 
         {/* FOOTER */}

@@ -23,41 +23,40 @@ export default function ClientAuth() {
   }, []);
 
   const checkUser = async () => {
-  try {
-    const clientToken = sessionStorage.getItem("client_token");
+    try {
+      const clientToken = sessionStorage.getItem("client_token");
 
-    if (!token) {
-      // redirect
-      if (clientToken) {
-        window.location.href = "/client-portal";
+      if (!token) {
+        // redirect
+        if (clientToken) {
+          window.location.href = "/client-portal";
+          return;
+        }
+
+        setIsLogin(true);
+        setEmail("");
         return;
       }
 
-      setIsLogin(true);
-      setEmail("");
-      return;
+      let url = `${API_BASE}/client-portal/check-user?token=${token}`;
+
+      const res = await axios.get(url);
+      const data = res.data?.data;
+
+      if (!data?.tokenValid) {
+        toast.error("Invalid or expired link");
+        return;
+      }
+
+      setEmail(data.email);
+
+      setIsLogin(data.userExists);
+    } catch (err) {
+      console.log("Something went wrong");
+    } finally {
+      setLoading(false);
     }
-
-    let url = `${API_BASE}/client-portal/check-user?token=${token}`;
-
-    const res = await axios.get(url);
-    const data = res.data?.data;
-
-    if (!data?.tokenValid) {
-      toast.error("Invalid or expired link");
-      return;
-    }
-
-    setEmail(data.email);
-
-    setIsLogin(data.userExists);
-
-  } catch (err) {
-    console.log("Something went wrong");
-  } finally {
-    setLoading(false);
-  }
-};
+  };
   /* ================= LOGIN ================= */
   const handleLogin = async () => {
     try {
@@ -135,68 +134,77 @@ export default function ClientAuth() {
 
   /* ================= UI ================= */
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-white p-4">
-      <div className="w-full max-w-md bg-white shadow-xl rounded-2xl p-6">
-        {/* TITLE */}
-        <h2 className="text-xl font-semibold text-gray-800 text-center mb-2">
-          {!token || isLogin === true
-            ? "Welcome Back 👋"
-            : "Create Your Password"}
-        </h2>
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        !token || isLogin === true ? handleLogin() : handleSetPassword();
+      }}
+    >
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-white p-4">
+        <div className="w-full max-w-md bg-white shadow-xl rounded-2xl p-6">
+          {/* TITLE */}
+          <h2 className="text-xl font-semibold text-gray-800 text-center mb-2">
+            {!token || isLogin === true
+              ? "Welcome Back 👋"
+              : "Create Your Password"}
+          </h2>
 
-        {/* EMAIL */}
-        <div className="mb-4">
-          <label className="text-xs text-gray-500">Email</label>
-          <input
-            type="email"
-            value={email}
-            disabled={!!token}
-            placeholder="Enter email"
-            className={`w-full mt-1 px-3 py-2 border rounded-lg text-sm ${
-              token ? "bg-gray-100 cursor-not-allowed" : ""
-            }`}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-        </div>
+          {/* EMAIL */}
+          <div className="mb-4">
+            <label className="text-xs text-gray-500">Email</label>
+            <input
+              type="email"
+              value={email}
+              disabled={!!token}
+              placeholder="Enter email"
+              className={`w-full mt-1 px-3 py-2 border rounded-lg text-sm ${
+                token ? "bg-gray-100 cursor-not-allowed" : ""
+              }`}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
 
-        {/* PASSWORD */}
-        <div className="mb-4 relative">
-          <label className="text-xs text-gray-500">Password</label>
+          {/* PASSWORD */}
+          <div className="mb-4 relative">
+            <label className="text-xs text-gray-500">Password</label>
 
-          <input
-            type={showPassword ? "text" : "password"}
-            placeholder="Enter password"
-            className="w-full mt-1 px-3 py-2 pr-10 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
+            <input
+              type={showPassword ? "text" : "password"}
+              placeholder="Enter password"
+              className="w-full mt-1 px-3 py-2 pr-10 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
 
-          {/* 👁 Eye Button */}
+            {/* 👁 Eye Button */}
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-[38px] text-gray-500 hover:text-gray-700"
+            >
+              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          </div>
+
+          {/* BUTTON */}
           <button
-            type="button"
-            onClick={() => setShowPassword(!showPassword)}
-            className="absolute right-3 top-[38px] text-gray-500 hover:text-gray-700"
+            // onClick={
+            //   !token || isLogin === true ? handleLogin : handleSetPassword
+            // }
+            disabled={!password}
+            className="w-full bg-blue-600 text-white py-2 rounded-lg text-sm hover:bg-blue-700 transition disabled:opacity-50"
           >
-            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            {!token || isLogin === true ? "Login" : "Set Password"}
           </button>
+
+          {/* FOOTER TEXT */}
+          {token && isLogin === false && (
+            <p className="text-xs text-center text-gray-400 mt-4">
+              After setting password, you will login
+            </p>
+          )}
         </div>
-
-        {/* BUTTON */}
-        <button
-          onClick={!token || isLogin === true ? handleLogin : handleSetPassword}
-          disabled={!password}
-          className="w-full bg-blue-600 text-white py-2 rounded-lg text-sm hover:bg-blue-700 transition disabled:opacity-50"
-        >
-          {!token || isLogin === true ? "Login" : "Set Password"}
-        </button>
-
-        {/* FOOTER TEXT */}
-        {token && isLogin === false && (
-          <p className="text-xs text-center text-gray-400 mt-4">
-            After setting password, you will login
-          </p>
-        )}
       </div>
-    </div>
+    </form>
   );
 }
