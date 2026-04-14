@@ -37,6 +37,7 @@ model Organization {
   users                    UserAccount[]
   contacts                 Contact[]
   loiTemplates             LenderLoiTemplate[]
+  feeAgreements            FeeAgreement[]            @relation("OrgToFeeAgreement")
   // soft-delete fields (additive, non-breaking)
   isDeleted                Boolean?                  @default(false) @map("is_deleted")
   deletedAt                DateTime?                 @map("deleted_at") @db.Timestamptz(6)
@@ -162,6 +163,7 @@ model Client {
   primaryBroker      Organization        @relation("BrokerClients", fields: [primaryBrokerOrgId], references: [id])
   loanApplications   LoanApplication[]
   uploadTokens       ClientUploadToken[]
+  feeAgreements      FeeAgreement[]      @relation("ClientToFeeAgreement")
   // soft-delete fields (additive, non-breaking)
   isDeleted          Boolean?            @default(false) @map("is_deleted")
   deletedAt          DateTime?           @map("deleted_at") @db.Timestamptz(6)
@@ -523,6 +525,7 @@ model LoanApplication {
   client                 Client                           @relation(fields: [clientId], references: [id])
   submissions            ApplicationSubmission[]
   clientUploadTokens     ClientUploadToken[]
+  feeAgreement           FeeAgreement?                    @relation("LoanToFeeAgreement")
 
   @@index([brokerOrgId])
   @@index([clientId])
@@ -918,6 +921,64 @@ model Notification {
   @@index([recipientClientId])
   @@index([eventType])
   @@map("notifications")
+}
+
+model FeeAgreement {
+  id String @id @default(uuid()) @db.Uuid
+
+  // ✅ REQUIRED SCALAR FIELDS
+  loanApplicationId String @unique @db.Uuid
+  brokerOrgId       String @db.Uuid
+  clientId          String @db.Uuid
+
+  // -------- SNAPSHOT --------
+  clientName       String?
+  clientEntityName String?
+  clientEmail      String?
+  clientPhone      String?
+  clientAddress    String?
+
+  brokerName    String?
+  brokerCompany String?
+  brokerEmail   String?
+  brokerPhone   String?
+  brokerAddress String?
+  brokerState   String?
+  brokerCounty  String?
+
+  subjectAddress String?
+
+  // -------- FEES --------
+  brokerPoints      Decimal? @db.Decimal(5, 2)
+  upfrontFee        Decimal? @db.Decimal(10, 2)
+  exclusivityMonths Int?
+
+  // -------- DOCUMENT --------
+  agreementHtml String?
+
+  // -------- SIGNATURE --------
+  clientSignature String?
+  signedAt        DateTime? @db.Timestamptz(6)
+
+  status FeeAgreementStatus @default(DRAFT)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  loanApplication LoanApplication @relation("LoanToFeeAgreement", fields: [loanApplicationId], references: [id])
+  brokerOrg       Organization    @relation("OrgToFeeAgreement", fields: [brokerOrgId], references: [id])
+  client          Client          @relation("ClientToFeeAgreement", fields: [clientId], references: [id])
+
+  @@index([loanApplicationId])
+  @@index([brokerOrgId])
+  @@index([clientId])
+  @@map("fee_agreements")
+}
+
+enum FeeAgreementStatus {
+  DRAFT
+  SENT
+  SIGNED
 }
 
 enum DashboardType {
