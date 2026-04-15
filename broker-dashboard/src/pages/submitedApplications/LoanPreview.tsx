@@ -26,6 +26,7 @@ import { FiFolder, FiSearch, FiSend, FiTag, FiUser } from "react-icons/fi";
 import Swal from "sweetalert2";
 import { FaRegCreditCard } from "react-icons/fa6";
 import LoanPreviewChat from "./LoanPreviewChat";
+import FeeAgreement from "./FeeAgreement";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
@@ -67,7 +68,8 @@ type TabKey =
   | "view-loi"
   | "documents"
   | "submitted-lenders"
-  | "chat";
+  | "chat"
+  | "fee-agreement";
 
 const parseValue = (val: string): any => {
   try {
@@ -394,6 +396,7 @@ const LoanPreview = () => {
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [sending, setSending] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+
   const [search, setSearch] = useState("");
   const [debouncedLenderSearch, setDebouncedLenderSearch] = useState("");
   const itemsPerPage = 9;
@@ -1058,6 +1061,12 @@ const LoanPreview = () => {
       label: "Chat",
       icon: Send,
       color: "text-green-600",
+    },
+    {
+      key: "fee-agreement" as const,
+      label: "Fee Agreement",
+      icon: FileText,
+      color: "text-indigo-600",
     },
   ];
 
@@ -2616,6 +2625,13 @@ const LoanPreview = () => {
         return renderSubmittedLenders();
       case "chat":
         return <LoanPreviewChat applicationId={applicationId} />;
+      case "fee-agreement":
+        return (
+          <FeeAgreement
+            applicationId={applicationId}
+            getAuthHeaders={getAuthHeaders}
+          />
+        );
       default:
         return renderViewDetails();
     }

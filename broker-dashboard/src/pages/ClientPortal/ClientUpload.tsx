@@ -4,6 +4,7 @@ import axios from "axios";
 import { Upload, FileText, CheckCircle } from "lucide-react";
 import toast from "react-hot-toast";
 import SignatureCanvas from "react-signature-canvas";
+import FeeAgreement from "./FeeAgreement";
 import { useRef } from "react";
 import {
   FiUploadCloud,
@@ -549,23 +550,6 @@ export default function ClientUpload() {
                 <span className="absolute -bottom-2 left-2 right-2 h-[2px] bg-blue-500 rounded-full" />
               )}
             </button>
-
-            {/* Fee Agreement */}
-            <button
-              onClick={() => setActiveTab("feeAgreement")}
-              className={`relative flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium transition-all
-      ${
-        activeTab === "feeAgreement"
-          ? "text-white bg-gradient-to-r from-blue-500 to-teal-500 shadow-md"
-          : "text-gray-500 hover:text-blue-600"
-      }`}
-            >
-              <FiFileText size={16} />
-              Fee Agreement
-              {activeTab === "feeAgreement" && (
-                <span className="absolute -bottom-2 left-2 right-2 h-[2px] bg-blue-500 rounded-full" />
-              )}
-            </button>
           </div>
 
           {/* RIGHT SIDE */}
@@ -1020,6 +1004,18 @@ export default function ClientUpload() {
                         Upload Documents
                         <span className="absolute -bottom-2 left-2 right-2 h-[2px] bg-blue-500 rounded-full" />
                       </button>
+
+                      {/* Fee Agreement */}
+                      <button
+                        onClick={() => setActiveTab("feeAgreement")}
+                        className={`relative flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium transition-all
+      hover:text-blue-500`}
+                      >
+                        <FiFileText size={16} />
+                        Fee Agreement
+                        <span className="absolute -bottom-2 left-2 right-2 h-[2px] bg-blue-500 rounded-full" />
+                      </button>
+
                       <div className="flex items-center gap-3">
                         {/* Chat Button */}
                         <button
@@ -1394,6 +1390,17 @@ export default function ClientUpload() {
               )}
             </div>
           ) : null)}
+
+        {activeTab === "feeAgreement" && (
+          <FeeAgreement
+            applicationId={
+              selectedApplication?.id ||
+              selectedApplication?.loanApplicationId ||
+              applicationId
+            }
+            getAuthHeaders={() => getClientPortalAuthConfig().headers}
+          />
+        )}
 
         {activeTab === "chat" && (
           <Chat
