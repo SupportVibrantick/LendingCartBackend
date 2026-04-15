@@ -2,8 +2,10 @@
  * @param {import("fastify").FastifyInstance} fastify
  */
 module.exports = async function signFeeAgreement(fastify) {
+  const jwt = require("jsonwebtoken"); // ✅ REQUIRED
+
   fastify.post(
-    "/:id/fee-agreement/sign",   // CLEAN (matches your pattern)
+    "/:id/fee-agreement/sign",
     {
       schema: {
         tags: ["Fee Agreement"],
@@ -12,7 +14,7 @@ module.exports = async function signFeeAgreement(fastify) {
           type: "object",
           required: ["id"],
           properties: {
-            id: { type: "string" }, // applicationId
+            id: { type: "string" },
           },
         },
         body: {
@@ -29,7 +31,7 @@ module.exports = async function signFeeAgreement(fastify) {
 
       try {
         /* ===============================
-           AUTH
+           AUTH (FIXED ✅)
         =============================== */
         const authHeader = req.headers.authorization;
 
@@ -44,7 +46,7 @@ module.exports = async function signFeeAgreement(fastify) {
 
         let decoded;
         try {
-          decoded = fastify.jwt.verify(token);
+          decoded = jwt.verify(token, process.env.JWT_SECRET); // ✅ FIXED
         } catch {
           return reply.code(401).send({
             ok: false,
@@ -93,7 +95,7 @@ module.exports = async function signFeeAgreement(fastify) {
         /* ===============================
            FETCH AGREEMENT
         =============================== */
-        const agreement = await prisma.feeAgreement.findUnique({
+        const agreement = await prisma.feeAgreement.findFirst({
           where: {
             loanApplicationId: applicationId,
           },
@@ -125,11 +127,11 @@ module.exports = async function signFeeAgreement(fastify) {
           },
         });
 
-        return {
+        return reply.send({
           ok: true,
           message: "Agreement signed successfully",
           data: updated,
-        };
+        });
       } catch (err) {
         req.log.error(err);
 
