@@ -23,10 +23,11 @@ fastify.register(require("./submitApplication"));
 fastify.register(require("./getClientApplications"));
 
 fastify.register(require("./getSingleApplication"));
+fastify.register(require("./getClientFeeAgreement"));
   //  Future APIs (you will add later)
   // fastify.register(require("./uploadDocuments"), { prefix: "/upload" });
   // fastify.register(require("./getNotifications"), { prefix: "/notifications" });
-
+fastify.register(require("./signFeeAgreement"));
 }
 
 module.exports = clientPortalRoutes;
