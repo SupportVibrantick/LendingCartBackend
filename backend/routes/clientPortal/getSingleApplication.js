@@ -79,6 +79,15 @@ async function getClientApplicationDetailsRoute(fastify) {
       }
 
       /* ===============================
+         FETCH FULL FEE AGREEMENT ✅
+      =============================== */
+      const feeAgreement = await prisma.feeAgreement.findUnique({
+        where: {
+          loanApplicationId: application.id,
+        },
+      });
+
+      /* ===============================
          GET LATEST VALID SUBMISSION
       =============================== */
       const latestSubmission = (application.submissions || [])
@@ -93,7 +102,6 @@ async function getClientApplicationDetailsRoute(fastify) {
       if (latestSubmission?.fields?.length) {
         for (const field of latestSubmission.fields) {
           if (!field?.fieldKey) continue;
-
           fieldMap.set(field.fieldKey.trim(), field.value ?? null);
         }
       }
@@ -107,10 +115,8 @@ async function getClientApplicationDetailsRoute(fastify) {
       };
 
       /* ===============================
-         🔥 CRITICAL FIX (MAIN ISSUE)
+         FIXED VALUES
       =============================== */
-
-      // ✅ ALWAYS PRIORITIZE SUBMISSION
       let amountRequested = null;
 
       if (getField("amountRequested") !== null) {
@@ -134,18 +140,19 @@ async function getClientApplicationDetailsRoute(fastify) {
       }
 
       /* ===============================
-         FINAL RESPONSE
+         FINAL RESPONSE ✅ FULL DATA
       =============================== */
       return reply.send({
         success: true,
         data: {
           ...application,
 
-          // 🔥 FIXED VALUES
           amountRequested,
           loanProductCode,
 
-          // 🔍 DEBUG (REMOVE IN PROD)
+          // 🔥 FULL OBJECT (NO TRIM)
+          feeAgreement: feeAgreement || null,
+
           _debug: {
             submissionAmount: getField("amountRequested"),
             dbAmount: application.amountRequested,
