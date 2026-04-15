@@ -232,7 +232,7 @@ async function submitClientApplication(fastify) {
           });
         });
 
-        // ✅ ADDED (Fee Agreement creation - SAFE)
+        //  ADDED (Fee Agreement creation - SAFE)
         try {
           await createFeeAgreement(fastify, loan.id);
         } catch (err) {

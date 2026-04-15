@@ -13,6 +13,8 @@ async function loanPipelineRoutes(fastify) {
   fastify.register(require("./deleteDocument.js"));
 
   fastify.register(require("./getSubmittedlenders.js"));
+
+  fastify.register(require("./feeAgreement"));
 }
 
 module.exports = loanPipelineRoutes;
