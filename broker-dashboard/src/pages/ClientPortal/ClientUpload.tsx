@@ -4,6 +4,7 @@ import axios from "axios";
 import { Upload, FileText, CheckCircle } from "lucide-react";
 import toast from "react-hot-toast";
 import SignatureCanvas from "react-signature-canvas";
+import FeeAgreement from "./FeeAgreement";
 import { useRef } from "react";
 import {
   FiUploadCloud,
@@ -114,8 +115,8 @@ export default function ClientUpload() {
   const [limit] = useState(9);
 
   const [activeTab, setActiveTab] = useState<
-    "documents" | "application" | "chat" | "applications"
-  >("documents");
+    "documents" | "application" | "chat" | "applications" | "feeAgreement"
+  >("applications");
   const [isSignedFromAPI, setIsSignedFromAPI] = useState(false);
 
   const getClientPortalAuthConfig = () => {
@@ -204,7 +205,7 @@ export default function ClientUpload() {
 
   const handleClearSignature = () => {
     sigRef.current?.clear();
-    setSignature(""); // disable submit again
+    setSignature("");
   };
 
   const handleUndoSignature = () => {
@@ -379,7 +380,6 @@ export default function ClientUpload() {
       setTotalPages(res.data?.meta?.totalPages || 1);
     } catch (err) {
       console.error(err);
-      toast.error("Failed to fetch applications");
     } finally {
       setApplicationsLoading(false);
     }
@@ -410,7 +410,7 @@ export default function ClientUpload() {
         fullApplication: fields,
       });
 
-      setActiveTab("application"); // 👈 reuse existing UI
+      setActiveTab("application"); // reuse existing UI
     } catch (err) {
       console.error(err);
       toast.error("Failed to fetch application details");
@@ -483,93 +483,57 @@ export default function ClientUpload() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white p-6">
       <div className="max-w-8xl mx-auto">
         {/* TOP SUMMARY CARD - TABS SE UPAR */}
-        {(activeTab === "documents" || activeTab === "applications") &&
-          applicationData && (
-            <div className="mb-6 rounded-2xl bg-white border border-slate-200 shadow-sm p-5">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                {/* Application No */}
-                {/* <div className="rounded-xl bg-slate-50 p-4">
-                <p className="text-[11px] uppercase text-slate-400 font-semibold">
-                  Application No
-                </p>
-                <p className="text-sm font-bold text-slate-800 mt-1">
-                  {applicationData?.applicationNumber || "-"}
-                </p>
-              </div> */}
+        {activeTab === "applications" && applicationData && (
+          <div className="relative mb-8 overflow-hidden rounded-3xl border border-white/60 bg-gradient-to-br from-slate-50 to-indigo-50/30 p-1 shadow-[0_20px_50px_rgba(8,_112,_184,_0.07)]">
+            {/* Decorative Background Element */}
+            <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-indigo-500/5 blur-3xl" />
 
-                {/* Status */}
-                {/* <div className="rounded-xl bg-slate-50 p-4">
-                <p className="text-[11px] uppercase text-slate-400 font-semibold">
-                  Status
+            <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 p-6">
+              {/* Name Column */}
+              <div className="group">
+                <p className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.1em] text-slate-400">
+                  <span className="h-1.5 w-1.5 rounded-full bg-indigo-600 shadow-[0_0_8px_rgba(79,70,229,0.6)]" />
+                  Borrower Name
                 </p>
-                <div className="mt-1">
-                  <span
-                    className={`inline-flex items-center gap-2 px-3 py-1 text-xs font-semibold rounded-full ${getStatusStyles(
-                      applicationData?.status,
-                    )}`}
-                  >
-                    <span
-                      className={`h-2 w-2 rounded-full ${getStatusDot(
-                        applicationData?.status,
-                      )}`}
-                    />
-                    {applicationData?.status || "-"}
+                <p className="mt-2 text-md font-bold tracking-tight text-slate-900 group-hover:text-indigo-600 transition-colors">
+                  {applicationData?.borrower?.name || "Anonymous User"}
+                </p>
+              </div>
+
+              {/* Email Column */}
+              <div className="group">
+                <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-slate-400">
+                  Primary Contact
+                </p>
+                <div className="mt-2 flex items-center gap-1">
+                  <span className="flex h-8 w-8 items-center justify-center">
+                    <svg
+                      className="h-4 w-4 text-slate-400"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                      />
+                    </svg>
                   </span>
-                </div>
-              </div> */}
-
-                {/* Name */}
-                <div className="rounded-xl bg-slate-50 p-4">
-                  <p className="text-[11px] uppercase text-slate-400 font-semibold">
-                    Borrower Name
-                  </p>
-                  <p className="text-sm font-bold text-slate-800 mt-1">
-                    {applicationData?.borrower?.name || "-"}
-                  </p>
-                </div>
-
-                {/* Email */}
-                <div className="rounded-xl bg-slate-50 p-4">
-                  <p className="text-[11px] uppercase text-slate-400 font-semibold">
-                    Email
-                  </p>
-                  <p className="text-sm font-medium text-slate-700 mt-1 break-all">
+                  <p className="text-sm font-semibold text-slate-600 break-all leading-tight">
                     {applicationData?.borrower?.email || "-"}
                   </p>
                 </div>
-
-                {/* Credit Score */}
-                {/* <div className="rounded-xl bg-slate-50 p-4">
-                <p className="text-[11px] uppercase text-slate-400 font-semibold">
-                  Credit Score
-                </p>
-                <p className="text-sm font-bold text-slate-800 mt-1">
-                  {applicationData?.borrower?.creditScore || "-"}
-                </p>
-              </div> */}
               </div>
+
+              <div className="hidden lg:block lg:col-span-3" />
             </div>
-          )}
+          </div>
+        )}
         <div className="flex items-center justify-between mb-6 border-b pb-2">
           {/* LEFT SIDE ACTIONS */}
           <div className="flex items-center gap-6">
-            {/* DOCUMENTS */}
-            <button
-              onClick={() => setActiveTab("documents")}
-              className={`relative flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium transition-all
-      ${
-        activeTab === "documents"
-          ? "text-white bg-gradient-to-r from-blue-600 to-cyan-600 shadow-md"
-          : "text-gray-500 hover:text-blue-600"
-      }`}
-            >
-              <FiUploadCloud size={16} />
-              Upload Documents
-              {activeTab === "documents" && (
-                <span className="absolute -bottom-2 left-2 right-2 h-[2px] bg-blue-500 rounded-full" />
-              )}
-            </button>
-
             {/* APPLICATIONS */}
             <button
               onClick={() => setActiveTab("applications")}
@@ -586,29 +550,12 @@ export default function ClientUpload() {
                 <span className="absolute -bottom-2 left-2 right-2 h-[2px] bg-blue-500 rounded-full" />
               )}
             </button>
-
-            {/* CHAT */}
-            {/* <button
-              onClick={() => setActiveTab("chat")}
-              className={`relative flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium transition-all
-      ${
-        activeTab === "chat"
-          ? "text-white bg-gradient-to-r from-emerald-500 to-green-600 shadow-md"
-          : "text-gray-500 hover:text-green-600"
-      }`}
-            >
-              <FiMessageCircle size={16} />
-              Chat
-              {activeTab === "chat" && (
-                <span className="absolute -bottom-2 left-2 right-2 h-[2px] bg-green-500 rounded-full" />
-              )}
-            </button> */}
           </div>
 
           {/* RIGHT SIDE */}
           <button
             onClick={handleLogout}
-            className="flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-red-600 transition"
+            className="flex items-center gap-2 text-sm  font-medium text-red-600 transition"
           >
             <FiLogOut size={16} />
             Logout
@@ -827,7 +774,7 @@ export default function ClientUpload() {
                 {/* ICON */}
                 <div className="relative">
                   <div
-                    className="h-16 w-16 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 
+                    className="h-16 w-16 rounded-2xl bg-gradient-to-br from-blue-500 to-green-500 
       flex items-center justify-center shadow-lg"
                   >
                     <FiFileText className="text-white" size={28} />
@@ -1042,43 +989,65 @@ export default function ClientUpload() {
                         <h1 className="text-xl font-semibold text-gray-800">
                           Loan Application Preview
                         </h1>
-                        <p className="text-sm text-gray-400">
+                        <p className="text-xs text-gray-400">
                           {selectedApplication?.applicationNumber}
                         </p>
                       </div>
+
+                      {/* DOCUMENTS */}
+                      <button
+                        onClick={() => setActiveTab("documents")}
+                        className={`relative flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium transition-all
+      hover:text-blue-500`}
+                      >
+                        <FiUploadCloud size={16} />
+                        Upload Documents
+                        <span className="absolute -bottom-2 left-2 right-2 h-[2px] bg-blue-500 rounded-full" />
+                      </button>
+
+                      {/* Fee Agreement */}
+                      <button
+                        onClick={() => setActiveTab("feeAgreement")}
+                        className={`relative flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium transition-all
+      hover:text-blue-500`}
+                      >
+                        <FiFileText size={16} />
+                        Fee Agreement
+                        <span className="absolute -bottom-2 left-2 right-2 h-[2px] bg-blue-500 rounded-full" />
+                      </button>
 
                       <div className="flex items-center gap-3">
                         {/* Chat Button */}
                         <button
                           type="button"
                           onClick={() => setActiveTab("chat")}
-                          className="group relative flex items-center gap-3 overflow-hidden rounded-2xl border border-emerald-200 bg-gradient-to-r from-emerald-500 via-emerald-600 to-green-600 px-5 py-3 text-white shadow-[0_12px_28px_rgba(16,185,129,0.22)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_18px_36px_rgba(16,185,129,0.3)]"
+                          className="group relative inline-flex items-center gap-2 rounded-xl 
+  bg-gradient-to-r from-emerald-500 to-green-600 
+  px-3 py-1.5 text-xs font-semibold text-white 
+  shadow-md transition-all duration-200 
+  hover:shadow-lg hover:scale-[1.03] active:scale-95"
                         >
-                          {/* soft glow */}
-                          <span className="absolute inset-0 bg-gradient-to-r from-white/10 via-transparent to-white/5 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-
-                          {/* live pulse */}
-                          <span className="absolute right-3 top-2 flex h-2.5 w-2.5">
-                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/70 opacity-75" />
-                            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-white" />
-                          </span>
+                          {/* glow */}
+                          <span className="absolute inset-0 rounded-xl bg-white/10 opacity-0 group-hover:opacity-100 transition" />
 
                           {/* icon */}
-                          <span className="relative flex h-10 w-10 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm transition duration-300 group-hover:scale-110 group-hover:bg-white/25">
-                            <FiMessageCircle size={18} />
+                          <span className="flex items-center justify-center">
+                            <FiMessageCircle size={14} />
                           </span>
 
                           {/* text */}
-                          <span className="relative flex flex-col items-start leading-tight">
-                            <span className="text-sm font-semibold tracking-wide">
-                              Open Chat
-                            </span>
+                          <span>Chat</span>
+
+                          {/* subtle pulse */}
+                          <span className="ml-1 flex h-2 w-2">
+                            <span className="absolute inline-flex h-2 w-2 animate-ping rounded-full bg-white/70" />
+                            <span className="relative inline-flex h-2 w-2 rounded-full bg-white" />
                           </span>
                         </button>
 
                         {/* STATUS */}
                         <span
-                          className={`rounded-full px-4 py-1.5 text-xs font-semibold ${getStatusStyles(
+                          className={`rounded-full text-xs px-4 py-1.5 font-semibold ${getStatusStyles(
                             selectedApplication?.status,
                           )}`}
                         >
@@ -1090,18 +1059,18 @@ export default function ClientUpload() {
                     {/* CARDS CONTAINER */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                       {/* CLIENT CARD */}
-                      <div className="group relative overflow-hidden rounded-2xl p-4 bg-white border border-slate-100 shadow-sm hover:shadow-md transition-all duration-300">
+                      <div className="group relative overflow-hidden rounded-2xl p-4 bg-blue-100 border border-slate-100 transition-all duration-300">
                         <div className="relative flex items-center gap-3">
                           {/* Icon with Soft Background */}
-                          <div className="h-10 w-10 shrink-0 rounded-xl bg-blue-50 text-blue-500 flex items-center justify-center group-hover:bg-blue-500 group-hover:text-white transition-all duration-300">
+                          <div className="h-10 w-10 shrink-0 rounded-xl bg-blue-400 text-blue-50 flex items-center justify-center transition-all duration-300">
                             <FiUser size={16} />
                           </div>
 
                           <div className="min-w-0">
-                            <p className="text-[10px] text-slate-400 uppercase tracking-[0.05em] font-bold mb-0.5">
+                            <p className="text-[10px] text-blue-600 uppercase tracking-[0.05em] font-bold mb-0.5">
                               Client Name
                             </p>
-                            <p className="text-[13px] font-semibold text-slate-700 truncate">
+                            <p className="text-[13px] font-semibold text-blue-800 truncate">
                               {getValue("borrowerFirstName") || "Applicant"}
                             </p>
                           </div>
@@ -1109,17 +1078,17 @@ export default function ClientUpload() {
                       </div>
 
                       {/* PRODUCT CARD */}
-                      <div className="group relative overflow-hidden rounded-2xl p-4 bg-white border border-slate-100 shadow-sm hover:shadow-md transition-all duration-300">
+                      <div className="group relative overflow-hidden rounded-2xl p-4 bg-purple-100 border border-slate-100 transition-all duration-300">
                         <div className="relative flex items-center gap-3">
-                          <div className="h-10 w-10 shrink-0 rounded-xl bg-indigo-50 text-indigo-500 flex items-center justify-center group-hover:bg-indigo-500 group-hover:text-white transition-all duration-300">
+                          <div className="h-10 w-10 shrink-0 rounded-xl bg-purple-500 text-purple-50 flex items-center justify-center transition-all duration-300">
                             <FiTag size={16} />
                           </div>
 
                           <div className="min-w-0">
-                            <p className="text-[10px] text-slate-400 uppercase tracking-[0.05em] font-bold mb-0.5">
+                            <p className="text-[10px] text-purple-600 uppercase tracking-[0.05em] font-bold mb-0.5">
                               Product
                             </p>
-                            <p className="text-[13px] font-semibold text-slate-700 truncate">
+                            <p className="text-[13px] font-semibold text-purple-700 truncate">
                               {getValue("loanProductCode")?.replace(
                                 /_/g,
                                 " ",
@@ -1130,17 +1099,17 @@ export default function ClientUpload() {
                       </div>
 
                       {/* AMOUNT CARD */}
-                      <div className="group relative overflow-hidden rounded-2xl p-4 bg-white border border-slate-100 shadow-sm hover:shadow-md transition-all duration-300">
+                      <div className="group relative overflow-hidden rounded-2xl p-4 bg-green-100 border border-slate-100  transition-all duration-300">
                         <div className="relative flex items-center gap-3">
-                          <div className="h-10 w-10 shrink-0 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition-all duration-300">
+                          <div className="h-10 w-10 shrink-0 rounded-xl bg-green-500 text-green-50 flex items-center justify-center transition-all duration-300">
                             <FiDollarSign size={16} />
                           </div>
 
                           <div className="min-w-0">
-                            <p className="text-[10px] text-slate-400 uppercase tracking-[0.05em] font-bold mb-0.5">
+                            <p className="text-[10px] text-green-600 uppercase tracking-[0.05em] font-bold mb-0.5">
                               Requested
                             </p>
-                            <p className="text-[13px] font-bold text-slate-800">
+                            <p className="text-[13px] font-bold text-green-600">
                               {formatCurrency(getValue("amountRequested"))}
                             </p>
                           </div>
@@ -1148,21 +1117,21 @@ export default function ClientUpload() {
                       </div>
 
                       {/* CREDIT SCORE CARD */}
-                      <div className="group relative overflow-hidden rounded-2xl p-4 bg-white border border-slate-100 shadow-sm hover:shadow-md transition-all duration-300">
+                      <div className="group relative overflow-hidden rounded-2xl p-4 bg-[#FEFCE9] border border-slate-100 transition-all duration-300">
                         <div className="relative flex items-center gap-3">
-                          <div className="h-10 w-10 shrink-0 rounded-xl bg-rose-50 text-rose-500 flex items-center justify-center group-hover:bg-rose-500 group-hover:text-white transition-all duration-300">
+                          <div className="h-10 w-10 shrink-0 rounded-xl bg-[#F7A400] text-white flex items-center justify-center transition-all duration-300">
                             <FiCreditCard size={16} />
                           </div>
 
                           <div className="min-w-0">
-                            <p className="text-[10px] text-slate-400 uppercase tracking-[0.05em] font-bold mb-0.5">
+                            <p className="text-[10px] text-orange-600 uppercase tracking-[0.05em] font-bold mb-0.5">
                               Credit Score
                             </p>
                             <div className="flex items-baseline gap-1">
-                              <p className="text-[13px] font-bold text-slate-800">
+                              <p className="text-[13px] font-bold text-orange-800">
                                 {getValue("creditScore") || "—"}
                               </p>
-                              <span className="text-[9px] font-medium text-slate-400">
+                              <span className="text-[9px] font-medium text-orange-800">
                                 PTS
                               </span>
                             </div>
@@ -1421,6 +1390,17 @@ export default function ClientUpload() {
               )}
             </div>
           ) : null)}
+
+        {activeTab === "feeAgreement" && (
+          <FeeAgreement
+            applicationId={
+              selectedApplication?.id ||
+              selectedApplication?.loanApplicationId ||
+              applicationId
+            }
+            getAuthHeaders={() => getClientPortalAuthConfig().headers}
+          />
+        )}
 
         {activeTab === "chat" && (
           <Chat

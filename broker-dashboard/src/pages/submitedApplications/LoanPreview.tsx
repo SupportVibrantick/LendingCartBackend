@@ -20,11 +20,13 @@ import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { useLocation, useNavigate } from "react-router";
 import { motion } from "framer-motion";
+import Select, { components } from "react-select";
 
 import { FiFolder, FiSearch, FiSend, FiTag, FiUser } from "react-icons/fi";
 import Swal from "sweetalert2";
 import { FaRegCreditCard } from "react-icons/fa6";
 import LoanPreviewChat from "./LoanPreviewChat";
+import FeeAgreement from "./FeeAgreement";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
@@ -66,7 +68,8 @@ type TabKey =
   | "view-loi"
   | "documents"
   | "submitted-lenders"
-  | "chat";
+  | "chat"
+  | "fee-agreement";
 
 const parseValue = (val: string): any => {
   try {
@@ -348,6 +351,9 @@ const LoanPreview = () => {
   const [requestMessage, setRequestMessage] = useState("");
   const [requestSubmitting, setRequestSubmitting] = useState(false);
 
+  const [submittedLenders, setSubmittedLenders] = useState<any[]>([]);
+  const [selectedLenders, setSelectedLenders] = useState<string[]>([]);
+
   const [documentsLoading, setDocumentsLoading] = useState(false);
   const [documentsData, setDocumentsData] = useState<any>(null);
   const [documentsLoadedFor, setDocumentsLoadedFor] = useState<string | null>(
@@ -390,10 +396,10 @@ const LoanPreview = () => {
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [sending, setSending] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+
   const [search, setSearch] = useState("");
   const [debouncedLenderSearch, setDebouncedLenderSearch] = useState("");
   const itemsPerPage = 9;
-
 
   const isAllSelected =
     documentsData?.documents?.length > 0 &&
@@ -407,14 +413,41 @@ const LoanPreview = () => {
     }
   };
 
-
-
-
-
   const handleSelectRow = (id: string) => {
     setSelectedRows((prev) =>
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
     );
+  };
+
+  const fetchSubmittedLenders = async () => {
+    if (!applicationId) return;
+
+    try {
+      setLenderLoading(true);
+
+      const token = sessionStorage.getItem("broker_token");
+
+      const res = await fetch(
+        `${API_BASE}/broker/loan-pipeline/${applicationId}/submitted-lenders`,
+        {
+          headers: {
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+        },
+      );
+
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        throw new Error("Failed to fetch lenders");
+      }
+
+      setSubmittedLenders(json.data || []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLenderLoading(false);
+    }
   };
 
   const handleSendToLender = async () => {
@@ -423,10 +456,14 @@ const LoanPreview = () => {
       return;
     }
 
-    // Confirmation
+    if (selectedLenders.length === 0) {
+      toast.error("Please select at least one lender");
+      return;
+    }
+
     const result = await Swal.fire({
       title: "Send Documents?",
-      text: "Selected documents will be sent to lender.",
+      text: "Selected documents will be sent to selected lenders.",
       icon: "warning",
       showCancelButton: true,
       confirmButtonText: "Yes, send",
@@ -440,7 +477,6 @@ const LoanPreview = () => {
     try {
       setSending(true);
 
-      // Loader inside alert
       Swal.fire({
         title: "Sending...",
         text: "Please wait while we send documents",
@@ -452,6 +488,13 @@ const LoanPreview = () => {
 
       const token = sessionStorage.getItem("broker_token");
 
+      const payload = {
+        lenders: selectedLenders.map((applicationLenderId) => ({
+          applicationLenderId,
+          requirementIds: selectedRows,
+        })),
+      };
+
       const res = await fetch(
         `${API_BASE}/broker/loan-pipeline/submissions/${submissionId}/documents/submit`,
         {
@@ -460,9 +503,7 @@ const LoanPreview = () => {
             "Content-Type": "application/json",
             ...(token && { Authorization: `Bearer ${token}` }),
           },
-          body: JSON.stringify({
-            requirementIds: selectedRows,
-          }),
+          body: JSON.stringify(payload),
         },
       );
 
@@ -472,18 +513,16 @@ const LoanPreview = () => {
         throw new Error(json.message || "Failed to send documents");
       }
 
-      // Success
       await Swal.fire({
-        title: "Success 🚀",
-        text: "Documents sent to lender successfully",
+        title: "Success",
+        text: "Documents sent to lenders successfully",
         icon: "success",
         confirmButtonColor: "#22c55e",
       });
 
-      // reset
       setSelectedRows([]);
+      setSelectedLenders([]);
 
-      // refresh
       await fetchSubmissionDocuments(submissionId, page, debouncedSearch);
     } catch (err: any) {
       Swal.fire({
@@ -496,6 +535,7 @@ const LoanPreview = () => {
       setSending(false);
     }
   };
+
   const fields = submissionDetail?.fields || [];
   const applicationId = submissionDetail?.applicationId;
   const submissionId = Location.state?.submissionId;
@@ -651,7 +691,6 @@ const LoanPreview = () => {
     }
   };
 
-
   const handleRequestDocuments = async () => {
     if (!applicationId) return;
     if (selectedRequestDocs.length === 0) {
@@ -688,7 +727,6 @@ const LoanPreview = () => {
       setRequestSubmitting(false);
     }
   };
-
 
   const fetchLenders = async (id: string) => {
     setLenderPage(1);
@@ -744,7 +782,6 @@ const LoanPreview = () => {
       setLenderLoading(false);
     }
   };
-
 
   const sendApplicationToLender = async (lenderProductId: string) => {
     if (!submissionId || !applicationId) return;
@@ -821,23 +858,29 @@ const LoanPreview = () => {
   //       }
   //     }
 
-  //     toast.success("Document uploaded successfully ✅");
+  //     toast.success("Document uploaded successfully");
 
-  //     // 🧹 clear selected file
+  //     // clear selected file
   //     setSelectedFiles((prev) => {
   //       const copy = { ...prev };
   //       delete copy[requirementId];
   //       return copy;
   //     });
 
-  //     // 🔄 refresh table
+  //     // refresh table
   //     await fetchSubmissionDocuments(currentSubmissionId);
   //   } catch (err: any) {
-  //     toast.error(err.message || "Upload failed ❌");
+  //     toast.error(err.message || "Upload failed");
   //   } finally {
   //     setUploadingDocId(null);
   //   }
   // };
+
+  useEffect(() => {
+    if (activeTab === "documents" && applicationId) {
+      fetchSubmittedLenders();
+    }
+  }, [activeTab, applicationId]);
 
   useEffect(() => {
     setSubmissionDetail(null);
@@ -918,14 +961,6 @@ const LoanPreview = () => {
 
     return () => clearTimeout(timer);
   }, [searchInput]);
-
-
-
-
-
-
-
-
 
   const groupedFields = useMemo(() => {
     const signatureField = fields.find(
@@ -1027,12 +1062,18 @@ const LoanPreview = () => {
       icon: Send,
       color: "text-green-600",
     },
+    {
+      key: "fee-agreement" as const,
+      label: "Fee Agreement",
+      icon: FileText,
+      color: "text-indigo-600",
+    },
   ];
 
   const handleEditableFieldChange = (fieldKey: string, nextValue: string) => {
     let value = nextValue;
 
-    // 📞 Phone formatting
+    // Phone formatting
     if (/phone/i.test(fieldKey)) {
       value = formatPhoneNumber(nextValue);
     }
@@ -1053,7 +1094,7 @@ const LoanPreview = () => {
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedLenderSearch(search);
-    }, 400); // ⏱ 400ms delay
+    }, 400);
 
     return () => clearTimeout(timer);
   }, [search]);
@@ -1061,7 +1102,6 @@ const LoanPreview = () => {
   useEffect(() => {
     setCurrentPage(1);
   }, [debouncedLenderSearch]);
-
 
   const handleUpdateApplication = async () => {
     if (!validateFields()) {
@@ -1954,6 +1994,10 @@ const LoanPreview = () => {
                       sentLenders[lender.lenderProductId]
                     }
                     onClick={async () => {
+                      if (selectedLenders.length === 0) {
+                        toast.error("Please select at least one lender");
+                        return;
+                      }
                       const result = await Swal.fire({
                         title: "Send to Lender?",
                         text: `Are you sure you want to send this application to ${lender.name}?`,
@@ -2157,6 +2201,59 @@ const LoanPreview = () => {
     );
   };
 
+  const lenderOptions = useMemo(() => {
+    return submittedLenders.map((l) => ({
+      value: l.applicationLenderId,
+      label: l.lenderName,
+      status: l.status,
+    }));
+  }, [submittedLenders]);
+
+  const CustomOption = (props: any) => {
+    const { data } = props;
+
+    return (
+      <components.Option {...props}>
+        <div className="flex items-center justify-between gap-2">
+          {/* LEFT */}
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium">{data.label}</span>
+          </div>
+
+          {/* STATUS */}
+          <span
+            className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${
+              data.status === "IN_REVIEW"
+                ? "bg-yellow-100 text-yellow-700"
+                : "bg-blue-100 text-blue-700"
+            }`}
+          >
+            {data.status}
+          </span>
+        </div>
+      </components.Option>
+    );
+  };
+
+  const CustomMultiValue = (props: any) => {
+    const { data } = props;
+
+    return (
+      <components.MultiValue {...props}>
+        <div className="flex items-center gap-1">
+          <span>{data.label}</span>
+        </div>
+      </components.MultiValue>
+    );
+  };
+
+  const selectAllOption = {
+    value: "__all__",
+    label: "Select All Lenders",
+  };
+
+  const finalOptions = [selectAllOption, ...lenderOptions];
+
   const renderDocuments = () => (
     <div className="min-h-screen h-[90vh] rounded-3xl  p-6">
       {/* HEADER */}
@@ -2171,26 +2268,86 @@ const LoanPreview = () => {
           </p>
         </div>
 
-        {/* RIGHT - SEARCH */}
-        <div className="relative w-full md:w-80">
-          <input
-            type="text"
-            placeholder="Search documents..."
-            value={searchInput}
-            onChange={(e) => {
-              setSearchInput(e.target.value);
-              setPage(1);
-            }}
-            className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 pr-10 text-sm outline-none transition
+        <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
+          {selectedRows.length > 0 && (
+            <div className="w-full md:w-72 z-999">
+              <Select
+                isMulti
+                options={finalOptions}
+                value={lenderOptions.filter((opt) =>
+                  selectedLenders.includes(opt.value),
+                )}
+                closeMenuOnSelect={false}
+                hideSelectedOptions={false}
+                placeholder="Select Lenders"
+                isLoading={lenderLoading}
+                onChange={(selected: any) => {
+                  if (!selected) {
+                    setSelectedLenders([]);
+                    return;
+                  }
+
+                  const isSelectAll = selected.find(
+                    (s: any) => s.value === "__all__",
+                  );
+
+                  if (isSelectAll) {
+                    setSelectedLenders(lenderOptions.map((l) => l.value));
+                  } else {
+                    setSelectedLenders(selected.map((s: any) => s.value));
+                  }
+                }}
+                components={{
+                  Option: CustomOption,
+                  MultiValue: (props) => {
+                    if (props.index < 2) return <CustomMultiValue {...props} />;
+                    if (props.index === 2)
+                      return (
+                        <div className="text-xs px-2">
+                          +{selectedLenders.length - 2} more
+                        </div>
+                      );
+                    return null;
+                  },
+                }}
+                styles={{
+                  control: (base) => ({
+                    ...base,
+                    minHeight: "42px",
+                    maxHeight: "42px",
+                    overflow: "hidden",
+                    borderRadius: "12px",
+                  }),
+                  valueContainer: (base) => ({
+                    ...base,
+                    flexWrap: "nowrap",
+                    overflow: "hidden",
+                  }),
+                }}
+              />
+            </div>
+          )}
+
+          {/* SEARCH */}
+          <div className="relative w-full md:w-80">
+            <input
+              type="text"
+              placeholder="Search documents..."
+              value={searchInput}
+              onChange={(e) => {
+                setSearchInput(e.target.value);
+                setPage(1);
+              }}
+              className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 pr-10 text-sm outline-none transition
       focus:border-blue-500 focus:ring-2 focus:ring-blue-200
       dark:border-slate-700 dark:bg-slate-900 dark:text-white"
-          />
+            />
 
-          {/* ICON */}
-          <FileSearch
-            size={18}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
-          />
+            <FileSearch
+              size={18}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
+            />
+          </div>
         </div>
       </div>
 
@@ -2468,6 +2625,13 @@ const LoanPreview = () => {
         return renderSubmittedLenders();
       case "chat":
         return <LoanPreviewChat applicationId={applicationId} />;
+      case "fee-agreement":
+        return (
+          <FeeAgreement
+            applicationId={applicationId}
+            getAuthHeaders={getAuthHeaders}
+          />
+        );
       default:
         return renderViewDetails();
     }
@@ -2748,7 +2912,7 @@ const LoanPreview = () => {
 
                       window.URL.revokeObjectURL(url);
                     } catch (err) {
-                      toast.error("Download failed ❌");
+                      toast.error("Download failed");
                     }
                   }}
                   className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium 
@@ -2839,9 +3003,9 @@ const LoanPreview = () => {
                         )
                       }
                       className="mt-5 inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium
-    bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-xl 
-    shadow-md hover:shadow-lg hover:scale-[1.02] active:scale-95
-    transition-all duration-200"
+                      bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-xl 
+                      shadow-md hover:shadow-lg hover:scale-[1.02] active:scale-95
+                      transition-all duration-200"
                     >
                       Open PDF
                     </button>

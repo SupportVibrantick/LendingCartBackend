@@ -1898,12 +1898,6 @@ focus:border-blue-500 outline-none text-sm ${
                             <span className="px-2 py-1 bg-blue-100 text-blue-600 rounded-full">
                               Net Worth: ${coNetWorth.toLocaleString()}
                             </span>
-                            {/* <span className="px-2 py-1 bg-green-100 text-green-600 rounded-full">
-                              LTV: {coLtv}%
-                            </span>
-                            <span className="px-2 py-1 bg-purple-100 text-purple-600 rounded-full">
-                              DSCR: {coDscr}
-                            </span> */}
                           </div>
 
                           <button
@@ -3168,7 +3162,7 @@ focus:border-blue-500 outline-none text-sm ${
   ${
     currentStep === 0
       ? "border-slate-200 text-slate-400 cursor-not-allowed"
-      : "border-slate-300 text-slate-600 hover:bg-slate-100 "
+      : "border-slate-300 text-slate-600 hover:bg-slate-100"
   }`}
             >
               <IoIosArrowBack />

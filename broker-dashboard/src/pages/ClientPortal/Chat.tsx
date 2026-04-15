@@ -14,6 +14,7 @@ import {
   FiVideo,
   FiX,
 } from "react-icons/fi";
+import { Search } from "lucide-react";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
@@ -511,7 +512,7 @@ const Chat = ({ applicationId }: LoanPreviewChatProps) => {
               className="h-10 w-full rounded-full border border-slate-200 bg-[#f2f2ef] pl-10 pr-10 text-sm text-slate-700 outline-none placeholder:text-slate-400 focus:border-slate-300"
             />
             <span className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full border border-slate-200 px-1.5 py-0.5 text-[10px] text-slate-400">
-              /f
+              <Search size={14} />
             </span>
           </div>
         </div>
@@ -595,7 +596,7 @@ const Chat = ({ applicationId }: LoanPreviewChatProps) => {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-2">
                         <p className="truncate text-sm font-semibold text-slate-900">
-                         {chat.brokerName}
+                          {chat.brokerName}
                         </p>
                         <span className="text-[10px] text-slate-400">
                           {formatTime(chat.lastMessageAt)}
@@ -737,7 +738,7 @@ const Chat = ({ applicationId }: LoanPreviewChatProps) => {
                               </div>
 
                               <div
-                                className={`rounded-[18px] border px-4 py-2.5 text-sm leading-6 ${isBroker ? "border-sky-500 bg-sky-500 text-white" : "border-slate-200 bg-white text-slate-700"}`}
+                                className={`rounded-[18px] border px-4 py-2.5 text-sm leading-6 ${!isBroker ? "border-sky-500 bg-sky-500 text-white" : "border-slate-200 bg-white text-slate-700"}`}
                               >
                                 {msg.type === "FILE" && msg.fileUrl && (
                                   <div className={msg.text ? "mb-3" : ""}>
