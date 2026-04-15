@@ -3,7 +3,7 @@
  */
 module.exports = async function signFeeAgreement(fastify) {
   fastify.post(
-    "/:id/fee-agreement/sign",   // ✅ CLEAN (matches your pattern)
+    "/:id/fee-agreement/sign",   // CLEAN (matches your pattern)
     {
       schema: {
         tags: ["Fee Agreement"],
