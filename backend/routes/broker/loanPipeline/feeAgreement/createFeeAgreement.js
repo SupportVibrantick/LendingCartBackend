@@ -1,16 +1,32 @@
 const generateAgreementHtml = require("./generateAgreementHtml");
 
+function extractValue(val) {
+  if (!val) return "";
+
+  // Handle JSON types
+  if (typeof val === "object") {
+    return (
+      val.text ||
+      val.value ||
+      val.label ||
+      val.url ||
+      JSON.stringify(val)
+    );
+  }
+
+  return val;
+}
+
 module.exports = async function createFeeAgreement(fastify, loanId) {
   const prisma = fastify.prisma;
 
-  // 🛑 Prevent duplicate creation
+  // 🛑 Prevent duplicate
   const existing = await prisma.feeAgreement.findUnique({
     where: { loanApplicationId: loanId },
   });
-
   if (existing) return existing;
 
-  // 📥 Fetch Loan + Relations
+  // 📥 Fetch Loan
   const loan = await prisma.loanApplication.findUnique({
     where: { id: loanId },
     include: {
@@ -24,11 +40,9 @@ module.exports = async function createFeeAgreement(fastify, loanId) {
     },
   });
 
-  if (!loan) {
-    throw new Error("Loan not found");
-  }
+  if (!loan) throw new Error("Loan not found");
 
-  // 📥 Get Primary Client Contact
+  // 📥 Primary Contact
   const primaryContact = await prisma.clientContact.findFirst({
     where: {
       clientId: loan.clientId,
@@ -36,60 +50,81 @@ module.exports = async function createFeeAgreement(fastify, loanId) {
     },
   });
 
-  // =====================================================
-  // 🔥 MAPPING LOGIC (FROM APPLICATION SUBMISSION FIELDS)
-  // =====================================================
-
+  // 📥 Submission
   const submission = await prisma.applicationSubmission.findFirst({
     where: {
       applicationId: loan.id,
       status: "COMPLETED",
     },
-    include: {
-      fields: true,
-    },
-    orderBy: {
-      createdAt: "desc",
-    },
+    include: { fields: true },
+    orderBy: { createdAt: "desc" },
   });
 
-  const fieldMap = {};
-
-  if (submission?.fields?.length) {
-    submission.fields.forEach((f) => {
-      if (f.fieldKey) {
-        fieldMap[f.fieldKey] = f.value;
-      }
-    });
+  if (!submission) {
+    throw new Error("No completed submission found");
   }
 
-  // 🧠 CLIENT NAME
-  const clientFirstName = fieldMap.first_name || "";
-  const clientLastName = fieldMap.last_name || "";
+  // 🔥 FIELD MAP (FIXED)
+  const fieldMap = {};
+
+  submission.fields.forEach((f) => {
+    if (f.fieldKey) {
+      fieldMap[f.fieldKey] = extractValue(f.value);
+    }
+  });
+
+  // ===============================
+  // ✅ CLIENT MAPPING (FIXED)
+  // ===============================
+
+  const clientFirstName =
+    fieldMap.first_name || primaryContact?.firstName || "";
+
+  const clientLastName =
+    fieldMap.last_name || primaryContact?.lastName || "";
 
   const clientFullName =
     `${clientFirstName} ${clientLastName}`.trim() ||
-    primaryContact?.firstName ||
     loan.client?.legalName ||
-    "";
+    "N/A";
 
-  // 🏠 CLIENT ADDRESS (fallback chain)
   const clientAddress =
     fieldMap.address ||
-    fieldMap.full_address ||
-    fieldMap.residential_address ||
-    "";
+    `${fieldMap.address_line1 || ""} ${fieldMap.city || ""} ${
+      fieldMap.state || ""
+    } ${fieldMap.zip || ""}`.trim();
 
-  // 🏢 SUBJECT PROPERTY ADDRESS
+  // ===============================
+  // ✅ BROKER MAPPING (FIXED)
+  // ===============================
+
+  const brokerFirstName = loan.brokerUser?.firstName || "";
+  const brokerLastName = loan.brokerUser?.lastName || "";
+
+  const brokerFullName =
+    `${brokerFirstName} ${brokerLastName}`.trim() || "N/A";
+
+  const brokerProfile = loan.brokerUser?.brokerProfile;
+
+  const brokerAddress =
+    brokerProfile?.address ||
+    `${brokerProfile?.city || ""}, ${brokerProfile?.state || ""} ${
+      brokerProfile?.zipCode || ""
+    }`.trim();
+
+  // ===============================
+  // ✅ SUBJECT PROPERTY
+  // ===============================
+
   const subjectAddress =
     fieldMap.property_address ||
     fieldMap.business_address ||
     fieldMap.subject_property ||
-    "";
+    `${fieldMap.property_street || ""} ${fieldMap.property_city || ""}`.trim();
 
-  // =====================================================
-  // 🧠 SNAPSHOT DATA (FINAL)
-  // =====================================================
+  // ===============================
+  // ✅ SNAPSHOT
+  // ===============================
 
   const snapshotData = {
     // CLIENT
@@ -100,36 +135,33 @@ module.exports = async function createFeeAgreement(fastify, loanId) {
     clientAddress,
 
     // BROKER
-    brokerName: loan.brokerUser?.firstName || "",
-    brokerCompany: loan.brokerUser?.brokerProfile?.company || "",
+    brokerName: brokerFullName,
+    brokerCompany: brokerProfile?.company || loan.brokerOrg?.name || "",
     brokerEmail: loan.brokerUser?.email || "",
     brokerPhone: loan.brokerUser?.phone || "",
-    brokerAddress: loan.brokerUser?.brokerProfile?.address || "",
-    brokerState: loan.brokerUser?.brokerProfile?.state || "",
+    brokerAddress,
+    brokerState: brokerProfile?.state || "",
     brokerCounty: "",
 
-    // SUBJECT PROPERTY
+    // SUBJECT
     subjectAddress,
 
-    // FEES (initially empty)
+    // FEES
     brokerPoints: null,
     upfrontFee: null,
     exclusivityMonths: null,
   };
 
-  // 🧾 Generate HTML
+  // 🧾 HTML
   const agreementHtml = generateAgreementHtml(snapshotData);
 
-  // 💾 Save in DB
+  // 💾 SAVE
   const feeAgreement = await prisma.feeAgreement.create({
     data: {
       loanApplicationId: loan.id,
       brokerOrgId: loan.brokerOrgId,
       clientId: loan.clientId,
-
-      // snapshot fields
       ...snapshotData,
-
       agreementHtml,
       status: "DRAFT",
     },
