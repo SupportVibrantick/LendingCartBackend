@@ -1,8 +1,5 @@
 import {
   ArrowLeft,
-  Building2,
-  ChevronLeft,
-  ChevronRight,
   Download,
   Eye,
   FileSearch,
@@ -12,11 +9,10 @@ import {
   MoreVertical,
   Pencil,
   Search,
-  SearchX,
   Send,
   Upload,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { useLocation, useNavigate } from "react-router";
 import { motion } from "framer-motion";
@@ -42,16 +38,24 @@ type Lender = {
   email?: string;
   phone?: string;
   profileImage?: string | null;
+
   loanProductCode: string;
-  minFunding: string;
-  maxFunding: string;
+  minFunding: number;
+  maxFunding: number;
   minMonths: number;
   maxMonths: number;
   interestRateRange: string;
+
   fundingSpeedDays?: number;
   summary?: string;
-  eligibilityStatus: string;
+
   lenderProductId: string;
+
+  // NEW FIELDS (REQUIRED)
+  type: "eligible" | "rejected" | "sent";
+  alreadySent: boolean;
+  canSend: boolean;
+  rejectionReasons: string[];
 };
 
 // type UploadedPreview = {
@@ -335,6 +339,7 @@ const EditableFieldItem = ({
 
 const LoanPreview = () => {
   const Location = useLocation();
+  const bottomRef = useRef<HTMLDivElement | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const navigate = useNavigate();
 
@@ -376,18 +381,22 @@ const LoanPreview = () => {
   const [lenders, setLenders] = useState<Lender[]>([]);
   const [borrowerSummary, setBorrowerSummary] = useState<any>(null);
   const [sendingId, setSendingId] = useState<string | null>(null);
-  const [sentLenders, setSentLenders] = useState<Record<string, boolean>>({});
+  // const [sentLenders, setSentLenders] = useState<Record<string, boolean>>({});
   const [lenderLoading, setLenderLoading] = useState(false);
   const [lenderSearchQ, setLenderSearchQ] = useState("");
   const [lenderPage, setLenderPage] = useState(1);
   const [lenderLimit, setLenderLimit] = useState(6);
-  const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
+  // const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
   const [lendersLoadedFor, setLendersLoadedFor] = useState<string | null>(null);
   // const [previewFile, setPreviewFile] = useState<UploadedPreview | null>(null);
   const [editableFieldValues, setEditableFieldValues] = useState<
     Record<string, string>
   >({});
   const [updateSubmitting, setUpdateSubmitting] = useState(false);
+
+  const [lenderFilter, setLenderFilter] = useState<
+    "all" | "eligible" | "rejected" | "sent"
+  >("all");
 
   const [page, setPage] = useState(1);
   const [limit] = useState(10);
@@ -732,8 +741,8 @@ const LoanPreview = () => {
     setLenderPage(1);
     setLenders([]);
     setBorrowerSummary(null);
-    setSentLenders({});
-    setImageErrors({});
+    // setSentLenders({});
+    // setImageErrors({});
     setLenderLoading(true);
 
     try {
@@ -752,9 +761,12 @@ const LoanPreview = () => {
       }
 
       const data = json.data;
+
       setBorrowerSummary(data.borrowerData);
-      setLenders(
-        (data.eligibleLenders || []).map((l: any) => ({
+
+      // ✅ Merge all lenders into one array
+      const allLenders = [
+        ...(data.eligibleLenders || []).map((l: any) => ({
           id: l.lenderOrgId,
           name: l.lenderName,
           email: l.lenderEmail,
@@ -763,18 +775,69 @@ const LoanPreview = () => {
             ? `${API_BASE}/public/${l.profileImage}`
             : null,
           loanProductCode: l.loanProductCode,
-          minFunding: l.fundingRange?.min,
-          maxFunding: l.fundingRange?.max,
-          minMonths: l.terms?.minMonths,
-          maxMonths: l.terms?.maxMonths,
+          minFunding: l.fundingRange?.min ?? 0,
+          maxFunding: l.fundingRange?.max ?? 0,
+          minMonths: l.terms?.minMonths ?? 0,
+          maxMonths: l.terms?.maxMonths ?? 0,
           interestRateRange: l.interestRateRange,
-          fundingSpeedDays: l.lenderProfile?.fundingSpeedDays,
+          fundingSpeedDays: l.lenderProfile?.fundingSpeedDays ?? 0,
           summary: l.lenderProfile?.summary,
-          eligibilityStatus: l.eligible ? "Eligible" : "Rejected",
-          lenderProductId: l.lenderProductId,
+
+          // 🔥 IMPORTANT FLAGS
+          type: "eligible",
+          alreadySent: l.alreadySent,
+          canSend: l.canSend,
+          rejectionReasons: [],
         })),
-      );
-      setLendersLoadedFor(id);
+
+        ...(data.rejectedLenders || []).map((l: any) => ({
+          id: l.lenderOrgId,
+          name: l.lenderName,
+          email: l.lenderEmail,
+          phone: l.lenderPhone,
+          profileImage: l.profileImage
+            ? `${API_BASE}/public/${l.profileImage}`
+            : null,
+          loanProductCode: l.loanProductCode,
+          minFunding: l.fundingRange?.min ?? 0,
+          maxFunding: l.fundingRange?.max ?? 0,
+          minMonths: l.terms?.minMonths ?? 0,
+          maxMonths: l.terms?.maxMonths ?? 0,
+          interestRateRange: l.interestRateRange,
+          fundingSpeedDays: l.lenderProfile?.fundingSpeedDays ?? 0,
+          summary: l.lenderProfile?.summary,
+
+          type: "rejected",
+          alreadySent: l.alreadySent,
+          canSend: false,
+          rejectionReasons: l.rejectionReasons || [],
+        })),
+
+        ...(data.alreadySentLenders || []).map((l: any) => ({
+          id: l.lenderOrgId,
+          name: l.lenderName,
+          email: l.lenderEmail,
+          phone: l.lenderPhone,
+          profileImage: l.profileImage
+            ? `${API_BASE}/public/${l.profileImage}`
+            : null,
+          loanProductCode: l.loanProductCode,
+          minFunding: l.fundingRange?.min ?? 0,
+          maxFunding: l.fundingRange?.max ?? 0,
+          minMonths: l.terms?.minMonths ?? 0,
+          maxMonths: l.terms?.maxMonths ?? 0,
+          interestRateRange: l.interestRateRange,
+          fundingSpeedDays: l.lenderProfile?.fundingSpeedDays ?? 0,
+          summary: l.lenderProfile?.summary,
+
+          type: "sent",
+          alreadySent: true,
+          canSend: false,
+          rejectionReasons: [],
+        })),
+      ];
+
+      setLenders(allLenders);
     } catch (err: any) {
       console.error(err);
       toast.error(err.message || "Failed to load eligible lenders");
@@ -807,10 +870,10 @@ const LoanPreview = () => {
       }
 
       toast.success("Submission processed successfully");
-      setSentLenders((prev) => ({
-        ...prev,
-        [lenderProductId]: true,
-      }));
+      // setSentLenders((prev) => ({
+      //   ...prev,
+      //   [lenderProductId]: true,
+      // }));
 
       await fetchSubmissionDetails(submissionId);
     } catch (err: any) {
@@ -892,8 +955,8 @@ const LoanPreview = () => {
     setLoiLoadedFor(null);
     setLenders([]);
     setBorrowerSummary(null);
-    setSentLenders({});
-    setImageErrors({});
+    // setSentLenders({});
+    // setImageErrors({});
     setLendersLoadedFor(null);
     setLenderSearchQ("");
     setLenderPage(1);
@@ -1799,11 +1862,17 @@ const LoanPreview = () => {
   );
 
   const renderFindLenders = () => {
-    const filteredEligibleLenders = lenders.filter(
-      (lender) =>
-        lender.name.toLowerCase().includes(lenderSearchQ.toLowerCase()) ||
-        lender.email?.toLowerCase().includes(lenderSearchQ.toLowerCase()),
-    );
+    const filteredEligibleLenders = lenders
+      .filter((lender) => {
+        // Filter by type
+        if (lenderFilter === "all") return true;
+        return lender.type === lenderFilter;
+      })
+      .filter(
+        (lender) =>
+          lender.name.toLowerCase().includes(lenderSearchQ.toLowerCase()) ||
+          lender.email?.toLowerCase().includes(lenderSearchQ.toLowerCase()),
+      );
 
     const paginatedEligibleLenders = filteredEligibleLenders.slice(
       (lenderPage - 1) * lenderLimit,
@@ -1816,6 +1885,45 @@ const LoanPreview = () => {
 
     return (
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+        <div className="mb-4 flex gap-2 flex-wrap">
+          {["all", "eligible", "rejected", "sent"].map((type) => (
+            <button
+              key={type}
+              onClick={() => {
+                setLenderFilter(type as any);
+                setLenderPage(1);
+
+                setTimeout(() => {
+                  bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+                }, 100);
+              }}
+              className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all
+
+      ${
+        lenderFilter === type
+          ? type === "eligible"
+            ? "bg-green-600 text-white"
+            : type === "rejected"
+              ? "bg-red-600 text-white"
+              : type === "sent"
+                ? "bg-blue-600 text-white"
+                : "bg-gray-800 text-white"
+          : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+      }
+      `}
+            >
+              {type === "all"
+                ? "All"
+                : type === "eligible"
+                  ? "Eligible"
+                  : type === "rejected"
+                    ? "Rejected"
+                    : "Sent"}
+            </button>
+          ))}
+        </div>
+
+        {/* HEADER */}
         <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
             <h2 className="text-lg font-bold text-slate-900 dark:text-white">
@@ -1835,8 +1943,8 @@ const LoanPreview = () => {
                   setLenderPage(1);
                   setLenderSearchQ(e.target.value);
                 }}
-                placeholder="Search lenders by name or email..."
-                className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:border-slate-800 dark:bg-slate-900"
+                placeholder="Search lenders..."
+                className="w-full rounded-xl border px-4 py-2 pl-10 text-sm"
               />
             </div>
 
@@ -1846,7 +1954,7 @@ const LoanPreview = () => {
                 setLenderPage(1);
                 setLenderLimit(Number(e.target.value));
               }}
-              className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm dark:border-slate-800 dark:bg-slate-900"
+              className="rounded-xl border px-4 py-2 text-sm"
             >
               <option value={6}>6 / page</option>
               <option value={9}>9 / page</option>
@@ -1855,180 +1963,138 @@ const LoanPreview = () => {
           </div>
         </div>
 
-        {borrowerSummary &&
-          borrowerSummary.loanAmount &&
-          borrowerSummary.borrowerMinTerm &&
-          borrowerSummary.borrowerMaxTerm &&
-          borrowerSummary.creditScore && (
-            <div className="mb-6 rounded-xl border border-blue-200 bg-blue-50 p-4 dark:border-blue-500/20 dark:bg-blue-500/10">
-              <div className="mb-2 text-sm font-semibold text-[#2C92D5] dark:text-blue-400">
-                Borrower Summary
-              </div>
-              <div className="grid grid-cols-2 gap-4 text-sm md:grid-cols-4">
-                <div>
-                  <span className="font-semibold">Loan Amount:</span>
-                  <div>
-                    ${Number(borrowerSummary.loanAmount).toLocaleString()}
-                  </div>
-                </div>
-
-                <div>
-                  <span className="font-semibold">Term:</span>
-                  <div>
-                    {borrowerSummary.borrowerMinTerm} -{" "}
-                    {borrowerSummary.borrowerMaxTerm} months
-                  </div>
-                </div>
-
-                <div>
-                  <span className="font-semibold">Credit Score:</span>
-                  <div>{borrowerSummary.creditScore}</div>
-                </div>
-
-                <div>
-                  <span className="font-semibold">Eligible Lenders:</span>
-                  <div>{lenders.length}</div>
-                </div>
-              </div>
-            </div>
-          )}
-
-        {lenderLoading && (
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {[1, 2, 3].map((item) => (
-              <div
-                key={item}
-                className="h-64 animate-pulse rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"
-              />
-            ))}
-          </div>
-        )}
-
-        {!lenderLoading && lenders.length === 0 && (
-          <div className="py-10 text-center">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-900">
-              <SearchX className="h-8 w-8 text-slate-400" />
-            </div>
-            <h3 className="font-bold text-slate-700 dark:text-slate-300">
-              No lenders found
+        {/* Borrower Summary */}
+        {borrowerSummary && (
+          <div className="mb-6 rounded-xl border bg-blue-50 p-4">
+            <h3 className="mb-2 font-semibold text-blue-600">
+              Borrower Summary
             </h3>
-            <p className="text-sm text-slate-500">
-              Try adjusting your search terms
-            </p>
+
+            <div className="grid grid-cols-2 gap-4 text-sm md:grid-cols-4">
+              <div>
+                <b>Loan:</b>
+                <div>
+                  ${Number(borrowerSummary.loanAmount).toLocaleString()}
+                </div>
+              </div>
+
+              <div>
+                <b>Term:</b>
+                <div>
+                  {borrowerSummary.borrowerMinTerm} -{" "}
+                  {borrowerSummary.borrowerMaxTerm} months
+                </div>
+              </div>
+
+              <div>
+                <b>Score:</b>
+                <div>{borrowerSummary.creditScore}</div>
+              </div>
+
+              <div>
+                <b>Total Lenders:</b>
+                <div>{lenders.length}</div>
+              </div>
+            </div>
           </div>
         )}
 
+        {/* LOADING */}
+        {lenderLoading && <div>Loading...</div>}
+
+        {/* EMPTY */}
+        {!lenderLoading && lenders.length === 0 && (
+          <div className="text-center py-10">No lenders found</div>
+        )}
+
+        {/* LIST */}
         {!lenderLoading && lenders.length > 0 && (
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {paginatedEligibleLenders.map((lender) => (
               <div
                 key={lender.id}
-                className="group relative rounded-xl border border-slate-200 bg-white p-5 transition-all duration-300 hover:shadow-md dark:border-slate-800 dark:bg-slate-900"
+                className="rounded-xl border p-5 hover:shadow-md transition flex flex-col h-full"
               >
-                <div className="mb-3 flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-800">
-                      {lender.profileImage && !imageErrors[lender.id] ? (
-                        <img
-                          src={lender.profileImage}
-                          alt={lender.name}
-                          className="h-full w-full object-cover"
-                          onError={() =>
-                            setImageErrors((prev) => ({
-                              ...prev,
-                              [lender.id]: true,
-                            }))
-                          }
-                        />
-                      ) : (
-                        <Building2 className="h-6 w-6 text-slate-500 dark:text-slate-400" />
-                      )}
+                {/* TOP CONTENT */}
+                <div className="flex-1">
+                  {/* HEADER */}
+                  <div className="flex justify-between items-center mb-3">
+                    <div>
+                      <h3 className="font-bold">{lender.name}</h3>
+                      <p className="text-xs text-gray-500">
+                        {lender.email || "-"}
+                      </p>
                     </div>
 
-                    <div>
-                      <h3 className="text-lg font-bold text-slate-900 dark:text-white">
-                        {lender.name}
-                      </h3>
-                      <div className="text-xs text-slate-500 dark:text-slate-400">
-                        {lender.email || "No email available"}
-                      </div>
-                    </div>
+                    <span
+                      className={`px-2 py-1 text-xs rounded-full ${
+                        lender.type === "eligible"
+                          ? "bg-green-100 text-green-600"
+                          : lender.type === "rejected"
+                            ? "bg-red-100 text-red-600"
+                            : "bg-blue-100 text-blue-600"
+                      }`}
+                    >
+                      {lender.type}
+                    </span>
                   </div>
 
-                  <span
-                    className={`rounded-full px-2 py-1 text-xs font-bold ${
-                      lender.eligibilityStatus === "Eligible"
-                        ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400"
-                        : "bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400"
-                    }`}
-                  >
-                    {lender.eligibilityStatus}
-                  </span>
+                  {/* DETAILS */}
+                  <div className="text-sm space-y-1">
+                    <div>Product: {lender.loanProductCode}</div>
+                    <div>
+                      Funding: ${lender.minFunding} - ${lender.maxFunding}
+                    </div>
+                    <div>
+                      Term: {lender.minMonths} - {lender.maxMonths}
+                    </div>
+                    <div>Interest: {lender.interestRateRange}</div>
+                  </div>
+
+                  {/* REJECTION */}
+                  {lender.type === "rejected" &&
+                    lender.rejectionReasons?.length > 0 && (
+                      <div className="mt-3 text-xs text-red-600 bg-red-50 p-2 rounded">
+                        {lender.rejectionReasons.map((r: string, i: number) => (
+                          <div key={i}>• {r}</div>
+                        ))}
+                      </div>
+                    )}
                 </div>
 
-                <div className="mb-3 text-sm font-semibold text-slate-600 dark:text-slate-400">
-                  Product: {lender.loanProductCode}
-                </div>
-
-                <div className="text-sm font-medium text-slate-800 dark:text-slate-200">
-                  Funding: ${Number(lender.minFunding).toLocaleString()} - $
-                  {Number(lender.maxFunding).toLocaleString()}
-                </div>
-
-                <div className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                  Term: {lender.minMonths} - {lender.maxMonths} months
-                </div>
-
-                <div className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                  Interest: {lender.interestRateRange}
-                </div>
-
-                <div className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                  Funding Speed: {lender.fundingSpeedDays} Days
-                </div>
-
-                <div className="mt-4 border-t border-slate-200 pt-4 dark:border-slate-800">
+                {/* BUTTON ALWAYS BOTTOM */}
+                <div ref={bottomRef} className="mt-4 pt-4 border-t">
                   <button
                     disabled={
                       sendingId === lender.lenderProductId ||
-                      sentLenders[lender.lenderProductId]
+                      lender.alreadySent ||
+                      !lender.canSend
                     }
-                    onClick={async () => {
-                      if (selectedLenders.length === 0) {
-                        toast.error("Please select at least one lender");
-                        return;
-                      }
-                      const result = await Swal.fire({
-                        title: "Send to Lender?",
-                        text: `Are you sure you want to send this application to ${lender.name}?`,
-                        icon: "question",
-                        showCancelButton: true,
-                        confirmButtonColor: "#2563eb",
-                        cancelButtonColor: "#d33",
-                        confirmButtonText: "Yes, Send",
-                        cancelButtonText: "Cancel",
-                      });
+                    onClick={() =>
+                      sendApplicationToLender(lender.lenderProductId)
+                    }
+                    className={`w-full py-2 rounded-lg text-white font-semibold transition-all duration-300
 
-                      if (result.isConfirmed) {
-                        sendApplicationToLender(lender.lenderProductId);
-                      }
-                    }}
-                    className={`w-full rounded-lg py-2 text-sm font-semibold transition-all ${
-                      sentLenders[lender.lenderProductId]
-                        ? "cursor-not-allowed bg-emerald-500 text-white"
-                        : "bg-[#2C92D5] text-white hover:bg-[#227dba]"
-                    } disabled:cursor-not-allowed disabled:opacity-60`}
+      ${
+        sendingId === lender.lenderProductId
+          ? "bg-gray-400 cursor-wait"
+          : lender.alreadySent
+            ? "bg-blue-500 cursor-not-allowed"
+            : lender.type === "rejected"
+              ? "bg-red-500 cursor-not-allowed"
+              : "bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-indigo-600 hover:to-blue-500 shadow-md hover:shadow-lg"
+      }
+
+      disabled:opacity-70
+      `}
                   >
-                    {sendingId === lender.lenderProductId ? (
-                      <div className="flex items-center justify-center gap-2">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Sending...
-                      </div>
-                    ) : sentLenders[lender.lenderProductId] ? (
-                      "Sent"
-                    ) : (
-                      "Send to Lender"
-                    )}
+                    {sendingId === lender.lenderProductId
+                      ? "Sending..."
+                      : lender.alreadySent
+                        ? "Already Sent"
+                        : lender.type === "rejected"
+                          ? "Not Eligible"
+                          : "Send to Lender"}
                   </button>
                 </div>
               </div>
@@ -2036,27 +2102,22 @@ const LoanPreview = () => {
           </div>
         )}
 
+        {/* PAGINATION */}
         {!lenderLoading && filteredEligibleLenders.length > lenderLimit && (
-          <div className="mt-8 flex items-center justify-between border-t border-slate-200 pt-4 dark:border-slate-800">
-            <p className="text-xs text-slate-500">
-              Page {lenderPage} of {totalEligiblePages}
-            </p>
-            <div className="flex gap-2">
-              <button
-                disabled={lenderPage === 1}
-                onClick={() => setLenderPage((prev) => prev - 1)}
-                className="rounded-lg border p-2 hover:bg-slate-100 disabled:opacity-30 dark:border-slate-800 dark:hover:bg-slate-800"
-              >
-                <ChevronLeft size={16} />
-              </button>
-              <button
-                disabled={lenderPage >= totalEligiblePages}
-                onClick={() => setLenderPage((prev) => prev + 1)}
-                className="rounded-lg border p-2 hover:bg-slate-100 disabled:opacity-30 dark:border-slate-800 dark:hover:bg-slate-800"
-              >
-                <ChevronRight size={16} />
-              </button>
-            </div>
+          <div className="flex justify-between mt-6">
+            <button
+              disabled={lenderPage === 1}
+              onClick={() => setLenderPage((p) => p - 1)}
+            >
+              Prev
+            </button>
+
+            <button
+              disabled={lenderPage >= totalEligiblePages}
+              onClick={() => setLenderPage((p) => p + 1)}
+            >
+              Next
+            </button>
           </div>
         )}
       </div>

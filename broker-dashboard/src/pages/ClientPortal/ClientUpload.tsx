@@ -484,7 +484,7 @@ export default function ClientUpload() {
       <div className="max-w-8xl mx-auto">
         {/* TOP SUMMARY CARD - TABS SE UPAR */}
         {activeTab === "applications" && applicationData && (
-          <div className="relative mb-8 overflow-hidden rounded-3xl border border-white/60 bg-gradient-to-br from-slate-50 to-indigo-50/30 p-1 shadow-[0_20px_50px_rgba(8,_112,_184,_0.07)]">
+          <div className="relative mb-8 overflow-hidden p-1">
             {/* Decorative Background Element */}
             <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-indigo-500/5 blur-3xl" />
 
@@ -565,42 +565,64 @@ export default function ClientUpload() {
         {activeTab === "documents" && (
           <>
             {documents.length === 0 ? (
-              //  ONLY EMPTY STATE
-              <div
-                className="relative h-[60vh] overflow-hidden rounded-2xl
+              <>
+                <div className="flex items-center justify-between mb-4">
+                  {/* Back Button */}
+                  <button
+                    onClick={() => setActiveTab("application")}
+                    className="flex text-xs items-center gap-2 px-3 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 transition"
+                  >
+                    ← Back
+                  </button>
+                </div>
+                <div
+                  className="relative h-[60vh] overflow-hidden rounded-2xl
   bg-gradient-to-br from-blue-50 via-white to-cyan-50 
   p-10 text-center flex flex-col items-center justify-center gap-4"
-              >
-                {/* GLOW EFFECT */}
-                <div className="absolute -top-10 -left-10 w-40 h-40 bg-blue-200 opacity-20 blur-3xl rounded-full" />
-                <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-cyan-200 opacity-20 blur-3xl rounded-full" />
+                >
+                  {/* GLOW EFFECT */}
+                  <div className="absolute -top-10 -left-10 w-40 h-40 bg-blue-200 opacity-20 blur-3xl rounded-full" />
+                  <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-cyan-200 opacity-20 blur-3xl rounded-full" />
 
-                {/* ICON */}
-                <div className="relative">
-                  <div
-                    className="h-16 w-16 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 
+                  {/* ICON */}
+                  <div className="relative">
+                    <div
+                      className="h-16 w-16 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 
       flex items-center justify-center shadow-lg"
-                  >
-                    <FileText className="text-white" size={30} />
+                    >
+                      <FileText className="text-white" size={30} />
+                    </div>
                   </div>
+
+                  {/* TITLE */}
+                  <p className="text-base font-semibold text-gray-700">
+                    No Documents Required
+                  </p>
+
+                  {/* DESCRIPTION */}
+                  <p className="text-sm text-gray-500 max-w-sm leading-relaxed">
+                    This application currently doesn’t require any documents.
+                    You’re all set for now — we’ll notify you if anything is
+                    needed.
+                  </p>
                 </div>
-
-                {/* TITLE */}
-                <p className="text-base font-semibold text-gray-700">
-                  No Documents Required
-                </p>
-
-                {/* DESCRIPTION */}
-                <p className="text-sm text-gray-500 max-w-sm leading-relaxed">
-                  This application currently doesn’t require any documents.
-                  You’re all set for now — we’ll notify you if anything is
-                  needed.
-                </p>
-              </div>
+              </>
             ) : (
               <>
                 {/* HEADER (ONLY WHEN DOCUMENTS EXIST) */}
                 <div className="bg-white rounded-2xl shadow p-6 mb-6 sticky top-4 z-10">
+                  {/* TOP ROW WITH BACK BUTTON */}
+                  <div className="flex items-center justify-between mb-4">
+                    {/* Back Button */}
+                    <button
+                      onClick={() => setActiveTab("application")}
+                      className="flex text-xs items-center gap-2 px-3 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 transition"
+                    >
+                      ← Back
+                    </button>
+                  </div>
+
+                  {/* HEADER */}
                   <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                     <div>
                       <h1 className="text-xl font-semibold text-gray-800">
@@ -1399,6 +1421,7 @@ export default function ClientUpload() {
               applicationId
             }
             getAuthHeaders={() => getClientPortalAuthConfig().headers}
+            onBack={() => setActiveTab("application")}
           />
         )}
 
@@ -1409,6 +1432,7 @@ export default function ClientUpload() {
               selectedApplication?.loanApplicationId ||
               applicationId
             }
+            onBack={() => setActiveTab("application")}
           />
         )}
       </div>
