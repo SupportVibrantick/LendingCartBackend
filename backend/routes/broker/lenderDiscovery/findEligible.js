@@ -24,7 +24,6 @@ module.exports = async function findEligibleLenders(fastify) {
         /* =====================================================
            1️⃣ AUTHORIZATION
         ===================================================== */
-
         if (!req.user || req.user.orgType !== "BROKER") {
           return reply.code(403).send({
             success: false,
@@ -35,9 +34,8 @@ module.exports = async function findEligibleLenders(fastify) {
         const brokerOrgId = req.user.organizationId;
 
         /* =====================================================
-           2️⃣ FETCH SUBMISSION + APPLICATION
+           2️⃣ FETCH SUBMISSION
         ===================================================== */
-
         const submission = await prisma.applicationSubmission.findUnique({
           where: { id: submissionId },
           include: {
@@ -65,7 +63,7 @@ module.exports = async function findEligibleLenders(fastify) {
         if (application.brokerOrgId !== brokerOrgId) {
           return reply.code(403).send({
             success: false,
-            message: "You do not own this application",
+            message: "Unauthorized access to this application",
           });
         }
 
@@ -77,11 +75,21 @@ module.exports = async function findEligibleLenders(fastify) {
         }
 
         /* =====================================================
-           3️⃣ EXTRACT BORROWER DATA SAFELY
+           3️⃣ SAFE FIELD EXTRACTION
         ===================================================== */
 
-        const getFieldValue = (key) =>
-          submission.fields.find((f) => f.fieldKey === key)?.value;
+        const extractValue = (val) => {
+          if (!val) return null;
+          if (typeof val === "object") {
+            return val?.value || val?.text || val?.label || null;
+          }
+          return val;
+        };
+
+        const getFieldValue = (key) => {
+          const field = submission.fields.find((f) => f.fieldKey === key);
+          return extractValue(field?.value);
+        };
 
         const safeNumber = (value) => {
           const n = Number(value);
@@ -118,7 +126,7 @@ module.exports = async function findEligibleLenders(fastify) {
         const { loanProductCode } = application;
 
         /* =====================================================
-           4️⃣ EXCLUDE ALREADY SENT LENDERS (🔥 FIX)
+           4️⃣ FETCH ALREADY SENT LENDERS
         ===================================================== */
 
         const alreadySent = await prisma.applicationLender.findMany({
@@ -131,22 +139,17 @@ module.exports = async function findEligibleLenders(fastify) {
         });
 
         const sentProductIds = new Set(
-          alreadySent
-            .map((a) => a.lenderProductId)
-            .filter(Boolean)
+          alreadySent.map((a) => a.lenderProductId).filter(Boolean)
         );
 
         /* =====================================================
-           5️⃣ FETCH ACTIVE LENDER PRODUCTS
+           5️⃣ FETCH ALL ACTIVE LENDER PRODUCTS (NO EXCLUSION)
         ===================================================== */
 
         const lenderProducts = await prisma.lenderProduct.findMany({
           where: {
             isActive: true,
             loanProductCode,
-            id: {
-              notIn: [...sentProductIds], // 🔥 CRITICAL FIX
-            },
             lender: {
               type: "LENDER",
               status: "ACTIVE",
@@ -180,8 +183,10 @@ module.exports = async function findEligibleLenders(fastify) {
               applicationId: application.id,
               totalEligibleLenders: 0,
               totalRejectedLenders: 0,
+              totalAlreadySentLenders: 0,
               eligibleLenders: [],
               rejectedLenders: [],
+              alreadySentLenders: [],
             },
           });
         }
@@ -193,6 +198,8 @@ module.exports = async function findEligibleLenders(fastify) {
         const evaluatedLenders = lenderProducts.map((lp) => {
           const reasons = [];
 
+          const isAlreadySent = sentProductIds.has(lp.id);
+
           const minLoan = lp.minLoanAmount
             ? Number(lp.minLoanAmount)
             : null;
@@ -201,7 +208,7 @@ module.exports = async function findEligibleLenders(fastify) {
             ? Number(lp.maxLoanAmount)
             : null;
 
-          if (loanAmount) {
+          if (loanAmount !== null) {
             if (minLoan && loanAmount < minLoan)
               reasons.push(`Loan below minimum (${minLoan})`);
 
@@ -209,7 +216,7 @@ module.exports = async function findEligibleLenders(fastify) {
               reasons.push(`Loan exceeds maximum (${maxLoan})`);
           }
 
-          if (termMonths) {
+          if (termMonths !== null) {
             if (lp.minTermMonths && termMonths < lp.minTermMonths)
               reasons.push(
                 `Term below minimum (${lp.minTermMonths} months)`
@@ -221,7 +228,7 @@ module.exports = async function findEligibleLenders(fastify) {
               );
           }
 
-          if (creditScore && lp.minCreditScore) {
+          if (creditScore !== null && lp.minCreditScore) {
             if (creditScore < lp.minCreditScore)
               reasons.push(
                 `Credit score below minimum (${lp.minCreditScore})`
@@ -249,21 +256,34 @@ module.exports = async function findEligibleLenders(fastify) {
             },
             minCreditScore: lp.minCreditScore,
             interestRateRange: lp.interestRateRange,
+
+            // 🔥 FLAGS
+            alreadySent: isAlreadySent,
             eligible: reasons.length === 0,
+            canSend: !isAlreadySent && reasons.length === 0,
+
             rejectionReasons: reasons,
           };
         });
 
+        /* =====================================================
+           7️⃣ SPLIT DATA
+        ===================================================== */
+
+        const alreadySentLenders = evaluatedLenders.filter(
+          (l) => l.alreadySent
+        );
+
         const eligibleLenders = evaluatedLenders.filter(
-          (l) => l.eligible
+          (l) => l.eligible && !l.alreadySent
         );
 
         const rejectedLenders = evaluatedLenders.filter(
-          (l) => !l.eligible
+          (l) => !l.eligible && !l.alreadySent
         );
 
         /* =====================================================
-           7️⃣ SUCCESS RESPONSE
+           8️⃣ RESPONSE
         ===================================================== */
 
         return reply.send({
@@ -278,16 +298,21 @@ module.exports = async function findEligibleLenders(fastify) {
               borrowerMaxTerm,
               creditScore,
             },
+
             totalEligibleLenders: eligibleLenders.length,
             totalRejectedLenders: rejectedLenders.length,
+            totalAlreadySentLenders: alreadySentLenders.length,
+
             eligibleLenders,
             rejectedLenders,
+            alreadySentLenders,
           },
         });
       } catch (error) {
         fastify.log.error(
           {
             error: error.message,
+            stack: error.stack,
             submissionId,
             brokerOrgId: req.user?.organizationId,
           },
