@@ -60,28 +60,41 @@ module.exports = async function submissionDocuments(fastify) {
       const loanApplicationId = submission.application.id;
 
       /* ===============================
-         FETCH LENDER REQUESTS (🔥 NEW)
+         FETCH LENDER REQUESTS (IMPROVED)
       =============================== */
       const lenderRequests =
         await fastify.prisma.lenderDocumentRequest.findMany({
           where: {
             loanApplicationId,
           },
-          select: {
-            documentTypeId: true,
-            applicationLenderId: true,
+          include: {
+            applicationLender: {
+              include: {
+                lender: {
+                  select: {
+                    id: true,
+                    name: true,
+                  },
+                },
+              },
+            },
           },
         });
 
       const lenderMap = new Map();
 
       for (const reqItem of lenderRequests) {
-        if (!lenderMap.has(reqItem.documentTypeId)) {
-          lenderMap.set(reqItem.documentTypeId, []);
+        const docId = reqItem.documentTypeId;
+
+        if (!lenderMap.has(docId)) {
+          lenderMap.set(docId, []);
         }
-        lenderMap
-          .get(reqItem.documentTypeId)
-          .push(reqItem.applicationLenderId);
+
+        lenderMap.get(docId).push({
+          lenderId: reqItem.applicationLender?.lender?.id || null,
+          lenderName: reqItem.applicationLender?.lender?.name || null,
+          applicationLenderId: reqItem.applicationLenderId,
+        });
       }
 
       /* ===============================
@@ -130,6 +143,7 @@ module.exports = async function submissionDocuments(fastify) {
       =============================== */
       const documents = documentRequirements.map((d) => {
         const uploadedCount = d.uploads.length;
+        const requestedBy = lenderMap.get(d.documentTypeId) || [];
 
         return {
           requirementId: d.id,
@@ -139,8 +153,9 @@ module.exports = async function submissionDocuments(fastify) {
           isRequired: d.isRequired,
           status: d.status,
 
-          // 🔥 NEW FIELD (LENDER-WISE VISIBILITY)
-          requestedByLenders: lenderMap.get(d.documentTypeId) || [],
+          // ✅ FULL LENDER DETAILS
+          requestedByLenders: requestedBy,
+          requestedByCount: requestedBy.length,
 
           uploadedCount,
 
@@ -183,6 +198,7 @@ module.exports = async function submissionDocuments(fastify) {
     } catch (error) {
       fastify.log.error({
         error: error.message,
+        stack: error.stack,
         route: "submission-documents",
       });
 
