@@ -11,12 +11,16 @@ const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 interface Props {
   applicationId: string;
   getAuthHeaders: () => HeadersInit;
+  onBack: () => void;
 }
 
-export default function FeeAgreement({ applicationId, getAuthHeaders }: Props) {
+export default function FeeAgreement({
+  applicationId,
+  getAuthHeaders,
+  onBack,
+}: Props) {
   const pdfRef = useRef<HTMLDivElement>(null);
   const sigRef = useRef<SignatureCanvas | null>(null);
-  //   const [signature, setSignature] = useState("");
   const [signing, setSigning] = useState(false);
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -151,26 +155,38 @@ export default function FeeAgreement({ applicationId, getAuthHeaders }: Props) {
   // Empty State
   if (!data) {
     return (
-      <div
-        className="rounded-2xl border-2 border-dashed border-indigo-300 
-        bg-gradient-to-br from-indigo-50 via-white to-cyan-50 
-        py-20 px-6 text-center flex flex-col items-center gap-4"
-      >
-        <div
-          className="h-16 w-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-cyan-500 
-          flex items-center justify-center shadow-sm"
-        >
-          <FileText className="text-white" size={28} />
+      <>
+        <div className="flex items-center justify-between mb-4">
+          {/* Back Button */}
+          <button
+            onClick={onBack}
+            className="flex text-xs items-center gap-2 px-3 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 transition"
+          >
+            ← Back
+          </button>
         </div>
 
-        <p className="text-base font-semibold text-gray-700">
-          No Fee Agreement Found
-        </p>
+        <div
+          className="rounded-2xl border-2 border-dashed border-indigo-300 
+        bg-gradient-to-br from-indigo-50 via-white to-cyan-50 
+        py-20 px-6 text-center flex flex-col items-center gap-4"
+        >
+          <div
+            className="h-16 w-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-cyan-500 
+          flex items-center justify-center shadow-sm"
+          >
+            <FileText className="text-white" size={28} />
+          </div>
 
-        <p className="text-sm text-gray-500 max-w-sm">
-          Agreement not generated yet or still under process.
-        </p>
-      </div>
+          <p className="text-base font-semibold text-gray-700">
+            No Fee Agreement Found
+          </p>
+
+          <p className="text-sm text-gray-500 max-w-sm">
+            Agreement not generated yet or still under process.
+          </p>
+        </div>
+      </>
     );
   }
 
@@ -178,15 +194,37 @@ export default function FeeAgreement({ applicationId, getAuthHeaders }: Props) {
     <div className="bg-white rounded-2xl border shadow-sm overflow-hidden">
       {/* HEADER */}
       <div className="flex items-center justify-between px-6 py-4 border-b bg-gradient-to-r from-indigo-50 to-cyan-50">
-        <div>
-          <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-            <FileText size={18} />
-            Fee Agreement
-          </h2>
-          <p className="text-xs text-gray-500">
-            Status:{" "}
-            <span className="font-semibold text-indigo-600">{data.status}</span>
-          </p>
+        <div className="flex items-center justify-between gap-3">
+          {/* LEFT SIDE */}
+          <div className="flex items-center gap-4">
+            {/* BACK BUTTON */}
+            <div className="flex items-center justify-between mb-4">
+              {/* Back Button */}
+              <button
+                onClick={onBack}
+                className="flex text-xs items-center gap-2 px-3 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 transition"
+              >
+                ← Back
+              </button>
+            </div>
+
+            {/* TITLE */}
+            <div>
+              <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                <span className="p-1.5 rounded-lg bg-indigo-100 text-indigo-600">
+                  <FileText size={16} />
+                </span>
+                Fee Agreement
+              </h2>
+
+              <p className="text-xs text-gray-500 mt-0.5">
+                Status:{" "}
+                <span className="px-2 py-[2px] rounded-full bg-indigo-50 text-indigo-600 font-semibold">
+                  {data.status}
+                </span>
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -353,16 +391,15 @@ export default function FeeAgreement({ applicationId, getAuthHeaders }: Props) {
           <h3 className="font-semibold mb-3">Signature</h3>
 
           {data.clientSignature ? (
-          
-              <div className="text-center">
-                <img
-                  src={data.clientSignature}
-                  className="h-34 w-full object-contain border rounded-md p-2 mx-auto"
-                />
-                <p className="text-xs text-green-600 mt-2 font-medium">
-                  ✔ Signed Successfully
-                </p>
-              </div>
+            <div className="text-center">
+              <img
+                src={data.clientSignature}
+                className="h-34 w-full object-contain border rounded-md p-2 mx-auto"
+              />
+              <p className="text-xs text-green-600 mt-2 font-medium">
+                ✔ Signed Successfully
+              </p>
+            </div>
           ) : (
             <>
               {/* SIGN PAD */}
