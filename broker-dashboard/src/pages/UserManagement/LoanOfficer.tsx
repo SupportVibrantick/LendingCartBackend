@@ -2,6 +2,7 @@ import { Trash2, Users, Eye, EyeOff } from "lucide-react";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import Swal from "sweetalert2";
+import Select from "react-select";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "";
 
@@ -15,6 +16,7 @@ interface LoanOfficer {
   createdAt: string;
   lastLoginAt: string | null;
   roles: string[];
+  permissions?: string[];
   profile: {
     company: string;
     tollFree: string;
@@ -58,6 +60,65 @@ const initialFormState = {
   avatarFile: null as File | null,
   avatarPreview: "",
 };
+
+export const PERMISSIONS = [
+  {
+    title: "Loan Management",
+    items: [
+      { label: "View Loan Pipeline", key: "VIEW_PIPELINE" },
+      { label: "View Applications", key: "VIEW_APPLICATIONS" },
+      { label: "Create Applications", key: "CREATE_APPLICATION" },
+    ],
+  },
+  {
+    title: "Team Management",
+    items: [{ label: "Manage Loan Officers", key: "MANAGE_LOAN_OFFICERS" }],
+  },
+  {
+    title: "Clients",
+    items: [
+      { label: "View Clients", key: "VIEW_CLIENTS" },
+      { label: "Manage Clients", key: "MANAGE_CLIENTS" },
+    ],
+  },
+  {
+    title: "Lenders",
+    items: [{ label: "View Lenders", key: "VIEW_LENDERS" }],
+  },
+  {
+    title: "Templates & Website",
+    items: [
+      { label: "View Templates", key: "VIEW_TEMPLATES" },
+      { label: "Manage Templates", key: "MANAGE_TEMPLATES" },
+      { label: "Website Builder Access", key: "VIEW_WEBSITE_BUILDER" },
+    ],
+  },
+  {
+    title: "Settings",
+    items: [
+      { label: "View Settings", key: "VIEW_SETTINGS" },
+      { label: "Manage Settings", key: "MANAGE_SETTINGS" },
+    ],
+  },
+  {
+    title: "Reports & Logs",
+    items: [
+      { label: "View Logs", key: "VIEW_LOGS" },
+      { label: "View Dashboard Stats", key: "VIEW_STATS" },
+    ],
+  },
+  {
+    title: "Notifications",
+    items: [{ label: "View Notifications", key: "VIEW_NOTIFICATIONS" }],
+  },
+];
+
+const permissionOptions = PERMISSIONS.flatMap((group) =>
+  group.items.map((item) => ({
+    label: `${group.title} - ${item.label}`,
+    value: item.key,
+  })),
+);
 
 export const US_STATES = [
   { code: "AL", name: "Alabama" },
@@ -112,6 +173,27 @@ export const US_STATES = [
   { code: "WY", name: "Wyoming" },
 ];
 
+const formatPhone = (value: string) => {
+  const digits = value.replace(/\D/g, "").slice(0, 10);
+
+  if (digits.length < 4) return digits;
+  if (digits.length < 7) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+
+  return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+};
+
+const cleanNumber = (value: string) => {
+  return value.replace(/\D/g, "");
+};
+
+const formatZip = (value: string) => {
+  const digits = value.replace(/\D/g, "").slice(0, 9);
+
+  if (digits.length <= 5) return digits;
+
+  return `${digits.slice(0, 5)}-${digits.slice(5)}`;
+};
+
 type FormState = typeof initialFormState;
 
 const basicFields: {
@@ -145,6 +227,7 @@ export default function LoanOfficersPage() {
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [viewOfficer, setViewOfficer] = useState<LoanOfficer | null>(null);
   const [debouncedSearch, setDebouncedSearch] = useState(search);
+  const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
 
   const [form, setForm] = useState(initialFormState);
   const [creating, setCreating] = useState(false);
@@ -191,6 +274,12 @@ export default function LoanOfficersPage() {
       return null; // invalid
     }
   };
+
+  // const togglePermission = (key: string) => {
+  //   setSelectedPermissions((prev) =>
+  //     prev.includes(key) ? prev.filter((p) => p !== key) : [...prev, key],
+  //   );
+  // };
 
   /* ================= STATUS ================= */
   const toggleStatus = async (id: string, status: string) => {
@@ -385,12 +474,16 @@ export default function LoanOfficersPage() {
     }
 
     // Phone validation
-    if (form.phone && !phoneRegex.test(form.phone)) {
+    const formattedPhone = formatPhone(form.phone);
+
+    if (form.phone && !phoneRegex.test(formattedPhone)) {
       newErrors.phone = "Enter valid US phone (e.g. 123-456-7890)";
     }
 
     // ZIP validation
-    if (form.zipCode && !zipRegex.test(form.zipCode)) {
+    const formattedZip = formatZip(form.zipCode);
+
+    if (form.zipCode && !zipRegex.test(formattedZip)) {
       newErrors.zipCode = "Enter valid US ZIP (e.g. 12345 or 12345-6789)";
     }
 
@@ -450,9 +543,16 @@ export default function LoanOfficersPage() {
         }
 
         if (key !== "avatarPreview") {
+          if (key === "phone" || key === "tollFree" || key === "zipCode") {
+            formData.append(key, cleanNumber(String(value)));
+          } else {
+            formData.append(key, String(value));
+          }
           formData.append(key, String(value));
         }
       });
+
+      formData.append("permissions", JSON.stringify(selectedPermissions));
 
       const res = await fetch(`${API_BASE}/broker/users`, {
         method: "POST",
@@ -526,8 +626,14 @@ export default function LoanOfficersPage() {
           return;
         }
 
-        formData.append(key, String(value));
+        if (key === "phone" || key === "tollFree" || key === "zipCode") {
+          formData.append(key, cleanNumber(String(value)));
+        } else {
+          formData.append(key, String(value));
+        }
       });
+
+      formData.append("permissions", JSON.stringify(selectedPermissions));
 
       const res = await fetch(`${API_BASE}/broker/users/${userId}`, {
         method: "PUT",
@@ -614,6 +720,14 @@ export default function LoanOfficersPage() {
     }
   };
 
+  const getPermissionLabel = (key: string) => {
+    for (const group of PERMISSIONS) {
+      const found = group.items.find((i) => i.key === key);
+      if (found) return found.label;
+    }
+    return key;
+  };
+
   const InfoItem = ({ label, value }: { label: string; value: any }) => (
     <div className="space-y-1">
       <p
@@ -645,7 +759,7 @@ export default function LoanOfficersPage() {
           <h1
             className="text-3xl font-bold"
             style={{
-              color: "var(--primary-color)"
+              color: "var(--primary-color)",
             }}
           >
             Loan Officers
@@ -828,7 +942,7 @@ overflow-hidden transition-colors"
 
                   {/* Phone */}
                   <td className="p-4 text-gray-600 dark:text-slate-300">
-                    {o.phone || "-"}
+                    {o.phone ? formatPhone(o.phone) : "-"}
                   </td>
 
                   {/* Status */}
@@ -900,11 +1014,12 @@ overflow-hidden transition-colors"
                               "",
                             ) || "",
                           agentType: o.profile?.agentType || "Loan Officer",
-
                           avatarPreview: o.profile?.avatarUrl
                             ? `${API_BASE}${o.profile.avatarUrl}`
                             : "",
                         });
+
+                        setSelectedPermissions(o.permissions || []);
 
                         setShowModal(true);
                       }}
@@ -1182,10 +1297,21 @@ bg-slate-50/60 dark:bg-slate-800"
     }
     ${errors[field.key] ? "border-red-500 bg-red-50 dark:bg-red-900/30" : ""}
   `}
-                            value={form[field.key] as string}
-                            onChange={(e) =>
-                              updateField(field.key, e.target.value)
+                            value={
+                              field.key === "phone"
+                                ? formatPhone(form.phone)
+                                : (form[field.key] as string)
                             }
+                            onChange={(e) => {
+                              if (field.key === "phone") {
+                                updateField(
+                                  "phone",
+                                  e.target.value.replace(/\D/g, ""),
+                                );
+                              } else {
+                                updateField(field.key, e.target.value);
+                              }
+                            }}
                           />
 
                           {field.type === "password" && (
@@ -1302,10 +1428,13 @@ bg-slate-50/60 dark:bg-slate-800"
                         className={`${inputStyle} ${
                           errors.tollFree ? "border-red-500 bg-red-50" : ""
                         }`}
-                        value={form.tollFree}
-                        onChange={(e) =>
-                          updateField("tollFree", e.target.value)
-                        }
+                        value={formatPhone(form.tollFree)}
+                        onChange={(e) => {
+                          updateField(
+                            "tollFree",
+                            e.target.value.replace(/\D/g, ""),
+                          );
+                        }}
                       />
 
                       {errors.tollFree && (
@@ -1325,7 +1454,10 @@ bg-slate-50/60 dark:bg-slate-800"
                         }`}
                         value={form.tollFreeExt}
                         onChange={(e) =>
-                          updateField("tollFreeExt", e.target.value)
+                          updateField(
+                            "tollFreeExt",
+                            e.target.value.replace(/\D/g, ""),
+                          )
                         }
                       />
 
@@ -1433,8 +1565,13 @@ bg-slate-50/60 dark:bg-slate-800"
                       className={`${inputStyle} ${
                         errors.zipCode ? "border-red-500 bg-red-50" : ""
                       }`}
-                      value={form.zipCode}
-                      onChange={(e) => updateField("zipCode", e.target.value)}
+                      value={formatZip(form.zipCode)}
+                      onChange={(e) =>
+                        updateField(
+                          "zipCode",
+                          e.target.value.replace(/\D/g, ""),
+                        )
+                      }
                     />
 
                     {errors.zipCode && (
@@ -1495,6 +1632,52 @@ bg-slate-50/60 dark:bg-slate-800"
                 </div>
               </section>
 
+              {/* Permissions */}
+              <section>
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="h-8 w-1 bg-purple-500 rounded-full"></div>
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    Permissions
+                  </h3>
+                </div>
+
+                <Select
+                  isMulti
+                  options={permissionOptions}
+                  value={permissionOptions.filter((opt) =>
+                    selectedPermissions.includes(opt.value),
+                  )}
+                  onChange={(selected) =>
+                    setSelectedPermissions(selected.map((s) => s.value))
+                  }
+                  placeholder="Select permissions..."
+                  className="text-sm"
+                  classNamePrefix="react-select"
+                  // styles={{
+                  //   control: (base) => ({
+                  //     ...base,
+                  //     backgroundColor: "#1e293b",
+                  //     borderColor: "#334155",
+                  //     color: "white",
+                  //   }),
+                  //   menu: (base) => ({
+                  //     ...base,
+                  //     backgroundColor: "#1e293b",
+                  //   }),
+                  //   option: (base, state) => ({
+                  //     ...base,
+                  //     backgroundColor: state.isFocused ? "#334155" : "#1e293b",
+                  //     color: "white",
+                  //   }),
+                  //   multiValue: (base) => ({
+                  //     ...base,
+                  //     backgroundColor: "#334155",
+                  //     color: "white",
+                  //   }),
+                  // }}
+                />
+              </section>
+
               {/* Footer Controls */}
               <div
                 className="bg-slate-50 dark:bg-slate-800
@@ -1547,9 +1730,9 @@ rounded-lg transition-colors"
   active:scale-[0.97]
   disabled:opacity-50 disabled:cursor-not-allowed
   overflow-hidden text-sm`}
-  style={{
-    backgroundColor: "var(--primary-color)"
-  }}
+                    style={{
+                      backgroundColor: "var(--primary-color)",
+                    }}
                   >
                     <span className="relative z-10 flex items-center justify-center gap-2">
                       {creating && (
@@ -1683,7 +1866,11 @@ flex justify-between items-center"
 
             {/* Grid Info */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm p-4">
-              <InfoItem label="Phone" value={viewOfficer.phone} />
+              <InfoItem
+                label="Phone"
+                value={viewOfficer.phone ? formatPhone(viewOfficer.phone) : "-"}
+              />
+              <InfoItem label="Email" value={viewOfficer.email} />
               <InfoItem label="Company" value={viewOfficer.profile?.company} />
               <InfoItem
                 label="Toll Free"
@@ -1730,6 +1917,33 @@ flex justify-between items-center"
                     : "Never"
                 }
               />
+
+              {/* Permissions */}
+              <div className="md:col-span-2 space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                  Permissions
+                </p>
+
+                <div className="flex flex-wrap gap-2">
+                  {viewOfficer.permissions &&
+                  viewOfficer.permissions.length > 0 ? (
+                    viewOfficer.permissions.map((perm) => (
+                      <span
+                        key={perm}
+                        className="px-3 py-1 rounded-full text-xs font-medium
+          bg-indigo-100 text-indigo-700
+          dark:bg-indigo-900/30 dark:text-indigo-400"
+                      >
+                        {getPermissionLabel(perm)}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-slate-400 italic">
+                      No permissions assigned
+                    </span>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </div>

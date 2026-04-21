@@ -1,4 +1,5 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router";
+import { Navigate } from "react-router-dom";
 import SignIn from "./pages/AuthPages/SignIn";
 import SignUp from "./pages/AuthPages/SignUp";
 import NotFound from "./pages/OtherPage/NotFound";
@@ -53,6 +54,28 @@ import ClientProtected from "./pages/ClientPortal/ClientProtected";
 import ClientAuth from "./pages/ClientPortal/ClientAuth";
 // import CustomerLogin from "./pages/ClientPortal/CustomerLogin";
 import LoanPreview from "./pages/submitedApplications/LoanPreview";
+import { ReactNode } from "react";
+
+type RequirePermissionProps = {
+  children: ReactNode;
+  permission: string;
+};
+
+const RequirePermission = ({
+  children,
+  permission,
+}: RequirePermissionProps) => {
+  const roles = JSON.parse(sessionStorage.getItem("roles") || "[]");
+  const permissions = JSON.parse(sessionStorage.getItem("permissions") || "[]");
+
+  const isAdmin = roles.includes("BROKER_ADMIN");
+
+  if (!isAdmin && !permissions.includes(permission)) {
+    return <Navigate to="/" replace />;
+  }
+
+  return <>{children}</>;
+};
 
 export default function App() {
   return (
@@ -142,9 +165,12 @@ export default function App() {
             <Route index path="/templates" element={<Templates />} />
 
             <Route
-              index
               path="/submit-applications"
-              element={<SubmitApplications />}
+              element={
+                <RequirePermission permission="VIEW_PIPELINE">
+                  <SubmitApplications />
+                </RequirePermission>
+              }
             />
 
             <Route
@@ -153,11 +179,7 @@ export default function App() {
               element={<LoanApplication />}
             />
 
-            <Route
-              index
-              path="/loan-preview"
-              element={<LoanPreview />}
-            />
+            <Route index path="/loan-preview" element={<LoanPreview />} />
 
             <Route index path="/find-lenders" element={<FindLenders />} />
 
@@ -240,11 +262,3 @@ export default function App() {
     </>
   );
 }
-
-
-
-
-
-
-
-

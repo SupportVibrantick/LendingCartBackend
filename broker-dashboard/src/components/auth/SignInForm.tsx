@@ -91,13 +91,24 @@ export default function SignInForm() {
       sessionStorage.setItem("broker_token", token);
 
       if (json.data?.user) {
-        sessionStorage.setItem("broker_user", JSON.stringify(json.data.user));
+        const user = json.data.user;
+
+        // Save full user
+        sessionStorage.setItem("broker_user", JSON.stringify(user));
+
+        // Save roles
+        sessionStorage.setItem("roles", JSON.stringify(user.roles || []));
+
+        // Save permissions (MOST IMPORTANT)
+        sessionStorage.setItem(
+          "permissions",
+          JSON.stringify(user.permissions || []),
+        );
       }
 
       toast.success("Login successful!", { id: toastId });
 
       navigate("/");
-
     } catch (err: any) {
       console.error("LOGIN ERROR:", err);
       toast.error(err.message || "Login failed", { id: toastId });
@@ -105,7 +116,6 @@ export default function SignInForm() {
       setIsSubmitting(false);
     }
   };
-
 
   return (
     <div className="flex flex-col flex-1">
@@ -124,7 +134,6 @@ export default function SignInForm() {
 
           <form onSubmit={handleSubmit}>
             <div className="space-y-6">
-
               {/* Email */}
               <div>
                 <Label>
@@ -189,7 +198,6 @@ export default function SignInForm() {
                   {isSubmitting ? "Signing in..." : "Sign in"}
                 </button>
               </div>
-
             </div>
           </form>
 
@@ -204,7 +212,6 @@ export default function SignInForm() {
               </Link>
             </p>
           </div>
-
         </div>
       </div>
     </div>
