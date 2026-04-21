@@ -119,6 +119,17 @@ export default function SignInForm() {
 
   return (
     <div className="flex flex-col flex-1">
+      {/* 🔝 TOP HEADER */}
+      {/* <div className="w-full flex justify-center pt-8 pb-4">
+        <div className="text-center px-6 py-3 rounded-xl  bg-white">
+          <h1 className="text-2xl sm:text-3xl font-semibold text-[#155DFC] tracking-tight">
+            Broker Dashboard
+          </h1>
+
+          <div className="w-10 h-[2px] mx-auto mt-2 bg-[#155DFC] rounded-full"></div>
+        </div>
+      </div> */}
+
       <div className="w-full max-w-md pt-10 mx-auto"></div>
 
       <div className="flex flex-col justify-center flex-1 w-full max-w-md mx-auto">
@@ -213,6 +224,11 @@ export default function SignInForm() {
             </p>
           </div>
         </div>
+      </div>
+
+      {/* 🔻 FOOTER */}
+      <div className="text-center py-4 text-xs text-gray-500">
+        Developed by Vibrantick Infotech Solutions
       </div>
     </div>
   );

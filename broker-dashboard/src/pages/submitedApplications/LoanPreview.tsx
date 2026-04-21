@@ -1163,7 +1163,7 @@ const LoanPreview = () => {
   // }, [search]);
 
   // useEffect(() => {
-    // setCurrentPage(1);
+  // setCurrentPage(1);
   // }, [debouncedLenderSearch]);
 
   const handleUpdateApplication = async () => {
@@ -1906,10 +1906,10 @@ const LoanPreview = () => {
               ? "bg-red-600 text-white"
               : type === "sent"
                 ? "bg-blue-600 text-white"
-                : "bg-gray-800 text-white"
+                : "bg-gray-800 text-white" 
           : "bg-gray-100 text-gray-600 hover:bg-gray-200"
       }
-      `}
+      `} 
             >
               {type === "all"
                 ? "All"
@@ -1920,7 +1920,7 @@ const LoanPreview = () => {
                     : "Sent"}
             </button>
           ))}
-        </div>
+        </div> 
 
         {/* HEADER */}
         <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -1983,7 +1983,7 @@ const LoanPreview = () => {
                   {borrowerSummary.borrowerMinTerm} -{" "}
                   {borrowerSummary.borrowerMaxTerm} months
                 </div>
-              </div>
+              </div> 
 
               <div>
                 <b>Score:</b>

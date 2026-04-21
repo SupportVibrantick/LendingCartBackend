@@ -22,7 +22,6 @@ export default function SignInForm() {
 
   const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001";
 
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -125,7 +124,9 @@ export default function SignInForm() {
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute z-30 -translate-y-1/2 cursor-pointer right-4 top-1/2"
                     role="button"
-                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    aria-label={
+                      showPassword ? "Hide password" : "Show password"
+                    }
                   >
                     {showPassword ? (
                       <EyeIcon className="fill-gray-500 dark:fill-gray-400 size-5" />
@@ -169,12 +170,20 @@ export default function SignInForm() {
           <div className="mt-5">
             <p className="text-sm font-normal text-center text-gray-700 dark:text-gray-400 sm:text-start">
               Don&apos;t have an account?{" "}
-              <Link to="/signup" className="text-brand-500 hover:text-brand-600 dark:text-brand-400">
+              <Link
+                to="/signup"
+                className="text-brand-500 hover:text-brand-600 dark:text-brand-400"
+              >
                 Sign Up
               </Link>
             </p>
           </div>
         </div>
+      </div>
+
+      {/* 🔻 FOOTER */}
+      <div className="text-center py-4 text-xs text-gray-500">
+        Developed by Vibrantick Infotech Solutions
       </div>
     </div>
   );
