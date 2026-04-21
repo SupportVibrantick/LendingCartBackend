@@ -21,86 +21,6 @@ type NavItem = {
   subItems?: NavItem[];
 };
 
-const navItems: NavItem[] = [
-  {
-    icon: <GridIcon />,
-    name: "Dashboard",
-    path: "/",
-  },
-
-  {
-    icon: <TrendingUp />,
-    name: "Loan Pipeline",
-    path: "/submit-applications",
-  },
-
-  {
-    icon: <MdWeb />,
-    name: "Website Builder",
-    subItems: [
-      {
-        name: "Config Website",
-        path: "/broker-website-dashboard/config-website",
-      },
-    ],
-  },
-
-  {
-    icon: <TbTemplate />,
-    name: "Loan Application Templates",
-    path: "/templates",
-  },
-
-  {
-    icon: <MdOutlineDocumentScanner />,
-    name: "Active Application",
-    path: "/active-application",
-  },
-  {
-    icon: <FaUserGroup />,
-    name: "User Management",
-    subItems: [
-      { name: "Brokers", path: "/create-broker" },
-      { name: "Loan Officer", path: "/loan-officer" },
-      { name: "Contacts", path: "/contacts-list" },
-    ],
-  },
-
-  {
-    icon: <FaUsersBetweenLines />,
-    name: "Lender Interactions",
-    subItems: [
-      { name: "My Lenders", path: "/my-lenders" },
-      { name: "Invited Lenders", path: "/invited-lenders" },
-      { name: "Find Lenders", path: "/find-lenders" },
-    ],
-  },
-
-  // SETTINGS WITH NESTED APPLICATION BUILDER
-  {
-    icon: <MdSettings />,
-    name: "Settings",
-    subItems: [
-      {
-        icon: <FaAppStore />,
-        name: "Application Builder",
-        subItems: [
-          { name: "Create Application", path: "/create-application" },
-          { name: "Loan Application Config", path: "/application-config" },
-          { name: "Add Sections", path: "/add-section" },
-          { name: "Application Builder", path: "/application" },
-        ],
-      },
-    ],
-  },
-
-  {
-    icon: <PiSecurityCameraFill />,
-    name: "Dashboard Logs",
-    path: "/admin-logs",
-  },
-];
-
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
   const location = useLocation();
@@ -111,6 +31,112 @@ const AppSidebar: React.FC = () => {
   // const [subMenuHeight, setSubMenuHeight] = useState<Record<string, number>>(
   //   {},
   // );
+  const [permissions, setPermissions] = useState<string[]>([]);
+  const [roles, setRoles] = useState<string[]>([]);
+
+  useEffect(() => {
+    const storedPerms = sessionStorage.getItem("permissions");
+    const storedRoles = sessionStorage.getItem("roles");
+
+    if (storedPerms) setPermissions(JSON.parse(storedPerms));
+    if (storedRoles) setRoles(JSON.parse(storedRoles));
+  }, []);
+
+  useEffect(() => {
+    const stored = sessionStorage.getItem("permissions");
+    if (stored) {
+      setPermissions(JSON.parse(stored));
+    }
+  }, []);
+
+  const hasAccess = (key: string) => {
+    if (roles.includes("BROKER_ADMIN")) return true; // ✅ admin bypass
+    return permissions.includes(key);
+  };
+
+  const navItems: NavItem[] = [
+    {
+      icon: <GridIcon />,
+      name: "Dashboard",
+      path: "/",
+    },
+
+    ...(hasAccess("VIEW_PIPELINE")
+      ? [
+          {
+            icon: <TrendingUp />,
+            name: "Loan Pipeline",
+            path: "/submit-applications",
+          },
+        ]
+      : []),
+
+    {
+      icon: <MdWeb />,
+      name: "Website Builder",
+      subItems: [
+        {
+          name: "Config Website",
+          path: "/broker-website-dashboard/config-website",
+        },
+      ],
+    },
+
+    {
+      icon: <TbTemplate />,
+      name: "Loan Application Templates",
+      path: "/templates",
+    },
+
+    {
+      icon: <MdOutlineDocumentScanner />,
+      name: "Active Application",
+      path: "/active-application",
+    },
+    {
+      icon: <FaUserGroup />,
+      name: "User Management",
+      subItems: [
+        { name: "Brokers", path: "/create-broker" },
+        { name: "Loan Officer", path: "/loan-officer" },
+        { name: "Contacts", path: "/contacts-list" },
+      ],
+    },
+
+    {
+      icon: <FaUsersBetweenLines />,
+      name: "Lender Interactions",
+      subItems: [
+        { name: "My Lenders", path: "/my-lenders" },
+        { name: "Invited Lenders", path: "/invited-lenders" },
+        { name: "Find Lenders", path: "/find-lenders" },
+      ],
+    },
+
+    // SETTINGS WITH NESTED APPLICATION BUILDER
+    {
+      icon: <MdSettings />,
+      name: "Settings",
+      subItems: [
+        {
+          icon: <FaAppStore />,
+          name: "Application Builder",
+          subItems: [
+            { name: "Create Application", path: "/create-application" },
+            { name: "Loan Application Config", path: "/application-config" },
+            { name: "Add Sections", path: "/add-section" },
+            { name: "Application Builder", path: "/application" },
+          ],
+        },
+      ],
+    },
+
+    {
+      icon: <PiSecurityCameraFill />,
+      name: "Dashboard Logs",
+      path: "/admin-logs",
+    },
+  ];
 
   const isActive = useCallback(
     (path: string) => location.pathname === path,
