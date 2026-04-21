@@ -1,3 +1,4 @@
+
 // backend/routes/broker/users/list.js
 
 module.exports = async function listBrokerUsers(fastify) {
@@ -75,7 +76,7 @@ module.exports = async function listBrokerUsers(fastify) {
         }
 
         /* =====================================================
-           4️⃣ FETCH USERS + PROFILE + ROLES
+           4️⃣ FETCH USERS + PROFILE + ROLES + PERMISSIONS
         ===================================================== */
 
         const [users, total] = await prisma.$transaction([
@@ -92,7 +93,16 @@ module.exports = async function listBrokerUsers(fastify) {
                   },
                 },
               },
-              brokerProfile: true, // 👈 include full profile
+              brokerProfile: true,
+
+              // ✅ NEW: include permissions
+              userPermissions: {
+                include: {
+                  permission: {
+                    select: { key: true },
+                  },
+                },
+              },
             },
           }),
           prisma.userAccount.count({ where }),
@@ -113,6 +123,9 @@ module.exports = async function listBrokerUsers(fastify) {
           createdAt: u.createdAt,
 
           roles: u.roles.map((r) => r.role.name),
+
+          // ✅ NEW: map permissions
+          permissions: u.userPermissions.map((p) => p.permission.key),
 
           profile: u.brokerProfile
             ? {
@@ -166,3 +179,4 @@ module.exports = async function listBrokerUsers(fastify) {
     }
   );
 };
+

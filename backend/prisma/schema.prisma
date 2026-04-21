@@ -70,6 +70,7 @@ model UserAccount {
   roles                      UserRole[]
   brokerProfile              BrokerUserProfile?
   createdContacts            Contact[]
+  userPermissions UserPermission[]
   // soft-delete fields (additive, non-breaking)
   isDeleted                  Boolean?                    @default(false) @map("is_deleted")
   deletedAt                  DateTime?                   @map("deleted_at") @db.Timestamptz(6)
@@ -134,7 +135,7 @@ model Role {
   name        RoleName
   description String?
   userRoles   UserRole[]
-
+  rolePermissions RolePermission[]
   @@map("roles")
 }
 
@@ -1295,6 +1296,48 @@ model Conversation {
   @@unique([applicationLenderId])
   @@index([loanApplicationId])
   @@index([applicationLenderId])
+}
+
+
+model Permission {
+  id          String   @id @default(uuid()) @db.Uuid
+  key         String   @unique // e.g. VIEW_PIPELINE
+  description String?
+
+  rolePermissions RolePermission[]
+  userPermissions UserPermission[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("permissions")
+}
+
+
+model RolePermission {
+  id           String @id @default(uuid()) @db.Uuid
+  roleId       String @db.Uuid
+  permissionId String @db.Uuid
+
+  role       Role       @relation(fields: [roleId], references: [id])
+  permission Permission @relation(fields: [permissionId], references: [id])
+
+  @@unique([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model UserPermission {
+  id           String  @id @default(uuid()) @db.Uuid
+  userId       String  @db.Uuid
+  permissionId String  @db.Uuid
+
+  isAllowed Boolean @default(true)
+
+  user       UserAccount @relation(fields: [userId], references: [id])
+  permission Permission  @relation(fields: [permissionId], references: [id])
+
+  @@unique([userId, permissionId])
+  @@map("user_permissions")
 }
 
 model Message {

@@ -1,9 +1,7 @@
+
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 
-/**
- * @param {import("fastify").FastifyInstance} fastify
- */
 async function brokerLoginRoutes(fastify) {
   fastify.post(
     "/",
@@ -11,8 +9,6 @@ async function brokerLoginRoutes(fastify) {
       schema: {
         tags: ["Broker -> Auth"],
         summary: "Broker login (Admin & Loan Officer)",
-        description:
-          "Authenticate Broker Admin or Broker Loan Officer",
         body: {
           type: "object",
           required: ["email", "password"],
@@ -30,10 +26,6 @@ async function brokerLoginRoutes(fastify) {
         const email = req.body.email.trim().toLowerCase();
         const { password } = req.body;
 
-        /* =====================================================
-            FIND USER (Case-insensitive)
-        ===================================================== */
-
         const user = await prisma.userAccount.findFirst({
           where: {
             email: {
@@ -46,6 +38,15 @@ async function brokerLoginRoutes(fastify) {
             roles: {
               include: { role: true },
             },
+
+            // ✅ NEW: include permissions
+            userPermissions: {
+              include: {
+                permission: {
+                  select: { key: true },
+                },
+              },
+            },
           },
         });
 
@@ -56,20 +57,12 @@ async function brokerLoginRoutes(fastify) {
           });
         }
 
-        /* =====================================================
-           USER STATUS CHECK
-        ===================================================== */
-
         if (user.status !== "ACTIVE") {
           return reply.code(401).send({
             success: false,
             message: "User account is inactive",
           });
         }
-
-        /* =====================================================
-            ORGANIZATION VALIDATION
-        ===================================================== */
 
         if (
           !user.organization ||
@@ -82,16 +75,9 @@ async function brokerLoginRoutes(fastify) {
           });
         }
 
-        /* =====================================================
-          ROLE VALIDATION (Admin + Officer allowed)
-        ===================================================== */
-
         const roles = user.roles.map((r) => r.role.name);
 
-        const allowedRoles = [
-          "BROKER_ADMIN",
-          "BROKER_OFFICER",
-        ];
+        const allowedRoles = ["BROKER_ADMIN", "BROKER_OFFICER"];
 
         const hasAccess = roles.some((role) =>
           allowedRoles.includes(role)
@@ -103,10 +89,6 @@ async function brokerLoginRoutes(fastify) {
             message: "Access denied",
           });
         }
-
-        /* =====================================================
-          PASSWORD VALIDATION
-        ===================================================== */
 
         const isValidPassword = await bcrypt.compare(
           password,
@@ -120,9 +102,10 @@ async function brokerLoginRoutes(fastify) {
           });
         }
 
-        /* =====================================================
-           6️⃣ GENERATE JWT
-        ===================================================== */
+        // ✅ NEW: extract permissions
+        const permissions = user.userPermissions.map(
+          (p) => p.permission.key
+        );
 
         const token = jwt.sign(
           {
@@ -139,20 +122,12 @@ async function brokerLoginRoutes(fastify) {
           }
         );
 
-        /* =====================================================
-           7️⃣ UPDATE LAST LOGIN
-        ===================================================== */
-
         await prisma.userAccount.update({
           where: { id: user.id },
           data: {
             lastLoginAt: new Date(),
           },
         });
-
-        /* =====================================================
-           8️⃣ SUCCESS RESPONSE
-        ===================================================== */
 
         return reply.send({
           success: true,
@@ -167,6 +142,9 @@ async function brokerLoginRoutes(fastify) {
               organizationId: user.organizationId,
               organizationName: user.organization.name,
               roles,
+
+              // ✅ NEW: send permissions
+              permissions,
             },
           },
         });
@@ -186,3 +164,4 @@ async function brokerLoginRoutes(fastify) {
 }
 
 module.exports = brokerLoginRoutes;
+

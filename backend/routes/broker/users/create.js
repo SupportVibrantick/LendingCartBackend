@@ -102,8 +102,22 @@ module.exports = async function createBrokerUser(fastify) {
           agentType,
           licenseNumber,
           preferredComm,
-          website
+          website,
+          permissions // ✅ NEW
         } = fields;
+
+        // ✅ NEW: parse permissions safely
+        let parsedPermissions = [];
+        if (permissions) {
+          try {
+            parsedPermissions = JSON.parse(permissions);
+          } catch (e) {
+            return reply.code(400).send({
+              success: false,
+              message: "Invalid permissions format"
+            });
+          }
+        }
 
         if (!email || !confirmEmail || !password || !confirmPassword || !firstName || !lastName) {
           return reply.code(400).send({
@@ -196,6 +210,26 @@ module.exports = async function createBrokerUser(fastify) {
             }
           });
 
+          /* ================= NEW: SAVE PERMISSIONS ================= */
+
+          if (parsedPermissions.length > 0) {
+            const permissionRecords = await tx.permission.findMany({
+              where: {
+                key: { in: parsedPermissions }
+              }
+            });
+
+            if (permissionRecords.length > 0) {
+              await tx.userPermission.createMany({
+                data: permissionRecords.map((perm) => ({
+                  userId: user.id,
+                  permissionId: perm.id,
+                  isAllowed: true
+                }))
+              });
+            }
+          }
+
           return user;
         });
 
@@ -244,3 +278,4 @@ module.exports = async function createBrokerUser(fastify) {
     }
   );
 };
+
