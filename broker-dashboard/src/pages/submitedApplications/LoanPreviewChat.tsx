@@ -457,16 +457,25 @@ const LoanPreviewChat = ({ applicationId }: LoanPreviewChatProps) => {
   const isChatSelected = Boolean(selectedConversation);
 
   return (
-    <div className="grid h-[80vh] overflow-hidden rounded-[22px] border border-slate-200 bg-[#f5f5f4] lg:grid-cols-[320px_minmax(0,1fr)]">
-      <aside className="flex h-full flex-col border-b border-slate-200 bg-[#fbfbfa] lg:border-b-0 lg:border-r">
-        <div className="border-b border-slate-200 px-5 py-4">
+    <div
+      className="grid h-[80vh] overflow-hidden rounded-[22px] border border-slate-200 
+bg-slate-50 dark:bg-slate-950 
+dark:border-slate-800 lg:grid-cols-[320px_minmax(0,1fr)]"
+    >
+      <aside
+        className="flex h-full flex-col border-b border-slate-200 
+bg-[#fbfbfa] 
+dark:bg-slate-900 dark:border-slate-800 
+lg:border-b-0 lg:border-r"
+      >
+        <div className="border-b border-slate-200 dark:border-slate-800 px-5 py-4">
           <div className="relative">
             <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Search people or messages"
-              className="h-10 w-full rounded-full border border-slate-200 bg-[#f2f2ef] pl-10 pr-10 text-sm text-slate-700 outline-none placeholder:text-slate-400 focus:border-slate-300"
+              className="h-10 w-full rounded-full border border-slate-200 bg-[#f2f2ef] pl-10 pr-10 text-sm text-slate-700 outline-none placeholder:text-slate-400 focus:border-slate-300 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200 dark:focus:border-slate-600"
             />
             <span className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full border border-slate-200 px-1.5 py-0.5 text-[10px] text-slate-400">
               <Search size={14} />
@@ -474,8 +483,10 @@ const LoanPreviewChat = ({ applicationId }: LoanPreviewChatProps) => {
           </div>
         </div>
 
-        <div className="border-b border-slate-200 px-5 py-5">
-          <p className="mb-3 text-sm font-semibold text-slate-800">Online</p>
+        <div className="border-b border-slate-200 dark:border-slate-800 px-5 py-5">
+          <p className="mb-3 text-sm font-semibold text-slate-800 dark:text-slate-300">
+            Online
+          </p>
           <div className="flex items-center gap-3 overflow-x-auto pb-1">
             {onlineConversations.length === 0 ? (
               <div className="text-xs text-slate-400">No active users</div>
@@ -494,8 +505,10 @@ const LoanPreviewChat = ({ applicationId }: LoanPreviewChatProps) => {
           </div>
         </div>
 
-        <div className="border-b border-slate-200 px-5 py-4">
-          <p className="text-lg font-semibold text-slate-900">Messages</p>
+        <div className="border-b border-slate-200 dark:border-slate-800 px-5 py-4">
+          <p className="text-lg font-semibold text-slate-900 dark:text-slate-300">
+            Messages
+          </p>
         </div>
 
         <div className="flex-1 overflow-y-auto">
@@ -513,7 +526,7 @@ const LoanPreviewChat = ({ applicationId }: LoanPreviewChatProps) => {
               <div className="rounded-full border border-slate-200 bg-white p-4 text-slate-500">
                 <FiMessageCircle size={22} />
               </div>
-              <p className="mt-4 text-sm font-medium text-slate-700">
+              <p className="mt-4 text-sm font-medium text-slate-700 dark:text-slate-300">
                 {conversations.length === 0
                   ? "No conversations yet"
                   : "No matching chats"}
@@ -537,8 +550,8 @@ const LoanPreviewChat = ({ applicationId }: LoanPreviewChatProps) => {
                     onClick={() => handleSelectConversation(chat)}
                     className={`mb-1.5 flex w-full items-center gap-3 rounded-2xl border px-3 py-3 text-left transition ${
                       isActive
-                        ? "border-slate-300 bg-[#efefec]"
-                        : "border-transparent bg-transparent hover:border-slate-200 hover:bg-[#f4f4f1]"
+                        ? "border-slate-300 bg-[#efefec] dark:bg-slate-800 dark:border-slate-700"
+                        : "border-transparent bg-transparent hover:border-slate-200 hover:bg-[#f4f4f1] dark:hover:bg-slate-800 dark:hover:border-slate-700"
                     }`}
                   >
                     <div className="relative shrink-0">
@@ -547,12 +560,12 @@ const LoanPreviewChat = ({ applicationId }: LoanPreviewChatProps) => {
                       >
                         {getInitials(chat.title)}
                       </div>
-                      <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-[#fbfbfa] bg-lime-500" />
+                      <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-[#fbfbfa]  bg-lime-500" />
                     </div>
 
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-2">
-                        <p className="truncate text-sm font-semibold text-slate-900">
+                        <p className="truncate text-xs font-semibold text-slate-900 dark:text-slate-300">
                           {chat.title || "Conversation"}
                         </p>
                         <span className="text-[10px] text-slate-400">
@@ -579,14 +592,14 @@ const LoanPreviewChat = ({ applicationId }: LoanPreviewChatProps) => {
         </div>
       </aside>
 
-      <section className="flex min-h-0 flex-col bg-[#f8f8f6]">
+      <section className="flex min-h-0 flex-col bg-[#f8f8f6] dark:bg-slate-950">
         {!isChatSelected ? (
           <div className="flex h-full items-center justify-center px-6 text-center">
             <div className="max-w-md">
               <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500">
                 <FiMessageCircle size={24} />
               </div>
-              <h3 className="mt-5 text-xl font-semibold text-slate-900">
+              <h3 className="mt-5 text-xl font-semibold text-slate-900 dark:text-slate-400">
                 Select a conversation
               </h3>
               <p className="mt-2 text-sm leading-7 text-slate-500">
@@ -596,7 +609,7 @@ const LoanPreviewChat = ({ applicationId }: LoanPreviewChatProps) => {
           </div>
         ) : (
           <>
-            <div className="flex items-center justify-between border-b border-slate-200 bg-[#fbfbfa] px-5 py-4">
+            <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 dark:bg-slate-900 dark:border-slate-800 px-5 py-4">
               <div className="flex min-w-0 items-center gap-3">
                 <div className="relative shrink-0">
                   <div
@@ -608,7 +621,7 @@ const LoanPreviewChat = ({ applicationId }: LoanPreviewChatProps) => {
                 </div>
 
                 <div className="min-w-0">
-                  <p className="truncate text-lg font-semibold text-slate-900">
+                  <p className="truncate text-lg font-semibold text-slate-900 dark:text-slate-300">
                     {selectedConversation?.title || "Conversation"}
                   </p>
                   <p className="text-xs text-slate-400">
@@ -632,7 +645,8 @@ const LoanPreviewChat = ({ applicationId }: LoanPreviewChatProps) => {
 
             <div
               ref={containerRef}
-              className="flex-1 overflow-y-auto bg-[#f8f8f6] px-4 py-5 sm:px-7"
+              className="flex-1 overflow-y-auto 
+bg-[#f8f8f6] dark:bg-slate-950 px-4 py-5 sm:px-7"
             >
               {messagesLoading ? (
                 <div className="space-y-4">
@@ -646,10 +660,10 @@ const LoanPreviewChat = ({ applicationId }: LoanPreviewChatProps) => {
               ) : messages.length === 0 ? (
                 <div className="flex h-full items-center justify-center text-center">
                   <div>
-                    <p className="text-sm font-medium text-slate-600">
+                    <p className="text-sm font-medium text-slate-400">
                       Beginning of your conversation
                     </p>
-                    <p className="mt-2 text-xs text-slate-400">
+                    <p className="mt-2 text-xs text-slate-500">
                       Send a message to start chatting.
                     </p>
                   </div>
@@ -670,9 +684,9 @@ const LoanPreviewChat = ({ applicationId }: LoanPreviewChatProps) => {
                       <div key={msg.id}>
                         {showDayDivider && (
                           <div className="mb-5 flex items-center gap-3 text-[11px] text-slate-400">
-                            <div className="h-px flex-1 bg-slate-200" />
+                            <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
                             <span>{currentDay}</span>
-                            <div className="h-px flex-1 bg-slate-200" />
+                            <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
                           </div>
                         )}
 
@@ -698,7 +712,7 @@ const LoanPreviewChat = ({ applicationId }: LoanPreviewChatProps) => {
                               </div>
 
                               <div
-                                className={`rounded-[18px] border px-4 py-2.5 text-sm leading-6 ${isBroker ? "border-sky-500 bg-sky-500 text-white" : "border-slate-200 bg-white text-slate-700"}`}
+                                className={`rounded-[18px] border px-4 py-2.5 text-sm leading-6 ${isBroker ? "border-sky-500 bg-sky-500 text-white" : "border-slate-200 bg-white text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"}`}
                               >
                                 {msg.type === "FILE" && msg.fileUrl && (
                                   <div className={msg.text ? "mb-3" : ""}>
@@ -739,11 +753,11 @@ const LoanPreviewChat = ({ applicationId }: LoanPreviewChatProps) => {
               )}
             </div>
 
-            <div className="border-t border-slate-200 bg-[#fbfbfa] px-4 py-3 sm:px-5">
+            <div className="border-t border-slate-200 bg-[#fbfbfa] dark:bg-slate-900 dark:border-slate-800 px-4 py-3 sm:px-5">
               {showEmojiPicker && (
                 <div
                   ref={emojiPickerRef}
-                  className="absolute bottom-24 left-4 z-50 overflow-hidden rounded-2xl border border-slate-200 bg-white sm:left-5"
+                  className="absolute bottom-24 left-4 z-50 overflow-hidden rounded-2xl border border-slate-200 bg-white dark:bg-slate-900 dark:border-slate-700 sm:left-5"
                 >
                   <EmojiPicker
                     onEmojiClick={handleEmojiClick}
@@ -754,7 +768,7 @@ const LoanPreviewChat = ({ applicationId }: LoanPreviewChatProps) => {
               )}
 
               {selectedFile && (
-                <div className="mb-3 flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3">
+                <div className="mb-3 flex items-center justify-between rounded-2xl border border-slate-200 bg-white dark:bg-slate-800 dark:border-slate-700 px-4 py-3">
                   <div className="flex min-w-0 items-center gap-3">
                     <div className="rounded-full border border-slate-200 bg-slate-50 p-2 text-slate-500">
                       <FiPaperclip size={15} />
@@ -777,34 +791,50 @@ const LoanPreviewChat = ({ applicationId }: LoanPreviewChatProps) => {
                 </div>
               )}
 
-              <div className="flex items-center gap-2 border border-slate-200 bg-white px-3 py-2.5">
+              <div
+                className="flex items-center gap-2 border border-slate-200 bg-white 
+  dark:bg-slate-900 dark:border-slate-800
+  px-3 py-2.5 rounded-xl shadow-sm"
+              >
+                {/* ATTACH */}
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="rounded-full p-2 text-slate-500 hover:bg-slate-100"
+                  className="rounded-full p-2 text-slate-500 
+    hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 transition"
                 >
                   <FiPaperclip size={17} />
                 </button>
+
+                {/* EMOJI */}
                 <button
                   type="button"
                   onClick={() => setShowEmojiPicker((prev) => !prev)}
-                  className="rounded-full p-2 text-slate-500 hover:bg-slate-100"
+                  className="rounded-full p-2 text-slate-500 
+    hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 transition"
                 >
                   <FiSmile size={17} />
                 </button>
+
                 <input
                   ref={fileInputRef}
                   type="file"
                   hidden
                   onChange={handleFileSelect}
                 />
+
+                {/* INPUT */}
                 <input
                   value={messageText}
                   onChange={(e) => setMessageText(e.target.value)}
                   onKeyDown={handleMessageInputKeyDown}
                   placeholder="Write a message..."
-                  className="min-w-0 flex-1 border-none bg-transparent px-2 text-sm text-slate-700 outline-none placeholder:text-slate-400"
+                  className="min-w-0 flex-1 border-none bg-transparent px-2 text-sm 
+    text-slate-700 dark:text-slate-200 
+    outline-none placeholder:text-slate-400"
                 />
+
+                {/* SEND BUTTON */}
                 <button
                   onClick={handleSendMessage}
                   disabled={
@@ -812,7 +842,12 @@ const LoanPreviewChat = ({ applicationId }: LoanPreviewChatProps) => {
                     (!messageText.trim() && !selectedFile) ||
                     sendingMessage
                   }
-                  className="rounded-full border border-slate-200 p-2 text-slate-600 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="rounded-full p-2 
+    bg-slate-100 text-slate-600 
+    hover:bg-slate-200
+    dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700
+    disabled:cursor-not-allowed disabled:opacity-40
+    transition"
                 >
                   <FiSend size={17} />
                 </button>

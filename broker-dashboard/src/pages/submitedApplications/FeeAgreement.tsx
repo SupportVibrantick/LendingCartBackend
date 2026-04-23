@@ -111,9 +111,9 @@ export default function FeeAgreement({ applicationId, getAuthHeaders }: Props) {
   if (!data) {
     return (
       <div
-        className="rounded-2xl border-2 border-dashed border-indigo-300 
-        bg-gradient-to-br from-indigo-50 via-white to-cyan-50 
-        py-20 px-6 text-center flex flex-col items-center gap-4"
+        className="rounded-2xl border-2 border-dashed border-slate-300 
+bg-slate-50 py-20 px-6 text-center flex flex-col items-center gap-4
+dark:border-slate-700 dark:bg-slate-900"
       >
         <div
           className="h-16 w-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-cyan-500 
@@ -134,17 +134,24 @@ export default function FeeAgreement({ applicationId, getAuthHeaders }: Props) {
   }
 
   return (
-    <div className="bg-white rounded-2xl border shadow-sm overflow-hidden">
+    <div
+      className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden 
+dark:bg-slate-900 dark:border-slate-800"
+    >
       {/* HEADER */}
-      <div className="flex items-center justify-between px-6 py-4 border-b bg-gradient-to-r from-indigo-50 to-cyan-50">
+      <div
+        className="flex items-center justify-between px-6 py-4 border-b 
+bg-slate-50 dark:bg-slate-900 dark:border-slate-800"
+      >
         <div>
-          <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-            <FileText size={18} />
+          <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">
             Fee Agreement
           </h2>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-slate-500 dark:text-slate-400">
             Status:{" "}
-            <span className="font-semibold text-indigo-600">{data.status}</span>
+            <span className="font-semibold text-indigo-600 dark:text-indigo-400">
+              {data.status}
+            </span>
           </p>
         </div>
 
@@ -164,7 +171,8 @@ export default function FeeAgreement({ applicationId, getAuthHeaders }: Props) {
       {/* CONTENT */}
       <div
         ref={pdfRef}
-        className="p-6 space-y-6 text-sm text-gray-700 leading-relaxed"
+        className="p-6 space-y-6 text-sm text-slate-700 leading-relaxed 
+dark:text-slate-300"
       >
         <div className="text-center space-y-2">
           {/* LOGO */}
@@ -175,7 +183,6 @@ export default function FeeAgreement({ applicationId, getAuthHeaders }: Props) {
               className="h-12 object-contain"
             />
           </div>
-
           {/* TITLE */}
           <h1 className="text-xl font-bold">FINDER & FINANCIAL AGREEMENT</h1>
 
@@ -212,8 +219,11 @@ export default function FeeAgreement({ applicationId, getAuthHeaders }: Props) {
 
         {/* SECTION 1 */}
         <div>
-          <h2 className="font-semibold text-base mb-2">1. THE AGREEMENT</h2>
-          <ul className="list-disc pl-5 space-y-1">
+          <h2 className="font-semibold text-base mb-2 text-slate-800 dark:text-slate-200">
+            1. THE AGREEMENT
+          </h2>
+
+          <ul className="list-disc pl-5 space-y-2 text-slate-700 dark:text-slate-300 marker:text-slate-400 dark:marker:text-slate-500">
             <li>
               Issuer agrees to engage in financial transactions including loan,
               equity investment, lease, credit facility, or similar.
@@ -232,26 +242,46 @@ export default function FeeAgreement({ applicationId, getAuthHeaders }: Props) {
 
         {/* SECTION 2 */}
         <div>
-          <h2 className="font-semibold text-base mb-2">2. THE FEE</h2>
+          <h2 className="font-semibold text-base mb-2 text-slate-800 dark:text-slate-200">
+            2. THE FEE
+          </h2>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
-            <div className="p-4 border rounded-xl bg-indigo-50">
-              <p className="text-xs text-gray-500">Broker Fee</p>
-              <p className="font-semibold text-indigo-700">
+            {/* Broker Fee */}
+            <div
+              className="p-4 border border-slate-200 rounded-xl bg-slate-50 
+    dark:border-slate-700 dark:bg-slate-800"
+            >
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Broker Fee
+              </p>
+              <p className="font-semibold text-slate-800 dark:text-slate-100">
                 {data.brokerPoints || 0} %
               </p>
             </div>
 
-            <div className="p-4 border rounded-xl bg-cyan-50">
-              <p className="text-xs text-gray-500">Upfront Fee</p>
-              <p className="font-semibold text-cyan-700">
+            {/* Upfront Fee */}
+            <div
+              className="p-4 border border-slate-200 rounded-xl bg-slate-50 
+    dark:border-slate-700 dark:bg-slate-800"
+            >
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Upfront Fee
+              </p>
+              <p className="font-semibold text-slate-800 dark:text-slate-100">
                 ₹{Number(data.upfrontFee || 0).toLocaleString()}
               </p>
             </div>
 
-            <div className="p-4 border rounded-xl bg-purple-50">
-              <p className="text-xs text-gray-500">Exclusivity Period</p>
-              <p className="font-semibold text-purple-700">
+            {/* Exclusivity */}
+            <div
+              className="p-4 border border-slate-200 rounded-xl bg-slate-50 
+    dark:border-slate-700 dark:bg-slate-800"
+            >
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Exclusivity Period
+              </p>
+              <p className="font-semibold text-slate-800 dark:text-slate-100">
                 {data.exclusivityMonths || 0} Months
               </p>
             </div>
@@ -280,7 +310,7 @@ export default function FeeAgreement({ applicationId, getAuthHeaders }: Props) {
         </div>
 
         {/* BROKER DETAILS */}
-        <div className="border-t pt-4">
+        <div className="border-t border-slate-200 pt-4 dark:border-slate-700">
           <h3 className="font-semibold mb-2">Broker / Finder Details</h3>
           <p>
             <b>Name:</b> {data.brokerName || "—"}
@@ -300,7 +330,7 @@ export default function FeeAgreement({ applicationId, getAuthHeaders }: Props) {
         </div>
 
         {/* CLIENT DETAILS */}
-        <div className="border-t pt-4">
+        <div className="border-t border-slate-200 pt-4 dark:border-slate-700">
           <h3 className="font-semibold mb-2">Borrower / Client Details</h3>
           <p>
             <b>Name:</b> {data.clientName}
@@ -320,12 +350,15 @@ export default function FeeAgreement({ applicationId, getAuthHeaders }: Props) {
         </div>
 
         {/* SIGNATURE */}
-        <div className="border-t pt-6">
+        <div className="border-t border-slate-200 pt-4 dark:border-slate-700">
           <h3 className="font-semibold mb-2">Signature</h3>
 
           {data.clientSignature ? (
             <div className="flex justify-center">
-              <div className="w-full h-34 border rounded-lg p-3 bg-white">
+              <div
+                className="w-full border border-slate-200 rounded-lg p-3 bg-white 
+dark:border-slate-700 dark:bg-slate-800"
+              >
                 <img
                   src={data.clientSignature}
                   className="w-full h-24 object-contain mx-auto"
@@ -333,7 +366,9 @@ export default function FeeAgreement({ applicationId, getAuthHeaders }: Props) {
               </div>
             </div>
           ) : (
-            <p className="text-gray-400 italic">Not signed yet</p>
+            <p className="text-slate-400 italic dark:text-slate-500">
+              Not signed yet
+            </p>
           )}
 
           <p className="text-xs text-gray-500 mt-2">
