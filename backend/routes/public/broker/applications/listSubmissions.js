@@ -8,19 +8,48 @@ module.exports = async function listSubmissionsTable(fastify) {
         orderBy: {
           createdAt: "desc",
         },
-        distinct: ["applicationId"], // keep your logic intact
+        distinct: ["applicationId"],
+
         include: {
           application: {
             select: {
               applicationNumber: true,
+              loanProductCode: true,
+              amountRequested: true,
 
+              // ✅ CLIENT (BORROWER INFO)
+              client: {
+                select: {
+                  legalName: true,
+                  contacts: {
+                    select: {
+                      firstName: true,
+                      lastName: true,
+                      email: true,
+                    },
+                    take: 1,
+                  },
+                },
+              },
+
+              // ✅ DOCUMENT STATUS
               documentRequirements: {
                 select: {
                   status: true,
                 },
               },
 
-              // ✅ LENDER DATA (OPTIMIZED)
+              // ✅ ASSIGNED LOAN OFFICER
+              brokerUser: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  profileImage: true,
+                },
+              },
+
+              // ✅ LENDER DATA
               applicationLenders: {
                 select: {
                   lenderOrgId: true,
@@ -30,8 +59,6 @@ module.exports = async function listSubmissionsTable(fastify) {
                     select: {
                       id: true,
                       name: true,
-
-                      // ✅ PROFILE IMAGE (SAFE FETCH)
                       users: {
                         select: {
                           profileImage: true,
@@ -48,20 +75,49 @@ module.exports = async function listSubmissionsTable(fastify) {
       });
 
       const data = submissions.map((s) => {
+        const app = s.application;
+
+        // ✅ Borrower Name Logic
+        const borrower =
+          app.client?.contacts?.[0]
+            ? `${app.client.contacts[0].firstName || ""} ${
+                app.client.contacts[0].lastName || ""
+              }`.trim()
+            : app.client?.legalName || "N/A";
+
+        // ✅ Pending Documents Count
         const pendingDocumentsCount =
-          s.application.documentRequirements.filter(
+          app.documentRequirements.filter(
             (doc) => doc.status !== "COMPLETE"
           ).length;
 
         return {
           submissionId: s.id,
-          applicationNumber: s.application.applicationNumber,
+
+          // ✅ REQUIRED UI FIELDS
+          borrower,
+          applicationNumber: app.applicationNumber,
+          loanInfo: app.loanProductCode || null,
+          location: "N/A", // update later if you store city/state
+          amount: app.amountRequested || null,
+
           status: s.status,
           submittedOn: s.createdAt,
           pendingDocumentsCount,
 
-          // ✅ LENDER LIST WITH PROFILE IMAGE
-          submittedToLenders: s.application.applicationLenders.map((l) => ({
+          // ✅ ASSIGNED LOAN OFFICER
+          assignedLoanOfficer: app.brokerUser
+            ? {
+                id: app.brokerUser.id,
+                name: `${app.brokerUser.firstName || ""} ${
+                  app.brokerUser.lastName || ""
+                }`.trim(),
+                profileImage: app.brokerUser.profileImage || null,
+              }
+            : null,
+
+          // ✅ LENDER LIST
+          submittedToLenders: app.applicationLenders.map((l) => ({
             lenderOrgId: l.lenderOrgId,
             lenderName: l.lender?.name,
             profileImage: l.lender?.users?.[0]?.profileImage || null,
