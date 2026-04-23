@@ -103,9 +103,7 @@ export default function LoanApplicationsPage() {
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [viewSubmissionId, setViewSubmissionId] = useState<string | null>(null);
-  const [lenderSubmissionId, setLenderSubmissionId] = useState<string | null>(
-    null,
-  );
+  const [lenderSubmissionId] = useState<string | null>(null);
   const [submissionDetail, setSubmissionDetail] = useState<any>(null);
   const [detailLoading, setDetailLoading] = useState(false);
 
@@ -138,9 +136,10 @@ export default function LoanApplicationsPage() {
   >({});
 
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+  const [assignError, setAssignError] = useState<string>("");
 
   const [loiModalOpen, setLoiModalOpen] = useState(false);
-  const [lois, setLois] = useState<any[]>([]);
+  const [lois] = useState<any[]>([]);
 
   const [previewFile, setPreviewFile] = useState<{
     url: string;
@@ -157,6 +156,15 @@ export default function LoanApplicationsPage() {
   });
   const [requestMessage, setRequestMessage] = useState("");
   const rowsPerPage = 5;
+
+  const [assignModal, setAssignModal] = useState({
+    open: false,
+    applicationId: "",
+  });
+
+  const [loanOfficers, setLoanOfficers] = useState<any[]>([]);
+  const [selectedOfficer, setSelectedOfficer] = useState<string>("");
+  const [assignLoading, setAssignLoading] = useState(false);
 
   const navigate = useNavigate();
 
@@ -374,49 +382,49 @@ export default function LoanApplicationsPage() {
     }
   };
 
-  const handleViewLOI = async (submissionId: string) => {
-    try {
-      setLoiModalOpen(true);
+  // const handleViewLOI = async (submissionId: string) => {
+  //   try {
+  //     setLoiModalOpen(true);
 
-      // STEP 1: get applicationId
-      const submissionRes = await fetch(
-        `${API_BASE}/api/public/broker/applications/submissions/${submissionId}`,
-      );
+  //     // STEP 1: get applicationId
+  //     const submissionRes = await fetch(
+  //       `${API_BASE}/api/public/broker/applications/submissions/${submissionId}`,
+  //     );
 
-      const submissionData = await submissionRes.json();
+  //     const submissionData = await submissionRes.json();
 
-      if (!submissionRes.ok || !submissionData.success) {
-        throw new Error(submissionData.message || "Failed to fetch submission");
-      }
+  //     if (!submissionRes.ok || !submissionData.success) {
+  //       throw new Error(submissionData.message || "Failed to fetch submission");
+  //     }
 
-      const applicationId = submissionData?.data?.applicationId;
+  //     const applicationId = submissionData?.data?.applicationId;
 
-      if (!applicationId) {
-        toast.error("Application ID not found");
-        return;
-      }
+  //     if (!applicationId) {
+  //       toast.error("Application ID not found");
+  //       return;
+  //     }
 
-      // STEP 2: get LOIs
-      const loiRes = await fetch(
-        `${API_BASE}/broker/loan-pipeline/${applicationId}/lois`,
-        {
-          method: "GET",
-          headers: getAuthHeaders(),
-        },
-      );
+  //     // STEP 2: get LOIs
+  //     const loiRes = await fetch(
+  //       `${API_BASE}/broker/loan-pipeline/${applicationId}/lois`,
+  //       {
+  //         method: "GET",
+  //         headers: getAuthHeaders(),
+  //       },
+  //     );
 
-      const loiData = await loiRes.json();
+  //     const loiData = await loiRes.json();
 
-      if (!loiRes.ok || !loiData.success) {
-        throw new Error(loiData.message || "Failed to fetch LOIs");
-      }
+  //     if (!loiRes.ok || !loiData.success) {
+  //       throw new Error(loiData.message || "Failed to fetch LOIs");
+  //     }
 
-      setLois(loiData.data?.lois || []);
-    } catch (error: any) {
-      console.error(error);
-      toast.error(error.message || "Failed to load LOIs");
-    }
-  };
+  //     setLois(loiData.data?.lois || []);
+  //   } catch (error: any) {
+  //     console.error(error);
+  //     toast.error(error.message || "Failed to load LOIs");
+  //   }
+  // };
 
   useEffect(() => {
     if (findLenderModalOpen && lenderSubmissionId) {
@@ -592,7 +600,7 @@ export default function LoanApplicationsPage() {
         throw new Error(json.message || "Failed to send client link");
       }
 
-      toast.success("Client link sent successfully 🚀");
+      toast.success("Client link sent successfully");
     } catch (err: any) {
       toast.error(err.message || "Something went wrong");
     }
@@ -754,6 +762,75 @@ export default function LoanApplicationsPage() {
     }
   };
 
+  const fetchLoanOfficers = async () => {
+    try {
+      const res = await fetch(
+        `https://api-lendingcart.vibrantick.org/broker/users?page=1&limit=10`,
+        {
+          headers: getAuthHeaders(),
+        },
+      );
+
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        throw new Error("Failed to fetch loan officers");
+      }
+
+      // Only BROKER_OFFICER
+      const officers = json.data.filter((u: any) =>
+        u.roles?.includes("BROKER_OFFICER"),
+      );
+
+      return officers;
+    } catch (err) {
+      toast.error("Failed to load loan officers");
+      return [];
+    }
+  };
+
+  const openAssignModal = async (applicationId: string) => {
+    setAssignModal({ open: true, applicationId });
+    setSelectedOfficer("");
+    setAssignError("");
+    const officers = await fetchLoanOfficers();
+    setLoanOfficers(officers);
+  };
+
+  const handleAssignLoanOfficer = async () => {
+    if (!selectedOfficer) {
+      setAssignError("Please select a loan officer");
+      return;
+    }
+
+    try {
+      setAssignLoading(true);
+      setAssignError(""); // reset
+
+      const res = await fetch(
+        `${API_BASE}/broker/applications/${assignModal.applicationId}/assign`,
+        {
+          method: "PATCH",
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ loanOfficerId: selectedOfficer }),
+        },
+      );
+
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Assignment failed");
+      }
+
+      toast.success("Loan officer assigned successfully");
+      setAssignModal({ open: false, applicationId: "" });
+    } catch (err: any) {
+      setAssignError(err.message || "Something went wrong");
+    } finally {
+      setAssignLoading(false);
+    }
+  };
+
   return (
     <div className="max-w-7xl min-h-screen bg-slate-50 dark:bg-[#0b1120] p-3 text-slate-900 dark:text-slate-100 selection:bg-blue-100 dark:selection:bg-blue-900/30">
       {/* Header Area */}
@@ -800,7 +877,7 @@ export default function LoanApplicationsPage() {
                    bg-white dark:bg-slate-900 
                    border border-slate-200 dark:border-slate-800 
                    shadow-sm focus:ring-2 focus:ring-blue-500/20 
-                   focus:border-blue-500 transition-all outline-none"
+                   focus:border-blue-500 transition-all outline-none" 
                 />
               </div>
 
@@ -879,9 +956,9 @@ export default function LoanApplicationsPage() {
     bg-white dark:bg-slate-900
     border border-slate-200 dark:border-slate-800
     rounded-2xl p-6
-    shadow-sm hover:shadow-md
+    shadow-sm hover:shadow-md           
     transition-all duration-200
-    flex items-center justify-between
+    flex items-center justify-between 
   "
           >
             <div>
@@ -908,14 +985,14 @@ export default function LoanApplicationsPage() {
               <thead className="sticky top-0 z-20 bg-white dark:bg-slate-900 shadow-sm">
                 <tr className="bg-slate-50/50 dark:bg-slate-800/40">
                   {[
-                    { label: "Borrower", width: "w-[150px]" },
-                    { label: "Application No.", width: "w-[150px]" },
+                    { label: "Borrower", width: "w-[180px]" },
+                    { label: "Application No.", width: "w-[160px]" },
                     { label: "Loan Info", width: "w-[190px]" },
-                    { label: "Location", width: "w-[180px]" },
-                    { label: "Amount", width: "w-[100px]" },
+                    { label: "Location", width: "w-[190px]" },
+                    { label: "Amount", width: "w-[150px]" },
                     { label: "Submitted On", width: "w-[120px]" },
                     { label: "Status", width: "w-[130px]" },
-                    { label: "Lenders", width: "w-[100px]" },
+                    // { label: "Lenders", width: "w-[100px]" },
                     { label: "Action", width: "w-[80px]" },
                   ].map((h) => (
                     <th
@@ -963,10 +1040,10 @@ export default function LoanApplicationsPage() {
                                 ? row.borrowerName?.slice(0, 15) + "..."
                                 : row.borrowerName) || "Untitled Applicant"}
                             </span>
-                            <span className="text-[12px] text-slate-500 dark:text-slate-500 flex items-center gap-1">
+                            {/* <span className="text-[12px] text-slate-500 dark:text-slate-500 flex items-center gap-1">
                               <FileText className="w-3 h-3" />
                               {row.company.slice(0, 15) + "..."}
-                            </span>
+                            </span> */}
                           </div>
                         </div>
                       </td>
@@ -1061,7 +1138,7 @@ export default function LoanApplicationsPage() {
                       </td>
 
                       {/* Lenders Button */}
-                      <td className="px-2 py-2 whitespace-nowrap w-[70px] text-center">
+                      {/* <td className="px-2 py-2 whitespace-nowrap w-[70px] text-center">
                         <button
                           onClick={() => {
                             setLenderSubmissionId(row.submissionId);
@@ -1077,7 +1154,7 @@ export default function LoanApplicationsPage() {
                         >
                           <Search className="w-4 h-4 stroke-[2.5px]" />
                         </button>
-                      </td>
+                      </td> */}
 
                       {/* Action - Clean & Subtle */}
                       <td className="px-6 py-3 text-center relative">
@@ -1181,6 +1258,23 @@ export default function LoanApplicationsPage() {
                               Send Client Link
                             </button>
 
+                            <button
+                              onClick={() => {
+                                openAssignModal(row.applicationId);
+                                setActiveDropdown(null);
+                              }}
+                              className="
+    flex items-center gap-3 w-full px-4 py-3 text-sm
+    text-indigo-600 dark:text-indigo-400
+    hover:bg-indigo-50 dark:hover:bg-indigo-500/10
+  "
+                            >
+                              <div className="p-1.5 rounded-md bg-indigo-100 dark:bg-indigo-500/20">
+                                <MdEdit size={14} />
+                              </div>
+                              Assign Officer
+                            </button>
+
                             {/* Request Document */}
                             {/* <button
                               onClick={() => {
@@ -1200,7 +1294,7 @@ export default function LoanApplicationsPage() {
                               Request Document
                             </button> */}
 
-                            <button
+                            {/* <button
                               onClick={() => {
                                 handleViewLOI(row.submissionId);
                                 setActiveDropdown(null);
@@ -1213,7 +1307,7 @@ export default function LoanApplicationsPage() {
                                 <FileText size={14} />
                               </div>
                               View LOI
-                            </button>
+                            </button> */}
 
                             {/* Documents */}
                             {/* <button
@@ -1327,12 +1421,12 @@ export default function LoanApplicationsPage() {
                         key={page}
                         onClick={() => setCurrentPage(page)}
                         className={`px-3 py-1 text-sm rounded-lg transition
-            ${
-              currentPage === page
-                ? "bg-blue-600 text-white"
-                : "border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800"
-            }
-          `}
+                      ${
+                        currentPage === page
+                          ? "bg-blue-600 text-white"
+                          : "border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800"
+                      }
+                  `}
                       >
                         {page}
                       </button>
@@ -2842,6 +2936,108 @@ dark:scrollbar-thumb-slate-700 w-full
             </div>,
             document.body,
           )}
+
+        {assignModal.open && (
+          <div className="fixed inset-0 z-999 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+            <div className="w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl p-6">
+              {/* HEADER */}
+              <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">
+                Assign Loan Officer
+              </h3>
+
+              {/* SELECT */}
+              <div className="space-y-2">
+                <label className="text-sm text-slate-500 dark:text-slate-400">
+                  Select Officer
+                </label>
+
+                <div className="relative">
+                  <select
+                    value={selectedOfficer}
+                    onChange={(e) => setSelectedOfficer(e.target.value)}
+                    className="w-full appearance-none rounded-xl border border-slate-300 dark:border-slate-700 
+            bg-white dark:bg-slate-900 px-4 py-2 pr-10 text-sm
+            text-slate-800 dark:text-slate-200
+            focus:ring-2 focus:ring-indigo-500 outline-none"
+                  >
+                    <option value="">Select Loan Officer</option>
+
+                    {loanOfficers.map((o) => (
+                      <option key={o.id} value={o.id}>
+                        {o.firstName} {o.lastName} ({o.email})
+                      </option>
+                    ))}
+                  </select>
+
+                  {/* Arrow */}
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
+                    ▼
+                  </div>
+                </div>
+              </div>
+
+              {/* PREVIEW CARD */}
+              {selectedOfficer && (
+                <div className="mt-4 p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex items-center gap-3">
+                  {(() => {
+                    const officer = loanOfficers.find(
+                      (o) => o.id === selectedOfficer,
+                    );
+                    if (!officer) return null;
+
+                    return (
+                      <>
+                        <div className="h-10 w-10 rounded-full bg-indigo-500 text-white flex items-center justify-center font-bold">
+                          {officer.firstName?.charAt(0)}
+                        </div>
+
+                        <div>
+                          <div className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                            {officer.firstName} {officer.lastName}
+                          </div>
+                          <div className="text-xs text-slate-500">
+                            {officer.email}
+                          </div>
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+              )}
+
+              {assignError && (
+                <div
+                  className="mt-4 px-3 py-2 rounded-lg border border-red-200 bg-red-50 
+  text-red-600 text-sm dark:bg-red-900/20 dark:border-red-800 dark:text-red-400"
+                >
+                  {assignError}
+                </div>
+              )}
+
+              {/* ACTIONS */}
+              <div className="flex justify-end gap-3 mt-6">
+                <button
+                  onClick={() =>
+                    setAssignModal({ open: false, applicationId: "" })
+                  }
+                  className="px-4 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 
+          text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  onClick={handleAssignLoanOfficer}
+                  disabled={assignLoading}
+                  className="px-4 py-2 text-sm rounded-lg bg-indigo-600 text-white 
+          hover:bg-indigo-700 disabled:opacity-50"
+                >
+                  {assignLoading ? "Assigning..." : "Assign"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

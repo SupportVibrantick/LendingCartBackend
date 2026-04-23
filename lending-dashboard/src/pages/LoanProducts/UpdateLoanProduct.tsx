@@ -201,7 +201,7 @@ export default function UpdateLoanProduct() {
         throw new Error(json?.message || "Update failed");
       }
 
-      toast.success("Loan product updated successfully 🚀");
+      toast.success("Loan product updated successfully");
       navigate("/all-loan-products");
     } catch (err: any) {
       console.error(err);

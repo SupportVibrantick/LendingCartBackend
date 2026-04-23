@@ -177,7 +177,7 @@ export default function SignInForm() {
                 Sign Up
               </Link>
             </p>
-          </div>
+          </div>  
         </div>
       </div>
       {/* 🔻 FOOTER */}

@@ -275,6 +275,7 @@ const EditableFieldItem = ({
   const fieldKey = field.fieldKey;
   const parsedValue = parseValue(field.value);
   const isBoolean = typeof parsedValue === "boolean";
+
   const shouldUseTextarea =
     !isBoolean &&
     (value.length > 80 ||
@@ -282,9 +283,12 @@ const EditableFieldItem = ({
 
   return (
     <div className="space-y-1">
-      <label className="text-xs font-semibold uppercase text-slate-500">
+      {/* LABEL */}
+      <label className="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">
         {formatFieldKey(field.fieldKey)}
       </label>
+
+      {/* BOOLEAN SELECT */}
       {isBoolean ? (
         <select
           value={value}
@@ -292,12 +296,16 @@ const EditableFieldItem = ({
             if (!fieldKey) return;
             onChange(fieldKey, e.target.value);
           }}
-          className="w-full rounded-lg border bg-slate-50 px-3 py-2 text-sm font-medium outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 dark:border-slate-800 dark:bg-slate-900"
+          className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm font-medium 
+          text-slate-800 outline-none transition
+          focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200
+          dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:focus:ring-cyan-800"
         >
           <option value="true">Yes</option>
           <option value="false">No</option>
         </select>
       ) : shouldUseTextarea ? (
+        /* TEXTAREA */
         <textarea
           value={value}
           onChange={(e) => {
@@ -305,9 +313,13 @@ const EditableFieldItem = ({
             onChange(fieldKey, e.target.value);
           }}
           rows={3}
-          className="w-full resize-y rounded-lg border bg-slate-50 px-3 py-2 text-sm font-medium outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 dark:border-slate-800 dark:bg-slate-900"
+          className="w-full resize-y rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm font-medium 
+          text-slate-800 outline-none transition
+          focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200
+          dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:focus:ring-cyan-800"
         />
       ) : (
+        /* INPUT */
         <input
           type="text"
           value={value}
@@ -322,16 +334,20 @@ const EditableFieldItem = ({
 
             onChange(fieldKey, val);
           }}
-          className={`w-full rounded-lg border bg-slate-50 px-3 py-2 text-sm outline-none transition
+          className={`w-full rounded-lg border px-3 py-2 text-sm outline-none transition
           ${
             errors[fieldKey || ""]
-              ? "border-red-500 focus:ring-2 focus:ring-red-200"
-              : "border-slate-300 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200"
+              ? "border-red-500 bg-red-50 focus:ring-2 focus:ring-red-200 dark:bg-red-900/20 dark:focus:ring-red-800"
+              : "border-slate-300 bg-slate-50 text-slate-800 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:focus:ring-cyan-800"
           }`}
         />
       )}
+
+      {/* ERROR */}
       {fieldKey && errors[fieldKey] && (
-        <p className="mt-1 text-xs text-red-500">{errors[fieldKey]}</p>
+        <p className="mt-1 text-xs text-red-500 dark:text-red-400">
+          {errors[fieldKey]}
+        </p>
       )}
     </div>
   );
@@ -1420,7 +1436,7 @@ const LoanPreview = () => {
 
           {groupedFields.otherFields.length > 0 && (
             <div>
-              <h3 className="mb-4 border-b pb-2 text-md font-bold">
+              <h3 className="mb-4 border-b pb-2 text-md font-bold ">
                 Loan Details
               </h3>
               <div className="grid gap-6 md:grid-cols-2">
@@ -1467,7 +1483,10 @@ const LoanPreview = () => {
 
   const renderUpdateApplication = () => (
     <div className="space-y-6">
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+      <div
+        className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm 
+dark:border-slate-800 dark:bg-slate-900"
+      >
         <div className="mb-6 flex flex-col gap-3 text-sm font-medium md:flex-row md:flex-wrap md:items-center md:justify-between">
           {/* Application No */}
           <div>
@@ -1508,7 +1527,11 @@ const LoanPreview = () => {
           </div>
         </div>
 
-        <div className="mb-6 rounded-[28px] border border-sky-100 bg-gradient-to-br from-white via-sky-50 to-cyan-50 p-6 shadow-[0_18px_40px_rgba(14,116,144,0.08)] dark:border-blue-900/30 dark:bg-blue-950/20">
+        <div
+          className="mb-6 rounded-[28px] border border-slate-200 
+bg-slate-50 p-6 shadow-sm 
+dark:border-slate-800 dark:bg-slate-900"
+        >
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
             <Metric
               label="Loan Amount"
@@ -1563,10 +1586,16 @@ const LoanPreview = () => {
           </button>
         </div>
 
-        <div className="space-y-10 rounded-xl border p-6 dark:border-slate-800">
+        <div
+          className="space-y-10 rounded-xl border border-slate-200 p-6 
+bg-white dark:border-slate-800 dark:bg-slate-900"
+        >
           {groupedFields.primaryFields.length > 0 && (
             <div>
-              <h3 className="mb-4 border-b pb-2 text-md font-bold">
+              <h3
+                className="mb-4 border-b border-slate-200 pb-2 text-md font-bold 
+text-slate-800 dark:border-slate-700 dark:text-slate-200"
+              >
                 Primary Borrower
               </h3>
               <div className="grid gap-6 md:grid-cols-2">
@@ -1604,7 +1633,7 @@ const LoanPreview = () => {
 
           {groupedFields.otherFields.length > 0 && (
             <div>
-              <h3 className="mb-4 border-b pb-2 text-md font-bold">
+              <h3 className="mb-4 border-b pb-2 text-md font-bold dark:border-slate-800">
                 Loan Details
               </h3>
               <div className="grid gap-6 md:grid-cols-2">
@@ -1883,7 +1912,10 @@ const LoanPreview = () => {
     );
 
     return (
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+      <div
+        className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm 
+dark:border-slate-800 dark:bg-slate-900"
+      >
         <div className="mb-4 flex gap-2 flex-wrap">
           {["all", "eligible", "rejected", "sent"].map((type) => (
             <button
@@ -1906,10 +1938,10 @@ const LoanPreview = () => {
               ? "bg-red-600 text-white"
               : type === "sent"
                 ? "bg-blue-600 text-white"
-                : "bg-gray-800 text-white" 
-          : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                : "bg-slate-800 text-white dark:bg-white dark:text-black"
+          : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
       }
-      `} 
+`}
             >
               {type === "all"
                 ? "All"
@@ -1920,7 +1952,7 @@ const LoanPreview = () => {
                     : "Sent"}
             </button>
           ))}
-        </div> 
+        </div>
 
         {/* HEADER */}
         <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -1943,7 +1975,10 @@ const LoanPreview = () => {
                   setLenderSearchQ(e.target.value);
                 }}
                 placeholder="Search lenders..."
-                className="w-full rounded-xl border px-4 py-2 pl-10 text-sm"
+                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2 pl-10 text-sm 
+text-slate-800 outline-none
+focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200
+dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:focus:ring-cyan-800"
               />
             </div>
 
@@ -1953,7 +1988,9 @@ const LoanPreview = () => {
                 setLenderPage(1);
                 setLenderLimit(Number(e.target.value));
               }}
-              className="rounded-xl border px-4 py-2 text-sm"
+              className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm 
+text-slate-800 outline-none
+dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
             >
               <option value={6}>6 / page</option>
               <option value={9}>9 / page</option>
@@ -1964,35 +2001,38 @@ const LoanPreview = () => {
 
         {/* Borrower Summary */}
         {borrowerSummary && (
-          <div className="mb-6 rounded-xl border bg-blue-50 p-4">
-            <h3 className="mb-2 font-semibold text-blue-600">
+          <div
+            className="mb-6 rounded-xl border border-slate-200 bg-slate-50 p-4 
+dark:border-slate-800 dark:bg-slate-900"
+          >
+            <h3 className="mb-2 font-semibold text-slate-600 dark:text-slate-400">
               Borrower Summary
             </h3>
 
             <div className="grid grid-cols-2 gap-4 text-sm md:grid-cols-4">
               <div>
                 <b>Loan:</b>
-                <div>
+                <div className="text-blue-400 font-semibold">
                   ${Number(borrowerSummary.loanAmount).toLocaleString()}
                 </div>
               </div>
 
               <div>
                 <b>Term:</b>
-                <div>
+                <div className="text-blue-400 font-semibold">
                   {borrowerSummary.borrowerMinTerm} -{" "}
                   {borrowerSummary.borrowerMaxTerm} months
                 </div>
-              </div> 
+              </div>
 
               <div>
                 <b>Score:</b>
-                <div>{borrowerSummary.creditScore}</div>
+                <div className="text-blue-400 font-semibold">{borrowerSummary.creditScore}</div>
               </div>
 
               <div>
                 <b>Total Lenders:</b>
-                <div>{lenders.length}</div>
+                <div className="text-blue-400 font-semibold">{lenders.length}</div>
               </div>
             </div>
           </div>
@@ -2012,15 +2052,19 @@ const LoanPreview = () => {
             {paginatedEligibleLenders.map((lender) => (
               <div
                 key={lender.id}
-                className="rounded-xl border p-5 hover:shadow-md transition flex flex-col h-full"
+                className="rounded-xl border border-slate-200 bg-white p-5 
+hover:shadow-md transition flex flex-col h-full
+dark:border-slate-800 dark:bg-slate-900"
               >
                 {/* TOP CONTENT */}
                 <div className="flex-1">
                   {/* HEADER */}
                   <div className="flex justify-between items-center mb-3">
                     <div>
-                      <h3 className="font-bold">{lender.name}</h3>
-                      <p className="text-xs text-gray-500">
+                      <h3 className="font-bold text-slate-800 dark:text-slate-100">
+                        {lender.name}
+                      </h3>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
                         {lender.email || "-"}
                       </p>
                     </div>
@@ -2028,10 +2072,10 @@ const LoanPreview = () => {
                     <span
                       className={`px-2 py-1 text-xs rounded-full ${
                         lender.type === "eligible"
-                          ? "bg-green-100 text-green-600"
+                          ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
                           : lender.type === "rejected"
-                            ? "bg-red-100 text-red-600"
-                            : "bg-blue-100 text-blue-600"
+                            ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                            : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
                       }`}
                     >
                       {lender.type}
@@ -2053,7 +2097,10 @@ const LoanPreview = () => {
                   {/* REJECTION */}
                   {lender.type === "rejected" &&
                     lender.rejectionReasons?.length > 0 && (
-                      <div className="mt-3 text-xs text-red-600 bg-red-50 p-2 rounded">
+                      <div
+                        className="mt-3 text-xs text-red-600 bg-red-50 p-2 rounded
+dark:bg-red-900/20 dark:text-red-400"
+                      >
                         {lender.rejectionReasons.map((r: string, i: number) => (
                           <div key={i}>• {r}</div>
                         ))}
@@ -2074,15 +2121,15 @@ const LoanPreview = () => {
                     }
                     className={`w-full py-2 rounded-lg text-white font-semibold transition-all duration-300
 
-      ${
-        sendingId === lender.lenderProductId
-          ? "bg-gray-400 cursor-wait"
-          : lender.alreadySent
-            ? "bg-blue-500 cursor-not-allowed"
-            : lender.type === "rejected"
-              ? "bg-red-500 cursor-not-allowed"
-              : "bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-indigo-600 hover:to-blue-500 shadow-md hover:shadow-lg"
-      }
+     ${
+       sendingId === lender.lenderProductId
+         ? "bg-slate-400 cursor-wait"
+         : lender.alreadySent
+           ? "bg-blue-500 cursor-not-allowed"
+           : lender.type === "rejected"
+             ? "bg-red-500 cursor-not-allowed"
+             : "bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-indigo-600 hover:to-blue-500 shadow-md hover:shadow-lg"
+     }
 
       disabled:opacity-70
       `}
@@ -2103,7 +2150,9 @@ const LoanPreview = () => {
 
         {/* PAGINATION */}
         {!lenderLoading && filteredEligibleLenders.length > lenderLimit && (
-          <div className="flex justify-between mt-6">
+          <div
+            className="px-4 py-2 rounded-lg border border-slate-300 text-sm bg-white text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+          >
             <button
               disabled={lenderPage === 1}
               onClick={() => setLenderPage((p) => p - 1)}
@@ -2597,7 +2646,7 @@ const LoanPreview = () => {
                                       }
                                     }
 
-                                    toast.success("Uploaded successfully 🚀");
+                                    toast.success("Uploaded successfully");
                                     await fetchSubmissionDocuments(
                                       documentsData.submissionId,
                                     );
@@ -2748,6 +2797,7 @@ const LoanPreview = () => {
                 <div
                   className="flex items-center gap-3 px-4 py-2 rounded-2xl 
     bg-gradient-to-r from-blue-50 to-cyan-50 
+    dark:from-[#1E293B] dark:to-[#0F172A]
     shadow-sm hover:shadow-md transition-all"
                 >
                   <div
@@ -2758,10 +2808,10 @@ const LoanPreview = () => {
                   </div>
 
                   <div className="flex flex-col leading-tight">
-                    <span className="text-[11px] font-medium text-blue-500">
+                    <span className="text-[11px] font-medium text-blue-500 dark:text-blue-400">
                       Borrower Name
                     </span>
-                    <span className="text-sm font-semibold text-blue-900">
+                    <span className="text-sm font-semibold text-blue-900 dark:text-white">
                       {submissionDetail?.borrowerName ||
                         `${getFieldValue(fields, "borrowerFirstName") || ""} ${
                           getFieldValue(fields, "borrowerLastName") || ""
@@ -2775,6 +2825,7 @@ const LoanPreview = () => {
                 <div
                   className="flex items-center gap-3 px-4 py-2 rounded-2xl 
     bg-gradient-to-r from-purple-50 to-indigo-50 
+    dark:from-[#1E1B4B] dark:to-[#0F172A]
     shadow-sm hover:shadow-md transition-all"
                 >
                   <div
@@ -2785,10 +2836,10 @@ const LoanPreview = () => {
                   </div>
 
                   <div className="flex flex-col leading-tight">
-                    <span className="text-[11px] font-medium text-indigo-500">
+                    <span className="text-[11px] font-medium text-indigo-500 dark:text-indigo-400">
                       Product Name
                     </span>
-                    <span className="text-sm font-semibold text-indigo-900">
+                    <span className="text-sm font-semibold text-indigo-900 dark:text-white">
                       {submissionDetail?.loanProduct?.name ||
                         getFieldValue(fields, "loanProductCode") ||
                         "No Product"}
@@ -2796,10 +2847,11 @@ const LoanPreview = () => {
                   </div>
                 </div>
 
-                {/* AMOUNT REQUESTED */}
+                {/* AMOUNT */}
                 <div
                   className="flex items-center gap-3 px-4 py-2 rounded-2xl 
     bg-gradient-to-r from-emerald-50 to-green-50 
+    dark:from-[#022c22] dark:to-[#052e2b]
     shadow-sm hover:shadow-md transition-all"
                 >
                   <div
@@ -2810,10 +2862,10 @@ const LoanPreview = () => {
                   </div>
 
                   <div className="flex flex-col leading-tight">
-                    <span className="text-[11px] font-medium text-emerald-600">
+                    <span className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
                       Amount Requested
                     </span>
-                    <span className="text-sm font-semibold text-emerald-900">
+                    <span className="text-sm font-semibold text-emerald-900 dark:text-white">
                       ${submissionDetail?.amountRequested || 0}
                     </span>
                   </div>
@@ -2822,23 +2874,22 @@ const LoanPreview = () => {
                 {/* CREDIT SCORE */}
                 <div
                   className="flex items-center gap-3 px-4 py-2 rounded-2xl 
-  bg-gradient-to-r from-amber-50 to-yellow-50 
-  shadow-sm hover:shadow-md transition-all"
+    bg-gradient-to-r from-amber-50 to-yellow-50 
+    dark:from-[#451a03] dark:to-[#422006]
+    shadow-sm hover:shadow-md transition-all"
                 >
-                  {/* ICON */}
                   <div
                     className="h-9 w-9 flex items-center justify-center rounded-full 
-    bg-gradient-to-br from-amber-500 to-yellow-500 text-white font-bold text-sm"
+      bg-gradient-to-br from-amber-500 to-yellow-500 text-white font-bold text-sm"
                   >
                     <FaRegCreditCard />
                   </div>
 
-                  {/* TEXT */}
                   <div className="flex flex-col leading-tight">
-                    <span className="text-[11px] font-medium text-amber-600">
+                    <span className="text-[11px] font-medium text-amber-600 dark:text-amber-400">
                       Credit Score
                     </span>
-                    <span className="text-sm font-semibold text-amber-900">
+                    <span className="text-sm font-semibold text-amber-900 dark:text-white">
                       {submissionDetail?.creditScore || "N/A"}
                     </span>
                   </div>

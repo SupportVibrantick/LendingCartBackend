@@ -750,6 +750,78 @@ export default function LoanOfficersPage() {
     </div>
   );
 
+  const isDark = document.documentElement.classList.contains("dark");
+
+  const customSelectStyles = {
+    control: (base: any, state: any) => ({
+      ...base,
+      backgroundColor: isDark ? "#0f172a" : "#ffffff", // slate-900
+      borderColor: state.isFocused ? "#6366f1" : isDark ? "#334155" : "#cbd5f5",
+      boxShadow: "none",
+      minHeight: "42px",
+      borderRadius: "10px",
+      padding: "2px",
+      ":hover": {
+        borderColor: "#6366f1",
+      },
+    }),
+
+    menu: (base: any) => ({
+      ...base,
+      backgroundColor: isDark ? "#0f172a" : "#ffffff",
+      border: `1px solid ${isDark ? "#334155" : "#e2e8f0"}`,
+      borderRadius: "10px",
+      overflow: "hidden",
+      zIndex: 9999,
+    }),
+
+    option: (base: any, state: any) => ({
+      ...base,
+      backgroundColor: state.isFocused
+        ? isDark
+          ? "#1e293b"
+          : "#f1f5f9"
+        : "transparent",
+      color: isDark ? "#e2e8f0" : "#0f172a",
+      cursor: "pointer",
+    }),
+
+    multiValue: (base: any) => ({
+      ...base,
+      backgroundColor: isDark ? "#1e293b" : "#e2e8f0",
+      borderRadius: "6px",
+    }),
+
+    multiValueLabel: (base: any) => ({
+      ...base,
+      color: isDark ? "#e2e8f0" : "#0f172a",
+    }),
+
+    multiValueRemove: (base: any) => ({
+      ...base,
+      color: isDark ? "#94a3b8" : "#475569",
+      ":hover": {
+        backgroundColor: isDark ? "#334155" : "#cbd5f5",
+        color: isDark ? "#fff" : "#000",
+      },
+    }),
+
+    input: (base: any) => ({
+      ...base,
+      color: isDark ? "#e2e8f0" : "#0f172a",
+    }),
+
+    placeholder: (base: any) => ({
+      ...base,
+      color: isDark ? "#94a3b8" : "#64748b",
+    }),
+
+    singleValue: (base: any) => ({
+      ...base,
+      color: isDark ? "#e2e8f0" : "#0f172a",
+    }),
+  };
+
   return (
     <div className="p-6 bg-gray-50 dark:bg-slate-900 min-h-screen transition-colors">
       {/* Header + Controls */}
@@ -1653,28 +1725,7 @@ bg-slate-50/60 dark:bg-slate-800"
                   placeholder="Select permissions..."
                   className="text-sm"
                   classNamePrefix="react-select"
-                  // styles={{
-                  //   control: (base) => ({
-                  //     ...base,
-                  //     backgroundColor: "#1e293b",
-                  //     borderColor: "#334155",
-                  //     color: "white",
-                  //   }),
-                  //   menu: (base) => ({
-                  //     ...base,
-                  //     backgroundColor: "#1e293b",
-                  //   }),
-                  //   option: (base, state) => ({
-                  //     ...base,
-                  //     backgroundColor: state.isFocused ? "#334155" : "#1e293b",
-                  //     color: "white",
-                  //   }),
-                  //   multiValue: (base) => ({
-                  //     ...base,
-                  //     backgroundColor: "#334155",
-                  //     color: "white",
-                  //   }),
-                  // }}
+                  styles={customSelectStyles}
                 />
               </section>
 
