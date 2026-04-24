@@ -199,7 +199,7 @@ const AppSidebar: React.FC = () => {
   };
 
   const renderMenuItems = (items: NavItem[], level = 0, parentKey = "") => (
-    <ul className={`flex flex-col gap-4 ${level > 0 ? "ml-6 mt-2" : ""}`}>
+    <ul className={`flex flex-col gap-2 ${level > 0 ? "ml-4 mt-1" : ""}`}>
       {items.map((nav, index) => {
         const key = parentKey ? `${parentKey}-${index}` : `${index}`;
         const isOpen = openMenus[key];
@@ -275,7 +275,7 @@ const AppSidebar: React.FC = () => {
 
   return (
     <aside
-      className={`fixed mt-16 flex flex-col lg:mt-0 top-0 px-5 left-0 bg-[#2C92D5] border-gray-200 dark:bg-gray-900 
+      className={`fixed mt-16 flex flex-col lg:mt-0 top-0 px-5 left-0 bg-white border-gray-200 dark:bg-gray-900 
 text-gray-800 dark:text-gray-200 dark:border-gray-800 h-screen transition-all duration-300 ease-in-out z-50 border-r
         ${
           isExpanded || isMobileOpen

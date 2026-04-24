@@ -755,7 +755,7 @@ export default function LoanOfficersPage() {
   const customSelectStyles = {
     control: (base: any, state: any) => ({
       ...base,
-      backgroundColor: isDark ? "#0f172a" : "#ffffff", // slate-900
+      backgroundColor: isDark ? "#0f172a" : "#ffffff",
       borderColor: state.isFocused ? "#6366f1" : isDark ? "#334155" : "#cbd5f5",
       boxShadow: "none",
       minHeight: "42px",
