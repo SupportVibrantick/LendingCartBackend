@@ -4,20 +4,104 @@
 module.exports = async function listSubmissionsTable(fastify) {
   fastify.get("/submissions", async (req, reply) => {
     try {
-      const submissions = await fastify.prisma.applicationSubmission.findMany({
-        orderBy: {
-          createdAt: "desc",
-        },
-        distinct: ["applicationId"],
+      const prisma = fastify.prisma;
+
+      /* ================= QUERY PARAMS ================= */
+
+      const {
+        cursor,
+        limit = 10,
+        search,
+        status,
+        sortBy = "createdAt",
+        sortOrder = "desc",
+      } = req.query;
+
+      /* ================= ROLE FILTER ================= */
+
+      let whereCondition = {};
+
+      if (req.user?.roles?.includes("BROKER_OFFICER")) {
+        whereCondition = {
+          application: {
+            brokerUserId: {
+              equals: req.user.id, // ✅ STRICT MATCH (FIXED)
+            },
+          },
+        };
+      }
+
+      /* ================= SEARCH ================= */
+
+      if (search) {
+        whereCondition = {
+          ...whereCondition,
+          application: {
+            ...whereCondition.application,
+            OR: [
+              {
+                applicationNumber: {
+                  contains: search,
+                  mode: "insensitive",
+                },
+              },
+              {
+                client: {
+                  legalName: {
+                    contains: search,
+                    mode: "insensitive",
+                  },
+                },
+              },
+            ],
+          },
+        };
+      }
+
+      /* ================= STATUS FILTER ================= */
+
+      if (status) {
+        whereCondition = {
+          ...whereCondition,
+          status,
+        };
+      }
+
+      /* ================= SORT ================= */
+
+      const orderBy = {
+        [sortBy]: sortOrder,
+      };
+
+      /* ================= QUERY ================= */
+
+      const submissions = await prisma.applicationSubmission.findMany({
+        where: whereCondition,
+        take: Number(limit),
+        ...(cursor && {
+          skip: 1,
+          cursor: { id: cursor },
+        }),
+        orderBy,
+
+        // ⚠️ IMPORTANT: REMOVED distinct (ROOT CAUSE FIX)
+        // distinct: ["applicationId"],
 
         include: {
           application: {
+            where: req.user?.roles?.includes("BROKER_OFFICER")
+              ? {
+                  brokerUserId: {
+                    equals: req.user.id, // 🔥 DOUBLE SAFETY
+                  },
+                }
+              : undefined,
+
             select: {
               applicationNumber: true,
               loanProductCode: true,
               amountRequested: true,
 
-              // ✅ CLIENT (BORROWER INFO)
               client: {
                 select: {
                   legalName: true,
@@ -32,14 +116,12 @@ module.exports = async function listSubmissionsTable(fastify) {
                 },
               },
 
-              // ✅ DOCUMENT STATUS
               documentRequirements: {
                 select: {
                   status: true,
                 },
               },
 
-              // ✅ ASSIGNED LOAN OFFICER
               brokerUser: {
                 select: {
                   id: true,
@@ -49,7 +131,6 @@ module.exports = async function listSubmissionsTable(fastify) {
                 },
               },
 
-              // ✅ LENDER DATA
               applicationLenders: {
                 select: {
                   lenderOrgId: true,
@@ -74,10 +155,30 @@ module.exports = async function listSubmissionsTable(fastify) {
         },
       });
 
-      const data = submissions.map((s) => {
+      /* ================= NEXT CURSOR ================= */
+
+      const nextCursor =
+        submissions.length === Number(limit)
+          ? submissions[submissions.length - 1].id
+          : null;
+
+      /* ================= SAFE FILTER (FINAL GUARD) ================= */
+
+      const safeSubmissions = submissions.filter((s) => {
+        if (!req.user?.roles?.includes("BROKER_OFFICER")) return true;
+
+        return (
+          s.application &&
+          s.application.brokerUser &&
+          s.application.brokerUser.id === req.user.id
+        );
+      });
+
+      /* ================= MAPPING ================= */
+
+      const data = safeSubmissions.map((s) => {
         const app = s.application;
 
-        // ✅ Borrower Name Logic
         const borrower =
           app.client?.contacts?.[0]
             ? `${app.client.contacts[0].firstName || ""} ${
@@ -85,7 +186,6 @@ module.exports = async function listSubmissionsTable(fastify) {
               }`.trim()
             : app.client?.legalName || "N/A";
 
-        // ✅ Pending Documents Count
         const pendingDocumentsCount =
           app.documentRequirements.filter(
             (doc) => doc.status !== "COMPLETE"
@@ -93,19 +193,15 @@ module.exports = async function listSubmissionsTable(fastify) {
 
         return {
           submissionId: s.id,
-
-          // ✅ REQUIRED UI FIELDS
           borrower,
           applicationNumber: app.applicationNumber,
           loanInfo: app.loanProductCode || null,
-          location: "N/A", // update later if you store city/state
+          location: "N/A",
           amount: app.amountRequested || null,
-
           status: s.status,
           submittedOn: s.createdAt,
           pendingDocumentsCount,
 
-          // ✅ ASSIGNED LOAN OFFICER
           assignedLoanOfficer: app.brokerUser
             ? {
                 id: app.brokerUser.id,
@@ -116,7 +212,6 @@ module.exports = async function listSubmissionsTable(fastify) {
               }
             : null,
 
-          // ✅ LENDER LIST
           submittedToLenders: app.applicationLenders.map((l) => ({
             lenderOrgId: l.lenderOrgId,
             lenderName: l.lender?.name,
@@ -127,8 +222,27 @@ module.exports = async function listSubmissionsTable(fastify) {
         };
       });
 
+      /* ================= STATS ================= */
+
+      const stats = await prisma.applicationSubmission.groupBy({
+        by: ["status"],
+        _count: true,
+        where: whereCondition,
+      });
+
+      /* ================= RESPONSE ================= */
+
       return reply.send({
         success: true,
+
+        pagination: {
+          nextCursor,
+          limit: Number(limit),
+          hasMore: !!nextCursor,
+        },
+
+        stats,
+
         data,
       });
     } catch (error) {
