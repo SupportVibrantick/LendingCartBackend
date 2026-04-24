@@ -37,6 +37,8 @@ async function brokerApplicationsRoutes(fastify) {
   fastify.register(require("./createFromTemplate"));
 
   fastify.register(require("./assignLoanOfficer"));
+
+  
 }
 
 module.exports = brokerApplicationsRoutes;

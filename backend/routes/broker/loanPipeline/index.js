@@ -15,6 +15,7 @@ async function loanPipelineRoutes(fastify) {
   fastify.register(require("./getSubmittedlenders.js"));
 
   fastify.register(require("./feeAgreement"));
+  fastify.register(require("./listSubmissions"));
 }
 
 module.exports = loanPipelineRoutes;
