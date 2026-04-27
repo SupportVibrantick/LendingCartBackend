@@ -38,6 +38,7 @@ model Organization {
   contacts                 Contact[]
   loiTemplates             LenderLoiTemplate[]
   feeAgreements            FeeAgreement[]            @relation("OrgToFeeAgreement")
+  campaigns                Campaign[]                @relation("OrgCampaigns")
   // soft-delete fields (additive, non-breaking)
   isDeleted                Boolean?                  @default(false) @map("is_deleted")
   deletedAt                DateTime?                 @map("deleted_at") @db.Timestamptz(6)
@@ -70,7 +71,8 @@ model UserAccount {
   roles                      UserRole[]
   brokerProfile              BrokerUserProfile?
   createdContacts            Contact[]
-  userPermissions UserPermission[]
+  userPermissions            UserPermission[]
+  campaigns                  Campaign[]                  @relation("UserCampaigns")
   // soft-delete fields (additive, non-breaking)
   isDeleted                  Boolean?                    @default(false) @map("is_deleted")
   deletedAt                  DateTime?                   @map("deleted_at") @db.Timestamptz(6)
@@ -131,11 +133,12 @@ model LenderProfile {
 }
 
 model Role {
-  id          String     @id @default(uuid()) @db.Uuid
-  name        RoleName
-  description String?
-  userRoles   UserRole[]
+  id              String           @id @default(uuid()) @db.Uuid
+  name            RoleName
+  description     String?
+  userRoles       UserRole[]
   rolePermissions RolePermission[]
+
   @@map("roles")
 }
 
@@ -533,8 +536,6 @@ model LoanApplication {
   @@index([loanProductCode])
   @@map("loan_applications")
 }
-
-
 
 model BrokerApplication {
   id          String  @id @default(uuid()) @db.Uuid
@@ -1225,10 +1226,11 @@ model Contact {
   stateOfFormation String?
   entityType       String?
 
-  description String?
-
-  createdAt DateTime @default(now()) @db.Timestamptz(6)
-  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+  description        String?
+  campaignRecipients CampaignRecipient[] @relation("ContactToCampaignRecipients")
+  emailLogs          EmailLog[]          @relation("ContactToEmailLogs")
+  createdAt          DateTime            @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime            @updatedAt @db.Timestamptz(6)
 
   // soft delete
   isDeleted Boolean?  @default(false) @map("is_deleted")
@@ -1241,6 +1243,76 @@ model Contact {
   @@index([brokerOrgId])
   @@index([email])
   @@map("contacts")
+}
+
+model Campaign {
+  id String @id @default(uuid()) @db.Uuid
+
+  orgId   String @db.Uuid
+  name    String
+  subject String
+  content String
+
+  status CampaignStatus @default(DRAFT)
+
+  scheduledAt DateTime? @db.Timestamptz(6)
+  sentAt      DateTime? @db.Timestamptz(6)
+
+  createdById String? @db.Uuid
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  // ✅ FIXED RELATIONS (ADD NAMES)
+  organization Organization @relation("OrgCampaigns", fields: [orgId], references: [id])
+  createdBy    UserAccount? @relation("UserCampaigns", fields: [createdById], references: [id])
+
+  recipients CampaignRecipient[] @relation("CampaignToRecipients")
+  logs       EmailLog[]          @relation("CampaignToEmailLogs")
+
+  @@index([orgId])
+  @@map("campaigns")
+}
+
+model CampaignRecipient {
+  id String @id @default(uuid()) @db.Uuid
+
+  campaignId String @db.Uuid
+  contactId  String @db.Uuid
+
+  status EmailStatus @default(PENDING)
+  error  String?
+
+  sentAt DateTime? @db.Timestamptz(6)
+
+  // ✅ FIXED RELATIONS
+  campaign Campaign @relation("CampaignToRecipients", fields: [campaignId], references: [id])
+  contact  Contact  @relation("ContactToCampaignRecipients", fields: [contactId], references: [id])
+
+  @@unique([campaignId, contactId])
+  @@index([campaignId])
+  @@index([contactId])
+  @@map("campaign_recipients")
+}
+
+model EmailLog {
+  id String @id @default(uuid()) @db.Uuid
+
+  campaignId String @db.Uuid
+  contactId  String @db.Uuid
+
+  status   EmailStatus
+  response Json?
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  //  FIXED RELATIONS
+  campaign Campaign @relation("CampaignToEmailLogs", fields: [campaignId], references: [id])
+  contact  Contact  @relation("ContactToEmailLogs", fields: [contactId], references: [id])
+
+  @@index([campaignId])
+  @@index([contactId])
+  @@map("email_logs")
 }
 
 model ClientUploadToken {
@@ -1300,10 +1372,9 @@ model Conversation {
   @@index([applicationLenderId])
 }
 
-
 model Permission {
-  id          String   @id @default(uuid()) @db.Uuid
-  key         String   @unique // e.g. VIEW_PIPELINE
+  id          String  @id @default(uuid()) @db.Uuid
+  key         String  @unique // e.g. VIEW_PIPELINE
   description String?
 
   rolePermissions RolePermission[]
@@ -1314,7 +1385,6 @@ model Permission {
 
   @@map("permissions")
 }
-
 
 model RolePermission {
   id           String @id @default(uuid()) @db.Uuid
@@ -1329,9 +1399,9 @@ model RolePermission {
 }
 
 model UserPermission {
-  id           String  @id @default(uuid()) @db.Uuid
-  userId       String  @db.Uuid
-  permissionId String  @db.Uuid
+  id           String @id @default(uuid()) @db.Uuid
+  userId       String @db.Uuid
+  permissionId String @db.Uuid
 
   isAllowed Boolean @default(true)
 
@@ -1823,4 +1893,18 @@ enum FieldType {
   RICH_TEXT // WYSIWYG editor
   OTP // one-time password
   CAPTCHA // captcha field
+}
+
+enum CampaignStatus {
+  DRAFT
+  SCHEDULED
+  PROCESSING
+  SENT
+  FAILED
+}
+
+enum EmailStatus {
+  PENDING
+  SENT
+  FAILED
 }
