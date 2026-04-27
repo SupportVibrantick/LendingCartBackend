@@ -832,12 +832,9 @@ export default function LoanApplicationsPage() {
 
   const fetchLoanOfficers = async () => {
     try {
-      const res = await fetch(
-        `https://api-lendingcart.vibrantick.org/broker/users?page=1&limit=10`,
-        {
-          headers: getAuthHeaders(),
-        },
-      );
+      const res = await fetch(`${API_BASE}/broker/users?page=1&limit=10`, {
+        headers: getAuthHeaders(),
+      });
 
       const json = await res.json();
 
@@ -924,9 +921,9 @@ export default function LoanApplicationsPage() {
     return () => window.removeEventListener("scroll", onScroll);
   }, [hasMore, nextCursor, loading]);
 
-  const handleReload = () => {
-    loadSubmissions(); 
-  };
+  // const handleReload = () => {
+  //   loadSubmissions();
+  // };
 
   return (
     <div className="max-w-7xl bg-slate-50 dark:bg-[#0b1120] p-3 text-slate-900 dark:text-slate-100 selection:bg-blue-100 dark:selection:bg-blue-900/30">
@@ -978,7 +975,7 @@ export default function LoanApplicationsPage() {
                 />
               </div>
 
-              <button
+              {/* <button
                 onClick={handleReload}
                 className="p-2.5 rounded-xl bg-white dark:bg-slate-900 
                  border border-slate-200 dark:border-slate-800 
@@ -990,7 +987,7 @@ export default function LoanApplicationsPage() {
                     loading ? "animate-spin text-blue-500" : ""
                   }`}
                 />
-              </button>
+              </button> */}
             </div>
           </div>
         </div>
@@ -1216,7 +1213,11 @@ export default function LoanApplicationsPage() {
                             ></span>
                           </span>
 
-                          {row.status === "DECLINED" ? "REJECTED" : row.status}
+                          {row.status === "DECLINED"
+                            ? "REJECTED"
+                            : row.status === "CLIENT_PENDING"
+                              ? "Client Pending"
+                              : row.status}
                         </span>
                       </td>
 
