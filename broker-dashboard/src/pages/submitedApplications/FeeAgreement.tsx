@@ -183,6 +183,7 @@ dark:text-slate-300"
               className="h-12 object-contain"
             />
           </div>
+
           {/* TITLE */}
           <h1 className="text-xl font-bold">FINDER & FINANCIAL AGREEMENT</h1>
 
@@ -269,7 +270,7 @@ dark:text-slate-300"
                 Upfront Fee
               </p>
               <p className="font-semibold text-slate-800 dark:text-slate-100">
-                ₹{Number(data.upfrontFee || 0).toLocaleString()}
+                ${Number(data.upfrontFee || 0).toLocaleString()}
               </p>
             </div>
 

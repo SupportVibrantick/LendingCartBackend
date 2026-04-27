@@ -27,7 +27,7 @@ import { PiSecurityCameraFill } from "react-icons/pi";
 import { GrDocumentText } from "react-icons/gr";
 import { RiExternalLinkLine } from "react-icons/ri";
 import ContactsOutlinedIcon from "@mui/icons-material/ContactsOutlined";
-import { TrendingUp } from "lucide-react";
+import { Mail, TrendingUp } from "lucide-react";
 
 type NavItem = {
   name: string;
@@ -103,6 +103,11 @@ const navItems: NavItem[] = [
     icon: <ContactsOutlinedIcon />,
     name: "All Leads",
     path: "/all-landing-pages-leads",
+  },
+  {
+    icon: <Mail />,
+    name: "Email Marketing",
+    path: "/email-marketing",
   },
   {
     icon: <AdminPanelSettingsOutlinedIcon />,

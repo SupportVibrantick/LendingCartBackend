@@ -50,6 +50,7 @@ import SystemSettings from "./pages/SystemSettings/SystemSettings";
 import LoanCriteria from "./pages/Lenders/LoanCriteria/Main";
 import AddLender from "./pages/Lenders/AddLender/Main";
 import UpdateLender from "./pages/Lenders/UpdateLender/Main";
+import EmailMarketing from "./pages/EmailMarketing/EmailMarketing";
 
 export default function App() {
   return (
@@ -147,6 +148,11 @@ export default function App() {
               index
               path="/all-landing-pages-leads"
               element={<AllLeads />}
+            />
+            <Route
+              index
+              path="/email-marketing"
+              element={<EmailMarketing />}
             />
             <Route index path="/admin-logs" element={<AdminLogs />} />
             <Route index path="/system-settings" element={<SystemSettings />} />
