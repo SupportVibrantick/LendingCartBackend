@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router";
@@ -26,12 +26,12 @@ import Swal from "sweetalert2";
 import { MdEdit } from "react-icons/md";
 
 /* ================= TYPES ================= */
-type SubmissionListItem = {
-  submissionId: string;
-  status: string;
-  submittedOn: string;
-  pendingDocumentsCount: number; // ADD THIS
-};
+// type SubmissionListItem = {
+//   submissionId: string;
+//   status: string;
+//   submittedOn: string;
+//   pendingDocumentsCount: number; // ADD THIS
+// };
 
 type SubmissionField = {
   fieldId: string | null;
@@ -53,6 +53,9 @@ type TableRow = {
   status: string;
   date: string;
   pendingDocumentsCount?: number;
+
+  assignedOfficerName: string | null;
+  assignedOfficerImage: string | null;
 };
 
 type Lender = {
@@ -99,8 +102,14 @@ function getAuthHeaders(): HeadersInit {
 
 /* ================= COMPONENT ================= */
 export default function LoanApplicationsPage() {
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
+  const observerRef = useRef<IntersectionObserver | null>(null);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const [rows, setRows] = useState<TableRow[]>([]);
   const [loading, setLoading] = useState(false);
+  const [roles, setRoles] = useState<string[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [viewSubmissionId, setViewSubmissionId] = useState<string | null>(null);
   const [lenderSubmissionId] = useState<string | null>(null);
@@ -140,6 +149,8 @@ export default function LoanApplicationsPage() {
 
   const [loiModalOpen, setLoiModalOpen] = useState(false);
   const [lois] = useState<any[]>([]);
+
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0 });
 
   const [previewFile, setPreviewFile] = useState<{
     url: string;
@@ -198,14 +209,14 @@ export default function LoanApplicationsPage() {
         return "bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400";
 
       case "client_pending":
-        return "bg-red-500/10 border-red-500/20 text-red-600 dark:text-red-400";
+        return "bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400";
 
       case "submitted":
       case "sent":
         return "bg-indigo-500/10 border-indigo-500/20 text-indigo-600 dark:text-indigo-400";
 
       case "updated":
-        return "bg-cyan-100 text-cyan-700 ring-1 ring-cyan-200";
+        return "bg-cyan-500/10 border-cyan-500/20 text-cyan-600 dark:text-cyan-400";
 
       case "approved":
         return "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400";
@@ -215,6 +226,9 @@ export default function LoanApplicationsPage() {
 
       case "completed":
         return "bg-green-500/10 border-green-500/20 text-green-600 dark:text-green-400";
+
+      case "superseded":
+        return "bg-orange-400/10 border-orange-400/20 text-orange-600 dark:text-orange-400";
 
       default:
         return "bg-slate-500/10 border-slate-500/20 text-slate-600 dark:text-slate-400";
@@ -432,59 +446,45 @@ export default function LoanApplicationsPage() {
     }
   }, [findLenderModalOpen, lenderSubmissionId]);
 
-  const loadSubmissions = async () => {
+  const loadSubmissions = async (cursor?: string) => {
     try {
       setLoading(true);
-      const res = await fetch(
-        `${API_BASE}/api/public/broker/applications/submissions`,
-      );
+
+      const url = new URL(API_BASE + "/broker/loan-pipeline/submissions");
+
+      if (cursor) {
+        url.searchParams.append("cursor", cursor);
+      }
+
+      const res = await fetch(url.toString(), {
+        headers: getAuthHeaders(),
+      });
+
       const json = await res.json();
-      if (!json.success) throw new Error("Failed to load submissions");
 
-      const detailedRows = await Promise.all(
-        json.data.map(
-          async (item: SubmissionListItem): Promise<TableRow | null> => {
-            try {
-              const detailRes = await fetch(
-                `${API_BASE}/api/public/broker/applications/submissions/${item.submissionId}`,
-              );
-              const detailJson = await detailRes.json();
-              if (!detailJson.success) return null;
+      const list = Array.isArray(json.data) ? json.data : [];
 
-              const fields = detailJson.data.fields;
+      const formatted = list.map((item: any) => ({
+        submissionId: item.submissionId,
+        borrowerName: item.borrower || "N/A",
+        applicationNumber: item.applicationNumber,
+        applicationId: item.submissionId,
+        company: "-",
+        loanType: item.loanInfo,
+        cityState: item.location,
+        country: "",
+        amount: item.amount || 0,
+        status: item.status,
+        date: item.submittedOn,
+        pendingDocumentsCount: item.pendingDocumentsCount,
+        assignedOfficerName: item.assignedLoanOfficer?.name || null,
+        assignedOfficerImage: item.assignedLoanOfficer?.profileImage || null,
+      }));
 
-              return {
-                submissionId: item.submissionId,
-                applicationNumber: detailJson.data.applicationNumber,
-                applicationId: detailJson.data.applicationId,
-                borrowerName:
-                  `${getFieldValue(fields, "borrowerFirstName") || ""} ${
-                    getFieldValue(fields, "borrowerLastName") || ""
-                  }`.trim(),
-                company: getFieldValue(fields, "companyName") || "Individual",
-                loanType:
-                  getFieldValue(fields, "loanProductCode") || "General Loan",
-                cityState: [
-                  getFieldValue(fields, "city"),
-                  getFieldValue(fields, "state"),
-                ]
-                  .filter(Boolean)
-                  .join(", "),
-                country: getFieldValue(fields, "country") || "USA",
-                amount: Number(getFieldValue(fields, "amountRequested") || 0),
-                status: item.status,
-                date: item.submittedOn,
-                pendingDocumentsCount: item.pendingDocumentsCount || 0,
-              };
-            } catch {
-              return null;
-            }
-          },
-        ),
-      );
-      setRows(detailedRows.filter((r): r is TableRow => r !== null));
-    } catch (err: any) {
-      toast.error(err.message || "Something went wrong");
+      setRows((prev) => (cursor ? [...prev, ...formatted] : formatted));
+
+      setNextCursor(json.pagination.nextCursor);
+      setHasMore(json.pagination.hasMore);
     } finally {
       setLoading(false);
     }
@@ -609,6 +609,7 @@ export default function LoanApplicationsPage() {
   useEffect(() => {
     loadSubmissions();
   }, []);
+
   useEffect(() => {
     if (viewSubmissionId || findLenderModalOpen) {
       document.body.classList.add("modal-open");
@@ -642,11 +643,6 @@ export default function LoanApplicationsPage() {
 
   const totalPages = Math.ceil(filteredRows.length / rowsPerPage);
 
-  const paginatedRows = filteredRows.slice(
-    (currentPage - 1) * rowsPerPage,
-    currentPage * rowsPerPage,
-  );
-
   useEffect(() => {
     if (currentPage > totalPages && totalPages > 0) {
       setCurrentPage(totalPages);
@@ -656,6 +652,78 @@ export default function LoanApplicationsPage() {
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setActiveDropdown(null);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!activeDropdown) return;
+
+    const handleScroll = () => {
+      const btn = document.querySelector(
+        `[data-id="${activeDropdown}"]`,
+      ) as HTMLElement;
+
+      if (!btn) return;
+
+      const rect = btn.getBoundingClientRect();
+
+      setDropdownPos({
+        top: rect.top - 8,
+        left: rect.right - 192,
+      });
+    };
+
+    window.addEventListener("scroll", handleScroll, true);
+    window.addEventListener("resize", handleScroll);
+
+    return () => {
+      window.removeEventListener("scroll", handleScroll, true);
+      window.removeEventListener("resize", handleScroll);
+    };
+  }, [activeDropdown]);
+
+  useEffect(() => {
+    if (!loadMoreRef.current) return;
+
+    observerRef.current = new IntersectionObserver(
+      (entries) => {
+        const first = entries[0];
+
+        if (first.isIntersecting && hasMore && !loading && nextCursor) {
+          loadSubmissions(nextCursor);
+        }
+      },
+      { threshold: 1 },
+    );
+
+    observerRef.current.observe(loadMoreRef.current);
+
+    return () => {
+      observerRef.current?.disconnect();
+    };
+  }, [hasMore, loading, nextCursor]);
+
+  useEffect(() => {
+    const storedRoles = JSON.parse(sessionStorage.getItem("roles") || "[]");
+    setRoles(storedRoles);
+  }, []);
+
+  const isBrokerOfficer = roles.includes("BROKER_OFFICER");
 
   // const fetchDocumentTypes = async (applicationId: string) => {
   //   try {
@@ -831,8 +899,37 @@ export default function LoanApplicationsPage() {
     }
   };
 
+  let fetching = false;
+
+  useEffect(() => {
+    const onScroll = () => {
+      if (fetching) return;
+
+      if (
+        window.innerHeight + window.scrollY >=
+          document.body.offsetHeight - 200 &&
+        hasMore &&
+        !loading &&
+        nextCursor
+      ) {
+        fetching = true;
+
+        loadSubmissions(nextCursor).finally(() => {
+          fetching = false;
+        });
+      }
+    };
+
+    window.addEventListener("scroll", onScroll);
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [hasMore, nextCursor, loading]);
+
+  const handleReload = () => {
+    loadSubmissions(); 
+  };
+
   return (
-    <div className="max-w-7xl min-h-screen bg-slate-50 dark:bg-[#0b1120] p-3 text-slate-900 dark:text-slate-100 selection:bg-blue-100 dark:selection:bg-blue-900/30">
+    <div className="max-w-7xl bg-slate-50 dark:bg-[#0b1120] p-3 text-slate-900 dark:text-slate-100 selection:bg-blue-100 dark:selection:bg-blue-900/30">
       {/* Header Area */}
       <header className="max-w-7xl mx-auto mb-10">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
@@ -871,18 +968,18 @@ export default function LoanApplicationsPage() {
               <div className="relative group flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
                 <input
-                  placeholder="Search by name, company, or application no..."
+                  placeholder="Search by name, company, or app no..."
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10 pr-4 py-2.5 w-full md:w-80 rounded-xl text-sm 
                    bg-white dark:bg-slate-900 
                    border border-slate-200 dark:border-slate-800 
                    shadow-sm focus:ring-2 focus:ring-blue-500/20 
-                   focus:border-blue-500 transition-all outline-none" 
+                   focus:border-blue-500 transition-all outline-none"
                 />
               </div>
 
               <button
-                onClick={loadSubmissions}
+                onClick={handleReload}
                 className="p-2.5 rounded-xl bg-white dark:bg-slate-900 
                  border border-slate-200 dark:border-slate-800 
                  hover:border-blue-500 transition-all 
@@ -981,18 +1078,19 @@ export default function LoanApplicationsPage() {
       <div className="w-full mx-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl shadow-slate-200/50 dark:shadow-none ">
         <div className="w-full bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
           <div className="overflow-x-auto applications-table-top">
-            <table className="min-w-[1100px] w-full table-fixed border-separate border-spacing-0">
+            <table className="min-w-[999px] w-full table-fixed border-separate border-spacing-0">
               <thead className="sticky top-0 z-20 bg-white dark:bg-slate-900 shadow-sm">
                 <tr className="bg-slate-50/50 dark:bg-slate-800/40">
                   {[
-                    { label: "Borrower", width: "w-[180px]" },
-                    { label: "Application No.", width: "w-[160px]" },
-                    { label: "Loan Info", width: "w-[190px]" },
-                    { label: "Location", width: "w-[190px]" },
-                    { label: "Amount", width: "w-[150px]" },
-                    { label: "Submitted On", width: "w-[120px]" },
-                    { label: "Status", width: "w-[130px]" },
+                    { label: "Borrower", width: "w-[160px]" },
+                    { label: "Application No.", width: "w-[150px]" },
+                    { label: "Loan Info", width: "w-[200px]" },
+                    { label: "Location", width: "w-[130px]" },
+                    { label: "Amount", width: "w-[100px]" },
+                    { label: "Submitted On", width: "w-[110px]" },
+                    { label: "Status", width: "w-[140px]" },
                     // { label: "Lenders", width: "w-[100px]" },
+                    { label: "Loan Officer", width: "w-[140px]" },
                     { label: "Action", width: "w-[80px]" },
                   ].map((h) => (
                     <th
@@ -1006,23 +1104,8 @@ export default function LoanApplicationsPage() {
               </thead>
 
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {loading ? (
-                  /* Professional Skeleton Loader */
-                  Array.from({ length: 5 }).map((_, i) => (
-                    <tr key={i}>
-                      <td colSpan={8} className="px-6 py-5">
-                        <div className="flex items-center gap-3 animate-pulse">
-                          <div className="h-10 w-10 rounded-lg bg-slate-100 dark:bg-slate-800" />
-                          <div className="space-y-2">
-                            <div className="h-3 w-32 bg-slate-100 dark:bg-slate-800 rounded" />
-                            <div className="h-2 w-20 bg-slate-50 dark:bg-slate-900 rounded" />
-                          </div>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                ) : filteredRows.length > 0 ? (
-                  paginatedRows.map((row) => (
+                {Array.isArray(rows) && rows.length > 0 ? (
+                  rows.map((row) => (
                     <tr
                       key={row.submissionId}
                       className="group hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors duration-150"
@@ -1156,17 +1239,54 @@ export default function LoanApplicationsPage() {
                         </button>
                       </td> */}
 
+                      <td className="px-5 py-3">
+                        {row.assignedOfficerName ? (
+                          <div className="flex items-center gap-2">
+                            {/* CHIP */}
+                            <div
+                              className="flex items-center gap-2 px-3 py-1.5 rounded-full 
+      bg-indigo-50 border border-indigo-200
+      dark:bg-indigo-500/10 dark:border-indigo-500/20"
+                            >
+                              {/* NAME */}
+                              <span className="text-xs font-medium text-indigo-700 dark:text-indigo-300">
+                                {row.assignedOfficerName}
+                              </span>
+                            </div>
+                          </div>
+                        ) : (
+                          <span
+                            className="px-2.5 py-1 rounded-full text-xs font-medium 
+    bg-slate-100 text-slate-500 border border-slate-200
+    dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700"
+                          >
+                            Not Assigned
+                          </span>
+                        )}
+                      </td>
+
                       {/* Action - Clean & Subtle */}
                       <td className="px-6 py-3 text-center relative">
                         {/* Three Dot Button */}
                         <button
-                          onClick={() =>
+                          data-id={row.submissionId}
+                          onClick={(e) => {
+                            e.stopPropagation();
+
+                            const rect =
+                              e.currentTarget.getBoundingClientRect();
+
+                            setDropdownPos({
+                              top: rect.top - 8,
+                              left: rect.right - 192,
+                            });
+
                             setActiveDropdown(
                               activeDropdown === row.submissionId
                                 ? null
                                 : row.submissionId,
-                            )
-                          }
+                            );
+                          }}
                           className={`
     relative p-2 rounded-lg
     text-slate-500 dark:text-slate-400
@@ -1187,148 +1307,78 @@ export default function LoanApplicationsPage() {
                           />
                         </button>
 
-                        {activeDropdown === row.submissionId && (
-                          <div
-                            className="
-      absolute right-0 mt-2 w-48
-      bg-white dark:bg-slate-900
-      border border-slate-200 dark:border-slate-800
-      rounded-xl shadow-xl
-      overflow-hidden z-50
-      animate-in fade-in zoom-in-95
-    "
-                          >
-                            {/* Application Preview */}
-                            <button
-                              onClick={() =>
-                                navigate("/loan-preview", {
-                                  state: {
-                                    submissionId: row.submissionId,
-                                  },
-                                })
-                              }
-                              className="
-    flex items-center gap-3 w-full px-4 py-3 text-sm
-    text-yellow-500 dark:text-yellow-300
-    hover:bg-yellow-50 dark:hover:bg-yellow-500/10
-    transition
-  "
-                            >
-                              <div className="p-1.5 rounded-md bg-yellow-100 dark:bg-blue-500/20">
-                                <MdEdit size={14} />
-                              </div>
-                              App Preview
-                            </button>
-
-                            {/* View Details */}
-                            <button
-                              onClick={() => {
-                                fetchSubmissionDetail(row.submissionId);
-                                setActiveDropdown(null);
+                        {activeDropdown === row.submissionId &&
+                          createPortal(
+                            <div
+                              ref={dropdownRef}
+                              style={{
+                                position: "fixed",
+                                top: dropdownPos.top,
+                                left: dropdownPos.left,
+                                transition: "top 0.1s linear",
                               }}
                               className="
-        flex items-center gap-3 w-full px-4 py-3 text-sm
-        text-blue-600 dark:text-blue-400
-        hover:bg-blue-50 dark:hover:bg-blue-500/10
-        transition
+        w-48
+        bg-white dark:bg-slate-900
+        border border-slate-200 dark:border-slate-800
+        rounded-xl shadow-xl
+        overflow-hidden z-[9999]
+        animate-in fade-in zoom-in-95
       "
                             >
-                              <div className="p-1.5 rounded-md bg-blue-100 dark:bg-blue-500/20">
+                              {/* Application Preview */}
+                              <button
+                                onClick={() =>
+                                  navigate("/loan-preview", {
+                                    state: { submissionId: row.submissionId },
+                                  })
+                                }
+                                className="flex items-center gap-3 w-full px-4 py-3 text-sm text-yellow-500 hover:bg-yellow-50"
+                              >
+                                <MdEdit size={14} />
+                                App Preview
+                              </button>
+
+                              {/* View Details */}
+                              <button
+                                onClick={() => {
+                                  fetchSubmissionDetail(row.submissionId);
+                                  setActiveDropdown(null);
+                                }}
+                                className="flex items-center gap-3 w-full px-4 py-3 text-sm text-blue-600 hover:bg-blue-50"
+                              >
                                 <Eye size={14} />
-                              </div>
-                              View Details
-                            </button>
+                                View Details
+                              </button>
 
-                            {/* Send Client Link */}
-                            <button
-                              onClick={() => {
-                                handleSendClientLink(row.applicationId);
-                                setActiveDropdown(null);
-                              }}
-                              className="
-    flex items-center gap-3 w-full px-4 py-3 text-sm
-    text-orange-600 dark:text-orange-400
-    hover:bg-orange-50 dark:hover:bg-orange-500/10
-    transition
-  "
-                            >
-                              <div className="p-1.5 rounded-md bg-orange-100 dark:bg-orange-500/20">
+                              {/* Send Client Link */}
+                              <button
+                                onClick={() => {
+                                  handleSendClientLink(row.applicationId);
+                                  setActiveDropdown(null);
+                                }}
+                                className="flex items-center gap-3 w-full px-4 py-3 text-sm text-orange-600 hover:bg-orange-50"
+                              >
                                 <Send size={14} />
-                              </div>
-                              Send Client Link
-                            </button>
+                                Send Client Link
+                              </button>
 
-                            <button
-                              onClick={() => {
-                                openAssignModal(row.applicationId);
-                                setActiveDropdown(null);
-                              }}
-                              className="
-    flex items-center gap-3 w-full px-4 py-3 text-sm
-    text-indigo-600 dark:text-indigo-400
-    hover:bg-indigo-50 dark:hover:bg-indigo-500/10
-  "
-                            >
-                              <div className="p-1.5 rounded-md bg-indigo-100 dark:bg-indigo-500/20">
-                                <MdEdit size={14} />
-                              </div>
-                              Assign Officer
-                            </button>
-
-                            {/* Request Document */}
-                            {/* <button
-                              onClick={() => {
-                                fetchDocumentTypes(row.applicationId);
-                                setActiveDropdown(null);
-                              }}
-                              className="
-    flex items-center gap-3 w-full px-4 py-3 text-sm
-    text-emerald-600 dark:text-emerald-400
-    hover:bg-emerald-50 dark:hover:bg-emerald-500/10
-    transition
-  "
-                            >
-                              <div className="p-1.5 rounded-md bg-emerald-100 dark:bg-emerald-500/20">
-                                <FileText size={14} />
-                              </div>
-                              Request Document
-                            </button> */}
-
-                            {/* <button
-                              onClick={() => {
-                                handleViewLOI(row.submissionId);
-                                setActiveDropdown(null);
-                              }}
-                              className="flex items-center gap-3 w-full px-4 py-3 text-sm
-             text-purple-600 dark:text-purple-400
-             hover:bg-purple-50 dark:hover:bg-purple-500/10"
-                            >
-                              <div className="p-1.5 rounded-md bg-purple-100 dark:bg-purple-500/20">
-                                <FileText size={14} />
-                              </div>
-                              View LOI
-                            </button> */}
-
-                            {/* Documents */}
-                            {/* <button
-                              onClick={() => {
-                                fetchSubmissionDocuments(row.submissionId);
-                                setActiveDropdown(null);
-                              }}
-                              className="
-        flex items-center gap-3 w-full px-4 py-3 text-sm
-        text-emerald-600 dark:text-emerald-400
-        hover:bg-emerald-50 dark:hover:bg-emerald-500/10
-        transition
-      "
-                            >
-                              <div className="p-1.5 rounded-md bg-emerald-100 dark:bg-emerald-500/20">
-                                <FileText size={14} />
-                              </div>
-                              Documents
-                            </button> */}
-                          </div>
-                        )}
+                              {/* Assign */}
+                              {!isBrokerOfficer && !row.assignedOfficerName && (
+                                <button
+                                  onClick={() => {
+                                    openAssignModal(row.applicationId);
+                                    setActiveDropdown(null);
+                                  }}
+                                  className="flex items-center gap-3 w-full px-4 py-3 text-sm text-indigo-600 hover:bg-indigo-50"
+                                >
+                                  <MdEdit size={14} />
+                                  Assign Officer
+                                </button>
+                              )}
+                            </div>,
+                            document.body,
+                          )}
                       </td>
                     </tr>
                   ))
@@ -1383,74 +1433,20 @@ export default function LoanApplicationsPage() {
                 )}
               </tbody>
             </table>
-            {/* ================= APPLICATION PAGINATION ================= */}
-            {filteredRows.length > rowsPerPage && (
-              <div className="flex flex-col md:flex-row items-center justify-between gap-4 px-6 py-3 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-                {/* Showing Info */}
-                <p className="text-sm text-slate-500 dark:text-slate-400">
-                  Showing{" "}
-                  <span className="font-semibold text-slate-700 dark:text-slate-200">
-                    {(currentPage - 1) * rowsPerPage + 1}
-                  </span>{" "}
-                  to{" "}
-                  <span className="font-semibold text-slate-700 dark:text-slate-200">
-                    {Math.min(currentPage * rowsPerPage, filteredRows.length)}
-                  </span>{" "}
-                  of{" "}
-                  <span className="font-semibold text-slate-700 dark:text-slate-200">
-                    {filteredRows.length}
-                  </span>{" "}
-                  results
-                </p>
-
-                {/* Controls */}
-                <div className="flex items-center gap-2">
-                  {/* Previous */}
-                  <button
-                    disabled={currentPage === 1}
-                    onClick={() => setCurrentPage((p) => p - 1)}
-                    className="p-2 rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-40 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
-                  >
-                    <ChevronLeft size={16} />
-                  </button>
-
-                  {/* Page Numbers */}
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(
-                    (page) => (
-                      <button
-                        key={page}
-                        onClick={() => setCurrentPage(page)}
-                        className={`px-3 py-1 text-sm rounded-lg transition
-                      ${
-                        currentPage === page
-                          ? "bg-blue-600 text-white"
-                          : "border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800"
-                      }
-                  `}
-                      >
-                        {page}
-                      </button>
-                    ),
-                  )}
-
-                  {/* Next */}
-                  <button
-                    disabled={currentPage === totalPages}
-                    onClick={() => setCurrentPage((p) => p + 1)}
-                    className="p-2 rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-40 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
-                  >
-                    <ChevronRight size={16} />
-                  </button>
+            <div ref={loadMoreRef} className="py-6 text-center">
+              {loading && (
+                <div className="flex justify-center">
+                  <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
 
         {viewSubmissionId &&
           createPortal(
             <div
-              className=" fixed inset-0 z-50
+              className="fixed inset-0 z-50
                                             bg-black/40 dark:bg-black/70
                                             backdrop-blur-[1px]
                                             flex items-center justify-center p-4"
@@ -1588,7 +1584,11 @@ export default function LoanApplicationsPage() {
                               {formatFieldKey(field.fieldKey)}
                             </label>
 
-                            <div className="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-900 border text-sm font-medium break-words">
+                            <div
+                              className="px-3 py-2 rounded-lg border text-sm font-medium break-words
+bg-slate-100 border-slate-200
+dark:bg-slate-800 dark:border-slate-700"
+                            >
                               {parsedValue !== undefined && parsedValue !== null
                                 ? typeof parsedValue === "boolean"
                                   ? parsedValue
@@ -1757,7 +1757,10 @@ export default function LoanApplicationsPage() {
                           </div>
 
                           {/* STATS BOX */}
-                          <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6 shadow-sm">
+                          <div
+                            className="bg-slate-50 border border-slate-200 rounded-2xl p-6 shadow-sm
+dark:bg-slate-900 dark:border-slate-800"
+                          >
                             <div className="grid grid-cols-2 md:grid-cols-6 gap-6 text-center">
                               <Stat
                                 label="Loan Amount"
@@ -1789,11 +1792,19 @@ export default function LoanApplicationsPage() {
                           {/* ALL FIELDS (EXCEPT SIGNATURE) */}
                           <div className="rounded-xl p-6">
                             <div className=" gap-6">
-                              <div className="border rounded-xl dark:border-slate-800 p-6 space-y-10">
+                              <div
+                                className="border border-slate-200 rounded-xl p-6 space-y-10
+bg-white dark:bg-slate-900
+dark:border-slate-800"
+                              >
                                 {/* PRIMARY BORROWER */}
                                 {primaryFields.length > 0 && (
                                   <div>
-                                    <h3 className="text-md font-bold mb-4 border-b pb-2">
+                                    <h3
+                                      className="text-md font-bold mb-4 border-b pb-2
+text-slate-800 dark:text-slate-200
+border-slate-200 dark:border-slate-700"
+                                    >
                                       Primary Borrower
                                     </h3>
 
@@ -1827,7 +1838,7 @@ export default function LoanApplicationsPage() {
                                 {/* OTHER FIELDS */}
                                 {otherFields.length > 0 && (
                                   <div>
-                                    <h3 className="text-md font-bold mb-4 border-b pb-2">
+                                    <h3 className="text-md font-bold mb-4 border-b dark:border-slate-700  pb-2">
                                       Loan Details
                                     </h3>
 
@@ -1879,7 +1890,10 @@ export default function LoanApplicationsPage() {
                           )}
 
                           {/* SUBMITTED DATE & TIME (LAST) */}
-                          <div className="border-t pt-6 text-sm text-slate-600 dark:text-slate-400 flex justify-between">
+                          <div
+                            className="border-t border-slate-200 dark:border-slate-700 pt-6 
+text-sm text-slate-600 dark:text-slate-400 flex justify-between"
+                          >
                             <div>
                               <span className="font-semibold">
                                 Submitted Date:
