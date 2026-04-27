@@ -47,7 +47,7 @@ module.exports = async function adminRoutes(fastify, opts) {
     instance.register(lenderProducts, { prefix: "/lender-products" });
     instance.register(adminUserRoutes, { prefix: "/admin-user" });
     instance.register(documentTypes, { prefix: "/document-types" });
-    instance.register(impersonateRoutes,{prefix:"/impersonate"});
+    instance.register(impersonateRoutes, { prefix: "/impersonate" });
     instance.register(applicationRoutes, {
       prefix: "/applications",
     });
@@ -59,8 +59,16 @@ module.exports = async function adminRoutes(fastify, opts) {
       prefix: "/loan-pipeline",
     });
 
-    instance.register(inviteLendersRoutes,{
-      prefix:"/invite-lenders",
+    instance.register(inviteLendersRoutes, {
+      prefix: "/invite-lenders",
     });
+
+    instance.register(require("./campaign"), {
+      prefix: "/campaign",
+    });
+
+    instance.register(require("./email"), {
+  prefix: "/email",
+});
   });
 };
