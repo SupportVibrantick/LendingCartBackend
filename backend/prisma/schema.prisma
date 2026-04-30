@@ -1258,12 +1258,16 @@ model Campaign {
   scheduledAt DateTime? @db.Timestamptz(6)
   sentAt      DateTime? @db.Timestamptz(6)
 
+  intervalValue Int?
+  intervalUnit  CampaignIntervalUnit?
+  lastSentAt    DateTime? @db.Timestamptz(6)
+  isRecurring   Boolean   @default(false)
+
   createdById String? @db.Uuid
 
   createdAt DateTime @default(now()) @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @db.Timestamptz(6)
 
-  // ✅ FIXED RELATIONS (ADD NAMES)
   organization Organization @relation("OrgCampaigns", fields: [orgId], references: [id])
   createdBy    UserAccount? @relation("UserCampaigns", fields: [createdById], references: [id])
 
@@ -1271,6 +1275,8 @@ model Campaign {
   logs       EmailLog[]          @relation("CampaignToEmailLogs")
 
   @@index([orgId])
+  @@index([isRecurring, status])
+  @@index([lastSentAt])
   @@map("campaigns")
 }
 
@@ -1901,10 +1907,19 @@ enum CampaignStatus {
   PROCESSING
   SENT
   FAILED
+  PAUSED
+  STOPPED  
 }
 
 enum EmailStatus {
   PENDING
   SENT
   FAILED
+}
+
+
+enum CampaignIntervalUnit {
+  MINUTES
+  HOURS
+  DAYS
 }
