@@ -46,7 +46,7 @@ const ApplicantPortal = () => {
     <section className="relative bg-[#0b0f2a] py-28 px-6 overflow-hidden">
 
       {/* Glow */}
-      <div className="absolute top-[-120px] left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-indigo-500/20 blur-[120px] rounded-full"></div>
+      <div className="absolute -top-25 left-1/2 -translate-x-1/2 w-125 h-125 bg-indigo-500/20 blur-[120px] rounded-full"></div>
 
       <div className="relative max-w-6xl mx-auto">
 
@@ -54,7 +54,7 @@ const ApplicantPortal = () => {
         <div className="text-center mb-16">
           <h2 className="text-3xl md:text-5xl font-bold text-white mb-6">
             Applicant{" "}
-            <span className="bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
+            <span className="bg-linear-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
               Portal
             </span>
           </h2>

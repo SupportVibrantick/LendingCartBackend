@@ -24,7 +24,7 @@ const InstantBusinessIntelligence = () => {
     <section className="relative bg-[#0b0f2a] py-28 px-6 overflow-hidden">
 
       {/* Background Glow */}
-      <div className="absolute top-[-120px] left-[-100px] w-[500px] h-[500px] bg-indigo-500/20 blur-[120px] rounded-full"></div>
+      <div className="absolute -top-30 -left-25 w-125 h-125 bg-indigo-500/20 blur-[120px] rounded-full"></div>
 
       <div className="relative max-w-6xl mx-auto grid md:grid-cols-2 gap-14 items-center">
 
@@ -32,7 +32,7 @@ const InstantBusinessIntelligence = () => {
         <div>
           <h3 className="text-3xl md:text-4xl font-bold text-white mb-6">
             Instant{" "}
-            <span className="bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
+            <span className="bg-linear-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
               Business Intelligence
             </span>
           </h3>
@@ -51,7 +51,7 @@ const InstantBusinessIntelligence = () => {
                 key={index}
                 className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl px-4 py-3 backdrop-blur-xl hover:bg-white/10 transition"
               >
-                <div className="w-9 h-9 flex items-center justify-center rounded-lg bg-gradient-to-r from-blue-500 to-indigo-500 text-white">
+                <div className="w-9 h-9 flex items-center justify-center rounded-lg bg-linear-to-r from-blue-500 to-indigo-500 text-white">
                   {item.icon}
                 </div>
 

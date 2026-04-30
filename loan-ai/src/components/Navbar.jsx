@@ -4,7 +4,7 @@ const Navbar = () => {
       <div className="flex justify-between items-center px-6 md:px-10 py-4 max-w-7xl mx-auto">
         {/* Logo */}
         <div className="flex items-center gap-3 cursor-pointer">
-          <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-blue-500 to-indigo-500 flex items-center justify-center shadow-lg shadow-blue-500/30">
+          <div className="w-9 h-9 rounded-full bg-linear-to-tr from-blue-500 to-indigo-500 flex items-center justify-center shadow-lg shadow-blue-500/30">
             <span className="text-white font-bold text-sm">L</span>
           </div>
           <h1 className="font-semibold text-lg text-white tracking-wide">
@@ -29,7 +29,7 @@ const Navbar = () => {
               {item.name}
 
               {/* underline animation */}
-              <span className="absolute left-0 -bottom-1 w-0 h-[2px] bg-gradient-to-r from-blue-400 to-indigo-400 transition-all group-hover:w-full"></span>
+              <span className="absolute left-0 -bottom-1 w-0 h-0.5 bg-linear-to-r from-blue-400 to-indigo-400 transition-all group-hover:w-full"></span>
             </a>
           ))}
         </nav>
@@ -42,9 +42,9 @@ const Navbar = () => {
           </button>
 
           {/* Login (Primary) */}
-          <button className="relative inline-flex items-center px-6 py-2 rounded-lg font-semibold text-white bg-gradient-to-r from-blue-500 to-indigo-500 shadow-lg shadow-blue-500/20 hover:scale-105 hover:shadow-blue-500/40 transition">
+          <button className="relative inline-flex items-center px-6 py-2 rounded-lg font-semibold text-white bg-linear-to-r from-blue-500 to-indigo-500 shadow-lg shadow-blue-500/20 hover:scale-105 hover:shadow-blue-500/40 transition">
             {/* Glow effect */}
-            <span className="absolute inset-0 rounded-lg bg-gradient-to-r from-blue-500 to-indigo-500 blur opacity-30"></span>
+            <span className="absolute inset-0 rounded-lg bg-linear-to-r from-blue-500 to-indigo-500 blur opacity-30"></span>
 
             <span className="relative z-10">Login</span>
           </button>

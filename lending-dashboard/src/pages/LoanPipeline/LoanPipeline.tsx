@@ -1635,7 +1635,7 @@ transition rounded-lg mx-1"
                           {/* Summary Bar */}
                           <div className="flex items-center gap-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800">
                             <div className="flex-1">
-                              <p className="text-xs text-slate-500 uppercase font-bold tracking-wider">
+                              <p className="text-xs text-slate-500 uppercase font-bold tracking-wider dark:text-slate-300">
                                 Pending Documents
                               </p>
                               <p className="text-xl font-bold text-amber-600">
@@ -1643,10 +1643,10 @@ transition rounded-lg mx-1"
                               </p>
                             </div>
                             <div className="flex-1">
-                              <p className="text-xs text-slate-500 uppercase font-bold tracking-wider">
+                              <p className="text-xs text-slate-500 uppercase font-bold tracking-wider dark:text-slate-300">
                                 Total Documents
                               </p>
-                              <p className="text-xl font-bold">
+                              <p className="text-xl font-bold text-amber-600">
                                 {documentsData.documents?.length || 0}
                               </p>
                             </div>
@@ -1677,7 +1677,7 @@ transition rounded-lg mx-1"
                                   >
                                     <td className="px-4 py-4">
                                       <div className="flex flex-col">
-                                        <span className="text-sm font-semibold">
+                                        <span className="text-sm font-semibold dark:text-slate-300">
                                           {doc.documentName}
                                         </span>
                                         <span className="text-[10px] text-slate-400">
@@ -1703,7 +1703,7 @@ transition rounded-lg mx-1"
                                         {doc.status}
                                       </span>
                                     </td>
-                                    <td className="px-4 py-4 text-center font-mono text-sm font-bold">
+                                    <td className="px-4 py-4 text-center font-mono text-sm font-bold text-slate-400">
                                       {doc.uploadedCount}
                                     </td>
                                     <td className="px-4 py-4">

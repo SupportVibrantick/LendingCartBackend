@@ -55,6 +55,7 @@ import ClientAuth from "./pages/ClientPortal/ClientAuth";
 // import CustomerLogin from "./pages/ClientPortal/CustomerLogin";
 import LoanPreview from "./pages/submitedApplications/LoanPreview";
 import { ReactNode } from "react";
+import EmailMarketing from "./pages/EmailMarketing/EmailMarketing";
 
 type RequirePermissionProps = {
   children: ReactNode;
@@ -133,6 +134,11 @@ export default function App() {
               index
               path="/lender-assigned-products"
               element={<LenderProductAssign />}
+            />
+            <Route
+              index
+              path="/email-marketing"
+              element={<EmailMarketing />}
             />
             <Route
               index

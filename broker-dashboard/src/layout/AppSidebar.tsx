@@ -5,7 +5,7 @@ import { ChevronDownIcon, GridIcon, HorizontaLDots } from "../icons";
 
 import { useSidebar } from "../context/SidebarContext";
 
-import { MdWeb } from "react-icons/md";
+import { MdEmail, MdWeb } from "react-icons/md";
 import { FaAppStore } from "react-icons/fa6";
 import { MdOutlineDocumentScanner } from "react-icons/md";
 import { FaUsersBetweenLines, FaUserGroup } from "react-icons/fa6";
@@ -111,6 +111,12 @@ const AppSidebar: React.FC = () => {
         { name: "Invited Lenders", path: "/invited-lenders" },
         { name: "Find Lenders", path: "/find-lenders" },
       ],
+    },
+
+      {
+      icon: <MdEmail />,
+      name: "Email Marketing",
+      path: "/email-marketing",
     },
 
     // SETTINGS WITH NESTED APPLICATION BUILDER
