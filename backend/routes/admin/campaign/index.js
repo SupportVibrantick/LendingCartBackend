@@ -1,6 +1,8 @@
-module.exports = async function (fastify, opts) {
-  const campaignController = require("../../../modules/campaign/campaign.controller");
+const campaignController = require("../../../modules/campaign/campaign.controller");
+const listRoute = require("./list"); 
 
+module.exports = async function (fastify, opts) {
   fastify.post("/send", campaignController.sendCampaign);
-  fastify.get("/list", require("./list"));
+  fastify.patch("/:id/stop", campaignController.stopCampaign);
+  fastify.register(listRoute, { prefix: "/list" });
 };

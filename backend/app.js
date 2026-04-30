@@ -98,6 +98,12 @@ const authMiddleware = require("./middleware/authMiddleware");
 const fgaMiddleware = require("./middleware/fgaMiddleware");
 const Mail = require("nodemailer/lib/mailer");
 app.register(dbPlugin);
+
+const ghlService = require("./modules/ghl/ghl.service");
+
+//  REGISTER GHL SERVICE
+app.decorate("ghlService", ghlService);
+
 app.register(authMiddleware);
 app.register(fgaMiddleware);
 app.register(verifySuperAdmin);  
@@ -215,6 +221,12 @@ app.setErrorHandler((error, request, reply) => {
 // Register main route files only
 app.register(indexRoutes, { prefix: "/" });
 
+const campaignScheduler = require("./scheduler/campaign.scheduler");
+
+app.ready().then(() => {
+  campaignScheduler(app);
+  console.log("🚀 Campaign Scheduler Started");
+});
 
 // app.ready(() => {
 //   console.log("\nRegistered Routes:");
