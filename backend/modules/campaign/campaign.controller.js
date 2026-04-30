@@ -1,45 +1,73 @@
 // modules/campaign/campaign.controller.js
 
+const { adminLogs } = require("../../services/logger/contextLogger");
 const campaignService = require("./campaign.service");
-const { validateCreateCampaign } = require("./campaign.validator");
 
-const createCampaign = async (req, res) => {
+const sendCampaign = async (req, reply) => {
   try {
-    validateCreateCampaign(req.body);
+    const { contacts, subject, message } = req.body;
 
-    const campaign = await campaignService.createCampaign(
-      req.body,
-      req.user
-    );
+    // ✅ validation
+    if (!contacts || contacts.length === 0) {
+      return reply.status(400).send({
+        success: false,
+        message: "Contacts are required",
+      });
+    }
 
-    res.json({ success: true, data: campaign });
-  } catch (err) {
-    res.status(400).json({ success: false, message: err.message });
-  }
-};
+    if (!subject || !message) {
+      return reply.status(400).send({
+        success: false,
+        message: "Subject and message are required",
+      });
+    }
 
-// ✅ NEW
-const addRecipients = async (req, res) => {
-  try {
-    const result = await campaignService.addRecipients(
-      req.body,
-      req.user
-    );
+    // ✅ get prisma from fastify
+    const prisma = req.server.prisma;
 
-    res.json({
+    // ✅ auth info (safe fallback)
+    const orgId = req.user?.organizationId;
+    const createdById = req.user?.id;
+
+    if (!orgId) {
+      return reply.status(400).send({
+        success: false,
+        message: "Organization not found in user",
+      });
+    }
+
+    const result = await campaignService.sendCampaign({
+      prisma,
+      orgId,
+      createdById,
+      contacts,
+      subject,
+      message,
+    });
+
+    return reply.status(200).send({
       success: true,
-      message: "Recipients added successfully",
+      message: "Campaign sent successfully",
       data: result,
     });
-  } catch (err) {
-    res.status(400).json({
+
+  } catch (error) {
+    adminLogs.error("Failed to send campaign", {
+      error,
+      body: req.body,
+    });
+
+    return reply.status(500).send({
       success: false,
-      message: err.message,
+      message: "Server error while sending campaign",
+      details:
+        process.env.NODE_ENV === "development"
+          ? error.message
+          : undefined,
     });
   }
 };
 
 module.exports = {
-  createCampaign,
-  addRecipients,
+  sendCampaign,
 };

@@ -70,5 +70,7 @@ module.exports = async function adminRoutes(fastify, opts) {
     instance.register(require("./email"), {
   prefix: "/email",
 });
+
+
   });
 };
