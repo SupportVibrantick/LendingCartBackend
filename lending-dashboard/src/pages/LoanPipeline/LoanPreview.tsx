@@ -652,7 +652,7 @@ export default function LoanPreview() {
             <p className="text-xs text-slate-500 uppercase font-bold tracking-wider">
               Total Documents
             </p>
-            <p className="text-xl font-bold">
+            <p className="text-xl font-bold text-amber-600">
               {documentsData.documents?.length || 0}
             </p>
           </div>
@@ -764,7 +764,7 @@ export default function LoanPreview() {
     }
 
     return (
-      <div className=" mx-auto bg-white rounded-2xl shadow-lg p-6 space-y-6">
+      <div className=" mx-auto bg-white dark:bg-slate-800/50 rounded-2xl shadow-lg p-6 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">Select Documents</h2>
@@ -779,7 +779,8 @@ export default function LoanPreview() {
                   ),
                 })
               }
-              className="px-3 py-1.5 text-xs bg-slate-100 rounded-lg hover:bg-slate-200"
+              className="px-3 py-1.5 text-xs font-medium rounded-lg bg-[#0F766E] text-white 
+      transition-colors"
             >
               Select All
             </button>
@@ -791,14 +792,16 @@ export default function LoanPreview() {
                   selectedDocs: [],
                 })
               }
-              className="px-3 py-1.5 text-xs bg-slate-100 rounded-lg hover:bg-slate-200"
+              className="px-3 py-1.5 text-xs font-medium rounded-lg 
+      bg-[#b10d0d] text-white 
+      transition-colors"
             >
               Clear
             </button>
           </div>
         </div>
 
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-slate-500 dark:text-slate-400">
           Select which documents are required.
         </p>
 
@@ -821,9 +824,9 @@ export default function LoanPreview() {
                     selectedDocs: updated,
                   });
                 }}
-                className={`flex items-center justify-between p-4 rounded-xl border cursor-pointer transition ${
+                className={`flex items-center justify-between p-4 rounded-xl border cursor-pointer transition dark:text-slate-400 ${
                   isChecked
-                    ? "border-[#18B6B4] bg-[#E6F7F6]"
+                    ? "border-[#12f0ec] bg-[#c0e5e3] dark:text-slate-800"
                     : "border-slate-200 hover:border-[#18B6B4]"
                 }`}
               >
@@ -967,72 +970,104 @@ export default function LoanPreview() {
           {submissionDetail?.loanApplication?.brokerOrg && (
             <div className="flex flex-wrap items-center gap-3 mt-3">
               {/* BROKER NAME CHIP */}
-              <div className="flex items-center gap-3 px-4 py-2 rounded-xl bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 shadow-sm">
-                {/* Icon */}
+              <div
+                className="flex items-center gap-3 px-4 py-2 rounded-xl border shadow-sm
+    bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200
+    dark:from-blue-900/30 dark:to-blue-800/20 dark:border-blue-800"
+              >
                 <div className="w-7 h-7 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs font-bold">
                   <User size={14} />
                 </div>
 
-                {/* Text */}
                 <div className="flex flex-col leading-tight">
-                  <span className="text-[10px] uppercase tracking-wide text-blue-500 font-semibold">
+                  <span
+                    className="text-[10px] uppercase tracking-wide font-semibold
+        text-blue-500 dark:text-blue-400"
+                  >
                     Broker Name
                   </span>
-                  <span className="text-sm font-semibold text-blue-900">
+                  <span
+                    className="text-sm font-semibold
+        text-blue-900 dark:text-blue-100"
+                  >
                     {submissionDetail.loanApplication.brokerOrg.name}
                   </span>
                 </div>
               </div>
 
               {/* EMAIL CHIP */}
-              <div className="flex items-center gap-3 px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-50 to-emerald-100 border border-emerald-200 shadow-sm">
-                {/* Icon */}
+              <div
+                className="flex items-center gap-3 px-4 py-2 rounded-xl border shadow-sm
+    bg-gradient-to-r from-emerald-50 to-emerald-100 border-emerald-200
+    dark:from-emerald-900/30 dark:to-emerald-800/20 dark:border-emerald-800"
+              >
                 <div className="w-7 h-7 rounded-full bg-emerald-500 text-white flex items-center justify-center text-xs">
                   <MdEmail />
                 </div>
 
-                {/* Text */}
                 <div className="flex flex-col leading-tight">
-                  <span className="text-[10px] uppercase tracking-wide text-emerald-500 font-semibold">
+                  <span
+                    className="text-[10px] uppercase tracking-wide font-semibold
+        text-emerald-500 dark:text-emerald-400"
+                  >
                     Email
                   </span>
-                  <span className="text-sm font-medium text-emerald-900">
+                  <span
+                    className="text-sm font-medium
+        text-emerald-900 dark:text-emerald-100"
+                  >
                     {submissionDetail.loanApplication.brokerOrg.email}
                   </span>
                 </div>
               </div>
 
-              {/* Loan Product  */}
-              <div className="flex items-center gap-3 px-4 py-2 rounded-xl bg-gradient-to-r from-purple-50 to-purple-100 border border-purple-200 shadow-sm">
-                {/* Icon */}
+              {/* LOAN PRODUCT */}
+              <div
+                className="flex items-center gap-3 px-4 py-2 rounded-xl border shadow-sm
+    bg-gradient-to-r from-purple-50 to-purple-100 border-purple-200
+    dark:from-purple-900/30 dark:to-purple-800/20 dark:border-purple-800"
+              >
                 <div className="w-7 h-7 rounded-full bg-purple-500 text-white flex items-center justify-center text-xs font-bold">
                   <BiLogoProductHunt size={14} />
                 </div>
 
-                {/* Text */}
                 <div className="flex flex-col leading-tight">
-                  <span className="text-[10px] uppercase tracking-wide text-purple-500 font-semibold">
+                  <span
+                    className="text-[10px] uppercase tracking-wide font-semibold
+        text-purple-500 dark:text-purple-400"
+                  >
                     Loan Product
                   </span>
-                  <span className="text-sm font-semibold text-purple-900">
+                  <span
+                    className="text-sm font-semibold
+        text-purple-900 dark:text-purple-100"
+                  >
                     {submissionDetail.loanApplication.loanProductCode}
                   </span>
                 </div>
               </div>
 
-              {/* Amount  */}
-              <div className="flex items-center gap-3 px-4 py-2 rounded-xl bg-gradient-to-r from-orange-50 to-orange-100 border border-orange-200 shadow-sm">
-                {/* Icon */}
+              {/* LOAN AMOUNT */}
+              <div
+                className="flex items-center gap-3 px-4 py-2 rounded-xl border shadow-sm
+    bg-gradient-to-r from-orange-50 to-orange-100 border-orange-200
+    dark:from-orange-900/30 dark:to-orange-800/20 dark:border-orange-800"
+              >
                 <div className="w-7 h-7 rounded-full bg-[#F7A400] text-white flex items-center justify-center text-xs font-bold">
                   <FaDollarSign size={14} />
                 </div>
 
-                {/* Text */}
                 <div className="flex flex-col leading-tight">
-                  <span className="text-[10px] uppercase tracking-wide text-[#F7A400] font-semibold">
+                  <span
+                    className="text-[10px] uppercase tracking-wide font-semibold
+        text-[#F7A400] dark:text-orange-400"
+                  >
                     Loan Amount
                   </span>
-                  <span className="text-sm font-semibold text-[#F7A400]">
+                  <span
+                    className="text-sm font-semibold
+        text-[#F7A400] dark:text-orange-200"
+                  >
                     {submissionDetail.loanApplication.amountRequested || "-"}
                   </span>
                 </div>
@@ -1082,7 +1117,7 @@ export default function LoanPreview() {
                   <button
                     key={tab.id}
                     onClick={() => onTabChange(tab.id)}
-                    className={`px-4 py-2.5 rounded-t-xl text-sm font-semibold transition-all ${
+                    className={`px-4 py-2.5 rounded-t-xl text-xs font-semibold transition-all ${
                       activeTab === tab.id
                         ? "bg-[#18B6B4] text-white shadow-sm"
                         : "text-slate-500 hover:text-[#18B6B4] bg-slate-50 dark:bg-slate-800/70 dark:text-slate-300"

@@ -1,5 +1,6 @@
 import { FaFacebookF, FaLinkedinIn } from "react-icons/fa";
 import { FaXTwitter } from "react-icons/fa6";
+import { Link } from "react-router-dom";
 
 const Footer = () => {
   return (
@@ -8,15 +9,12 @@ const Footer = () => {
       className="scroll-mt-24 relative bg-[#0b0f2a] text-gray-300 py-20 px-6 overflow-hidden"
     >
       {/* Glow */}
-      <div className="absolute top-[-100px] left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-indigo-500/20 blur-[120px] rounded-full"></div>
+      <div className="absolute -top-25 left-1/2 -translate-x-1/2 w-125 h-125 bg-indigo-500/20 blur-[120px] rounded-full"></div>
 
       <div className="relative max-w-6xl mx-auto grid md:grid-cols-4 gap-12">
-
         {/* Left Section */}
         <div>
-          <h2 className="text-white text-2xl font-semibold mb-4">
-            Loan AI
-          </h2>
+          <h2 className="text-white text-2xl font-semibold mb-4">Loan AI</h2>
 
           <p className="text-gray-400 text-sm mb-6">
             Smart lending automation platform built for brokers.
@@ -85,13 +83,16 @@ const Footer = () => {
           <h4 className="text-white font-semibold mb-4">Get Started</h4>
 
           <div className="flex flex-col gap-4">
-            <button className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:scale-105 hover:shadow-blue-500/30 transition">
+            <button className="bg-linear-to-r from-blue-500 to-indigo-500 text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:scale-105 hover:shadow-blue-500/30 transition">
               Register Now
             </button>
 
-            <button className="bg-white/10 border border-white/20 text-white px-6 py-3 rounded-xl hover:bg-white/20 transition">
+            <Link
+              to="/book-demo"
+              className="bg-white/10 text-center border border-white/20 px-8 py-3 rounded-xl font-semibold backdrop-blur-md hover:bg-white/20 transition inline-block"
+            >
               Book a Demo
-            </button>
+            </Link>
           </div>
         </div>
       </div>

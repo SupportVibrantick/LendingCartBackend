@@ -1510,7 +1510,7 @@ rounded-2xl p-6 bg-white dark:bg-slate-800"
                   >
                     + Add Co-Borrower
                   </button>
-                </div>
+                </div>  
 
                 {/* Primary Borrower */}
                 <div className="flex items-center justify-between mb-4">
@@ -1921,14 +1921,13 @@ focus:border-blue-500 outline-none text-sm ${
                             onChange={(e) =>
                               updateCoBorrower(index, "name", e.target.value)
                             }
-                            className={`mt-1 w-full px-4 py-1 rounded-md border    focus:ring-2 focus:ring-blue-500/20 
+                            className={`mt-1 w-full px-4 py-1 rounded-md border focus:ring-2 focus:ring-blue-500/20 
           focus:border-blue-500 outline-none transition text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
             errors[`coBorrowers.${index}.name`]
               ? "border-red-500 bg-red-50"
               : "border-slate-300"
           }`}
                           />
-
                           {errors[`coBorrowers.${index}.name`] && (
                             <p className="text-xs text-red-500 mt-1">
                               {errors[`coBorrowers.${index}.name`]}

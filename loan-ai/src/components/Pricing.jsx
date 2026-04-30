@@ -14,14 +14,14 @@ const Pricing = () => {
       className="scroll-mt-24 bg-[#0b0f2a] py-28 px-6 relative overflow-hidden"
     >
       {/* Glow */}
-      <div className="absolute top-[-120px] left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-indigo-500/20 blur-[120px] rounded-full"></div>
+      <div className="absolute -top-30 left-1/2 -translate-x-1/2 w-150 h-150 bg-indigo-500/20 blur-[120px] rounded-full"></div>
 
       <div className="relative max-w-5xl mx-auto text-center">
 
         {/* Heading */}
         <h2 className="text-3xl md:text-5xl font-bold text-white mb-6">
           Simple{" "}
-          <span className="bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
+          <span className="bg-linear-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
             Pricing
           </span>
         </h2>
@@ -56,7 +56,7 @@ const Pricing = () => {
 
           {/* CTA */}
           <div className="flex flex-col sm:flex-row gap-4">
-            <button className="w-full bg-gradient-to-r from-blue-500 to-indigo-500 text-white py-3 rounded-xl font-semibold shadow-lg hover:scale-105 hover:shadow-blue-500/30 transition">
+            <button className="w-full bg-linear-to-r from-blue-500 to-indigo-500 text-white py-3 rounded-xl font-semibold shadow-lg hover:scale-105 hover:shadow-blue-500/30 transition">
               Get Started
             </button>
 

@@ -14,7 +14,7 @@ const VideoPreview = () => {
   };
 
   return (
-    <div className="scroll-mt-24 bg-gradient-to-b from-[#0b0f2a] to-[#10163a] py-16 px-5">
+    <div className="scroll-mt-24 bg-linear-to-b from-[#0b0f2a] to-[#10163a] py-16 px-5">
       <div className="max-w-4xl mx-auto relative aspect-video rounded-xl overflow-hidden shadow-lg">
         {/* VIDEO */}
         <video
