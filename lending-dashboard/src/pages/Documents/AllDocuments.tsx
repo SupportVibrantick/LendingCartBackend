@@ -1,4 +1,5 @@
 // src/pages/LoanProducts/AllLoanProducts.tsx
+import { FileText } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { MdModeEdit } from "react-icons/md";
@@ -10,9 +11,13 @@ type Document = {
   name: string;
 };
 
-type Lender = {
+type LenderLoanProduct = {
   id: string;
   loanProductCode: string;
+  loanProduct: {
+    name: string;
+    code: string;
+  };
 };
 
 type DocumentForm = {
@@ -66,10 +71,12 @@ function getAuthHeaders(): Record<string, string> {
 
 const AllLoanProducts: React.FC = () => {
   const [documents, setDocuments] = useState<Document[]>([]);
-  const [lenders, setLenders] = useState<Lender[]>([]);
+  const [selectedProduct, setSelectedProduct] = useState("");
   const [documentConfig, setDocumentConfig] = useState<DocumentConfig[]>([]);
   const [loadingList, setLoadingList] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [page, setPage] = useState(1);
+  const [loanProducts, setLoanProducts] = useState<LenderLoanProduct[]>([]);
 
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [form, setForm] = useState<DocumentForm>({
@@ -104,6 +111,28 @@ const AllLoanProducts: React.FC = () => {
   };
 
   // ===== API Calls =====
+  const fetchLoanProducts = async () => {
+    try {
+      const res = await fetch(
+        `${API_BASE}/lender/loan-products/list?page=1&limit=50`,
+        {
+          headers: getAuthHeaders(),
+        },
+      );
+
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        toast.error("Failed to load loan products");
+        return;
+      }
+
+      setLoanProducts(json.data || []);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const fetchDocuments = async () => {
     try {
       setLoadingList(true);
@@ -140,88 +169,66 @@ const AllLoanProducts: React.FC = () => {
     }
   };
 
-  const fetchLenderProducts = async () => {
-    try {
-      setLoadingList(true);
-      const headers = getAuthHeaders();
-      const res = await fetch(`${API_BASE}/lender/loan-products/list/`, {
-        method: "GET",
-        headers,
-      });
+  // const fetchLenderProducts = async () => {
+  //   try {
+  //     setLoadingList(true);
+  //     const headers = getAuthHeaders();
+  //     const res = await fetch(`${API_BASE}/lender/loan-products/list/`, {
+  //       method: "GET",
+  //       headers,
+  //     });
 
-      if (!res.ok) {
-        console.error("Failed to load loan products:", res.status);
-        return;
-      }
+  //     if (!res.ok) {
+  //       console.error("Failed to load loan products:", res.status);
+  //       return;
+  //     }
 
-      const json = await res.json();
-      if (!json.success) {
-        console.error("Failed to load loan products:", json.message);
-        toast.error(json.message || "Failed to load loan products");
-        return;
-      }
+  //     const json = await res.json();
+  //     if (!json.success) {
+  //       console.error("Failed to load loan products:", json.message);
+  //       toast.error(json.message || "Failed to load loan products");
+  //       return;
+  //     }
 
-      const items = (json.data || []) as any[];
+  //     const items = (json.data || []) as any[];
 
-      const mapped: Lender[] = items.map((p) => ({
-        id: p.id,
-        loanProductCode: String(p.loanProductCode),
-      }));
-      setLenders(mapped);
-    } catch (err) {
-      console.error("Failed to load lender products", err);
-    } finally {
-      setLoadingList(false);
-    }
-  };
+  //     const mapped: Lender[] = items.map((p) => ({
+  //       id: p.id,
+  //       loanProductCode: String(p.loanProductCode),
+  //     }));
+  //     setLenders(mapped);
+  //   } catch (err) {
+  //     console.error("Failed to load lender products", err);
+  //   } finally {
+  //     setLoadingList(false);
+  //   }
+  // };
 
   const fetchDocumentConfigs = async () => {
     try {
       setLoadingList(true);
 
-      const res = await fetch(`${API_BASE}/lender/document-config/list`, {
-        method: "GET",
+      let url = `${API_BASE}/lender/document-config/list?page=${page}&limit=10`;
+
+      // Add filter
+      if (selectedProduct) {
+        url += `&loanProductCode=${selectedProduct}`;
+      }
+
+      const res = await fetch(url, {
         headers: getAuthHeaders(),
       });
 
-      if (!res.ok) {
-        toast.error(`Failed to load document configs (${res.status})`);
-        return;
-      }
-
       const json = await res.json();
 
-      if (!json.success) {
-        toast.error(json.message || "Failed to load document configs");
+      if (!res.ok || !json.success) {
+        toast.error("Failed to fetch documents");
         return;
       }
 
-      const items = Array.isArray(json.data) ? json.data : [];
-
-      const mapped: DocumentConfig[] = items.map((p: any) => ({
-        id: p.id,
-
-        lenderProductId: p.lenderProductId,
-        lenderProductCode: p.lenderProduct?.loanProductCode ?? "",
-
-        documentTypeId: p.documentTypeId,
-        documentName: p.documentType?.name ?? "",
-
-        isRequired: Boolean(p.isRequired),
-
-        minFiles: Number(p.minFiles ?? 0),
-        maxFiles: Number(p.maxFiles ?? 0),
-
-        notes: p.notes ?? "",
-        sortOrder: p.sortOrder ?? 0,
-
-        createdAt: p.createdAt,
-      }));
-
-      setDocumentConfig(mapped);
+      setDocumentConfig(json.data || []);
     } catch (err) {
-      console.error("Failed to load document configs", err);
-      toast.error("Something went wrong while loading document configs");
+      console.error(err);
     } finally {
       setLoadingList(false);
     }
@@ -269,10 +276,29 @@ const AllLoanProducts: React.FC = () => {
 
         toast.success("Document config updated");
       } else {
+        if (!form.lenderProductId) {
+          return toast.error("Please select loan product");
+        }
+
+        if (!form.documentTypeId) {
+          return toast.error("Please select document type");
+        }
+
+        if (form.minFiles > form.maxFiles) {
+          return toast.error("Min files cannot be greater than max files");
+        }
+
         const createPayload = {
           lenderProductId: form.lenderProductId,
           documentTypeId: form.documentTypeId,
-          isRequired: form.isRequired === undefined ? false : form.isRequired,
+
+          isRequired: form.isRequired ?? false,
+
+          minFiles: form.minFiles || 1,
+          maxFiles: form.maxFiles || 20,
+
+          notes: form.notes?.trim() || "",
+          sortOrder: form.sortOrder || 1,
         };
 
         const res = await fetch(`${API_BASE}/lender/document-config/create`, {
@@ -320,10 +346,13 @@ const AllLoanProducts: React.FC = () => {
   // ===== Effects =====
   useEffect(() => {
     fetchDocuments();
-    fetchLenderProducts();
+    fetchLoanProducts();
     fetchDocumentConfigs();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    fetchDocumentConfigs();
+  }, [selectedProduct, page]);
 
   // ===== UI =====
   return (
@@ -364,9 +393,9 @@ const AllLoanProducts: React.FC = () => {
                 disabled={!!editingProductId || saving}
               >
                 <option value="">Select a loan product</option>
-                {lenders.map((opt) => (
-                  <option key={opt.id} value={opt.id}>
-                    {opt.loanProductCode}
+                {loanProducts.map((lp) => (
+                  <option key={lp.id} value={lp.id}>
+                    {lp.loanProduct?.name}
                   </option>
                 ))}
               </select>
@@ -481,6 +510,78 @@ const AllLoanProducts: React.FC = () => {
               )}
             </div>
 
+            <div>
+  <label className="block text-sm font-medium mb-1">
+    Min Files
+  </label>
+  <input
+    type="number"
+    value={form.minFiles}
+    onChange={(e) =>
+      setForm((f) => ({
+        ...f,
+        minFiles: Number(e.target.value),
+      }))
+    }
+    className="w-full rounded-md border px-3 py-2 text-sm"
+    placeholder="e.g. 1"
+  />
+</div>
+
+<div>
+  <label className="block text-sm font-medium mb-1">
+    Max Files
+  </label>
+  <input
+    type="number"
+    value={form.maxFiles}
+    onChange={(e) =>
+      setForm((f) => ({
+        ...f,
+        maxFiles: Number(e.target.value),
+      }))
+    }
+    className="w-full rounded-md border px-3 py-2 text-sm"
+    placeholder="e.g. 3"
+  />
+</div>
+
+<div>
+  <label className="block text-sm font-medium mb-1">
+    Notes
+  </label>
+  <textarea
+    value={form.notes}
+    onChange={(e) =>
+      setForm((f) => ({
+        ...f,
+        notes: e.target.value,
+      }))
+    }
+    className="w-full rounded-md border px-3 py-2 text-sm"
+    rows={2}
+    placeholder="Enter notes..."
+  />
+</div>
+
+<div>
+  <label className="block text-sm font-medium mb-1">
+    Sort Order
+  </label>
+  <input
+    type="number"
+    value={form.sortOrder}
+    onChange={(e) =>
+      setForm((f) => ({
+        ...f,
+        sortOrder: Number(e.target.value),
+      }))
+    }
+    className="w-full rounded-md border px-3 py-2 text-sm"
+    placeholder="e.g. 1"
+  />
+</div>
+
             {/* Is Mandatory */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-slate-200 mb-1">
@@ -547,24 +648,57 @@ const AllLoanProducts: React.FC = () => {
         {/* RIGHT CARD – Products table */}
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 dark:bg-slate-900 dark:border-slate-700">
           <div className="flex items-center justify-between mb-4">
+            {/* LEFT */}
             <div>
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
                 All Documents
               </h2>
-              <p className="text-sm text-gray-500 dark:text-slate-400">
-                Platform-wide documents configured by Super Admin.
+              <p className="text-xs text-gray-500 dark:text-slate-400">
+                Filter documents by loan product
               </p>
             </div>
 
-            <button
-              type="button"
-              onClick={fetchDocuments}
-              disabled={loadingList}
-              className="rounded-full border border-gray-200 px-4 py-1.5 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed
-                         dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
-            >
-              {loadingList ? "Refreshing..." : "Refresh"}
-            </button>
+            {/* RIGHT FILTER */}
+        <div className="flex items-center gap-3">
+
+  {/* Select Wrapper */}
+  <div className="relative">
+    <select
+      value={selectedProduct}
+      onChange={(e) => {
+        setSelectedProduct(e.target.value);
+        setPage(1);
+      }}
+      className="appearance-none text-sm pl-3 pr-10 py-2 rounded-xl border border-gray-200 bg-white shadow-sm 
+                 focus:outline-none focus:ring-2 focus:ring-[#2C92D5] focus:border-transparent
+                 hover:border-gray-300 transition
+                 dark:bg-slate-800 dark:border-slate-600 dark:text-white"
+    >
+      <option value="">All Products</option>
+
+      {loanProducts.map((lp) => (
+        <option key={lp.id} value={lp.loanProductCode}>
+          {lp.loanProduct?.name}
+        </option>
+      ))}
+    </select>
+
+    {/* Dropdown Icon */}
+    <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-gray-400">
+      ▼
+    </div>
+  </div>
+
+  {/* Clear Button */}
+  {selectedProduct && (
+    <button
+      onClick={() => setSelectedProduct("")}
+      className="text-xs px-3 py-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition font-medium"
+    >
+      Clear
+    </button>
+  )}
+</div>
           </div>
 
           <div className="overflow-auto">
@@ -584,74 +718,79 @@ const AllLoanProducts: React.FC = () => {
               <tbody>
                 {loadingList ? (
                   <tr>
-                    <td
-                      colSpan={7}
-                      className="py-6 text-center text-gray-500 dark:text-slate-400"
-                    >
+                    <td colSpan={7} className="py-6 text-center text-gray-500">
                       Loading document configs...
                     </td>
                   </tr>
                 ) : documentConfig.length === 0 ? (
                   <tr>
-                    <td
-                      colSpan={7}
-                      className="py-6 text-center text-gray-500 dark:text-slate-400"
-                    >
-                      No document configs found.
+                    <td colSpan={7} className="py-12">
+                      <div className="flex flex-col items-center justify-center text-center">
+                        {/* ICON */}
+                        <div className="group w-14 h-14 rounded-xl bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center shadow-sm">
+                          <FileText className="w-6 h-6 text-[#2C92D5] group-hover:scale-110 transition" />
+                        </div>
+
+                        {/* TEXT */}
+                        <p className="mt-4 text-sm font-medium text-gray-700">
+                          No documents found
+                        </p>
+
+                        <p className="text-xs text-gray-400 mt-1">
+                          Try selecting a different loan product
+                        </p>
+                      </div>
                     </td>
                   </tr>
                 ) : (
                   documentConfig.map((p) => (
                     <tr
                       key={p.id}
-                      className="border-b border-gray-100 last:border-0 hover:bg-gray-50/40 dark:border-slate-800 dark:hover:bg-slate-800/60"
+                      className="border-b border-gray-100 last:border-0 hover:bg-gray-50/40 transition"
                     >
                       {/* Loan Product */}
-                      <td className="py-3 pr-4 text-gray-900 whitespace-nowrap dark:text-gray-100">
+                      <td className="py-3 pr-4 text-gray-900 whitespace-nowrap">
                         {p.lenderProductCode || "-"}
                       </td>
 
-                      {/* Document Name */}
-                      <td className="py-3 pr-4 text-gray-900 whitespace-nowrap dark:text-gray-100">
+                      {/* Document */}
+                      <td className="py-3 pr-4 text-gray-900 whitespace-nowrap">
                         {p.documentName}
                       </td>
 
-                      {/* Required / Optional */}
-                      <td className="py-3 pr-4 whitespace-nowrap">
+                      {/* Required */}
+                      <td className="py-3 pr-4">
                         <span
-                          className={`inline-flex items-center px-3 py-1 rounded-full border text-xs
-                                                                                            ${
-                                                                                              p.isRequired
-                                                                                                ? "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/40"
-                                                                                                : "bg-gray-100 text-gray-700 border-gray-200 dark:bg-slate-600/30 dark:text-slate-200 dark:border-slate-500"
-                                                                                            }`}
+                          className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${
+                            p.isRequired
+                              ? "bg-green-100 text-green-700"
+                              : "bg-gray-100 text-gray-600"
+                          }`}
                         >
-                          {p.isRequired ? "REQUIRED" : "OPTIONAL"}
+                          {p.isRequired ? "Required" : "Optional"}
                         </span>
                       </td>
 
-                      {/* Min / Max Files */}
-                      <td className="py-3 pr-4 text-gray-600 dark:text-slate-300 whitespace-nowrap">
+                      {/* Files */}
+                      <td className="py-3 pr-4 text-gray-600">
                         {p.minFiles || 0} – {p.maxFiles || 0}
                       </td>
 
                       {/* Notes */}
-                      <td className="py-3 pr-4 text-gray-600 dark:text-slate-300">
+                      <td className="py-3 pr-4 text-gray-600">
                         {p.notes || "-"}
                       </td>
 
                       {/* Created */}
-                      <td className="py-3 pr-4 text-gray-600 whitespace-nowrap dark:text-slate-300">
+                      <td className="py-3 pr-4 text-gray-500">
                         {formatDate(p.createdAt)}
                       </td>
 
-                      {/* Actions */}
-                      <td className="py-3 pr-4 text-right whitespace-nowrap">
+                      {/* Action */}
+                      <td className="py-3 pr-4 text-right">
                         <button
-                          type="button"
-                          onClick={() => handleEdit(p)} // 👈 optional edit
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100
-                       dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                          onClick={() => handleEdit(p)}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 hover:bg-gray-100 transition"
                         >
                           <MdModeEdit />
                         </button>
