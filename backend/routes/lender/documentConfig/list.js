@@ -1,18 +1,25 @@
 /**
  * @param {import("fastify").FastifyInstance} fastify
  */
-async function getLenderDocumentConfigRoutes(fastify) {
+async function listLenderDocumentConfigRoutes(fastify) {
   fastify.get(
-    "/:lenderProductId",
+    "/",
     {
       schema: {
         tags: ["Lender -> Document Config"],
-        summary: "Get document config for a lender product",
-        params: {
+        summary: "List lender document configs (with filters + pagination)",
+        querystring: {
           type: "object",
-          required: ["lenderProductId"],
           properties: {
             lenderProductId: { type: "string", format: "uuid" },
+            loanProductCode: { type: "string" },
+            search: { type: "string" },
+
+            isRequired: { type: "boolean" },
+            isCustom: { type: "boolean" },
+
+            page: { type: "number", minimum: 1, default: 1 },
+            limit: { type: "number", minimum: 1, maximum: 100, default: 10 },
           },
         },
       },
@@ -34,56 +41,111 @@ async function getLenderDocumentConfigRoutes(fastify) {
         }
 
         const lenderOrgId = req.user.organizationId;
-        const { lenderProductId } = req.params;
 
-        /* ================= VALIDATE OWNERSHIP ================= */
-        const lenderProduct = await prisma.lenderProduct.findFirst({
-          where: {
-            id: lenderProductId,
-            lenderOrgId,
+        /* ================= QUERY ================= */
+        let {
+          lenderProductId,
+          loanProductCode,
+          search,
+          isRequired,
+          isCustom,
+          page = 1,
+          limit = 10,
+        } = req.query;
+
+        page = Number(page);
+        limit = Number(limit);
+
+        const skip = (page - 1) * limit;
+
+        /* ================= BASE WHERE ================= */
+        const where = {
+          lenderProduct: {
+            lenderOrgId, // 🔥 CRITICAL SECURITY FILTER
           },
-          select: { id: true },
-        });
+        };
 
-        if (!lenderProduct) {
-          return reply.code(404).send({
-            success: false,
-            message: "Lender product not found",
-          });
+        /* ================= FILTERS ================= */
+
+        if (lenderProductId) {
+          where.lenderProductId = lenderProductId;
         }
 
-        /* ================= FETCH CONFIG ================= */
-        const docs = await prisma.lenderDocumentRequirement.findMany({
-          where: {
-            lenderProductId,
-          },
-          include: {
-            documentType: {
-              select: {
-                id: true,
-                name: true,
-                code: true,
-                isCustom: true,
-                description: true,
+        if (loanProductCode) {
+          where.lenderProduct = {
+            ...where.lenderProduct,
+            loanProductCode,
+          };
+        }
+
+        if (typeof isRequired === "boolean") {
+          where.isRequired = isRequired;
+        }
+
+        if (typeof isCustom === "boolean") {
+          where.documentType = {
+            isCustom,
+          };
+        }
+
+        if (search) {
+          where.documentType = {
+            ...(where.documentType || {}),
+            name: {
+              contains: search,
+              mode: "insensitive",
+            },
+          };
+        }
+
+        /* ================= FETCH ================= */
+        const [docs, total] = await Promise.all([
+          prisma.lenderDocumentRequirement.findMany({
+            where,
+            include: {
+              documentType: {
+                select: {
+                  id: true,
+                  name: true,
+                  code: true,
+                  isCustom: true,
+                  description: true,
+                },
+              },
+              lenderProduct: {
+                select: {
+                  id: true,
+                  loanProductCode: true,
+                },
               },
             },
-          },
-          orderBy: [
-            { sortOrder: "asc" },
-            { createdAt: "asc" },
-          ],
-        });
+            orderBy: [
+              { sortOrder: "asc" },
+              { createdAt: "asc" },
+            ],
+            skip,
+            take: limit,
+          }),
 
-        /* ================= FORMAT RESPONSE ================= */
+          prisma.lenderDocumentRequirement.count({ where }),
+        ]);
+
+        /* ================= FORMAT ================= */
         const formatted = docs.map((doc) => ({
           id: doc.id,
 
+          // PRODUCT INFO
+          lenderProductId: doc.lenderProductId,
+          loanProductCode: doc.lenderProduct?.loanProductCode || null,
+
+          // DOCUMENT INFO
           documentTypeId: doc.documentTypeId,
           documentName: doc.documentType?.name || null,
           documentCode: doc.documentType?.code || null,
           isCustom: doc.documentType?.isCustom || false,
           description: doc.documentType?.description || null,
 
+          // CONFIG
           isRequired: doc.isRequired,
           minFiles: doc.minFiles,
           maxFiles: doc.maxFiles,
@@ -93,9 +155,15 @@ async function getLenderDocumentConfigRoutes(fastify) {
           createdAt: doc.createdAt,
         }));
 
+        /* ================= RESPONSE ================= */
         return reply.send({
           success: true,
-          count: formatted.length,
+          pagination: {
+            total,
+            page,
+            limit,
+            totalPages: Math.ceil(total / limit),
+          },
           data: formatted,
         });
 
@@ -104,10 +172,9 @@ async function getLenderDocumentConfigRoutes(fastify) {
           {
             error: error.message,
             stack: error.stack,
-            lenderProductId: req.params.lenderProductId,
             user: req.user,
           },
-          "❌ Fetch lender document config failed"
+          "❌ List lender document config failed"
         );
 
         return reply.code(500).send({
@@ -119,4 +186,4 @@ async function getLenderDocumentConfigRoutes(fastify) {
   );
 }
 
-module.exports = getLenderDocumentConfigRoutes;
+module.exports = listLenderDocumentConfigRoutes;
