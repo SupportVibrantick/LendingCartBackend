@@ -40,14 +40,19 @@ const navItems: NavItem[] = [
     path: "/",
   },
   {
-    icon: <GroupsOutlinedIcon />,
-    name: "Eligibility Engine",
-    subItems: [
-      { name: "Eligibility Rules", path: "/all-brokers-lenders" },
-      { name: "All Set Rules", path: "/all-set-rules" },
-      { name: "All Rules", path: "/all-rules" },
-    ],
+    icon: <TrendingUp />,
+    name: "Loan Pipeline",
+    path: "/loan-pipeline",
   },
+  // {
+  //   icon: <GroupsOutlinedIcon />,
+  //   name: "Eligibility Engine",
+  //   subItems: [
+  //     { name: "Eligibility Rules", path: "/all-brokers-lenders" },
+  //     { name: "All Set Rules", path: "/all-set-rules" },
+  //     { name: "All Rules", path: "/all-rules" },
+  //   ],
+  // },
   // {
   //   icon: <GroupOutlinedIcon />,
   //   name: "Manage User",
@@ -89,11 +94,6 @@ const navItems: NavItem[] = [
       { name: "Invited Brokers ", path: "/broker-request" },
       { name: "Find Brokers", path: "/find-broker" },
     ],
-  },
-  {
-    icon: <TrendingUp />,
-    name: "Loan Pipeline",
-    path: "/loan-pipeline",
   },
   // {
   //   icon: <AdminPanelSettingsOutlinedIcon />,
