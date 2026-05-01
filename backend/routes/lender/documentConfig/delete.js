@@ -1,29 +1,18 @@
 /**
  * @param {import("fastify").FastifyInstance} fastify
  */
-async function updateLenderDocumentConfigRoutes(fastify) {
-  fastify.put(
+async function deleteLenderDocumentConfigRoutes(fastify) {
+  fastify.delete(
     "/:id",
     {
       schema: {
         tags: ["Lender -> Document Config"],
-        summary: "Update document config",
+        summary: "Delete document config",
         params: {
           type: "object",
           required: ["id"],
           properties: {
             id: { type: "string", format: "uuid" },
-          },
-        },
-        body: {
-          type: "object",
-          additionalProperties: false,
-          properties: {
-            isRequired: { type: "boolean" },
-            minFiles: { type: "number" },
-            maxFiles: { type: "number" },
-            notes: { type: "string" },
-            sortOrder: { type: "number" },
           },
         },
       },
@@ -72,23 +61,14 @@ async function updateLenderDocumentConfigRoutes(fastify) {
           });
         }
 
-        /* ================= UPDATE ================= */
-        const updated =
-          await prisma.lenderDocumentRequirement.update({
-            where: { id },
-            data: {
-              isRequired: req.body.isRequired ?? existing.isRequired,
-              minFiles: req.body.minFiles ?? existing.minFiles,
-              maxFiles: req.body.maxFiles ?? existing.maxFiles,
-              notes: req.body.notes ?? existing.notes,
-              sortOrder: req.body.sortOrder ?? existing.sortOrder,
-            },
-          });
+        /* ================= DELETE ================= */
+        await prisma.lenderDocumentRequirement.delete({
+          where: { id },
+        });
 
         return reply.send({
           success: true,
-          message: "Document config updated successfully",
-          data: updated,
+          message: "Document config deleted successfully",
         });
 
       } catch (error) {
@@ -99,7 +79,7 @@ async function updateLenderDocumentConfigRoutes(fastify) {
             id: req.params.id,
             user: req.user,
           },
-          "❌ Update document config failed"
+          "❌ Delete document config failed"
         );
 
         return reply.code(500).send({
@@ -111,4 +91,4 @@ async function updateLenderDocumentConfigRoutes(fastify) {
   );
 }
 
-module.exports = updateLenderDocumentConfigRoutes;
+module.exports = deleteLenderDocumentConfigRoutes;

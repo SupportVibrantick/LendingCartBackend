@@ -374,6 +374,8 @@ model DocumentType {
   id                      String                           @id @default(uuid()) @db.Uuid
   name                    String
   code                    String
+  isCustom                Boolean                          @default(false)   
+  createdByOrgId          String?                          @db.Uuid          
   description             String?
   isActive                Boolean                          @default(true)
   createdAt               DateTime                         @default(now()) @db.Timestamptz(6)
@@ -420,7 +422,8 @@ model LenderDocumentRequirement {
   updatedAt       DateTime      @updatedAt @db.Timestamptz(6)
   documentType    DocumentType  @relation(fields: [documentTypeId], references: [id])
   lenderProduct   LenderProduct @relation(fields: [lenderProductId], references: [id])
-
+   
+  @@unique([lenderProductId, documentTypeId])
   @@index([lenderProductId])
   @@index([documentTypeId])
   @@map("lender_document_requirements")
