@@ -11,7 +11,7 @@ async function createLenderDocumentConfigRoutes(fastify) {
     {
       schema: {
         tags: ["Lender -> Document Config"],
-        summary: "Configure document for loan product",
+        summary: "Create or update document config (UPSERT)",
         consumes: ["application/json"],
         body: {
           type: "object",
@@ -31,14 +31,15 @@ async function createLenderDocumentConfigRoutes(fastify) {
     },
     async (req, reply) => {
       const prisma = fastify.prisma;
+
       try {
-        // Auth check
+        /* ================= AUTH ================= */
         if (
           !req.user ||
           req.user.orgType !== "LENDER" ||
           !req.user.organizationId
         ) {
-          return reply.status(403).send({
+          return reply.code(403).send({
             success: false,
             message: "Lender access only",
           });
@@ -46,11 +47,12 @@ async function createLenderDocumentConfigRoutes(fastify) {
 
         const lenderOrgId = req.user.organizationId;
 
-        // Zod validation
+        /* ================= VALIDATION ================= */
         const parsed =
           createLenderDocumentConfigSchema.safeParse(req.body);
+
         if (!parsed.success) {
-          return reply.status(400).send({
+          return reply.code(400).send({
             success: false,
             message: "Invalid input",
             details: parsed.error.issues,
@@ -67,72 +69,84 @@ async function createLenderDocumentConfigRoutes(fastify) {
           sortOrder,
         } = parsed.data;
 
-        // Validate lender product ownership (CORRECT FIELD)
+        /* ================= VALIDATE PRODUCT ================= */
         const lenderProduct = await prisma.lenderProduct.findFirst({
           where: {
             id: lenderProductId,
-            lenderOrgId: lenderOrgId,
+            lenderOrgId,
           },
         });
 
         if (!lenderProduct) {
-          return reply.status(404).send({
+          return reply.code(404).send({
             success: false,
             message: "Lender product not found",
           });
         }
 
-        //  Validate document type
+        /* ================= VALIDATE DOCUMENT ================= */
         const docType = await prisma.documentType.findFirst({
-          where: { id: documentTypeId, isActive: true },
+          where: {
+            id: documentTypeId,
+            isActive: true,
+          },
         });
 
         if (!docType) {
-          return reply.status(404).send({
+          return reply.code(404).send({
             success: false,
             message: "Document type not found",
           });
         }
 
-        //  Prevent duplicates
-        const exists = await prisma.lenderDocumentRequirement.findFirst({
-          where: {
-            lenderProductId,
-            documentTypeId,
-          },
-        });
-
-        if (exists) {
-          return reply.status(409).send({
-            success: false,
-            message: "Document already configured for this product",
+        /* ================= UPSERT ================= */
+        const result =
+          await prisma.lenderDocumentRequirement.upsert({
+            where: {
+              lenderProductId_documentTypeId: {
+                lenderProductId,
+                documentTypeId,
+              },
+            },
+            update: {
+              isRequired: isRequired ?? true,
+              minFiles: minFiles ?? 1,
+              maxFiles: maxFiles ?? null,
+              notes: notes ?? null,
+              sortOrder: sortOrder ?? null,
+            },
+            create: {
+              lenderProductId,
+              documentTypeId,
+              isRequired: isRequired ?? true,
+              minFiles: minFiles ?? 1,
+              maxFiles: maxFiles ?? null,
+              notes: notes ?? null,
+              sortOrder: sortOrder ?? null,
+            },
           });
-        }
 
-        // Create document requirement (CORRECT MODEL)
-        const result = await prisma.lenderDocumentRequirement.create({
-          data: {
-            lenderProductId,
-            documentTypeId,
-            isRequired: isRequired ?? true,
-            minFiles: minFiles ?? 1,
-            maxFiles: maxFiles ?? null,
-            notes: notes ?? null,
-            sortOrder: sortOrder ?? null,
-          },
-        });
-
-        return reply.status(201).send({
+        /* ================= RESPONSE ================= */
+        return reply.send({
           success: true,
-          message: "Document configured successfully",
+          message: "Document config saved successfully",
           data: result,
         });
-      } catch (error) {
-        console.error("DOCUMENT CONFIG ERROR:", error);
 
-        return reply.status(500).send({
+      } catch (error) {
+        fastify.log.error(
+          {
+            error: error.message,
+            stack: error.stack,
+            body: req.body,
+            user: req.user,
+          },
+          "❌ Document config upsert failed"
+        );
+
+        return reply.code(500).send({
           success: false,
-          message: "Server error while configuring document",
+          message: "Internal server error",
         });
       }
     }
