@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   XCircle,
   Inbox,
+  Repeat,
 } from "lucide-react";
 import RichEditor from "./Editor";
 import toast from "react-hot-toast";
@@ -61,6 +62,7 @@ export default function CreateCampaignPage() {
   const [loadingList, setLoadingList] = useState(false);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [stoppingId, setStoppingId] = useState<string | null>(null);
 
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -229,7 +231,7 @@ export default function CreateCampaignPage() {
 
   const handleSendCampaign = async () => {
     try {
-      // ✅ Validation
+      // Validation
       if (!subject.trim()) return toast.error("Subject is required");
 
       if (!message || !message.trim()) {
@@ -249,7 +251,6 @@ export default function CreateCampaignPage() {
 
       setLoading(true);
 
-      // ✅ FINAL PAYLOAD (ONLY THIS)
       let payload: any = {
         contacts: contacts.map((c) => ({
           email: c.email,
@@ -259,7 +260,7 @@ export default function CreateCampaignPage() {
         message: message.trim(),
       };
 
-      // ✅ Recurring support
+      // Recurring support
       if (repeat) {
         payload = {
           ...payload,
@@ -308,6 +309,38 @@ export default function CreateCampaignPage() {
       toast.error("Failed to send campaign");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleStopCampaign = async (id: string) => {
+    try {
+      const token = sessionStorage.getItem("broker_token");
+      if (!token) return toast.error("Session expired");
+      setStoppingId(id);
+
+      const res = await fetch(
+        `${import.meta.env.VITE_API_BASE}/broker/campaign/${id}/stop`,
+        {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data?.message || "Failed");
+
+      toast.success("Campaign stopped successfully");
+      setStoppingId(null);
+
+      //  Refresh list
+      fetchCampaigns();
+    } catch (err) {
+      setStoppingId(null);
+      console.error(err);
+      toast.error("Failed to stop campaign");
     }
   };
 
@@ -688,112 +721,176 @@ export default function CreateCampaignPage() {
                 {/* TABLE */}
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
-                    <thead className="bg-gray-50 text-gray-500">
+                    <thead className="bg-gradient-to-r from-slate-50 to-slate-100 text-gray-500 text-xs uppercase tracking-wide">
                       <tr>
                         <th className="px-6 py-3 text-left">Campaign</th>
                         <th className="px-6 py-3 text-left">Status</th>
-                        <th className="px-6 py-3 text-left">Stats</th>
-                        <th className="px-6 py-3 text-left">Type</th>
+                        <th className="px-6 py-3 text-left">Performance</th>
                         <th className="px-6 py-3 text-left">Created</th>
+                        <th className="px-6 py-3 text-left">Action</th>
                       </tr>
                     </thead>
 
                     <tbody>
-                      {/* 🔄 LOADING STATE */}
-                      {loadingList && (
-                        <tr>
-                          <td colSpan={5} className="py-10">
-                            <div className="flex flex-col items-center justify-center gap-3 text-gray-400">
-                              <div className="w-8 h-8 border-2 border-gray-300 border-t-[#2C92D5] rounded-full animate-spin" />
-                              <p className="text-xs">Loading campaigns...</p>
-                            </div>
-                          </td>
-                        </tr>
-                      )}
+                      {loadingList ? (
+                        <>
+                          {[...Array(5)].map((_, i) => (
+                            <tr key={i} className="animate-pulse">
+                              <td className="px-6 py-4">
+                                <div className="h-4 w-40 bg-gray-200 rounded mb-2" />
+                                <div className="h-3 w-24 bg-gray-100 rounded" />
+                              </td>
 
-                      {/* ❌ EMPTY STATE */}
-                      {!loadingList && campaigns.length === 0 && (
+                              <td className="px-6 py-4">
+                                <div className="h-6 w-20 bg-gray-200 rounded-full" />
+                              </td>
+
+                              <td className="px-6 py-4">
+                                <div className="h-3 w-full bg-gray-200 rounded mb-2" />
+                                <div className="h-2 w-3/4 bg-gray-100 rounded" />
+                              </td>
+
+                              <td className="px-6 py-4">
+                                <div className="h-3 w-24 bg-gray-200 rounded" />
+                              </td>
+
+                              <td className="px-6 py-4">
+                                <div className="h-6 w-16 bg-gray-200 rounded-lg" />
+                              </td>
+                            </tr>
+                          ))}
+                        </>
+                      ) : campaigns.length === 0 ? (
+                        // empty state
                         <tr>
                           <td colSpan={5} className="py-16">
                             <div className="flex flex-col items-center justify-center text-center">
-                              {/* ICON BOX */}
-                              <div className="w-14 h-14 rounded-2xl bg-[#2C92D5]/10 flex items-center justify-center shadow-sm">
-                                <Inbox className="w-6 h-6 text-[#2C92D5]" />
+                              {/* ICON */}
+                              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center shadow-sm">
+                                <Inbox className="w-7 h-7 text-[#2C92D5]" />
                               </div>
 
                               {/* TEXT */}
-                              <h3 className="mt-4 text-sm font-semibold text-gray-700">
+                              <h3 className="mt-5 text-sm font-semibold text-gray-800">
                                 No campaigns yet
                               </h3>
 
-                              <p className="text-xs text-gray-400 mt-1 max-w-[220px]">
-                                You haven’t created any campaigns. Start by
-                                launching your first one.
+                              <p className="text-xs text-gray-400 mt-1 max-w-[240px] leading-relaxed">
+                                Start your first campaign to engage your
+                                audience and track performance here.
                               </p>
 
-                              {/* CTA BUTTON */}
+                              {/* BUTTON */}
                               <button
                                 onClick={() => setActiveTab("create")}
-                                className="mt-4 px-4 py-2 text-xs font-medium rounded-lg bg-[#2C92D5] text-white hover:bg-blue-600 transition"
+                                className="mt-5 px-4 py-2 text-xs font-semibold rounded-xl bg-[#2C92D5] text-white hover:bg-blue-600 transition shadow-sm"
                               >
                                 + Create Campaign
                               </button>
                             </div>
                           </td>
                         </tr>
-                      )}
-
-                      {/* ✅ DATA */}
-                      {!loadingList &&
+                      ) : (
+                        // actual data
                         campaigns.map((c) => (
                           <tr
                             key={c.id}
-                            className="border-t hover:bg-gray-50 transition"
+                            className="group hover:bg-gradient-to-r hover:from-blue-50/40 hover:to-transparent transition-all duration-200"
                           >
+                            {/* Campaign */}
                             <td className="px-6 py-4">
-                              <p className="font-medium text-gray-900">
+                              <p className="font-semibold text-gray-800 group-hover:text-[#2C92D5] transition">
                                 {c.name}
                               </p>
-                              <p className="text-xs text-gray-400">
+                              <p className="text-xs text-gray-400 mt-1 line-clamp-1">
                                 {c.subject}
                               </p>
                             </td>
 
+                            {/* Status */}
                             <td className="px-6 py-4">
                               {c.status === "SENT" ? (
-                                <span className="inline-flex items-center gap-1 text-green-600 text-xs font-medium">
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-green-50 text-green-600 text-[11px] font-semibold">
                                   <CheckCircle2 size={14} />
-                                  Sent
+                                  Delivered
                                 </span>
                               ) : (
-                                <span className="inline-flex items-center gap-1 text-red-600 text-xs font-medium">
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-red-50 text-red-600 text-[11px] font-semibold">
                                   <XCircle size={14} />
                                   Failed
                                 </span>
                               )}
                             </td>
 
-                            <td className="px-6 py-4 text-xs text-gray-600">
-                              <p>Total: {c.total}</p>
-                              <p>Sent: {c.sent}</p>
-                              <p>Failed: {c.failed}</p>
+                            {/* Performance */}
+                            <td className="px-6 py-4">
+                              <div className="space-y-1">
+                                <div className="flex justify-between text-[11px] text-gray-500">
+                                  <span>Sent</span>
+                                  <span className="text-green-600 font-semibold">
+                                    {c.sent}
+                                  </span>
+                                </div>
+
+                                <div className="flex justify-between text-[11px] text-gray-500">
+                                  <span>Failed</span>
+                                  <span className="text-red-500 font-semibold">
+                                    {c.failed}
+                                  </span>
+                                </div>
+
+                                {/* Progress bar */}
+                                <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden mt-1">
+                                  <div
+                                    className="h-full bg-green-500"
+                                    style={{
+                                      width: `${
+                                        c.total ? (c.sent / c.total) * 100 : 0
+                                      }%`,
+                                    }}
+                                  />
+                                </div>
+                              </div>
                             </td>
 
-                            <td className="px-6 py-4 text-xs">
-                              {c.isRecurring ? (
-                                <span className="text-blue-600 font-medium">
-                                  🔁 Every {c.intervalValue} {c.intervalUnit}
+                            {/* Created */}
+                            <td className="px-6 py-4 text-xs text-gray-500">
+                              <div className="flex flex-col">
+                                <span>
+                                  {new Date(c.createdAt).toLocaleDateString()}
                                 </span>
+                                <span className="text-gray-400">
+                                  {new Date(c.createdAt).toLocaleTimeString()}
+                                </span>
+                              </div>
+                            </td>
+
+                            {/* Action */}
+                            <td className="px-6 py-4">
+                              {c.isRecurring ? (
+                                <div className="flex items-center gap-2">
+                                  <span className="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-600 font-semibold border border-blue-100">
+                                    <Repeat size={13} className="opacity-80" />
+                                    Every {c.intervalValue} {c.intervalUnit}
+                                  </span>
+
+                                  <button
+                                    onClick={() => handleStopCampaign(c.id)}
+                                    disabled={stoppingId === c.id}
+                                    className="relative overflow-hidden px-3 py-1 text-[11px] font-semibold rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition disabled:opacity-50"
+                                  >
+                                    {stoppingId === c.id
+                                      ? "Stopping..."
+                                      : "Stop"}
+                                  </button>
+                                </div>
                               ) : (
-                                <span className="text-gray-400">One-time</span>
+                                <span className="text-gray-300 text-xs">—</span>
                               )}
                             </td>
-
-                            <td className="px-6 py-4 text-xs text-gray-500">
-                              {new Date(c.createdAt).toLocaleString()}
-                            </td>
                           </tr>
-                        ))}
+                        ))
+                      )}
                     </tbody>
                   </table>
                   <div className="flex items-center justify-between px-6 py-4 border-t bg-gray-50/60">
