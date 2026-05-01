@@ -4,6 +4,7 @@ import { IoIosArrowBack } from "react-icons/io";
 import { MdDeleteForever } from "react-icons/md";
 import { useNavigate } from "react-router";
 import { IoClose } from "react-icons/io5";
+import { Building2, HomeIcon, Landmark, Settings } from "lucide-react";
 
 interface Borrower {
   name: string;
@@ -48,6 +49,10 @@ interface FormDataType {
     propertyType: string;
     subPropertyType: string;
     recourse: string;
+    businessAddress: string;
+    city: string;
+    state: string;
+    zip: string;
   };
   loanTermIncome: {
     loanTerm: string;
@@ -60,6 +65,13 @@ interface FormDataType {
     floodZone: string;
     insurancePremium: string;
     hoaDues: string;
+  };
+  entity: {
+    legalName: string;
+    entityType: string;
+    dba: string;
+    formationDate: string;
+    yearsInBusiness: string;
   };
 }
 
@@ -191,9 +203,16 @@ const LoanApplication = () => {
   const [productsMeta, setProductsMeta] = useState<any[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [selectedCategory, setSelectedCategory] = useState("OTHER");
   const navigate = useNavigate();
 
-  const baseSteps = ["Borrower Info", "Loan Request", "Loan Term & Income"];
+  const baseSteps = [
+    "Loan Request",
+    "Property Info",
+    "Entity Info",
+    "Borrower Info",
+    "Loan Term & Income",
+  ];
 
   const formatUSPhone = (value: string) => {
     // Remove non-digits
@@ -302,6 +321,10 @@ const LoanApplication = () => {
       propertyType: "",
       subPropertyType: "",
       recourse: "",
+      businessAddress: "",
+      city: "",
+      state: "",
+      zip: "",
     },
     loanTermIncome: {
       loanTerm: "",
@@ -314,6 +337,13 @@ const LoanApplication = () => {
       floodZone: "",
       insurancePremium: "",
       hoaDues: "",
+    },
+    entity: {
+      legalName: "",
+      entityType: "",
+      dba: "",
+      formationDate: "",
+      yearsInBusiness: "",
     },
   });
 
@@ -523,6 +553,69 @@ const LoanApplication = () => {
 
     /* ================= STEP 0 ================= */
     if (currentStep === 0) {
+      if (!selectedCategory) {
+        newErrors["category"] = "Category is required";
+      }
+
+      if (!selectedProduct) {
+        newErrors["selectedProduct"] = "Program selection is required";
+      }
+    }
+
+    /* ================= STEP 1 ================= */
+    if (currentStep === 1) {
+      checkObject(formData.loanRequest, "loanRequest");
+
+      const assets = toNumber(formData.loanRequest.totalAssets);
+      const liabilities = toNumber(formData.loanRequest.totalLiabilities);
+
+      if (assets <= 0) {
+        newErrors["loanRequest.totalAssets"] =
+          "Total Assets must be greater than 0";
+      }
+
+      if (liabilities < 0) {
+        newErrors["loanRequest.totalLiabilities"] =
+          "Liabilities cannot be negative";
+      }
+
+      const amount = toNumber(formData.loanRequest.amount);
+
+      if (!amount || amount <= 0) {
+        newErrors["loanRequest.amount"] = "Loan amount must be greater than 0";
+      }
+
+      if (!formData.loanRequest.businessAddress) {
+        newErrors["loanRequest.businessAddress"] = "Address is required";
+      }
+
+      if (!formData.loanRequest.city) {
+        newErrors["loanRequest.city"] = "City is required";
+      }
+
+      if (!formData.loanRequest.state) {
+        newErrors["loanRequest.state"] = "State is required";
+      }
+
+      if (!formData.loanRequest.zip) {
+        newErrors["loanRequest.zip"] = "ZIP is required";
+      }
+    }
+
+    /* ================= STEP 2 ================= */
+    if (currentStep === 2) {
+      checkObject(formData.entity, "entity");
+
+      const years = Number(formData.entity.yearsInBusiness);
+
+      if (years < 0) {
+        newErrors["entity.yearsInBusiness"] =
+          "Years in business cannot be negative";
+      }
+    }
+
+    /* ================= STEP 3 ================= */
+    if (currentStep === 3) {
       checkObject(formData.borrower, "borrower");
 
       formData.coBorrowers.forEach((b, index) => {
@@ -544,7 +637,7 @@ const LoanApplication = () => {
           `coBorrowers.${index}`,
         );
 
-        // Financial Details Required Only If Co-Borrower Exists
+        // Financial Details
         const financialFields = [
           "currentMarketValue",
           "purchasePrice",
@@ -565,48 +658,8 @@ const LoanApplication = () => {
       });
     }
 
-    /* ================= STEP 1 ================= */
-    if (currentStep === 1) {
-      if (!selectedProduct) {
-        newErrors["selectedProduct"] = "Program selection is required";
-      }
-      const assets = toNumber(formData.loanRequest.totalAssets);
-      const liabilities = toNumber(formData.loanRequest.totalLiabilities);
-
-      if (assets <= 0) {
-        newErrors["loanRequest.totalAssets"] =
-          "Total Assets must be greater than 0";
-      }
-
-      if (liabilities < 0) {
-        newErrors["loanRequest.totalLiabilities"] =
-          "Liabilities cannot be negative";
-      }
-
-      const amount = toNumber(formData.loanRequest.amount);
-
-      if (!amount || amount <= 0) {
-        newErrors["loanRequest.amount"] = "Loan amount must be greater than 0";
-      }
-
-      if (!formData.loanRequest.propertyType) {
-        newErrors["loanRequest.propertyType"] = "Property Type is required";
-      }
-
-      if (!formData.loanRequest.subPropertyType) {
-        newErrors["loanRequest.subPropertyType"] =
-          "Sub Property Type is required";
-      }
-
-      if (!formData.loanRequest.recourse) {
-        newErrors["loanRequest.recourse"] = "Recourse selection is required";
-      }
-
-      checkObject(formData.loanRequest, "loanRequest");
-    }
-
-    /* ================= STEP 2 ================= */
-    if (currentStep === 2) {
+    /* ================= STEP 4 ================= */
+    if (currentStep === 4) {
       checkObject(formData.loanTermIncome, "loanTermIncome");
 
       const loanTerm = Number(formData.loanTermIncome.loanTerm);
@@ -620,7 +673,6 @@ const LoanApplication = () => {
         newErrors["loanTermIncome.noiActual"] = "NOI cannot be negative";
       }
     }
-
     /* ================= DYNAMIC STEP ================= */
     if (activeSectionIndex !== null && dynamicSections[activeSectionIndex]) {
       dynamicSections[activeSectionIndex].fields.forEach((field: any) => {
@@ -642,6 +694,22 @@ const LoanApplication = () => {
     return Object.keys(newErrors).length === 0;
   };
 
+  const updateEntity = (field: string, value: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      entity: {
+        ...prev.entity,
+        [field]: value,
+      },
+    }));
+
+    setErrors((prev) => {
+      const updated = { ...prev };
+      delete updated[`entity.${field}`];
+      return updated;
+    });
+  };
+
   const handleSubmitApplication = async () => {
     try {
       if (!activeProduct) {
@@ -656,7 +724,6 @@ const LoanApplication = () => {
       const addField = (key: string, value: any) => {
         if (value === undefined || value === null || value === "") return;
 
-        // normalize strings
         if (typeof value === "string") {
           value = value.trim();
         }
@@ -677,9 +744,9 @@ const LoanApplication = () => {
       addField("phone", formData.borrower.phone);
       addField("creditScore", formData.borrower.creditScore);
 
-      addField("city", formData.borrower.city);
-      addField("state", formData.borrower.state);
-      addField("country", "USA");
+      addField("borrowerCity", formData.borrower.city);
+      addField("borrowerState", formData.borrower.state);
+      addField("borrowerCountry", "USA");
 
       /* ================= LOAN REQUEST ================= */
 
@@ -690,10 +757,14 @@ const LoanApplication = () => {
       addField("propertyType", formData.loanRequest.propertyType);
       addField("subPropertyType", formData.loanRequest.subPropertyType);
       addField("recourse", formData.loanRequest.recourse);
-      /* ================= LOCATION (IF ADDRESS EXISTS) ================= */
 
-      // You can improve this later if you split address properly
-      addField("country", "USA");
+      /* ================= PROPERTY LOCATION ================= */
+
+      addField("propertyAddress", formData.loanRequest.businessAddress);
+      addField("propertyCity", formData.loanRequest.city);
+      addField("propertyState", formData.loanRequest.state);
+      addField("propertyZip", formData.loanRequest.zip?.replace(/\D/g, ""));
+      addField("propertyCountry", "USA");
 
       /* ================= LOAN TERM ================= */
 
@@ -702,29 +773,22 @@ const LoanApplication = () => {
 
       /* ================= CO BORROWERS ================= */
 
-      // formData.coBorrowers.forEach((borrower, index) => {
-      //   Object.entries(borrower).forEach(([key, value]) => {
-      //     if (key === "id") return;
-      //     addField(`coBorrower_${index + 1}_${key}`, value);
-      //   });
-      // });
-
-      /* ================= CO BORROWERS ================= */
-
       formData.coBorrowers.forEach((borrower, index) => {
         const i = index + 1;
 
-        const toNum = (v: string) => parseFloat(v.replace(/,/g, "") || "0");
+        const toNum = (v: string) => parseFloat(v?.replace(/,/g, "") || "0");
 
         const coLoanAmount =
           formData.coBorrowers.length > 0
             ? loanAmount / formData.coBorrowers.length
             : loanAmount;
+
         const coMarketValue = toNum(borrower.currentMarketValue);
         const coPurchasePrice = toNum(borrower.purchasePrice);
         const coInterest = borrower.interestRate
           ? toNum(borrower.interestRate)
-          : interestRate; // fallback to main rate
+          : interestRate;
+
         const coNoi = toNum(borrower.noi);
         const coAssets = toNum(borrower.totalAssets);
         const coLiabilities = toNum(borrower.totalLiabilities);
@@ -745,13 +809,13 @@ const LoanApplication = () => {
 
         const coDscr = coAnnualDebt > 0 && coNoi > 0 ? coNoi / coAnnualDebt : 0;
 
-        // Send all original fields
+        // original fields
         Object.entries(borrower).forEach(([key, value]) => {
           if (key === "id") return;
           addField(`coBorrower_${i}_${key}`, value);
         });
 
-        // Send calculated fields
+        // calculated
         addField(`coBorrower_${i}_netWorth`, coNetWorth);
         addField(`coBorrower_${i}_ltv`, coLtv);
         addField(`coBorrower_${i}_ltc`, coLtc);
@@ -779,11 +843,13 @@ const LoanApplication = () => {
         addField(key, value);
       });
 
-      /* ================= CALCULATED STATS ================= */
+      /* ================= CALCULATED ================= */
+
       addField("ltvPercentage", ltv !== "—" ? Number(ltv) : 0);
       addField("ltcPercentage", ltc !== "—" ? Number(ltc) : 0);
       addField("arvPercentage", arv !== "—" ? Number(arv) : 0);
       addField("dscr", dscr !== "—" ? Number(dscr) : 0);
+
       addField("totalAssets", borrowerAssets);
       addField("totalLiabilities", borrowerLiabilities);
       addField("netWorth", netWorth);
@@ -818,7 +884,7 @@ const LoanApplication = () => {
         throw new Error(result.message || "Submission failed");
       }
 
-      toast.success("Application Submitted Successfully 🎉");
+      toast.success("Application Submitted Successfully");
       navigate("/submit-applications");
     } catch (error: any) {
       toast.error(error.message || "Something went wrong");
@@ -1184,6 +1250,23 @@ const LoanApplication = () => {
     }
   }, [selectedProduct]);
 
+  useEffect(() => {
+    if (productsMeta.length && !selectedCategory) {
+      setSelectedCategory("OTHER");
+    }
+  }, [productsMeta]);
+
+  useEffect(() => {
+    if (!selectedCategory) return;
+
+    const filtered = productsMeta.filter((p: any) => {
+      return getCategoryFromCode(p.loanProductCode) === selectedCategory;
+    });
+
+    setLoanProducts(filtered.map((p: any) => p.loanProductCode));
+    setSelectedProduct("");
+  }, [selectedCategory, productsMeta]);
+
   const updateBorrower = (field: string, value: string) => {
     setFormData((prev) => ({
       ...prev,
@@ -1414,6 +1497,39 @@ const LoanApplication = () => {
   const subPropertyOptions =
     PROPERTY_TYPE_MAP[formData.loanRequest.propertyType] || [];
 
+  const getCategoryFromCode = (code: string) => {
+    const upper = code.toUpperCase();
+
+    if (upper.includes("SBA")) return "SBA";
+    if (upper.includes("CRE")) return "CRE";
+    if (upper.includes("DSCR") || upper.includes("FLIP")) return "RESIDENTIAL";
+    if (upper.includes("FINANCE") || upper.includes("RECEIVABLE")) return "ABL";
+
+    return "OTHER"; // fallback
+  };
+
+  const categories = Array.from(
+    new Set(
+      productsMeta.map((p: any) => getCategoryFromCode(p.loanProductCode)),
+    ),
+  );
+
+  const CATEGORY_ICONS: Record<string, any> = {
+    RESIDENTIAL: HomeIcon,
+    CRE: Building2,
+    SBA: Landmark,
+    ABL: Settings,
+    OTHER: Settings,
+  };
+
+  const CATEGORY_LABELS: Record<string, string> = {
+    RESIDENTIAL: "1–4 Units Residential",
+    CRE: "CRE & Multifamily",
+    SBA: "SBA & USDA",
+    ABL: "Asset Based Lending",
+    OTHER: "Other Programs",
+  };
+
   return (
     <>
       <div className="min-h-screen bg-slate-50 px-6 py-8 dark:bg-slate-900">
@@ -1488,9 +1604,835 @@ rounded-2xl p-6 shadow-sm
 
         {/* Body */}
         <div className="w-full mx-auto">
-          {/* ---------------- BORROWER INFORMATION ---------------- */}
-          {/* step-0   */}
+          {/* ================= STEP 0 ================= */}
           {currentStep === 0 && (
+            <div className="mt-6 relative z-10 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 bg-white dark:bg-slate-800">
+              <h3 className="text-lg font-semibold mb-6 dark:text-white">
+                Loan Request Details
+              </h3>
+
+              {/* ================= LOAN CATEGORY ================= */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-3">
+                  Select a Loan Category <span className="text-red-500">*</span>
+                </label>
+
+                <div className="flex gap-4 overflow-x-auto pb-2">
+                  {categories.map((category) => {
+                    const Icon = CATEGORY_ICONS[category] || Settings;
+
+                    return (
+                      <button
+                        key={category}
+                        type="button"
+                        onClick={() => setSelectedCategory(category)}
+                        className={`flex-shrink-0 flex flex-col items-center justify-center gap-2 
+        w-[160px] h-[100px] rounded-2xl border transition-all text-center
+        
+        ${
+          selectedCategory === category
+            ? "bg-[#2C92D5] text-white border-[#2C92D5] shadow-md"
+            : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:shadow-md"
+        }`}
+                      >
+                        <Icon size={26} />
+
+                        <span className="text-xs font-semibold leading-tight px-2">
+                          {CATEGORY_LABELS[category] || category}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {/* Product Code  */}
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
+                    What kind of program are you looking for?{" "}
+                    <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={selectedProduct}
+                    onChange={(e) => {
+                      setSelectedProduct(e.target.value);
+                      updateLoanRequest("purpose", "");
+                      setDynamicSections([]);
+                      setActiveSectionIndex(null);
+                    }}
+                    className={`w-full px-4 py-1 rounded-md border
+border-slate-300 dark:border-slate-600
+bg-white dark:bg-slate-900
+text-slate-800 dark:text-slate-200
+focus:ring-2 focus:ring-blue-500/20
+focus:border-blue-500 outline-none text-sm ${
+                      errors["selectedProduct"]
+                        ? "border-red-500 bg-red-50"
+                        : "border-slate-300"
+                    }
+  bg-white focus:ring-2 focus:ring-blue-500/20 
+  focus:border-blue-500 outline-none transition text-sm`}
+                  >
+                    <option value="">Select Program</option>
+
+                    {loadingProducts ? (
+                      <option disabled>Loading...</option>
+                    ) : (
+                      loanProducts.map((code) => (
+                        <option key={code} value={code}>
+                          {code.replace(/_/g, " ")}
+                        </option>
+                      ))
+                    )}
+                  </select>
+                  {errors["selectedProduct"] && (
+                    <p className="text-xs text-red-500 mt-1">
+                      {errors["selectedProduct"]}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* step-1 */}
+          {currentStep === 1 && (
+            <div className="mt-6 relative z-10 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 bg-white dark:bg-slate-800">
+              <h3 className="text-lg font-semibold mb-6 dark:text-white">
+                Loan Request Details
+              </h3>
+
+              {/* ================= LOAN CATEGORY ================= */}
+              {/* <div className="mb-6">
+                <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-3">
+                  Select a Loan Category <span className="text-red-500">*</span>
+                </label>
+
+                <div className="flex gap-4 overflow-x-auto pb-2">
+                  {categories.map((category) => {
+                    const Icon = CATEGORY_ICONS[category] || Settings;
+
+                    return (
+                      <button
+                        key={category}
+                        type="button"
+                        onClick={() => setSelectedCategory(category)}
+                        className={`flex-shrink-0 flex flex-col items-center justify-center gap-2 
+        w-[160px] h-[100px] rounded-2xl border transition-all text-center
+        
+        ${
+          selectedCategory === category
+            ? "bg-[#2C92D5] text-white border-[#2C92D5] shadow-md"
+            : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:shadow-md"
+        }`}
+                      >
+                        <Icon size={26} />
+
+                        <span className="text-xs font-semibold leading-tight px-2">
+                          {CATEGORY_LABELS[category] || category}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div> */}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {/* Product Code  */}
+                {/* <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
+                    What kind of program are you looking for?{" "}
+                    <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={selectedProduct}
+                    onChange={(e) => {
+                      setSelectedProduct(e.target.value);
+                      updateLoanRequest("purpose", "");
+                      setDynamicSections([]);
+                      setActiveSectionIndex(null);
+                    }}
+                    className={`w-full px-4 py-1 rounded-md border
+border-slate-300 dark:border-slate-600
+bg-white dark:bg-slate-900
+text-slate-800 dark:text-slate-200
+focus:ring-2 focus:ring-blue-500/20
+focus:border-blue-500 outline-none text-sm ${
+                      errors["selectedProduct"]
+                        ? "border-red-500 bg-red-50"
+                        : "border-slate-300"
+                    }
+  bg-white focus:ring-2 focus:ring-blue-500/20 
+  focus:border-blue-500 outline-none transition text-sm`}
+                  >
+                    <option value="">Select Program</option>
+
+                    {loadingProducts ? (
+                      <option disabled>Loading...</option>
+                    ) : (
+                      loanProducts.map((code) => (
+                        <option key={code} value={code}>
+                          {code}
+                        </option>
+                      ))
+                    )}
+                  </select>
+                  {errors["selectedProduct"] && (
+                    <p className="text-xs text-red-500 mt-1">
+                      {errors["selectedProduct"]}
+                    </p>
+                  )}
+                </div> */}
+
+                {/* Purpose */}
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
+                    Purpose of the Loan <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={formData.loanRequest.purpose}
+                    onChange={(e) =>
+                      updateLoanRequest("purpose", e.target.value)
+                    }
+                    disabled={!selectedProduct}
+                    className={`w-full px-4 py-1 rounded-md border
+border-slate-300 dark:border-slate-600
+bg-white dark:bg-slate-900
+text-slate-800 dark:text-slate-200
+focus:ring-2 focus:ring-blue-500/20
+focus:border-blue-500 outline-none text-sm ${
+                      errors["loanRequest.purpose"]
+                        ? "border-red-500 bg-red-50"
+                        : "border-slate-300"
+                    }
+  bg-white focus:ring-2 focus:ring-blue-500/20 
+  focus:border-blue-500 outline-none transition text-sm`}
+                  >
+                    <option value="">
+                      {selectedProduct
+                        ? "Select Purpose"
+                        : "Select program first"}
+                    </option>
+
+                    {purposesToShow.map((purpose) => (
+                      <option key={purpose} value={purpose}>
+                        {purpose}
+                      </option>
+                    ))}
+                  </select>
+                  {errors["loanRequest.purpose"] && (
+                    <p className="text-xs text-red-500 mt-1">
+                      {errors["loanRequest.purpose"]}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-600 mb-1 dark:text-slate-300">
+                    Property Type <span className="text-red-500">*</span>
+                  </label>
+
+                  <select
+                    value={formData.loanRequest.propertyType}
+                    onChange={(e) => {
+                      updateLoanRequest("propertyType", e.target.value);
+                      updateLoanRequest("subPropertyType", ""); // reset child
+                    }}
+                    className={`w-full px-4 py-1 rounded-md border
+border-slate-300 dark:border-slate-600
+bg-white dark:bg-slate-900
+text-slate-800 dark:text-slate-200
+focus:ring-2 focus:ring-blue-500/20
+focus:border-blue-500 outline-none text-sm ${
+                      errors["loanRequest.propertyType"]
+                        ? "border-red-500 bg-red-50"
+                        : "border-slate-300"
+                    } bg-white focus:ring-2 focus:ring-blue-500/20
+  focus:border-blue-500 outline-none text-sm`}
+                  >
+                    <option value="">Select Property Type</option>
+                    {Object.keys(PROPERTY_TYPE_MAP).map((type) => (
+                      <option key={type} value={type}>
+                        {type.replace("_", " ")}
+                      </option>
+                    ))}
+                  </select>
+                  {errors["loanRequest.propertyType"] && (
+                    <p className="text-xs text-red-500 mt-1">
+                      {errors["loanRequest.propertyType"]}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-600 mb-1 dark:text-slate-300">
+                    Sub Property Type <span className="text-red-500">*</span>
+                  </label>
+
+                  <select
+                    value={formData.loanRequest.subPropertyType}
+                    onChange={(e) =>
+                      updateLoanRequest("subPropertyType", e.target.value)
+                    }
+                    disabled={!formData.loanRequest.propertyType}
+                    className={`w-full px-4 py-1 rounded-md border
+border-slate-300 dark:border-slate-600
+bg-white dark:bg-slate-900
+text-slate-800 dark:text-slate-200
+focus:ring-2 focus:ring-blue-500/20
+focus:border-blue-500 outline-none text-sm ${
+                      errors["loanRequest.subPropertyType"]
+                        ? "border-red-500 bg-red-50"
+                        : "border-slate-300"
+                    } bg-white focus:ring-2 focus:ring-blue-500/20
+  focus:border-blue-500 outline-none text-sm`}
+                  >
+                    <option value="">
+                      {formData.loanRequest.propertyType
+                        ? "Select Sub Property Type"
+                        : "Select Property Type First"}
+                    </option>
+
+                    {subPropertyOptions.map((sub) => (
+                      <option key={sub} value={sub}>
+                        {sub}
+                      </option>
+                    ))}
+                  </select>
+                  {errors["loanRequest.subPropertyType"] && (
+                    <p className="text-xs text-red-500 mt-1">
+                      {errors["loanRequest.subPropertyType"]}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
+                    Recourse <span className="text-red-500">*</span>
+                  </label>
+
+                  <select
+                    value={formData.loanRequest.recourse}
+                    onChange={(e) =>
+                      updateLoanRequest("recourse", e.target.value)
+                    }
+                    className={`w-full px-4 py-1 rounded-md border
+border-slate-300 dark:border-slate-600
+bg-white dark:bg-slate-900
+text-slate-800 dark:text-slate-200
+focus:ring-2 focus:ring-blue-500/20
+focus:border-blue-500 outline-none text-sm ${
+                      errors["loanRequest.recourse"]
+                        ? "border-red-500 bg-red-50"
+                        : "border-slate-300"
+                    } bg-white focus:ring-2 focus:ring-blue-500/20
+  focus:border-blue-500 outline-none text-sm`}
+                  >
+                    <option value="">Select Recourse</option>
+                    <option value="FULL_RECOURSE">Full Recourse</option>
+                    <option value="NON_RECOURSE">Non-Recourse</option>
+                  </select>
+                  {errors["loanRequest.recourse"] && (
+                    <p className="text-xs text-red-500 mt-1">
+                      {errors["loanRequest.recourse"]}
+                    </p>
+                  )}
+                </div>
+
+                {/* Loan Amount */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
+                    Amount of Loan Request{" "}
+                    <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={formData.loanRequest.amount}
+                    onChange={(e) => {
+                      const formatted = formatCurrency(e.target.value);
+                      updateLoanRequest("amount", formatted);
+                    }}
+                    placeholder="1,000,000"
+                    className={`w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
+                      errors["loanRequest.amount"]
+                        ? "border-red-500 bg-red-50"
+                        : "border-slate-300"
+                    }
+          focus:ring-2 focus:ring-blue-500/20 
+          focus:border-blue-500 outline-none transition text-sm`}
+                  />
+                  {errors["loanRequest.amount"] && (
+                    <p className="text-xs text-red-500 mt-1">
+                      {errors["loanRequest.amount"]}
+                    </p>
+                  )}
+                </div>
+
+                {/* Interest Rate */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
+                    Expected Interest Rate %{" "}
+                    <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.loanRequest.interestRate}
+                    onChange={(e) =>
+                      updateLoanRequest("interestRate", e.target.value)
+                    }
+                    placeholder="8"
+                    className={`w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
+                      errors["loanRequest.interestRate"]
+                        ? "border-red-500 bg-red-50"
+                        : "border-slate-300"
+                    }
+          focus:ring-2 focus:ring-blue-500/20 
+          focus:border-blue-500 outline-none transition text-sm`}
+                  />
+                  {errors["loanRequest.interestRate"] && (
+                    <p className="text-xs text-red-500 mt-1">
+                      {errors["loanRequest.interestRate"]}
+                    </p>
+                  )}
+                </div>
+
+                {/* Market Value */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-600 mb-1 dark:text-slate-300">
+                    Current Market Value (As-Is){" "}
+                    <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={formData.loanRequest.currentMarketValue}
+                    onChange={(e) =>
+                      handleAmountChange(
+                        "loanRequest",
+                        "currentMarketValue",
+                        e.target.value,
+                      )
+                    }
+                    placeholder="1,500,000"
+                    className={`w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
+                      errors["loanRequest.currentMarketValue"]
+                        ? "border-red-500 bg-red-50"
+                        : "border-slate-300"
+                    } 
+          focus:ring-2 focus:ring-blue-500/20 
+          focus:border-blue-500 outline-none transition text-sm`}
+                  />
+                  {errors["loanRequest.currentMarketValue"] && (
+                    <p className="text-xs text-red-500 mt-1">
+                      {errors["loanRequest.currentMarketValue"]}
+                    </p>
+                  )}
+                </div>
+
+                {/* Purchase Price */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-600 mb-1 dark:text-slate-300">
+                    Purchase Price $ <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={formData.loanRequest.purchasePrice}
+                    onChange={(e) =>
+                      handleAmountChange(
+                        "loanRequest",
+                        "purchasePrice",
+                        e.target.value,
+                      )
+                    }
+                    placeholder="1,200,000"
+                    className={`w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
+                      errors["loanRequest.purchasePrice"]
+                        ? "border-red-500 bg-red-50"
+                        : "border-slate-300"
+                    } 
+          focus:ring-2 focus:ring-blue-500/20 
+          focus:border-blue-500 outline-none transition text-sm`}
+                  />
+                  {errors["loanRequest.purchasePrice"] && (
+                    <p className="text-xs text-red-500 mt-1">
+                      {errors["loanRequest.purchasePrice"]}
+                    </p>
+                  )}
+                </div>
+
+                {/* Purchase Date */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-600 mb-1 dark:text-slate-300">
+                    Purchase Date <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.loanRequest.purchaseDate}
+                    onChange={(e) =>
+                      updateLoanRequest("purchaseDate", e.target.value)
+                    }
+                    className={`w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
+                      errors["loanRequest.purchaseDate"]
+                        ? "border-red-500 bg-red-50"
+                        : "border-slate-300"
+                    } 
+          focus:ring-2 focus:ring-blue-500/20 
+          focus:border-blue-500 outline-none transition text-sm`}
+                  />
+                  {errors["loanRequest.purchaseDate"] && (
+                    <p className="text-xs text-red-500 mt-1">
+                      {errors["loanRequest.purchaseDate"]}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-600 mb-1 dark:text-slate-300">
+                    Total Assets ($) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    required
+                    value={formData.loanRequest.totalAssets}
+                    onChange={(e) =>
+                      handleAmountChange(
+                        "loanRequest",
+                        "totalAssets",
+                        e.target.value,
+                      )
+                    }
+                    className={`w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200  ${
+                      errors["loanRequest.totalAssets"]
+                        ? "border-red-500 bg-red-50"
+                        : "border-slate-300"
+                    }
+    focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm`}
+                  />
+                  {errors["loanRequest.totalAssets"] && (
+                    <p className="text-xs text-red-500 mt-1">
+                      {errors["loanRequest.totalAssets"]}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-600 mb-1 dark:text-slate-300">
+                    Total Liabilities ($){" "}
+                    <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    required
+                    value={formData.loanRequest.totalLiabilities}
+                    onChange={(e) =>
+                      handleAmountChange(
+                        "loanRequest",
+                        "totalLiabilities",
+                        e.target.value,
+                      )
+                    }
+                    className={`w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200  ${
+                      errors["loanRequest.totalLiabilities"]
+                        ? "border-red-500 bg-red-50"
+                        : "border-slate-300"
+                    }
+    focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm`}
+                  />
+                  {errors["loanRequest.totalLiabilities"] && (
+                    <p className="text-xs text-red-500 mt-1">
+                      {errors["loanRequest.totalLiabilities"]}
+                    </p>
+                  )}
+                </div>
+
+                {/* ================= BUSINESS ADDRESS ================= */}
+
+                <div className="md:col-span-2">
+                  <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                    Business Address <span className="text-red-500">*</span>
+                  </label>
+
+                  <input
+                    value={formData.loanRequest.businessAddress}
+                    onChange={(e) =>
+                      updateLoanRequest("businessAddress", e.target.value)
+                    }
+                    placeholder="123 Main Street"
+                    className={`mt-1 w-full px-4 py-1 rounded-md border 
+    dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200
+    ${
+      errors["loanRequest.businessAddress"]
+        ? "border-red-500 bg-red-50"
+        : "border-slate-300"
+    }
+    focus:ring-2 focus:ring-blue-500/20 
+    focus:border-blue-500 outline-none text-sm`}
+                  />
+
+                  {errors["loanRequest.businessAddress"] && (
+                    <p className="text-xs text-red-500 mt-1">
+                      {errors["loanRequest.businessAddress"]}
+                    </p>
+                  )}
+                </div>
+
+                {/* CITY */}
+                <div>
+                  <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                    City <span className="text-red-500">*</span>
+                  </label>
+
+                  <input
+                    value={formData.loanRequest.city}
+                    onChange={(e) => updateLoanRequest("city", e.target.value)}
+                    className={`mt-1 w-full px-4 py-1 rounded-md border 
+    dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200
+    ${
+      errors["loanRequest.city"]
+        ? "border-red-500 bg-red-50"
+        : "border-slate-300"
+    }
+    focus:ring-2 focus:ring-blue-500/20 
+    focus:border-blue-500 outline-none text-sm`}
+                  />
+
+                  {errors["loanRequest.city"] && (
+                    <p className="text-xs text-red-500 mt-1">
+                      {errors["loanRequest.city"]}
+                    </p>
+                  )}
+                </div>
+
+                {/* STATE */}
+                <div>
+                  <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                    State <span className="text-red-500">*</span>
+                  </label>
+
+                  <select
+                    value={formData.loanRequest.state}
+                    onChange={(e) => updateLoanRequest("state", e.target.value)}
+                    className={`w-full px-4 py-1 rounded-md border 
+    dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200
+    ${
+      errors["loanRequest.state"]
+        ? "border-red-500 bg-red-50"
+        : "border-slate-300"
+    }
+    focus:ring-2 focus:ring-blue-500/20 
+    focus:border-blue-500 outline-none text-sm`}
+                  >
+                    <option value="">Select state</option>
+                    {US_STATES.map((state) => (
+                      <option key={state} value={state}>
+                        {state}
+                      </option>
+                    ))}
+                  </select>
+
+                  {errors["loanRequest.state"] && (
+                    <p className="text-xs text-red-500 mt-1">
+                      {errors["loanRequest.state"]}
+                    </p>
+                  )}
+                </div>
+
+                {/* ZIP */}
+                <div>
+                  <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                    ZIP <span className="text-red-500">*</span>
+                  </label>
+
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={formData.loanRequest.zip}
+                    onChange={(e) => updateLoanRequest("zip", e.target.value)}
+                    className={`mt-1 w-full px-4 py-1 rounded-md border 
+    dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200
+    ${
+      errors["loanRequest.zip"]
+        ? "border-red-500 bg-red-50"
+        : "border-slate-300"
+    }
+    focus:ring-2 focus:ring-blue-500/20 
+    focus:border-blue-500 outline-none text-sm`}
+                  />
+
+                  {errors["loanRequest.zip"] && (
+                    <p className="text-xs text-red-500 mt-1">
+                      {errors["loanRequest.zip"]}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* step 2 */}
+          {currentStep === 2 && (
+            <div
+              className="border border-slate-200 dark:border-slate-700 
+rounded-2xl p-6 bg-white dark:bg-slate-800"
+            >
+              {/* HEADER */}
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-semibold dark:text-white">
+                  Business / Entity Information
+                </h3>
+              </div>
+
+              {/* GRID */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Legal Name */}
+                <div className="md:col-span-2">
+                  <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                    Legal Business / Entity Name{" "}
+                    <span className="text-red-500">*</span>
+                  </label>
+
+                  <input
+                    value={formData.entity.legalName}
+                    onChange={(e) => updateEntity("legalName", e.target.value)}
+                    className={`mt-1 w-full px-4 py-1 rounded-md border 
+          dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200
+          ${
+            errors["entity.legalName"]
+              ? "border-red-500 bg-red-50"
+              : "border-slate-300"
+          }
+          focus:ring-2 focus:ring-blue-500/20 
+          focus:border-blue-500 outline-none text-sm`}
+                  />
+
+                  {errors["entity.legalName"] && (
+                    <p className="text-xs text-red-500 mt-1">
+                      {errors["entity.legalName"]}
+                    </p>
+                  )}
+                </div>
+
+                {/* Entity Type */}
+                <div>
+                  <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                    Entity Type <span className="text-red-500">*</span>
+                  </label>
+
+                  <select
+                    value={formData.entity.entityType}
+                    onChange={(e) => updateEntity("entityType", e.target.value)}
+                    className={`mt-1 w-full px-4 py-1 rounded-md border 
+          dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200
+          ${
+            errors["entity.entityType"]
+              ? "border-red-500 bg-red-50"
+              : "border-slate-300"
+          }
+          focus:ring-2 focus:ring-blue-500/20 
+          focus:border-blue-500 outline-none text-sm`}
+                  >
+                    <option value="">Select</option>
+                    <option value="LLC">LLC</option>
+                    <option value="CORP">Corporation</option>
+                    <option value="PARTNERSHIP">Partnership</option>
+                    <option value="SOLE">Sole Proprietor</option>
+                  </select>
+
+                  {errors["entity.entityType"] && (
+                    <p className="text-xs text-red-500 mt-1">
+                      {errors["entity.entityType"]}
+                    </p>
+                  )}
+                </div>
+
+                {/* DBA */}
+                <div>
+                  <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                    DBA (if applicable)
+                  </label>
+
+                  <input
+                    value={formData.entity.dba}
+                    onChange={(e) => updateEntity("dba", e.target.value)}
+                    className="mt-1 w-full px-4 py-1 rounded-md border border-slate-300 
+          dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200
+          focus:ring-2 focus:ring-blue-500/20 
+          focus:border-blue-500 outline-none text-sm"
+                  />
+                </div>
+
+                {/* Formation Date */}
+                <div>
+                  <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                    Entity Formation Date{" "}
+                    <span className="text-red-500">*</span>
+                  </label>
+
+                  <input
+                    type="date"
+                    value={formData.entity.formationDate}
+                    onChange={(e) =>
+                      updateEntity("formationDate", e.target.value)
+                    }
+                    className={`mt-1 w-full px-4 py-1 rounded-md border 
+          dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200
+          ${
+            errors["entity.formationDate"]
+              ? "border-red-500 bg-red-50"
+              : "border-slate-300"
+          }
+          focus:ring-2 focus:ring-blue-500/20 
+          focus:border-blue-500 outline-none text-sm`}
+                  />
+
+                  {errors["entity.formationDate"] && (
+                    <p className="text-xs text-red-500 mt-1">
+                      {errors["entity.formationDate"]}
+                    </p>
+                  )}
+                </div>
+
+                {/* Years */}
+                <div>
+                  <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                    Years in Business <span className="text-red-500">*</span>
+                  </label>
+
+                  <input
+                    type="number"
+                    value={formData.entity.yearsInBusiness}
+                    onChange={(e) =>
+                      updateEntity("yearsInBusiness", e.target.value)
+                    }
+                    className={`mt-1 w-full px-4 py-1 rounded-md border 
+          dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200
+          ${
+            errors["entity.yearsInBusiness"]
+              ? "border-red-500 bg-red-50"
+              : "border-slate-300"
+          }
+          focus:ring-2 focus:ring-blue-500/20 
+          focus:border-blue-500 outline-none text-sm`}
+                  />
+
+                  {errors["entity.yearsInBusiness"] && (
+                    <p className="text-xs text-red-500 mt-1">
+                      {errors["entity.yearsInBusiness"]}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ---------------- BORROWER INFORMATION ---------------- */}
+          {/* step-3   */}
+          {currentStep === 3 && (
             <>
               <div
                 className="border border-slate-200 dark:border-slate-700 
@@ -1510,7 +2452,7 @@ rounded-2xl p-6 bg-white dark:bg-slate-800"
                   >
                     + Add Co-Borrower
                   </button>
-                </div>  
+                </div>
 
                 {/* Primary Borrower */}
                 <div className="flex items-center justify-between mb-4">
@@ -2322,430 +3264,8 @@ focus:border-blue-500 outline-none text-sm ${
             </>
           )}
 
-          {/* ================= STEP 1 ================= */}
-          {currentStep === 1 && (
-            <div className="border border-slate-200 dark:border-slate-700 rounded-2xl p-6 bg-white dark:bg-slate-800">
-              <h3 className="text-lg font-semibold mb-6 dark:text-white">
-                Loan Request Details
-              </h3>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                {/* Product Code  */}
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
-                    What kind of program are you looking for?{" "}
-                    <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={selectedProduct}
-                    onChange={(e) => {
-                      setSelectedProduct(e.target.value);
-                      updateLoanRequest("purpose", "");
-                      setDynamicSections([]);
-                      setActiveSectionIndex(null);
-                    }}
-                    className={`w-full px-4 py-1 rounded-md border
-border-slate-300 dark:border-slate-600
-bg-white dark:bg-slate-900
-text-slate-800 dark:text-slate-200
-focus:ring-2 focus:ring-blue-500/20
-focus:border-blue-500 outline-none text-sm ${
-                      errors["selectedProduct"]
-                        ? "border-red-500 bg-red-50"
-                        : "border-slate-300"
-                    }
-  bg-white focus:ring-2 focus:ring-blue-500/20 
-  focus:border-blue-500 outline-none transition text-sm`}
-                  >
-                    <option value="">Select Program</option>
-
-                    {loadingProducts ? (
-                      <option disabled>Loading...</option>
-                    ) : (
-                      loanProducts.map((code) => (
-                        <option key={code} value={code}>
-                          {code}
-                        </option>
-                      ))
-                    )}
-                  </select>
-                  {errors["selectedProduct"] && (
-                    <p className="text-xs text-red-500 mt-1">
-                      {errors["selectedProduct"]}
-                    </p>
-                  )}
-                </div>
-
-                {/* Purpose */}
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
-                    Purpose of the Loan <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={formData.loanRequest.purpose}
-                    onChange={(e) =>
-                      updateLoanRequest("purpose", e.target.value)
-                    }
-                    disabled={!selectedProduct}
-                    className={`w-full px-4 py-1 rounded-md border
-border-slate-300 dark:border-slate-600
-bg-white dark:bg-slate-900
-text-slate-800 dark:text-slate-200
-focus:ring-2 focus:ring-blue-500/20
-focus:border-blue-500 outline-none text-sm ${
-                      errors["loanRequest.purpose"]
-                        ? "border-red-500 bg-red-50"
-                        : "border-slate-300"
-                    }
-  bg-white focus:ring-2 focus:ring-blue-500/20 
-  focus:border-blue-500 outline-none transition text-sm`}
-                  >
-                    <option value="">
-                      {selectedProduct
-                        ? "Select Purpose"
-                        : "Select program first"}
-                    </option>
-
-                    {purposesToShow.map((purpose) => (
-                      <option key={purpose} value={purpose}>
-                        {purpose}
-                      </option>
-                    ))}
-                  </select>
-                  {errors["loanRequest.purpose"] && (
-                    <p className="text-xs text-red-500 mt-1">
-                      {errors["loanRequest.purpose"]}
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-600 mb-1 dark:text-slate-300">
-                    Property Type <span className="text-red-500">*</span>
-                  </label>
-
-                  <select
-                    value={formData.loanRequest.propertyType}
-                    onChange={(e) => {
-                      updateLoanRequest("propertyType", e.target.value);
-                      updateLoanRequest("subPropertyType", ""); // reset child
-                    }}
-                    className={`w-full px-4 py-1 rounded-md border
-border-slate-300 dark:border-slate-600
-bg-white dark:bg-slate-900
-text-slate-800 dark:text-slate-200
-focus:ring-2 focus:ring-blue-500/20
-focus:border-blue-500 outline-none text-sm ${
-                      errors["loanRequest.propertyType"]
-                        ? "border-red-500 bg-red-50"
-                        : "border-slate-300"
-                    } bg-white focus:ring-2 focus:ring-blue-500/20
-  focus:border-blue-500 outline-none text-sm`}
-                  >
-                    <option value="">Select Property Type</option>
-                    {Object.keys(PROPERTY_TYPE_MAP).map((type) => (
-                      <option key={type} value={type}>
-                        {type.replace("_", " ")}
-                      </option>
-                    ))}
-                  </select>
-                  {errors["loanRequest.propertyType"] && (
-                    <p className="text-xs text-red-500 mt-1">
-                      {errors["loanRequest.propertyType"]}
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-600 mb-1 dark:text-slate-300">
-                    Sub Property Type <span className="text-red-500">*</span>
-                  </label>
-
-                  <select
-                    value={formData.loanRequest.subPropertyType}
-                    onChange={(e) =>
-                      updateLoanRequest("subPropertyType", e.target.value)
-                    }
-                    disabled={!formData.loanRequest.propertyType}
-                    className={`w-full px-4 py-1 rounded-md border
-border-slate-300 dark:border-slate-600
-bg-white dark:bg-slate-900
-text-slate-800 dark:text-slate-200
-focus:ring-2 focus:ring-blue-500/20
-focus:border-blue-500 outline-none text-sm ${
-                      errors["loanRequest.subPropertyType"]
-                        ? "border-red-500 bg-red-50"
-                        : "border-slate-300"
-                    } bg-white focus:ring-2 focus:ring-blue-500/20
-  focus:border-blue-500 outline-none text-sm`}
-                  >
-                    <option value="">
-                      {formData.loanRequest.propertyType
-                        ? "Select Sub Property Type"
-                        : "Select Property Type First"}
-                    </option>
-
-                    {subPropertyOptions.map((sub) => (
-                      <option key={sub} value={sub}>
-                        {sub}
-                      </option>
-                    ))}
-                  </select>
-                  {errors["loanRequest.subPropertyType"] && (
-                    <p className="text-xs text-red-500 mt-1">
-                      {errors["loanRequest.subPropertyType"]}
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
-                    Recourse <span className="text-red-500">*</span>
-                  </label>
-
-                  <select
-                    value={formData.loanRequest.recourse}
-                    onChange={(e) =>
-                      updateLoanRequest("recourse", e.target.value)
-                    }
-                    className={`w-full px-4 py-1 rounded-md border
-border-slate-300 dark:border-slate-600
-bg-white dark:bg-slate-900
-text-slate-800 dark:text-slate-200
-focus:ring-2 focus:ring-blue-500/20
-focus:border-blue-500 outline-none text-sm ${
-                      errors["loanRequest.recourse"]
-                        ? "border-red-500 bg-red-50"
-                        : "border-slate-300"
-                    } bg-white focus:ring-2 focus:ring-blue-500/20
-  focus:border-blue-500 outline-none text-sm`}
-                  >
-                    <option value="">Select Recourse</option>
-                    <option value="FULL_RECOURSE">Full Recourse</option>
-                    <option value="NON_RECOURSE">Non-Recourse</option>
-                  </select>
-                  {errors["loanRequest.recourse"] && (
-                    <p className="text-xs text-red-500 mt-1">
-                      {errors["loanRequest.recourse"]}
-                    </p>
-                  )}
-                </div>
-
-                {/* Loan Amount */}
-                <div>
-                  <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
-                    Amount of Loan Request{" "}
-                    <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={formData.loanRequest.amount}
-                    onChange={(e) => {
-                      const formatted = formatCurrency(e.target.value);
-                      updateLoanRequest("amount", formatted);
-                    }}
-                    placeholder="1,000,000"
-                    className={`w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
-                      errors["loanRequest.amount"]
-                        ? "border-red-500 bg-red-50"
-                        : "border-slate-300"
-                    }
-          focus:ring-2 focus:ring-blue-500/20 
-          focus:border-blue-500 outline-none transition text-sm`}
-                  />
-                  {errors["loanRequest.amount"] && (
-                    <p className="text-xs text-red-500 mt-1">
-                      {errors["loanRequest.amount"]}
-                    </p>
-                  )}
-                </div>
-
-                {/* Interest Rate */}
-                <div>
-                  <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
-                    Expected Interest Rate %{" "}
-                    <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.loanRequest.interestRate}
-                    onChange={(e) =>
-                      updateLoanRequest("interestRate", e.target.value)
-                    }
-                    placeholder="8"
-                    className={`w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
-                      errors["loanRequest.interestRate"]
-                        ? "border-red-500 bg-red-50"
-                        : "border-slate-300"
-                    }
-          focus:ring-2 focus:ring-blue-500/20 
-          focus:border-blue-500 outline-none transition text-sm`}
-                  />
-                  {errors["loanRequest.interestRate"] && (
-                    <p className="text-xs text-red-500 mt-1">
-                      {errors["loanRequest.interestRate"]}
-                    </p>
-                  )}
-                </div>
-
-                {/* Market Value */}
-                <div>
-                  <label className="block text-sm font-medium text-slate-600 mb-1 dark:text-slate-300">
-                    Current Market Value (As-Is){" "}
-                    <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={formData.loanRequest.currentMarketValue}
-                    onChange={(e) =>
-                      handleAmountChange(
-                        "loanRequest",
-                        "currentMarketValue",
-                        e.target.value,
-                      )
-                    }
-                    placeholder="1,500,000"
-                    className={`w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
-                      errors["loanRequest.currentMarketValue"]
-                        ? "border-red-500 bg-red-50"
-                        : "border-slate-300"
-                    } 
-          focus:ring-2 focus:ring-blue-500/20 
-          focus:border-blue-500 outline-none transition text-sm`}
-                  />
-                  {errors["loanRequest.currentMarketValue"] && (
-                    <p className="text-xs text-red-500 mt-1">
-                      {errors["loanRequest.currentMarketValue"]}
-                    </p>
-                  )}
-                </div>
-
-                {/* Purchase Price */}
-                <div>
-                  <label className="block text-sm font-medium text-slate-600 mb-1 dark:text-slate-300">
-                    Purchase Price $ <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={formData.loanRequest.purchasePrice}
-                    onChange={(e) =>
-                      handleAmountChange(
-                        "loanRequest",
-                        "purchasePrice",
-                        e.target.value,
-                      )
-                    }
-                    placeholder="1,200,000"
-                    className={`w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
-                      errors["loanRequest.purchasePrice"]
-                        ? "border-red-500 bg-red-50"
-                        : "border-slate-300"
-                    } 
-          focus:ring-2 focus:ring-blue-500/20 
-          focus:border-blue-500 outline-none transition text-sm`}
-                  />
-                  {errors["loanRequest.purchasePrice"] && (
-                    <p className="text-xs text-red-500 mt-1">
-                      {errors["loanRequest.purchasePrice"]}
-                    </p>
-                  )}
-                </div>
-
-                {/* Purchase Date */}
-                <div>
-                  <label className="block text-sm font-medium text-slate-600 mb-1 dark:text-slate-300">
-                    Purchase Date <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="date"
-                    value={formData.loanRequest.purchaseDate}
-                    onChange={(e) =>
-                      updateLoanRequest("purchaseDate", e.target.value)
-                    }
-                    className={`w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
-                      errors["loanRequest.purchaseDate"]
-                        ? "border-red-500 bg-red-50"
-                        : "border-slate-300"
-                    } 
-          focus:ring-2 focus:ring-blue-500/20 
-          focus:border-blue-500 outline-none transition text-sm`}
-                  />
-                  {errors["loanRequest.purchaseDate"] && (
-                    <p className="text-xs text-red-500 mt-1">
-                      {errors["loanRequest.purchaseDate"]}
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-600 mb-1 dark:text-slate-300">
-                    Total Assets ($) <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    required
-                    value={formData.loanRequest.totalAssets}
-                    onChange={(e) =>
-                      handleAmountChange(
-                        "loanRequest",
-                        "totalAssets",
-                        e.target.value,
-                      )
-                    }
-                    className={`w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200  ${
-                      errors["loanRequest.totalAssets"]
-                        ? "border-red-500 bg-red-50"
-                        : "border-slate-300"
-                    }
-    focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm`}
-                  />
-                  {errors["loanRequest.totalAssets"] && (
-                    <p className="text-xs text-red-500 mt-1">
-                      {errors["loanRequest.totalAssets"]}
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-600 mb-1 dark:text-slate-300">
-                    Total Liabilities ($){" "}
-                    <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    required
-                    value={formData.loanRequest.totalLiabilities}
-                    onChange={(e) =>
-                      handleAmountChange(
-                        "loanRequest",
-                        "totalLiabilities",
-                        e.target.value,
-                      )
-                    }
-                    className={`w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200  ${
-                      errors["loanRequest.totalLiabilities"]
-                        ? "border-red-500 bg-red-50"
-                        : "border-slate-300"
-                    }
-    focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm`}
-                  />
-                  {errors["loanRequest.totalLiabilities"] && (
-                    <p className="text-xs text-red-500 mt-1">
-                      {errors["loanRequest.totalLiabilities"]}
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ================= STEP 2 ================= */}
-          {currentStep === 2 && (
+          {/* ================= STEP 4 ================= */}
+          {currentStep === 4 && (
             <div className="border border-slate-200 dark:border-slate-700 rounded-2xl p-6 bg-white dark:bg-slate-800">
               <h3 className="text-xl font-semibold mb-6 dark:text-white">
                 Loan Term & Property Income

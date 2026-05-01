@@ -8,6 +8,7 @@ import {
   X,
   CheckCircle2,
   XCircle,
+  Inbox,
 } from "lucide-react";
 import RichEditor from "./Editor";
 import toast from "react-hot-toast";
@@ -57,7 +58,12 @@ export default function CreateCampaignPage() {
   const [setCampaignResult] = useState<any>(null);
 
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-//   const [setLoadingList] = useState(false);
+  const [loadingList, setLoadingList] = useState(false);
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
   const colorMap: Record<
     Color,
@@ -114,10 +120,10 @@ export default function CreateCampaignPage() {
       const token = sessionStorage.getItem("broker_token");
       if (!token) return;
 
-    //   setLoadingList(true);
+      setLoadingList(true);
 
       const res = await fetch(
-        `${import.meta.env.VITE_API_BASE}/broker/campaign/list`,
+        `${import.meta.env.VITE_API_BASE}/broker/campaign/list?page=${page}&limit=6&search=${debouncedSearch}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -127,16 +133,16 @@ export default function CreateCampaignPage() {
 
       const data = await res.json();
 
-      if (!res.ok) throw new Error("Failed to fetch campaigns");
+      if (!res.ok) throw new Error("Failed");
 
       if (data?.success) {
         setCampaigns(data.data);
+        setTotalPages(data.pagination.totalPages);
       }
     } catch (err) {
-      console.error(err);
       toast.error("Failed to load campaigns");
     } finally {
-    //   setLoadingList(false);
+      setLoadingList(false);
     }
   };
 
@@ -198,6 +204,14 @@ export default function CreateCampaignPage() {
     };
   }, []);
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 500); // 500ms debounce
+
+    return () => clearTimeout(timer);
+  }, [search]);
+
   const isValidEmail = (email: string) =>
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
@@ -206,6 +220,12 @@ export default function CreateCampaignPage() {
     .filter((s) =>
       input ? s.toLowerCase().includes(input.toLowerCase()) : true,
     );
+
+  useEffect(() => {
+    if (activeTab === "result") {
+      fetchCampaigns();
+    }
+  }, [activeTab, page, debouncedSearch]);
 
   const handleSendCampaign = async () => {
     try {
@@ -449,14 +469,17 @@ export default function CreateCampaignPage() {
 
                     {/* DROPDOWN */}
                     {showDropdown && filteredSuggestions.length > 0 && (
-                      <div onClick={(e) => e.stopPropagation()} className="absolute z-20 mt-2 w-full bg-white border border-gray-200 rounded-xl shadow-lg max-h-52 overflow-auto">
+                      <div
+                        onClick={(e) => e.stopPropagation()}
+                        className="absolute z-20 mt-2 w-full bg-white border border-gray-200 rounded-xl shadow-lg max-h-52 overflow-auto"
+                      >
                         {filteredSuggestions.map((item) => (
                           <div
                             key={item}
                             onClick={() => addContact(item)}
                             className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-blue-50 cursor-pointer transition"
                           >
-                            <Mail size={14} className="text-gray-400" />        
+                            <Mail size={14} className="text-gray-400" />
                             <span className="text-gray-700">{item}</span>
                           </div>
                         ))}
@@ -650,6 +673,16 @@ export default function CreateCampaignPage() {
                   <span className="text-xs text-gray-400">
                     {campaigns.length} total
                   </span>
+
+                  <input
+                    value={search}
+                    onChange={(e) => {
+                      setSearch(e.target.value);
+                      setPage(1); // reset page on search
+                    }}
+                    placeholder="Search campaign..."
+                    className="border border-gray-200 rounded-lg px-3 py-1.5 text-xs outline-none"
+                  />
                 </div>
 
                 {/* TABLE */}
@@ -666,74 +699,143 @@ export default function CreateCampaignPage() {
                     </thead>
 
                     <tbody>
-                      {campaigns.map((c) => (
-                        <tr
-                          key={c.id}
-                          className="border-t hover:bg-gray-50 transition"
-                        >
-                          {/* NAME */}
-                          <td className="px-6 py-4">
-                            <p className="font-medium text-gray-900">
-                              {c.name}
-                            </p>
-                            <p className="text-xs text-gray-400">{c.subject}</p>
-                          </td>
-
-                          {/* STATUS */}
-                          <td className="px-6 py-4">
-                            {c.status === "SENT" ? (
-                              <span className="inline-flex items-center gap-1 text-green-600 text-xs font-medium">
-                                <CheckCircle2 size={14} />
-                                Sent
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 text-red-600 text-xs font-medium">
-                                <XCircle size={14} />
-                                Failed
-                              </span>
-                            )}
-                          </td>
-
-                          {/* STATS */}
-                          <td className="px-6 py-4 text-xs text-gray-600">
-                            <div className="space-y-1">
-                              <p>Total: {c.total}</p>
-                              <p>Sent: {c.sent}</p>
-                              <p>Failed: {c.failed}</p>
-                            </div>
-                          </td>
-
-                          {/* TYPE */}
-                          <td className="px-6 py-4 text-xs">
-                            {c.isRecurring ? (
-                              <span className="text-blue-600 font-medium">
-                                🔁 Every {c.intervalValue} {c.intervalUnit}
-                              </span>
-                            ) : (
-                              <span className="text-gray-400">One-time</span>
-                            )}
-                          </td>
-
-                          {/* DATE */}
-                          <td className="px-6 py-4 text-xs text-gray-500">
-                            {new Date(c.createdAt).toLocaleString()}
-                          </td>
-                        </tr>
-                      ))}
-
-                      {/* EMPTY STATE */}
-                      {!campaigns.length && (
+                      {/* 🔄 LOADING STATE */}
+                      {loadingList && (
                         <tr>
-                          <td
-                            colSpan={5}
-                            className="text-center py-10 text-gray-400 text-sm"
-                          >
-                            No campaigns found
+                          <td colSpan={5} className="py-10">
+                            <div className="flex flex-col items-center justify-center gap-3 text-gray-400">
+                              <div className="w-8 h-8 border-2 border-gray-300 border-t-[#2C92D5] rounded-full animate-spin" />
+                              <p className="text-xs">Loading campaigns...</p>
+                            </div>
                           </td>
                         </tr>
                       )}
+
+                      {/* ❌ EMPTY STATE */}
+                      {!loadingList && campaigns.length === 0 && (
+                        <tr>
+                          <td colSpan={5} className="py-16">
+                            <div className="flex flex-col items-center justify-center text-center">
+                              {/* ICON BOX */}
+                              <div className="w-14 h-14 rounded-2xl bg-[#2C92D5]/10 flex items-center justify-center shadow-sm">
+                                <Inbox className="w-6 h-6 text-[#2C92D5]" />
+                              </div>
+
+                              {/* TEXT */}
+                              <h3 className="mt-4 text-sm font-semibold text-gray-700">
+                                No campaigns yet
+                              </h3>
+
+                              <p className="text-xs text-gray-400 mt-1 max-w-[220px]">
+                                You haven’t created any campaigns. Start by
+                                launching your first one.
+                              </p>
+
+                              {/* CTA BUTTON */}
+                              <button
+                                onClick={() => setActiveTab("create")}
+                                className="mt-4 px-4 py-2 text-xs font-medium rounded-lg bg-[#2C92D5] text-white hover:bg-blue-600 transition"
+                              >
+                                + Create Campaign
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+
+                      {/* ✅ DATA */}
+                      {!loadingList &&
+                        campaigns.map((c) => (
+                          <tr
+                            key={c.id}
+                            className="border-t hover:bg-gray-50 transition"
+                          >
+                            <td className="px-6 py-4">
+                              <p className="font-medium text-gray-900">
+                                {c.name}
+                              </p>
+                              <p className="text-xs text-gray-400">
+                                {c.subject}
+                              </p>
+                            </td>
+
+                            <td className="px-6 py-4">
+                              {c.status === "SENT" ? (
+                                <span className="inline-flex items-center gap-1 text-green-600 text-xs font-medium">
+                                  <CheckCircle2 size={14} />
+                                  Sent
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-red-600 text-xs font-medium">
+                                  <XCircle size={14} />
+                                  Failed
+                                </span>
+                              )}
+                            </td>
+
+                            <td className="px-6 py-4 text-xs text-gray-600">
+                              <p>Total: {c.total}</p>
+                              <p>Sent: {c.sent}</p>
+                              <p>Failed: {c.failed}</p>
+                            </td>
+
+                            <td className="px-6 py-4 text-xs">
+                              {c.isRecurring ? (
+                                <span className="text-blue-600 font-medium">
+                                  🔁 Every {c.intervalValue} {c.intervalUnit}
+                                </span>
+                              ) : (
+                                <span className="text-gray-400">One-time</span>
+                              )}
+                            </td>
+
+                            <td className="px-6 py-4 text-xs text-gray-500">
+                              {new Date(c.createdAt).toLocaleString()}
+                            </td>
+                          </tr>
+                        ))}
                     </tbody>
                   </table>
+                  <div className="flex items-center justify-between px-6 py-4 border-t bg-gray-50/60">
+                    {/* LEFT: Info */}
+                    <p className="text-xs text-gray-500">
+                      Showing{" "}
+                      <span className="font-semibold text-gray-700">
+                        {page}
+                      </span>{" "}
+                      of{" "}
+                      <span className="font-semibold text-gray-700">
+                        {totalPages}
+                      </span>{" "}
+                      pages
+                    </p>
+
+                    {/* RIGHT: Controls */}
+                    <div className="flex items-center gap-2">
+                      {/* Prev */}
+                      <button
+                        disabled={page === 1}
+                        onClick={() => setPage((p) => p - 1)}
+                        className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 bg-white hover:bg-gray-100 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        ← Prev
+                      </button>
+
+                      {/* Page Indicator */}
+                      <div className="px-3 py-1.5 text-xs font-semibold bg-[#2C92D5]/10 text-[#2C92D5] rounded-lg">
+                        {page}
+                      </div>
+
+                      {/* Next */}
+                      <button
+                        disabled={page === totalPages}
+                        onClick={() => setPage((p) => p + 1)}
+                        className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 bg-white hover:bg-gray-100 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        Next →
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
