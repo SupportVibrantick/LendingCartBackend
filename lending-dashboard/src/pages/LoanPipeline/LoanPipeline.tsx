@@ -714,7 +714,7 @@ export default function LoanPipeline() {
                     { label: "Borrower" },
                     { label: "Loan Type" },
                     { label: "Amount" },
-                    { label: "Broker" },
+                    // { label: "Brokern" },
                     { label: "Application Status" },
                     { label: "Lender Decision" },
                     { label: "Received At" },
@@ -786,7 +786,7 @@ export default function LoanPipeline() {
                         </td>
 
                         {/* Amount */}
-                        <td className="px-5 py-4">
+                        <td className="px-4 py-4">
                           <span className="font-mono text-sm text-slate-800 dark:text-slate-200">
                             {row.amount > 0
                               ? `$${row.amount.toLocaleString()}`
@@ -795,12 +795,12 @@ export default function LoanPipeline() {
                         </td>
 
                         {/* Broker */}
-                        <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">
+                        {/* <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">
                           {row.brokerName.slice(0, 6) + "..."}
-                        </td>
+                        </td> */}
 
                         {/* Application Status */}
-                        <td className="px-6 py-4">
+                        <td className="px-4 py-4">
                           <span
                             className={`
                                                       inline-flex items-center whitespace-nowrap
@@ -814,7 +814,7 @@ export default function LoanPipeline() {
                         </td>
 
                         {/* Lender Decision */}
-                        <td className="px-6 py-4">
+                        <td className="px-4 py-4">
                           <span
                             className={`
                                                       inline-flex items-center whitespace-nowrap
@@ -832,7 +832,7 @@ export default function LoanPipeline() {
                         </td>
 
                         {/* Sent Date */}
-                        <td className="px-5 py-4 text-sm text-slate-500">
+                        <td className="px-4 py-4 text-sm text-slate-500">
                           {new Date(row.sentAt).toLocaleDateString()}
                         </td>
 

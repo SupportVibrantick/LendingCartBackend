@@ -48,7 +48,7 @@ type DocumentConfig = {
   maxFiles: number;
 
   notes?: string;
-  sortOrder?: number;
+  sortOrder?: number;      
 
   createdAt?: string;
 };
@@ -338,7 +338,7 @@ const AllLoanProducts: React.FC = () => {
       minFiles: config.minFiles,
       maxFiles: config.maxFiles,
 
-      notes: config.notes || "",
+      notes: config.notes || "", 
       sortOrder: config.sortOrder ?? 0,
     });
   };
@@ -511,76 +511,74 @@ const AllLoanProducts: React.FC = () => {
             </div>
 
             <div>
-  <label className="block text-sm font-medium mb-1">
-    Min Files
-  </label>
-  <input
-    type="number"
-    value={form.minFiles}
-    onChange={(e) =>
-      setForm((f) => ({
-        ...f,
-        minFiles: Number(e.target.value),
-      }))
-    }
-    className="w-full rounded-md border px-3 py-2 text-sm"
-    placeholder="e.g. 1"
-  />
-</div>
+              <label className="block text-sm font-medium mb-1">
+                Min Files
+              </label>
+              <input
+                type="number"
+                value={form.minFiles}
+                onChange={(e) =>
+                  setForm((f) => ({
+                    ...f,
+                    minFiles: Number(e.target.value),
+                  }))
+                }
+                className="w-full rounded-md border px-3 py-2 text-sm"
+                placeholder="e.g. 1"
+              />
+            </div>
 
-<div>
-  <label className="block text-sm font-medium mb-1">
-    Max Files
-  </label>
-  <input
-    type="number"
-    value={form.maxFiles}
-    onChange={(e) =>
-      setForm((f) => ({
-        ...f,
-        maxFiles: Number(e.target.value),
-      }))
-    }
-    className="w-full rounded-md border px-3 py-2 text-sm"
-    placeholder="e.g. 3"
-  />
-</div>
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Max Files
+              </label>
+              <input
+                type="number"
+                value={form.maxFiles}
+                onChange={(e) =>
+                  setForm((f) => ({
+                    ...f,
+                    maxFiles: Number(e.target.value),
+                  }))
+                }
+                className="w-full rounded-md border px-3 py-2 text-sm"
+                placeholder="e.g. 3"
+              />
+            </div>
 
-<div>
-  <label className="block text-sm font-medium mb-1">
-    Notes
-  </label>
-  <textarea
-    value={form.notes}
-    onChange={(e) =>
-      setForm((f) => ({
-        ...f,
-        notes: e.target.value,
-      }))
-    }
-    className="w-full rounded-md border px-3 py-2 text-sm"
-    rows={2}
-    placeholder="Enter notes..."
-  />
-</div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Notes</label>
+              <textarea
+                value={form.notes}
+                onChange={(e) =>
+                  setForm((f) => ({
+                    ...f,
+                    notes: e.target.value,
+                  }))
+                }
+                className="w-full rounded-md border px-3 py-2 text-sm"
+                rows={2}
+                placeholder="Enter notes..."
+              />
+            </div>
 
-<div>
-  <label className="block text-sm font-medium mb-1">
-    Sort Order
-  </label>
-  <input
-    type="number"
-    value={form.sortOrder}
-    onChange={(e) =>
-      setForm((f) => ({
-        ...f,
-        sortOrder: Number(e.target.value),
-      }))
-    }
-    className="w-full rounded-md border px-3 py-2 text-sm"
-    placeholder="e.g. 1"
-  />
-</div>
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Sort Order
+              </label>
+              <input
+                type="number"
+                value={form.sortOrder}
+                onChange={(e) =>
+                  setForm((f) => ({
+                    ...f,
+                    sortOrder: Number(e.target.value),
+                  }))
+                }
+                className="w-full rounded-md border px-3 py-2 text-sm"
+                placeholder="e.g. 1"
+              />
+            </div>
 
             {/* Is Mandatory */}
             <div>
@@ -659,46 +657,45 @@ const AllLoanProducts: React.FC = () => {
             </div>
 
             {/* RIGHT FILTER */}
-        <div className="flex items-center gap-3">
-
-  {/* Select Wrapper */}
-  <div className="relative">
-    <select
-      value={selectedProduct}
-      onChange={(e) => {
-        setSelectedProduct(e.target.value);
-        setPage(1);
-      }}
-      className="appearance-none text-sm pl-3 pr-10 py-2 rounded-xl border border-gray-200 bg-white shadow-sm 
+            <div className="flex items-center gap-3">
+              {/* Select Wrapper */}
+              <div className="relative">
+                <select
+                  value={selectedProduct}
+                  onChange={(e) => {
+                    setSelectedProduct(e.target.value);
+                    setPage(1);
+                  }}
+                  className="appearance-none text-sm pl-3 pr-10 py-2 rounded-xl border border-gray-200 bg-white shadow-sm 
                  focus:outline-none focus:ring-2 focus:ring-[#2C92D5] focus:border-transparent
                  hover:border-gray-300 transition
                  dark:bg-slate-800 dark:border-slate-600 dark:text-white"
-    >
-      <option value="">All Products</option>
+                >
+                  <option value="">All Products</option>
 
-      {loanProducts.map((lp) => (
-        <option key={lp.id} value={lp.loanProductCode}>
-          {lp.loanProduct?.name}
-        </option>
-      ))}
-    </select>
+                  {loanProducts.map((lp) => (
+                    <option key={lp.id} value={lp.loanProductCode}>
+                      {lp.loanProduct?.name}
+                    </option>
+                  ))}
+                </select>
 
-    {/* Dropdown Icon */}
-    <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-gray-400">
-      ▼
-    </div>
-  </div>
+                {/* Dropdown Icon */}
+                <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-gray-400">
+                  ▼
+                </div>
+              </div>
 
-  {/* Clear Button */}
-  {selectedProduct && (
-    <button
-      onClick={() => setSelectedProduct("")}
-      className="text-xs px-3 py-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition font-medium"
-    >
-      Clear
-    </button>
-  )}
-</div>
+              {/* Clear Button */}
+              {selectedProduct && (
+                <button
+                  onClick={() => setSelectedProduct("")}
+                  className="text-xs px-3 py-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition font-medium"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="overflow-auto">

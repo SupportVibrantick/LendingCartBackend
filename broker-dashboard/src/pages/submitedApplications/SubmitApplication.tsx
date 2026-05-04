@@ -4,7 +4,7 @@ import { createPortal } from "react-dom";
 import { useNavigate } from "react-router";
 import {
   MapPin,
-  Eye,
+  // Eye,
   Search,
   FileText,
   DollarSign,
@@ -114,7 +114,7 @@ export default function LoanApplicationsPage() {
   const [viewSubmissionId, setViewSubmissionId] = useState<string | null>(null);
   const [lenderSubmissionId] = useState<string | null>(null);
   const [submissionDetail, setSubmissionDetail] = useState<any>(null);
-  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailLoading] = useState<boolean>(false);
 
   // Find Lenders Modal State
   const [findLenderModalOpen, setFindLenderModalOpen] = useState(false);
@@ -243,25 +243,25 @@ export default function LoanApplicationsPage() {
 
   const totalVolume = rows.reduce((sum, r) => sum + r.amount, 0);
 
-  const fetchSubmissionDetail = async (submissionId: string) => {
-    try {
-      setDetailLoading(true);
-      setViewSubmissionId(submissionId);
+  // const fetchSubmissionDetail = async (submissionId: string) => {
+  //   try {
+  //     setDetailLoading(true);
+  //     setViewSubmissionId(submissionId);
 
-      const res = await fetch(
-        `${API_BASE}/api/public/broker/applications/submissions/${submissionId}`,
-      );
-      const json = await res.json();
+  //     const res = await fetch(
+  //       `${API_BASE}/api/public/broker/applications/submissions/${submissionId}`,
+  //     );
+  //     const json = await res.json();
 
-      if (!json.success) throw new Error("Failed to load submission");
+  //     if (!json.success) throw new Error("Failed to load submission");
 
-      setSubmissionDetail(json.data);
-    } catch (err: any) {
-      toast.error(err.message || "Failed to load submission");
-    } finally {
-      setDetailLoading(false);
-    }
-  };
+  //     setSubmissionDetail(json.data);
+  //   } catch (err: any) {
+  //     toast.error(err.message || "Failed to load submission");
+  //   } finally {
+  //     setDetailLoading(false);
+  //   }
+  // };
 
   /* ================= LENDER FETCHING ================= */
   const fetchLenders = async () => {
@@ -926,9 +926,9 @@ export default function LoanApplicationsPage() {
   // };
 
   return (
-    <div className="max-w-7xl bg-slate-50 dark:bg-[#0b1120] p-3 text-slate-900 dark:text-slate-100 selection:bg-blue-100 dark:selection:bg-blue-900/30">
+    <div className="min-w-full bg-slate-50 dark:bg-[#0b1120] p-3 text-slate-900 dark:text-slate-100 selection:bg-blue-100 dark:selection:bg-blue-900/30">
       {/* Header Area */}
-      <header className="max-w-7xl mx-auto mb-10">
+      <header className="max-w-ful mx-auto mb-10">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="space-y-1">
             <h2
@@ -1079,7 +1079,7 @@ export default function LoanApplicationsPage() {
               <thead className="sticky top-0 z-20 bg-white dark:bg-slate-900 shadow-sm">
                 <tr className="bg-slate-50/50 dark:bg-slate-800/40">
                   {[
-                    { label: "Borrower", width: "w-[160px]" },
+                    { label: "Borrower", width: "w-[120px]" },
                     { label: "Application No.", width: "w-[150px]" },
                     { label: "Loan Info", width: "w-[200px]" },
                     { label: "Location", width: "w-[130px]" },
@@ -1110,9 +1110,9 @@ export default function LoanApplicationsPage() {
                       {/* Borrower - High Emphasis */}
                       <td className="px-6 py-3">
                         <div className="flex items-center gap-3">
-                          <div className="h-10 w-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-700 dark:text-slate-300 font-bold">
+                          {/* <div className="h-10 w-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-700 dark:text-slate-300 font-bold">
                             {row.borrowerName?.charAt(0) || "U"}
-                          </div>
+                          </div> */}
                           <div className="flex flex-col min-w-0">
                             <span className="text-[13px] text-slate-900 dark:text-slate-100 truncate">
                               {(row.borrowerName &&
@@ -1341,7 +1341,7 @@ export default function LoanApplicationsPage() {
                               </button>
 
                               {/* View Details */}
-                              <button
+                              {/* <button
                                 onClick={() => {
                                   fetchSubmissionDetail(row.submissionId);
                                   setActiveDropdown(null);
@@ -1350,7 +1350,7 @@ export default function LoanApplicationsPage() {
                               >
                                 <Eye size={14} />
                                 View Details
-                              </button>
+                              </button> */}
 
                               {/* Send Client Link */}
                               <button

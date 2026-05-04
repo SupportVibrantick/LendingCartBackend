@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import RichEditor from "./Editor";
 import toast from "react-hot-toast";
+import Swal from "sweetalert2";
 
 type Contact = {
   email: string;
@@ -313,9 +314,24 @@ export default function CreateCampaignPage() {
   };
 
   const handleStopCampaign = async (id: string) => {
+    const result = await Swal.fire({
+      title: "Stop Campaign?",
+      text: "This recurring campaign will be stopped permanently.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#ef4444",
+      cancelButtonColor: "#6b7280",
+      confirmButtonText: "Yes, Stop it",
+      cancelButtonText: "Cancel",
+      reverseButtons: true,
+    });
+
+    if (!result.isConfirmed) return;
+
     try {
       const token = sessionStorage.getItem("broker_token");
       if (!token) return toast.error("Session expired");
+
       setStoppingId(id);
 
       const res = await fetch(
@@ -332,15 +348,25 @@ export default function CreateCampaignPage() {
 
       if (!res.ok) throw new Error(data?.message || "Failed");
 
-      toast.success("Campaign stopped successfully");
-      setStoppingId(null);
+      await Swal.fire({
+        title: "Stopped!",
+        text: "Campaign has been stopped successfully.",
+        icon: "success",
+        timer: 1500,
+        showConfirmButton: false,
+      });
 
-      //  Refresh list
+      setStoppingId(null);
       fetchCampaigns();
     } catch (err) {
       setStoppingId(null);
       console.error(err);
-      toast.error("Failed to stop campaign");
+
+      Swal.fire({
+        title: "Error",
+        text: "Failed to stop campaign",
+        icon: "error",
+      });
     }
   };
 

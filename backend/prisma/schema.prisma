@@ -374,8 +374,8 @@ model DocumentType {
   id                      String                           @id @default(uuid()) @db.Uuid
   name                    String
   code                    String
-  isCustom                Boolean                          @default(false)   
-  createdByOrgId          String?                          @db.Uuid          
+  isCustom                Boolean                          @default(false)
+  createdByOrgId          String?                          @db.Uuid
   description             String?
   isActive                Boolean                          @default(true)
   createdAt               DateTime                         @default(now()) @db.Timestamptz(6)
@@ -422,7 +422,7 @@ model LenderDocumentRequirement {
   updatedAt       DateTime      @updatedAt @db.Timestamptz(6)
   documentType    DocumentType  @relation(fields: [documentTypeId], references: [id])
   lenderProduct   LenderProduct @relation(fields: [lenderProductId], references: [id])
-   
+
   @@unique([lenderProductId, documentTypeId])
   @@index([lenderProductId])
   @@index([documentTypeId])
@@ -1263,8 +1263,8 @@ model Campaign {
 
   intervalValue Int?
   intervalUnit  CampaignIntervalUnit?
-  lastSentAt    DateTime? @db.Timestamptz(6)
-  isRecurring   Boolean   @default(false)
+  lastSentAt    DateTime?             @db.Timestamptz(6)
+  isRecurring   Boolean               @default(false)
 
   createdById String? @db.Uuid
 
@@ -1911,7 +1911,7 @@ enum CampaignStatus {
   SENT
   FAILED
   PAUSED
-  STOPPED  
+  STOPPED
 }
 
 enum EmailStatus {
@@ -1919,7 +1919,6 @@ enum EmailStatus {
   SENT
   FAILED
 }
-
 
 enum CampaignIntervalUnit {
   MINUTES

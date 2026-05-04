@@ -747,6 +747,11 @@ const LoanApplication = () => {
       addField("borrowerCity", formData.borrower.city);
       addField("borrowerState", formData.borrower.state);
       addField("borrowerCountry", "USA");
+      addField("dob", formData.borrower.dob);
+      addField("ssn", formData.borrower.ssn);
+      addField("address", formData.borrower.address);
+      addField("mailingAddress", formData.borrower.mailingAddress);
+      addField("employer", formData.borrower.employer);
 
       /* ================= LOAN REQUEST ================= */
 
@@ -770,6 +775,38 @@ const LoanApplication = () => {
 
       addField("loanTerm", formData.loanTermIncome.loanTerm);
       addField("noiActual", formData.loanTermIncome.noiActual);
+
+      // entity fields
+      addField("entityLegalName", formData.entity.legalName);
+      addField("entityType", formData.entity.entityType);
+      addField("dba", formData.entity.dba);
+      addField("formationDate", formData.entity.formationDate);
+      addField("yearsInBusiness", formData.entity.yearsInBusiness);
+
+      // loan request
+      addField(
+        "currentMarketValue",
+        toNumber(formData.loanRequest.currentMarketValue),
+      );
+      addField("purchasePrice", toNumber(formData.loanRequest.purchasePrice));
+      addField("purchaseDate", formData.loanRequest.purchaseDate);
+      addField("totalAssets", borrowerAssets);
+      addField("totalLiabilities", borrowerLiabilities);
+
+      // loanTermIncome
+      addField("monthlyRent", formData.loanTermIncome.monthlyRent);
+      addField(
+        "grossRevenueActual",
+        formData.loanTermIncome.grossRevenueActual,
+      );
+      addField(
+        "grossRevenueProforma",
+        formData.loanTermIncome.grossRevenueProforma,
+      );
+      addField("noiProforma", formData.loanTermIncome.noiProforma);
+      addField("annualTaxes", formData.loanTermIncome.annualTaxes);
+      addField("insurancePremium", formData.loanTermIncome.insurancePremium);
+      addField("hoaDues", formData.loanTermIncome.hoaDues);
 
       /* ================= CO BORROWERS ================= */
 

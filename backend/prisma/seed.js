@@ -35,7 +35,8 @@ async function main() {
   ];
 
   const orgName = process.env.SEED_ADMIN_ORG_NAME || "LendingCart Platform";
-  const orgEmail = process.env.SEED_ADMIN_ORG_EMAIL || "platform@lendingcart.local";
+  const orgEmail =
+    process.env.SEED_ADMIN_ORG_EMAIL || "platform@lendingcart.local";
 
   const adminEmail = process.env.SEED_ADMIN_EMAIL || "admin@lendingcart.local";
   const adminPassword = process.env.SEED_ADMIN_PASSWORD || "admin@123";
@@ -84,10 +85,12 @@ async function main() {
     },
   });
 
-  console.log("✅ Admin user upserted:", admin.id);
+  console.log("Admin user upserted:", admin.id);
 
   // 4) Ensure PLATFORM_ADMIN role exists and link user -> role via UserRole if not already linked
-  const platformAdminRole = await prisma.role.findFirst({ where: { name: "PLATFORM_ADMIN" } });
+  const platformAdminRole = await prisma.role.findFirst({
+    where: { name: "PLATFORM_ADMIN" },
+  });
   if (!platformAdminRole) {
     throw new Error("PLATFORM_ADMIN role not found after seeding.");
   }
@@ -105,7 +108,9 @@ async function main() {
     });
     console.log(`✅ Linked user ${admin.id} -> role ${platformAdminRole.name}`);
   } else {
-    console.log(`ℹ️  User ${admin.id} already has role ${platformAdminRole.name}`);
+    console.log(
+      `ℹ️  User ${admin.id} already has role ${platformAdminRole.name}`,
+    );
   }
 
   console.log("\n🎉 Seed finished.");

@@ -222,6 +222,16 @@ export default function LoanPreview() {
     }
   }, [applicationLenderId]);
 
+  useEffect(() => {
+    if (!selectedLoanProduct) {
+      setDocSelectModal({
+        documents: [],
+        selectedDocs: [],
+        loading: false,
+      });
+    }
+  }, [selectedLoanProduct]);
+
   const handleDownload = async (url: string, filename: string) => {
     try {
       const res = await fetch(url, {
@@ -705,182 +715,215 @@ export default function LoanPreview() {
     );
   };
 
-  const renderDocuments = () => {
-    if (documentsLoading) {
-      return (
-        <div className="flex flex-col items-center justify-center py-20 gap-3">
-          <Loader2 className="animate-spin w-8 h-8 text-blue-500" />
-          <p className="text-sm text-slate-500">Loading documents...</p>
-        </div>
-      );
-    }
-
-    if (!documentsData) {
-      return (
-        <div className="text-center py-16 text-slate-500">
-          No document data available.
-        </div>
-      );
-    }
-
+ const renderDocuments = () => {
+  if (documentsLoading) {
     return (
-      <div className="space-y-6">
-        <div className="flex items-center gap-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800">
-          <div className="flex-1">
-            <p className="text-xs text-slate-500 uppercase font-bold tracking-wider">
-              Pending Documents
-            </p>
-            <p className="text-xl font-bold text-amber-600">
-              {documentsData.documentsPendingCount}
-            </p>
-          </div>
-          <div className="flex-1">
-            <p className="text-xs text-slate-500 uppercase font-bold tracking-wider">
-              Total Documents
-            </p>
-            <p className="text-xl font-bold text-amber-600">
-              {documentsData.documents?.length || 0}
-            </p>
-          </div>
-        </div>
-
-        <div className="overflow-hidden border border-slate-200 dark:border-slate-800 rounded-xl">
-          <table className="w-full text-left border-collapse">
-            <thead className="bg-slate-50 dark:bg-slate-800/50 text-xs font-bold uppercase text-slate-500">
-              <tr>
-                <th className="px-4 py-3">Document Name</th>
-                <th className="px-4 py-3 text-center">Status</th>
-                <th className="px-4 py-3 text-center">Uploads</th>
-                <th className="px-4 py-3 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {documentsData.documents?.map((doc: any) => (
-                <tr
-                  key={doc.requirementId}
-                  className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors"
-                >
-                  <td className="px-4 py-4">
-                    <div className="flex flex-col">
-                      <span className="text-sm font-semibold">
-                        {doc.documentType?.name}
-                      </span>
-                      <span className="text-[10px] text-slate-400">
-                        Source: {doc.source}
-                        {doc.isRequired && (
-                          <span className="ml-2 text-rose-500 font-bold">
-                            * Required
-                          </span>
-                        )}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-4 text-center">
-                    <span
-                      className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${
-                        doc.status === "COMPLETED"
-                          ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400"
-                          : doc.status === "PARTIAL"
-                            ? "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400"
-                            : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
-                      }`}
-                    >
-                      {doc.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-4 text-center font-mono text-sm font-bold">
-                    {doc.uploadedCount}
-                  </td>
-                  <td className="px-4 py-4">
-                    <div className="flex justify-end gap-2">
-                      {doc.uploadedCount > 0 ? (
-                        <button
-                          onClick={() => {
-                            if (doc.uploadedCount === 1) {
-                              const file = doc.uploadedFiles[0];
-                              setPreviewFile({
-                                url: `${API_BASE}${file.fileUrl}`,
-                                type: file.fileMimeType,
-                                name: file.fileName,
-                              });
-                            } else {
-                              setMultiFileModal({
-                                isOpen: true,
-                                doc,
-                              });
-                            }
-                          }}
-                          className="p-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition-all flex items-center gap-1.5"
-                          title={
-                            doc.uploadedCount === 1
-                              ? "View Document"
-                              : "View Uploads"
-                          }
-                        >
-                          <Eye size={14} />
-                          {doc.uploadedCount > 1 && (
-                            <span className="text-[10px] font-bold">
-                              ({doc.uploadedCount})
-                            </span>
-                          )}
-                        </button>
-                      ) : (
-                        <span className="text-xs text-slate-400 italic">
-                          No files
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      <div className="flex flex-col items-center justify-center py-24 gap-4">
+        <Loader2 className="animate-spin w-10 h-10 text-blue-500" />
+        <p className="text-sm text-slate-500">Loading documents...</p>
       </div>
     );
+  }
+
+  if (!documentsData) {
+    return (
+      <div className="text-center py-20 text-slate-400">
+        No document data available.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* STATS CARDS */}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="rounded-2xl p-5 bg-gradient-to-br from-amber-50 to-white dark:from-slate-800 dark:to-slate-900 border dark:border-slate-700">
+          <p className="text-xs uppercase tracking-wider text-slate-400 font-semibold">
+            Pending Documents
+          </p>
+          <p className="text-xl font-bold text-amber-600 mt-1">
+            {documentsData.documentsPendingCount}
+          </p>
+        </div>
+
+        <div className="rounded-2xl p-5 bg-gradient-to-br from-blue-50 to-white dark:from-slate-800 dark:to-slate-900 border dark:border-slate-700">
+          <p className="text-xs uppercase tracking-wider text-slate-400 font-semibold">
+            Total Documents
+          </p>
+          <p className="text-xl font-bold text-blue-600 mt-1">
+            {documentsData.documents?.length || 0}
+          </p>
+        </div>
+      </div>
+
+      {/* TABLE CARD */}
+      <div className="rounded-2xl border bg-white dark:bg-slate-900 overflow-hidden dark:border-slate-700">
+        <div className="px-5 py-4 border-b dark:border-slate-800">
+          <h2 className="text-sm font-semibold text-slate-600 dark:text-slate-300">
+            Documents List
+          </h2>
+        </div>
+
+        <table className="w-full text-left">
+          <thead className="text-xs uppercase text-slate-400">
+            <tr>
+              <th className="px-5 py-3">Document</th>
+              <th className="px-5 py-3 text-center">Status</th>
+              <th className="px-5 py-3 text-center">Uploads</th>
+              <th className="px-5 py-3 text-right">Action</th>
+            </tr>
+          </thead>
+
+          <tbody className="divide-y dark:divide-slate-800">
+            {documentsData.documents?.map((doc: any) => (
+              <tr
+                key={doc.requirementId}
+                className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-all"
+              >
+                {/* 📄 DOCUMENT INFO */}
+                <td className="px-5 py-4">
+                  <div className="flex flex-col">
+                    <span className="font-semibold text-slate-700 dark:text-slate-200 text-sm">
+                      {doc.documentName}
+                    </span>
+
+                    <span className="text-xs text-slate-400 mt-1">
+                      {doc.source}
+                      {doc.isRequired && (
+                        <span className="ml-2 text-rose-500 font-semibold text-xs">
+                          • Required
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                </td>
+
+                {/* 📊 STATUS */}
+                <td className="px-5 py-4 text-center">
+                  <span
+                    className={`px-3 py-1 text-xs rounded-full ${
+                      doc.status === "COMPLETED"
+                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400"
+                        : doc.status === "PARTIAL"
+                        ? "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400"
+                        : "bg-yellow-100 text-yellow-700 dark:bg-yellow-500/10 dark:text-yellow-400"
+                    }`}
+                  >
+                    {doc.status}
+                  </span>
+                </td>
+
+                {/* COUNT */}
+                <td className="px-5 py-4 text-center">
+                  <span className="font-bold text-sm text-slate-700 dark:text-slate-200">
+                    {doc.uploadedCount}
+                  </span>
+                </td>
+
+                {/* ACTION */}
+                <td className="px-5 py-4 text-right">
+                  {doc.uploadedCount > 0 ? (
+                    <button
+                      onClick={() => {
+                        if (doc.uploadedCount === 1) {
+                          const file = doc.uploadedFiles[0];
+                          setPreviewFile({
+                            url: `${API_BASE}${file.fileUrl}`,
+                            type: file.fileMimeType,
+                            name: file.fileName,
+                          });
+                        } else {
+                          setMultiFileModal({
+                            isOpen: true,
+                            doc,
+                          });
+                        }
+                      }}
+                      className="group flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition-all duration-300"
+                    >
+                      <Eye size={14} />
+                      <span className="text-xs font-semibold">
+                        View
+                        {doc.uploadedCount > 1 &&
+                          ` (${doc.uploadedCount})`}
+                      </span>
+                    </button>
+                  ) : (
+                    <span className="text-xs text-slate-400 italic">
+                      No files
+                    </span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+};
+  const handleClearCustomDocs = () => {
+    setCustomDocs([]);
   };
 
   const renderRequestDocs = () => {
     return (
-      <div className="mx-auto bg-white dark:bg-slate-800/50 rounded-2xl p-6 space-y-6">
+      <div
+        className="mx-auto rounded-2xl p-6 space-y-6 
+  bg-white dark:bg-slate-800/60
+  border border-stroke dark:border-slate-700"
+      >
         {/* LOAN PRODUCT SELECT */}
         <div className="space-y-1">
           <label className="text-xs font-semibold text-gray-500">
             LOAN PROGRAM
           </label>
 
-      <div className="relative">
-  <select
-    value={selectedLoanProduct}
-    onChange={(e) => setSelectedLoanProduct(e.target.value)}
-    disabled={loadingProducts}
-    className="w-full px-4 py-2 text-sm rounded-xl border border-gray-200 bg-white 
+          <div className="relative">
+            <select
+              value={selectedLoanProduct}
+              onChange={(e) => {
+                const value = e.target.value;
+                setSelectedLoanProduct(value);
+
+                if (!value) {
+                  setDocSelectModal({
+                    documents: [],
+                    selectedDocs: [],
+                    loading: false,
+                  });
+                }
+              }}
+              disabled={loadingProducts}
+              className="w-full px-4 py-2 text-sm rounded-xl border border-gray-200 bg-white 
     focus:ring-2 focus:ring-[#18B6B4] outline-none appearance-none
-    disabled:bg-gray-100 disabled:cursor-not-allowed"
-  >
-    <option value="">
-      {loadingProducts ? "Loading loan products..." : "Select loan program"}
-    </option>
+    disabled:bg-gray-100 disabled:cursor-not-allowed dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200 dark:disabled:bg-slate-700/50"
+            >
+              <option value="">
+                {loadingProducts
+                  ? "Loading loan products..."
+                  : "Select loan program"}
+              </option>
 
-    {!loadingProducts &&
-      loanProducts.map((lp) => (
-        <option key={lp.id} value={lp.loanProductCode}>
-          {lp.loanProduct?.name || lp.name}
-        </option>
-      ))}
-  </select>
+              {!loadingProducts &&
+                loanProducts.map((lp) => (
+                  <option key={lp.id} value={lp.loanProductCode}>
+                    {lp.loanProduct?.name || lp.name}
+                  </option>
+                ))}
+            </select>
 
-  {/* RIGHT ICON */}
-  <div className="absolute right-3 top-2.5 text-gray-400 flex items-center gap-2">
-    {loadingProducts && (
-      <Loader2 className="w-4 h-4 animate-spin text-[#18B6B4]" />
-    )}
-  </div>
-</div>
+            {/* RIGHT ICON */}
+            <div className="absolute right-3 top-2.5 text-gray-400 flex items-center gap-2">
+              {loadingProducts && (
+                <Loader2 className="w-4 h-4 animate-spin text-[#18B6B4]" />
+              )}
+            </div>
+          </div>
         </div>
 
         {/* HEADER */}
-        {selectedLoanProduct && (
+        {selectedLoanProduct && docSelectModal.documents.length > 0 && (
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold">Select Documents</h2>
 
@@ -889,12 +932,13 @@ export default function LoanPreview() {
                 onClick={() =>
                   setDocSelectModal((prev) => ({
                     ...prev,
-                    selectedDocs: prev.documents.map(
-                      (d: any) => d.documentTypeId,
-                    ),
+                    selectedDocs:
+                      prev.documents?.map(
+                        (d: any) => d.documentTypeId || d.id,
+                      ) || [],
                   }))
                 }
-                className="px-3 py-1.5 text-xs rounded-lg bg-[#0F766E] text-white"
+                className="px-3 py-1.5 text-xs rounded-lg bg-[#0F766E] text-white dark:bg-[#0F766E]/80 dark:hover:bg-[#0F766E] transition-all"
               >
                 Select All
               </button>
@@ -927,123 +971,167 @@ export default function LoanPreview() {
           </div>
         )}
 
-        {/* 🔥 EMPTY */}
+        {/* EMPTY */}
         {!docSelectModal.loading &&
           selectedLoanProduct &&
           docSelectModal.documents.length === 0 && (
-            <div className="text-center py-10 text-gray-400 text-sm">
-              No documents found for selected loan product
+            <div
+              className="flex flex-col items-center justify-center py-12 px-6 text-center 
+  border-2 border-dashed border-[#18B6B4]/40 rounded-2xl 
+  bg-gradient-to-br from-[#e6f7f7] to-white 
+  dark:from-slate-800 dark:to-slate-900"
+            >
+              {/* ICON */}
+              <div className="w-14 h-14 rounded-full bg-[#18B6B4]/10 flex items-center justify-center mb-4">
+                <FileText className="w-6 h-6 text-[#18B6B4]" />
+              </div>
+
+              {/* TITLE */}
+              <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                No Documents Available
+              </p>
+
+              {/* SUBTEXT */}
+              <p className="text-xs text-slate-500 mt-1 max-w-xs">
+                There are no documents configured for the selected loan program.
+              </p>
             </div>
           )}
 
-        {/* 🔥 DOCUMENT CARDS */}
-        {!docSelectModal.loading && docSelectModal.documents.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 max-h-[420px] overflow-y-auto pr-1">
-            {docSelectModal.documents.map((doc: any) => {
-              const docId = doc.documentTypeId || doc.id;
-              const isChecked =
-                docSelectModal.selectedDocs?.includes(docId) ?? false;
+        {/* DOCUMENT CARDS */}
+        {!docSelectModal.loading &&
+          selectedLoanProduct &&
+          docSelectModal.documents.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 max-h-[420px] overflow-y-auto pr-1 dark:scrollbar-thumb-slate-700/80 dark:scrollbar-track-slate-800/50 scrollbar-thin scrollbar-thumb-rounded-full">
+              {docSelectModal.documents.map((doc: any) => {
+                const docId = doc.documentTypeId ?? doc.id ?? doc._id;
+                if (!docId) return null;
+                const isChecked =
+                  docSelectModal.selectedDocs?.includes(docId) ?? false;
 
-              return (
-                <div
-                  key={docId}
-                  onClick={() => {
-                    const updated = isChecked
-                      ? docSelectModal.selectedDocs.filter((id) => id !== docId)
-                      : [...docSelectModal.selectedDocs, docId];
+                return (
+                  <div
+                    key={docId}
+                    onClick={() => {
+                      const updated = isChecked
+                        ? docSelectModal.selectedDocs.filter(
+                            (id) => id !== docId,
+                          )
+                        : [
+                            ...new Set([
+                              ...(docSelectModal.selectedDocs || []),
+                              docId,
+                            ]),
+                          ];
 
-                    setDocSelectModal((prev) => ({
-                      ...prev,
-                      selectedDocs: updated,
-                    }));
-                  }}
-                  className={`group flex items-center justify-between px-3 py-2 rounded-lg border cursor-pointer transition-all duration-200
+                      setDocSelectModal((prev) => ({
+                        ...prev,
+                        selectedDocs: updated,
+                      }));
+                    }}
+                    className={`group flex items-center justify-between px-3 py-2 rounded-lg border cursor-pointer transition-all duration-200
           ${
             isChecked
               ? "border-[#18B6B4] bg-[#e6f7f7]"
               : "border-gray-200 hover:border-[#18B6B4]"
           }`}
-                >
-                  {/* LEFT */}
-                  <div className="flex items-center gap-2 min-w-0">
-                    {/* ICON */}
-                    <div
-                      className={`w-8 h-8 rounded-md flex items-center justify-center shrink-0
+                  >
+                    {/* LEFT */}
+                    <div className="flex items-center gap-2 min-w-0">
+                      {/* ICON */}
+                      <div
+                        className={`w-8 h-8 rounded-md flex items-center justify-center shrink-0
               ${
                 isChecked
                   ? "bg-[#18B6B4] text-white"
                   : "bg-blue-50 text-blue-500"
               }`}
-                    >
-                      <FileText size={16} />
-                    </div>
+                      >
+                        <FileText size={16} />
+                      </div>
 
-                    {/* TEXT */}
-                    <div className="min-w-0">
+                      {/* TEXT */}
                       <div className="min-w-0">
-                        {/* MAIN NAME (DOCUMENT NAME) */}
-                        <p className="text-xs font-semibold text-gray-800 truncate">
-                          {doc.documentName || doc.documentType?.name}
-                        </p>
+                        <div className="min-w-0">
+                          {/* MAIN NAME (DOCUMENT NAME) */}
+                          <p
+                            className={`text-xs font-semibold text-gray-800 truncate dark:text-[#18B6B4]`}
+                          >
+                            {doc.documentName || doc.documentType?.name}
+                          </p>
 
-                        {/* SUB TEXT */}
-                        <p className="text-[10px] text-gray-400 truncate">
-                          {doc.documentType?.name}
-                        </p>
+                          {/* SUB TEXT */}
+                          <p className="text-[10px] text-gray-400 truncate">
+                            {doc.documentType?.name}
+                          </p>
 
-                        {/* REQUIRED / OPTIONAL */}
-                        <p className="text-[9px] text-gray-400">
-                          {doc.isRequired ? "Required" : "Optional"}
-                        </p>
+                          {/* REQUIRED / OPTIONAL */}
+                          {/* <p className="text-[9px] text-gray-400">
+                            {doc.isRequired ? "Required" : "Optional"}
+                          </p> */}
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  {/* RIGHT */}
-                  <div className="flex items-center gap-2">
-                    {doc.isRequired && (
-                      <span className="text-[9px] px-1.5 py-[2px] rounded bg-red-50 text-red-500 font-semibold">
-                        Req
-                      </span>
-                    )}
+                    {/* RIGHT */}
+                    <div className="flex items-center gap-2">
+                      {/* {doc.isRequired && (
+                        <span className="text-[9px] px-1.5 py-[2px] rounded bg-red-50 text-red-500 font-semibold">
+                          Req
+                        </span>
+                      )} */}
 
-                    <div
-                      className={`w-4 h-4 rounded border flex items-center justify-center transition
+                      <div
+                        className={`w-4 h-4 rounded border flex items-center justify-center transition
               ${
                 isChecked
                   ? "bg-[#18B6B4] border-[#18B6B4]"
                   : "border-gray-300 group-hover:border-[#18B6B4]"
               }`}
-                    >
-                      {isChecked && <Check size={10} className="text-white" />}
+                      >
+                        {isChecked && (
+                          <Check size={10} className="text-white" />
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+                );
+              })}
+            </div>
+          )}
 
         <div className="space-y-3">
           {/* HEADER */}
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-full bg-purple-500 text-white text-xs flex items-center justify-center font-semibold">
-              B
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded-full bg-purple-500 text-white text-xs flex items-center justify-center font-semibold">
+                CD
+              </div>
+              <p className="text-xs font-semibold text-gray-500 tracking-wide">
+                CUSTOM DOCUMENTS
+              </p>
             </div>
-            <p className="text-xs font-semibold text-gray-500 tracking-wide">
-              CUSTOM DOCUMENTS
-            </p>
+
+            {/* CLEAR BUTTON (only when 3+ docs) */}
+            {customDocs.length > 2 && (
+              <button
+                onClick={handleClearCustomDocs}
+                className="text-[10px] px-2 py-1 rounded-md bg-red-50 text-red-600 font-semibold hover:bg-red-600 hover:text-white transition flex items-center gap-1"
+              >
+                Clear All
+              </button>
+            )}
           </div>
 
           {/* BOX */}
-          <div className="border border-dashed border-gray-300 rounded-xl p-4 space-y-3">
+          <div className="border border-dashed border-gray-300 rounded-xl p-4 space-y-3 dark:border-slate-700">
             {/* EXISTING CUSTOM DOCS */}
             {customDocs.length > 0 && (
               <div className="flex flex-wrap gap-2">
                 {customDocs.map((doc, index) => (
                   <div
                     key={index}
-                    className="flex items-center gap-2 bg-gray-100 px-3 py-1 rounded-full text-xs"
+                    className="flex items-center gap-2 bg-gray-100 px-3 py-1 rounded-full text-xs dark:text-slate-200 dark:bg-slate-700/50"
                   >
                     <span>{doc}</span>
 
@@ -1070,7 +1158,7 @@ export default function LoanPreview() {
                   }
                 }}
                 placeholder="Enter custom document..."
-                className="flex-1 text-sm px-3 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+                className="flex-1 text-sm px-3 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200"
               />
 
               <button
@@ -1094,7 +1182,7 @@ export default function LoanPreview() {
         </div>
 
         {/* FOOTER */}
-        <div className="flex items-center justify-between pt-4 border-t">
+        <div className="flex items-center justify-between pt-4 border-t dark:border-slate-700">
           <p className="text-sm text-slate-500">
             {docSelectModal.selectedDocs?.length || 0} selected
           </p>
@@ -1103,7 +1191,7 @@ export default function LoanPreview() {
             onClick={handleRequestDocuments}
             disabled={
               requestLoading ||
-              docSelectModal.selectedDocs.length === 0 ||
+              docSelectModal.selectedDocs?.length === 0 ||
               !selectedLoanProduct
             }
             className="px-5 py-2 rounded-xl bg-[#0F766E] text-white font-medium disabled:opacity-40"

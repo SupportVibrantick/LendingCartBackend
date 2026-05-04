@@ -58,6 +58,16 @@ type Lender = {
   rejectionReasons: string[];
 };
 
+type GroupedFields = {
+  primaryBorrower: SubmissionField[];
+  coBorrowers: Record<string, SubmissionField[]>;
+  entity: SubmissionField[];
+  property: SubmissionField[];
+  loan: SubmissionField[];
+  financial: SubmissionField[];
+  others: SubmissionField[];
+};
+
 // type UploadedPreview = {
 //   url: string;
 //   type: string;
@@ -780,7 +790,7 @@ const LoanPreview = () => {
 
       setBorrowerSummary(data.borrowerData);
 
-      // ✅ Merge all lenders into one array
+      // Merge all lenders into one array
       const allLenders = [
         ...(data.eligibleLenders || []).map((l: any) => ({
           id: l.lenderOrgId,
@@ -799,7 +809,7 @@ const LoanPreview = () => {
           fundingSpeedDays: l.lenderProfile?.fundingSpeedDays ?? 0,
           summary: l.lenderProfile?.summary,
 
-          // 🔥 IMPORTANT FLAGS
+          // IMPORTANT FLAGS
           type: "eligible",
           alreadySent: l.alreadySent,
           canSend: l.canSend,
@@ -825,7 +835,7 @@ const LoanPreview = () => {
 
           type: "rejected",
           alreadySent: l.alreadySent,
-          canSend: false,
+          canSend: false, 
           rejectionReasons: l.rejectionReasons || [],
         })),
 
@@ -1045,37 +1055,81 @@ const LoanPreview = () => {
     const signatureField = fields.find(
       (f: any) => f.fieldKey === "borrowerSignature",
     );
-    const allFields = fields.filter(
-      (f: any) => f.fieldKey !== "borrowerSignature",
-    );
-    const primaryFields: any[] = [];
-    const coBorrowerGroups: Record<string, any[]> = {};
-    const otherFields: any[] = [];
 
-    allFields.forEach((field: any) => {
+    const groups: GroupedFields = {
+      primaryBorrower: [],
+      coBorrowers: {},
+      entity: [],
+      property: [],
+      loan: [],
+      financial: [],
+      others: [],
+    };
+
+    fields.forEach((field: SubmissionField) => {
       const key = field.fieldKey || "";
+      if (!key || key === "borrowerSignature") return;
+
+      // CoBorrower
       if (key.startsWith("coBorrower_")) {
         const match = key.match(/^coBorrower_(\d+)_/);
         if (match) {
           const index = match[1];
-          if (!coBorrowerGroups[index]) {
-            coBorrowerGroups[index] = [];
+          if (!groups.coBorrowers[index]) {
+            groups.coBorrowers[index] = [];
           }
-          coBorrowerGroups[index].push(field);
+          groups.coBorrowers[index].push(field);
         }
-      } else if (
-        key.startsWith("borrower") ||
-        key === "city" ||
-        key === "state" ||
-        key === "isBroker"
-      ) {
-        primaryFields.push(field);
-      } else {
-        otherFields.push(field);
+        return;
       }
-    });
 
-    return { signatureField, primaryFields, coBorrowerGroups, otherFields };
+      // Property FIRST (important to avoid overlap)
+      if (/property/i.test(key)) {
+        groups.property.push(field);
+        return;
+      }
+
+      // Entity
+      if (/entity|dba|legalName|entityType|business/i.test(key)) {
+        groups.entity.push(field);
+        return;
+      }
+
+      // Financial
+      if (/noi|revenue|income|rent|tax|insurance|hoa/i.test(key)) {
+        groups.financial.push(field);
+        return;
+      }
+
+      // Loan
+      if (/loan|amount|ltv|ltc|dscr|interest|term/i.test(key)) {
+        groups.loan.push(field);
+        return;
+      }
+
+      // Primary Borrower (strict)
+      if (
+        key.startsWith("borrower") ||
+        /firstName|lastName|email|phone|dob|ssn|employer/i.test(key)
+      ) {
+        groups.primaryBorrower.push(field);
+        return;
+      }
+
+      // Address fallback (smart split)
+      if (/address|city|state|zip/i.test(key)) {
+        if (key.toLowerCase().includes("property")) {
+          groups.property.push(field);
+        } else {
+          groups.primaryBorrower.push(field);
+        }
+        return;
+      }
+
+      // Others
+      groups.others.push(field);
+    });
+    return { ...groups, signatureField };
   }, [fields]);
 
   const loanAmount = Number(getFieldValue(fields, "amountRequested") ?? 0) || 0;
@@ -1402,26 +1456,26 @@ const LoanPreview = () => {
         </div>
 
         <div className="space-y-10 rounded-xl border p-6 dark:border-slate-800">
-          {groupedFields.primaryFields.length > 0 && (
+          {groupedFields.primaryBorrower.length > 0 && (
             <div>
               <h3 className="mb-4 border-b pb-2 text-md font-bold">
                 Primary Borrower
               </h3>
               <div className="grid gap-6 md:grid-cols-2">
-                {groupedFields.primaryFields.map((field: any) => (
+                {groupedFields.primaryBorrower.map((field: any) => (
                   <FieldItem key={`${field.fieldKey}`} field={field} />
                 ))}
               </div>
             </div>
           )}
 
-          {Object.keys(groupedFields.coBorrowerGroups).map((index) => (
+          {Object.keys(groupedFields.coBorrowers).map((index) => (
             <div key={index}>
               <h3 className="mb-4 border-b pb-2 text-md font-bold">
                 Co Borrower {index}
               </h3>
               <div className="grid gap-6 md:grid-cols-2">
-                {groupedFields.coBorrowerGroups[index].map((field: any) => (
+                {groupedFields.coBorrowers[index].map((field: any) => (
                   <EditableFieldItem
                     key={field.fieldKey}
                     field={field}
@@ -1434,14 +1488,71 @@ const LoanPreview = () => {
             </div>
           ))}
 
-          {groupedFields.otherFields.length > 0 && (
+          {/* Entity */}
+          {groupedFields.entity.length > 0 && (
             <div>
-              <h3 className="mb-4 border-b pb-2 text-md font-bold ">
+              <h3 className="mb-4 border-b pb-2 text-md font-bold">
+                Entity Information
+              </h3>
+              <div className="grid gap-6 md:grid-cols-2">
+                {groupedFields.entity.map((field) => (
+                  <FieldItem key={field.fieldKey} field={field} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Property */}
+          {groupedFields.property.length > 0 && (
+            <div>
+              <h3 className="mb-4 border-b pb-2 text-md font-bold dark:border-slate-800">
+                Property Details
+              </h3>
+              <div className="grid gap-6 md:grid-cols-2">
+                {groupedFields.property.map((field) => (
+                  <FieldItem key={field.fieldKey} field={field} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Financial */}
+          {groupedFields.financial.length > 0 && (
+            <div>
+              <h3 className="mb-4 border-b pb-2 text-md font-bold">
+                Financial Details
+              </h3>
+              <div className="grid gap-6 md:grid-cols-2">
+                {groupedFields.financial.map((field) => (
+                  <FieldItem key={field.fieldKey} field={field} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Loan */}
+          {groupedFields.loan.length > 0 && (
+            <div>
+              <h3 className="mb-4 border-b pb-2 text-md font-bold">
                 Loan Details
               </h3>
               <div className="grid gap-6 md:grid-cols-2">
-                {groupedFields.otherFields.map((field: any) => (
-                  <FieldItem key={`${field.fieldKey}`} field={field} />
+                {groupedFields.loan.map((field) => (
+                  <FieldItem key={field.fieldKey} field={field} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Others */}
+          {groupedFields.others.length > 0 && (
+            <div>
+              <h3 className="mb-4 border-b pb-2 text-md font-bold">
+                Other Details
+              </h3>
+              <div className="grid gap-6 md:grid-cols-2">
+                {groupedFields.others.map((field) => (
+                  <FieldItem key={field.fieldKey} field={field} />
                 ))}
               </div>
             </div>
@@ -1590,7 +1701,7 @@ dark:border-slate-800 dark:bg-slate-900"
           className="space-y-10 rounded-xl border border-slate-200 p-6 
 bg-white dark:border-slate-800 dark:bg-slate-900"
         >
-          {groupedFields.primaryFields.length > 0 && (
+          {groupedFields.primaryBorrower.length > 0 && (
             <div>
               <h3
                 className="mb-4 border-b border-slate-200 pb-2 text-md font-bold 
@@ -1599,7 +1710,7 @@ text-slate-800 dark:border-slate-700 dark:text-slate-200"
                 Primary Borrower
               </h3>
               <div className="grid gap-6 md:grid-cols-2">
-                {groupedFields.primaryFields.map((field: any) => (
+                {groupedFields.primaryBorrower.map((field: any) => (
                   <EditableFieldItem
                     key={field.fieldKey}
                     field={field}
@@ -1612,13 +1723,13 @@ text-slate-800 dark:border-slate-700 dark:text-slate-200"
             </div>
           )}
 
-          {Object.keys(groupedFields.coBorrowerGroups).map((index) => (
+          {Object.keys(groupedFields.coBorrowers).map((index) => (
             <div key={index}>
               <h3 className="mb-4 border-b pb-2 text-md font-bold">
                 Co Borrower {index}
               </h3>
               <div className="grid gap-6 md:grid-cols-2">
-                {groupedFields.coBorrowerGroups[index].map((field: any) => (
+                {groupedFields.coBorrowers[index].map((field: any) => (
                   <EditableFieldItem
                     key={field.fieldKey}
                     field={field}
@@ -1631,13 +1742,113 @@ text-slate-800 dark:border-slate-700 dark:text-slate-200"
             </div>
           ))}
 
-          {groupedFields.otherFields.length > 0 && (
+          {groupedFields.others.length > 0 && (
             <div>
               <h3 className="mb-4 border-b pb-2 text-md font-bold dark:border-slate-800">
                 Loan Details
               </h3>
               <div className="grid gap-6 md:grid-cols-2">
-                {groupedFields.otherFields.map((field: any) => (
+                {groupedFields.others.map((field: any) => (
+                  <EditableFieldItem
+                    key={field.fieldKey}
+                    field={field}
+                    value={editableFieldValues[field.fieldKey || ""] ?? ""}
+                    onChange={handleEditableFieldChange}
+                    errors={errors}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Entity */}
+          {groupedFields.entity.length > 0 && (
+            <div>
+              <h3 className="mb-4 border-b pb-2 text-md font-bold dark:border-slate-800">
+                Entity Information
+              </h3>
+              <div className="grid gap-6 md:grid-cols-2">
+                {groupedFields.entity.map((field) => (
+                  <EditableFieldItem
+                    key={field.fieldKey}
+                    field={field}
+                    value={editableFieldValues[field.fieldKey || ""] ?? ""}
+                    onChange={handleEditableFieldChange}
+                    errors={errors}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Property */}
+          {groupedFields.property.length > 0 && (
+            <div>
+              <h3 className="mb-4 border-b pb-2 text-md font-bold dark:border-slate-800">
+                Property Details
+              </h3>
+              <div className="grid gap-6 md:grid-cols-2">
+                {groupedFields.property.map((field) => (
+                  <EditableFieldItem
+                    key={field.fieldKey}
+                    field={field}
+                    value={editableFieldValues[field.fieldKey || ""] ?? ""}
+                    onChange={handleEditableFieldChange}
+                    errors={errors}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Financial */}
+          {groupedFields.financial.length > 0 && (
+            <div>
+              <h3 className="mb-4 border-b pb-2 text-md font-bold dark:border-slate-800">
+                Financial Details
+              </h3>
+              <div className="grid gap-6 md:grid-cols-2">
+                {groupedFields.financial.map((field) => (
+                  <EditableFieldItem
+                    key={field.fieldKey}
+                    field={field}
+                    value={editableFieldValues[field.fieldKey || ""] ?? ""}
+                    onChange={handleEditableFieldChange}
+                    errors={errors}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Loan */}
+          {groupedFields.loan.length > 0 && (
+            <div>
+              <h3 className="mb-4 border-b pb-2 text-md font-bold dark:border-slate-800">
+                Loan Details
+              </h3>
+              <div className="grid gap-6 md:grid-cols-2">
+                {groupedFields.loan.map((field) => (
+                  <EditableFieldItem
+                    key={field.fieldKey}
+                    field={field}
+                    value={editableFieldValues[field.fieldKey || ""] ?? ""}
+                    onChange={handleEditableFieldChange}
+                    errors={errors}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Others */}
+          {groupedFields.others.length > 0 && (
+            <div>
+              <h3 className="mb-4 border-b pb-2 text-md font-bold dark:border-slate-800">
+                Other Details
+              </h3>
+              <div className="grid gap-6 md:grid-cols-2">
+                {groupedFields.others.map((field) => (
                   <EditableFieldItem
                     key={field.fieldKey}
                     field={field}
@@ -1929,7 +2140,6 @@ dark:border-slate-800 dark:bg-slate-900"
                 }, 100);
               }}
               className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all
-
       ${
         lenderFilter === type
           ? type === "eligible"
@@ -2027,12 +2237,16 @@ dark:border-slate-800 dark:bg-slate-900"
 
               <div>
                 <b>Score:</b>
-                <div className="text-blue-400 font-semibold">{borrowerSummary.creditScore}</div>
+                <div className="text-blue-400 font-semibold">
+                  {borrowerSummary.creditScore}
+                </div>
               </div>
 
               <div>
                 <b>Total Lenders:</b>
-                <div className="text-blue-400 font-semibold">{lenders.length}</div>
+                <div className="text-blue-400 font-semibold">
+                  {lenders.length}
+                </div>
               </div>
             </div>
           </div>
@@ -2150,9 +2364,7 @@ dark:bg-red-900/20 dark:text-red-400"
 
         {/* PAGINATION */}
         {!lenderLoading && filteredEligibleLenders.length > lenderLimit && (
-          <div
-            className="px-4 py-2 rounded-lg border border-slate-300 text-sm bg-white text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
-          >
+          <div className="px-4 py-2 rounded-lg border border-slate-300 text-sm bg-white text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800">
             <button
               disabled={lenderPage === 1}
               onClick={() => setLenderPage((p) => p - 1)}
@@ -2938,7 +3150,6 @@ dark:bg-red-900/20 dark:text-red-400"
                       key={tab.key}
                       onClick={() => setActiveTab(tab.key)}
                       className={`group relative inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium transition-all duration-200
-          
           ${
             isActive
               ? "bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-md"
