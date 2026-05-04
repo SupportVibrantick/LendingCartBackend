@@ -59,6 +59,7 @@ model UserAccount {
   lastLoginAt                DateTime?                   @db.Timestamptz(6)
   createdAt                  DateTime                    @default(now()) @db.Timestamptz(6)
   updatedAt                  DateTime                    @updatedAt @db.Timestamptz(6)
+
   uploadedDocs               ApplicationDocumentUpload[] @relation("UploadedByUser")
   applicationTemplates       ApplicationTemplate[]
   applicationSent            ApplicationLender[]         @relation("SentByUser")
@@ -67,12 +68,19 @@ model UserAccount {
   createdEscrowInstructions  EscrowInstruction[]         @relation("CreatedEscrowInstructions")
   lenderReviews              LenderReview[]              @relation("ReviewedByUser")
   brokerLoanApplications     LoanApplication[]           @relation("BrokerUserLoanApplications")
+
   organization               Organization?               @relation(fields: [organizationId], references: [id])
   roles                      UserRole[]
   brokerProfile              BrokerUserProfile?
   createdContacts            Contact[]
   userPermissions            UserPermission[]
   campaigns                  Campaign[]                  @relation("UserCampaigns")
+
+  // SUB BROKER RELATION (NEW - SAFE ADDITION)
+  createdById                String?                     @db.Uuid
+  createdBy                  UserAccount?                @relation("CreatedSubBrokers", fields: [createdById], references: [id])
+  createdSubBrokers          UserAccount[]               @relation("CreatedSubBrokers")
+
   // soft-delete fields (additive, non-breaking)
   isDeleted                  Boolean?                    @default(false) @map("is_deleted")
   deletedAt                  DateTime?                   @map("deleted_at") @db.Timestamptz(6)
@@ -1567,6 +1575,7 @@ enum RoleName {
   PLATFORM_SUPPORT
   BROKER_ADMIN
   BROKER_OFFICER
+  SUB_BROKER
   LENDER_ADMIN
   LENDER_UNDERWRITER
   CLIENT_USER
