@@ -9,14 +9,6 @@ module.exports = async function listSubmissionsTable(fastify) {
       const prisma = fastify.prisma;
 
       try {
-        /* ================= DEBUG ================= */
-        console.log("========= DEBUG START =========");
-        console.log("FULL USER:", req.user);
-        console.log("USER ID (FIXED):", req.user?.userId); // ✅ FIXED
-        console.log("ORG ID:", req.user?.organizationId);
-        console.log("ROLES:", req.user?.roles);
-        console.log("========= DEBUG END =========");
-
         /* ================= AUTH ================= */
 
         if (!req.user) {
@@ -26,15 +18,15 @@ module.exports = async function listSubmissionsTable(fastify) {
           });
         }
 
-        // ✅ 🔥 FIX HERE
-        const userId = req.user.userId; // ← THIS WAS YOUR BUG
+        const userId = req.user.id || req.user.userId;
         const orgId = req.user.organizationId;
         const roles = req.user.roles || [];
 
         const isAdmin = roles.includes("BROKER_ADMIN");
         const isOfficer = roles.includes("BROKER_OFFICER");
+        const isSubBroker = roles.includes("SUB_BROKER");
 
-        if (!isAdmin && !isOfficer) {
+        if (!isAdmin && !isOfficer && !isSubBroker) {
           return reply.code(403).send({
             success: false,
             message: "Access denied",
@@ -60,8 +52,7 @@ module.exports = async function listSubmissionsTable(fastify) {
           application: {
             brokerOrgId: orgId,
 
-            // ✅ NOW THIS WILL WORK
-            ...(isOfficer && {
+            ...((isOfficer || isSubBroker) && {
               brokerUserId: userId,
             }),
 
@@ -92,7 +83,6 @@ module.exports = async function listSubmissionsTable(fastify) {
 
         const submissions = await prisma.applicationSubmission.findMany({
           where: whereCondition,
-
           take: parsedLimit,
 
           ...(cursor && {
@@ -105,12 +95,20 @@ module.exports = async function listSubmissionsTable(fastify) {
           },
 
           include: {
+            fields: {
+              include: {
+                builderField: true,
+              },
+            },
+
             application: {
               select: {
                 id: true,
                 applicationNumber: true,
                 loanProductCode: true,
                 amountRequested: true,
+                status: true,
+                brokerUserId: true,
 
                 client: {
                   select: {
@@ -184,26 +182,69 @@ module.exports = async function listSubmissionsTable(fastify) {
               (doc) => doc.status !== "COMPLETE"
             ).length || 0;
 
+          // ✅ AMOUNT FROM FIELDS
+          const amountField = s.fields.find(
+            (f) =>
+              f.builderField?.fieldKey === "amountRequested" ||
+              f.builderField?.fieldKey === "loan_amount" ||
+              f.fieldKey === "amountRequested" ||
+              f.fieldKey === "loan_amount"
+          );
+
+          const amount = amountField?.value ?? null;
+
+          // ✅ LOCATION FROM FIELDS (FIXED)
+          // ✅ EXTRACT STATE
+const stateField = s.fields.find(
+  (f) =>
+    f.builderField?.fieldKey === "state" ||
+    f.fieldKey === "state"
+);
+
+// ✅ EXTRACT COUNTRY
+const countryField = s.fields.find(
+  (f) =>
+    f.builderField?.fieldKey === "country" ||
+    f.fieldKey === "country"
+);
+
+const state = stateField?.value ?? null;
+const country = countryField?.value ?? null;
+
+// ✅ FINAL LOCATION FORMAT
+const location =
+  state && country
+    ? `${state}, ${country}`
+    : state || country || "N/A";
+
           return {
             submissionId: s.id,
+            applicationId: app?.id,
+
             borrower,
             applicationNumber: app?.applicationNumber,
             loanInfo: app?.loanProductCode || null,
-            location: "N/A",
-            amount: app?.amountRequested || null,
-            status: s.status,
+
+            // ✅ FIXED
+            location,
+            amount,
+
+            status: app?.status,
+            submissionStatus: s.status,
+
             submittedOn: s.createdAt,
             pendingDocumentsCount,
 
-            assignedLoanOfficer: app?.brokerUser
-              ? {
-                  id: app.brokerUser.id,
-                  name: `${app.brokerUser.firstName || ""} ${
-                    app.brokerUser.lastName || ""
-                  }`.trim(),
-                  profileImage: app.brokerUser.profileImage || null,
-                }
-              : null,
+            assignedLoanOfficer:
+              isOfficer && app?.brokerUser
+                ? {
+                    id: app.brokerUser.id,
+                    name: `${app.brokerUser.firstName || ""} ${
+                      app.brokerUser.lastName || ""
+                    }`.trim(),
+                    profileImage: app.brokerUser.profileImage || null,
+                  }
+                : null,
 
             submittedToLenders:
               app?.applicationLenders?.map((l) => ({

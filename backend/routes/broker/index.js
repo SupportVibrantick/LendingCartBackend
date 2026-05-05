@@ -6,7 +6,6 @@ const applicationRoutes = require("./applications");
 const websiteBuilderRoutes = require("./websiteBuilder");
 const templateRoutes = require("./templates");
 
-
 // later you can add:
 // const documentRoutes = require("./documents");
 // const applicationRoutes = require("./applications");
@@ -42,6 +41,7 @@ module.exports = async function brokerRoutes(fastify, opts) {
       const roleChecker = instance.requireRole([
         "BROKER_ADMIN",
         "BROKER_OFFICER",
+        "SUB_BROKER",
       ]);
       await roleChecker(req, reply);
     });
@@ -55,11 +55,11 @@ module.exports = async function brokerRoutes(fastify, opts) {
       prefix: "/lenders",
     });
 
-    instance.register(whiteLabelRoutes,{
-      prefix : "/white-label",
+    instance.register(whiteLabelRoutes, {
+      prefix: "/white-label",
     });
 
-     instance.register(applicationRoutes, {
+    instance.register(applicationRoutes, {
       prefix: "/applications",
     });
 
@@ -68,31 +68,34 @@ module.exports = async function brokerRoutes(fastify, opts) {
     });
 
     instance.register(websiteBuilderRoutes, {
-    prefix: "/website-builder",
+      prefix: "/website-builder",
     });
 
-    fastify.register(
-  require("./lenderDiscovery"),
-  { prefix: "/lender-discovery" }   
-);
+    fastify.register(require("./lenderDiscovery"), {
+      prefix: "/lender-discovery",
+    });
 
     instance.register(require("./users"), {
-  prefix: "/users",
-});
+      prefix: "/users",
+    });
 
-instance.register(require("./contacts"),{
-  prefix:"/contacts",
-});
+    instance.register(require("./contacts"), {
+      prefix: "/contacts",
+    });
 
-instance.register(require("./campaign"), {
+    instance.register(require("./campaign"), {
       prefix: "/campaign",
     });
-fastify.register(require("./loanPipeline"),{prefix:"/loan-pipeline"});
-fastify.register(require("./logs"), { prefix: "/logs" });
-fastify.register(require("./stats"), { prefix: "/stats" });
-fastify.register(require("./notifications"), {
-  prefix: "/notifications"
-});
+
+    instance.register(require("./sub-broker"), {
+      prefix: "/sub-broker",
+    });
+    fastify.register(require("./loanPipeline"), { prefix: "/loan-pipeline" });
+    fastify.register(require("./logs"), { prefix: "/logs" });
+    fastify.register(require("./stats"), { prefix: "/stats" });
+    fastify.register(require("./notifications"), {
+      prefix: "/notifications",
+    });
     // Later extensions
     // instance.register(documentRoutes, { prefix: "/documents" });
     // instance.register(applicationRoutes, { prefix: "/applications" });

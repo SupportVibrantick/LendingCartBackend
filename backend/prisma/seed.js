@@ -1,39 +1,15 @@
-// backend/prisma/seed.js
+// backend/prisma/seedSubBrokerRole.js
+
 const { PrismaClient } = require("@prisma/client");
-const bcrypt = require("bcryptjs");
 
 const prisma = new PrismaClient();
 
-async function ensureRoles(roleNames = []) {
-  const created = [];
-  for (const name of roleNames) {
-    const existing = await prisma.role.findFirst({ where: { name } });
-    if (!existing) {
-      const r = await prisma.role.create({
-        data: { name, description: `${name} role seeded` },
-      });
-      created.push(r);
-      console.log(`✅ Created role: ${name} (${r.id})`);
-    } else {
-      console.log(`ℹ️  Role exists: ${name} (${existing.id})`);
-    }
-  }
-  return created;
-}
-
 async function main() {
-  console.log("▶️  Starting seed...");
+  console.log("▶️ Seeding SUB_BROKER role...");
 
-  const rolesToSeed = [
-    "PLATFORM_ADMIN",
-    "PLATFORM_SUPPORT",
-    "BROKER_ADMIN",
-    "BROKER_OFFICER",
-    "LENDER_ADMIN",
-    "LENDER_UNDERWRITER",
-    "CLIENT_USER",
-  ];
+  const roleName = "SUB_BROKER";
 
+<<<<<<< HEAD
   const orgName = process.env.SEED_ADMIN_ORG_NAME || "LendingCart Platform";
   const orgEmail =
     process.env.SEED_ADMIN_ORG_EMAIL || "platform@lendingcart.local";
@@ -49,42 +25,27 @@ async function main() {
   // 2) Find or create Organization
   let organization = await prisma.organization.findFirst({
     where: { name: orgName },
+=======
+  // Check if already exists
+  const existing = await prisma.role.findFirst({
+    where: { name: roleName },
+>>>>>>> ef304d9437fa7a1c852cdbe1d3ba9c9da4e3866a
   });
 
-  if (!organization) {
-    organization = await prisma.organization.create({
-      data: {
-        name: orgName,
-        type: "PLATFORM",
-        status: "ACTIVE",
-        email: orgEmail,
-      },
-    });
-    console.log("✅ Created organization:", organization.id);
-  } else {
-    console.log("ℹ️  Found existing organization:", organization.id);
+  if (existing) {
+    console.log(`ℹ️ Role already exists: ${roleName} (${existing.id})`);
+    return;
   }
 
-  // 3) Upsert admin user by unique email (UserAccount.email is unique in schema)
-  const admin = await prisma.userAccount.upsert({
-    where: { email: adminEmail },
-    update: {
-      passwordHash: hashed,
-      status: "ACTIVE",
-      organizationId: organization.id,
-      firstName: "Admin",
-      lastName: "User",
-    },
-    create: {
-      email: adminEmail,
-      passwordHash: hashed,
-      status: "ACTIVE",
-      firstName: "Admin",
-      lastName: "User",
-      organizationId: organization.id,
+  // Create role
+  const role = await prisma.role.create({
+    data: {
+      name: roleName,
+      description: "Sub broker role",
     },
   });
 
+<<<<<<< HEAD
   console.log("Admin user upserted:", admin.id);
 
   // 4) Ensure PLATFORM_ADMIN role exists and link user -> role via UserRole if not already linked
@@ -117,11 +78,14 @@ async function main() {
   console.log(`Organization: ${organization.name} (${organization.id})`);
   console.log(`Admin Email: ${admin.email}`);
   console.log(`Admin Password (plaintext): ${adminPassword}`);
+=======
+  console.log(`✅ Created role: ${role.name} (${role.id})`);
+>>>>>>> ef304d9437fa7a1c852cdbe1d3ba9c9da4e3866a
 }
 
 main()
   .catch((e) => {
-    console.error("Seed failed:", e);
+    console.error("❌ Seeding failed:", e);
     process.exit(1);
   })
   .finally(async () => {
