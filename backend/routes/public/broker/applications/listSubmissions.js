@@ -6,6 +6,24 @@ module.exports = async function listSubmissionsTable(fastify) {
     try {
       const prisma = fastify.prisma;
 
+      /* ================= SAFE USER ================= */
+
+      if (!req.user) {
+        return reply.code(401).send({
+          success: false,
+          message: "Unauthorized",
+        });
+      }
+
+      // ✅ UNIVERSAL USER ID FIX
+      const userId = req.user.id || req.user.userId;
+      const orgId = req.user.organizationId;
+      const roles = req.user.roles || [];
+
+      const isAdmin = roles.includes("BROKER_ADMIN");
+      const isOfficer = roles.includes("BROKER_OFFICER");
+      const isSubBroker = roles.includes("SUB_BROKER");
+
       /* ================= QUERY PARAMS ================= */
 
       const {
@@ -17,90 +35,74 @@ module.exports = async function listSubmissionsTable(fastify) {
         sortOrder = "desc",
       } = req.query;
 
+      const parsedLimit = Math.min(parseInt(limit) || 10, 50);
+
       /* ================= ROLE FILTER ================= */
 
-      let whereCondition = {};
+      let whereCondition = {
+        application: {
+          brokerOrgId: orgId, // ✅ ALWAYS restrict to org
+        },
+      };
 
-      if (req.user?.roles?.includes("BROKER_OFFICER")) {
-        whereCondition = {
-          application: {
-            brokerUserId: {
-              equals: req.user.id, // ✅ STRICT MATCH (FIXED)
-            },
-          },
-        };
+      // ✅ OFFICER + SUB BROKER → ONLY THEIR APPS
+      if (isOfficer || isSubBroker) {
+        whereCondition.application.brokerUserId = userId;
       }
 
       /* ================= SEARCH ================= */
 
       if (search) {
-        whereCondition = {
-          ...whereCondition,
-          application: {
-            ...whereCondition.application,
-            OR: [
-              {
-                applicationNumber: {
+        whereCondition.application = {
+          ...whereCondition.application,
+          OR: [
+            {
+              applicationNumber: {
+                contains: search,
+                mode: "insensitive",
+              },
+            },
+            {
+              client: {
+                legalName: {
                   contains: search,
                   mode: "insensitive",
                 },
               },
-              {
-                client: {
-                  legalName: {
-                    contains: search,
-                    mode: "insensitive",
-                  },
-                },
-              },
-            ],
-          },
+            },
+          ],
         };
       }
 
-      /* ================= STATUS FILTER ================= */
+      /* ================= STATUS ================= */
 
       if (status) {
-        whereCondition = {
-          ...whereCondition,
-          status,
-        };
+        whereCondition.status = status;
       }
-
-      /* ================= SORT ================= */
-
-      const orderBy = {
-        [sortBy]: sortOrder,
-      };
 
       /* ================= QUERY ================= */
 
       const submissions = await prisma.applicationSubmission.findMany({
         where: whereCondition,
-        take: Number(limit),
+        take: parsedLimit,
+
         ...(cursor && {
           skip: 1,
           cursor: { id: cursor },
         }),
-        orderBy,
 
-        // ⚠️ IMPORTANT: REMOVED distinct (ROOT CAUSE FIX)
-        // distinct: ["applicationId"],
+        orderBy: {
+          [sortBy]: sortOrder,
+        },
 
         include: {
           application: {
-            where: req.user?.roles?.includes("BROKER_OFFICER")
-              ? {
-                  brokerUserId: {
-                    equals: req.user.id, // 🔥 DOUBLE SAFETY
-                  },
-                }
-              : undefined,
-
             select: {
+              id: true,
               applicationNumber: true,
               loanProductCode: true,
               amountRequested: true,
+              brokerUserId: true,
 
               client: {
                 select: {
@@ -117,9 +119,7 @@ module.exports = async function listSubmissionsTable(fastify) {
               },
 
               documentRequirements: {
-                select: {
-                  status: true,
-                },
+                select: { status: true },
               },
 
               brokerUser: {
@@ -138,12 +138,9 @@ module.exports = async function listSubmissionsTable(fastify) {
                   sentAt: true,
                   lender: {
                     select: {
-                      id: true,
                       name: true,
                       users: {
-                        select: {
-                          profileImage: true,
-                        },
+                        select: { profileImage: true },
                         take: 1,
                       },
                     },
@@ -155,70 +152,62 @@ module.exports = async function listSubmissionsTable(fastify) {
         },
       });
 
-      /* ================= NEXT CURSOR ================= */
+      /* ================= PAGINATION ================= */
 
       const nextCursor =
-        submissions.length === Number(limit)
+        submissions.length === parsedLimit
           ? submissions[submissions.length - 1].id
           : null;
 
-      /* ================= SAFE FILTER (FINAL GUARD) ================= */
+      /* ================= TRANSFORM ================= */
 
-      const safeSubmissions = submissions.filter((s) => {
-        if (!req.user?.roles?.includes("BROKER_OFFICER")) return true;
-
-        return (
-          s.application &&
-          s.application.brokerUser &&
-          s.application.brokerUser.id === req.user.id
-        );
-      });
-
-      /* ================= MAPPING ================= */
-
-      const data = safeSubmissions.map((s) => {
+      const data = submissions.map((s) => {
         const app = s.application;
 
         const borrower =
-          app.client?.contacts?.[0]
+          app?.client?.contacts?.[0]
             ? `${app.client.contacts[0].firstName || ""} ${
                 app.client.contacts[0].lastName || ""
               }`.trim()
-            : app.client?.legalName || "N/A";
+            : app?.client?.legalName || "N/A";
 
         const pendingDocumentsCount =
-          app.documentRequirements.filter(
+          app?.documentRequirements?.filter(
             (doc) => doc.status !== "COMPLETE"
-          ).length;
+          ).length || 0;
 
         return {
           submissionId: s.id,
           borrower,
-          applicationNumber: app.applicationNumber,
-          loanInfo: app.loanProductCode || null,
+          applicationNumber: app?.applicationNumber,
+          loanInfo: app?.loanProductCode || null,
           location: "N/A",
-          amount: app.amountRequested || null,
+          amount: app?.amountRequested || null,
           status: s.status,
           submittedOn: s.createdAt,
           pendingDocumentsCount,
 
-          assignedLoanOfficer: app.brokerUser
-            ? {
-                id: app.brokerUser.id,
-                name: `${app.brokerUser.firstName || ""} ${
-                  app.brokerUser.lastName || ""
-                }`.trim(),
-                profileImage: app.brokerUser.profileImage || null,
-              }
-            : null,
+          // ✅ FIX: ONLY officer sees loan officer
+          assignedLoanOfficer:
+            isOfficer && app?.brokerUser
+              ? {
+                  id: app.brokerUser.id,
+                  name: `${app.brokerUser.firstName || ""} ${
+                    app.brokerUser.lastName || ""
+                  }`.trim(),
+                  profileImage: app.brokerUser.profileImage || null,
+                }
+              : null,
 
-          submittedToLenders: app.applicationLenders.map((l) => ({
-            lenderOrgId: l.lenderOrgId,
-            lenderName: l.lender?.name,
-            profileImage: l.lender?.users?.[0]?.profileImage || null,
-            status: l.status,
-            sentAt: l.sentAt,
-          })),
+          submittedToLenders:
+            app?.applicationLenders?.map((l) => ({
+              lenderOrgId: l.lenderOrgId,
+              lenderName: l.lender?.name,
+              profileImage:
+                l.lender?.users?.[0]?.profileImage || null,
+              status: l.status,
+              sentAt: l.sentAt,
+            })) || [],
         };
       });
 
@@ -234,15 +223,12 @@ module.exports = async function listSubmissionsTable(fastify) {
 
       return reply.send({
         success: true,
-
         pagination: {
           nextCursor,
-          limit: Number(limit),
+          limit: parsedLimit,
           hasMore: !!nextCursor,
         },
-
         stats,
-
         data,
       });
     } catch (error) {

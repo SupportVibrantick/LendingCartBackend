@@ -9,14 +9,6 @@ module.exports = async function listSubmissionsTable(fastify) {
       const prisma = fastify.prisma;
 
       try {
-        /* ================= DEBUG ================= */
-        console.log("========= DEBUG START =========");
-        console.log("FULL USER:", req.user);
-        console.log("USER ID (FIXED):", req.user?.userId); // ✅ FIXED
-        console.log("ORG ID:", req.user?.organizationId);
-        console.log("ROLES:", req.user?.roles);
-        console.log("========= DEBUG END =========");
-
         /* ================= AUTH ================= */
 
         if (!req.user) {
@@ -26,15 +18,16 @@ module.exports = async function listSubmissionsTable(fastify) {
           });
         }
 
-        // ✅ 🔥 FIX HERE
-        const userId = req.user.userId; // ← THIS WAS YOUR BUG
+        // ✅ FIX 1: CORRECT USER ID
+        const userId = req.user.id || req.user.userId;
         const orgId = req.user.organizationId;
         const roles = req.user.roles || [];
 
         const isAdmin = roles.includes("BROKER_ADMIN");
         const isOfficer = roles.includes("BROKER_OFFICER");
+        const isSubBroker = roles.includes("SUB_BROKER");
 
-        if (!isAdmin && !isOfficer) {
+        if (!isAdmin && !isOfficer && !isSubBroker) {
           return reply.code(403).send({
             success: false,
             message: "Access denied",
@@ -60,8 +53,8 @@ module.exports = async function listSubmissionsTable(fastify) {
           application: {
             brokerOrgId: orgId,
 
-            // ✅ NOW THIS WILL WORK
-            ...(isOfficer && {
+            // ✅ officer + sub broker → only their apps
+            ...((isOfficer || isSubBroker) && {
               brokerUserId: userId,
             }),
 
@@ -92,7 +85,6 @@ module.exports = async function listSubmissionsTable(fastify) {
 
         const submissions = await prisma.applicationSubmission.findMany({
           where: whereCondition,
-
           take: parsedLimit,
 
           ...(cursor && {
@@ -111,6 +103,7 @@ module.exports = async function listSubmissionsTable(fastify) {
                 applicationNumber: true,
                 loanProductCode: true,
                 amountRequested: true,
+                brokerUserId: true,
 
                 client: {
                   select: {
@@ -195,15 +188,17 @@ module.exports = async function listSubmissionsTable(fastify) {
             submittedOn: s.createdAt,
             pendingDocumentsCount,
 
-            assignedLoanOfficer: app?.brokerUser
-              ? {
-                  id: app.brokerUser.id,
-                  name: `${app.brokerUser.firstName || ""} ${
-                    app.brokerUser.lastName || ""
-                  }`.trim(),
-                  profileImage: app.brokerUser.profileImage || null,
-                }
-              : null,
+            // ✅ FIX 2: ONLY SHOW LOAN OFFICER IF ROLE IS OFFICER
+            assignedLoanOfficer:
+              isOfficer && app?.brokerUser
+                ? {
+                    id: app.brokerUser.id,
+                    name: `${app.brokerUser.firstName || ""} ${
+                      app.brokerUser.lastName || ""
+                    }`.trim(),
+                    profileImage: app.brokerUser.profileImage || null,
+                  }
+                : null,
 
             submittedToLenders:
               app?.applicationLenders?.map((l) => ({

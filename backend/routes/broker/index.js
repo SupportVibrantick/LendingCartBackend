@@ -41,6 +41,7 @@ module.exports = async function brokerRoutes(fastify, opts) {
       const roleChecker = instance.requireRole([
         "BROKER_ADMIN",
         "BROKER_OFFICER",
+        "SUB_BROKER",
       ]);
       await roleChecker(req, reply);
     });
