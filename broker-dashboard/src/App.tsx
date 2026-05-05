@@ -54,28 +54,38 @@ import ClientProtected from "./pages/ClientPortal/ClientProtected";
 import ClientAuth from "./pages/ClientPortal/ClientAuth";
 // import CustomerLogin from "./pages/ClientPortal/CustomerLogin";
 import LoanPreview from "./pages/submitedApplications/LoanPreview";
-import { ReactNode } from "react";
+// import { ReactNode } from "react";
 import EmailMarketing from "./pages/EmailMarketing/EmailMarketing";
+import SubBroker from "./pages/UserManagement/SubBroker";
 
-type RequirePermissionProps = {
-  children: ReactNode;
-  permission: string;
-};
+// type RequirePermissionProps = {
+//   children: ReactNode;
+//   permission: string;
+// };
 
-const RequirePermission = ({
-  children,
-  permission,
-}: RequirePermissionProps) => {
-  const roles = JSON.parse(sessionStorage.getItem("roles") || "[]");
-  const permissions = JSON.parse(sessionStorage.getItem("permissions") || "[]");
+// const RequirePermission = ({
+//   children,
+//   permission,
+// }: RequirePermissionProps) => {
+//   const roles = JSON.parse(sessionStorage.getItem("roles") || "[]");
+//   const permissions = JSON.parse(sessionStorage.getItem("permissions") || "[]");
 
-  const isAdmin = roles.includes("BROKER_ADMIN");
+//   const isAdmin = roles.includes("BROKER_ADMIN");
 
-  if (!isAdmin && !permissions.includes(permission)) {
-    return <Navigate to="/" replace />;
+//   if (!isAdmin && !permissions.includes(permission)) {
+//     return <Navigate to="/" replace />;
+//   }
+
+//   return <>{children}</>;
+// };
+
+const isSubBrokerUser = () => {
+  try {
+    const user = JSON.parse(sessionStorage.getItem("broker_user") || "{}");
+    return user?.userType === "SUB_BROKER";
+  } catch {
+    return false;
   }
-
-  return <>{children}</>;
 };
 
 export default function App() {
@@ -135,11 +145,7 @@ export default function App() {
               path="/lender-assigned-products"
               element={<LenderProductAssign />}
             />
-            <Route
-              index
-              path="/email-marketing"
-              element={<EmailMarketing />}
-            />
+            <Route index path="/email-marketing" element={<EmailMarketing />} />
             <Route
               index
               path="/assigned-products"
@@ -166,6 +172,35 @@ export default function App() {
               element={<ActiveApplication />}
             />
 
+            <Route
+              path="/sub-broker"
+              element={
+                isSubBrokerUser() ? <Navigate to="/" replace /> : <SubBroker />
+              }
+            />
+
+            <Route
+              path="/loan-officer"
+              element={
+                isSubBrokerUser() ? (
+                  <Navigate to="/" replace />
+                ) : (
+                  <LoanOfficer />
+                )
+              }
+            />
+
+            <Route
+              path="/contacts-list"
+              element={
+                isSubBrokerUser() ? (
+                  <Navigate to="/" replace />
+                ) : (
+                  <ContactPage />
+                )
+              }
+            />
+
             <Route index path="/add-section" element={<AddSection />} />
 
             <Route index path="/templates" element={<Templates />} />
@@ -173,9 +208,9 @@ export default function App() {
             <Route
               path="/submit-applications"
               element={
-                <RequirePermission permission="VIEW_PIPELINE">
-                  <SubmitApplications />
-                </RequirePermission>
+                // <RequirePermission permission="VIEW_PIPELINE">
+                <SubmitApplications />
+                // </RequirePermission>
               }
             />
 
@@ -198,10 +233,6 @@ export default function App() {
             <Route index path="/all-documents" element={<AllDocuments />} />
 
             <Route index path="/admin-logs" element={<AdminLogs />} />
-
-            <Route index path="/loan-officer" element={<LoanOfficer />} />
-
-            <Route index path="/contacts-list" element={<ContactPage />} />
 
             {/* Others Page */}
             <Route path="/profile" element={<UserProfiles />} />

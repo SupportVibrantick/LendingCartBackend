@@ -837,7 +837,7 @@ export default function LoanOfficersPage() {
             Loan Officers
           </h1>
           <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">
-            Manage and monitor all your loan officers in one place
+            Manage and monitor all your loan officers in one place 
           </p>
         </div>
 

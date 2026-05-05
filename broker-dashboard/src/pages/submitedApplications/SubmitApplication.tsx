@@ -198,42 +198,56 @@ export default function LoanApplicationsPage() {
     return cleaned;
   };
 
-  const getStatusColor = (status: string) => {
-    const s = status?.toLowerCase();
+const getStatusColor = (status?: string) => {
+  const s = status?.toLowerCase();
 
-    switch (s) {
-      case "new":
-        return "bg-blue-500/10 border-blue-500/20 text-blue-600 dark:text-blue-400";
+  switch (s) {
+    case "new":
+      return "bg-blue-500/10 border-blue-500/20 text-blue-600 dark:text-blue-400";
 
-      case "pending":
-        return "bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400";
+    case "pending":
+      return "bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400";
 
-      case "client_pending":
-        return "bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400";
+    case "client_pending":
+      return "bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400";
 
-      case "submitted":
-      case "sent":
-        return "bg-indigo-500/10 border-indigo-500/20 text-indigo-600 dark:text-indigo-400";
+    case "submitted":
+      return "bg-violet-500/10 border-violet-500/20 text-violet-600 dark:text-violet-400"; // 🟣 unique
 
-      case "updated":
-        return "bg-cyan-500/10 border-cyan-500/20 text-cyan-600 dark:text-cyan-400";
+    case "sent":
+      return "bg-indigo-500/10 border-indigo-500/20 text-indigo-600 dark:text-indigo-400"; // 🔵
 
-      case "approved":
-        return "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400";
+    case "updated":
+      return "bg-cyan-500/10 border-cyan-500/20 text-cyan-600 dark:text-cyan-400";
 
-      case "declined":
-        return "bg-red-500/10 border-red-500/20 text-red-600 dark:text-red-400";
+    case "approved":
+      return "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400";
 
-      case "completed":
-        return "bg-green-500/10 border-green-500/20 text-green-600 dark:text-green-400";
+    case "lender_approved":
+      return "bg-green-500/10 border-green-500/20 text-green-600 dark:text-green-400"; // 🟢 different from approved
 
-      case "superseded":
-        return "bg-orange-400/10 border-orange-400/20 text-orange-600 dark:text-orange-400";
+    case "declined":
+      return "bg-red-500/10 border-red-500/20 text-red-600 dark:text-red-400";
 
-      default:
-        return "bg-slate-500/10 border-slate-500/20 text-slate-600 dark:text-slate-400";
-    }
-  };
+    case "lender_declined":
+      return "bg-rose-600/10 border-rose-600/20 text-rose-700 dark:text-rose-500"; // 🔴 slightly darker
+
+    case "in_review":
+      return "bg-sky-500/10 border-sky-500/20 text-sky-600 dark:text-sky-400"; // 🌊 unique
+
+    case "draft":
+      return "bg-gray-400/10 border-gray-400/20 text-gray-600 dark:text-gray-400";
+
+    case "completed":
+      return "bg-teal-500/10 border-teal-500/20 text-teal-600 dark:text-teal-400"; // 🟩 different from approved
+
+    case "superseded":
+      return "bg-orange-400/10 border-orange-400/20 text-orange-600 dark:text-orange-400";
+
+    default:
+      return "bg-slate-500/10 border-slate-500/20 text-slate-600 dark:text-slate-400";
+  }
+};
 
   const newCount = rows.filter(
     (r) => r.status === "NEW" || r.status === "SUBMITTED",
@@ -241,7 +255,13 @@ export default function LoanApplicationsPage() {
 
   const approvedCount = rows.filter((r) => r.status === "APPROVED").length;
 
-  const totalVolume = rows.reduce((sum, r) => sum + r.amount, 0);
+  const totalVolume = rows.reduce((sum, r) => {
+    const amount = Number(r.amount);
+
+    if (!isFinite(amount)) return sum; // skip bad values
+
+    return sum + amount;
+  }, 0);
 
   // const fetchSubmissionDetail = async (submissionId: string) => {
   //   try {
@@ -262,6 +282,19 @@ export default function LoanApplicationsPage() {
   //     setDetailLoading(false);
   //   }
   // };
+
+  const formatCompactAmount = (value: number) => {
+    if (!value || !isFinite(value)) return "$0";
+
+    // Convert scientific notation safely
+    const num = Number(value);
+
+    if (num >= 1e9) return `$${(num / 1e9).toFixed(1).replace(/\.0$/, "")}B`;
+    if (num >= 1e6) return `$${(num / 1e6).toFixed(1).replace(/\.0$/, "")}M`;
+    if (num >= 1e3) return `$${(num / 1e3).toFixed(1).replace(/\.0$/, "")}K`;
+
+    return `$${num}`;
+  };
 
   /* ================= LENDER FETCHING ================= */
   const fetchLenders = async () => {
@@ -468,12 +501,12 @@ export default function LoanApplicationsPage() {
         submissionId: item.submissionId,
         borrowerName: item.borrower || "N/A",
         applicationNumber: item.applicationNumber,
-        applicationId: item.submissionId,
+        applicationId: item.applicationId,
         company: "-",
         loanType: item.loanInfo,
         cityState: item.location,
         country: "",
-        amount: item.amount || 0,
+        amount: Number(item.amount) || 0,
         status: item.status,
         date: item.submittedOn,
         pendingDocumentsCount: item.pendingDocumentsCount,
@@ -558,19 +591,31 @@ export default function LoanApplicationsPage() {
     </div>
   );
 
-  const getStatusChip = (status: string) => {
+  const getStatusChip = (status?: string) => {
     switch (status) {
       case "NEW":
         return "bg-blue-100 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400";
 
       case "SENT":
+      case "SUBMITTED":
         return "bg-purple-100 text-purple-700 dark:bg-purple-500/10 dark:text-purple-400";
 
       case "APPROVED":
+      case "LENDER_APPROVED":
         return "bg-green-100 text-green-700 dark:bg-green-500/10 dark:text-green-400";
 
       case "DECLINED":
+      case "LENDER_DECLINED":
         return "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400";
+
+      case "IN_REVIEW":
+        return "bg-indigo-100 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-400";
+
+      case "CLIENT_PENDING":
+        return "bg-pink-100 text-pink-700 dark:bg-pink-500/10 dark:text-pink-400";
+
+      case "DRAFT":
+        return "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300";
 
       default:
         return "bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300";
@@ -1010,7 +1055,7 @@ export default function LoanApplicationsPage() {
                 Total Volume
               </p>
               <h3 className="text-xl font-semibold text-slate-900 dark:text-white mt-1">
-                ${totalVolume.toLocaleString()}
+                {formatCompactAmount(totalVolume)}
               </h3>
             </div>
 
@@ -1080,12 +1125,12 @@ export default function LoanApplicationsPage() {
                 <tr className="bg-slate-50/50 dark:bg-slate-800/40">
                   {[
                     { label: "Borrower", width: "w-[120px]" },
-                    { label: "Application No.", width: "w-[150px]" },
+                    { label: "Application No.", width: "w-[160px]" },
                     { label: "Loan Info", width: "w-[200px]" },
-                    { label: "Location", width: "w-[130px]" },
-                    { label: "Amount", width: "w-[100px]" },
+                    { label: "Location", width: "w-[150px]" },
+                    { label: "Amount", width: "w-[80px]" },
                     { label: "Submitted On", width: "w-[110px]" },
-                    { label: "Status", width: "w-[140px]" },
+                    { label: "Status", width: "w-[160px]" },
                     // { label: "Lenders", width: "w-[100px]" },
                     { label: "Loan Officer", width: "w-[140px]" },
                     { label: "Action", width: "w-[80px]" },
@@ -1155,7 +1200,9 @@ export default function LoanApplicationsPage() {
                           {/* Location Text */}
                           <div className="leading-tight">
                             <div className="text-[13px] text-slate-700 dark:text-slate-300">
-                              {row.cityState.slice(0, 15) + "..." || "Global"}
+                              {row.cityState?.length > 19
+                                ? row.cityState.slice(0, 19) + "..."
+                                : row.cityState || "Global"}
                             </div>
 
                             {row.country && (
@@ -1170,7 +1217,7 @@ export default function LoanApplicationsPage() {
                       {/* Amount - Monospace for numbers */}
                       <td className="px-6 py-3">
                         <span className="font-mono text-[13px] text-slate-800 dark:text-slate-200">
-                          ${row.amount.toLocaleString()}
+                          {formatCompactAmount(Number(row.amount || 0))}
                         </span>
                       </td>
 

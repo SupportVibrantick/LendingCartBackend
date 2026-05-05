@@ -27,32 +27,50 @@ const AppSidebar: React.FC = () => {
 
   // FIX: allow multiple open menus
   const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({});
+  const [isSubBroker, setIsSubBroker] = useState(false);
+
+ useEffect(() => {
+  const updateRole = () => {
+    try {
+      const user = JSON.parse(sessionStorage.getItem("broker_user") || "{}");
+      setIsSubBroker(user?.userType === "SUB_BROKER");
+    } catch {
+      setIsSubBroker(false);
+    }
+  };
+
+  updateRole(); // initial
+
+  window.addEventListener("storage", updateRole);
+  return () => window.removeEventListener("storage", updateRole);
+}, []);
+
   // const subMenuRefs = useRef<Record<string, HTMLDivElement | null>>({});
   // const [subMenuHeight, setSubMenuHeight] = useState<Record<string, number>>(
   //   {},
   // );
-  const [permissions, setPermissions] = useState<string[]>([]);
-  const [roles, setRoles] = useState<string[]>([]);
+  // const [permissions, setPermissions] = useState<string[]>([]);
+  // const [roles, setRoles] = useState<string[]>([]);
 
-  useEffect(() => {
-    const storedPerms = sessionStorage.getItem("permissions");
-    const storedRoles = sessionStorage.getItem("roles");
+  // useEffect(() => {
+  //   const storedPerms = sessionStorage.getItem("permissions");
+  //   const storedRoles = sessionStorage.getItem("roles");
 
-    if (storedPerms) setPermissions(JSON.parse(storedPerms));
-    if (storedRoles) setRoles(JSON.parse(storedRoles));
-  }, []);
+  //   if (storedPerms) setPermissions(JSON.parse(storedPerms));
+  //   if (storedRoles) setRoles(JSON.parse(storedRoles));
+  // }, []);
 
-  useEffect(() => {
-    const stored = sessionStorage.getItem("permissions");
-    if (stored) {
-      setPermissions(JSON.parse(stored));
-    }
-  }, []);
+  // useEffect(() => {
+  //   const stored = sessionStorage.getItem("permissions");
+  //   if (stored) {
+  //     setPermissions(JSON.parse(stored));
+  //   }
+  // }, []);
 
-  const hasAccess = (key: string) => {
-    if (roles.includes("BROKER_ADMIN")) return true; // ✅ admin bypass
-    return permissions.includes(key);
-  };
+  // const hasAccess = (key: string) => {
+  //   if (roles.includes("BROKER_ADMIN")) return true; // admin bypass
+  //   return permissions.includes(key);
+  // };
 
   const navItems: NavItem[] = [
     {
@@ -61,15 +79,15 @@ const AppSidebar: React.FC = () => {
       path: "/",
     },
 
-    ...(hasAccess("VIEW_PIPELINE")
-      ? [
-          {
-            icon: <TrendingUp />,
-            name: "Loan Pipeline",
-            path: "/submit-applications",
-          },
-        ]
-      : []),
+    // ...(hasAccess("VIEW_PIPELINE")
+    //   ? [
+    {
+      icon: <TrendingUp />,
+      name: "Loan Pipeline",
+      path: "/submit-applications",
+    },
+    //   ]
+    // : []),
 
     {
       icon: <MdWeb />,
@@ -93,15 +111,20 @@ const AppSidebar: React.FC = () => {
       name: "Active Application",
       path: "/active-application",
     },
-    {
-      icon: <FaUserGroup />,
-      name: "User Management",
-      subItems: [
-        { name: "Brokers", path: "/create-broker" },
-        { name: "Loan Officer", path: "/loan-officer" },
-        { name: "Contacts", path: "/contacts-list" },
-      ],
-    },
+
+    ...(!isSubBroker
+      ? [
+          {
+            icon: <FaUserGroup />,
+            name: "User Management",
+            subItems: [
+              { name: "Sub Brokers", path: "/sub-broker" },
+              { name: "Loan Officers", path: "/loan-officer" },
+              { name: "Contacts", path: "/contacts-list" },
+            ],
+          },
+        ]
+      : []),
 
     {
       icon: <FaUsersBetweenLines />,
@@ -113,7 +136,7 @@ const AppSidebar: React.FC = () => {
       ],
     },
 
-      {
+    {
       icon: <MdEmail />,
       name: "Email Marketing",
       path: "/email-marketing",

@@ -250,6 +250,19 @@ const Metric = ({
   );
 };
 
+const formatCompactAmount = (value: number) => {
+  if (!value || !isFinite(value)) return "$0";
+
+  // Convert scientific notation safely
+  const num = Number(value);
+
+  if (num >= 1e9) return `$${(num / 1e9).toFixed(1).replace(/\.0$/, "")}B`;
+  if (num >= 1e6) return `$${(num / 1e6).toFixed(1).replace(/\.0$/, "")}M`;
+  if (num >= 1e3) return `$${(num / 1e3).toFixed(1).replace(/\.0$/, "")}K`;
+
+  return `$${num}`;
+};
+
 const FieldItem = ({ field }: { field: SubmissionField }) => {
   const parsedValue = parseValue(field.value);
 
@@ -835,7 +848,7 @@ const LoanPreview = () => {
 
           type: "rejected",
           alreadySent: l.alreadySent,
-          canSend: false, 
+          canSend: false,
           rejectionReasons: l.rejectionReasons || [],
         })),
 
@@ -1424,7 +1437,7 @@ const LoanPreview = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-5">
             <Metric
               label="Loan Amount"
-              value={`$${loanAmount.toLocaleString()}`}
+              value={formatCompactAmount(Number(loanAmount || 0))}
               variant="panel"
             />
             <Metric
@@ -1449,7 +1462,7 @@ const LoanPreview = () => {
             />
             <Metric
               label="Net Worth"
-              value={`$${netWorth.toLocaleString()}`}
+              value={formatCompactAmount(Number(netWorth || 0))}
               variant="panel"
             />
           </div>
