@@ -7,7 +7,7 @@ async function brokerLoginRoutes(fastify) {
     {
       schema: {
         tags: ["Broker -> Auth"],
-        summary: "Broker login (Admin & Loan Officer)",
+        summary: "Broker login (Admin, Officer, Sub Broker)",
         body: {
           type: "object",
           required: ["email", "password"],
@@ -37,8 +37,6 @@ async function brokerLoginRoutes(fastify) {
             roles: {
               include: { role: true },
             },
-
-            // ✅ NEW: include permissions
             userPermissions: {
               include: {
                 permission: {
@@ -74,10 +72,14 @@ async function brokerLoginRoutes(fastify) {
           });
         }
 
+        // ✅ roles extraction
         const roles = user.roles.map((r) => r.role.name);
 
-        // ✅ UPDATED: Added SUB_BROKER (ONLY CHANGE)
-        const allowedRoles = ["BROKER_ADMIN", "BROKER_OFFICER", "SUB_BROKER"];
+        const allowedRoles = [
+          "BROKER_ADMIN",
+          "BROKER_OFFICER",
+          "SUB_BROKER",
+        ];
 
         const hasAccess = roles.some((role) =>
           allowedRoles.includes(role)
@@ -90,6 +92,7 @@ async function brokerLoginRoutes(fastify) {
           });
         }
 
+        // ✅ password check
         const isValidPassword = await bcrypt.compare(
           password,
           user.passwordHash
@@ -102,25 +105,32 @@ async function brokerLoginRoutes(fastify) {
           });
         }
 
-        // ✅ NEW: extract permissions
+        // ✅ permissions extraction
         const permissions = user.userPermissions.map(
           (p) => p.permission.key
         );
 
-        // ✅ OPTIONAL SAFE ADDITION (does not break anything)
+        // ✅ identify user type
         const userType = roles.includes("SUB_BROKER")
           ? "SUB_BROKER"
           : "BROKER";
 
+        // ✅ IMPORTANT FIX: parentBrokerOrgId handling
+        const parentBrokerOrgId =
+          userType === "SUB_BROKER"
+            ? user.organizationId // 🔥 same org acts as parent
+            : user.organizationId;
+
+        // ✅ FINAL TOKEN
         const token = jwt.sign(
           {
             id: user.id,
             organizationId: user.organizationId,
-            orgType: "BROKER",
+            orgType: "BROKER", // org remains broker
             roles,
-
-            // ✅ OPTIONAL ADDITION
+            permissions,
             userType,
+            parentBrokerOrgId, // 🔥 FIXED
           },
           process.env.JWT_SECRET,
           {
@@ -130,6 +140,7 @@ async function brokerLoginRoutes(fastify) {
           }
         );
 
+        // ✅ update last login
         await prisma.userAccount.update({
           where: { id: user.id },
           data: {
@@ -137,6 +148,7 @@ async function brokerLoginRoutes(fastify) {
           },
         });
 
+        // ✅ response
         return reply.send({
           success: true,
           message: "Login successful",
@@ -150,11 +162,7 @@ async function brokerLoginRoutes(fastify) {
               organizationId: user.organizationId,
               organizationName: user.organization.name,
               roles,
-
-              // ✅ NEW: send permissions
               permissions,
-
-              // ✅ OPTIONAL ADDITION
               userType,
             },
           },

@@ -8,42 +8,46 @@ async function brokerSubmitApplication(fastify) {
     {
       schema: {
         tags: ["Broker -> Applications"],
-        summary: "Create Loan Application (Client Pending)"
-      }
+        summary: "Create Loan Application (Client Pending)",
+      },
     },
     async (req, reply) => {
       const prisma = fastify.prisma;
 
       try {
-        /* ================= AUTHORIZATION ================= */
+        /* ================= AUTH ================= */
 
         if (!req.user || req.user.orgType !== "BROKER") {
           return reply.code(403).send({
             success: false,
-            message: "Broker access only"
+            message: "Broker access only",
           });
         }
 
-        // 🔥 FIX: normalize userId (CRITICAL)
-        const brokerUserId = req.user?.id || req.user?.userId;
+        // ✅ UNIVERSAL USER ID FIX (ROOT FIX)
+        const loggedInUserId = req.user.id || req.user.userId;
 
-        console.log("🔥 Broker User Object:", req.user);
-        console.log("🔥 Broker User ID:", brokerUserId);
-
-        if (!brokerUserId) {
-          throw new Error("BROKER_ID_MISSING");
+        if (!loggedInUserId) {
+          return reply.code(401).send({
+            success: false,
+            message: "Invalid broker token (missing userId)",
+          });
         }
 
+        const roles = req.user.roles || [];
         const brokerOrgId = req.user.organizationId;
 
-        /* ================= BODY VALIDATION ================= */
+        // ✅ ONLY officer is loan officer
+        const isOfficer = roles.includes("BROKER_OFFICER");
+
+        /* ================= BODY ================= */
 
         const { applicationProductId, fields } = req.body;
 
         if (!applicationProductId || !Array.isArray(fields)) {
           return reply.code(400).send({
             success: false,
-            message: "Invalid payload"
+            message: "Invalid payload",
           });
         }
 
@@ -56,28 +60,31 @@ async function brokerSubmitApplication(fastify) {
               isActive: true,
               brokerApplication: {
                 isActive: true,
-                brokerOrgId: brokerOrgId
-              }
+                brokerOrgId,
+              },
             },
             select: {
-              id: true,
-              loanProductCode: true
-            }
+              loanProductCode: true,
+            },
           });
 
         if (!brokerProduct) {
           return reply.code(404).send({
             success: false,
-            message: "Invalid or unauthorized application product"
+            message: "Invalid or unauthorized application product",
           });
         }
 
         /* ================= TRANSACTION ================= */
 
         const result = await prisma.$transaction(async (tx) => {
-          const emailField = fields.find(f => f.fieldKey === "email");
-          const firstNameField = fields.find(f => f.fieldKey === "first_name");
-          const lastNameField = fields.find(f => f.fieldKey === "last_name");
+          const emailField = fields.find((f) => f.fieldKey === "email");
+          const firstNameField = fields.find(
+            (f) => f.fieldKey === "first_name"
+          );
+          const lastNameField = fields.find(
+            (f) => f.fieldKey === "last_name"
+          );
 
           if (!emailField?.value) {
             throw new Error("Email is required");
@@ -85,14 +92,16 @@ async function brokerSubmitApplication(fastify) {
 
           const email = emailField.value;
 
+          /* ---------- CLIENT ---------- */
+
           let client = await tx.client.findFirst({
             where: {
               primaryBrokerOrgId: brokerOrgId,
               contacts: {
-                some: { email }
-              }
+                some: { email },
+              },
             },
-            include: { contacts: true }
+            include: { contacts: true },
           });
 
           if (!client) {
@@ -100,8 +109,9 @@ async function brokerSubmitApplication(fastify) {
               data: {
                 id: randomUUID(),
                 legalName:
-                  `${firstNameField?.value || ""} ${lastNameField?.value || ""}`.trim() ||
-                  "Individual Applicant",
+                  `${firstNameField?.value || ""} ${
+                    lastNameField?.value || ""
+                  }`.trim() || "Individual Applicant",
                 entityType: "INDIVIDUAL",
                 primaryBrokerOrgId: brokerOrgId,
                 contacts: {
@@ -109,51 +119,64 @@ async function brokerSubmitApplication(fastify) {
                     firstName: firstNameField?.value || "Applicant",
                     lastName: lastNameField?.value || "",
                     email,
-                    isPrimary: true
-                  }
-                }
+                    isPrimary: true,
+                  },
+                },
               },
-              include: { contacts: true }
+              include: { contacts: true },
             });
           }
+
+          /* ---------- LOAN APPLICATION ---------- */
 
           const loanApplication = await tx.loanApplication.create({
             data: {
               id: randomUUID(),
               applicationNumber: `APP-${Date.now()}`,
               brokerOrgId,
+
+              // ✅ IMPORTANT LOGIC
+              // officer → assigned
+              // sub broker → used for filtering
+              // admin → also stored
+              brokerUserId: loggedInUserId,
+
               clientId: client.id,
               loanProductCode: brokerProduct.loanProductCode,
-              status: "DRAFT"
-            }
+              status: "DRAFT",
+            },
           });
+
+          /* ---------- SUBMISSION ---------- */
 
           const submission = await tx.applicationSubmission.create({
             data: {
               applicationId: loanApplication.id,
               applicationProductId,
-              status: "CLIENT_PENDING"
-            }
+              status: "CLIENT_PENDING",
+            },
           });
 
-          const submissionFields = fields.map(f => ({
+          /* ---------- FIELDS ---------- */
+
+          const submissionFields = fields.map((f) => ({
             submissionId: submission.id,
             fieldId: f.fieldId || null,
             fieldKey: f.fieldKey || null,
             value: f.value ?? null,
-            source: f.fieldId ? "DYNAMIC" : "STATIC"
+            source: f.fieldId ? "DYNAMIC" : "STATIC",
           }));
 
           if (submissionFields.length > 0) {
             await tx.applicationSubmissionField.createMany({
-              data: submissionFields
+              data: submissionFields,
             });
           }
 
           return { submission, loanApplication, client };
         });
 
-        /* ================= AUDIT LOG ================= */
+        /* ================= AUDIT ================= */
 
         await logAudit({
           prisma,
@@ -164,11 +187,11 @@ async function brokerSubmitApplication(fastify) {
           entityId: result.loanApplication.id,
           action: "CREATE_APPLICATION",
           newValue: {
-            submissionId: result.submission.id
-          }
+            submissionId: result.submission.id,
+          },
         });
 
-        /* ================= ✅ CREATE CONVERSATION ================= */
+        /* ================= CONVERSATION ================= */
 
         try {
           const existing = await prisma.conversation.findFirst({
@@ -186,17 +209,16 @@ async function brokerSubmitApplication(fastify) {
               },
             });
 
-            const participants = [];
+            const participants = [
+              {
+                conversationId: conversation.id,
+                participantType: "BROKER",
+                participantId: loggedInUserId, // ✅ ALWAYS creator
+              },
+            ];
 
-            // ✅ FIXED BROKER
-            participants.push({
-              conversationId: conversation.id,
-              participantType: "BROKER",
-              participantId: brokerUserId, // 🔥 FIXED
-            });
-
-            // ✅ CLIENT (EMAIL)
-            const clientEmail = result.client.contacts?.[0]?.email;
+            const clientEmail =
+              result.client.contacts?.[0]?.email;
 
             if (clientEmail) {
               participants.push({
@@ -206,58 +228,46 @@ async function brokerSubmitApplication(fastify) {
               });
             }
 
-            console.log("👥 Participants to insert:", participants);
-
             await prisma.conversationParticipant.createMany({
               data: participants,
               skipDuplicates: true,
             });
           }
         } catch (err) {
-          console.error("💥 Conversation creation error:", err.message);
-
           fastify.log.error(
             { error: err.message },
-            "Conversation creation failed (non-blocking)"
+            "Conversation creation failed"
           );
         }
 
-        /* ================= SUCCESS ================= */
+        /* ================= RESPONSE ================= */
 
         return reply.code(201).send({
           success: true,
-          message: "Application created successfully (awaiting client action)",
+          message:
+            "Application created successfully (awaiting client action)",
           data: {
             submissionId: result.submission.id,
-            applicationId: result.loanApplication.id
-          }
+            applicationId: result.loanApplication.id,
+          },
         });
-
       } catch (error) {
-        console.error("💥 SUBMIT ERROR:", error.message);
-
         fastify.log.error({
           message: error.message,
-          stack: error.stack
+          stack: error.stack,
         });
 
         if (error.message === "Email is required") {
           return reply.code(400).send({
             success: false,
-            message: error.message
-          });
-        }
-
-        if (error.message === "BROKER_ID_MISSING") {
-          return reply.code(401).send({
-            success: false,
-            message: "Invalid broker token (missing userId)"
+            message: error.message,
           });
         }
 
         return reply.code(500).send({
           success: false,
-          message: "Internal server error while creating application"
+          message:
+            "Internal server error while creating application",
         });
       }
     }
