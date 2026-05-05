@@ -15,6 +15,10 @@ async function subBrokerRoutes(fastify) {
    
   });
 
+  fastify.register(require("./getSubBrokerById"), {
+   
+  });
+
 
 }
 
