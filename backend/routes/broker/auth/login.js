@@ -1,4 +1,3 @@
-
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 
@@ -77,7 +76,8 @@ async function brokerLoginRoutes(fastify) {
 
         const roles = user.roles.map((r) => r.role.name);
 
-        const allowedRoles = ["BROKER_ADMIN", "BROKER_OFFICER"];
+        // ✅ UPDATED: Added SUB_BROKER (ONLY CHANGE)
+        const allowedRoles = ["BROKER_ADMIN", "BROKER_OFFICER", "SUB_BROKER"];
 
         const hasAccess = roles.some((role) =>
           allowedRoles.includes(role)
@@ -107,12 +107,20 @@ async function brokerLoginRoutes(fastify) {
           (p) => p.permission.key
         );
 
+        // ✅ OPTIONAL SAFE ADDITION (does not break anything)
+        const userType = roles.includes("SUB_BROKER")
+          ? "SUB_BROKER"
+          : "BROKER";
+
         const token = jwt.sign(
           {
             id: user.id,
             organizationId: user.organizationId,
             orgType: "BROKER",
             roles,
+
+            // ✅ OPTIONAL ADDITION
+            userType,
           },
           process.env.JWT_SECRET,
           {
@@ -145,6 +153,9 @@ async function brokerLoginRoutes(fastify) {
 
               // ✅ NEW: send permissions
               permissions,
+
+              // ✅ OPTIONAL ADDITION
+              userType,
             },
           },
         });
@@ -164,4 +175,3 @@ async function brokerLoginRoutes(fastify) {
 }
 
 module.exports = brokerLoginRoutes;
-
