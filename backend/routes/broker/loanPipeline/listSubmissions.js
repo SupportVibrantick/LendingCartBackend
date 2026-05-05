@@ -18,7 +18,6 @@ module.exports = async function listSubmissionsTable(fastify) {
           });
         }
 
-        // ✅ FIX 1: CORRECT USER ID
         const userId = req.user.id || req.user.userId;
         const orgId = req.user.organizationId;
         const roles = req.user.roles || [];
@@ -53,7 +52,6 @@ module.exports = async function listSubmissionsTable(fastify) {
           application: {
             brokerOrgId: orgId,
 
-            // ✅ officer + sub broker → only their apps
             ...((isOfficer || isSubBroker) && {
               brokerUserId: userId,
             }),
@@ -97,12 +95,19 @@ module.exports = async function listSubmissionsTable(fastify) {
           },
 
           include: {
+            fields: {
+              include: {
+                builderField: true,
+              },
+            },
+
             application: {
               select: {
                 id: true,
                 applicationNumber: true,
                 loanProductCode: true,
                 amountRequested: true,
+                status: true,
                 brokerUserId: true,
 
                 client: {
@@ -177,18 +182,59 @@ module.exports = async function listSubmissionsTable(fastify) {
               (doc) => doc.status !== "COMPLETE"
             ).length || 0;
 
+          // ✅ AMOUNT FROM FIELDS
+          const amountField = s.fields.find(
+            (f) =>
+              f.builderField?.fieldKey === "amountRequested" ||
+              f.builderField?.fieldKey === "loan_amount" ||
+              f.fieldKey === "amountRequested" ||
+              f.fieldKey === "loan_amount"
+          );
+
+          const amount = amountField?.value ?? null;
+
+          // ✅ LOCATION FROM FIELDS (FIXED)
+          // ✅ EXTRACT STATE
+const stateField = s.fields.find(
+  (f) =>
+    f.builderField?.fieldKey === "state" ||
+    f.fieldKey === "state"
+);
+
+// ✅ EXTRACT COUNTRY
+const countryField = s.fields.find(
+  (f) =>
+    f.builderField?.fieldKey === "country" ||
+    f.fieldKey === "country"
+);
+
+const state = stateField?.value ?? null;
+const country = countryField?.value ?? null;
+
+// ✅ FINAL LOCATION FORMAT
+const location =
+  state && country
+    ? `${state}, ${country}`
+    : state || country || "N/A";
+
           return {
             submissionId: s.id,
+            applicationId: app?.id,
+
             borrower,
             applicationNumber: app?.applicationNumber,
             loanInfo: app?.loanProductCode || null,
-            location: "N/A",
-            amount: app?.amountRequested || null,
-            status: s.status,
+
+            // ✅ FIXED
+            location,
+            amount,
+
+            status: app?.status,
+            submissionStatus: s.status,
+
             submittedOn: s.createdAt,
             pendingDocumentsCount,
 
-            // ✅ FIX 2: ONLY SHOW LOAN OFFICER IF ROLE IS OFFICER
             assignedLoanOfficer:
               isOfficer && app?.brokerUser
                 ? {
