@@ -94,6 +94,28 @@ function getAuthHeaders(): HeadersInit {
   };
 }
 
+const formatCompactAmount = (amount?: number) => {
+  if (!amount || amount === 0) return "$0";
+
+  if (amount >= 1_000_000_000) {
+    return `$${(amount / 1_000_000_000).toFixed(
+      amount % 1_000_000_000 === 0 ? 0 : 1,
+    )}B`;
+  }
+
+  if (amount >= 1_000_000) {
+    return `$${(amount / 1_000_000).toFixed(
+      amount % 1_000_000 === 0 ? 0 : 1,
+    )}M`;
+  }
+
+  if (amount >= 1_000) {
+    return `$${(amount / 1_000).toFixed(amount % 1_000 === 0 ? 0 : 1)}K`;
+  }
+
+  return `$${amount}`;
+};
+
 /* ================= COMPONENT ================= */
 export default function LoanPipeline() {
   const navigate = useNavigate();
@@ -311,7 +333,7 @@ export default function LoanPipeline() {
 
       // 🔥 FILTER BASED ON PRODUCT
       const filtered = json.data.filter(
-        (doc: any) => doc.lenderProduct.loanProductCode === row.loanType
+        (doc: any) => doc.lenderProduct.loanProductCode === row.loanType,
       );
 
       setDocSelectModal({
@@ -641,7 +663,7 @@ export default function LoanPipeline() {
                 Total Volume
               </p>
               <h3 className="text-xl font-semibold text-slate-900 dark:text-white mt-1">
-                ${totalVolume.toLocaleString()}
+                {formatCompactAmount(totalVolume)}
               </h3>
             </div>
 
@@ -789,7 +811,7 @@ export default function LoanPipeline() {
                         <td className="px-4 py-4">
                           <span className="font-mono text-sm text-slate-800 dark:text-slate-200">
                             {row.amount > 0
-                              ? `$${row.amount.toLocaleString()}`
+                              ? `${formatCompactAmount(row.amount)}`
                               : "-"}
                           </span>
                         </td>
@@ -891,7 +913,7 @@ export default function LoanPipeline() {
                                           state: {
                                             applicationLenderId:
                                               row.applicationLenderId,
-                                            isLoi: row.loiGenerated
+                                            isLoi: row.loiGenerated,
                                           },
                                         })
                                       }

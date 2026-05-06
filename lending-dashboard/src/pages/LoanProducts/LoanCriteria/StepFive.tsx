@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChevronDown, Settings } from "lucide-react";
+import { ChevronDown, Settings, FileText, CheckCircle2 } from "lucide-react";
 
 const fields = [
   { label: "Min Loan Amount ($)", key: "minLoan" },
@@ -73,6 +73,9 @@ const US_STATES = [
   "WY",
 ];
 
+const API_BASE =
+  import.meta.env.VITE_API_BASE || "https://api-lendingcart.vibrantick.org";
+
 const getColor = (name: string) => {
   const colors = [
     "bg-orange-500",
@@ -98,6 +101,60 @@ const getColor = (name: string) => {
 const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
   const [openIndex, setOpenIndex] = useState<number | null>(0);
   const [errors, setErrors] = useState<any>({});
+  const [documents, setDocuments] = useState<any[]>([]);
+  const [loadingDocs, setLoadingDocs] = useState(false);
+
+  const fetchDocuments = async () => {
+    try {
+      setLoadingDocs(true);
+
+      const token = sessionStorage.getItem("lender_token");
+
+      const res = await fetch(`${API_BASE}/document-types/active`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token && {
+            Authorization: `Bearer ${token}`,
+          }),
+        },
+      });
+
+      const json = await res.json();
+
+      if (json?.success) {
+        setDocuments(json.data || []);
+      }
+    } catch (err) {
+      console.error("Failed to load documents", err);
+    } finally {
+      setLoadingDocs(false);
+    }
+  };
+
+  const toggleDocument = (productId: string, doc: any) => {
+    const currentDocs = value?.[productId]?.documents || [];
+
+    const exists = currentDocs.some(
+      (d: any) => d.id === doc.id || d.documentTypeId === doc.id,
+    );
+
+    const updated = exists
+      ? currentDocs.filter(
+          (d: any) => d.id !== doc.id && d.documentTypeId !== doc.id,
+        )
+      : [...currentDocs, doc];
+
+    handleChange(productId, "documents", updated);
+  };
+
+  const selectAllDocuments = (productId: string) => {
+    handleChange(productId, "documents", documents);
+  };
+
+  const clearDocuments = (productId: string) => {
+    handleChange(productId, "documents", []);
+  };
 
   const handleChange = (productId: string, key: string, val: any) => {
     const current = value || {};
@@ -213,21 +270,18 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
       }
     }
 
-    // ✅ LTV VALIDATION
     if (key === "minLtv" || key === "maxLtv") {
       if (numVal > 100) {
         return "LTV cannot exceed 100%";
       }
     }
 
-    // ✅ FICO VALIDATION
     if (key === "fico") {
       if (numVal < 300 || numVal > 900) {
         return "FICO score must be between 300 and 900";
       }
     }
 
-    // ✅ EXPERIENCE
     if (key === "experience") {
       if (numVal > 100) {
         return "Experience seems too high";
@@ -236,6 +290,10 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
 
     return "";
   };
+
+  useEffect(() => {
+    fetchDocuments();
+  }, []);
 
   useEffect(() => {
     const hasErr = Object.values(errors).some((product: any) =>
@@ -414,6 +472,104 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
                     {errors[product.id].states}
                   </p>
                 )}
+
+                {/* DOCUMENTS */}
+                <div className="mt-6">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <FileText size={16} className="text-indigo-600" />
+
+                      <h3 className="text-sm font-semibold">
+                        What documents do you need in this program?
+                      </h3>
+
+                      {!!value?.[product.id]?.documents?.length && (
+                        <span className="text-xs bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded-full">
+                          {value?.[product.id]?.documents?.length} selected
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex gap-3 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => selectAllDocuments(product.id)}
+                        className="text-indigo-600 font-medium hover:underline"
+                      >
+                        Select All
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => clearDocuments(product.id)}
+                        className="text-red-500 font-medium hover:underline"
+                      >
+                        Clear All
+                      </button>
+                    </div>
+                  </div>
+
+                  {loadingDocs ? (
+                    <div className="text-sm text-gray-400">
+                      Loading documents...
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                      {documents.map((doc) => {
+                        const checked = value?.[product.id]?.documents?.some(
+                          (d: any) =>
+                            d.id === doc.id || d.documentTypeId === doc.id,
+                        );
+
+                        return (
+                          <label
+                            key={doc.id}
+                            className={`group relative flex items-start gap-3 rounded-2xl border px-4 py-3 cursor-pointer transition-all duration-200
+            ${
+              checked
+                ? "border-indigo-500 bg-indigo-50 shadow-sm scale-[1.01]"
+                : "border-gray-200 bg-white hover:border-indigo-300 hover:bg-gray-50"
+            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked || false}
+                              onChange={() => toggleDocument(product.id, doc)}
+                              className="mt-1 accent-indigo-600 cursor-pointer"
+                            />
+
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <div
+                                  className={`w-2.5 h-2.5 rounded-full ${getColor(
+                                    doc.name,
+                                  )}`}
+                                />
+
+                                <p className="text-sm font-medium text-gray-800 leading-tight">
+                                  {doc.name}
+                                </p>
+                              </div>
+
+                              {/* {doc.code && (
+                                <p className="text-[11px] text-gray-500 mt-1 uppercase tracking-wide">
+                                  {doc.code}
+                                </p>
+                              )} */}
+                            </div>
+
+                            {checked && (
+                              <CheckCircle2
+                                size={18}
+                                className="text-indigo-600 shrink-0"
+                              />
+                            )}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>

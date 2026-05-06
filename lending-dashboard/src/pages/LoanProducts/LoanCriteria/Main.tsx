@@ -364,7 +364,7 @@ export default function Main() {
       );
     }
 
-    const loanCriteriaStepIndex = isEquipmentSelected ? 5 : 4;
+    const loanCriteriaStepIndex = steps.length - 1;
 
     if (step === loanCriteriaStepIndex) {
       return (
@@ -418,7 +418,7 @@ export default function Main() {
         maxTermMonths: Number(criteria.maxTerm) || 0,
 
         // ✅ ADD MISSING FIELDS
-        minLtvPercent: Number(criteria.maxLtv) || 0,
+        minLtvPercent: Number(criteria.minLtv) || 0,
         maxLtvPercent: Number(criteria.maxLtv) || 0,
 
         minCreditScore: Number(criteria.fico) || 0,
@@ -477,7 +477,7 @@ export default function Main() {
         "fico",
         "experience",
         "minTerm",
-        "maxTerm"
+        "maxTerm",
       ];
 
       for (const field of requiredFields) {
@@ -488,6 +488,10 @@ export default function Main() {
 
       if (!data.states || data.states.length === 0) {
         return `${product.name}: Select at least one state`;
+      }
+
+      if (!data.documents || data.documents.length === 0) {
+        return `${product.name}: Select at least one required document`;
       }
     }
 
@@ -511,7 +515,48 @@ export default function Main() {
 
       console.log("FINAL PAYLOAD 👉", payload);
 
-      await createLenderProducts(payload);
+      const response = await createLenderProducts(payload);
+
+      const createdProducts = response?.data || [];
+
+      for (const createdProduct of createdProducts) {
+        const matchingProduct = selectedProducts.find(
+          (p) => p.code === createdProduct.loanProductCode,
+        );
+
+        if (!matchingProduct) continue;
+
+        const criteria = form.loanCriteria?.[matchingProduct.id] || {};
+
+        const selectedDocuments = criteria.documents || [];
+
+        for (const doc of selectedDocuments) {
+          const createPayload = {
+            lenderProductId: createdProduct.id,
+            documentTypeId: doc.id,
+          };
+
+          const docRes = await fetch(
+            `${API_BASE}/lender/document-config/create`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${sessionStorage.getItem(
+                  "admin_token",
+                )}`,
+              },
+              body: JSON.stringify(createPayload),
+            },
+          );
+
+          const docJson = await docRes.json().catch(() => ({}));
+
+          if (!docRes.ok) {
+            console.error("Failed to create document config", docJson);
+          }
+        }
+      }
 
       toast.success("Saved successfully");
 
@@ -647,14 +692,10 @@ export default function Main() {
               onClick={isLastStep ? handleSubmit : () => setStep((p) => p + 1)}
               disabled={
                 (!isLastStep &&
-                  ((step === 0 && !form.lenderId) || // ✅ FIXED
-                    (step === 1 && form.loanPrograms.length === 0) || // ✅ FIXED
-                    (step === 2 &&
-                      Object.keys(form.propertyTypes).length === 0) ||
-                    (step === 3 &&
-                      Object.keys(form.businessTypes).length === 0))) ||
+                  ((step === 0 && !form.lenderId) ||
+                    (step === 1 && form.loanPrograms.length === 0))) ||
                 (isLastStep && !isStep5Valid()) ||
-                hasStep5Errors
+                (step === steps.length - 1 && hasStep5Errors)
               }
               className="flex items-center gap-2 px-6 py-2 rounded-lg text-sm font-medium bg-gradient-to-r from-black to-gray-800 text-white shadow hover:scale-[1.03] active:scale-[0.98] transition disabled:opacity-40"
             >

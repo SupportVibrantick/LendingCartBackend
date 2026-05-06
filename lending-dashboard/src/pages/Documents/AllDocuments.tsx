@@ -364,7 +364,7 @@ const AllLoanProducts: React.FC = () => {
             All <span className="text-[#18B6B4]">Documents</span>
           </h1>
           <p className="text-sm text-gray-500 mt-1 dark:text-slate-400">
-            Manage documents available on the platform.
+            Manage documents available on the platform.  
           </p>
         </div>
       </div>

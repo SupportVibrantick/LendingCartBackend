@@ -10,7 +10,7 @@ import { FaAppStore } from "react-icons/fa6";
 import { MdOutlineDocumentScanner } from "react-icons/md";
 import { FaUsersBetweenLines, FaUserGroup } from "react-icons/fa6";
 import { PiSecurityCameraFill } from "react-icons/pi";
-import { TbTemplate } from "react-icons/tb";
+// import { TbTemplate } from "react-icons/tb";
 import { TrendingUp } from "lucide-react";
 import { MdSettings } from "react-icons/md";
 
@@ -29,21 +29,21 @@ const AppSidebar: React.FC = () => {
   const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({});
   const [isSubBroker, setIsSubBroker] = useState(false);
 
- useEffect(() => {
-  const updateRole = () => {
-    try {
-      const user = JSON.parse(sessionStorage.getItem("broker_user") || "{}");
-      setIsSubBroker(user?.userType === "SUB_BROKER");
-    } catch {
-      setIsSubBroker(false);
-    }
-  };
+  useEffect(() => {
+    const updateRole = () => {
+      try {
+        const user = JSON.parse(sessionStorage.getItem("broker_user") || "{}");
+        setIsSubBroker(user?.userType === "SUB_BROKER");
+      } catch {
+        setIsSubBroker(false);
+      }
+    };
 
-  updateRole(); // initial
+    updateRole();
 
-  window.addEventListener("storage", updateRole);
-  return () => window.removeEventListener("storage", updateRole);
-}, []);
+    window.addEventListener("storage", updateRole);
+    return () => window.removeEventListener("storage", updateRole);
+  }, []);
 
   // const subMenuRefs = useRef<Record<string, HTMLDivElement | null>>({});
   // const [subMenuHeight, setSubMenuHeight] = useState<Record<string, number>>(
@@ -100,15 +100,15 @@ const AppSidebar: React.FC = () => {
       ],
     },
 
-    {
-      icon: <TbTemplate />,
-      name: "Loan Application Templates",
-      path: "/templates",
-    },
+    // {
+    //   icon: <TbTemplate />,
+    //   name: "Loan Application Templates",
+    //   path: "/templates",
+    // },
 
     {
       icon: <MdOutlineDocumentScanner />,
-      name: "Active Application",
+      name: "New Loan Application",
       path: "/active-application",
     },
 
@@ -116,7 +116,7 @@ const AppSidebar: React.FC = () => {
       ? [
           {
             icon: <FaUserGroup />,
-            name: "User Management",
+            name: "CRM",
             subItems: [
               { name: "Sub Brokers", path: "/sub-broker" },
               { name: "Loan Officers", path: "/loan-officer" },
@@ -128,7 +128,7 @@ const AppSidebar: React.FC = () => {
 
     {
       icon: <FaUsersBetweenLines />,
-      name: "Lender Interactions",
+      name: "Lender Marketplace",
       subItems: [
         { name: "My Lenders", path: "/my-lenders" },
         { name: "Invited Lenders", path: "/invited-lenders" },

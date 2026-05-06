@@ -42,7 +42,7 @@ import ActiveApplication from "./pages/ActiveApplication/ActiveApp";
 import FindLenders from "./pages/LenderInteraction/FindLenders";
 import InvitedLenders from "./pages/LenderInteraction/InvitedLenders";
 import MyLenders from "./pages/LenderInteraction/MyLenders";
-import Templates from "./pages/ApplicationBuilder/Templates";
+// import Templates from "./pages/ApplicationBuilder/Templates";
 import AddSection from "./pages/ApplicationBuilder/AddSection";
 import SubmitApplications from "./pages/submitedApplications/SubmitApplication";
 import LoanOfficer from "./pages/UserManagement/LoanOfficer";
@@ -203,7 +203,7 @@ export default function App() {
 
             <Route index path="/add-section" element={<AddSection />} />
 
-            <Route index path="/templates" element={<Templates />} />
+            {/* <Route index path="/templates" element={<Templates />} /> */}
 
             <Route
               path="/submit-applications"

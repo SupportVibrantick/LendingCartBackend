@@ -198,56 +198,56 @@ export default function LoanApplicationsPage() {
     return cleaned;
   };
 
-const getStatusColor = (status?: string) => {
-  const s = status?.toLowerCase();
+  const getStatusColor = (status?: string) => {
+    const s = status?.toLowerCase();
 
-  switch (s) {
-    case "new":
-      return "bg-blue-500/10 border-blue-500/20 text-blue-600 dark:text-blue-400";
+    switch (s) {
+      case "new":
+        return "bg-blue-500/10 border-blue-500/20 text-blue-600 dark:text-blue-400";
 
-    case "pending":
-      return "bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400";
+      case "pending":
+        return "bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400";
 
-    case "client_pending":
-      return "bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400";
+      case "client_pending":
+        return "bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400";
 
-    case "submitted":
-      return "bg-violet-500/10 border-violet-500/20 text-violet-600 dark:text-violet-400"; // 🟣 unique
+      case "submitted":
+        return "bg-violet-500/10 border-violet-500/20 text-violet-600 dark:text-violet-400"; // 🟣 unique
 
-    case "sent":
-      return "bg-indigo-500/10 border-indigo-500/20 text-indigo-600 dark:text-indigo-400"; // 🔵
+      case "sent":
+        return "bg-indigo-500/10 border-indigo-500/20 text-indigo-600 dark:text-indigo-400"; // 🔵
 
-    case "updated":
-      return "bg-cyan-500/10 border-cyan-500/20 text-cyan-600 dark:text-cyan-400";
+      case "updated":
+        return "bg-cyan-500/10 border-cyan-500/20 text-cyan-600 dark:text-cyan-400";
 
-    case "approved":
-      return "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400";
+      case "approved":
+        return "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400";
 
-    case "lender_approved":
-      return "bg-green-500/10 border-green-500/20 text-green-600 dark:text-green-400"; // 🟢 different from approved
+      case "lender_approved":
+        return "bg-green-500/10 border-green-500/20 text-green-600 dark:text-green-400"; // 🟢 different from approved
 
-    case "declined":
-      return "bg-red-500/10 border-red-500/20 text-red-600 dark:text-red-400";
+      case "declined":
+        return "bg-red-500/10 border-red-500/20 text-red-600 dark:text-red-400";
 
-    case "lender_declined":
-      return "bg-rose-600/10 border-rose-600/20 text-rose-700 dark:text-rose-500"; // 🔴 slightly darker
+      case "lender_declined":
+        return "bg-rose-600/10 border-rose-600/20 text-rose-700 dark:text-rose-500"; // 🔴 slightly darker
 
-    case "in_review":
-      return "bg-sky-500/10 border-sky-500/20 text-sky-600 dark:text-sky-400"; // 🌊 unique
+      case "in_review":
+        return "bg-sky-500/10 border-sky-500/20 text-sky-600 dark:text-sky-400"; // 🌊 unique
 
-    case "draft":
-      return "bg-gray-400/10 border-gray-400/20 text-gray-600 dark:text-gray-400";
+      case "draft":
+        return "bg-gray-400/10 border-gray-400/20 text-gray-600 dark:text-gray-400";
 
-    case "completed":
-      return "bg-teal-500/10 border-teal-500/20 text-teal-600 dark:text-teal-400"; // 🟩 different from approved
+      case "completed":
+        return "bg-teal-500/10 border-teal-500/20 text-teal-600 dark:text-teal-400"; // 🟩 different from approved
 
-    case "superseded":
-      return "bg-orange-400/10 border-orange-400/20 text-orange-600 dark:text-orange-400";
+      case "superseded":
+        return "bg-orange-400/10 border-orange-400/20 text-orange-600 dark:text-orange-400";
 
-    default:
-      return "bg-slate-500/10 border-slate-500/20 text-slate-600 dark:text-slate-400";
-  }
-};
+      default:
+        return "bg-slate-500/10 border-slate-500/20 text-slate-600 dark:text-slate-400";
+    }
+  };
 
   const newCount = rows.filter(
     (r) => r.status === "NEW" || r.status === "SUBMITTED",

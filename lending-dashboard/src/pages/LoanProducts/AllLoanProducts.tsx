@@ -569,6 +569,53 @@ export default function AlloanProducts() {
               <Detail label="Credit Score" value={viewDetails.minCreditScore} />
               <Detail label="Experience" value={viewDetails.minExperience} />
 
+              {/* DOCUMENTS */}
+              <div className="col-span-2">
+                <p className="font-medium text-gray-700 dark:text-slate-300 mb-2">
+                   Documents
+                </p>
+
+                {viewDetails.documents?.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {viewDetails.documents.map((doc: any) => (
+                      <div
+                        key={doc.id}
+                        className="group flex items-center gap-2 rounded-full border border-indigo-200
+          bg-indigo-50 px-3 py-1.5 text-xs text-indigo-700
+          dark:bg-indigo-500/10 dark:border-indigo-500/20 dark:text-indigo-300"
+                      >
+                        {/* DOT */}
+                        <span className="w-2 h-2 rounded-full bg-indigo-500" />
+
+                        {/* NAME */}
+                        <span className="font-medium">{doc.documentName}</span>
+
+                        {/* CODE */}
+                        {/* {doc.documentCode && (
+                          <span className="opacity-70 text-[10px]">
+                            ({doc.documentCode})
+                          </span>
+                        )} */}
+
+                        {/* REQUIRED BADGE */}
+                        {/* {doc.isRequired && (
+                          <span
+                            className="bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full text-[10px]
+            dark:bg-emerald-500/10 dark:text-emerald-300"
+                          >
+                            Required
+                          </span>
+                        )} */}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-xs text-gray-400">
+                    No documents configured
+                  </div>
+                )}
+              </div>
+
               {/* STATES */}
               <div className="col-span-2">
                 <p className="font-medium text-gray-700 dark:text-slate-300 mb-1">
@@ -639,7 +686,7 @@ export default function AlloanProducts() {
 const Detail = ({ label, value }: any) => (
   <div>
     <p className="text-gray-500 text-xs">{label}</p>
-    <p className="font-medium text-gray-800 dark:text-white bg-blue-100 px-2 py-1 rounded-sm text-xs">
+    <p className="font-medium text-gray-800 dark:text-white rounded-md bg-blue-100 px-2 py-2 text-xs mt-1">
       {value || "-"}
     </p>
   </div>

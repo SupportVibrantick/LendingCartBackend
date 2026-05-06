@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router";
+import { CgProfile } from "react-icons/cg";
 
 // Assume these icons are imported from an icon library
 import {
@@ -22,7 +23,7 @@ import { useSidebar } from "../context/SidebarContext";
 // import AdminPanelSettingsOutlinedIcon from '@mui/icons-material/AdminPanelSettingsOutlined';
 import CurrencyExchangeOutlinedIcon from "@mui/icons-material/CurrencyExchangeOutlined";
 // import { PiSecurityCameraFill } from "react-icons/pi";
-import { GrDocumentText } from "react-icons/gr";
+// import { GrDocumentText } from "react-icons/gr";
 import { FaPersonCirclePlus } from "react-icons/fa6";
 import { TrendingUp } from "lucide-react";
 
@@ -80,11 +81,11 @@ const navItems: NavItem[] = [
   //   subItems: [{ name: "All Documents", path: "/all-documents" }],
   // },
 
-  {
-    icon: <GrDocumentText />,
-    name: "Document Type",
-    path: "/all-documents",
-  },
+  // {
+  //   icon: <GrDocumentText />,
+  //   name: "Document Type",
+  //   path: "/all-documents",
+  // },
 
   {
     icon: <FaPersonCirclePlus />,
@@ -94,6 +95,12 @@ const navItems: NavItem[] = [
       { name: "Invited Brokers ", path: "/broker-request" },
       { name: "Find Brokers", path: "/find-broker" },
     ],
+  },
+
+  {
+    icon: <CgProfile />,
+    name: "Profile",
+    path: "/profile",
   },
   // {
   //   icon: <AdminPanelSettingsOutlinedIcon />,

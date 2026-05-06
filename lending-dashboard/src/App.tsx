@@ -28,7 +28,7 @@ import BrokersLenders from "./pages/Eligibility Engine/CreateRule";
 import AdminLogs from "./pages/AdminLogs/AdminLogs";
 import AllLoanProducts from "./pages/LoanProducts/AllLoanProducts";
 import AddLoanProduct from "./pages/LoanProducts/AddLoanProduct";
-import AllDocuments from "./pages/Documents/AllDocuments";
+// import AllDocuments from "./pages/Documents/AllDocuments";
 import AllSuperadmin from "./pages/SuperAdmin/AllSuperAdmin";
 import LenderProductAssign from "./pages/LoanProducts/LenderAssignProduct";
 import AssignedProducts from "./pages/LoanProducts/AssignedProducts";
@@ -68,7 +68,7 @@ export default function App() {
             <Route index path="/lender-assigned-products" element={<LenderProductAssign />} />
             <Route index path="/assigned-products" element={<AssignedProducts />} />
             <Route index path="/all-super-admins" element={<AllSuperadmin />} />
-            <Route index path="/all-documents" element={<AllDocuments />} />
+            {/* <Route index path="/all-documents" element={<AllDocuments />} /> */}
             <Route index path="/admin-logs" element={<AdminLogs />} />
             <Route index path="/my-broker" element={<MyBroker />} />
             <Route index path="/broker-request" element={<BrokerRequest />} />

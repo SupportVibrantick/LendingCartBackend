@@ -71,7 +71,7 @@ export default function AddLoanProduct() {
     "Loan Criteria",
   ];
 
-  const loanCriteriaStepIndex = isEquipmentSelected ? 4 : 3;
+  const loanCriteriaStepIndex = steps.length - 1;
   const isLastStep = step === steps.length - 1;
 
   const validateStep5 = () => {
@@ -92,6 +92,10 @@ export default function AddLoanProduct() {
 
       if (!data.states || data.states.length === 0) {
         return `${product.name}: Select at least one state`;
+      }
+
+      if (!data.documents || data.documents.length === 0) {
+        return `${product.name}: Select at least one required document`;
       }
     }
 
@@ -194,6 +198,32 @@ export default function AddLoanProduct() {
             json?.message || `Failed to create ${product.name || product.code}`,
           );
         }
+
+        const lenderProductId = json?.data?.[0]?.id;
+
+        const selectedDocuments = criteria.documents || [];
+
+        for (const doc of selectedDocuments) {
+          const createPayload = {
+            lenderProductId,
+            documentTypeId: doc.id,
+          };
+
+          const docRes = await fetch(
+            `${API_BASE}/lender/document-config/create`,
+            {
+              method: "POST",
+              headers: getAuthHeaders(),
+              body: JSON.stringify(createPayload),
+            },
+          );
+
+          const docJson = await docRes.json().catch(() => ({}));
+
+          if (!docRes.ok) {
+            console.error("Failed to create document config", docJson);
+          }
+        }
       }
 
       toast.success("Loan product(s) created successfully");
@@ -220,7 +250,12 @@ export default function AddLoanProduct() {
       );
     }
 
-    if (step === 1) {
+    const propertyStepIndex = 1;
+    const businessStepIndex = 2;
+    const equipmentStepIndex = isEquipmentSelected ? 3 : -1;
+    const loanCriteriaIndex = steps.length - 1;
+
+    if (step === propertyStepIndex) {
       return (
         <StepThree
           value={form.propertyTypes}
@@ -231,7 +266,7 @@ export default function AddLoanProduct() {
       );
     }
 
-    if (step === 2) {
+    if (step === businessStepIndex) {
       return (
         <StepFour
           value={form.businessTypes}
@@ -242,7 +277,7 @@ export default function AddLoanProduct() {
       );
     }
 
-    if (isEquipmentSelected && step === 3) {
+    if (isEquipmentSelected && step === equipmentStepIndex) {
       return (
         <EquipmentFinancingStep
           value={form.equipmentFinance}
@@ -253,7 +288,7 @@ export default function AddLoanProduct() {
       );
     }
 
-    if (step === loanCriteriaStepIndex) {
+    if (step === loanCriteriaIndex) {
       return (
         <StepFive
           products={selectedProducts}
@@ -270,12 +305,9 @@ export default function AddLoanProduct() {
   };
 
   const nextDisabled =
-    (!isLastStep &&
-      ((step === 0 && form.loanPrograms.length === 0) ||
-        (step === 1 && Object.keys(form.propertyTypes).length === 0) ||
-        (step === 2 && Object.keys(form.businessTypes).length === 0))) ||
+    (!isLastStep && step === 0 && form.loanPrograms.length === 0) ||
+    (step === loanCriteriaStepIndex && hasStep5Errors) ||
     (isLastStep && validateStep5() !== null) ||
-    hasStep5Errors ||
     submitting;
 
   return (
@@ -327,7 +359,7 @@ export default function AddLoanProduct() {
                           : "bg-gray-100 text-gray-400"
                     }`}
                 >
-                  {isCompleted ? "?" : index + 1}
+                  {isCompleted ? "✓" : index + 1}
                   <span className="ml-1">{label}</span>
                 </div>
 

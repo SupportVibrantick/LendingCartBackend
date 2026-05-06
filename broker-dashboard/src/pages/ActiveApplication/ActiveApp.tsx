@@ -310,7 +310,7 @@ export default function ActiveApplication() {
       >
         {data.products.map((p) => (
           <option key={p.productId} value={p.productId}>
-            {p.loanProductCode}
+            {p.loanProductCode?.replace(/_/g, " ")}
           </option>
         ))}
       </select>
