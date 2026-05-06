@@ -1,36 +1,69 @@
 /**
  * @param {import("fastify").FastifyInstance} fastify
  */
-async function listLenderLoanProductsRoutes(fastify) {
+async function listLenderDocumentConfigRoutes(fastify) {
   fastify.get(
     "/",
     {
       preHandler: [fastify.authenticate],
+
       schema: {
-        tags: ["Lender -> Loan Products"],
-        summary: "List configured loan products (Advanced)",
+        tags: ["Lender -> Document Config"],
+        summary: "List lender document configs (with filters + pagination)",
+
         querystring: {
           type: "object",
           properties: {
-            page: { type: "number", minimum: 1, default: 1 },
-            limit: { type: "number", minimum: 1, maximum: 100, default: 10 },
-            isActive: { type: "boolean" },
-            search: { type: "string" },
+            lenderProductId: {
+              type: "string",
+              format: "uuid",
+            },
+
+            loanProductCode: {
+              type: "string",
+            },
+
+            search: {
+              type: "string",
+            },
+
+            isRequired: {
+              type: "boolean",
+            },
+
+            isCustom: {
+              type: "boolean",
+            },
+
+            page: {
+              type: "number",
+              minimum: 1,
+              default: 1,
+            },
+
+            limit: {
+              type: "number",
+              minimum: 1,
+              maximum: 100,
+              default: 10,
+            },
           },
         },
       },
     },
+
     async (req, reply) => {
       const prisma = fastify.prisma;
 
       try {
-        // 🔐 AUTH CHECK
+        /* ================= AUTH ================= */
+
         if (
           !req.user ||
           req.user.orgType !== "LENDER" ||
           !req.user.organizationId
         ) {
-          return reply.status(403).send({
+          return reply.code(403).send({
             success: false,
             message: "Lender access only",
           });
@@ -38,105 +71,197 @@ async function listLenderLoanProductsRoutes(fastify) {
 
         const lenderOrgId = req.user.organizationId;
 
-        // 📄 QUERY PARAMS
-        const {
+        /* ================= QUERY ================= */
+
+        let {
+          lenderProductId,
+          loanProductCode,
+          search,
+          isRequired,
+          isCustom,
           page = 1,
           limit = 10,
-          isActive,
-          search,
         } = req.query;
+
+        page = Number(page) || 1;
+        limit = Number(limit) || 10;
 
         const skip = (page - 1) * limit;
 
-        // 🔍 FILTERS
+        /* ================= WHERE ================= */
+
         const where = {
-          lenderOrgId,
+          lenderProduct: {
+            lenderOrgId,
+          },
         };
 
-        if (typeof isActive === "boolean") {
-          where.isActive = isActive;
+        // ✅ Product filter
+        if (lenderProductId) {
+          where.lenderProductId = lenderProductId;
         }
 
-        if (search) {
-          where.OR = [
-            {
-              loanProductCode: {
-                contains: search,
-                mode: "insensitive",
-              },
-            },
-            {
-              loanProduct: {
+        // ✅ Loan product code filter
+        if (loanProductCode) {
+          where.lenderProduct = {
+            ...where.lenderProduct,
+            loanProductCode,
+          };
+        }
+
+        // ✅ Required filter
+        if (typeof isRequired === "boolean") {
+          where.isRequired = isRequired;
+        }
+
+        // ✅ Document type filters
+        if (typeof isCustom === "boolean" || search) {
+          where.documentType = {};
+
+          if (typeof isCustom === "boolean") {
+            where.documentType.isCustom = isCustom;
+          }
+
+          if (search) {
+            where.documentType.OR = [
+              {
                 name: {
                   contains: search,
                   mode: "insensitive",
                 },
               },
-            },
-          ];
+              {
+                code: {
+                  contains: search,
+                  mode: "insensitive",
+                },
+              },
+            ];
+          }
         }
 
-        // 📊 QUERY
-        const [products, total] = await Promise.all([
-          prisma.lenderProduct.findMany({
+        /* ================= FETCH ================= */
+
+        const [docs, total] = await Promise.all([
+          prisma.lenderDocumentRequirement.findMany({
             where,
+
             include: {
-              loanProduct: {
+              // ✅ Document master
+              documentType: {
                 select: {
                   id: true,
                   name: true,
                   code: true,
+                  isCustom: true,
+                  description: true,
+                },
+              },
+
+              // ✅ Product info
+              lenderProduct: {
+                select: {
+                  id: true,
+                  loanProductCode: true,
+
+                  loanProduct: {
+                    select: {
+                      id: true,
+                      name: true,
+                      code: true,
+                    },
+                  },
                 },
               },
             },
-            orderBy: { createdAt: "desc" },
+
+            orderBy: [
+              { sortOrder: "asc" },
+              { createdAt: "asc" },
+            ],
+
             skip,
             take: limit,
           }),
 
-          prisma.lenderProduct.count({ where }),
+          prisma.lenderDocumentRequirement.count({
+            where,
+          }),
         ]);
 
-        // 🧠 FORMAT RESPONSE (FIXED)
-        const formatted = products.map((p) => ({
-          ...p,
+        /* ================= FORMAT ================= */
 
-          // ✅ JSON fields (NO split)
-          businessTypes: p.businessTypes ?? {},
-          propertyTypes: p.propertyTypes ?? {},
+        const formatted = docs.map((doc) => ({
+          id: doc.id,
 
-          // ✅ CSV → array
-          statesSupported: p.statesSupported
-            ? p.statesSupported.split(",")
-            : [],
+          // ✅ Product Info
+          lenderProductId: doc.lenderProductId,
 
-          // ✅ array or null
-          equipmentTypes: p.equipmentTypes ?? [],
+          loanProduct: {
+            id: doc.lenderProduct?.loanProduct?.id || null,
+            name: doc.lenderProduct?.loanProduct?.name || null,
+            code: doc.lenderProduct?.loanProduct?.code || null,
+          },
+
+          loanProductCode:
+            doc.lenderProduct?.loanProductCode || null,
+
+          // ✅ Document Type Info
+          documentType: {
+            id: doc.documentType?.id || null,
+            name: doc.documentType?.name || null,
+            code: doc.documentType?.code || null,
+            isCustom: doc.documentType?.isCustom || false,
+            description:
+              doc.documentType?.description || null,
+          },
+
+          // ✅ Config
+          config: {
+            isRequired: doc.isRequired,
+            minFiles: doc.minFiles,
+            maxFiles: doc.maxFiles,
+            notes: doc.notes || null,
+            sortOrder: doc.sortOrder,
+          },
+
+          createdAt: doc.createdAt,
+          updatedAt: doc.updatedAt,
         }));
 
-        // 📦 RESPONSE
+        /* ================= RESPONSE ================= */
+
         return reply.send({
           success: true,
-          meta: {
+
+          pagination: {
+            total,
             page,
             limit,
-            total,
             totalPages: Math.ceil(total / limit),
           },
+
           data: formatted,
         });
-      } catch (error) {
-        req.log.error(error);
 
-        return reply.status(500).send({
+      } catch (error) {
+        fastify.log.error(
+          {
+            error: error.message,
+            stack: error.stack,
+            user: req.user,
+          },
+          "❌ List lender document config failed"
+        );
+
+        return reply.code(500).send({
           success: false,
           message:
-            error.message ||
-            "Server error while fetching loan products",
+            error.message || "Internal server error",
         });
       }
     }
   );
 }
 
-module.exports = listLenderLoanProductsRoutes;
+module.exports = listLenderDocumentConfigRoutes;
