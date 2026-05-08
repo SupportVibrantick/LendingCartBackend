@@ -13,6 +13,7 @@ import { PiSecurityCameraFill } from "react-icons/pi";
 // import { TbTemplate } from "react-icons/tb";
 import { TrendingUp } from "lucide-react";
 import { MdSettings } from "react-icons/md";
+import { CgProfile } from "react-icons/cg";
 
 type NavItem = {
   name: string;
@@ -89,16 +90,20 @@ const AppSidebar: React.FC = () => {
     //   ]
     // : []),
 
-    {
-      icon: <MdWeb />,
-      name: "Website Builder",
-      subItems: [
-        {
-          name: "Config Website",
-          path: "/broker-website-dashboard/config-website",
-        },
-      ],
-    },
+    ...(!isSubBroker
+      ? [
+          {
+            icon: <MdWeb />,
+            name: "Website Builder",
+            subItems: [
+              {
+                name: "Config Website",
+                path: "/broker-website-dashboard/config-website",
+              },
+            ],
+          },
+        ]
+      : []),
 
     // {
     //   icon: <TbTemplate />,
@@ -106,11 +111,15 @@ const AppSidebar: React.FC = () => {
     //   path: "/templates",
     // },
 
-    {
-      icon: <MdOutlineDocumentScanner />,
-      name: "New Loan Application",
-      path: "/active-application",
-    },
+    ...(!isSubBroker
+      ? [
+          {
+            icon: <MdOutlineDocumentScanner />,
+            name: "New Loan Application",
+            path: "/active-application",
+          },
+        ]
+      : []),
 
     ...(!isSubBroker
       ? [
@@ -126,44 +135,69 @@ const AppSidebar: React.FC = () => {
         ]
       : []),
 
-    {
-      icon: <FaUsersBetweenLines />,
-      name: "Lender Marketplace",
-      subItems: [
-        { name: "My Lenders", path: "/my-lenders" },
-        { name: "Invited Lenders", path: "/invited-lenders" },
-        { name: "Find Lenders", path: "/find-lenders" },
-      ],
-    },
+    ...(!isSubBroker
+      ? [
+          {
+            icon: <FaUsersBetweenLines />,
+            name: "Lender Marketplace",
+            subItems: [
+              { name: "My Lenders", path: "/my-lenders" },
+              { name: "Invited Lenders", path: "/invited-lenders" },
+              { name: "Find Lenders", path: "/find-lenders" },
+            ],
+          },
+        ]
+      : []),
 
-    {
-      icon: <MdEmail />,
-      name: "Email Marketing",
-      path: "/email-marketing",
-    },
+    ...(!isSubBroker
+      ? [
+          {
+            icon: <MdEmail />,
+            name: "Email Marketing",
+            path: "/email-marketing",
+          },
+        ]
+      : []),
 
     // SETTINGS WITH NESTED APPLICATION BUILDER
-    {
-      icon: <MdSettings />,
-      name: "Settings",
-      subItems: [
-        {
-          icon: <FaAppStore />,
-          name: "Application Builder",
-          subItems: [
-            { name: "Create Application", path: "/create-application" },
-            { name: "Loan Application Config", path: "/application-config" },
-            { name: "Add Sections", path: "/add-section" },
-            { name: "Application Builder", path: "/application" },
-          ],
-        },
-      ],
-    },
+    ...(!isSubBroker
+      ? [
+          {
+            icon: <MdSettings />,
+            name: "Settings",
+            subItems: [
+              {
+                icon: <FaAppStore />,
+                name: "Application Builder",
+                subItems: [
+                  { name: "Create Application", path: "/create-application" },
+                  {
+                    name: "Loan Application Config",
+                    path: "/application-config",
+                  },
+                  { name: "Add Sections", path: "/add-section" },
+                  { name: "Application Builder", path: "/application" },
+                ],
+              },
+            ],
+          },
+        ]
+      : []),
+
+    ...(!isSubBroker
+      ? [
+          {
+            icon: <PiSecurityCameraFill />,
+            name: "Dashboard Logs",
+            path: "/admin-logs",
+          },
+        ]
+      : []),
 
     {
-      icon: <PiSecurityCameraFill />,
-      name: "Dashboard Logs",
-      path: "/admin-logs",
+      icon: <CgProfile />,
+      name: "Profile",
+      path: "/profile",
     },
   ];
 
@@ -253,7 +287,7 @@ const AppSidebar: React.FC = () => {
                     <span className="menu-item-text text-sm">{nav.name}</span>
                   )}
 
-                  {(isExpanded || isHovered || isMobileOpen) && (
+                {(isExpanded || isHovered || isMobileOpen) && (
                     <ChevronDownIcon
                       className={`ml-auto w-5 h-5 transition-all duration-200 ${
                         isOpen
