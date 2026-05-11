@@ -7,6 +7,7 @@ const landingPagesLeads = require("./public/LandingPagesLeads");
 const publicBrokerApplications = require("./public/broker/applications");
 const clientPortalRoutes = require("../routes/clientPortal");
 const messagingRoutes = require("../routes/common/messaging");
+const subBrokerRoutes = require("../routes/subBroker");
 
 async function indexRoutes(fastify, options) {
   fastify.get("/", async (request, reply) => {
@@ -33,7 +34,6 @@ async function indexRoutes(fastify, options) {
     prefix: "/client-portal",
   });
 
- 
   //  Common (read-only, role-based)
   fastify.register(commonDocumentTypes, {
     prefix: "/document-types",
@@ -44,13 +44,16 @@ async function indexRoutes(fastify, options) {
   });
 
   fastify.register(messagingRoutes, {
-  prefix: "/messaging",
-});
+    prefix: "/messaging",
+  });
 
   //  Role-specific
   fastify.register(adminRoutes, { prefix: "/admin" });
   fastify.register(lenderRoutes, { prefix: "/lender" });
   fastify.register(brokerRoutes, { prefix: "/broker" });
+  fastify.register(subBrokerRoutes, {
+    prefix: "/subbroker",
+  });
 }
 
 module.exports = indexRoutes;

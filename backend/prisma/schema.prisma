@@ -47,18 +47,18 @@ model Organization {
 }
 
 model UserAccount {
-  id                         String                      @id @default(uuid()) @db.Uuid
-  organizationId             String?                     @db.Uuid
-  email                      String                      @unique
-  passwordHash               String
-  firstName                  String?
-  lastName                   String?
-  phone                      String?
-  profileImage               String?                     @map("profile_image")
-  status                     UserStatus                  @default(ACTIVE)
-  lastLoginAt                DateTime?                   @db.Timestamptz(6)
-  createdAt                  DateTime                    @default(now()) @db.Timestamptz(6)
-  updatedAt                  DateTime                    @updatedAt @db.Timestamptz(6)
+  id             String     @id @default(uuid()) @db.Uuid
+  organizationId String?    @db.Uuid
+  email          String     @unique
+  passwordHash   String
+  firstName      String?
+  lastName       String?
+  phone          String?
+  profileImage   String?    @map("profile_image")
+  status         UserStatus @default(ACTIVE)
+  lastLoginAt    DateTime?  @db.Timestamptz(6)
+  createdAt      DateTime   @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime   @updatedAt @db.Timestamptz(6)
 
   uploadedDocs               ApplicationDocumentUpload[] @relation("UploadedByUser")
   applicationTemplates       ApplicationTemplate[]
@@ -69,21 +69,24 @@ model UserAccount {
   lenderReviews              LenderReview[]              @relation("ReviewedByUser")
   brokerLoanApplications     LoanApplication[]           @relation("BrokerUserLoanApplications")
 
-  organization               Organization?               @relation(fields: [organizationId], references: [id])
-  roles                      UserRole[]
-  brokerProfile              BrokerUserProfile?
-  createdContacts            Contact[]
-  userPermissions            UserPermission[]
-  campaigns                  Campaign[]                  @relation("UserCampaigns")
+  organization    Organization?      @relation(fields: [organizationId], references: [id])
+  roles           UserRole[]
+  brokerProfile   BrokerUserProfile?
+  createdContacts Contact[]
+  userPermissions UserPermission[]
+  campaigns       Campaign[]         @relation("UserCampaigns")
 
   // SUB BROKER RELATION (NEW - SAFE ADDITION)
-  createdById                String?                     @db.Uuid
-  createdBy                  UserAccount?                @relation("CreatedSubBrokers", fields: [createdById], references: [id])
-  createdSubBrokers          UserAccount[]               @relation("CreatedSubBrokers")
+  createdById          String?                @db.Uuid
+  createdBy            UserAccount?           @relation("CreatedSubBrokers", fields: [createdById], references: [id])
+  createdSubBrokers    UserAccount[]          @relation("CreatedSubBrokers")
+  assignedApplications SubBrokerApplication[] @relation("SubBrokerAssignedApplications")
+
+  assignedSubBrokerApplications SubBrokerApplication[] @relation("SubBrokerAssignedBy")
 
   // soft-delete fields (additive, non-breaking)
-  isDeleted                  Boolean?                    @default(false) @map("is_deleted")
-  deletedAt                  DateTime?                   @map("deleted_at") @db.Timestamptz(6)
+  isDeleted Boolean?  @default(false) @map("is_deleted")
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
 
   @@map("user_accounts")
 }
@@ -113,6 +116,28 @@ model BrokerUserProfile {
   user UserAccount @relation(fields: [userId], references: [id])
 
   @@map("broker_user_profiles")
+}
+
+model SubBrokerApplication {
+  id String @id @default(uuid()) @db.Uuid
+
+  loanApplicationId String  @db.Uuid
+  subBrokerId       String  @db.Uuid
+  assignedById      String? @db.Uuid
+
+  assignedAt DateTime @default(now()) @db.Timestamptz(6)
+
+  // relations
+  loanApplication LoanApplication @relation(fields: [loanApplicationId], references: [id])
+
+  subBroker UserAccount @relation("SubBrokerAssignedApplications", fields: [subBrokerId], references: [id])
+
+  assignedBy UserAccount? @relation("SubBrokerAssignedBy", fields: [assignedById], references: [id])
+
+  @@unique([loanApplicationId, subBrokerId])
+  @@index([loanApplicationId])
+  @@index([subBrokerId])
+  @@map("sub_broker_applications")
 }
 
 model LenderProfile {
@@ -541,6 +566,7 @@ model LoanApplication {
   submissions            ApplicationSubmission[]
   clientUploadTokens     ClientUploadToken[]
   feeAgreement           FeeAgreement?                    @relation("LoanToFeeAgreement")
+  subBrokerAssignments   SubBrokerApplication[]
 
   @@index([brokerOrgId])
   @@index([clientId])

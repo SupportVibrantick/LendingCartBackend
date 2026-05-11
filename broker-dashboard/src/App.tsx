@@ -57,6 +57,12 @@ import LoanPreview from "./pages/submitedApplications/LoanPreview";
 // import { ReactNode } from "react";
 import EmailMarketing from "./pages/EmailMarketing/EmailMarketing";
 import SubBroker from "./pages/UserManagement/SubBroker";
+import SubBrokerLayout from "./layout/SubBrokerLayout";
+import Login from "./pages/subBroker/Auth/Login";
+import Dashboard from "./pages/subBroker/Dashboard/Dashboard";
+import LoanPipeline from "./pages/subBroker/LoanPipeline/LoanPipeline";
+import SubBrokerLoanPreview from "./pages/subBroker/LoanPipeline/SubBrokerLoanPreview";
+import SubBrokerProtected from "./components/auth/SubBrokerProtected";
 
 // type RequirePermissionProps = {
 //   children: ReactNode;
@@ -289,6 +295,30 @@ export default function App() {
               </ClientProtected>
             }
           />
+
+          {/* SUB BROKER PORTAL */}
+
+          <Route path="/sub-broker/login" element={<Login />} />
+
+          <Route
+            path="/sub-broker"
+            element={
+              <SubBrokerProtected>
+                <SubBrokerLayout />
+              </SubBrokerProtected>
+            }
+          >
+            <Route index element={<Navigate to="dashboard" replace />} />
+
+            <Route path="dashboard" element={<Dashboard />} />
+
+            <Route path="loan-pipeline" element={<LoanPipeline />} />
+
+            <Route
+              path="loan-pipeline/:id"
+              element={<SubBrokerLoanPreview />}
+            />
+          </Route>
 
           {/* <Route path="/customer" element={<CustomerLogin />} /> */}
 

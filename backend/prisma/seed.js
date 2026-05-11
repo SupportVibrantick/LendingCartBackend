@@ -9,7 +9,6 @@ async function main() {
 
   const roleName = "SUB_BROKER";
 
-<<<<<<< HEAD
   const orgName = process.env.SEED_ADMIN_ORG_NAME || "LendingCart Platform";
   const orgEmail =
     process.env.SEED_ADMIN_ORG_EMAIL || "platform@lendingcart.local";
@@ -25,11 +24,6 @@ async function main() {
   // 2) Find or create Organization
   let organization = await prisma.organization.findFirst({
     where: { name: orgName },
-=======
-  // Check if already exists
-  const existing = await prisma.role.findFirst({
-    where: { name: roleName },
->>>>>>> ef304d9437fa7a1c852cdbe1d3ba9c9da4e3866a
   });
 
   if (existing) {
@@ -45,7 +39,6 @@ async function main() {
     },
   });
 
-<<<<<<< HEAD
   console.log("Admin user upserted:", admin.id);
 
   // 4) Ensure PLATFORM_ADMIN role exists and link user -> role via UserRole if not already linked
@@ -78,9 +71,6 @@ async function main() {
   console.log(`Organization: ${organization.name} (${organization.id})`);
   console.log(`Admin Email: ${admin.email}`);
   console.log(`Admin Password (plaintext): ${adminPassword}`);
-=======
-  console.log(`✅ Created role: ${role.name} (${role.id})`);
->>>>>>> ef304d9437fa7a1c852cdbe1d3ba9c9da4e3866a
 }
 
 main()
@@ -91,3 +81,25 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
