@@ -127,7 +127,7 @@ const AppSidebar: React.FC = () => {
             icon: <FaUserGroup />,
             name: "CRM",
             subItems: [
-              { name: "Sub Brokers", path: "/sub-broker" },
+              { name: "Sub Brokers", path: "/sub-brokers" },
               { name: "Loan Officers", path: "/loan-officer" },
               { name: "Contacts", path: "/contacts-list" },
             ],
@@ -287,7 +287,7 @@ const AppSidebar: React.FC = () => {
                     <span className="menu-item-text text-sm">{nav.name}</span>
                   )}
 
-                {(isExpanded || isHovered || isMobileOpen) && (
+                  {(isExpanded || isHovered || isMobileOpen) && (
                     <ChevronDownIcon
                       className={`ml-auto w-5 h-5 transition-all duration-200 ${
                         isOpen

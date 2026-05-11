@@ -1,7 +1,7 @@
 const subBrokerAuthRoutes = require("./auth/index");
 
-// const subBrokerLoanPipelineRoutes =
-//   require("./loanPipeline");
+const subBrokerLoanPipelineRoutes =
+  require("./loanPipeline");
 
 async function subBrokerRoutes(
   fastify,
@@ -16,12 +16,12 @@ async function subBrokerRoutes(
   );
 
   // LOAN PIPELINE
-//   fastify.register(
-//     subBrokerLoanPipelineRoutes,
-//     {
-//       prefix: "/loan-pipeline",
-//     }
-//   );
+  fastify.register(
+    subBrokerLoanPipelineRoutes,
+    {
+      prefix: "/loan-pipeline",
+    }
+  );
 }
 
 module.exports = subBrokerRoutes;

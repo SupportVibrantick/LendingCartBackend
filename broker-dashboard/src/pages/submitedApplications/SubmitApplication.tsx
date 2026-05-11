@@ -115,6 +115,7 @@ export default function LoanApplicationsPage() {
   const [lenderSubmissionId] = useState<string | null>(null);
   const [submissionDetail, setSubmissionDetail] = useState<any>(null);
   const [detailLoading] = useState<boolean>(false);
+  const [assignSubBrokerError, setAssignSubBrokerError] = useState("");
 
   // Find Lenders Modal State
   const [findLenderModalOpen, setFindLenderModalOpen] = useState(false);
@@ -151,6 +152,18 @@ export default function LoanApplicationsPage() {
   const [lois] = useState<any[]>([]);
 
   const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0 });
+
+  const [assignSubBrokerModal, setAssignSubBrokerModal] = useState({
+    open: false,
+    applicationId: "",
+    applicationNumber: "",
+  });
+
+  const [subBrokers, setSubBrokers] = useState<any[]>([]);
+
+  const [selectedSubBroker, setSelectedSubBroker] = useState("");
+
+  const [assigningSubBroker, setAssigningSubBroker] = useState(false);
 
   const [previewFile, setPreviewFile] = useState<{
     url: string;
@@ -282,6 +295,85 @@ export default function LoanApplicationsPage() {
   //     setDetailLoading(false);
   //   }
   // };
+
+  const fetchSubBrokers = async () => {
+    try {
+      const token = sessionStorage.getItem("broker_token");
+
+      const res = await fetch(`${API_BASE}/broker/sub-broker/list`, {
+        method: "GET",
+
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Failed to fetch sub brokers");
+      }
+
+      setSubBrokers(json.data || []);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to fetch sub brokers");
+    }
+  };
+
+  const handleAssignSubBroker = async () => {
+    try {
+      setAssignSubBrokerError("");
+      if (!selectedSubBroker) {
+        setAssignSubBrokerError("Please select a sub broker");
+        return;
+      }
+
+      setAssigningSubBroker(true);
+
+      const token = sessionStorage.getItem("broker_token");
+
+      const res = await fetch(
+        `${API_BASE}/broker/sub-brokers/assign-application`,
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type": "application/json",
+
+            Authorization: `Bearer ${token}`,
+          },
+
+          body: JSON.stringify({
+            loanApplicationId: assignSubBrokerModal.applicationId,
+
+            subBrokerId: selectedSubBroker,
+          }),
+        },
+      );
+
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Failed to assign sub broker");
+      }
+
+      toast.success("Application assigned successfully");
+
+      setAssignSubBrokerModal({
+        open: false,
+        applicationId: "",
+        applicationNumber: "",
+      });
+
+      setSelectedSubBroker("");
+    } catch (err: any) {
+      setAssignSubBrokerError(err.message || "Something went wrong");
+
+      toast.error(err.message || "Something went wrong");
+    } finally {
+      setAssigningSubBroker(false);
+    }
+  };
 
   const formatCompactAmount = (value: number) => {
     if (!value || !isFinite(value)) return "$0";
@@ -1424,6 +1516,27 @@ export default function LoanApplicationsPage() {
                                   Assign Officer
                                 </button>
                               )}
+
+                              <button
+                                onClick={() => {
+                                  setAssignSubBrokerModal({
+                                    open: true,
+
+                                    applicationId: row.applicationId,
+
+                                    applicationNumber:
+                                      row.applicationNumber || "",
+                                  });
+
+                                  fetchSubBrokers();
+
+                                  setActiveDropdown(null);
+                                }}
+                                className="flex items-center gap-3 w-full px-4 py-3 text-sm text-cyan-600 hover:bg-cyan-50"
+                              >
+                                <MdEdit size={14} />
+                                Assign Sub Broker
+                              </button>
                             </div>,
                             document.body,
                           )}
@@ -3095,6 +3208,77 @@ dark:scrollbar-thumb-slate-700 w-full
           hover:bg-indigo-700 disabled:opacity-50"
                 >
                   {assignLoading ? "Assigning..." : "Assign"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {assignSubBrokerModal.open && (
+          <div className="fixed inset-0 z-[99999999] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+            <div className="w-full max-w-lg rounded-[32px] border border-white/20 bg-white p-8 shadow-2xl">
+              <div className="mb-6">
+                <h2 className="text-2xl font-bold text-slate-900">
+                  Assign Sub Broker
+                </h2>
+              </div>
+
+              <div className="space-y-3">
+                <label className="text-sm font-medium text-slate-700">
+                  Select Sub Broker
+                </label>
+
+                <select
+                  value={selectedSubBroker}
+                  onChange={(e) => {
+                    setSelectedSubBroker(e.target.value);
+
+                    setAssignSubBrokerError("");
+                  }}
+                  className={`h-14 w-full rounded-2xl border px-4 text-sm outline-none transition
+  ${
+    assignSubBrokerError
+      ? "border-red-400 bg-red-50 focus:border-red-500"
+      : "border-slate-200 bg-slate-50 focus:border-cyan-400 focus:bg-white"
+  }`}
+                >
+                  <option value="">Select Sub Broker</option>
+
+                  {subBrokers.map((broker) => (
+                    <option key={broker.id} value={broker.id}>
+                      {broker.firstName} {broker.lastName} ({broker.email})
+                    </option>
+                  ))}
+                </select>
+                {assignSubBrokerError && (
+                  <p className="text-sm font-medium text-red-500">
+                    {assignSubBrokerError}
+                  </p>
+                )}
+              </div>
+
+              <div className="mt-8 flex items-center justify-end gap-3">
+                <button
+                  onClick={() => {
+                    setAssignSubBrokerModal({
+                      open: false,
+                      applicationId: "",
+                      applicationNumber: "",
+                    });
+
+                    setSelectedSubBroker("");
+                  }}
+                  className="h-12 rounded-2xl border border-slate-200 px-5 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  onClick={handleAssignSubBroker}
+                  disabled={assigningSubBroker}
+                  className="h-12 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 px-5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+                >
+                  {assigningSubBroker ? "Assigning..." : "Assign Sub Broker"}
                 </button>
               </div>
             </div>

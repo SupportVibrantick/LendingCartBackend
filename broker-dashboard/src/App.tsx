@@ -179,7 +179,7 @@ export default function App() {
             />
 
             <Route
-              path="/sub-broker"
+              path="/sub-brokers"
               element={
                 isSubBrokerUser() ? <Navigate to="/" replace /> : <SubBroker />
               }
@@ -315,7 +315,7 @@ export default function App() {
             <Route path="loan-pipeline" element={<LoanPipeline />} />
 
             <Route
-              path="loan-pipeline/:id"
+              path="loan-pipeline-preview"
               element={<SubBrokerLoanPreview />}
             />
           </Route>

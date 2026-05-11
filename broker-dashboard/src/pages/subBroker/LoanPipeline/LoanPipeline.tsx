@@ -1,10 +1,2316 @@
+import { useEffect, useRef, useState } from "react";
+import toast from "react-hot-toast";
+import { createPortal } from "react-dom";
+import { useNavigate } from "react-router";
+import {
+  MapPin,
+  // Eye,
+  Search,
+  FileText,
+  DollarSign,
+  Loader2,
+  // TrendingUp,
+  // RefreshCcw,
+  // Building2,
+  // SearchX,
+  ChevronLeft,
+  ChevronRight,
+  CheckCircle,
+  MoreVertical,
+  // Send,
+  // Mail,
+  // UserPlus,
+} from "lucide-react";
 
-const LoanPipeline = () => {
-  return (
-    <div>
-      
-    </div>
-  )
+import { MdEdit } from "react-icons/md";
+
+/* ================= TYPES ================= */
+
+type SubmissionField = {
+  fieldId: string | null;
+  fieldKey: string | null;
+  value: string;
+  source: "STATIC" | "DYNAMIC";
+};
+
+type TableRow = {
+  submissionId: string;
+  applicationId: string;
+  applicationNumber?: string;
+  borrowerName: string;
+  company: string;
+  loanType: string;
+  cityState: string;
+  country: string;
+  amount: number;
+  status: string;
+  date: string;
+  pendingDocumentsCount?: number;
+
+  assignedOfficerName: string | null;
+  assignedOfficerImage: string | null;
+};
+
+/* ================= HELPERS ================= */
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
+
+const parseValue = (val: string): any => {
+  try {
+    return JSON.parse(val);
+  } catch {
+    return val;
+  }
+};
+
+const getFieldValue = (fields: SubmissionField[], key: string): any => {
+  const field = fields.find((f) => f.fieldKey === key || f.fieldId === key);
+  return field ? parseValue(field.value) : undefined;
+};
+
+function getAuthHeaders(): HeadersInit {
+  const token = sessionStorage.getItem("sub_broker_token");
+
+  return {
+    "Content-Type": "application/json",
+
+    ...(token && {
+      Authorization: `Bearer ${token}`,
+    }),
+  };
 }
 
-export default LoanPipeline
+/* ================= COMPONENT ================= */
+export default function LoanApplicationsPage() {
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
+  const [rows, setRows] = useState<TableRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [viewSubmissionId, setViewSubmissionId] = useState<string | null>(null);
+  const [submissionDetail, setSubmissionDetail] = useState<any>(null);
+  const [detailLoading] = useState<boolean>(false);
+
+  // Find Lenders Modal State
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+
+  const [setPagination] = useState<any>(null);
+  // DOCUMENT MODAL STATE
+  const [documentModalOpen, setDocumentModalOpen] = useState(false);
+  // const [documentSubmissionId, setDocumentSubmissionId] = useState<
+  //   string | null
+  // >(null);
+  const [documentsData, setDocumentsData] = useState<any>(null);
+  const [documentsLoading, setDocumentsLoading] = useState(false);
+  const [uploadingDocId, setUploadingDocId] = useState<string | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<Record<string, File[]>>(
+    {},
+  );
+  const [previewFiles, setPreviewFiles] = useState<
+    Record<string, { url: string; type: string; name: string }[]>
+  >({});
+
+  const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+
+  const [loiModalOpen, setLoiModalOpen] = useState(false);
+  const [lois] = useState<any[]>([]);
+
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0 });
+
+  const [previewFile, setPreviewFile] = useState<{
+    url: string;
+    type: string;
+    name: string;
+  } | null>(null);
+
+  const [docSelectModal, setDocSelectModal] = useState({
+    isOpen: false,
+    applicationId: "",
+    documents: [],
+    selectedDocs: [] as string[],
+    loading: false,
+  });
+  const [requestMessage, setRequestMessage] = useState("");
+
+  const navigate = useNavigate();
+
+  const formatFieldKey = (key: string | null | undefined) => {
+    if (!key) return "";
+
+    let cleaned = key
+      // remove coBorrower_1_, coBorrower_2_ etc
+      .replace(/^coBorrower_\d+_/, "coBorrower_")
+      // camelCase → camel Case
+      .replace(/([a-z])([A-Z])/g, "$1 $2")
+      // snake_case → snake case
+      .replace(/_/g, " ")
+      // multiple spaces remove
+      .replace(/\s+/g, " ")
+      .trim()
+      // capitalize each word
+      .replace(/\b\w/g, (char) => char.toUpperCase());
+
+    return cleaned;
+  };
+
+  const getStatusColor = (status?: string) => {
+    const s = status?.toLowerCase();
+
+    switch (s) {
+      case "new":
+        return "bg-blue-500/10 border-blue-500/20 text-blue-600 dark:text-blue-400";
+
+      case "pending":
+        return "bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400";
+
+      case "client_pending":
+        return "bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400";
+
+      case "submitted":
+        return "bg-violet-500/10 border-violet-500/20 text-violet-600 dark:text-violet-400"; // 🟣 unique
+
+      case "sent":
+        return "bg-indigo-500/10 border-indigo-500/20 text-indigo-600 dark:text-indigo-400"; // 🔵
+
+      case "updated":
+        return "bg-cyan-500/10 border-cyan-500/20 text-cyan-600 dark:text-cyan-400";
+
+      case "approved":
+        return "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400";
+
+      case "lender_approved":
+        return "bg-green-500/10 border-green-500/20 text-green-600 dark:text-green-400"; // 🟢 different from approved
+
+      case "declined":
+        return "bg-red-500/10 border-red-500/20 text-red-600 dark:text-red-400";
+
+      case "lender_declined":
+        return "bg-rose-600/10 border-rose-600/20 text-rose-700 dark:text-rose-500"; // 🔴 slightly darker
+
+      case "in_review":
+        return "bg-sky-500/10 border-sky-500/20 text-sky-600 dark:text-sky-400"; // 🌊 unique
+
+      case "draft":
+        return "bg-gray-400/10 border-gray-400/20 text-gray-600 dark:text-gray-400";
+
+      case "completed":
+        return "bg-teal-500/10 border-teal-500/20 text-teal-600 dark:text-teal-400"; // 🟩 different from approved
+
+      case "superseded":
+        return "bg-orange-400/10 border-orange-400/20 text-orange-600 dark:text-orange-400";
+
+      default:
+        return "bg-slate-500/10 border-slate-500/20 text-slate-600 dark:text-slate-400";
+    }
+  };
+
+  const newCount = rows.filter(
+    (r) => r.status === "NEW" || r.status === "SUBMITTED",
+  ).length;
+
+  const approvedCount = rows.filter((r) => r.status === "APPROVED").length;
+
+  const totalVolume = rows.reduce((sum, r) => {
+    const amount = Number(r.amount);
+
+    if (!isFinite(amount)) return sum; // skip bad values
+
+    return sum + amount;
+  }, 0);
+
+  // const fetchSubmissionDetail = async (submissionId: string) => {
+  //   try {
+  //     setDetailLoading(true);
+  //     setViewSubmissionId(submissionId);
+
+  //     const res = await fetch(
+  //       `${API_BASE}/api/public/broker/applications/submissions/${submissionId}`,
+  //     );
+  //     const json = await res.json();
+
+  //     if (!json.success) throw new Error("Failed to load submission");
+
+  //     setSubmissionDetail(json.data);
+  //   } catch (err: any) {
+  //     toast.error(err.message || "Failed to load submission");
+  //   } finally {
+  //     setDetailLoading(false);
+  //   }
+  // };
+
+  const formatCompactAmount = (value: number) => {
+    if (!value || !isFinite(value)) return "$0";
+
+    // Convert scientific notation safely
+    const num = Number(value);
+
+    if (num >= 1e9) return `$${(num / 1e9).toFixed(1).replace(/\.0$/, "")}B`;
+    if (num >= 1e6) return `$${(num / 1e6).toFixed(1).replace(/\.0$/, "")}M`;
+    if (num >= 1e3) return `$${(num / 1e3).toFixed(1).replace(/\.0$/, "")}K`;
+
+    return `$${num}`;
+  };
+
+  const fetchSubmissionDocuments = async (submissionId: string) => {
+    try {
+      setDocumentsLoading(true);
+      // setDocumentSubmissionId(submissionId);
+      setDocumentModalOpen(true);
+
+      const res = await fetch(
+        `${API_BASE}/broker/loan-pipeline/submissions/${submissionId}/documents`,
+        {
+          method: "GET",
+          headers: getAuthHeaders(),
+        },
+      );
+
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Failed to load documents");
+      }
+
+      setDocumentsData(json.data);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to fetch documents");
+    } finally {
+      setDocumentsLoading(false);
+    }
+  };
+
+  const loadSubmissions = async () => {
+    try {
+      setLoading(true);
+
+      const url = new URL(`${API_BASE}/subbroker/loan-pipeline`);
+
+      url.searchParams.append("page", String(currentPage));
+
+      url.searchParams.append("limit", "10");
+
+      if (searchTerm.trim()) {
+        url.searchParams.append("search", searchTerm);
+      }
+
+      const res = await fetch(
+        url.toString(),
+
+        {
+          method: "GET",
+
+          headers: getAuthHeaders(),
+        },
+      );
+
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Failed to fetch applications");
+      }
+
+      setPagination(json.pagination || null);
+
+      setTotalPages(json.pagination?.totalPages || 1);
+
+      const formatted = json.data.map((item: any) => ({
+        submissionId: item.id,
+
+        applicationId: item.id,
+
+        applicationNumber: item.applicationNumber,
+
+        borrowerName: `${item.borrower?.firstName || ""} ${
+          item.borrower?.lastName || ""
+        }`,
+
+        company: "-",
+
+        loanType: item.loanPurpose || "-",
+
+        cityState: `${item.propertyCity || ""}${
+          item.propertyState ? `, ${item.propertyState}` : ""
+        }`,
+
+        country: item.propertyCountry || "",
+
+        amount: item.loanAmount || 0,
+
+        status: item.status,
+
+        date: item.createdAt,
+
+        pendingDocumentsCount: 0,
+
+        assignedOfficerName: item.assignedLoanOfficer
+          ? `${item.assignedLoanOfficer.firstName || ""} ${
+              item.assignedLoanOfficer.lastName || ""
+            }`
+          : null,
+
+        assignedOfficerImage: item.assignedLoanOfficer?.profileImage || null,
+      }));
+
+      setRows(formatted);
+    } catch (err: any) {
+      console.error(err);
+
+      toast.error(err.message || "Failed to load applications");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDocumentUpload = async (
+    submissionId: string,
+    requirementId: string,
+  ) => {
+    const files = selectedFiles[requirementId];
+
+    if (!files || files.length === 0) {
+      toast.error("Please select at least one file");
+      return;
+    }
+
+    try {
+      setUploadingDocId(requirementId);
+
+      const token = sessionStorage.getItem("sub_broker_token");
+
+      for (const file of files) {
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const res = await fetch(
+          `${API_BASE}/broker/loan-pipeline/submissions/${submissionId}/documents/${requirementId}/upload`,
+          {
+            method: "POST",
+            headers: {
+              ...(token && { Authorization: `Bearer ${token}` }),
+            },
+            body: formData,
+          },
+        );
+
+        const json = await res.json();
+
+        if (!res.ok || !json.success) {
+          throw new Error(json.message || "Upload failed");
+        }
+      }
+
+      toast.success("All documents uploaded successfully");
+
+      // Reset after success
+      setSelectedFiles((prev) => {
+        const copy = { ...prev };
+        delete copy[requirementId];
+        return copy;
+      });
+
+      setPreviewFiles((prev) => {
+        const copy = { ...prev };
+        delete copy[requirementId];
+        return copy;
+      });
+
+      await fetchSubmissionDocuments(submissionId);
+    } catch (err: any) {
+      toast.error(err.message || "Upload failed");
+    } finally {
+      setUploadingDocId(null);
+    }
+  };
+
+  const Stat = ({ label, value }: { label: string; value: string }) => (
+    <div>
+      <p className="text-xs text-slate-500 uppercase">{label}</p>
+      <p className="text-[14px] font-semibold text-[#2C92D5]">{value}</p>
+    </div>
+  );
+
+  const getStatusChip = (status?: string) => {
+    switch (status) {
+      case "NEW":
+        return "bg-blue-100 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400";
+
+      case "SENT":
+      case "SUBMITTED":
+        return "bg-purple-100 text-purple-700 dark:bg-purple-500/10 dark:text-purple-400";
+
+      case "APPROVED":
+      case "LENDER_APPROVED":
+        return "bg-green-100 text-green-700 dark:bg-green-500/10 dark:text-green-400";
+
+      case "DECLINED":
+      case "LENDER_DECLINED":
+        return "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400";
+
+      case "IN_REVIEW":
+        return "bg-indigo-100 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-400";
+
+      case "CLIENT_PENDING":
+        return "bg-pink-100 text-pink-700 dark:bg-pink-500/10 dark:text-pink-400";
+
+      case "DRAFT":
+        return "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300";
+
+      default:
+        return "bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300";
+    }
+  };
+
+  useEffect(() => {
+    loadSubmissions();
+  }, [currentPage, searchTerm]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setActiveDropdown(null);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!activeDropdown) return;
+
+    const handleScroll = () => {
+      const btn = document.querySelector(
+        `[data-id="${activeDropdown}"]`,
+      ) as HTMLElement;
+
+      if (!btn) return;
+
+      const rect = btn.getBoundingClientRect();
+
+      setDropdownPos({
+        top: rect.top - 8,
+        left: rect.right - 192,
+      });
+    };
+
+    window.addEventListener("scroll", handleScroll, true);
+    window.addEventListener("resize", handleScroll);
+
+    return () => {
+      window.removeEventListener("scroll", handleScroll, true);
+      window.removeEventListener("resize", handleScroll);
+    };
+  }, [activeDropdown]);
+
+  // useEffect(() => {
+  //   const storedRoles = JSON.parse(sessionStorage.getItem("roles") || "[]");
+  //   setRoles(storedRoles);
+  // }, []);
+
+  // const isBrokerOfficer = roles.includes("BROKER_OFFICER");
+
+  // const fetchDocumentTypes = async (applicationId: string) => {
+  //   try {
+  //     const brokerToken = sessionStorage.getItem("sub_broker_token");
+
+  //     setDocSelectModal({
+  //       isOpen: true,
+  //       applicationId,
+  //       documents: [],
+  //       selectedDocs: [],
+  //       loading: true,
+  //     });
+
+  //     const res = await fetch(`${API_BASE}/document-types/active`, {
+  //       method: "GET",
+  //       headers: {
+  //         "Content-Type": "application/json",
+  //         ...(brokerToken && {
+  //           Authorization: `Bearer ${brokerToken}`,
+  //         }),
+  //       },
+  //     });
+
+  //     const json = await res.json();
+
+  //     if (!res.ok || !json.success) {
+  //       throw new Error(json.message || "Failed to fetch document types");
+  //     }
+
+  //     const formattedDocs = json.data.map((doc: any) => ({
+  //       documentTypeId: doc.id,
+  //       documentType: {
+  //         name: doc.name,
+  //       },
+  //     }));
+
+  //     setDocSelectModal({
+  //       isOpen: true,
+  //       applicationId,
+  //       documents: formattedDocs,
+  //       selectedDocs: [],
+  //       loading: false,
+  //     });
+  //   } catch (err: any) {
+  //     toast.error(err.message || "Failed to load documents");
+
+  //     // FIX: stop loading
+  //     setDocSelectModal((prev) => ({
+  //       ...prev,
+  //       loading: false,
+  //     }));
+  //   }
+  // };
+
+  const handleRequestDocuments = async () => {
+    try {
+      const brokerToken = sessionStorage.getItem("sub_broker_token");
+
+      if (!brokerToken) {
+        toast.error("Unauthorized");
+        return;
+      }
+
+      if (docSelectModal.selectedDocs.length === 0) {
+        toast.error("Please select at least one document");
+        return;
+      }
+
+      const url = `${API_BASE}/broker/loan-pipeline/${docSelectModal.applicationId}/request-documents`;
+
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${brokerToken}`,
+        },
+        body: JSON.stringify({
+          documentTypeIds: docSelectModal.selectedDocs,
+          message: requestMessage || "Please upload these documents urgently",
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || "Failed to request documents");
+      }
+
+      toast.success("Documents requested successfully");
+
+      // CLOSE MODAL
+      setDocSelectModal({
+        isOpen: false,
+        applicationId: "",
+        documents: [],
+        selectedDocs: [],
+        loading: false,
+      });
+
+      // OPTIONAL: refresh table
+      // fetchApplications();
+    } catch (err: any) {
+      toast.error(err.message || "Something went wrong");
+    }
+  };
+
+  return (
+    <div className="min-w-full bg-slate-50 dark:bg-[#0b1120] p-3 text-slate-900 dark:text-slate-100 selection:bg-blue-100 dark:selection:bg-blue-900/30">
+      {/* Header Area */}
+      <header className="max-w-ful mx-auto mb-10">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+          <div className="space-y-1">
+            <h2
+              className="text-3xl font-bold"
+              style={{
+                color: "var(--primary-color)",
+              }}
+            >
+              Loan Pipeline
+            </h2>
+          </div>
+
+          <div className="flex flex-col md:flex-row md:items-center gap-3">
+            {/* Search + Reload Section */}
+            <div className="flex items-center gap-3 flex-1">
+              <div className="relative group flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+                <input
+                  value={searchTerm}
+                  placeholder="Search by name, company, or app no..."
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value);
+
+                    setCurrentPage(1);
+                  }}
+                  className="pl-10 pr-4 py-2.5 w-full md:w-80 rounded-xl text-sm 
+                   bg-white dark:bg-slate-900 
+                   border border-slate-200 dark:border-slate-800 
+                   shadow-sm focus:ring-2 focus:ring-blue-500/20 
+                   focus:border-blue-500 transition-all outline-none"
+                />
+              </div>
+
+              {/* <button
+                onClick={handleReload}
+                className="p-2.5 rounded-xl bg-white dark:bg-slate-900 
+                 border border-slate-200 dark:border-slate-800 
+                 hover:border-blue-500 transition-all 
+                 shadow-sm active:scale-95"
+              >
+                <Loader2
+                  className={`w-5 h-5 text-slate-600 dark:text-slate-400 ${
+                    loading ? "animate-spin text-blue-500" : ""
+                  }`}
+                />
+              </button> */}
+            </div>
+          </div>
+        </div>
+
+        {/* Quick Status Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
+          {/* TOTAL VOLUME */}
+          <div
+            className="
+    bg-white dark:bg-slate-900
+    border border-slate-200 dark:border-slate-800
+    rounded-2xl p-6
+    shadow-sm hover:shadow-md
+    transition-all duration-200
+    flex items-center justify-between
+  "
+          >
+            <div>
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                Total Volume
+              </p>
+              <h3 className="text-xl font-semibold text-slate-900 dark:text-white mt-1">
+                {formatCompactAmount(totalVolume)}
+              </h3>
+            </div>
+
+            <div className="h-8 w-8 flex items-center justify-center rounded-full bg-indigo-600 text-white">
+              <DollarSign className="w-5 h-5" />
+            </div>
+          </div>
+
+          {/* NEW APPLICATIONS */}
+          <div
+            className="
+    bg-white dark:bg-slate-900
+    border border-slate-200 dark:border-slate-800
+    rounded-2xl p-6
+    shadow-sm hover:shadow-md
+    transition-all duration-200
+    flex items-center justify-between
+  "
+          >
+            <div>
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                New Applications
+              </p>
+              <h3 className="text-xl font-semibold text-slate-900 dark:text-white mt-1">
+                {newCount}
+              </h3>
+            </div>
+
+            <div className="h-8 w-8 flex items-center justify-center rounded-full bg-blue-600 text-white">
+              <FileText className="w-5 h-5" />
+            </div>
+          </div>
+
+          {/* APPROVED */}
+          <div
+            className="
+    bg-white dark:bg-slate-900
+    border border-slate-200 dark:border-slate-800
+    rounded-2xl p-6
+    shadow-sm hover:shadow-md           
+    transition-all duration-200
+    flex items-center justify-between 
+  "
+          >
+            <div>
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                Approved
+              </p>
+              <h3 className="text-xl font-semibold text-slate-900 dark:text-white mt-1">
+                {approvedCount}
+              </h3>
+            </div>
+
+            <div className="h-8 w-8 flex items-center justify-center rounded-full bg-emerald-600 text-white">
+              <CheckCircle className="w-5 h-5" />
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Table Container */}
+      <div className="w-full mx-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl shadow-slate-200/50 dark:shadow-none ">
+        <div className="w-full bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+          <div className="overflow-x-auto applications-table-top">
+            <table className="min-w-[999px] w-full table-fixed border-separate border-spacing-0">
+              <thead className="sticky top-0 z-20 bg-white dark:bg-slate-900 shadow-sm">
+                <tr className="bg-slate-50/50 dark:bg-slate-800/40">
+                  {[
+                    { label: "Borrower", width: "w-[120px]" },
+                    { label: "Application No.", width: "w-[160px]" },
+                    { label: "Loan Info", width: "w-[200px]" },
+                    { label: "Location", width: "w-[150px]" },
+                    { label: "Amount", width: "w-[80px]" },
+                    { label: "Submitted On", width: "w-[110px]" },
+                    { label: "Status", width: "w-[160px]" },
+                    // { label: "Lenders", width: "w-[100px]" },
+                    { label: "Loan Officer", width: "w-[140px]" },
+                    { label: "Action", width: "w-[80px]" },
+                  ].map((h) => (
+                    <th
+                      key={h.label}
+                      className={`${h.width} px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800 whitespace-nowrap`}
+                    >
+                      {h.label}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {Array.isArray(rows) && loading ? (
+                  rows.map((row) => (
+                    <tr
+                      key={row.submissionId}
+                      className="group hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors duration-150"
+                    >
+                      {/* Borrower - High Emphasis */}
+                      <td className="px-6 py-3">
+                        <div className="flex items-center gap-3">
+                          {/* <div className="h-10 w-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-700 dark:text-slate-300 font-bold">
+                            {row.borrowerName?.charAt(0) || "U"}
+                          </div> */}
+                          <div className="flex flex-col min-w-0">
+                            <span className="text-[13px] text-slate-900 dark:text-slate-100 truncate">
+                              {(row.borrowerName &&
+                              row.borrowerName.length >= 15
+                                ? row.borrowerName?.slice(0, 15) + "..."
+                                : row.borrowerName) || "Untitled Applicant"}
+                            </span>
+                            {/* <span className="text-[12px] text-slate-500 dark:text-slate-500 flex items-center gap-1">
+                              <FileText className="w-3 h-3" />
+                              {row.company.slice(0, 15) + "..."}
+                            </span> */}
+                          </div>
+                        </div>
+                      </td>
+
+                      <td className="px-6 py-3">
+                        <div className="text-xs text-slate-800 dark:text-slate-200">
+                          {row.applicationNumber || "-"}
+                        </div>
+                      </td>
+
+                      {/* Loan Info - Medium Emphasis */}
+                      <td className="px-6 py-3">
+                        <span className="text-[10px] text-slate-700 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/50 px-2 py-1 rounded">
+                          {row.loanType}
+                        </span>
+                      </td>
+
+                      {/* Location */}
+                      <td className="px-6 py-3 min-w-[200px]">
+                        <div className="flex items-start gap-1">
+                          {/* Fixed Icon Wrapper */}
+                          <div className="w-5 h-5 flex items-center justify-center shrink-0 mt-[2px]">
+                            <MapPin
+                              className="w-2.5 h-2.5 text-slate-500 dark:text-slate-400"
+                              strokeWidth={2}
+                            />
+                          </div>
+
+                          {/* Location Text */}
+                          <div className="leading-tight">
+                            <div className="text-[13px] text-slate-700 dark:text-slate-300">
+                              {row.cityState?.length > 19
+                                ? row.cityState.slice(0, 19) + "..."
+                                : row.cityState || "Global"}
+                            </div>
+
+                            {row.country && (
+                              <div className="text-[11px] text-slate-400 uppercase tracking-wide">
+                                {row.country}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Amount - Monospace for numbers */}
+                      <td className="px-6 py-3">
+                        <span className="font-mono text-[13px] text-slate-800 dark:text-slate-200">
+                          {formatCompactAmount(Number(row.amount || 0))}
+                        </span>
+                      </td>
+
+                      {/* Submitted Date & Time */}
+                      <td className="px-6 py-3 whitespace-nowrap">
+                        {(() => {
+                          const submitted = new Date(row.date);
+                          const formattedDate = submitted.toLocaleDateString();
+                          const formattedTime = submitted.toLocaleTimeString();
+
+                          return (
+                            <div className="flex flex-col leading-tight">
+                              <span className="text-[13px] text-slate-700 dark:text-slate-200">
+                                {formattedDate}
+                              </span>
+                              <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                                {formattedTime}
+                              </span>
+                            </div>
+                          );
+                        })()}
+                      </td>
+
+                      {/* Status - Dynamic Vibrant Badges */}
+                      <td className="px-6 py-3 whitespace-nowrap">
+                        <span
+                          className={`
+      inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] uppercase tracking-wider 
+      border backdrop-blur-md transition-all duration-500 group-hover:scale-105
+      ${getStatusColor(row.status)}
+    `}
+                        >
+                          {/* Animated Status Indicator Dot */}
+                          <span className="relative flex h-2 w-2">
+                            <span
+                              className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-40 bg-current`}
+                            ></span>
+                            <span
+                              className={`relative inline-flex rounded-full h-2 w-2 bg-current shadow-[0_0_8px_rgba(255,255,255,0.5)]`}
+                            ></span>
+                          </span>
+
+                          {row.status === "DECLINED"
+                            ? "REJECTED"
+                            : row.status === "CLIENT_PENDING"
+                              ? "Client Pending"
+                              : row.status}
+                        </span>
+                      </td>
+
+                      <td className="px-5 py-3">
+                        {row.assignedOfficerName ? (
+                          <div className="flex items-center gap-2">
+                            {/* CHIP */}
+                            <div
+                              className="flex items-center gap-2 px-3 py-1.5 rounded-full 
+      bg-indigo-50 border border-indigo-200
+      dark:bg-indigo-500/10 dark:border-indigo-500/20"
+                            >
+                              {/* NAME */}
+                              <span className="text-xs font-medium text-indigo-700 dark:text-indigo-300">
+                                {row.assignedOfficerName}
+                              </span>
+                            </div>
+                          </div>
+                        ) : (
+                          <span
+                            className="px-2.5 py-1 rounded-full text-xs font-medium 
+    bg-slate-100 text-slate-500 border border-slate-200
+    dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700"
+                          >
+                            Not Assigned
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Action - Clean & Subtle */}
+                      <td className="px-6 py-3 text-center relative">
+                        {/* Three Dot Button */}
+                        <button
+                          data-id={row.submissionId}
+                          onClick={(e) => {
+                            e.stopPropagation();
+
+                            const rect =
+                              e.currentTarget.getBoundingClientRect();
+
+                            setDropdownPos({
+                              top: rect.top - 8,
+                              left: rect.right - 192,
+                            });
+
+                            setActiveDropdown(
+                              activeDropdown === row.submissionId
+                                ? null
+                                : row.submissionId,
+                            );
+                          }}
+                          className={`
+    relative p-2 rounded-lg
+    text-slate-500 dark:text-slate-400
+    hover:bg-slate-100 dark:hover:bg-slate-800
+    hover:text-slate-700 dark:hover:text-white
+    transition-all duration-300
+    active:scale-90
+    ${
+      activeDropdown === row.submissionId
+        ? "bg-slate-200 dark:bg-slate-700 rotate-90"
+        : ""
+    }
+  `}
+                        >
+                          <MoreVertical
+                            size={18}
+                            className="transition-transform duration-300"
+                          />
+                        </button>
+
+                        {activeDropdown === row.submissionId &&
+                          createPortal(
+                            <div
+                              ref={dropdownRef}
+                              style={{
+                                position: "fixed",
+                                top: dropdownPos.top,
+                                left: dropdownPos.left,
+                                transition: "top 0.1s linear",
+                              }}
+                              className="
+        w-48
+        bg-white dark:bg-slate-900
+        border border-slate-200 dark:border-slate-800
+        rounded-xl shadow-xl
+        overflow-hidden z-[9999]
+        animate-in fade-in zoom-in-95
+      "
+                            >
+                              {/* Application Preview */}
+                              <button
+                                onClick={() =>
+                                  navigate("/sub-broker/loan-pipeline", {
+                                    state: {
+                                      application: row,
+                                    },
+                                  })
+                                }
+                                className="flex items-center gap-3 w-full px-4 py-3 text-sm text-yellow-500 hover:bg-yellow-50"
+                              >
+                                <MdEdit size={14} />
+                                App Preview
+                              </button>
+                            </div>,
+                            document.body,
+                          )}
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  /* Professional Empty State */
+                  <tr>
+                    <td
+                      colSpan={8}
+                      className="px-6 py-24 text-center align-middle"
+                    >
+                      <div className="flex flex-col items-center max-w-xs mx-auto">
+                        {/* Icon */}
+                        <div
+                          className={`
+          w-14 h-14 
+          rounded-2xl 
+          flex items-center justify-center 
+          mb-5
+          border
+          ${
+            !loading && rows.length === 0
+              ? "bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/20"
+              : "bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700"
+          }
+        `}
+                        >
+                          {!loading && rows.length === 0 ? (
+                            <span className="text-red-500 dark:text-red-400 text-2xl font-bold">
+                              ✕
+                            </span>
+                          ) : (
+                            <Search className="w-6 h-6 text-slate-400 dark:text-slate-500" />
+                          )}
+                        </div>
+
+                        {/* Title */}
+                        <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">
+                          {!loading && rows.length === 0
+                            ? "Currently you have no loan applications"
+                            : "No applications found"}
+                        </h3>
+
+                        {/* Subtext */}
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
+                          {!loading && rows.length === 0
+                            ? "Once applications are submitted, they will appear here."
+                            : "Try adjusting your search terms and try again."}
+                        </p>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+
+            <div className="py-6 text-center">
+              {loading && (
+                <div className="flex justify-center">
+                  <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
+                </div>
+              )}
+            </div>
+            <div className="flex items-center justify-between border-t border-slate-200 px-6 py-4 dark:border-slate-800">
+              <p className="text-sm text-slate-500">Page {currentPage}</p>
+
+              <div className="flex items-center gap-2">
+                <button
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage((prev) => prev - 1)}
+                  className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900"
+                >
+                  <ChevronLeft size={18} />
+                </button>
+
+                <button
+                  disabled={currentPage >= totalPages}
+                  onClick={() => setCurrentPage((prev) => prev + 1)}
+                  className="
+flex h-10 w-10 items-center justify-center
+rounded-xl border border-slate-200
+bg-white transition hover:bg-slate-50
+disabled:cursor-not-allowed
+disabled:opacity-50
+dark:border-slate-700
+dark:bg-slate-900
+"
+                >
+                  <ChevronRight size={18} />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {viewSubmissionId &&
+          createPortal(
+            <div
+              className="fixed inset-0 z-50
+                                            bg-black/40 dark:bg-black/70
+                                            backdrop-blur-[1px]
+                                            flex items-center justify-center p-4"
+            >
+              <div
+                className="bg-white dark:bg-slate-900
+                                            text-slate-900 dark:text-slate-100
+                                            rounded-2xl
+                                            w-full max-w-7xl max-h-[90vh]
+                                            overflow-y-auto
+                                            shadow-xl dark:shadow-black/40"
+              >
+                {/* HEADER */}
+                <div className="sticky top-0 z-10 bg-white dark:bg-slate-900 flex items-center justify-between px-6 py-3 border-b dark:border-slate-800">
+                  <div>
+                    <h2 className="font-bold text-lg">Application Details</h2>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setViewSubmissionId(null);
+                      setSubmissionDetail(null);
+                    }}
+                    className="text-slate-400 hover:text-red-500 text-xl"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                {/* BODY */}
+                <div className="p-6 space-y-8">
+                  {detailLoading ? (
+                    <p className="text-center text-slate-500">Loading…</p>
+                  ) : submissionDetail ? (
+                    (() => {
+                      const signatureField = submissionDetail.fields?.find(
+                        (f: any) => f.fieldKey === "borrowerSignature",
+                      );
+
+                      /* ===================== YAHAN PASTE KARO ===================== */
+
+                      const allFields = submissionDetail.fields.filter(
+                        (f: any) => f.fieldKey !== "borrowerSignature",
+                      );
+
+                      const primaryFields: any[] = [];
+                      const coBorrowerGroups: Record<string, any[]> = {};
+                      const otherFields: any[] = [];
+
+                      allFields.forEach((f: any) => {
+                        const key = f.fieldKey || "";
+
+                        if (key.startsWith("coBorrower_")) {
+                          const match = key.match(/^coBorrower_(\d+)_/);
+                          if (match) {
+                            const index = match[1];
+                            if (!coBorrowerGroups[index]) {
+                              coBorrowerGroups[index] = [];
+                            }
+                            coBorrowerGroups[index].push(f);
+                          }
+                        } else if (
+                          key.startsWith("borrower") ||
+                          key === "city" ||
+                          key === "state" ||
+                          key === "isBroker"
+                        ) {
+                          primaryFields.push(f);
+                        } else {
+                          otherFields.push(f);
+                        }
+                      });
+
+                      const loanAmount =
+                        Number(
+                          getFieldValue(
+                            submissionDetail.fields,
+                            "amountRequested",
+                          ) ?? 0,
+                        ) || 0;
+
+                      const ltv =
+                        Number(
+                          getFieldValue(
+                            submissionDetail.fields,
+                            "ltvPercentage",
+                          ) ?? 0,
+                        ) || 0;
+
+                      const ltc =
+                        Number(
+                          getFieldValue(
+                            submissionDetail.fields,
+                            "ltcPercentage",
+                          ) ?? 0,
+                        ) || 0;
+
+                      const arv =
+                        Number(
+                          getFieldValue(
+                            submissionDetail.fields,
+                            "arvPercentage",
+                          ) ?? 0,
+                        ) || 0;
+
+                      const dscr =
+                        Number(
+                          getFieldValue(submissionDetail.fields, "dscr") ?? 0,
+                        ) || 0;
+
+                      const netWorth =
+                        Number(
+                          getFieldValue(submissionDetail.fields, "netWorth") ??
+                            0,
+                        ) || 0;
+
+                      const submittedDate = new Date(
+                        submissionDetail.submittedAt,
+                      );
+                      const formattedDate = submittedDate.toLocaleDateString();
+                      const formattedTime = submittedDate.toLocaleTimeString();
+                      const reviewsArray =
+                        submissionDetail?.lenders?.[0]?.reviews || [];
+
+                      const firstReview =
+                        Array.isArray(reviewsArray) && reviewsArray.length > 0
+                          ? reviewsArray[0]
+                          : null;
+
+                      const FieldItem = ({ field }: { field: any }) => {
+                        const parsedValue = parseValue(field.value);
+
+                        return (
+                          <div className="space-y-1">
+                            <label className="text-xs font-semibold text-slate-500 uppercase">
+                              {formatFieldKey(field.fieldKey)}
+                            </label>
+
+                            <div
+                              className="px-3 py-2 rounded-lg border text-sm font-medium break-words
+bg-slate-100 border-slate-200
+dark:bg-slate-800 dark:border-slate-700"
+                            >
+                              {parsedValue !== undefined && parsedValue !== null
+                                ? typeof parsedValue === "boolean"
+                                  ? parsedValue
+                                    ? "Yes"
+                                    : "No"
+                                  : String(parsedValue)
+                                : "-"}
+                            </div>
+                          </div>
+                        );
+                      };
+
+                      return (
+                        <>
+                          {firstReview && (
+                            <div
+                              className={`relative overflow-hidden rounded-2xl border p-6 mb-8 shadow-md
+     ${
+       firstReview.reviewStatus === "APPROVED"
+         ? "border-emerald-400 bg-emerald-50/40 dark:bg-emerald-500/5"
+         : firstReview.reviewStatus === "CONDITIONAL"
+           ? "border-amber-400 bg-amber-50/40 dark:bg-amber-500/5"
+           : "border-rose-400 bg-rose-50/40 dark:bg-rose-500/5"
+     }
+    `}
+                            >
+                              {/* Top Accent Line */}
+                              <div
+                                className={`absolute top-0 left-0 right-0 h-1
+        ${
+          firstReview.reviewStatus === "APPROVED"
+            ? "bg-emerald-500"
+            : firstReview.reviewStatus === "CONDITIONAL"
+              ? "bg-amber-500"
+              : "bg-rose-500"
+        }
+      `}
+                              />
+
+                              {/* Header Section */}
+                              <div className="flex items-center gap-4 mb-6">
+                                <div
+                                  className={`flex items-center justify-center h-12 w-12 rounded-xl text-white text-xl font-bold
+          ${
+            firstReview.reviewStatus === "APPROVED"
+              ? "bg-emerald-500"
+              : firstReview.reviewStatus === "CONDITIONAL"
+                ? "bg-amber-500"
+                : "bg-rose-500"
+          }
+        `}
+                                >
+                                  {firstReview.reviewStatus === "APPROVED"
+                                    ? "✓"
+                                    : firstReview.reviewStatus === "CONDITIONAL"
+                                      ? "!"
+                                      : "✕"}
+                                </div>
+
+                                <div>
+                                  <p className="text-xs uppercase tracking-wider text-slate-500">
+                                    Lender Decision
+                                  </p>
+                                  <h3
+                                    className={`text-lg font-bold
+           ${
+             firstReview.reviewStatus === "APPROVED"
+               ? "text-emerald-600 dark:text-emerald-400"
+               : firstReview.reviewStatus === "CONDITIONAL"
+                 ? "text-amber-600 dark:text-amber-400"
+                 : "text-rose-600 dark:text-rose-400"
+           }
+          `}
+                                  >
+                                    {firstReview.reviewStatus === "DECLINED"
+                                      ? "REJECTED"
+                                      : firstReview.reviewStatus}
+                                  </h3>
+                                </div>
+                              </div>
+
+                              {/* Inline Row */}
+                              <div className="grid md:grid-cols-4 gap-6 text-sm">
+                                {firstReview.approvedAmount && (
+                                  <div>
+                                    <p className="text-xs text-slate-500 mb-1">
+                                      Approved Amount
+                                    </p>
+                                    <p className="font-semibold text-slate-900 dark:text-slate-100">
+                                      $
+                                      {Number(
+                                        firstReview.approvedAmount,
+                                      ).toLocaleString()}
+                                    </p>
+                                  </div>
+                                )}
+
+                                {firstReview.interestRate && (
+                                  <div>
+                                    <p className="text-xs text-slate-500 mb-1">
+                                      Interest Rate
+                                    </p>
+                                    <p className="font-semibold text-slate-900 dark:text-slate-100">
+                                      {firstReview.interestRate}%
+                                    </p>
+                                  </div>
+                                )}
+
+                                {firstReview?.reviewedAt && (
+                                  <div>
+                                    <p className="text-xs text-slate-500 mb-1">
+                                      {firstReview.reviewStatus === "DECLINED"
+                                        ? "Rejected On"
+                                        : "Reviewed On"}
+                                    </p>
+                                    <p className="font-semibold text-slate-900 dark:text-slate-100">
+                                      {new Date(
+                                        firstReview.reviewedAt,
+                                      ).toLocaleString()}
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Notes Full Width Below */}
+                              {firstReview.notes && (
+                                <div className="mt-6 pt-4 border-t border-slate-200 dark:border-slate-700">
+                                  <p className="text-xs text-slate-500 mb-2">
+                                    Notes
+                                  </p>
+                                  <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap break-words">
+                                    {firstReview.notes}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 text-sm font-medium">
+                            {/* Application Number */}
+                            <div>
+                              <span className="font-semibold">
+                                Application No:
+                              </span>{" "}
+                              <span className="text-slate-700 dark:text-slate-300">
+                                {submissionDetail.applicationNumber || "-"}
+                              </span>
+                            </div>
+
+                            {/* Status */}
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-sm">
+                                Status:
+                              </span>
+
+                              <span
+                                className={`px-3 py-1 rounded-full text-xs font-semibold tracking-wide ${getStatusChip(
+                                  submissionDetail.status,
+                                )}`}
+                              >
+                                {submissionDetail.status === "DECLINED"
+                                  ? "REJECTED"
+                                  : submissionDetail.status}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* STATS BOX */}
+                          <div
+                            className="bg-slate-50 border border-slate-200 rounded-2xl p-6 shadow-sm
+dark:bg-slate-900 dark:border-slate-800"
+                          >
+                            <div className="grid grid-cols-2 md:grid-cols-6 gap-6 text-center">
+                              <Stat
+                                label="Loan Amount"
+                                value={`$${loanAmount.toLocaleString()}`}
+                              />
+                              <Stat
+                                label="LTV %"
+                                value={ltv ? `${ltv.toFixed(2)}%` : "—%"}
+                              />
+                              <Stat
+                                label="LTC %"
+                                value={ltc ? `${ltc.toFixed(2)}%` : "—%"}
+                              />
+                              <Stat
+                                label="ARV %"
+                                value={arv ? `${arv.toFixed(2)}%` : "—%"}
+                              />
+                              <Stat
+                                label="DSCR"
+                                value={dscr ? dscr.toFixed(2) : "—"}
+                              />
+                              <Stat
+                                label="Net Worth"
+                                value={`$${netWorth.toLocaleString()}`}
+                              />
+                            </div>
+                          </div>
+
+                          {/* ALL FIELDS (EXCEPT SIGNATURE) */}
+                          <div className="rounded-xl p-6">
+                            <div className=" gap-6">
+                              <div
+                                className="border border-slate-200 rounded-xl p-6 space-y-10
+bg-white dark:bg-slate-900
+dark:border-slate-800"
+                              >
+                                {/* PRIMARY BORROWER */}
+                                {primaryFields.length > 0 && (
+                                  <div>
+                                    <h3
+                                      className="text-md font-bold mb-4 border-b pb-2
+text-slate-800 dark:text-slate-200
+border-slate-200 dark:border-slate-700"
+                                    >
+                                      Primary Borrower
+                                    </h3>
+
+                                    <div className="grid md:grid-cols-2 gap-6">
+                                      {primaryFields.map(
+                                        (f: any, i: number) => (
+                                          <FieldItem key={i} field={f} />
+                                        ),
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* CO BORROWERS */}
+                                {Object.keys(coBorrowerGroups).map((index) => (
+                                  <div key={index}>
+                                    <h3 className="text-md font-bold mb-4 border-b pb-2">
+                                      Co Borrower {index}
+                                    </h3>
+
+                                    <div className="grid md:grid-cols-2 gap-6">
+                                      {coBorrowerGroups[index].map(
+                                        (f: any, i: number) => (
+                                          <FieldItem key={i} field={f} />
+                                        ),
+                                      )}
+                                    </div>
+                                  </div>
+                                ))}
+
+                                {/* OTHER FIELDS */}
+                                {otherFields.length > 0 && (
+                                  <div>
+                                    <h3 className="text-md font-bold mb-4 border-b dark:border-slate-700  pb-2">
+                                      Loan Details
+                                    </h3>
+
+                                    <div className="grid md:grid-cols-2 gap-6">
+                                      {otherFields.map((f: any, i: number) => (
+                                        <FieldItem key={i} field={f} />
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* DIGITAL SIGNATURE */}
+                          {signatureField && (
+                            <div className="text-center space-y-4">
+                              <h3
+                                className="
+                                  text-sm font-semibold 
+                                  text-slate-700 
+                                  dark:text-slate-300
+                                  transition-colors duration-300
+                                "
+                              >
+                                Digital Signature
+                              </h3>
+
+                              <div className="flex justify-center">
+                                <div
+                                  className="
+                                        bg-white 
+                                        dark:bg-slate-800/70
+                                        border border-slate-200 
+                                        dark:border-slate-700
+                                        rounded-xl 
+                                        p-4 
+                                        shadow-sm 
+                                        transition-colors duration-300"
+                                >
+                                  <img
+                                    src={parseValue(signatureField.value)}
+                                    alt="Digital Signature"
+                                    className="h-40 object-contain"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* SUBMITTED DATE & TIME (LAST) */}
+                          <div
+                            className="border-t border-slate-200 dark:border-slate-700 pt-6 
+text-sm text-slate-600 dark:text-slate-400 flex justify-between"
+                          >
+                            <div>
+                              <span className="font-semibold">
+                                Submitted Date:
+                              </span>{" "}
+                              {formattedDate}
+                            </div>
+                            <div>
+                              <span className="font-semibold">
+                                Submitted Time:
+                              </span>{" "}
+                              {formattedTime}
+                            </div>
+                          </div>
+                        </>
+                      );
+                    })()
+                  ) : null}
+                </div>
+              </div>
+            </div>,
+            document.body,
+          )}
+
+        {documentModalOpen &&
+          createPortal(
+            <div className="fixed inset-0 z-[9999999999] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+              <div
+                className="bg-white dark:bg-slate-900 
+rounded-3xl 
+w-full max-w-6xl 
+max-h-[85vh] 
+overflow-hidden 
+shadow-[0_20px_60px_rgba(0,0,0,0.15)] 
+flex flex-col"
+              >
+                {/* HEADER */}
+                <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200 dark:border-slate-800 shrink-0">
+                  <h2 className="font-semibold text-sm tracking-wide text-slate-700 dark:text-slate-200">
+                    Requested Documents
+                  </h2>
+
+                  <button
+                    onClick={() => {
+                      setDocumentModalOpen(false);
+                      setDocumentsData(null);
+                    }}
+                    className="w-7 h-7 flex items-center justify-center rounded-full 
+    hover:bg-red-100 dark:hover:bg-red-500/20 
+    text-slate-400 hover:text-red-500 transition text-sm"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                {/* SCROLLABLE BODY */}
+                <div className="p-6 overflow-y-auto">
+                  {documentsLoading ? (
+                    <div className="text-center text-slate-500 py-10">
+                      Loading documents...
+                    </div>
+                  ) : documentsData?.documents?.length > 0 ? (
+                    <div className="grid sm:grid-cols-4 gap-4">
+                      {documentsData.documents.map(
+                        (doc: any, index: number) => {
+                          const hasFiles =
+                            doc.uploadedFiles && doc.uploadedFiles.length > 0;
+
+                          return (
+                            <div
+                              key={index}
+                              className="
+relative
+bg-white dark:bg-slate-900
+border border-slate-200 dark:border-slate-800
+rounded-xl
+p-4
+shadow-sm
+transition-all duration-200
+flex flex-col
+h-[320px]   
+"
+                            >
+                              {/* Top Section */}
+                              <div className="flex items-center gap-4 mb-4">
+                                <div className="flex items-center justify-between w-full">
+                                  <h3 className="font-medium text-[13px] text-slate-900 dark:text-slate-200 truncate">
+                                    {doc.documentName}
+                                  </h3>
+
+                                  {(previewFiles[doc.requirementId]?.length >
+                                    0 ||
+                                    selectedFiles[doc.requirementId]?.length >
+                                      0) && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setPreviewFiles((prev) => {
+                                          const copy = { ...prev };
+                                          delete copy[doc.requirementId];
+                                          return copy;
+                                        });
+
+                                        setSelectedFiles((prev) => {
+                                          const copy = { ...prev };
+                                          delete copy[doc.requirementId];
+                                          return copy;
+                                        });
+                                      }}
+                                      className="text-[10px] px-2 py-1 rounded-md 
+                 bg-red-50 text-red-600 
+                 hover:bg-red-100 
+                 dark:bg-red-500/10 dark:text-red-400 
+                 dark:hover:bg-red-500/20
+                 transition"
+                                    >
+                                      Clear
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Upload Area */}
+                              {!hasFiles ? (
+                                <div className="space-y-3 flex-1 flex flex-col overflow-hidden">
+                                  {/* Preview */}
+                                  {previewFiles[doc.requirementId]?.length >
+                                    0 && (
+                                    <div
+                                      className="
+flex flex-wrap gap-2
+max-h-[220px]
+overflow-y-auto
+pr-1
+scrollbar-thin
+scrollbar-thumb-slate-300
+dark:scrollbar-thumb-slate-700
+"
+                                    >
+                                      {previewFiles[doc.requirementId].map(
+                                        (file, i) => (
+                                          <div
+                                            key={i}
+                                            className="relative w-16 h-16 rounded-lg border-2 border-blue-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 overflow-hidden flex items-center justify-center"
+                                          >
+                                            {/* IMAGE PREVIEW */}
+                                            {file.type.startsWith("image") ? (
+                                              <img
+                                                src={file.url}
+                                                alt={file.name}
+                                                className="w-full h-full object-cover"
+                                              />
+                                            ) : file.type.includes("pdf") ? (
+                                              <div className="flex flex-col items-center justify-center text-xs text-red-500 font-semibold">
+                                                📄
+                                                <span className="text-[9px] mt-1">
+                                                  PDF
+                                                </span>
+                                              </div>
+                                            ) : (
+                                              <div className="text-xs text-slate-500">
+                                                File
+                                              </div>
+                                            )}
+
+                                            {/* Remove Button */}
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                setPreviewFiles((prev) => {
+                                                  const updated = [
+                                                    ...(prev[
+                                                      doc.requirementId
+                                                    ] || []),
+                                                  ];
+                                                  updated.splice(i, 1);
+                                                  const copy = { ...prev };
+                                                  if (updated.length === 0)
+                                                    delete copy[
+                                                      doc.requirementId
+                                                    ];
+                                                  else
+                                                    copy[doc.requirementId] =
+                                                      updated;
+                                                  return copy;
+                                                });
+
+                                                setSelectedFiles((prev) => {
+                                                  const updated = [
+                                                    ...(prev[
+                                                      doc.requirementId
+                                                    ] || []),
+                                                  ];
+                                                  updated.splice(i, 1);
+                                                  const copy = { ...prev };
+                                                  if (updated.length === 0)
+                                                    delete copy[
+                                                      doc.requirementId
+                                                    ];
+                                                  else
+                                                    copy[doc.requirementId] =
+                                                      updated;
+                                                  return copy;
+                                                });
+                                              }}
+                                              className="absolute top-1 right-1 bg-black/60 text-white text-xs px-1 rounded hover:bg-red-500 transition"
+                                            >
+                                              ✕
+                                            </button>
+                                          </div>
+                                        ),
+                                      )}
+                                    </div>
+                                  )}
+
+                                  {/* File Select – show only if no file selected */}
+                                  {!selectedFiles[doc.requirementId] && (
+                                    <label className="h-full flex flex-col justify-center items-center border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-lg p-6 text-center hover:border-amber-400 transition cursor-pointer">
+                                      <input
+                                        type="file"
+                                        multiple
+                                        accept=".pdf,.png,.jpg,.jpeg"
+                                        className="hidden"
+                                        onChange={(e) => {
+                                          const files = Array.from(
+                                            e.target.files || [],
+                                          );
+                                          if (!files.length) return;
+
+                                          const validFiles: File[] = [];
+                                          const previews: {
+                                            url: string;
+                                            type: string;
+                                            name: string;
+                                          }[] = [];
+
+                                          files.forEach((file) => {
+                                            if (file.size > 5 * 1024 * 1024) {
+                                              toast.error(
+                                                `${file.name} exceeds 5MB limit`,
+                                              );
+                                              return;
+                                            }
+
+                                            validFiles.push(file);
+                                            previews.push({
+                                              url: URL.createObjectURL(file),
+                                              type: file.type,
+                                              name: file.name,
+                                            });
+                                          });
+
+                                          if (!validFiles.length) return;
+
+                                          setSelectedFiles((prev) => ({
+                                            ...prev,
+                                            [doc.requirementId]: [
+                                              ...(prev[doc.requirementId] ||
+                                                []),
+                                              ...validFiles,
+                                            ],
+                                          }));
+
+                                          setPreviewFiles((prev) => ({
+                                            ...prev,
+                                            [doc.requirementId]: [
+                                              ...(prev[doc.requirementId] ||
+                                                []),
+                                              ...previews,
+                                            ],
+                                          }));
+                                        }}
+                                      />
+
+                                      <p className="text-xs text-amber-600 font-medium">
+                                        Click to Select File
+                                      </p>
+                                      <p className="text-[10px] text-slate-400 mt-1">
+                                        PDF / JPG / PNG (Max 5MB)
+                                      </p>
+                                    </label>
+                                  )}
+
+                                  {/* Upload Button – only after file selected */}
+                                  {selectedFiles[doc.requirementId]?.length >
+                                    0 && (
+                                    <button
+                                      onClick={() =>
+                                        handleDocumentUpload(
+                                          documentsData.submissionId,
+                                          doc.requirementId,
+                                        )
+                                      }
+                                      disabled={
+                                        uploadingDocId === doc.requirementId
+                                      }
+                                      className="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold py-2 rounded-lg transition disabled:opacity-60"
+                                    >
+                                      {uploadingDocId === doc.requirementId ? (
+                                        <div className="flex items-center justify-center gap-2">
+                                          <Loader2 className="w-4 h-4 animate-spin" />
+                                          Uploading...
+                                        </div>
+                                      ) : (
+                                        "Upload Document"
+                                      )}
+                                    </button>
+                                  )}
+                                </div>
+                              ) : (
+                                <div
+                                  className="
+flex flex-wrap gap-2
+max-h-[220px]
+overflow-y-auto
+pr-1
+scrollbar-thin
+scrollbar-thumb-slate-300
+dark:scrollbar-thumb-slate-700 w-full
+"
+                                >
+                                  {doc.uploadedFiles.map(
+                                    (file: any, i: number) => {
+                                      const isImage =
+                                        file.fileMimeType?.startsWith("image");
+
+                                      return (
+                                        <div
+                                          key={i}
+                                          className="relative w-16 h-16 rounded-lg border-2 border-[#98bfe1] bg-slate-100 dark:bg-slate-800 overflow-hidden flex items-center justify-center"
+                                        >
+                                          {isImage ? (
+                                            <img
+                                              src={`${API_BASE}${file.fileUrl}`}
+                                              alt={file.fileName}
+                                              className="w-full h-full object-cover"
+                                            />
+                                          ) : (
+                                            <div className="flex flex-col items-center justify-center text-xs text-slate-600 dark:text-slate-300">
+                                              📄
+                                              <span className="mt-1 truncate px-1 text-[10px]">
+                                                PDF
+                                              </span>
+                                            </div>
+                                          )}
+
+                                          {/* View Overlay */}
+                                          <a
+                                            href={`${API_BASE}${file.fileUrl}`}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition flex items-center justify-center text-white text-xs font-semibold"
+                                          >
+                                            View
+                                          </a>
+                                        </div>
+                                      );
+                                    },
+                                  )}
+                                </div>
+                              )}
+
+                              {/* Bottom Status */}
+                              <div className="mt-auto pt-3 ">
+                                <div className="mt-4 flex justify-between items-center">
+                                  <span
+                                    className={`text-[10px] px-3 py-1 rounded-full
+                          ${
+                            doc.status === "PENDING"
+                              ? "bg-amber-100 text-amber-600"
+                              : "bg-emerald-100 text-emerald-600"
+                          }`}
+                                  >
+                                    {doc.status}
+                                  </span>
+
+                                  <span className="text-[11px] font-semibold text-red-400">
+                                    {doc.uploadedCount} Uploaded
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        },
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-center text-slate-500 py-10">
+                      No documents found
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>,
+            document.body,
+          )}
+
+        {loiModalOpen &&
+          createPortal(
+            <div className="fixed inset-0 z-[99999999] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="bg-white dark:bg-slate-900 w-full max-w-3xl rounded-2xl shadow-xl">
+                {/* Header */}
+                <div className="flex items-center justify-between px-6 py-3 border-b dark:border-slate-800">
+                  <h2 className="font-bold text-lg dark:text-white">
+                    Letters of Intent
+                  </h2>
+
+                  <button
+                    onClick={() => setLoiModalOpen(false)}
+                    className="text-slate-400 hover:text-red-500 text-xl"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                {/* Body */}
+                <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+                  {lois.length === 0 ? (
+                    /* Empty State */
+                    <div className="flex flex-col items-center justify-center py-16 text-center">
+                      <div
+                        className="
+        w-16 h-16
+        flex items-center justify-center
+        rounded-full
+        bg-amber-100 dark:bg-amber-500/10
+        mb-4
+      "
+                      >
+                        <FileText className="w-7 h-7 text-amber-600 dark:text-amber-400" />
+                      </div>
+
+                      <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">
+                        No LOIs Available
+                      </h3>
+
+                      <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-sm">
+                        No lenders have issued a Letter of Intent for this
+                        application yet. Once available, it will appear here.
+                      </p>
+                    </div>
+                  ) : (
+                    lois.map((loi, index) => (
+                      <div
+                        key={index}
+                        className="border border-slate-200 dark:border-slate-800 rounded-xl p-4 space-y-3"
+                      >
+                        {/* Lender */}
+                        <div className="flex justify-between items-center">
+                          <h3 className="font-semibold text-slate-900 dark:text-white">
+                            {loi.lenderName}
+                          </h3>
+
+                          <span className="text-xs px-3 py-1 rounded-full bg-indigo-100 text-indigo-600">
+                            {loi.status}
+                          </span>
+                        </div>
+
+                        {/* Details */}
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <span className="text-slate-500 dark:text-slate-300">
+                              Email
+                            </span>
+                            <div className="dark:text-slate-400">
+                              {loi.lenderEmail || "-"}
+                            </div>
+                          </div>
+
+                          <div>
+                            <span className="text-slate-500 dark:text-slate-300">
+                              Phone
+                            </span>
+                            <div className="dark:text-slate-400">
+                              {loi.lenderPhone || "-"}
+                            </div>
+                          </div>
+
+                          <div>
+                            <span className="text-slate-500 dark:text-slate-300">
+                              Approved Amount
+                            </span>
+                            <div className="dark:text-slate-400">
+                              {loi.approvedAmount
+                                ? `$${Number(loi.approvedAmount).toLocaleString()}`
+                                : "-"}
+                            </div>
+                          </div>
+
+                          <div>
+                            <span className="text-slate-500 dark:text-slate-300">
+                              Interest Rate
+                            </span>
+                            <div className="dark:text-slate-400">
+                              {loi.interestRate ? `${loi.interestRate}%` : "-"}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Notes */}
+                        {loi.notes && (
+                          <div className="text-sm">
+                            <span className="text-slate-500 dark:text-slate-300">
+                              Notes
+                            </span>
+                            <p className="dark:text-slate-400 mt-1">
+                              {loi.notes}
+                            </p>
+                          </div>
+                        )}
+
+                        {/* View PDF */}
+                        <div className="pt-3 border-t dark:border-slate-800 flex justify-end">
+                          <button
+                            onClick={() => {
+                              const fileUrl = `${API_BASE}/public${loi.loiUrl}`;
+
+                              setPreviewFile({
+                                url: fileUrl,
+                                type: "application/pdf",
+                                name: `${loi.lenderName} LOI`,
+                              });
+                            }}
+                            className="px-4 py-2 rounded-lg bg-purple-600 text-white text-sm hover:bg-purple-700"
+                          >
+                            View LOI PDF
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>,
+            document.body,
+          )}
+
+        {previewFile &&
+          createPortal(
+            <div className="fixed inset-0 z-[99999999] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+              <div className="w-full max-w-6xl bg-white dark:bg-slate-900 rounded-2xl shadow-2xl flex flex-col h-[90vh] overflow-hidden">
+                {/* Header */}
+                <div className="flex items-center justify-between px-6 py-3 border-b dark:border-slate-800 shrink-0">
+                  <div>
+                    <h2 className="text-lg font-bold truncate max-w-md dark:text-white">
+                      {previewFile.name}
+                    </h2>
+                    <p className="text-xs text-slate-500">PDF Preview</p>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {/* Download Button */}
+                    <button
+                      onClick={async () => {
+                        try {
+                          const res = await fetch(previewFile.url);
+
+                          const blob = await res.blob();
+
+                          const url = window.URL.createObjectURL(blob);
+
+                          const link = document.createElement("a");
+                          link.href = url;
+                          link.download = previewFile.name || "LOI.pdf";
+
+                          document.body.appendChild(link);
+                          link.click();
+
+                          link.remove();
+                          window.URL.revokeObjectURL(url);
+                        } catch (err) {
+                          console.error("Download failed", err);
+                        }
+                      }}
+                      className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition"
+                    >
+                      Download
+                    </button>
+
+                    {/* Close Button */}
+                    <button
+                      onClick={() => setPreviewFile(null)}
+                      className="px-4 py-2 rounded-xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700 transition"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+
+                {/* PDF Preview */}
+                <div className="flex-1 bg-slate-100 dark:bg-slate-950">
+                  <iframe
+                    src={`https://docs.google.com/gview?url=${previewFile.url}&embedded=true`}
+                    title={previewFile.name}
+                    className="w-full h-full border-none"
+                  />
+                </div>
+              </div>
+            </div>,
+            document.body,
+          )}
+
+        {docSelectModal.isOpen &&
+          createPortal(
+            <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+              <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl border border-gray-100">
+                {/* HEADER */}
+                <div className="flex items-center justify-between px-6 py-3 border-b">
+                  <h2 className="text-lg font-semibold text-gray-800">
+                    Select Documents
+                  </h2>
+
+                  <button
+                    onClick={() =>
+                      setDocSelectModal({
+                        isOpen: false,
+                        applicationId: "",
+                        documents: [],
+                        selectedDocs: [],
+                        loading: false,
+                      })
+                    }
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                {/* BODY */}
+                <div className="px-6 py-5">
+                  <div className="flex items-center justify-between mb-4">
+                    <p className="text-sm text-gray-500">
+                      Select which documents are required.
+                    </p>
+
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() =>
+                          setDocSelectModal((prev) => ({
+                            ...prev,
+                            selectedDocs: prev.documents.map(
+                              (d: any) => d.documentTypeId,
+                            ),
+                          }))
+                        }
+                        className="px-3 py-1 text-xs rounded-md border bg-gray-50 hover:bg-gray-100"
+                      >
+                        Select All
+                      </button>
+
+                      <button
+                        onClick={() =>
+                          setDocSelectModal((prev) => ({
+                            ...prev,
+                            selectedDocs: [],
+                          }))
+                        }
+                        className="px-3 py-1 text-xs rounded-md border bg-gray-50 hover:bg-gray-100"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* LOADING */}
+                  {docSelectModal.loading ? (
+                    <div className="text-center py-10 text-gray-500">
+                      Loading documents...
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                      {docSelectModal.documents.map((doc: any) => {
+                        const isSelected = docSelectModal.selectedDocs.includes(
+                          doc.documentTypeId,
+                        );
+
+                        return (
+                          <div
+                            key={doc.documentTypeId}
+                            onClick={() => {
+                              const updated = isSelected
+                                ? docSelectModal.selectedDocs.filter(
+                                    (id) => id !== doc.documentTypeId,
+                                  )
+                                : [
+                                    ...docSelectModal.selectedDocs,
+                                    doc.documentTypeId,
+                                  ];
+
+                              setDocSelectModal({
+                                ...docSelectModal,
+                                selectedDocs: updated,
+                              });
+                            }}
+                            className={`cursor-pointer flex items-center justify-between px-4 py-3 rounded-xl border transition
+                      ${
+                        isSelected
+                          ? "border-emerald-500 bg-emerald-50"
+                          : "border-gray-200 hover:border-gray-300"
+                      }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="w-2 h-2 rounded-full bg-orange-400" />
+                              <span className="text-sm text-gray-700">
+                                {doc.documentType.name}
+                              </span>
+                            </div>
+
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              readOnly
+                              className="accent-emerald-600"
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  <div className="mt-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Message
+                    </label>
+
+                    <textarea
+                      placeholder="Enter a message for the client (optional)..."
+                      className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm 
+               focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500
+               transition resize-none min-h-[90px]"
+                      value={requestMessage}
+                      onChange={(e) => setRequestMessage(e.target.value)}
+                    />
+
+                    <p className="text-xs text-gray-400 mt-1">
+                      This message will be sent along with the document request.
+                    </p>
+                  </div>
+
+                  {/* FOOTER */}
+                  <div className="flex items-center justify-between mt-6">
+                    <p className="text-sm text-gray-500">
+                      {docSelectModal.selectedDocs.length} selected
+                    </p>
+
+                    <button
+                      onClick={handleRequestDocuments}
+                      disabled={docSelectModal.selectedDocs.length === 0}
+                      className="bg-emerald-600 text-white px-5 py-2 rounded-lg text-sm hover:bg-emerald-700 disabled:opacity-50"
+                    >
+                      Request Documents
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>,
+            document.body,
+          )}
+      </div>
+    </div>
+  );
+}
