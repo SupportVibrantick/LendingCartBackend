@@ -20,7 +20,7 @@ type Lender = {
   createdAt?: string;
 };
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001";
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
 // same as BrokersPage
 function getAuthHeaders(): Record<string, string> {
@@ -261,7 +261,7 @@ const BrokersLenders: React.FC = () => {
                 </span>
                 <span
                   className={`inline-flex items-center px-3 py-1 rounded-full border text-[11px] ${statusClass(
-                    selectedBroker.status
+                    selectedBroker.status,
                   )}`}
                 >
                   {selectedBroker.status || "UNKNOWN"}
@@ -353,7 +353,7 @@ const BrokersLenders: React.FC = () => {
                       <td className="py-3 pr-4 whitespace-nowrap">
                         <span
                           className={`inline-flex items-center px-3 py-1 rounded-full border text-xs ${statusClass(
-                            l.status || "ACTIVE"
+                            l.status || "ACTIVE",
                           )}`}
                         >
                           {l.status || "ACTIVE"}

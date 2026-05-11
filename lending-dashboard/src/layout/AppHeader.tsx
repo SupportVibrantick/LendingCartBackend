@@ -7,7 +7,7 @@ import NotificationDropdown from "../components/header/NotificationDropdown";
 import { UserDropdown } from "../components/header/UserDropdown";
 import { jwtDecode } from "jwt-decode";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001";
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 const ADMIN_URI = import.meta.env.VITE_ADMIN_URI || "http://localhost:5173";
 
 function getAuthHeaders(): Record<string, string> {

@@ -23,7 +23,7 @@ type Product = {
   code: string;
 };
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001";
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
 export default function Main() {
   const navigate = useNavigate();
@@ -477,7 +477,7 @@ export default function Main() {
         "fico",
         "experience",
         "minTerm",
-        "maxTerm"
+        "maxTerm",
       ];
 
       for (const field of requiredFields) {

@@ -68,7 +68,7 @@ export default function BrokersPage() {
   const [adminEditForm, setAdminEditForm] = useState<Admin>({});
   const [adminSaving, setAdminSaving] = useState(false);
 
-  const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001";
+  const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
   useEffect(() => {
     fetchBrokers();
@@ -150,7 +150,7 @@ export default function BrokersPage() {
       !form.adminPassword.trim()
     ) {
       setFormError(
-        "Please fill required fields: organization name, organization email, admin email and password."
+        "Please fill required fields: organization name, organization email, admin email and password.",
       );
       return;
     }
@@ -247,10 +247,10 @@ export default function BrokersPage() {
             email: updated.email,
             phone: updated.phone,
           }),
-        }
+        },
       );
 
-      const json = await res.json().catch(() => ({} as any));
+      const json = await res.json().catch(() => ({}) as any);
 
       if (res.ok && json?.data?.organization) {
         const org = json.data.organization;
@@ -265,8 +265,8 @@ export default function BrokersPage() {
                   status: org.status ?? b.status,
                   createdAt: org.createdAt ?? b.createdAt,
                 }
-              : b
-          )
+              : b,
+          ),
         );
       } else if (!res.ok) {
         console.error("Broker update error:", json);
@@ -286,7 +286,7 @@ export default function BrokersPage() {
 
     // optimistic update in UI
     setBrokers((prev) =>
-      prev.map((b) => (b.id === broker.id ? { ...b, status: next } : b))
+      prev.map((b) => (b.id === broker.id ? { ...b, status: next } : b)),
     );
     setRowLoadingId(broker.id);
 
@@ -321,22 +321,22 @@ export default function BrokersPage() {
         throw new Error(`Status update failed: ${res.status}`);
       }
 
-      const json = await res.json().catch(() => ({} as any));
+      const json = await res.json().catch(() => ({}) as any);
 
       if (json?.data) {
         if (json.data.status) {
           const serverStatus = json.data.status;
           setBrokers((prev) =>
             prev.map((b) =>
-              b.id === broker.id ? { ...b, status: serverStatus } : b
-            )
+              b.id === broker.id ? { ...b, status: serverStatus } : b,
+            ),
           );
         } else if (json.data.organization?.status) {
           const orgStatus = json.data.organization.status;
           setBrokers((prev) =>
             prev.map((b) =>
-              b.id === broker.id ? { ...b, status: orgStatus } : b
-            )
+              b.id === broker.id ? { ...b, status: orgStatus } : b,
+            ),
           );
         }
       }
@@ -344,8 +344,8 @@ export default function BrokersPage() {
       console.error("changeStatusFor error:", err);
       setBrokers((prev) =>
         prev.map((b) =>
-          b.id === broker.id ? { ...b, status: prevStatus } : b
-        )
+          b.id === broker.id ? { ...b, status: prevStatus } : b,
+        ),
       );
       alert("Failed to update status. Please try again.");
     } finally {
@@ -370,7 +370,7 @@ export default function BrokersPage() {
 
       if (!res.ok) throw new Error(`Failed to load admins: ${res.status}`);
 
-      const json = await res.json().catch(() => ({} as any));
+      const json = await res.json().catch(() => ({}) as any);
 
       const adminList = json?.data?.admins || [];
       const normalized: Admin[] = (
@@ -437,14 +437,14 @@ export default function BrokersPage() {
       )
     ) {
       return alert(
-        "Please provide at least one field to update (first name / last name / email)."
+        "Please provide at least one field to update (first name / last name / email).",
       );
     }
 
     setAdminSaving(true);
 
     setAdmins((prev) =>
-      prev.map((p) => (p.id === adminId ? { ...p, ...adminEditForm } : p))
+      prev.map((p) => (p.id === adminId ? { ...p, ...adminEditForm } : p)),
     );
 
     try {
@@ -465,18 +465,18 @@ export default function BrokersPage() {
               email: adminEditForm.email,
             },
           }),
-        }
+        },
       );
 
       if (!res.ok) {
         throw new Error(`Save failed: ${res.status}`);
       }
 
-      const json = await res.json().catch(() => ({} as any));
+      const json = await res.json().catch(() => ({}) as any);
       if (json && json.data && json.data.admin) {
         const serverAdmin = json.data.admin;
         setAdmins((prev) =>
-          prev.map((p) => (p.id === adminId ? { ...p, ...serverAdmin } : p))
+          prev.map((p) => (p.id === adminId ? { ...p, ...serverAdmin } : p)),
         );
       }
 
@@ -615,7 +615,7 @@ export default function BrokersPage() {
                               <span className="font-medium">Status:</span>
                               <span
                                 className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] ${statusClass(
-                                  b.status
+                                  b.status,
                                 )}`}
                               >
                                 {b.status ?? "UNKNOWN"}
@@ -643,7 +643,7 @@ export default function BrokersPage() {
                             onClick={() => !isLoading && changeStatusFor(b)}
                             disabled={isLoading}
                             className={`inline-flex items-center gap-2 px-3 py-1 text-[11px] font-medium rounded-full border ${statusClass(
-                              b.status
+                              b.status,
                             )} disabled:opacity-60`}
                             title="Click to change status"
                             aria-label={`Change status for ${b.name}`}
@@ -764,7 +764,7 @@ export default function BrokersPage() {
                           {page}
                         </button>
                       );
-                    }
+                    },
                   )}
                 </div>
 

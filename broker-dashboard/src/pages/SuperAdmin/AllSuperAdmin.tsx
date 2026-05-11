@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { MdModeEdit } from "react-icons/md";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001";
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 // Adjust this if your backend prefix is different
 const ADMIN_BASE = `${API_BASE}/admin/admin-user`;
 
@@ -377,8 +377,8 @@ const AllSuperadmin: React.FC = () => {
                     ? "Saving..."
                     : "Creating..."
                   : editingAdminId
-                  ? "Save Changes"
-                  : "Create Admin"}
+                    ? "Save Changes"
+                    : "Create Admin"}
               </button>
 
               {editingAdminId && (
@@ -446,7 +446,7 @@ const AllSuperadmin: React.FC = () => {
                     <td
                       className="py-6 text-center text-gray-500 dark:text-slate-400"
                       colSpan={6}
-                      >
+                    >
                       No admin users found.
                     </td>
                   </tr>

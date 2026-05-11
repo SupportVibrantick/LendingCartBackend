@@ -94,7 +94,7 @@ export default function BrokersPage() {
   const [adminEditForm, setAdminEditForm] = useState<Admin>({});
   const [adminSaving, setAdminSaving] = useState(false);
 
-  const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001";
+  const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
   const navigate = useNavigate();
 

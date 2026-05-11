@@ -7,7 +7,7 @@ import { ArrowLeft } from "lucide-react";
 
 /* ================= API ================= */
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE || "http://localhost:3001",
+  baseURL: import.meta.env.VITE_API_BASE || "http://localhost:4000",
   headers: { "Content-Type": "application/json" },
 });
 

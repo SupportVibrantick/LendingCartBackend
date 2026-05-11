@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001";
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
 type LoanProduct = {
   id: string;
@@ -99,7 +99,7 @@ const StepTwo = ({ value, setValue }: any) => {
       setProducts(mapped);
     } catch (err) {
       console.error("Failed to load loan products", err);
-    } 
+    }
   };
 
   // ===== Effects =====

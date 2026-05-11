@@ -5,7 +5,7 @@ import { useParams } from "react-router-dom";
 
 /* ================= API ================= */
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE || "http://localhost:3001",
+  baseURL: import.meta.env.VITE_API_BASE || "http://localhost:4000",
   headers: { "Content-Type": "application/json" },
 });
 
@@ -396,7 +396,7 @@ export default function LenderProductAssign({ lenderId, onSuccess }: Props) {
     // ================= EQUIPMENT =================
     if (isEquipmentFinanceSelected) {
       if (form.equipmentTypes.length === 0) {
-        e.equipmentTypes  = "Select at least one equipment type";
+        e.equipmentTypes = "Select at least one equipment type";
       }
 
       if (

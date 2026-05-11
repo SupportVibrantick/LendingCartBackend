@@ -16,7 +16,7 @@ type AdminUser = {
   createdAt?: string;
 };
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001";
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
 const API = {
   BROKERS: `${API_BASE}/admin/brokers/read`,
@@ -178,9 +178,7 @@ const AllBrokersAdmin: React.FC = () => {
       toast.success("Admin updated");
 
       setAdmins((prev) =>
-        prev.map((a) =>
-          a.id === editingAdmin.id ? { ...a, ...editForm } : a
-        )
+        prev.map((a) => (a.id === editingAdmin.id ? { ...a, ...editForm } : a)),
       );
 
       setEditingAdmin(null);

@@ -141,29 +141,31 @@ async function getApplicationsRoute(fastify, options) {
         });
 
         /* PAGINATION */
-        const totalPages = Math.ceil(total / limit);
+        /* PAGINATION */
+const totalPages = Math.ceil(
+  total / limit,
+);
 
-        const hasNextPage = page < totalPages;
+const hasNextPage =
+  page < totalPages;
 
-        const hasPreviousPage = page > 1;
+const hasPreviousPage =
+  page > 1;
 
-        const totalPages = Math.ceil(total / limit);
+return reply.code(200).send({
+  success: true,
 
-        return reply.code(200).send({
-          success: true,
+  data: applications,
 
-          data: applications,
-
-          pagination: {
-            total,
-            page,
-            limit,
-            totalPages,
-            hasNextPage: page < totalPages,
-
-            hasPreviousPage: page > 1,
-          },
-        });
+  pagination: {
+    total,
+    page,
+    limit,
+    totalPages,
+    hasNextPage,
+    hasPreviousPage,
+  },
+});
       } catch (err) {
         console.error(err);
 

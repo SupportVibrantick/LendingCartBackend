@@ -27,7 +27,7 @@ type AdminLog = {
   actorOrg?: ActorOrg | null;
 };
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001";
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
 function getAuthHeaders(): Record<string, string> {
   try {
@@ -97,7 +97,7 @@ const AdminLogs: React.FC = () => {
         {
           method: "GET",
           headers: getAuthHeaders(),
-        }
+        },
       );
 
       if (!res.ok) {
@@ -250,7 +250,7 @@ const AdminLogs: React.FC = () => {
                         <td className="py-3 pr-4 whitespace-nowrap">
                           <span
                             className={`inline-flex items-center px-3 py-1 rounded-full border text-xs font-medium ${actionClass(
-                              log.action
+                              log.action,
                             )}`}
                           >
                             {log.action}
@@ -311,10 +311,9 @@ const AdminLogs: React.FC = () => {
                 <span className="font-medium">
                   {filtered.length > 0 ? 1 : 0}
                 </span>{" "}
-                -{" "}
-                <span className="font-medium">{filtered.length}</span> of{" "}
-                <span className="font-medium">{totalOverall}</span> logs
-                (page {currentPage} of {totalPages})
+                - <span className="font-medium">{filtered.length}</span> of{" "}
+                <span className="font-medium">{totalOverall}</span> logs (page{" "}
+                {currentPage} of {totalPages})
               </div>
 
               <div className="flex items-center gap-2">
@@ -354,7 +353,7 @@ const AdminLogs: React.FC = () => {
                           {page}
                         </button>
                       );
-                    }
+                    },
                   )}
                 </div>
 

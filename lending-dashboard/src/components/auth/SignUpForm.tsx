@@ -6,7 +6,7 @@ import Input from "../form/input/InputField";
 import Checkbox from "../form/input/Checkbox";
 import toast from "react-hot-toast";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001";
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
 type SignUpForm = {
   organizationName: string;
@@ -43,7 +43,7 @@ export default function SignUpForm() {
     adminLastName: "",
     adminEmail: "",
     password: "",
-  })
+  });
 
   const resetForm = () => {
     setForm({
@@ -80,13 +80,13 @@ export default function SignUpForm() {
         return;
       }
       resetForm();
-      toast.success("Signup Successfully")
+      toast.success("Signup Successfully");
     } catch (error) {
       console.log("Error saving signup form: ", error);
     } finally {
       setSaving(false);
     }
-  }
+  };
 
   return (
     <div className="flex flex-col flex-1 w-full overflow-y-auto lg:w-1/2 no-scrollbar">
@@ -105,7 +105,9 @@ export default function SignUpForm() {
                   name="adminfname"
                   placeholder="Enter admin first name"
                   value={form.adminFirstName}
-                  onChange={(e) => setForm((f) => ({ ...f, adminFirstName: e.target.value }))}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, adminFirstName: e.target.value }))
+                  }
                   disabled={saving}
                 />
               </div>
@@ -120,7 +122,9 @@ export default function SignUpForm() {
                   name="adminlname"
                   placeholder="Enter admin last name"
                   value={form.adminLastName}
-                  onChange={(e) => setForm((f) => ({ ...f, adminLastName: e.target.value }))}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, adminLastName: e.target.value }))
+                  }
                   disabled={saving}
                 />
               </div>
@@ -136,7 +140,9 @@ export default function SignUpForm() {
                 name="oname"
                 placeholder="Enter organization name"
                 value={form.organizationName}
-                onChange={(e) => setForm((f) => ({ ...f, organizationName: e.target.value }))}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, organizationName: e.target.value }))
+                }
                 disabled={saving}
               />
             </div>
@@ -151,7 +157,9 @@ export default function SignUpForm() {
                 name="oemail"
                 placeholder="Enter organization email"
                 value={form.organizationEmail}
-                onChange={(e) => setForm((f) => ({ ...f, organizationEmail: e.target.value }))}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, organizationEmail: e.target.value }))
+                }
                 disabled={saving}
               />
             </div>
@@ -166,7 +174,9 @@ export default function SignUpForm() {
                 name="adminemail"
                 placeholder="Enter admin email"
                 value={form.adminEmail}
-                onChange={(e) => setForm((f) => ({ ...f, adminEmail: e.target.value }))}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, adminEmail: e.target.value }))
+                }
                 disabled={saving}
               />
             </div>
@@ -180,7 +190,9 @@ export default function SignUpForm() {
                   placeholder="Enter your password"
                   type={showPassword ? "text" : "password"}
                   value={form.password}
-                  onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, password: e.target.value }))
+                  }
                   disabled={saving}
                 />
                 <span

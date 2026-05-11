@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001";
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
 type LoanProduct = {
   id: string;
@@ -34,7 +34,9 @@ const getColor = (name: string) => {
   return colors[index];
 };
 
-function getAuthHeaders(tokenStorageKey = "admin_token"): Record<string, string> {
+function getAuthHeaders(
+  tokenStorageKey = "admin_token",
+): Record<string, string> {
   try {
     const token = sessionStorage.getItem(tokenStorageKey);
     if (token) {
@@ -98,7 +100,9 @@ const StepTwo = ({
         return;
       }
 
-      const items = (isLenderMode ? json.data || json : json.data || []) as any[];
+      const items = (
+        isLenderMode ? json.data || json : json.data || []
+      ) as any[];
 
       const mapped: LoanProduct[] = items.map((p) => ({
         id: String(p.id),

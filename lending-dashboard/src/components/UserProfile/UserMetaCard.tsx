@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Pencil, X, Camera } from "lucide-react";
 import toast from "react-hot-toast";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001";
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
 type SessionUser = {
   id: string;
@@ -43,8 +43,7 @@ export default function UserProfileCard() {
 
   if (!user) return null;
 
-  const roleLabel =
-    user.roles?.[0]?.split("_").join(" ") || "User";
+  const roleLabel = user.roles?.[0]?.split("_").join(" ") || "User";
 
   const displayName = `${firstName} ${lastName}`.trim();
 
@@ -53,7 +52,7 @@ export default function UserProfileCard() {
       .toLowerCase()
       .split(" ")
       .filter(Boolean)
-      .map(w => w[0].toUpperCase() + w.slice(1))
+      .map((w) => w[0].toUpperCase() + w.slice(1))
       .join(" ");
   }
 
@@ -131,7 +130,6 @@ export default function UserProfileCard() {
   // ================= UI =================
   return (
     <div className="max-w-2xl mx-auto bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl p-8">
-
       {/* ================= PROFILE IMAGE ================= */}
       <div className="flex flex-col items-center text-center">
         <div className="relative mb-4">
@@ -173,16 +171,13 @@ export default function UserProfileCard() {
 
       {/* ================= DETAILS ================= */}
       <div className="mt-8 space-y-5 text-gray-500 dark:text-white">
-
         {/* First Name */}
         <ProfileRow
           label="First Name"
           value={firstName}
           editing={editing === "firstName"}
           onEdit={() =>
-            editing === "firstName"
-              ? cancelEdit()
-              : startEdit("firstName")
+            editing === "firstName" ? cancelEdit() : startEdit("firstName")
           }
           onChange={setFirstName}
         />
@@ -193,9 +188,7 @@ export default function UserProfileCard() {
           value={lastName}
           editing={editing === "lastName"}
           onEdit={() =>
-            editing === "lastName"
-              ? cancelEdit()
-              : startEdit("lastName")
+            editing === "lastName" ? cancelEdit() : startEdit("lastName")
           }
           onChange={setLastName}
         />

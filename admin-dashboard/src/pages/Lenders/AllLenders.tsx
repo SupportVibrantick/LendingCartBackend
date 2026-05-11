@@ -145,7 +145,7 @@ export default function AllLendersPage() {
 
   const navigate = useNavigate();
 
-  const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001"; // adjust if needed
+  const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000"; // adjust if needed
 
   const usPhoneRegex = /^\d{3}-\d{3}-\d{4}$/;
 

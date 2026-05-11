@@ -3,7 +3,7 @@ import axios from "axios";
 
 /* ================= API ================= */
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE || "http://localhost:3001",
+  baseURL: import.meta.env.VITE_API_BASE || "http://localhost:4000",
   headers: {
     "Content-Type": "application/json",
   },
@@ -40,10 +40,9 @@ const AssignedProducts: React.FC = () => {
 
       const res = await api.get("/admin/lender-products/read");
 
-      const list =
-        Array.isArray(res.data?.data)
-          ? res.data.data
-          : res.data?.data?.results || [];
+      const list = Array.isArray(res.data?.data)
+        ? res.data.data
+        : res.data?.data?.results || [];
 
       setAssignments(
         list.map((a: any) => ({
@@ -53,7 +52,7 @@ const AssignedProducts: React.FC = () => {
           productCode: a.loanProduct?.code || "-",
           isActive: a.isActive,
           createdAt: a.createdAt,
-        }))
+        })),
       );
     } catch (err) {
       console.error("Failed to fetch assigned products", err);
@@ -71,16 +70,14 @@ const AssignedProducts: React.FC = () => {
   // Unique lenders for filter dropdown
   const lenders = useMemo(() => {
     return Array.from(
-      new Set(assignments.map((a) => a.lenderName).filter(Boolean))
+      new Set(assignments.map((a) => a.lenderName).filter(Boolean)),
     );
   }, [assignments]);
 
   // Filtered rows
   const filteredAssignments = useMemo(() => {
     if (!selectedLender) return assignments;
-    return assignments.filter(
-      (a) => a.lenderName === selectedLender
-    );
+    return assignments.filter((a) => a.lenderName === selectedLender);
   }, [assignments, selectedLender]);
 
   /* ================= UI ================= */
@@ -89,9 +86,7 @@ const AssignedProducts: React.FC = () => {
       {/* Header + Controls */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div>
-          <h2 className="text-lg font-semibold">
-            Assigned Lender Products
-          </h2>
+          <h2 className="text-lg font-semibold">Assigned Lender Products</h2>
           <p className="text-sm text-gray-500">
             Which lender is assigned which loan product
           </p>

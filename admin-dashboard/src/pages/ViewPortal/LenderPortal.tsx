@@ -3,7 +3,7 @@ import axios from "axios";
 import { Loader2, ExternalLink, Search, RefreshCcw, Mail } from "lucide-react";
 import toast from "react-hot-toast";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001";
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 const LENDER_URI = import.meta.env.VITE_LENDER_URI || "http://localhost:5174";
 
 const api = axios.create({

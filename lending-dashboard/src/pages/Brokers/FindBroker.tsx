@@ -14,7 +14,7 @@ type Meta = {
   total: number;
 };
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001";
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
 export default function FindBroker() {
   const [brokers, setBrokers] = useState<Broker[]>([]);
@@ -104,75 +104,73 @@ export default function FindBroker() {
 
       {/* Filters */}
       <div className="mb-6 rounded-xl border bg-white p-4 dark:bg-slate-900 dark:border-slate-700">
-<div className="flex items-center justify-end gap-3">
-
-  {/* Search */}
-  <div className="relative">
-    <input
-      value={q}
-      onChange={(e) => {
-        setPage(1);
-        setQ(e.target.value);
-      }}
-      placeholder="Search by name or email"
-      className="w-64 h-10 pl-9 pr-3 rounded-md border text-sm
+        <div className="flex items-center justify-end gap-3">
+          {/* Search */}
+          <div className="relative">
+            <input
+              value={q}
+              onChange={(e) => {
+                setPage(1);
+                setQ(e.target.value);
+              }}
+              placeholder="Search by name or email"
+              className="w-64 h-10 pl-9 pr-3 rounded-md border text-sm
       bg-white dark:bg-slate-800
       border-gray-300 dark:border-slate-600
       text-gray-800 dark:text-slate-100
       placeholder:text-gray-400
       focus:outline-none focus:ring-2 focus:ring-[#18B6B4]/30 focus:border-[#18B6B4]"
-    />
+            />
 
-    {/* Search Icon */}
-    <svg
-      className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M21 21l-4.35-4.35M17 10a7 7 0 11-14 0 7 7 0 0114 0z"
-      />
-    </svg>
-  </div>
+            {/* Search Icon */}
+            <svg
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M21 21l-4.35-4.35M17 10a7 7 0 11-14 0 7 7 0 0114 0z"
+              />
+            </svg>
+          </div>
 
-  {/* Page Size */}
-  <select
-    value={limit}
-    onChange={(e) => {
-      setPage(1);
-      setLimit(Number(e.target.value));
-    }}
-    className="h-10 w-28 px-2 rounded-md border text-sm
+          {/* Page Size */}
+          <select
+            value={limit}
+            onChange={(e) => {
+              setPage(1);
+              setLimit(Number(e.target.value));
+            }}
+            className="h-10 w-28 px-2 rounded-md border text-sm
     bg-white dark:bg-slate-800
     border-gray-300 dark:border-slate-600
     text-gray-800 dark:text-slate-100
     focus:outline-none focus:ring-2 focus:ring-[#18B6B4]/30 focus:border-[#18B6B4]"
-  >
-    <option value={5}>5 / page</option>
-    <option value={10}>10 / page</option>
-    <option value={20}>20 / page</option>
-  </select>
+          >
+            <option value={5}>5 / page</option>
+            <option value={10}>10 / page</option>
+            <option value={20}>20 / page</option>
+          </select>
 
-  {/* Refresh */}
-  <button
-    onClick={fetchBrokers}
-    disabled={loading}
-    title="Refresh"
-    className="flex items-center justify-center
+          {/* Refresh */}
+          <button
+            onClick={fetchBrokers}
+            disabled={loading}
+            title="Refresh"
+            className="flex items-center justify-center
     w-10 h-10 rounded-md border
     bg-white dark:bg-slate-800
     border-gray-300 dark:border-slate-600
     hover:bg-gray-100 dark:hover:bg-slate-700
     transition disabled:opacity-50"
-  >
-    <RefreshCcw size={18} className={loading ? "animate-spin" : ""} />
-  </button>
-
-</div>
+          >
+            <RefreshCcw size={18} className={loading ? "animate-spin" : ""} />
+          </button>
+        </div>
 
         {/* Table */}
         <div className="rounded-xl border bg-white dark:bg-slate-900 dark:border-slate-700 mt-4">
@@ -230,77 +228,75 @@ export default function FindBroker() {
       </div>
 
       {/* Pagination */}
-     {totalPages > 1 && (
-  <div className="mt-6 flex items-center justify-between border-t pt-4 dark:border-slate-700">
+      {totalPages > 1 && (
+        <div className="mt-6 flex items-center justify-between border-t pt-4 dark:border-slate-700">
+          {/* Showing info */}
+          <div className="text-sm text-gray-500 dark:text-slate-400">
+            Showing{" "}
+            <span className="font-medium text-gray-900 dark:text-white">
+              {(meta.page - 1) * meta.limit + 1}
+            </span>{" "}
+            to{" "}
+            <span className="font-medium text-gray-900 dark:text-white">
+              {Math.min(meta.page * meta.limit, meta.total)}
+            </span>{" "}
+            of{" "}
+            <span className="font-medium text-gray-900 dark:text-white">
+              {meta.total}
+            </span>{" "}
+            brokers
+          </div>
 
-    {/* Showing info */}
-    <div className="text-sm text-gray-500 dark:text-slate-400">
-      Showing{" "}
-      <span className="font-medium text-gray-900 dark:text-white">
-        {(meta.page - 1) * meta.limit + 1}
-      </span>{" "}
-      to{" "}
-      <span className="font-medium text-gray-900 dark:text-white">
-        {Math.min(meta.page * meta.limit, meta.total)}
-      </span>{" "}
-      of{" "}
-      <span className="font-medium text-gray-900 dark:text-white">
-        {meta.total}
-      </span>{" "}
-      brokers
-    </div>
-
-    {/* Controls */}
-    <div className="flex items-center gap-2">
-
-      {/* Prev */}
-      <button
-        disabled={page === 1}
-        onClick={() => setPage((p) => p - 1)}
-        className="px-3 py-1 rounded-md border text-sm
+          {/* Controls */}
+          <div className="flex items-center gap-2">
+            {/* Prev */}
+            <button
+              disabled={page === 1}
+              onClick={() => setPage((p) => p - 1)}
+              className="px-3 py-1 rounded-md border text-sm
         border-gray-300 bg-white text-gray-800
         hover:bg-gray-50
         dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100
         disabled:opacity-40"
-      >
-        Prev
-      </button>
+            >
+              Prev
+            </button>
 
-      {/* Page numbers */}
-      {Array.from({ length: totalPages }).map((_, i) => {
-        const p = i + 1;
+            {/* Page numbers */}
+            {Array.from({ length: totalPages }).map((_, i) => {
+              const p = i + 1;
 
-        return (
-          <button
-            key={p}
-            onClick={() => setPage(p)}
-            className={`px-3 py-1 rounded-md text-sm border
+              return (
+                <button
+                  key={p}
+                  onClick={() => setPage(p)}
+                  className={`px-3 py-1 rounded-md text-sm border
             ${
               page === p
                 ? "bg-[#18B6B4] text-white border-[#18B6B4]"
                 : "border-gray-300 bg-white text-gray-800 hover:bg-gray-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
             }`}
-          >
-            {p}
-          </button>
-        );
-      })}
+                >
+                  {p}
+                </button>
+              );
+            })}
 
-      {/* Next */}
-      <button
-        disabled={page === totalPages}
-        onClick={() => setPage((p) => p + 1)}
-        className="px-3 py-1 rounded-md border text-sm
+            {/* Next */}
+            <button
+              disabled={page === totalPages}
+              onClick={() => setPage((p) => p + 1)}
+              className="px-3 py-1 rounded-md border text-sm
         border-gray-300 bg-white text-gray-800
         hover:bg-gray-50
         dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100
         disabled:opacity-40"
-      >
-        Next
-      </button>
-    </div>
-  </div>
-)}
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

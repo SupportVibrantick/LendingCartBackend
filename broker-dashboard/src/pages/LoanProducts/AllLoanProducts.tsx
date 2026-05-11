@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { MdModeEdit } from "react-icons/md";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001";
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
 type LoanProduct = {
   id: string;
@@ -151,12 +151,15 @@ const AllLoanProducts: React.FC = () => {
               name: form.name,
               description: form.description || undefined,
             }),
-          }
+          },
         );
 
         const json = await res.json();
         if (!res.ok || !json.success) {
-          console.error("Failed to update product:", json.message || res.status);
+          console.error(
+            "Failed to update product:",
+            json.message || res.status,
+          );
           alert(json.message || "Failed to update product");
           return;
         }
@@ -174,7 +177,10 @@ const AllLoanProducts: React.FC = () => {
 
         const json = await res.json();
         if (!res.ok || !json.success) {
-          console.error("Failed to create product:", json.message || res.status);
+          console.error(
+            "Failed to create product:",
+            json.message || res.status,
+          );
           alert(json.message || "Failed to create product");
           return;
         }
@@ -209,14 +215,14 @@ const AllLoanProducts: React.FC = () => {
           method: "PATCH",
           headers: getAuthHeaders(),
           body: JSON.stringify({ isActive: !product.isActive }),
-        }
+        },
       );
 
       const json = await res.json();
       if (!res.ok || !json.success) {
         console.error(
           "Failed to update product status:",
-          json.message || res.status
+          json.message || res.status,
         );
         alert(json.message || "Failed to update product status");
         return;
@@ -229,8 +235,6 @@ const AllLoanProducts: React.FC = () => {
       setTogglingId(null);
     }
   };
-
-
 
   // ===== Effects =====
   useEffect(() => {
@@ -342,8 +346,8 @@ const AllLoanProducts: React.FC = () => {
                     ? "Saving..."
                     : "Creating..."
                   : editingProductId
-                  ? "Save Changes"
-                  : "Create Product"}
+                    ? "Save Changes"
+                    : "Create Product"}
               </button>
 
               {editingProductId && (
@@ -443,15 +447,15 @@ const AllLoanProducts: React.FC = () => {
                           disabled={togglingId === p.id}
                           className={`inline-flex items-center px-3 py-1 rounded-full border text-xs cursor-pointer
                                       ${statusClass(
-                                        p.isActive ? "ACTIVE" : "INACTIVE"
+                                        p.isActive ? "ACTIVE" : "INACTIVE",
                                       )}
                                       disabled:opacity-60 disabled:cursor-not-allowed`}
                         >
                           {togglingId === p.id
                             ? "Updating..."
                             : p.isActive
-                            ? "ACTIVE"
-                            : "INACTIVE"}
+                              ? "ACTIVE"
+                              : "INACTIVE"}
                         </button>
                       </td>
 
@@ -469,8 +473,6 @@ const AllLoanProducts: React.FC = () => {
                           >
                             <MdModeEdit />
                           </button>
-
-                         
                         </div>
                       </td>
                     </tr>

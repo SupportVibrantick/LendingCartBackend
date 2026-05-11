@@ -7,7 +7,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Mail,
-  UserPlus
+  UserPlus,
 } from "lucide-react";
 
 /* ================= TYPES ================= */
@@ -30,7 +30,7 @@ type Meta = {
   total: number;
 };
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001";
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
 function getAuthHeaders(): HeadersInit {
   const token = sessionStorage.getItem("broker_token");
@@ -70,7 +70,7 @@ export default function FindLenders() {
 
       const res = await fetch(
         `${API_BASE}/broker/lenders?${params.toString()}`,
-        { headers: getAuthHeaders() }
+        { headers: getAuthHeaders() },
       );
 
       const json = await res.json();
@@ -89,7 +89,7 @@ export default function FindLenders() {
           loanTypes: l.lenderProfile?.loanTypes || [],
           minFunding: l.lenderProfile?.minFunding || "",
           maxFunding: l.lenderProfile?.maxFunding || "",
-        }))
+        })),
       );
 
       setMeta(json.meta || { page, limit, total: 0 });
@@ -111,16 +111,13 @@ export default function FindLenders() {
     setInvitingId(lenderId);
 
     try {
-      const res = await fetch(
-        `${API_BASE}/broker/lenders/invite`,
-        {
-          method: "POST",
-          headers: getAuthHeaders(),
-          body: JSON.stringify({
-            lenderOrgId: lenderId,
-          }),
-        }
-      );
+      const res = await fetch(`${API_BASE}/broker/lenders/invite`, {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          lenderOrgId: lenderId,
+        }),
+      });
 
       const json = await res.json();
 
@@ -136,7 +133,6 @@ export default function FindLenders() {
     }
   }
 
-
   const totalPages = Math.max(1, Math.ceil(meta.total / meta.limit));
   const isSearchEmpty = q.trim() !== "" && lenders.length === 0 && !loading;
   const isTotalEmpty = q.trim() === "" && meta.total === 0 && !loading;
@@ -144,7 +140,6 @@ export default function FindLenders() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-slate-950 px-4 py-8 sm:px-6 lg:px-8 transition-colors duration-300">
       <div className="max-w-7xl mx-auto">
-
         {/* ================= HEADER ================= */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
           <div>
@@ -156,25 +151,26 @@ export default function FindLenders() {
             </p>
           </div>
 
-          {hasSearched && <button
-            onClick={() => {
-              if (!hasSearched) return;
-              fetchLenders();
-            }}
-            disabled={loading || !hasSearched}
-            className="group flex items-center justify-center w-12 h-12 rounded-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-all active:scale-95 disabled:opacity-50"
-          >
-            <RefreshCcw
-              size={22}
-              className={`${loading ? "animate-spin" : "group-hover:rotate-180 transition-transform duration-500"} text-blue-600`}
-            />
-          </button>}
+          {hasSearched && (
+            <button
+              onClick={() => {
+                if (!hasSearched) return;
+                fetchLenders();
+              }}
+              disabled={loading || !hasSearched}
+              className="group flex items-center justify-center w-12 h-12 rounded-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-all active:scale-95 disabled:opacity-50"
+            >
+              <RefreshCcw
+                size={22}
+                className={`${loading ? "animate-spin" : "group-hover:rotate-180 transition-transform duration-500"} text-blue-600`}
+              />
+            </button>
+          )}
         </div>
 
         {/* ================= FIRST SCREEN (CTA) ================= */}
         {!hasSearched && (
           <div className="relative overflow-hidden py-32 flex flex-col items-center justify-center text-center bg-white dark:bg-slate-900 rounded-2xl  dark:border-slate-800">
-
             {/* Decorative gradient blobs */}
             <div className="absolute -top-24 -left-24 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl"></div>
             <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl"></div>
@@ -189,7 +185,8 @@ export default function FindLenders() {
             </h3>
 
             <p className="relative z-10 text-slate-600 dark:text-slate-400 mt-3 max-w-md text-sm leading-relaxed">
-              Find and connect with trusted lenders to grow your business network and unlock new opportunities.
+              Find and connect with trusted lenders to grow your business
+              network and unlock new opportunities.
             </p>
 
             {/* CTA Button */}
@@ -214,7 +211,6 @@ export default function FindLenders() {
               You can search, filter, and invite lenders after loading.
             </div>
           </div>
-
         )}
 
         {/* ================= FILTERS BAR ================= */}
@@ -222,10 +218,16 @@ export default function FindLenders() {
           <>
             <div className="mb-10 p-2 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl shadow-slate-200/50 dark:shadow-none flex flex-col md:flex-row items-center gap-4">
               <div className="relative flex-1 w-full">
-                <Search size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                <Search
+                  size={20}
+                  className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+                />
                 <input
                   value={q}
-                  onChange={(e) => { setPage(1); setQ(e.target.value); }}
+                  onChange={(e) => {
+                    setPage(1);
+                    setQ(e.target.value);
+                  }}
                   placeholder="Search lenders by name or email..."
                   className="text-sm w-full pl-12 pr-4 py-2 bg-transparent border-none focus:ring-2 focus:ring-blue-500/20 rounded-xl text-slate-700 dark:text-slate-200 placeholder:text-slate-400"
                 />
@@ -270,7 +272,12 @@ export default function FindLenders() {
                     viewBox="0 0 24 24"
                     stroke="currentColor"
                   >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 9l-7 7-7-7"
+                    />
                   </svg>
                 </div>
               </div>
@@ -284,7 +291,10 @@ export default function FindLenders() {
         {loading && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
             {[1, 2, 3, 4, 5, 6].map((i) => (
-              <div key={i} className="h-72 rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 animate-pulse overflow-hidden">
+              <div
+                key={i}
+                className="h-72 rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 animate-pulse overflow-hidden"
+              >
                 <div className="h-2/3 bg-slate-100 dark:bg-slate-800/50"></div>
                 <div className="p-6 space-y-3">
                   <div className="h-4 w-1/2 bg-slate-200 dark:bg-slate-700 rounded"></div>
@@ -299,9 +309,14 @@ export default function FindLenders() {
         {!loading && isTotalEmpty && hasSearched && (
           <div className="py-24 flex flex-col items-center text-center bg-white dark:bg-slate-900 rounded-3xl border border-dashed border-slate-300 dark:border-slate-700 shadow-sm">
             <div className="w-24 h-24 rounded-3xl bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center mb-6">
-              <Building2 size={48} className="text-blue-600 dark:text-blue-400" />
+              <Building2
+                size={48}
+                className="text-blue-600 dark:text-blue-400"
+              />
             </div>
-            <h3 className="text-2xl font-bold text-slate-900 dark:text-white">No Lenders Available</h3>
+            <h3 className="text-2xl font-bold text-slate-900 dark:text-white">
+              No Lenders Available
+            </h3>
             <p className="text-slate-500 dark:text-slate-400 mt-2 max-w-sm">
               The lender directory is currently empty. Please check back later.
             </p>
@@ -312,13 +327,24 @@ export default function FindLenders() {
         {!loading && isSearchEmpty && (
           <div className="py-24 flex flex-col items-center text-center bg-white dark:bg-slate-900 rounded-3xl border border-dashed border-orange-300 dark:border-orange-700/50 shadow-sm">
             <div className="w-24 h-24 rounded-3xl bg-orange-50 dark:bg-orange-900/20 flex items-center justify-center mb-6">
-              <SearchX size={48} className="text-orange-600 dark:text-orange-400" />
+              <SearchX
+                size={48}
+                className="text-orange-600 dark:text-orange-400"
+              />
             </div>
-            <h3 className="text-2xl font-bold text-slate-900 dark:text-white">No Results Found</h3>
+            <h3 className="text-2xl font-bold text-slate-900 dark:text-white">
+              No Results Found
+            </h3>
             <p className="text-slate-500 dark:text-slate-400 mt-2 max-w-sm">
-              We couldn't find any lenders matching "<span className="font-semibold text-orange-600">{q}</span>".
+              We couldn't find any lenders matching "
+              <span className="font-semibold text-orange-600">{q}</span>".
             </p>
-            <button onClick={() => setQ("")} className="mt-6 text-sm font-bold text-blue-600 hover:underline">Clear search</button>
+            <button
+              onClick={() => setQ("")}
+              className="mt-6 text-sm font-bold text-blue-600 hover:underline"
+            >
+              Clear search
+            </button>
           </div>
         )}
 
@@ -333,7 +359,9 @@ export default function FindLenders() {
                 {/* Status Badge */}
                 <div className="absolute top-4 right-4 flex items-center gap-1.5 px-2 py-0.5 bg-green-50 dark:bg-green-500/10 rounded-full">
                   <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
-                  <span className="text-[10px] font-bold text-green-600 dark:text-green-400 uppercase tracking-wider">Active</span>
+                  <span className="text-[10px] font-bold text-green-600 dark:text-green-400 uppercase tracking-wider">
+                    Active
+                  </span>
                 </div>
 
                 <div className="flex gap-4">
@@ -344,10 +372,15 @@ export default function FindLenders() {
                         <img
                           src={`${API_BASE}/public${l.profileImage}`}
                           className="h-full w-full object-cover"
-                          onError={(e: any) => (e.currentTarget.src = "/circle_logo.png")}
+                          onError={(e: any) =>
+                            (e.currentTarget.src = "/circle_logo.png")
+                          }
                         />
                       ) : (
-                        <Building2 size={24} className="text-emerald-600 dark:text-emerald-400" />
+                        <Building2
+                          size={24}
+                          className="text-emerald-600 dark:text-emerald-400"
+                        />
                       )}
                     </div>
                   </div>
@@ -357,7 +390,9 @@ export default function FindLenders() {
                     <h3 className="text-base font-bold text-slate-900 dark:text-white truncate group-hover:text-blue-600 transition-colors">
                       {l.name}
                     </h3>
-                    <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Lender Team</p>
+                    <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+                      Lender Team
+                    </p>
 
                     <div className="mt-3 space-y-1.5">
                       <div className="flex items-center gap-2 text-slate-500">
@@ -366,9 +401,13 @@ export default function FindLenders() {
                       </div>
                       <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300 font-semibold">
                         <span className="text-sm">
-                          {l.minFunding ? `$${Number(l.minFunding).toLocaleString()}` : "$0"}
+                          {l.minFunding
+                            ? `$${Number(l.minFunding).toLocaleString()}`
+                            : "$0"}
                           {" - "}
-                          {l.maxFunding ? `$${Number(l.maxFunding).toLocaleString()}` : "N/A"}
+                          {l.maxFunding
+                            ? `$${Number(l.maxFunding).toLocaleString()}`
+                            : "N/A"}
                         </span>
                       </div>
                     </div>
@@ -411,7 +450,11 @@ export default function FindLenders() {
         {!loading && totalPages > 1 && (
           <div className="mt-16 flex flex-col sm:flex-row items-center justify-between gap-6 border-t border-slate-200 dark:border-slate-800 pt-8">
             <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-              Showing <span className="text-slate-900 dark:text-white">Page {meta.page}</span> of {totalPages}
+              Showing{" "}
+              <span className="text-slate-900 dark:text-white">
+                Page {meta.page}
+              </span>{" "}
+              of {totalPages}
             </p>
 
             <div className="flex items-center gap-3">

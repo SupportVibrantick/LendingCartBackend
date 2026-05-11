@@ -14,7 +14,7 @@ const {
   kafkaLogs,
 } = require("./services/logger/contextLogger");
 const createError = require("http-errors");
-var { runEmailConsumerKafka } = require("./services/kafka/email/consumer");
+// var { runEmailConsumerKafka } = require("./services/kafka/email/consumer");
 const swagger = require("@fastify/swagger");
 const swaggerUi = require("@fastify/swagger-ui");
 const indexRoutes = require("./routes/index");
@@ -39,9 +39,9 @@ const app = Fastify({
 
 
 // Start the Kafka consumer for sending emails
-runEmailConsumerKafka().catch((error) => {
-  console.error("Error starting the email consumer:", error);
-});
+// runEmailConsumerKafka().catch((error) => {
+//   console.error("Error starting the email consumer:", error);
+// });
 
 app.register(cors, {
   origin: "*",

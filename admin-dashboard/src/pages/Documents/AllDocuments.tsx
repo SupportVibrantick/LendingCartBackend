@@ -3,7 +3,7 @@ import toast from "react-hot-toast";
 import { MdModeEdit } from "react-icons/md";
 import { FiAlertCircle } from "react-icons/fi";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001";
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
 /* ================= TYPES ================= */
 

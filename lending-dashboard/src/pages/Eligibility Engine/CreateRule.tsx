@@ -48,7 +48,7 @@ const comparisonOperators = [
 
 const severity = ["HARD_FAIL", "SOFT_FAIL"];
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001";
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
 // tiny helper for status pill
 // function statusClass(status?: string) {

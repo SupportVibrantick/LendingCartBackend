@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { MdModeEdit } from "react-icons/md";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001";
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 // Adjust this if your backend prefix is different
 const ADMIN_BASE = `${API_BASE}/admin/admin-user`;
 

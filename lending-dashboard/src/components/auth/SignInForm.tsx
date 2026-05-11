@@ -20,7 +20,7 @@ export default function SignInForm() {
 
   const navigate = useNavigate();
 
-  const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001";
+  const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

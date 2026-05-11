@@ -66,7 +66,7 @@ export default function AlloanProducts() {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [viewDetails, setViewDetails] = useState<any | null>(null);
 
-  const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001";
+  const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
   useEffect(() => {
     fetchLoanProducts();
@@ -572,7 +572,7 @@ export default function AlloanProducts() {
               {/* DOCUMENTS */}
               <div className="col-span-2">
                 <p className="font-medium text-gray-700 dark:text-slate-300 mb-2">
-                   Documents
+                  Documents
                 </p>
 
                 {viewDetails.documents?.length > 0 ? (

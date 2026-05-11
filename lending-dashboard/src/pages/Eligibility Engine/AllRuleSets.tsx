@@ -80,7 +80,7 @@ export default function AllRuleSets() {
   const [pageSize, setPageSize] = useState<number>(10);
   // const [currentPage, setCurrentPage] = useState<number>(1);
 
-  const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001";
+  const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
   useEffect(() => {
     setCurrentPage(1);

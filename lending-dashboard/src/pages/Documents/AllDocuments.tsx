@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { MdModeEdit } from "react-icons/md";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001";
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
 type Document = {
   id: string;
@@ -48,7 +48,7 @@ type DocumentConfig = {
   maxFiles: number;
 
   notes?: string;
-  sortOrder?: number;      
+  sortOrder?: number;
 
   createdAt?: string;
 };
@@ -338,7 +338,7 @@ const AllLoanProducts: React.FC = () => {
       minFiles: config.minFiles,
       maxFiles: config.maxFiles,
 
-      notes: config.notes || "", 
+      notes: config.notes || "",
       sortOrder: config.sortOrder ?? 0,
     });
   };
@@ -364,7 +364,7 @@ const AllLoanProducts: React.FC = () => {
             All <span className="text-[#18B6B4]">Documents</span>
           </h1>
           <p className="text-sm text-gray-500 mt-1 dark:text-slate-400">
-            Manage documents available on the platform.  
+            Manage documents available on the platform.
           </p>
         </div>
       </div>

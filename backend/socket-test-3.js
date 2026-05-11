@@ -14,9 +14,7 @@ const token = process.argv[2];
 const conversationId = process.argv[3];
 
 if (!token || !conversationId) {
-  console.log(
-    "❌ Usage: node socket-test-3.js <token> <conversationId>"
-  );
+  console.log("❌ Usage: node socket-test-3.js <token> <conversationId>");
   process.exit(1);
 }
 
@@ -24,7 +22,7 @@ if (!token || !conversationId) {
    SOCKET INIT (SECURE)
 =============================== */
 
-const socket = io("http://localhost:3001", {
+const socket = io("http://localhost:4000", {
   transports: ["websocket"],
   auth: {
     token, // ✅ REQUIRED
@@ -67,7 +65,7 @@ rl.on("line", (input) => {
 
 socket.on("newMessage", (msg) => {
   console.log(
-    `📩 [${msg.senderType} - ${msg.senderName}] (${msg.conversationId.slice(0, 6)}) ${msg.text}`
+    `📩 [${msg.senderType} - ${msg.senderName}] (${msg.conversationId.slice(0, 6)}) ${msg.text}`,
   );
 });
 
