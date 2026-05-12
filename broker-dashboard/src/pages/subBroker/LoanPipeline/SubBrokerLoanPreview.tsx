@@ -5,7 +5,7 @@ import {
   FileSearch,
   FileText,
   FolderOpen,
-  Loader2,
+  // Loader2,
   MoreVertical,
   Pencil,
   Search,
@@ -22,7 +22,7 @@ import { FiFolder, FiSend, FiTag, FiUser } from "react-icons/fi";
 import Swal from "sweetalert2";
 import { FaRegCreditCard } from "react-icons/fa6";
 // import LoanPreviewChat from "./LoanPreviewChat";
-// import FeeAgreement from "./FeeAgreement";
+import FeeAgreement from "./FeeAgreement";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
@@ -144,7 +144,7 @@ const getFieldValue = (fields: SubmissionField[], key: string) => {
 };
 
 function getAuthHeaders(): HeadersInit {
-  const token = sessionStorage.getItem("broker_token");
+  const token = sessionStorage.getItem("sub_broker_token");
   return {
     "Content-Type": "application/json",
     ...(token && { Authorization: `Bearer ${token}` }),
@@ -296,7 +296,9 @@ const EditableFieldItem = ({
   errors: Record<string, string>;
 }) => {
   const fieldKey = field.fieldKey;
+
   const parsedValue = parseValue(field.value);
+
   const isBoolean = typeof parsedValue === "boolean";
 
   const shouldUseTextarea =
@@ -314,36 +316,60 @@ const EditableFieldItem = ({
       {/* BOOLEAN SELECT */}
       {isBoolean ? (
         <select
+          disabled
           value={value}
           onChange={(e) => {
             if (!fieldKey) return;
+
             onChange(fieldKey, e.target.value);
           }}
-          className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm font-medium 
-          text-slate-800 outline-none transition
-          focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200
-          dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:focus:ring-cyan-800"
+          className="
+w-full cursor-not-allowed rounded-lg
+border border-slate-200
+bg-slate-100
+px-3 py-2
+text-sm font-medium
+text-slate-500
+opacity-80
+
+dark:border-slate-700
+dark:bg-slate-800
+dark:text-slate-400
+"
         >
           <option value="true">Yes</option>
+
           <option value="false">No</option>
         </select>
       ) : shouldUseTextarea ? (
         /* TEXTAREA */
         <textarea
+          disabled
           value={value}
           onChange={(e) => {
             if (!fieldKey) return;
+
             onChange(fieldKey, e.target.value);
           }}
           rows={3}
-          className="w-full resize-y rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm font-medium 
-          text-slate-800 outline-none transition
-          focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200
-          dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:focus:ring-cyan-800"
+          className="
+w-full resize-none cursor-not-allowed rounded-lg
+border border-slate-200
+bg-slate-100
+px-3 py-2
+text-sm font-medium
+text-slate-500
+opacity-80
+
+dark:border-slate-700
+dark:bg-slate-800
+dark:text-slate-400
+"
         />
       ) : (
         /* INPUT */
         <input
+          disabled
           type="text"
           value={value}
           onChange={(e) => {
@@ -357,12 +383,18 @@ const EditableFieldItem = ({
 
             onChange(fieldKey, val);
           }}
-          className={`w-full rounded-lg border px-3 py-2 text-sm outline-none transition
-          ${
-            errors[fieldKey || ""]
-              ? "border-red-500 bg-red-50 focus:ring-2 focus:ring-red-200 dark:bg-red-900/20 dark:focus:ring-red-800"
-              : "border-slate-300 bg-slate-50 text-slate-800 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:focus:ring-cyan-800"
-          }`}
+          className="
+w-full cursor-not-allowed rounded-lg
+border border-slate-200
+bg-slate-100
+px-3 py-2
+text-sm font-medium
+opacity-80
+
+dark:border-slate-700
+dark:bg-slate-800
+dark:text-slate-400
+"
         />
       )}
 
@@ -431,7 +463,6 @@ const LoanPreview = () => {
   const [editableFieldValues, setEditableFieldValues] = useState<
     Record<string, string>
   >({});
-  const [updateSubmitting, setUpdateSubmitting] = useState(false);
 
   const [lenderFilter, setLenderFilter] = useState<
     "all" | "eligible" | "rejected" | "sent"
@@ -588,39 +619,6 @@ const LoanPreview = () => {
   const applicationId = submissionDetail?.applicationId;
   const submissionId = Location.state?.submissionId;
 
-  const validateFields = () => {
-    const newErrors: Record<string, string> = {};
-
-    Object.keys(editableFieldValues).forEach((key) => {
-      const value = editableFieldValues[key]?.trim();
-
-      //  Required validation
-      if (!value) {
-        newErrors[key] = "This field is required";
-        return;
-      }
-
-      // Number fields
-      if (
-        /amount|price|cost|rate|score|value|footage/i.test(key) &&
-        isNaN(Number(value))
-      ) {
-        newErrors[key] = "Only numbers allowed";
-        return;
-      }
-
-      // Phone validation (US)
-      if (/phone/i.test(key)) {
-        const phoneRegex = /^\d{3}-\d{3}-\d{4}$/;
-        if (!phoneRegex.test(value)) {
-          newErrors[key] = "Format: 222-222-2222";
-        }
-      }
-    });
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
 
   const formatPhoneNumber = (value: string) => {
     const digits = value.replace(/\D/g, "").slice(0, 10);
@@ -705,35 +703,45 @@ const LoanPreview = () => {
     }
   };
 
-  const fetchLois = async (id: string) => {
+  const fetchLois = async () => {
     try {
       setLoiLoading(true);
-      const submissionRes = await fetch(
-        `${API_BASE}/api/public/broker/applications/submissions/${id}`,
-      );
-      const submissionJson = await submissionRes.json();
-      if (!submissionRes.ok || !submissionJson.success) {
-        throw new Error(submissionJson.message || "Failed to fetch submission");
-      }
-      const currentApplicationId = submissionJson?.data?.applicationId;
-      if (!currentApplicationId) {
+
+      const token = sessionStorage.getItem("sub_broker_token");
+
+      const applicationId =
+        submissionDetail?.applicationId || submissionDetail?.id;
+
+      if (!applicationId) {
         throw new Error("Application ID not found");
       }
-      const loiRes = await fetch(
-        `${API_BASE}/broker/loan-pipeline/${currentApplicationId}/lois`,
+
+      const res = await fetch(
+        `${API_BASE}/subbroker/view-loi/${applicationId}/lois`,
         {
           method: "GET",
-          headers: getAuthHeaders(),
+
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         },
       );
-      const loiJson = await loiRes.json();
-      if (!loiRes.ok || !loiJson.success) {
-        throw new Error(loiJson.message || "Failed to fetch LOIs");
+
+      const json = await res.json();
+
+      if (!res.ok || json.success === false) {
+        throw new Error(json.message || "Failed to fetch LOIs");
       }
-      setLois(loiJson.data?.lois || []);
-      setLoiLoadedFor(id);
+
+      setLois(json.data?.lois || []);
+
+      setLoiLoadedFor(applicationId);
     } catch (err: any) {
+      console.error(err);
+
       toast.error(err.message || "Failed to load LOIs");
+
+      setLois([]);
     } finally {
       setLoiLoading(false);
     }
@@ -1038,7 +1046,7 @@ const LoanPreview = () => {
       submissionId &&
       loiLoadedFor !== submissionId
     ) {
-      fetchLois(submissionId);
+      fetchLois();
     }
   }, [
     activeTab,
@@ -1172,12 +1180,12 @@ const LoanPreview = () => {
       icon: Pencil,
       color: "text-cyan-600",
     },
-    {
-      key: "find-lenders" as const,
-      label: "Lender Hub",
-      icon: FileSearch,
-      color: "text-blue-600",
-    },
+    // {
+    //   key: "find-lenders" as const,
+    //   label: "Lender Hub",
+    //   icon: FileSearch,
+    //   color: "text-blue-600",
+    // },
     {
       key: "request-document" as const,
       label: "Request Document",
@@ -1248,80 +1256,6 @@ const LoanPreview = () => {
   // useEffect(() => {
   // setCurrentPage(1);
   // }, [debouncedLenderSearch]);
-
-  const handleUpdateApplication = async () => {
-    if (!validateFields()) {
-      toast.error("Please fix validation errors");
-      return;
-    }
-
-    if (!applicationId) {
-      toast.error("Application ID not found");
-      return;
-    }
-
-    const payloadFields = Object.keys(editableFieldValues).map((key) => ({
-      fieldKey: key,
-      value: editableFieldValues[key],
-    }));
-
-    // Confirmation Alert
-    const result = await Swal.fire({
-      title: "Are you sure?",
-      text: "Do you want to update this application?",
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonText: "Yes, update it!",
-      cancelButtonText: "Cancel",
-      confirmButtonColor: "#22c55e",
-      cancelButtonColor: "#ef4444",
-    });
-
-    if (!result.isConfirmed) return;
-
-    try {
-      setUpdateSubmitting(true);
-
-      const res = await fetch(
-        `${API_BASE}/broker/applications/${applicationId}/edit`,
-        {
-          method: "PUT",
-          headers: getAuthHeaders(),
-          body: JSON.stringify({ fields: payloadFields }),
-        },
-      );
-
-      const json = await res.json();
-
-      if (!res.ok || !json.success) {
-        throw new Error(json.message || "Failed to update application");
-      }
-
-      // Success Alert
-      await Swal.fire({
-        title: "Updated!",
-        text: "Application updated successfully.",
-        icon: "success",
-        confirmButtonColor: "#22c55e",
-      });
-
-      navigate("/submit-applications");
-
-      if (submissionId) {
-        await fetchSubmissionDetails(submissionId);
-      }
-    } catch (err: any) {
-      // Error Alert
-      Swal.fire({
-        title: "Error!",
-        text: err.message || "Failed to update application",
-        icon: "error",
-        confirmButtonColor: "#ef4444",
-      });
-    } finally {
-      setUpdateSubmitting(false);
-    }
-  };
 
   const currentFile = previewFiles[activeIndex];
 
@@ -1688,26 +1622,6 @@ dark:border-slate-800 dark:bg-slate-900"
               variant="panel"
             />
           </div>
-        </div>
-
-        <div className="mb-6 flex items-start justify-between gap-4 rounded-2xl border border-cyan-100 bg-cyan-50/70 px-5 py-4 text-sm text-cyan-900 dark:border-cyan-900/40 dark:bg-cyan-950/20 dark:text-cyan-100">
-          <div>
-            <h3 className="font-bold text-lg">Update Application</h3>
-          </div>
-          <button
-            onClick={handleUpdateApplication}
-            disabled={updateSubmitting}
-            className="inline-flex min-w-[170px] items-center justify-center rounded-xl bg-cyan-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {updateSubmitting ? (
-              <span className="inline-flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Updating...
-              </span>
-            ) : (
-              "Update Application"
-            )}
-          </button>
         </div>
 
         <div
@@ -2959,16 +2873,16 @@ dark:bg-red-900/20 dark:text-red-400"
         return renderViewLoi();
       case "documents":
         return renderDocuments();
-  
+
       // case "chat":
       //   return <LoanPreviewChat applicationId={applicationId} />;
-      // case "fee-agreement":
-      //   return (
-      //     <FeeAgreement
-      //       applicationId={applicationId}
-      //       getAuthHeaders={getAuthHeaders}
-      //     />
-      //   );
+      case "fee-agreement":
+        return (
+          <FeeAgreement
+            applicationId={applicationId}
+            getAuthHeaders={getAuthHeaders}
+          />
+        );
       default:
         return renderViewDetails();
     }

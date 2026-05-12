@@ -175,7 +175,7 @@ async function brokerLoginRoutes(fastify) {
 
         return reply.code(500).send({
           success: false,
-          message: "Server error during login",
+          message: error.message,
         });
       }
     }

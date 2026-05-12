@@ -127,7 +127,7 @@ module.exports = async function listSubBrokersRoutes(fastify) {
 
         return reply.code(500).send({
           success: false,
-          message: "Internal server error",
+          message: error.message,
         });
       }
     }

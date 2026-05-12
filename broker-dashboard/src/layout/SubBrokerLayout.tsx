@@ -9,7 +9,7 @@ export default function SubBrokerLayout() {
 
       {/* MAIN CONTENT */}
       <main className="flex-1 overflow-y-auto">
-        <div className="min-h-screen p-6">
+        <div className="min-h-screen p-1">
           <Outlet />
         </div>
       </main>

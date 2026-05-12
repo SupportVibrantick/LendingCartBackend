@@ -333,7 +333,7 @@ export default function LoanApplicationsPage() {
       const token = sessionStorage.getItem("broker_token");
 
       const res = await fetch(
-        `${API_BASE}/broker/sub-brokers/assign-application`,
+        `${API_BASE}/broker/sub-broker/assign-application`,
         {
           method: "POST",
 
@@ -1130,82 +1130,136 @@ export default function LoanApplicationsPage() {
         </div>
 
         {/* Quick Status Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
-          {/* TOTAL VOLUME */}
-          <div
-            className="
-    bg-white dark:bg-slate-900
-    border border-slate-200 dark:border-slate-800
-    rounded-2xl p-6
-    shadow-sm hover:shadow-md
-    transition-all duration-200
-    flex items-center justify-between
-  "
-          >
-            <div>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                Total Volume
-              </p>
-              <h3 className="text-xl font-semibold text-slate-900 dark:text-white mt-1">
-                {formatCompactAmount(totalVolume)}
-              </h3>
-            </div>
+       <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+  
+  {/* TOTAL VOLUME */}
+  <div
+    className="
+group rounded-2xl border border-slate-200
+bg-white p-5
+transition-all duration-300
+hover:border-indigo-200
+"
+  >
+    <div className="flex items-start justify-between">
+      
+      <div>
+        <p className="text-xs font-medium text-slate-500">
+          Total Volume
+        </p>
 
-            <div className="h-8 w-8 flex items-center justify-center rounded-full bg-indigo-600 text-white">
-              <DollarSign className="w-5 h-5" />
-            </div>
-          </div>
+        <h3 className="mt-2 text-xl font-bold text-slate-900">
+          {formatCompactAmount(
+            totalVolume,
+          )}
+        </h3>
+      </div>
 
-          {/* NEW APPLICATIONS */}
-          <div
-            className="
-    bg-white dark:bg-slate-900
-    border border-slate-200 dark:border-slate-800
-    rounded-2xl p-6
-    shadow-sm hover:shadow-md
-    transition-all duration-200
-    flex items-center justify-between
-  "
-          >
-            <div>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                New Applications
-              </p>
-              <h3 className="text-xl font-semibold text-slate-900 dark:text-white mt-1">
-                {newCount}
-              </h3>
-            </div>
+      <div
+        className="
+flex h-10 w-10 items-center justify-center
+rounded-xl
+bg-indigo-50
+text-indigo-600
+"
+      >
+        <DollarSign className="h-4 w-4" />
+      </div>
+    </div>
 
-            <div className="h-8 w-8 flex items-center justify-center rounded-full bg-blue-600 text-white">
-              <FileText className="w-5 h-5" />
-            </div>
-          </div>
+    <div className="mt-4 flex items-center gap-2">
+      <div className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
 
-          {/* APPROVED */}
-          <div
-            className="
-    bg-white dark:bg-slate-900
-    border border-slate-200 dark:border-slate-800
-    rounded-2xl p-6
-    shadow-sm hover:shadow-md           
-    transition-all duration-200
-    flex items-center justify-between 
-  "
-          >
-            <div>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                Approved
-              </p>
-              <h3 className="text-xl font-semibold text-slate-900 dark:text-white mt-1">
-                {approvedCount}
-              </h3>
-            </div>
+      <p className="text-[11px] text-slate-400">
+        Total funded volume
+      </p>
+    </div>
+  </div>
 
-            <div className="h-8 w-8 flex items-center justify-center rounded-full bg-emerald-600 text-white">
-              <CheckCircle className="w-5 h-5" />
-            </div>
-          </div>
-        </div>
+  {/* NEW APPLICATIONS */}
+  <div
+    className="
+group rounded-2xl border border-slate-200
+bg-white p-5
+transition-all duration-300
+hover:border-blue-200
+"
+  >
+    <div className="flex items-start justify-between">
+      
+      <div>
+        <p className="text-xs font-medium text-slate-500">
+          New Applications
+        </p>
+
+        <h3 className="mt-2 text-xl font-bold text-slate-900">
+          {newCount}
+        </h3>
+      </div>
+
+      <div
+        className="
+flex h-10 w-10 items-center justify-center
+rounded-xl
+bg-blue-50
+text-blue-600
+"
+      >
+        <FileText className="h-4 w-4" />
+      </div>
+    </div>
+
+    <div className="mt-4 flex items-center gap-2">
+      <div className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+
+      <p className="text-[11px] text-slate-400">
+        Recently submitted
+      </p>
+    </div>
+  </div>
+
+  {/* APPROVED */}
+  <div
+    className="
+group rounded-2xl border border-slate-200
+bg-white p-5
+transition-all duration-300
+hover:border-emerald-200
+"
+  >
+    <div className="flex items-start justify-between">
+      
+      <div>
+        <p className="text-xs font-medium text-slate-500">
+          Approved
+        </p>
+
+        <h3 className="mt-2 text-xl font-bold text-slate-900">
+          {approvedCount}
+        </h3>
+      </div>
+
+      <div
+        className="
+flex h-10 w-10 items-center justify-center
+rounded-xl
+bg-emerald-50
+text-emerald-600
+"
+      >
+        <CheckCircle className="h-4 w-4" />
+      </div>
+    </div>
+
+    <div className="mt-4 flex items-center gap-2">
+      <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+
+      <p className="text-[11px] text-slate-400">
+        Successfully approved
+      </p>
+    </div>
+  </div>
+</div>
       </header>
 
       {/* Main Table Container */}
@@ -1290,19 +1344,41 @@ export default function LoanApplicationsPage() {
                           </div>
 
                           {/* Location Text */}
-                          <div className="leading-tight">
-                            <div className="text-[13px] text-slate-700 dark:text-slate-300">
-                              {row.cityState?.length > 19
-                                ? row.cityState.slice(0, 19) + "..."
-                                : row.cityState || "Global"}
-                            </div>
+                          <div className="min-w-0 leading-tight">
+  
+  <div
+    className="
+truncate
+text-[12px]
+font-medium
+text-slate-700
+dark:text-slate-300
+"
+  >
+    {row.cityState || "Global"}
+  </div>
 
-                            {row.country && (
-                              <div className="text-[11px] text-slate-400 uppercase tracking-wide">
-                                {row.country}
-                              </div>
-                            )}
-                          </div>
+  {row.country && (
+    <div
+      className="
+mt-1
+inline-flex items-center
+rounded-full
+bg-slate-100
+px-2 py-0.5
+text-[10px]
+font-semibold
+uppercase tracking-wide
+text-slate-500
+
+dark:bg-slate-800
+dark:text-slate-400
+"
+    >
+      {row.country}
+    </div>
+  )}
+</div>
                         </div>
                       </td>
 

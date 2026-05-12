@@ -3,7 +3,6 @@ const prisma = require("../../../config/prisma");
 async function getApplicationsRoute(fastify, options) {
   fastify.get(
     "/",
-
     {
       preHandler: [fastify.authenticate, fastify.requireRole(["SUB_BROKER"])],
     },
@@ -12,16 +11,124 @@ async function getApplicationsRoute(fastify, options) {
       try {
         const userId = request.user.userId;
 
-        /* QUERY PARAMS */
-        const page = Number(request.query.page || 1);
+        /* ===============================
+           QUERY PARAMS
+        =============================== */
 
-        const limit = Number(request.query.limit || 10);
+        const page = Math.max(1, Number(request.query.page) || 1);
+
+        const limit = Math.max(1, Number(request.query.limit) || 10);
 
         const search = String(request.query.search || "").trim();
 
-        const skip = (page - 1) * limit;
+        const skip = Math.max(0, (page - 1) * limit);
 
-        /* FILTER */
+        /* ===============================
+           VALID ENUMS
+        =============================== */
+
+        const validLoanProducts = [
+          "PURCHASE_ORDER_FINANCE",
+
+          "SBA_7A_EQUIPMENT_PURCHASE",
+
+          "SBA_504_REAL_ESTATE_EQUIPMENT",
+
+          "WORKING_CAPITAL",
+
+          "TERM_LOAN",
+
+          "LINE_OF_CREDIT",
+        ];
+
+        const validStatuses = [
+          "DRAFT",
+
+          "SUBMITTED",
+
+          "IN_REVIEW",
+
+          "CLIENT_PENDING",
+
+          "APPROVED",
+
+          "DECLINED",
+
+          "COMPLETED",
+        ];
+
+        /* ===============================
+   SEARCH FILTER
+=============================== */
+
+        const OR = [];
+
+        if (search) {
+          const upperSearch = search.toUpperCase();
+
+          /* APPLICATION NUMBER */
+          OR.push({
+            applicationNumber: {
+              contains: search,
+              mode: "insensitive",
+            },
+          });
+
+          /* PURPOSE */
+          OR.push({
+            purpose: {
+              contains: search,
+              mode: "insensitive",
+            },
+          });
+
+          /* CLIENT LEGAL NAME */
+          OR.push({
+            client: {
+              is: {
+                legalName: {
+                  contains: search,
+                  mode: "insensitive",
+                },
+              },
+            },
+          });
+
+          /* LOAN PRODUCT ENUM */
+          if (validLoanProducts.includes(upperSearch)) {
+            OR.push({
+              loanProductCode: upperSearch,
+            });
+          }
+
+          /* STATUS ENUM */
+          if (validStatuses.includes(upperSearch)) {
+            OR.push({
+              status: upperSearch,
+            });
+          }
+
+          /* SEARCH INSIDE FIELD KEYS */
+
+          OR.push({
+            submissions: {
+              some: {
+                fields: {
+                  some: {
+                    fieldKey: {
+                      contains: search,
+                    },
+                  },
+                },
+              },
+            },
+          });
+        }
+
+        /* ===============================
+           WHERE
+        =============================== */
+
         const where = {
           subBrokerAssignments: {
             some: {
@@ -29,67 +136,23 @@ async function getApplicationsRoute(fastify, options) {
             },
           },
 
-          isDeleted: false,
-
-          ...(search && {
-            OR: [
-              {
-                applicationNumber: {
-                  contains: search,
-                  mode: "insensitive",
-                },
-              },
-
-              {
-                borrower: {
-                  firstName: {
-                    contains: search,
-                    mode: "insensitive",
-                  },
-                },
-              },
-
-              {
-                borrower: {
-                  lastName: {
-                    contains: search,
-                    mode: "insensitive",
-                  },
-                },
-              },
-
-              {
-                borrower: {
-                  email: {
-                    contains: search,
-                    mode: "insensitive",
-                  },
-                },
-              },
-
-              {
-                loanPurpose: {
-                  contains: search,
-                  mode: "insensitive",
-                },
-              },
-
-              {
-                status: {
-                  contains: search,
-                  mode: "insensitive",
-                },
-              },
-            ],
+          ...(OR.length > 0 && {
+            OR,
           }),
         };
 
-        /* TOTAL COUNT */
+        /* ===============================
+           TOTAL COUNT
+        =============================== */
+
         const total = await prisma.loanApplication.count({
           where,
         });
 
-        /* GET APPLICATIONS */
+        /* ===============================
+           GET APPLICATIONS
+        =============================== */
+
         const applications = await prisma.loanApplication.findMany({
           where,
 
@@ -106,9 +169,9 @@ async function getApplicationsRoute(fastify, options) {
 
             applicationNumber: true,
 
-            loanAmount: true,
+            amountRequested: true,
 
-            loanPurpose: true,
+            purpose: true,
 
             status: true,
 
@@ -116,56 +179,220 @@ async function getApplicationsRoute(fastify, options) {
 
             updatedAt: true,
 
-            propertyCity: true,
+            submittedAt: true,
 
-            propertyState: true,
+            loanProductCode: true,
 
-            propertyCountry: true,
+            termMonthsRequested: true,
 
-            borrower: {
+            brokerUser: {
               select: {
                 firstName: true,
+
                 lastName: true,
+
                 email: true,
+
+                profileImage: true,
               },
             },
 
-            assignedLoanOfficer: {
+            client: {
               select: {
-                firstName: true,
-                lastName: true,
-                profileImage: true,
+                id: true,
+
+                legalName: true,
+
+                entityType: true,
+
+                industry: true,
+              },
+            },
+
+            submissions: {
+              orderBy: {
+                createdAt: "desc",
+              },
+
+              take: 1,
+
+              select: {
+                id: true,
+
+                status: true,
+
+                createdAt: true,
+
+                fields: {
+                  select: {
+                    fieldKey: true,
+
+                    value: true,
+                  },
+                },
+              },
+            },
+
+            applicationLenders: {
+              select: {
+                id: true,
+
+                lenderOrgId: true,
+
+                status: true,
+
+                sentAt: true,
+
+                lender: {
+                  select: {
+                    id: true,
+
+                    name: true,
+                  },
+                },
+              },
+            },
+
+            subBrokerAssignments: {
+              select: {
+                assignedAt: true,
+
+                assignedBy: {
+                  select: {
+                    firstName: true,
+
+                    lastName: true,
+
+                    email: true,
+                  },
+                },
               },
             },
           },
         });
 
-        /* PAGINATION */
-        /* PAGINATION */
-const totalPages = Math.ceil(
-  total / limit,
-);
+        /* ===============================
+           FORMAT RESPONSE
+        =============================== */
 
-const hasNextPage =
-  page < totalPages;
+        const formatted = applications.map((item) => {
+          const latestSubmission = item.submissions?.[0];
 
-const hasPreviousPage =
-  page > 1;
+          const fieldsMap = {};
 
-return reply.code(200).send({
-  success: true,
+          latestSubmission?.fields?.forEach((field) => {
+            fieldsMap[field.fieldKey] = field.value;
+          });
 
-  data: applications,
+          return {
+            submissionId: latestSubmission?.id || item.id,
 
-  pagination: {
-    total,
-    page,
-    limit,
-    totalPages,
-    hasNextPage,
-    hasPreviousPage,
-  },
-});
+            applicationId: item.id,
+
+            borrower: item.client?.legalName || "Applicant",
+
+            applicationNumber: item.applicationNumber || "-",
+
+            loanInfo:
+              fieldsMap.loanProductCode ||
+              item.loanProductCode ||
+              fieldsMap.purpose ||
+              item.purpose ||
+              "N/A",
+
+            location:
+              [
+                fieldsMap.propertyCity,
+
+                fieldsMap.propertyState,
+
+                fieldsMap.propertyCountry,
+              ]
+                .filter(Boolean)
+                .join(", ") || "N/A",
+
+            amount: Number(
+              fieldsMap.amountRequested || item.amountRequested || 0,
+            ),
+
+            purpose: fieldsMap.purpose || item.purpose || null,
+
+            propertyCity: fieldsMap.propertyCity || null,
+
+            propertyState: fieldsMap.propertyState || null,
+
+            propertyCountry: fieldsMap.propertyCountry || null,
+
+            loanProductCode:
+              fieldsMap.loanProductCode || item.loanProductCode || null,
+
+            termMonthsRequested:
+              fieldsMap.termMonthsRequested || item.termMonthsRequested || null,
+
+            status: item.status,
+
+            submittedOn: item.submittedAt || item.createdAt,
+
+            submissionStatus: latestSubmission?.status || null,
+
+            dynamicFields: fieldsMap,
+
+            assignedLoanOfficer: item.brokerUser
+              ? {
+                  firstName: item.brokerUser.firstName,
+
+                  lastName: item.brokerUser.lastName,
+
+                  email: item.brokerUser.email,
+
+                  profileImage: item.brokerUser.profileImage,
+                }
+              : null,
+
+            submittedToLenders: item.applicationLenders.map((lender) => ({
+              lenderOrgId: lender.lenderOrgId,
+
+              lenderName: lender.lender?.name || null,
+
+              status: lender.status,
+
+              sentAt: lender.sentAt,
+            })),
+
+            assignedBy: item.subBrokerAssignments?.[0]?.assignedBy || null,
+
+            assignedAt: item.subBrokerAssignments?.[0]?.assignedAt || null,
+          };
+        });
+
+        /* ===============================
+           PAGINATION
+        =============================== */
+
+        const totalPages = Math.ceil(total / limit) || 1;
+
+        const hasNextPage = page < totalPages;
+
+        const hasPreviousPage = page > 1;
+
+        /* ===============================
+           SUCCESS RESPONSE
+        =============================== */
+
+        return reply.send({
+          success: true,
+
+          data: formatted,
+
+          pagination: {
+            total,
+            page,
+            limit,
+            totalPages,
+            hasNextPage,
+            hasPreviousPage,
+          },
+        });
       } catch (err) {
         console.error(err);
 

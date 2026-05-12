@@ -996,3 +996,13 @@ body.modal-open {
   color: #9ca3af;
   pointer-events: none;
 }
+
+/* Hide scrollbar */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

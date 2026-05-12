@@ -5,7 +5,6 @@ const whiteLabelRoutes = require("./whiteLabelSettings");
 const applicationRoutes = require("./applications");
 const websiteBuilderRoutes = require("./websiteBuilder");
 const templateRoutes = require("./templates");
-const subBrokerRoutes = require("./subBroker/index");
 
 // later you can add:
 // const documentRoutes = require("./documents");
@@ -100,8 +99,5 @@ module.exports = async function brokerRoutes(fastify, opts) {
     // Later extensions
     // instance.register(documentRoutes, { prefix: "/documents" });
     // instance.register(applicationRoutes, { prefix: "/applications" });
-    fastify.register(subBrokerRoutes, {
-      prefix: "/sub-brokers",
-    });
   });
 };

@@ -1,42 +1,148 @@
-const prisma = require("../../../config/prisma");
-
-async function meRoute(fastify, options) {
+async function subBrokerMeRoutes(
+  fastify,
+) {
   fastify.get(
     "/me",
-
     {
-      preHandler: [fastify.authenticate, fastify.requireRole(["SUB_BROKER"])],
+      preHandler:
+        fastify.authenticate,
+
+      schema: {
+        tags: [
+          "Sub Broker -> Auth",
+        ],
+
+        summary:
+          "Get logged-in sub broker user",
+      },
     },
 
     async (request, reply) => {
+      const prisma =
+        fastify.prisma;
+
       try {
-        const user = await prisma.userAccount.findUnique({
-          where: {
-            id: request.user.userId,
-          },
+        const {
+          userId,
+          organizationId,
+        } = request.user;
 
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-          },
-        });
+        const user =
+          await prisma.userAccount.findUnique(
+            {
+              where: {
+                id: userId,
+              },
 
-        return reply.code(200).send({
-          success: true,
-          user,
+              include: {
+                organization: true,
+
+                roles: {
+                  include: {
+                    role: true,
+                  },
+                },
+
+                _count: {
+                  select: {
+                    assignedApplications:
+                      true,
+                  },
+                },
+              },
+            },
+          );
+
+        if (
+          !user ||
+          user.organizationId !==
+            organizationId
+        ) {
+          return reply
+            .code(404)
+            .send({
+              ok: false,
+
+              message:
+                "User not found",
+            });
+        }
+
+        return reply.send({
+          ok: true,
+
+          data: {
+            user: {
+              id: user.id,
+
+              email:
+                user.email,
+
+              firstName:
+                user.firstName,
+
+              lastName:
+                user.lastName,
+
+              name:
+                `${user.firstName || ""} ${
+                  user.lastName || ""
+                }`.trim(),
+
+              phone:
+                user.phone,
+
+              profileImage:
+                user.profileImage ||
+                null,
+
+              status:
+                user.status,
+
+              roles:
+                user.roles.map(
+                  (r) =>
+                    r.role.name,
+                ),
+
+              assignedApplications:
+                user._count
+                  .assignedApplications,
+            },
+
+            organization: {
+              id:
+                user.organization.id,
+
+              name:
+                user.organization
+                  .name,
+
+              type:
+                user.organization
+                  .type,
+
+              status:
+                user.organization
+                  .status,
+            },
+          },
         });
       } catch (err) {
-        console.error(err);
+        request.log.error(err);
 
-        return reply.code(500).send({
-          success: false,
-          message: err.message || "Something went wrong",
-        });
+        return reply
+          .code(500)
+          .send({
+            ok: false,
+
+            message:
+              "Failed to fetch sub broker profile",
+          });
       }
     },
   );
 }
 
-module.exports = meRoute;
+module.exports =
+  subBrokerMeRoutes;

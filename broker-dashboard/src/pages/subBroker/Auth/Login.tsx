@@ -104,7 +104,7 @@ export default function Login() {
       toast.success("Login successful");
 
       // REDIRECT
-      navigate("/sub-broker/dashboard");
+      navigate("/sub-broker/loan-pipeline");
     } catch (err: any) {
       console.error(err);
 

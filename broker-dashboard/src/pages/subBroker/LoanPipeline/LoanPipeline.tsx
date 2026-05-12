@@ -13,8 +13,8 @@ import {
   // RefreshCcw,
   // Building2,
   // SearchX,
-  ChevronLeft,
-  ChevronRight,
+  // ChevronLeft,
+  // ChevronRight,
   CheckCircle,
   MoreVertical,
   // Send,
@@ -22,7 +22,7 @@ import {
   // UserPlus,
 } from "lucide-react";
 
-import { MdEdit } from "react-icons/md";
+import { MdOutlinePreview } from "react-icons/md";
 
 /* ================= TYPES ================= */
 
@@ -90,10 +90,9 @@ export default function LoanApplicationsPage() {
   const [detailLoading] = useState<boolean>(false);
 
   // Find Lenders Modal State
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
 
-  const [setPagination] = useState<any>(null);
+  const [limit] = useState(6);
+
   // DOCUMENT MODAL STATE
   const [documentModalOpen, setDocumentModalOpen] = useState(false);
   // const [documentSubmissionId, setDocumentSubmissionId] = useState<
@@ -108,6 +107,19 @@ export default function LoanApplicationsPage() {
   const [previewFiles, setPreviewFiles] = useState<
     Record<string, { url: string; type: string; name: string }[]>
   >({});
+
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  const [pagination, setPagination] = useState({
+    total: 0,
+    page: 1,
+    limit: 10,
+    totalPages: 1,
+    hasNextPage: false,
+    hasPreviousPage: false,
+  });
 
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
 
@@ -284,23 +296,18 @@ export default function LoanApplicationsPage() {
 
       const url = new URL(`${API_BASE}/subbroker/loan-pipeline`);
 
-      url.searchParams.append("page", String(currentPage));
+      url.searchParams.set("page", String(currentPage));
 
-      url.searchParams.append("limit", "10");
+      url.searchParams.set("limit", String(limit));
 
-      if (searchTerm.trim()) {
-        url.searchParams.append("search", searchTerm);
+      if (debouncedSearch.trim()) {
+        url.searchParams.set("search", debouncedSearch);
       }
 
-      const res = await fetch(
-        url.toString(),
-
-        {
-          method: "GET",
-
-          headers: getAuthHeaders(),
-        },
-      );
+      const res = await fetch(url.toString(), {
+        method: "GET",
+        headers: getAuthHeaders(),
+      });
 
       const json = await res.json();
 
@@ -308,47 +315,79 @@ export default function LoanApplicationsPage() {
         throw new Error(json.message || "Failed to fetch applications");
       }
 
-      setPagination(json.pagination || null);
+      setPagination(
+        json.pagination || {
+          total: 0,
+          page: 1,
+          limit: 10,
+          totalPages: 1,
+          hasNextPage: false,
+          hasPreviousPage: false,
+        },
+      );
 
-      setTotalPages(json.pagination?.totalPages || 1);
+      const formatted = json.data.map((item: any) => {
+        const dynamic = item.dynamicFields || {};
 
-      const formatted = json.data.map((item: any) => ({
-        submissionId: item.id,
+        const city =
+          item.propertyCity || dynamic.city || dynamic.propertyCity || "";
 
-        applicationId: item.id,
+        const state =
+          item.propertyState || dynamic.state || dynamic.propertyState || "";
 
-        applicationNumber: item.applicationNumber,
+        const country =
+          item.propertyCountry ||
+          dynamic.country ||
+          dynamic.propertyCountry ||
+          "";
 
-        borrowerName: `${item.borrower?.firstName || ""} ${
-          item.borrower?.lastName || ""
-        }`,
+        const borrowerName =
+          [dynamic.borrowerFirstName, dynamic.borrowerLastName]
+            .filter(Boolean)
+            .join(" ")
+            .trim() ||
+          item.borrower ||
+          "N/A";
 
-        company: "-",
+        return {
+          submissionId: item.submissionId || item.applicationId,
 
-        loanType: item.loanPurpose || "-",
+          applicationId: item.applicationId,
 
-        cityState: `${item.propertyCity || ""}${
-          item.propertyState ? `, ${item.propertyState}` : ""
-        }`,
+          applicationNumber: item.applicationNumber || "-",
 
-        country: item.propertyCountry || "",
+          borrowerName,
 
-        amount: item.loanAmount || 0,
+          company: dynamic.companyName || "-",
 
-        status: item.status,
+          loanType:
+            dynamic.loanProductCode ||
+            item.loanProductCode ||
+            item.loanInfo ||
+            item.purpose ||
+            "-",
 
-        date: item.createdAt,
+          cityState: [city, state].filter(Boolean).join(", ") || "-",
 
-        pendingDocumentsCount: 0,
+          country: country || "-",
 
-        assignedOfficerName: item.assignedLoanOfficer
-          ? `${item.assignedLoanOfficer.firstName || ""} ${
-              item.assignedLoanOfficer.lastName || ""
-            }`
-          : null,
+          amount: Number(item.amount || 0),
 
-        assignedOfficerImage: item.assignedLoanOfficer?.profileImage || null,
-      }));
+          status: item.status || "NEW",
+
+          date: item.submittedOn || item.createdAt,
+
+          pendingDocumentsCount: 0,
+
+          assignedOfficerName: item.assignedLoanOfficer
+            ? `${item.assignedLoanOfficer.firstName || ""} ${
+                item.assignedLoanOfficer.lastName || ""
+              }`
+            : null,
+
+          assignedOfficerImage: item.assignedLoanOfficer?.profileImage || null,
+        };
+      });
 
       setRows(formatted);
     } catch (err: any) {
@@ -359,6 +398,14 @@ export default function LoanApplicationsPage() {
       setLoading(false);
     }
   };
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+      setCurrentPage(1);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
   const handleDocumentUpload = async (
     submissionId: string,
@@ -461,7 +508,7 @@ export default function LoanApplicationsPage() {
 
   useEffect(() => {
     loadSubmissions();
-  }, [currentPage, searchTerm]);
+  }, [currentPage, debouncedSearch]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -628,7 +675,7 @@ export default function LoanApplicationsPage() {
             <h2
               className="text-3xl font-bold"
               style={{
-                color: "var(--primary-color)",
+                color: "#00B8DB",
               }}
             >
               Loan Pipeline
@@ -643,137 +690,214 @@ export default function LoanApplicationsPage() {
                 <input
                   value={searchTerm}
                   placeholder="Search by name, company, or app no..."
-                  onChange={(e) => {
-                    setSearchTerm(e.target.value);
-
-                    setCurrentPage(1);
-                  }}
+                  onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10 pr-4 py-2.5 w-full md:w-80 rounded-xl text-sm 
                    bg-white dark:bg-slate-900 
                    border border-slate-200 dark:border-slate-800 
-                   shadow-sm focus:ring-2 focus:ring-blue-500/20 
+                   focus:ring-2 focus:ring-blue-500/20 
                    focus:border-blue-500 transition-all outline-none"
                 />
               </div>
-
-              {/* <button
-                onClick={handleReload}
-                className="p-2.5 rounded-xl bg-white dark:bg-slate-900 
-                 border border-slate-200 dark:border-slate-800 
-                 hover:border-blue-500 transition-all 
-                 shadow-sm active:scale-95"
-              >
-                <Loader2
-                  className={`w-5 h-5 text-slate-600 dark:text-slate-400 ${
-                    loading ? "animate-spin text-blue-500" : ""
-                  }`}
-                />
-              </button> */}
             </div>
           </div>
         </div>
 
         {/* Quick Status Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
+        <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {/* TOTAL VOLUME */}
           <div
             className="
-    bg-white dark:bg-slate-900
-    border border-slate-200 dark:border-slate-800
-    rounded-2xl p-6
-    shadow-sm hover:shadow-md
-    transition-all duration-200
-    flex items-center justify-between
-  "
+group rounded-2xl border border-slate-200
+bg-white p-5
+transition-all duration-300
+hover:border-indigo-200
+"
           >
-            <div>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                Total Volume
-              </p>
-              <h3 className="text-xl font-semibold text-slate-900 dark:text-white mt-1">
-                {formatCompactAmount(totalVolume)}
-              </h3>
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-xs font-medium text-slate-500">
+                  Total Volume
+                </p>
+
+                <h3 className="mt-2 text-xl font-bold text-slate-900">
+                  {formatCompactAmount(totalVolume)}
+                </h3>
+              </div>
+
+              <div
+                className="
+flex h-10 w-10 items-center justify-center
+rounded-xl
+bg-indigo-50
+text-indigo-600
+"
+              >
+                <DollarSign className="h-4 w-4" />
+              </div>
             </div>
 
-            <div className="h-8 w-8 flex items-center justify-center rounded-full bg-indigo-600 text-white">
-              <DollarSign className="w-5 h-5" />
+            <div className="mt-4 flex items-center gap-2">
+              <div className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
+
+              <p className="text-[11px] text-slate-400">Total funded volume</p>
             </div>
           </div>
 
           {/* NEW APPLICATIONS */}
           <div
             className="
-    bg-white dark:bg-slate-900
-    border border-slate-200 dark:border-slate-800
-    rounded-2xl p-6
-    shadow-sm hover:shadow-md
-    transition-all duration-200
-    flex items-center justify-between
-  "
+group rounded-2xl border border-slate-200
+bg-white p-5
+transition-all duration-300
+hover:border-blue-200
+"
           >
-            <div>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                New Applications
-              </p>
-              <h3 className="text-xl font-semibold text-slate-900 dark:text-white mt-1">
-                {newCount}
-              </h3>
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-xs font-medium text-slate-500">
+                  New Applications
+                </p>
+
+                <h3 className="mt-2 text-xl font-bold text-slate-900">
+                  {newCount}
+                </h3>
+              </div>
+
+              <div
+                className="
+flex h-10 w-10 items-center justify-center
+rounded-xl
+bg-blue-50
+text-blue-600
+"
+              >
+                <FileText className="h-4 w-4" />
+              </div>
             </div>
 
-            <div className="h-8 w-8 flex items-center justify-center rounded-full bg-blue-600 text-white">
-              <FileText className="w-5 h-5" />
+            <div className="mt-4 flex items-center gap-2">
+              <div className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+
+              <p className="text-[11px] text-slate-400">Recently submitted</p>
             </div>
           </div>
 
           {/* APPROVED */}
           <div
             className="
-    bg-white dark:bg-slate-900
-    border border-slate-200 dark:border-slate-800
-    rounded-2xl p-6
-    shadow-sm hover:shadow-md           
-    transition-all duration-200
-    flex items-center justify-between 
-  "
+group rounded-2xl border border-slate-200
+bg-white p-5
+transition-all duration-300
+hover:border-emerald-200
+"
           >
-            <div>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                Approved
-              </p>
-              <h3 className="text-xl font-semibold text-slate-900 dark:text-white mt-1">
-                {approvedCount}
-              </h3>
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-xs font-medium text-slate-500">Approved</p>
+
+                <h3 className="mt-2 text-xl font-bold text-slate-900">
+                  {approvedCount}
+                </h3>
+              </div>
+
+              <div
+                className="
+flex h-10 w-10 items-center justify-center
+rounded-xl
+bg-emerald-50
+text-emerald-600
+"
+              >
+                <CheckCircle className="h-4 w-4" />
+              </div>
             </div>
 
-            <div className="h-8 w-8 flex items-center justify-center rounded-full bg-emerald-600 text-white">
-              <CheckCircle className="w-5 h-5" />
+            <div className="mt-4 flex items-center gap-2">
+              <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+
+              <p className="text-[11px] text-slate-400">
+                Successfully approved
+              </p>
             </div>
           </div>
         </div>
       </header>
 
       {/* Main Table Container */}
-      <div className="w-full mx-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl shadow-slate-200/50 dark:shadow-none ">
-        <div className="w-full bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
-          <div className="overflow-x-auto applications-table-top">
-            <table className="min-w-[999px] w-full table-fixed border-separate border-spacing-0">
-              <thead className="sticky top-0 z-20 bg-white dark:bg-slate-900 shadow-sm">
-                <tr className="bg-slate-50/50 dark:bg-slate-800/40">
+      <div className="w-full mx-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-x-auto scrollbar-hide">
+        <div
+          className="
+w-full overflow-hidden
+rounded-[24px]
+border border-slate-200
+bg-white
+"
+        >
+          <div className="w-full overflow-x-hidden">
+            <table className="w-full table-fixed border-separate border-spacing-0">
+              {/* HEADER */}
+              <thead className="bg-slate-50">
+                <tr>
                   {[
-                    { label: "Borrower", width: "w-[120px]" },
-                    { label: "Application No.", width: "w-[160px]" },
-                    { label: "Loan Info", width: "w-[200px]" },
-                    { label: "Location", width: "w-[150px]" },
-                    { label: "Amount", width: "w-[80px]" },
-                    { label: "Submitted On", width: "w-[110px]" },
-                    { label: "Status", width: "w-[160px]" },
-                    // { label: "Lenders", width: "w-[100px]" },
-                    { label: "Loan Officer", width: "w-[140px]" },
-                    { label: "Action", width: "w-[80px]" },
+                    {
+                      label: "Borrower",
+                      width: "w-[16%]",
+                    },
+
+                    {
+                      label: "Application No.",
+                      width: "w-[15%]",
+                    },
+
+                    {
+                      label: "Loan Type",
+                      width: "w-[14%]",
+                    },
+
+                    {
+                      label: "Location",
+                      width: "w-[15%]",
+                    },
+
+                    {
+                      label: "Amount",
+                      width: "w-[10%]",
+                    },
+
+                    {
+                      label: "Submitted",
+                      width: "w-[11%]",
+                    },
+
+                    {
+                      label: "Status",
+                      width: "w-[12%]",
+                    },
+
+                    {
+                      label: "Loan Officer",
+                      width: "w-[14%]",
+                    },
+
+                    {
+                      label: "Action",
+                      width: "w-[6%]",
+                    },
                   ].map((h) => (
                     <th
                       key={h.label}
-                      className={`${h.width} px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800 whitespace-nowrap`}
+                      className={`
+${h.width}
+border-b border-slate-200
+px-4 py-3
+text-left
+text-[10px]
+font-bold
+uppercase
+tracking-[0.16em]
+text-slate-500
+whitespace-nowrap
+`}
                     >
                       {h.label}
                     </th>
@@ -781,158 +905,281 @@ export default function LoanApplicationsPage() {
                 </tr>
               </thead>
 
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {Array.isArray(rows) && loading ? (
+              {/* BODY */}
+              {/* BODY */}
+              <tbody className="divide-y divide-slate-100">
+                {loading ? (
+                  <tr>
+                    <td colSpan={8} className="h-[420px]">
+                      <div className="flex h-full flex-col items-center justify-center">
+                        <div
+                          className="
+mb-4 flex h-14 w-14 items-center justify-center
+rounded-2xl
+bg-slate-100
+"
+                        >
+                          <Loader2 className="h-6 w-6 animate-spin text-slate-500" />
+                        </div>
+
+                        <h3 className="text-sm font-semibold text-slate-700">
+                          Loading applications...
+                        </h3>
+
+                        <p className="mt-1 text-xs text-slate-400">
+                          Please wait while we fetch data
+                        </p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : rows.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="h-[420px]">
+                      <div className="flex h-full flex-col items-center justify-center px-4 text-center">
+                        {/* ICON */}
+                        <div
+                          className="
+mb-5 flex h-16 w-16 items-center justify-center
+rounded-2xl
+border border-slate-200
+bg-slate-50
+"
+                        >
+                          <FileText className="h-7 w-7 text-slate-400" />
+                        </div>
+
+                        {/* TITLE */}
+                        <h3 className="text-base font-semibold text-slate-800">
+                          {debouncedSearch
+                            ? "No matching applications found"
+                            : "No applications available"}
+                        </h3>
+
+                        {/* DESC */}
+                        <p className="mt-2 max-w-sm text-sm leading-relaxed text-slate-400">
+                          {debouncedSearch
+                            ? `No results found for "${debouncedSearch}". Try another keyword.`
+                            : "Applications will appear here once submitted."}
+                        </p>
+
+                        {/* CLEAR SEARCH */}
+                        {debouncedSearch && (
+                          <button
+                            onClick={() => {
+                              setSearchTerm("");
+                              setDebouncedSearch("");
+                              setCurrentPage(1);
+                            }}
+                            className="
+mt-5 rounded-xl
+border border-slate-200
+bg-white
+px-4 py-2
+text-xs font-semibold
+text-slate-700
+transition-all duration-200
+
+hover:bg-slate-50
+"
+                          >
+                            Clear Search
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
                   rows.map((row) => (
                     <tr
                       key={row.submissionId}
-                      className="group hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors duration-150"
+                      className="transition-colors hover:bg-slate-50"
                     >
-                      {/* Borrower - High Emphasis */}
-                      <td className="px-6 py-3">
-                        <div className="flex items-center gap-3">
-                          {/* <div className="h-10 w-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-700 dark:text-slate-300 font-bold">
-                            {row.borrowerName?.charAt(0) || "U"}
-                          </div> */}
-                          <div className="flex flex-col min-w-0">
-                            <span className="text-[13px] text-slate-900 dark:text-slate-100 truncate">
-                              {(row.borrowerName &&
-                              row.borrowerName.length >= 15
-                                ? row.borrowerName?.slice(0, 15) + "..."
-                                : row.borrowerName) || "Untitled Applicant"}
-                            </span>
-                            {/* <span className="text-[12px] text-slate-500 dark:text-slate-500 flex items-center gap-1">
-                              <FileText className="w-3 h-3" />
-                              {row.company.slice(0, 15) + "..."}
-                            </span> */}
+                      {/* BORROWER */}
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div
+                            className="
+flex h-8 w-8 shrink-0 items-center justify-center
+rounded-xl
+bg-slate-100
+text-[11px]
+font-bold
+text-slate-700
+"
+                          >
+                            {row.borrowerName?.charAt(0)?.toUpperCase()}
+                          </div>
+
+                          <div className="min-w-0">
+                            <p className="truncate text-[12px] font-semibold text-slate-800">
+                              {row.borrowerName}
+                            </p>
+
+                            <p className="text-[10px] text-slate-400">
+                              Applicant
+                            </p>
                           </div>
                         </div>
                       </td>
 
-                      <td className="px-6 py-3">
-                        <div className="text-xs text-slate-800 dark:text-slate-200">
-                          {row.applicationNumber || "-"}
+                      {/* APP NUMBER */}
+                      <td className="px-4 py-3">
+                        <div
+                          className="
+truncate rounded-xl
+bg-slate-100
+px-2.5 py-1.5
+text-[10px]
+font-semibold
+text-slate-700
+"
+                        >
+                          {row.applicationNumber}
                         </div>
                       </td>
 
-                      {/* Loan Info - Medium Emphasis */}
-                      <td className="px-6 py-3">
-                        <span className="text-[10px] text-slate-700 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/50 px-2 py-1 rounded">
+                      {/* LOAN TYPE */}
+                      <td className="px-4 py-3">
+                        <span
+                          className="
+inline-flex max-w-full truncate
+rounded-xl
+border border-slate-200
+bg-slate-50
+px-2.5 py-1
+text-[9px]
+font-semibold
+uppercase
+tracking-wide
+text-slate-600
+"
+                        >
                           {row.loanType}
                         </span>
                       </td>
 
-                      {/* Location */}
-                      <td className="px-6 py-3 min-w-[200px]">
-                        <div className="flex items-start gap-1">
-                          {/* Fixed Icon Wrapper */}
-                          <div className="w-5 h-5 flex items-center justify-center shrink-0 mt-[2px]">
-                            <MapPin
-                              className="w-2.5 h-2.5 text-slate-500 dark:text-slate-400"
-                              strokeWidth={2}
-                            />
+                      {/* LOCATION */}
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div
+                            className="
+flex h-6 w-6 shrink-0 items-center justify-center
+rounded-lg
+bg-slate-100
+"
+                          >
+                            <MapPin className="h-3 w-3 text-slate-500" />
                           </div>
 
-                          {/* Location Text */}
-                          <div className="leading-tight">
-                            <div className="text-[13px] text-slate-700 dark:text-slate-300">
-                              {row.cityState?.length > 19
-                                ? row.cityState.slice(0, 19) + "..."
-                                : row.cityState || "Global"}
-                            </div>
+                          <div className="min-w-0">
+                            <p className="truncate text-[11px] font-medium text-slate-700">
+                              {row.cityState}
+                            </p>
 
                             {row.country && (
-                              <div className="text-[11px] text-slate-400 uppercase tracking-wide">
+                              <span
+                                className="
+inline-flex rounded-full
+bg-slate-100
+px-1.5 py-0.5
+text-[9px]
+font-semibold
+uppercase
+text-slate-500
+"
+                              >
                                 {row.country}
-                              </div>
+                              </span>
                             )}
                           </div>
                         </div>
                       </td>
 
-                      {/* Amount - Monospace for numbers */}
-                      <td className="px-6 py-3">
-                        <span className="font-mono text-[13px] text-slate-800 dark:text-slate-200">
+                      {/* AMOUNT */}
+                      <td className="px-4 py-3">
+                        <span className="text-[12px] font-bold text-slate-800">
                           {formatCompactAmount(Number(row.amount || 0))}
                         </span>
                       </td>
 
-                      {/* Submitted Date & Time */}
-                      <td className="px-6 py-3 whitespace-nowrap">
-                        {(() => {
-                          const submitted = new Date(row.date);
-                          const formattedDate = submitted.toLocaleDateString();
-                          const formattedTime = submitted.toLocaleTimeString();
+                      {/* DATE */}
+                      <td className="px-4 py-3">
+                        <div className="leading-tight">
+                          <p className="text-[11px] font-medium text-slate-700">
+                            {new Date(row.date).toLocaleDateString()}
+                          </p>
 
-                          return (
-                            <div className="flex flex-col leading-tight">
-                              <span className="text-[13px] text-slate-700 dark:text-slate-200">
-                                {formattedDate}
-                              </span>
-                              <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                                {formattedTime}
-                              </span>
-                            </div>
-                          );
-                        })()}
+                          <p className="text-[9px] text-slate-400">
+                            {new Date(row.date).toLocaleTimeString()}
+                          </p>
+                        </div>
                       </td>
 
-                      {/* Status - Dynamic Vibrant Badges */}
-                      <td className="px-6 py-3 whitespace-nowrap">
+                      {/* STATUS */}
+                      <td className="px-4 py-3">
                         <span
                           className={`
-      inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] uppercase tracking-wider 
-      border backdrop-blur-md transition-all duration-500 group-hover:scale-105
-      ${getStatusColor(row.status)}
-    `}
+inline-flex items-center gap-1
+rounded-full
+px-2.5 py-1
+text-[9px]
+font-bold
+uppercase
+tracking-wide
+border
+${getStatusColor(row.status)}
+`}
                         >
-                          {/* Animated Status Indicator Dot */}
-                          <span className="relative flex h-2 w-2">
-                            <span
-                              className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-40 bg-current`}
-                            ></span>
-                            <span
-                              className={`relative inline-flex rounded-full h-2 w-2 bg-current shadow-[0_0_8px_rgba(255,255,255,0.5)]`}
-                            ></span>
-                          </span>
+                          <span className="h-1.5 w-1.5 rounded-full bg-current" />
 
-                          {row.status === "DECLINED"
-                            ? "REJECTED"
-                            : row.status === "CLIENT_PENDING"
-                              ? "Client Pending"
-                              : row.status}
+                          {row.status}
                         </span>
                       </td>
 
-                      <td className="px-5 py-3">
+                      {/* LOAN OFFICER */}
+                      <td className="px-4 py-3">
                         {row.assignedOfficerName ? (
-                          <div className="flex items-center gap-2">
-                            {/* CHIP */}
-                            <div
-                              className="flex items-center gap-2 px-3 py-1.5 rounded-full 
-      bg-indigo-50 border border-indigo-200
-      dark:bg-indigo-500/10 dark:border-indigo-500/20"
-                            >
-                              {/* NAME */}
-                              <span className="text-xs font-medium text-indigo-700 dark:text-indigo-300">
+                          <div className="flex items-center gap-2 min-w-0">
+                            {/* TEXT */}
+                            <div className="min-w-0">
+                              <p
+                                className="
+truncate
+text-[11px]
+font-semibold
+text-slate-700
+"
+                              >
                                 {row.assignedOfficerName}
-                              </span>
+                              </p>
+
+                              <p className="text-[9px] text-slate-400">
+                                Loan Officer
+                              </p>
                             </div>
                           </div>
                         ) : (
-                          <span
-                            className="px-2.5 py-1 rounded-full text-xs font-medium 
-    bg-slate-100 text-slate-500 border border-slate-200
-    dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700"
+                          <div
+                            className="
+inline-flex items-center
+rounded-full
+bg-slate-100
+px-2.5 py-1
+text-[9px]
+font-semibold
+uppercase
+tracking-wide
+text-slate-500
+"
                           >
                             Not Assigned
-                          </span>
+                          </div>
                         )}
                       </td>
 
-                      {/* Action - Clean & Subtle */}
-                      <td className="px-6 py-3 text-center relative">
-                        {/* Three Dot Button */}
+                      {/* ACTION */}
+                      <td className="relative px-4 py-3 text-center">
+                        {/* THREE DOTS BUTTON */}
                         <button
                           data-id={row.submissionId}
                           onClick={(e) => {
@@ -942,8 +1189,8 @@ export default function LoanApplicationsPage() {
                               e.currentTarget.getBoundingClientRect();
 
                             setDropdownPos({
-                              top: rect.top - 8,
-                              left: rect.right - 192,
+                              top: rect.bottom + 6,
+                              left: rect.right - 170,
                             });
 
                             setActiveDropdown(
@@ -953,25 +1200,21 @@ export default function LoanApplicationsPage() {
                             );
                           }}
                           className={`
-    relative p-2 rounded-lg
-    text-slate-500 dark:text-slate-400
-    hover:bg-slate-100 dark:hover:bg-slate-800
-    hover:text-slate-700 dark:hover:text-white
-    transition-all duration-300
-    active:scale-90
-    ${
-      activeDropdown === row.submissionId
-        ? "bg-slate-200 dark:bg-slate-700 rotate-90"
-        : ""
-    }
-  `}
+flex h-8 w-8 items-center justify-center
+rounded-xl
+transition-all duration-200
+
+${
+  activeDropdown === row.submissionId
+    ? "bg-slate-200 text-slate-800"
+    : "text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+}
+`}
                         >
-                          <MoreVertical
-                            size={18}
-                            className="transition-transform duration-300"
-                          />
+                          <MoreVertical size={15} />
                         </button>
 
+                        {/* DROPDOWN */}
                         {activeDropdown === row.submissionId &&
                           createPortal(
                             <div
@@ -980,29 +1223,49 @@ export default function LoanApplicationsPage() {
                                 position: "fixed",
                                 top: dropdownPos.top,
                                 left: dropdownPos.left,
-                                transition: "top 0.1s linear",
                               }}
                               className="
-        w-48
-        bg-white dark:bg-slate-900
-        border border-slate-200 dark:border-slate-800
-        rounded-xl shadow-xl
-        overflow-hidden z-[9999]
-        animate-in fade-in zoom-in-95
-      "
+z-[9999]
+w-44
+overflow-hidden
+rounded-2xl
+border border-slate-200
+bg-white
+"
                             >
-                              {/* Application Preview */}
+                              {/* APP PREVIEW */}
                               <button
-                                onClick={() =>
-                                  navigate("/sub-broker/loan-pipeline", {
-                                    state: {
-                                      application: row,
+                                onClick={() => {
+                                  navigate(
+                                    "/sub-broker/loan-pipeline-preview",
+                                    {
+                                      state: {
+                                        submissionId: row.submissionId,
+
+                                        applicationId: row.applicationId,
+
+                                        application: row,
+                                      },
                                     },
-                                  })
-                                }
-                                className="flex items-center gap-3 w-full px-4 py-3 text-sm text-yellow-500 hover:bg-yellow-50"
+                                  );
+
+                                  setActiveDropdown(null);
+                                }}
+                                className="
+flex w-full items-center gap-3
+px-4 py-3
+text-[13px]
+font-medium
+text-slate-700
+transition-all duration-200
+
+hover:bg-slate-50
+"
                               >
-                                <MdEdit size={14} />
+                                <MdOutlinePreview
+                                  size={16}
+                                  className="text-slate-500"
+                                />
                                 App Preview
                               </button>
                             </div>,
@@ -1011,91 +1274,112 @@ export default function LoanApplicationsPage() {
                       </td>
                     </tr>
                   ))
-                ) : (
-                  /* Professional Empty State */
-                  <tr>
-                    <td
-                      colSpan={8}
-                      className="px-6 py-24 text-center align-middle"
-                    >
-                      <div className="flex flex-col items-center max-w-xs mx-auto">
-                        {/* Icon */}
-                        <div
-                          className={`
-          w-14 h-14 
-          rounded-2xl 
-          flex items-center justify-center 
-          mb-5
-          border
-          ${
-            !loading && rows.length === 0
-              ? "bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/20"
-              : "bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700"
-          }
-        `}
-                        >
-                          {!loading && rows.length === 0 ? (
-                            <span className="text-red-500 dark:text-red-400 text-2xl font-bold">
-                              ✕
-                            </span>
-                          ) : (
-                            <Search className="w-6 h-6 text-slate-400 dark:text-slate-500" />
-                          )}
-                        </div>
-
-                        {/* Title */}
-                        <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">
-                          {!loading && rows.length === 0
-                            ? "Currently you have no loan applications"
-                            : "No applications found"}
-                        </h3>
-
-                        {/* Subtext */}
-                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
-                          {!loading && rows.length === 0
-                            ? "Once applications are submitted, they will appear here."
-                            : "Try adjusting your search terms and try again."}
-                        </p>
-                      </div>
-                    </td>
-                  </tr>
                 )}
               </tbody>
             </table>
-
-            <div className="py-6 text-center">
-              {loading && (
-                <div className="flex justify-center">
-                  <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
-                </div>
-              )}
-            </div>
-            <div className="flex items-center justify-between border-t border-slate-200 px-6 py-4 dark:border-slate-800">
-              <p className="text-sm text-slate-500">Page {currentPage}</p>
-
-              <div className="flex items-center gap-2">
-                <button
-                  disabled={currentPage === 1}
-                  onClick={() => setCurrentPage((prev) => prev - 1)}
-                  className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900"
-                >
-                  <ChevronLeft size={18} />
-                </button>
-
-                <button
-                  disabled={currentPage >= totalPages}
-                  onClick={() => setCurrentPage((prev) => prev + 1)}
+          </div>
+          {/* PAGINATION */}
+          <div className="border-t border-slate-200 bg-white px-4 py-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              {/* LEFT */}
+              <div className="flex items-center gap-3">
+                <div
                   className="
-flex h-10 w-10 items-center justify-center
-rounded-xl border border-slate-200
-bg-white transition hover:bg-slate-50
-disabled:cursor-not-allowed
-disabled:opacity-50
-dark:border-slate-700
-dark:bg-slate-900
+flex h-8 w-8 items-center justify-center
+rounded-xl
+bg-slate-100
+text-[11px]
+font-bold
+text-slate-700
 "
                 >
-                  <ChevronRight size={18} />
+                  {pagination?.page || 1}
+                </div>
+
+                <div className="leading-tight">
+                  <p className="text-[12px] font-semibold text-slate-800">
+                    Page {pagination?.page || 1}
+                    <span className="mx-1 text-slate-400">/</span>
+                    {pagination?.totalPages || 1}
+                  </p>
+                </div>
+              </div>
+
+              {/* RIGHT */}
+              <div className="flex items-center gap-2">
+                {/* PREVIOUS */}
+                <button
+                  disabled={!pagination?.hasPreviousPage}
+                  onClick={() => setCurrentPage((prev) => prev - 1)}
+                  className="
+flex h-9 items-center gap-1.5
+rounded-xl
+border border-slate-200
+bg-white
+px-4
+text-[12px]
+font-medium
+text-slate-700
+transition-all duration-200
+
+hover:bg-slate-50
+
+disabled:cursor-not-allowed
+disabled:opacity-40
+"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-3.5 w-3.5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M15 19l-7-7 7-7"
+                    />
+                  </svg>
+                  Previous
+                </button>
+
+                {/* NEXT */}
+                <button
+                  disabled={!pagination?.hasNextPage}
+                  onClick={() => setCurrentPage((prev) => prev + 1)}
+                  className="
+flex h-9 items-center gap-1.5
+rounded-xl
+bg-slate-900
+px-4
+text-[12px]
+font-semibold
+text-white
+transition-all duration-200
+
+hover:bg-slate-800
+
+disabled:cursor-not-allowed
+disabled:opacity-40
+"
+                >
+                  Next
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-3.5 w-3.5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M9 5l7 7-7 7"
+                    />
+                  </svg>
                 </button>
               </div>
             </div>
@@ -1116,7 +1400,7 @@ dark:bg-slate-900
                                             rounded-2xl
                                             w-full max-w-7xl max-h-[90vh]
                                             overflow-y-auto
-                                            shadow-xl dark:shadow-black/40"
+                                           "
               >
                 {/* HEADER */}
                 <div className="sticky top-0 z-10 bg-white dark:bg-slate-900 flex items-center justify-between px-6 py-3 border-b dark:border-slate-800">
@@ -1264,7 +1548,7 @@ dark:bg-slate-800 dark:border-slate-700"
                         <>
                           {firstReview && (
                             <div
-                              className={`relative overflow-hidden rounded-2xl border p-6 mb-8 shadow-md
+                              className={`relative overflow-hidden rounded-2xl border p-6 mb-8
      ${
        firstReview.reviewStatus === "APPROVED"
          ? "border-emerald-400 bg-emerald-50/40 dark:bg-emerald-500/5"
@@ -1417,7 +1701,7 @@ dark:bg-slate-800 dark:border-slate-700"
 
                           {/* STATS BOX */}
                           <div
-                            className="bg-slate-50 border border-slate-200 rounded-2xl p-6 shadow-sm
+                            className="bg-slate-50 border border-slate-200 rounded-2xl p-6
 dark:bg-slate-900 dark:border-slate-800"
                           >
                             <div className="grid grid-cols-2 md:grid-cols-6 gap-6 text-center">
@@ -1535,7 +1819,6 @@ border-slate-200 dark:border-slate-700"
                                         dark:border-slate-700
                                         rounded-xl 
                                         p-4 
-                                        shadow-sm 
                                         transition-colors duration-300"
                                 >
                                   <img
@@ -1584,8 +1867,7 @@ text-sm text-slate-600 dark:text-slate-400 flex justify-between"
 rounded-3xl 
 w-full max-w-6xl 
 max-h-[85vh] 
-overflow-hidden 
-shadow-[0_20px_60px_rgba(0,0,0,0.15)] 
+overflow-hidden  
 flex flex-col"
               >
                 {/* HEADER */}
@@ -1629,7 +1911,6 @@ bg-white dark:bg-slate-900
 border border-slate-200 dark:border-slate-800
 rounded-xl
 p-4
-shadow-sm
 transition-all duration-200
 flex flex-col
 h-[320px]   
@@ -1952,7 +2233,7 @@ dark:scrollbar-thumb-slate-700 w-full
         {loiModalOpen &&
           createPortal(
             <div className="fixed inset-0 z-[99999999] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-              <div className="bg-white dark:bg-slate-900 w-full max-w-3xl rounded-2xl shadow-xl">
+              <div className="bg-white dark:bg-slate-900 w-full max-w-3xl rounded-2xl">
                 {/* Header */}
                 <div className="flex items-center justify-between px-6 py-3 border-b dark:border-slate-800">
                   <h2 className="font-bold text-lg dark:text-white">
@@ -2092,7 +2373,7 @@ dark:scrollbar-thumb-slate-700 w-full
         {previewFile &&
           createPortal(
             <div className="fixed inset-0 z-[99999999] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
-              <div className="w-full max-w-6xl bg-white dark:bg-slate-900 rounded-2xl shadow-2xl flex flex-col h-[90vh] overflow-hidden">
+              <div className="w-full max-w-6xl bg-white dark:bg-slate-900 rounded-2xl flex flex-col h-[90vh] overflow-hidden">
                 {/* Header */}
                 <div className="flex items-center justify-between px-6 py-3 border-b dark:border-slate-800 shrink-0">
                   <div>
@@ -2157,7 +2438,7 @@ dark:scrollbar-thumb-slate-700 w-full
         {docSelectModal.isOpen &&
           createPortal(
             <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50 backdrop-blur-sm">
-              <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl border border-gray-100">
+              <div className="bg-white w-full max-w-2xl rounded-2xl border border-gray-100">
                 {/* HEADER */}
                 <div className="flex items-center justify-between px-6 py-3 border-b">
                   <h2 className="text-lg font-semibold text-gray-800">

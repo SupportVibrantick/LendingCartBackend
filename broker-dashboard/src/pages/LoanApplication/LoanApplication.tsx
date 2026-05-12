@@ -1579,7 +1579,7 @@ const LoanApplication = () => {
                 New Loan Application
               </h2>
               <p className="text-sm text-slate-500">
-                Complete comprehensive loan application
+                Complete comprehensive loan application 
               </p>
             </div>
 
