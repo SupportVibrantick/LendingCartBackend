@@ -21,7 +21,7 @@ import Select, { components } from "react-select";
 import { FiFolder, FiSend, FiTag, FiUser } from "react-icons/fi";
 import Swal from "sweetalert2";
 import { FaRegCreditCard } from "react-icons/fa6";
-// import LoanPreviewChat from "./LoanPreviewChat";
+import LoanPreviewChat from "./LoanPreviewChat";
 import FeeAgreement from "./FeeAgreement";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
@@ -504,10 +504,10 @@ const LoanPreview = () => {
     try {
       setLenderLoading(true);
 
-      const token = sessionStorage.getItem("broker_token");
+      const token = sessionStorage.getItem("sub_broker_token");
 
       const res = await fetch(
-        `${API_BASE}/broker/loan-pipeline/${applicationId}/submitted-lenders`,
+        `${API_BASE}/subbroker/documents/${applicationId}/submitted-lenders`,
         {
           headers: {
             ...(token && { Authorization: `Bearer ${token}` }),
@@ -678,10 +678,10 @@ const LoanPreview = () => {
   ) => {
     try {
       setDocumentsLoading(true);
-      const token = sessionStorage.getItem("broker_token");
+      const token = sessionStorage.getItem("sub_broker_token");
 
       const res = await fetch(
-        `${API_BASE}/broker/loan-pipeline/submissions/${submissionId}/documents?page=${pageNo}&limit=${limit}&search=${searchQuery}`,
+        `${API_BASE}/subbroker/documents/submissions/${submissionId}/documents?page=${pageNo}&limit=${limit}&search=${searchQuery}`,
         {
           headers: {
             ...(token && { Authorization: `Bearer ${token}` }),
@@ -757,7 +757,7 @@ const LoanPreview = () => {
     try {
       setRequestSubmitting(true);
       const res = await fetch(
-        `${API_BASE}/broker/loan-pipeline/${applicationId}/request-documents`,
+        `${API_BASE}/subbroker/documents/${applicationId}/request-documents`,
         {
           method: "POST",
           headers: getAuthHeaders(),
@@ -944,14 +944,14 @@ const LoanPreview = () => {
   //   try {
   //     setUploadingDocId(requirementId);
 
-  //     const token = sessionStorage.getItem("broker_token");
+  //     const token = sessionStorage.getItem("sub_broker_token");
 
   //     for (const file of filesForRequirement) {
   //       const formData = new FormData();
   //       formData.append("file", file);
 
   //       const res = await fetch(
-  //         `${API_BASE}/broker/loan-pipeline/submissions/${currentSubmissionId}/documents/${requirementId}/upload`,
+  //         `${API_BASE}/subbroker/documents/submissions/${currentSubmissionId}/documents/${requirementId}/upload`, 
   //         {
   //           method: "POST",
   //           headers: {
@@ -2735,71 +2735,135 @@ dark:bg-red-900/20 dark:text-red-400"
                       </td>
 
                       {/* ACTION */}
-                      <td className="px-5 py-4 text-right relative">
-                        <button
-                          onClick={() =>
-                            setActiveAction(isOpen ? null : doc.requirementId)
-                          }
-                          className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition"
-                        >
-                          <MoreVertical size={16} />
-                        </button>
+<td className="relative px-5 py-4 text-right">
+  <button
+    onClick={() =>
+      setActiveAction(
+        isOpen
+          ? null
+          : doc.requirementId,
+      )
+    }
+    className="rounded-lg p-2 transition hover:bg-slate-100 dark:hover:bg-slate-700"
+  >
+    <MoreVertical size={16} />
+  </button>
 
-                        {isOpen && (
-                          <div className="absolute right-0 mt-2 w-44 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in-95">
-                            <label className="flex items-center gap-2 px-4 py-3 text-sm text-amber-600 hover:bg-amber-50 cursor-pointer transition">
-                              <Upload size={14} />
-                              Upload Files
-                              <input
-                                type="file"
-                                multiple
-                                className="hidden"
-                                onChange={async (e) => {
-                                  const files = e.target.files;
-                                  if (!files) return;
+  {isOpen && (
+    <div
+      className="
+absolute right-0 z-50 mt-2 w-44 overflow-hidden
+rounded-xl border border-slate-200
+bg-white shadow-2xl
+animate-in fade-in zoom-in-95
 
-                                  try {
-                                    const token =
-                                      sessionStorage.getItem("broker_token");
+dark:border-slate-700
+dark:bg-slate-900
+"
+    >
+      <label
+        className="
+flex cursor-pointer items-center gap-2
+px-4 py-3 text-sm text-amber-600
+transition hover:bg-amber-50
+dark:hover:bg-amber-500/10
+"
+      >
+        <Upload size={14} />
 
-                                    for (const file of Array.from(files)) {
-                                      const formData = new FormData();
-                                      formData.append("file", file);
+        Upload Files
 
-                                      const res = await fetch(
-                                        `${API_BASE}/broker/loan-pipeline/submissions/${documentsData.submissionId}/documents/${doc.requirementId}/upload`,
-                                        {
-                                          method: "POST",
-                                          headers: {
-                                            ...(token && {
-                                              Authorization: `Bearer ${token}`,
-                                            }),
-                                          },
-                                          body: formData,
-                                        },
-                                      );
+        <input
+          type="file"
+          multiple
+          className="hidden"
+          onChange={async (e) => {
+            const files =
+              e.target.files;
 
-                                      const json = await res.json();
-                                      if (!res.ok || !json.success) {
-                                        throw new Error(`${file.name} failed`);
-                                      }
-                                    }
+            if (!files) return;
 
-                                    toast.success("Uploaded successfully");
-                                    await fetchSubmissionDocuments(
-                                      documentsData.submissionId,
-                                    );
-                                  } catch (err: any) {
-                                    toast.error(err.message);
-                                  } finally {
-                                    setActiveAction(null);
-                                  }
-                                }}
-                              />
-                            </label>
-                          </div>
-                        )}
-                      </td>
+            try {
+              // ✅ SUB BROKER TOKEN
+              const token =
+                sessionStorage.getItem(
+                  "sub_broker_token",
+                );
+
+              for (const file of Array.from(
+                files,
+              )) {
+                const formData =
+                  new FormData();
+
+                formData.append(
+                  "file",
+                  file,
+                );
+
+                // ✅ SUB BROKER API
+                const res =
+                  await fetch(
+                    `${API_BASE}/subbroker/documents/submissions/${documentsData.submissionId}/documents/${doc.requirementId}/upload`,
+                    {
+                      method:
+                        "POST",
+
+                      headers:
+                        {
+                          ...(token && {
+                            Authorization:
+                              `Bearer ${token}`,
+                          }),
+                        },
+
+                      body:
+                        formData,
+                    },
+                  );
+
+                const json =
+                  await res.json();
+
+                if (
+                  !res.ok ||
+                  !json.success
+                ) {
+                  throw new Error(
+                    json.message ||
+                      `${file.name} failed`,
+                  );
+                }
+              }
+
+              toast.success(
+                "Uploaded successfully",
+              );
+
+              // refresh
+              await fetchSubmissionDocuments(
+                documentsData.submissionId,
+              );
+            } catch (err: any) {
+              console.error(
+                err,
+              );
+
+              toast.error(
+                err.message ||
+                  "Upload failed",
+              );
+            } finally {
+              setActiveAction(
+                null,
+              );
+            }
+          }}
+        />
+      </label>
+    </div>
+  )}
+</td>
                     </tr>
                   );
                 })}
@@ -2874,8 +2938,8 @@ dark:bg-red-900/20 dark:text-red-400"
       case "documents":
         return renderDocuments();
 
-      // case "chat":
-      //   return <LoanPreviewChat applicationId={applicationId} />;
+      case "chat":
+        return <LoanPreviewChat applicationId={applicationId} />;
       case "fee-agreement":
         return (
           <FeeAgreement

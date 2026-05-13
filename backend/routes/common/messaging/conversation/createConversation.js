@@ -117,9 +117,8 @@ module.exports = async function createConversation(fastify) {
         const conversation = await prisma.conversation.create({
           data: {
             loanApplicationId,
-            applicationLenderId: type === "BROKER_LENDER"
-              ? applicationLenderId
-              : null,
+            applicationLenderId:
+              type === "BROKER_LENDER" ? applicationLenderId : null,
             type,
           },
         });
@@ -206,7 +205,7 @@ module.exports = async function createConversation(fastify) {
             loanApplicationId,
             applicationLenderId,
           },
-          "Failed to create conversation"
+          "Failed to create conversation",
         );
 
         return reply.code(500).send({
@@ -214,6 +213,6 @@ module.exports = async function createConversation(fastify) {
           message: "Internal server error",
         });
       }
-    }
+    },
   );
 };
