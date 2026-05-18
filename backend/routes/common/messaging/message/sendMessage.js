@@ -39,15 +39,8 @@ module.exports = async function sendMessage(fastify) {
       const prisma = fastify.prisma;
       const { conversationId } = req.params;
 
-      const {
-        type,
-        text,
-        fileUrl,
-        fileName,
-        fileSize,
-        mimeType,
-        metadata,
-      } = req.body;
+      const { type, text, fileUrl, fileName, fileSize, mimeType, metadata } =
+        req.body;
 
       try {
         /* ================= AUTH ================= */
@@ -59,8 +52,7 @@ module.exports = async function sendMessage(fastify) {
           });
         }
 
-        const userId =
-          req.user?.id || req.user?.userId || req.user?.clientId;
+        const userId = req.user?.id || req.user?.userId || req.user?.clientId;
 
         if (!userId) {
           return reply.code(401).send({
@@ -102,13 +94,27 @@ module.exports = async function sendMessage(fastify) {
 
         /* ================= CHECK PARTICIPANT ================= */
 
-        const participant =
-          await prisma.conversationParticipant.findFirst({
-            where: {
-              conversationId,
-              participantId: userId,
-            },
-          });
+const participant =
+  await prisma.conversationParticipant.findFirst({
+    where: {
+      conversationId,
+
+      OR: [
+        {
+          participantId: userId,
+        },
+
+        req.user?.email
+          ? {
+              participantEmail:
+                req.user.email
+                  .trim()
+                  .toLowerCase(),
+            }
+          : undefined,
+      ].filter(Boolean),
+    },
+  });
 
         if (!participant) {
           return reply.code(403).send({
@@ -120,14 +126,26 @@ module.exports = async function sendMessage(fastify) {
         /* ================= DETERMINE SENDER ================= */
 
         let senderType = "CLIENT";
+
         let senderUserId = null;
+
         let senderClientUserId = null;
 
-        if (req.user.orgType === "BROKER" || req.user.orgType === "LENDER") {
-          senderType = req.user.orgType;
+        if (req.user.role === "SUB_BROKER") {
+          senderType = "SUB_BROKER";
+
+          senderUserId = userId;
+        } else if (req.user.orgType === "BROKER") {
+          senderType = "BROKER";
+
+          senderUserId = userId;
+        } else if (req.user.orgType === "LENDER") {
+          senderType = "LENDER";
+
           senderUserId = userId;
         } else {
           senderType = "CLIENT";
+
           senderClientUserId = userId;
         }
 
@@ -154,9 +172,35 @@ module.exports = async function sendMessage(fastify) {
         await prisma.conversation.update({
           where: { id: conversationId },
           data: {
-            lastMessageAt: new Date(),
+            lastMessageAt: message.createdAt,
           },
         });
+
+        /* ================= REALTIME EMIT ================= */
+
+        if (fastify.io) {
+          const realtimePayload = {
+            id: message.id,
+            conversationId: message.conversationId,
+            senderType: message.senderType,
+            senderUserId: message.senderUserId,
+            senderClientUserId: message.senderClientUserId,
+            senderName: message.senderName,
+            type: message.type,
+            text: message.text,
+            fileUrl: message.fileUrl,
+            fileName: message.fileName,
+            fileSize: message.fileSize,
+            mimeType: message.mimeType,
+            createdAt: message.createdAt,
+          };
+
+          fastify.io
+            .to(`conversation_${conversationId}`)
+            .emit("newMessage", realtimePayload);
+
+          console.log("📡 Realtime emitted:", `conversation_${conversationId}`);
+        }
 
         /* ================= RESPONSE ================= */
 
@@ -172,7 +216,6 @@ module.exports = async function sendMessage(fastify) {
             createdAt: message.createdAt,
           },
         });
-
       } catch (error) {
         console.error("💥 SEND MESSAGE ERROR:", error.message);
 
@@ -180,12 +223,9 @@ module.exports = async function sendMessage(fastify) {
           {
             error: error.message,
             conversationId,
-            userId:
-              req.user?.id ||
-              req.user?.userId ||
-              req.user?.clientId,
+            userId: req.user?.id || req.user?.userId || req.user?.clientId,
           },
-          "Failed to send message"
+          "Failed to send message",
         );
 
         return reply.code(500).send({
@@ -193,6 +233,6 @@ module.exports = async function sendMessage(fastify) {
           message: "Internal server error",
         });
       }
-    }
+    },
   );
 };

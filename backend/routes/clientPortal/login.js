@@ -77,17 +77,22 @@ async function clientLoginRoute(fastify) {
         /* ===============================
            GENERATE JWT (KEEP jsonwebtoken)
         =============================== */
-        const token = jwt.sign(
-          {
-            id: user.id,
-            clientId: user.clientId,
-            role: "CLIENT",
-          },
-          process.env.JWT_SECRET,
-          {
-            expiresIn: "7d",
-          }
-        );
+       const token = jwt.sign(
+  {
+    id: user.id,
+    clientId: user.clientId,
+
+    // IMPORTANT
+    email: user.email,
+    clientEmail: user.email,
+
+    role: "CLIENT",
+  },
+  process.env.JWT_SECRET,
+  {
+    expiresIn: "7d",
+  }
+);
 
         /* ===============================
            UPDATE LAST LOGIN

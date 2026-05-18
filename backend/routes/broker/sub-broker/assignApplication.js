@@ -2,6 +2,8 @@ const prisma = require("../../../config/prisma");
 
 const { z } = require("zod");
 
+const SUBBROKER_CHAT_DB_TYPE = "CLIENT_BROKER";
+
 const assignSchema = z.object({
   loanApplicationId: z.string().uuid(),
 
@@ -305,6 +307,59 @@ async function assignApplicationRoute(fastify, options) {
               },
             },
           );
+
+        /* ===============================
+           ENSURE SUB-BROKER CHAT
+        =============================== */
+        const existingConversation =
+          await prisma.conversation.findFirst({
+            where: {
+              loanApplicationId,
+              type: SUBBROKER_CHAT_DB_TYPE,
+            },
+            select: {
+              id: true,
+            },
+          });
+
+        const conversation = existingConversation
+          ? existingConversation
+          : await prisma.conversation.create({
+              data: {
+                loanApplicationId,
+                applicationLenderId: null,
+                type: SUBBROKER_CHAT_DB_TYPE,
+              },
+              select: {
+                id: true,
+              },
+            });
+
+        const participantRows = [
+          {
+            conversationId: conversation.id,
+            participantType: "SUB_BROKER",
+            participantId: subBrokerId,
+          },
+          {
+            conversationId: conversation.id,
+            participantType: "BROKER",
+            participantId: brokerUserId,
+          },
+        ];
+
+        if (application.brokerUser?.id) {
+          participantRows.push({
+            conversationId: conversation.id,
+            participantType: "BROKER",
+            participantId: application.brokerUser.id,
+          });
+        }
+
+        await prisma.conversationParticipant.createMany({
+          data: participantRows,
+          skipDuplicates: true,
+        });
 
         /* ===============================
            FORMAT RESPONSE

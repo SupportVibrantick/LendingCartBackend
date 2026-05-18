@@ -40,9 +40,13 @@ module.exports = async function getConversationById(fastify) {
           req.user?.userId ||
           req.user?.clientId;
 
-        const userEmail = req.user?.email;
+       const userEmail =
+  req.user?.email ||
+  req.user?.clientEmail;
 
-        console.log("🔍 Auth User:", { userId, userEmail });
+    console.log("REQ USER FULL:", req.user);
+
+console.log("USER EMAIL:", userEmail);
 
         if (!userId && !userEmail) {
           console.error("❌ Invalid user token");
@@ -61,6 +65,15 @@ module.exports = async function getConversationById(fastify) {
           },
         });
 
+        console.log(
+  "📌 Conversation Participants:",
+  conversation?.participants?.map((p) => ({
+    participantId: p.participantId,
+    participantEmail: p.participantEmail,
+    participantType: p.participantType,
+  }))
+);
+
         if (!conversation) {
           console.error("❌ Conversation not found:", conversationId);
           return reply.code(404).send({
@@ -76,26 +89,32 @@ module.exports = async function getConversationById(fastify) {
 
         /* ================= PARTICIPANT VALIDATION ================= */
 
-        const isParticipant = conversation.participants.some((p) => {
-          const matchById =
-            p.participantId &&
-            userId &&
-            p.participantId === userId;
+    const normalize = (str) =>
+  str?.trim().toLowerCase();
 
-          const matchByEmail =
-            p.participantEmail &&
-            userEmail &&
-            p.participantEmail.toLowerCase() === userEmail.toLowerCase();
+const isParticipant = conversation.participants.some((p) => {
+  const matchById =
+    p.participantId &&
+    userId &&
+    p.participantId === userId;
 
-          if (matchById || matchByEmail) {
-            console.log("✅ Participant matched:", {
-              participantId: p.participantId,
-              participantEmail: p.participantEmail,
-            });
-          }
+  const matchByEmail =
+    p.participantEmail &&
+    userEmail &&
+    normalize(p.participantEmail) ===
+      normalize(userEmail);
 
-          return matchById || matchByEmail;
-        });
+  console.log("CHECKING PARTICIPANT:", {
+    dbParticipantId: p.participantId,
+    dbParticipantEmail: p.participantEmail,
+    requestUserId: userId,
+    requestUserEmail: userEmail,
+    matchById,
+    matchByEmail,
+  });
+
+  return matchById || matchByEmail;
+});
 
         if (!isParticipant) {
           console.error("❌ Access denied:", {
@@ -157,8 +176,11 @@ module.exports = async function getConversationById(fastify) {
             .filter(
               (p) =>
                 p.participantId &&
-                (p.participantType === "BROKER" ||
-                  p.participantType === "LENDER")
+                (
+ p.participantType === "BROKER" ||
+ p.participantType === "LENDER" ||
+ p.participantType === "SUB_BROKER"
+)
             )
             .map((p) => p.participantId);
 
@@ -190,13 +212,42 @@ module.exports = async function getConversationById(fastify) {
           const userMap = new Map(users.map((u) => [u.id, u]));
           const clientMap = new Map(clients.map((c) => [c.id, c]));
 
+          if (
+  conversation.type ===
+  "SUBBROKER_BROKER"
+) {
+  const subBrokerParticipant =
+    conversation.participants.find(
+      (p) =>
+        p.participantType ===
+        "SUB_BROKER"
+    );
+
+  const subBroker =
+    userMap.get(
+      subBrokerParticipant?.participantId,
+    );
+
+  const subBrokerName =
+    `${subBroker?.firstName || ""} ${
+      subBroker?.lastName || ""
+    }`.trim() || "Sub Broker";
+
+  title =
+    conversation.chatCategory ===
+    "LOAN_OFFICER"
+      ? `Sub Broker • ${subBrokerName} (Loan Officer Chat)`
+      : `Sub Broker • ${subBrokerName}`;
+}
+
           enrichedParticipants = conversation.participants.map((p) => {
             let name = "Unknown";
 
             if (
-              p.participantType === "BROKER" ||
-              p.participantType === "LENDER"
-            ) {
+  p.participantType === "BROKER" ||
+  p.participantType === "LENDER" ||
+  p.participantType === "SUB_BROKER"
+) {
               const user = userMap.get(p.participantId);
               name =
                 user?.organization?.name ||

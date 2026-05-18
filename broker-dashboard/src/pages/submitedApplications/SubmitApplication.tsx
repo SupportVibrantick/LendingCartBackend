@@ -107,7 +107,7 @@ export default function LoanApplicationsPage() {
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const [rows, setRows] = useState<TableRow[]>([]);
   const [loading, setLoading] = useState(false);
-  const [roles, setRoles] = useState<string[]>([]);
+  // const [roles, setRoles] = useState<string[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -596,8 +596,13 @@ export default function LoanApplicationsPage() {
         applicationId: item.applicationId,
         company: "-",
         loanType: item.loanInfo,
-        cityState: item.location,
-        country: "",
+        cityState:
+  item.location?.split(",")[0]?.trim() ||
+  "N/A",
+
+country:
+  item.location?.split(",")[1]?.trim() ||
+  "",
         amount: Number(item.amount) || 0,
         status: item.status,
         date: item.submittedOn,
@@ -855,12 +860,12 @@ export default function LoanApplicationsPage() {
     };
   }, [hasMore, loading, nextCursor]);
 
-  useEffect(() => {
-    const storedRoles = JSON.parse(sessionStorage.getItem("roles") || "[]");
-    setRoles(storedRoles);
-  }, []);
+  // useEffect(() => {
+  //   const storedRoles = JSON.parse(sessionStorage.getItem("roles") || "[]");
+  //   setRoles(storedRoles);
+  // }, []);
 
-  const isBrokerOfficer = roles.includes("BROKER_OFFICER");
+  // const isBrokerOfficer = roles.includes("BROKER_OFFICER");
 
   // const fetchDocumentTypes = async (applicationId: string) => {
   //   try {
@@ -1459,16 +1464,20 @@ dark:text-slate-400
                         {row.assignedOfficerName ? (
                           <div className="flex items-center gap-2">
                             {/* CHIP */}
-                            <div
-                              className="flex items-center gap-2 px-3 py-1.5 rounded-full 
-      bg-indigo-50 border border-indigo-200
-      dark:bg-indigo-500/10 dark:border-indigo-500/20"
-                            >
-                              {/* NAME */}
-                              <span className="text-xs font-medium text-indigo-700 dark:text-indigo-300">
-                                {row.assignedOfficerName}
-                              </span>
-                            </div>
+                           <div
+  className="
+inline-flex items-center gap-1.5
+px-2.5 py-1
+rounded-full
+bg-indigo-50 border border-indigo-200
+dark:bg-indigo-500/10 dark:border-indigo-500/20
+whitespace-nowrap
+"
+>
+  <span className="text-[10px] font-medium text-indigo-700 dark:text-indigo-300 leading-none">
+    {row.assignedOfficerName}
+  </span>
+</div>
                           </div>
                         ) : (
                           <span
@@ -1580,7 +1589,6 @@ dark:text-slate-400
                               </button>
 
                               {/* Assign */}
-                              {!isBrokerOfficer && !row.assignedOfficerName && (
                                 <button
                                   onClick={() => {
                                     openAssignModal(row.applicationId);
@@ -1591,7 +1599,6 @@ dark:text-slate-400
                                   <MdEdit size={14} />
                                   Assign Officer
                                 </button>
-                              )}
 
                               <button
                                 onClick={() => {

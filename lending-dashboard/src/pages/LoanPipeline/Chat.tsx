@@ -49,6 +49,9 @@ type ChatMessage = {
   type?: string;
   fileUrl?: string;
   fileName?: string;
+  senderUserId?: string;
+  senderClientUserId?: string;
+  senderName?: string;
   mimeType?: string;
   text?: string;
   createdAt: string;
@@ -150,6 +153,8 @@ const getAvatarTone = (value?: string) => {
 };
 
 const Chat = ({ applicationId }: LoanPreviewChatProps) => {
+  const activeConversationRef =
+  useRef<string | null>(null);
   const socketRef = useRef<Socket | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -326,12 +331,15 @@ const Chat = ({ applicationId }: LoanPreviewChatProps) => {
       setConversations(nextConversations);
 
       setSelectedConversation((prev) => {
-        if (!prev) return null;
+        if (prev) {
+          return (
+            nextConversations.find(
+              (item: Conversation) => item.id === prev.id,
+            ) || nextConversations[0]
+          );
+        }
 
-        return (
-          nextConversations.find((item: Conversation) => item.id === prev.id) ||
-          null
-        );
+        return nextConversations[0] || null;
       });
     } catch (err: any) {
       toast.error(err.message || "Failed to load chats");
@@ -340,29 +348,20 @@ const Chat = ({ applicationId }: LoanPreviewChatProps) => {
     }
   };
 
-  const joinConversation = async (conversationId: string) => {
-    await fetchMessages(conversationId);
-
-    setConversations((prev) =>
-      prev.map((item) =>
-        item.id === conversationId ? { ...item, unread: false } : item,
-      ),
-    );
-
-    const socket = socketRef.current;
-    if (!socket || !socket.connected) return;
-
-    socket.emit("joinConversation", { conversationId });
-    socket.emit("markAsRead", { conversationId });
-  };
-
-  const handleSelectConversation = (conversation: Conversation) => {
+  const handleSelectConversation = async (conversation: Conversation) => {
     setSelectedConversation(conversation);
+
     setConversations((prev) =>
       prev.map((item) =>
-        item.id === conversation.id ? { ...item, unread: false } : item,
+        item.id === conversation.id
+          ? {
+              ...item,
+              unread: false,
+            }
+          : item,
       ),
     );
+
   };
 
   const handleEmojiClick = (emojiData: EmojiClickData) => {
@@ -376,8 +375,8 @@ const Chat = ({ applicationId }: LoanPreviewChatProps) => {
   };
 
   const handleSendMessage = async () => {
-    const socket = socketRef.current;
-    if (!selectedConversation?.id || !socket) return;
+    // const socket = socketRef.current;
+    if (!selectedConversation?.id) return;
 
     try {
       setSendingMessage(true);
@@ -404,13 +403,58 @@ const Chat = ({ applicationId }: LoanPreviewChatProps) => {
         fileName = selectedFile.name;
       }
 
-      socket.emit("sendMessage", {
-        conversationId: selectedConversation.id,
-        type: selectedFile ? "FILE" : "TEXT",
-        text: messageText.trim(),
-        fileUrl,
-        fileName,
-      });
+      const token = getToken();
+
+      const response = await fetch(
+        `${API_BASE}/messaging/conversation/${selectedConversation.id}/message`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token && {
+              Authorization: `Bearer ${token}`,
+            }),
+          },
+          body: JSON.stringify({
+            type: selectedFile ? "FILE" : "TEXT",
+            text: messageText.trim(),
+            fileUrl,
+            fileName,
+            mimeType: selectedFile?.type,
+            fileSize: selectedFile?.size,
+          }),
+        },
+      );
+
+      const json = await response.json();
+
+      if (!response.ok || !json.success) {
+        throw new Error(json.message || "Failed to send message");
+      }
+
+      const newMessage = json.data;
+
+setMessages((prev) => {
+  const alreadyExists = prev.some(
+    (item) => item.id === newMessage.id,
+  );
+
+  if (alreadyExists) return prev;
+
+  return [...prev, newMessage];
+});
+
+      setConversations((prev) =>
+        prev.map((item) =>
+          item.id === selectedConversation.id
+            ? {
+                ...item,
+                lastMessage: json.data.text || json.data.fileName || "File",
+                lastMessageAt: json.data.createdAt,
+              }
+            : item,
+        ),
+      );
 
       setMessageText("");
       removeSelectedFile();
@@ -465,9 +509,10 @@ const Chat = ({ applicationId }: LoanPreviewChatProps) => {
       reconnectionAttempts: 5,
     });
 
-    socket.on("connect", () => {
-      console.log("🟢 Socket connected:", socket.id);
-    });
+socket.on("connect", () => {
+  console.log("🟢 Socket connected:", socket.id);
+
+});
 
     socket.on("connect_error", (err) => {
       console.error("❌ Socket connection error:", err.message);
@@ -482,36 +527,72 @@ const Chat = ({ applicationId }: LoanPreviewChatProps) => {
   }, []);
 
   useEffect(() => {
-    const socket = socketRef.current;
-    if (!socket) return;
+  activeConversationRef.current =
+    selectedConversation?.id || null;
+}, [selectedConversation?.id]);
 
-    const handleNewMessage = (msg: ChatMessage) => {
-      setConversations((prev) =>
-        prev.map((item) =>
-          item.id === msg.conversationId
-            ? {
-                ...item,
-                lastMessage: msg.text || msg.fileName || "File",
-                lastMessageAt: msg.createdAt,
-                unread: selectedConversation?.id !== msg.conversationId,
-              }
-            : item,
-        ),
-      );
+useEffect(() => {
+  const socket = socketRef.current;
 
-      setMessages((prev) => {
-        if (msg.conversationId !== selectedConversation?.id) return prev;
-        if (prev.some((item) => item.id === msg.id)) return prev;
-        return [...prev, msg];
-      });
-    };
+  if (!socket) return;
 
-    socket.on("newMessage", handleNewMessage);
-    return () => {
-      socket.off("newMessage", handleNewMessage);
-    };
-  }, [selectedConversation?.id]);
+  const handleRealtimeMessage = (
+    msg: ChatMessage,
+  ) => {
+    setConversations((prev) =>
+      prev.map((item) =>
+        item.id ===
+        msg.conversationId
+          ? {
+              ...item,
+              lastMessage:
+                msg.text ||
+                msg.fileName ||
+                "File",
 
+              lastMessageAt:
+                msg.createdAt,
+
+              unread:
+              activeConversationRef.current !==
+  msg.conversationId,
+            }
+          : item,
+      ),
+    );
+
+    setMessages((prev) => {
+      const isCurrentChat =
+        msg.conversationId ===
+         activeConversationRef.current;
+
+      if (!isCurrentChat)
+        return prev;
+
+      const alreadyExists =
+        prev.some(
+          (m) => m.id === msg.id,
+        );
+
+      if (alreadyExists)
+        return prev;
+
+      return [...prev, msg];
+    });
+  };
+
+  socket.on(
+    "newMessage",
+    handleRealtimeMessage,
+  );
+
+  return () => {
+    socket.off(
+      "newMessage",
+      handleRealtimeMessage,
+    );
+  };
+}, []);
   useEffect(() => {
     const socket = socketRef.current;
     if (!socket) return;
@@ -528,23 +609,57 @@ const Chat = ({ applicationId }: LoanPreviewChatProps) => {
     };
   }, []);
 
-  useEffect(() => {
-    const socket = socketRef.current;
-    if (!socket || !selectedConversation?.id) return;
+useEffect(() => {
+  if (!selectedConversation?.id) return;
 
-    const syncConversation = () => {
-      joinConversation(selectedConversation.id);
+  const initConversation =
+    async () => {
+      await fetchMessages(
+        selectedConversation.id,
+      );
+
+      setConversations((prev) =>
+        prev.map((item) =>
+          item.id ===
+          selectedConversation.id
+            ? {
+                ...item,
+                unread: false,
+              }
+            : item,
+        ),
+      );
+
+      const socket =
+        socketRef.current;
+
+      if(
+        socket
+      ) {
+        console.log(
+  "🏠 LENDER JOINING:",
+  selectedConversation.id,
+);
+        socket.emit(
+          "joinConversation",
+          {
+            conversationId:
+              selectedConversation.id,
+          },
+        );
+
+        socket.emit(
+          "markAsRead",
+          {
+            conversationId:
+              selectedConversation.id,
+          },
+        );
+      }
     };
 
-    if (socket.connected) {
-      syncConversation();
-    }
-
-    socket.on("connect", syncConversation);
-    return () => {
-      socket.off("connect", syncConversation);
-    };
-  }, [selectedConversation?.id]);
+  initConversation();
+}, [selectedConversation?.id]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -576,6 +691,14 @@ const Chat = ({ applicationId }: LoanPreviewChatProps) => {
   }, [messages]);
 
   const isChatSelected = Boolean(selectedConversation);
+
+  const lenderUser = JSON.parse(
+    sessionStorage.getItem("lender_user") ||
+      sessionStorage.getItem("user") ||
+      "{}",
+  );
+
+  const lenderUserId = lenderUser?.id || lenderUser?.userId || lenderUser?._id;
 
   return (
     <div className="grid h-[80vh] overflow-hidden rounded-[22px] border border-slate-200 bg-[#f5f5f4] lg:grid-cols-[320px_minmax(0,1fr)]">
@@ -780,7 +903,10 @@ const Chat = ({ applicationId }: LoanPreviewChatProps) => {
               ) : (
                 <div className="space-y-5">
                   {messages.map((msg, index) => {
-                    const isBroker = msg.senderType === "BROKER";
+                    const isOwnMessage =
+                      msg.senderUserId === lenderUserId ||
+                      msg.senderClientUserId === lenderUserId;
+
                     const previousMessage =
                       index > 0 ? messages[index - 1] : null;
                     const currentDay = formatDayLabel(msg.createdAt);
@@ -800,18 +926,22 @@ const Chat = ({ applicationId }: LoanPreviewChatProps) => {
                         )}
 
                         <div
-                          className={`flex ${!isBroker ? "justify-end" : "justify-start"}`}
+                          className={`flex ${isOwnMessage ? "justify-end" : "justify-start"}`}
                         >
                           <div
-                            className={`flex max-w-[80%] items-end gap-2 ${!isBroker ? "flex-row-reverse" : "flex-row"}`}
+                            className={`flex max-w-[80%] items-end gap-2 ${isOwnMessage ? "flex-row-reverse" : "flex-row"}`}
                           >
                             <div
-                              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold ${getAvatarTone(isBroker ? "Broker" : selectedConversation?.title)}`}
+                              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold ${getAvatarTone(
+                                isOwnMessage
+                                  ? "Lender"
+                                  : getBrokerLabel(selectedConversation),
+                              )}`}
                             >
                               {getInitials(
-                                !isBroker
-                                  ? "Broker"
-                                  : selectedConversation?.title,
+                                isOwnMessage
+                                  ? "Lender"
+                                  : getBrokerLabel(selectedConversation),
                               )}
                             </div>
 
@@ -821,7 +951,7 @@ const Chat = ({ applicationId }: LoanPreviewChatProps) => {
                               </div>
 
                               <div
-                                className={`rounded-[18px] border px-4 py-2.5 text-sm leading-6 ${isBroker ? "border-sky-500 bg-sky-500 text-white" : "border-slate-200 bg-white text-slate-700"}`}
+                                className={`rounded-[18px] border px-4 py-2.5 text-sm leading-6 ${isOwnMessage ? "border-sky-500 bg-sky-500 text-white" : "border-slate-200 bg-white text-slate-700"}`}
                               >
                                 {msg.type === "FILE" && msg.fileUrl && (
                                   <div className={msg.text ? "mb-3" : ""}>
@@ -836,7 +966,11 @@ const Chat = ({ applicationId }: LoanPreviewChatProps) => {
                                         href={msg.fileUrl}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-sm ${isBroker ? "border-sky-400 bg-sky-400 text-white" : "border-slate-200 bg-slate-50 text-slate-700"}`}
+                                        className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-sm ${
+                                          isOwnMessage
+                                            ? "border-sky-400 bg-sky-400 text-white"
+                                            : "border-slate-200 bg-slate-50 text-slate-700"
+                                        }`}
                                       >
                                         <FiPaperclip />
                                         {msg.fileName || "Download file"}

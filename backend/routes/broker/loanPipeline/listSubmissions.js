@@ -1,6 +1,17 @@
 /**
  * @param {import("fastify").FastifyInstance} fastify
  */
+
+const validStatuses = [
+  "DRAFT",
+  "SUBMITTED",
+  "IN_REVIEW",
+  "CLIENT_PENDING",
+  "APPROVED",
+  "DECLINED",
+  "COMPLETED",
+];
+
 module.exports = async function listSubmissionsTable(fastify) {
   fastify.get(
     "/submissions",
@@ -52,8 +63,16 @@ module.exports = async function listSubmissionsTable(fastify) {
           application: {
             brokerOrgId: orgId,
 
-            ...((isOfficer || isSubBroker) && {
+            ...(isOfficer && {
               brokerUserId: userId,
+            }),
+
+            ...(isSubBroker && {
+              subBrokerAssignments: {
+                some: {
+                  subBrokerId: userId,
+                },
+              },
             }),
 
             ...(search && {
@@ -66,9 +85,11 @@ module.exports = async function listSubmissionsTable(fastify) {
                 },
                 {
                   client: {
-                    legalName: {
-                      contains: search,
-                      mode: "insensitive",
+                    is: {
+                      legalName: {
+                        contains: search,
+                        mode: "insensitive",
+                      },
                     },
                   },
                 },
@@ -76,10 +97,20 @@ module.exports = async function listSubmissionsTable(fastify) {
             }),
           },
 
-          ...(status && { status }),
+          ...(validStatuses.includes(status) && {
+            status,
+          }),
         };
 
         /* ================= QUERY ================= */
+
+        const allowedSortFields = ["createdAt", "updatedAt", "status"];
+
+        const safeSortBy = allowedSortFields.includes(sortBy)
+          ? sortBy
+          : "createdAt";
+
+        const safeSortOrder = sortOrder === "asc" ? "asc" : "desc";
 
         const submissions = await prisma.applicationSubmission.findMany({
           where: whereCondition,
@@ -91,7 +122,7 @@ module.exports = async function listSubmissionsTable(fastify) {
           }),
 
           orderBy: {
-            [sortBy]: sortOrder,
+            [safeSortBy]: safeSortOrder,
           },
 
           include: {
@@ -170,16 +201,59 @@ module.exports = async function listSubmissionsTable(fastify) {
         const data = submissions.map((s) => {
           const app = s.application;
 
-          const borrower =
-            app?.client?.contacts?.[0]
-              ? `${app.client.contacts[0].firstName || ""} ${
-                  app.client.contacts[0].lastName || ""
-                }`.trim()
-              : app?.client?.legalName || "N/A";
+          const contact =
+  app?.client?.contacts?.[0];
+
+const getFieldValue = (...keys) =>
+  s.fields.find((f) =>
+    keys.includes(
+      f.builderField?.fieldKey ||
+        f.fieldKey,
+    ),
+  )?.value;
+
+const borrower =
+  [
+    contact?.firstName,
+    contact?.lastName,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .trim() ||
+
+  [
+    getFieldValue(
+      "borrowerFirstName",
+      "firstName",
+    ),
+
+    getFieldValue(
+      "borrowerLastName",
+      "lastName",
+    ),
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .trim() ||
+
+  getFieldValue(
+    "borrowerName",
+    "applicantName",
+    "fullName",
+    "name",
+  ) ||
+
+  (app?.client?.legalName &&
+  app.client.legalName !==
+    "Applicant"
+    ? app.client.legalName
+    : null) ||
+
+  "N/A";
 
           const pendingDocumentsCount =
             app?.documentRequirements?.filter(
-              (doc) => doc.status !== "COMPLETE"
+              (doc) => doc.status !== "COMPLETE",
             ).length || 0;
 
           // ✅ AMOUNT FROM FIELDS
@@ -188,34 +262,76 @@ module.exports = async function listSubmissionsTable(fastify) {
               f.builderField?.fieldKey === "amountRequested" ||
               f.builderField?.fieldKey === "loan_amount" ||
               f.fieldKey === "amountRequested" ||
-              f.fieldKey === "loan_amount"
+              f.fieldKey === "loan_amount",
           );
 
-          const amount = amountField?.value ?? null;
+          const amount = Number(
+            amountField?.value || app?.amountRequested || 0,
+          );
 
-          // ✅ LOCATION FROM FIELDS (FIXED)
-          // ✅ EXTRACT STATE
-const stateField = s.fields.find(
-  (f) =>
-    f.builderField?.fieldKey === "state" ||
-    f.fieldKey === "state"
-);
+          // ✅ LOCATION FROM FIELDS + FALLBACK
 
-// ✅ EXTRACT COUNTRY
-const countryField = s.fields.find(
-  (f) =>
-    f.builderField?.fieldKey === "country" ||
-    f.fieldKey === "country"
-);
+          const cityField = s.fields.find(
+            (f) =>
+              f.builderField?.fieldKey === "propertyCity" ||
+              f.builderField?.fieldKey === "city" ||
+              f.fieldKey === "propertyCity" ||
+              f.fieldKey === "city",
+          );
 
-const state = stateField?.value ?? null;
-const country = countryField?.value ?? null;
+          const stateField = s.fields.find(
+            (f) =>
+              f.builderField?.fieldKey === "propertyState" ||
+              f.builderField?.fieldKey === "state" ||
+              f.fieldKey === "propertyState" ||
+              f.fieldKey === "state",
+          );
 
-// ✅ FINAL LOCATION FORMAT
-const location =
-  state && country
-    ? `${state}, ${country}`
-    : state || country || "N/A";
+          const countryField = s.fields.find(
+            (f) =>
+              f.builderField?.fieldKey === "propertyCountry" ||
+              f.builderField?.fieldKey === "country" ||
+              f.fieldKey === "propertyCountry" ||
+              f.fieldKey === "country",
+          );
+
+
+          const getLocationField = (
+  ...keys
+) =>
+  s.fields.find((f) =>
+    keys.includes(
+      f.builderField?.fieldKey ||
+        f.fieldKey,
+    ),
+  )?.value;
+
+const city =
+  cityField?.value ||
+  getLocationField(
+    "propertyCity",
+    "city",
+  ) ||
+  null;
+
+const state =
+  stateField?.value ||
+  getLocationField(
+    "propertyState",
+    "state",
+  ) ||
+  null;
+
+const country =
+  countryField?.value ||
+  getLocationField(
+    "propertyCountry",
+    "country",
+  ) ||
+  null;
+
+          const location =
+            [city, state, country].filter(Boolean).join(", ") || "N/A";
 
           return {
             submissionId: s.id,
@@ -235,23 +351,21 @@ const location =
             submittedOn: s.createdAt,
             pendingDocumentsCount,
 
-            assignedLoanOfficer:
-              isOfficer && app?.brokerUser
-                ? {
-                    id: app.brokerUser.id,
-                    name: `${app.brokerUser.firstName || ""} ${
-                      app.brokerUser.lastName || ""
-                    }`.trim(),
-                    profileImage: app.brokerUser.profileImage || null,
-                  }
-                : null,
+            assignedLoanOfficer: app?.brokerUser
+              ? {
+                  id: app.brokerUser.id,
+                  name: `${app.brokerUser.firstName || ""} ${
+                    app.brokerUser.lastName || ""
+                  }`.trim(),
+                  profileImage: app.brokerUser.profileImage || null,
+                }
+              : null,
 
             submittedToLenders:
               app?.applicationLenders?.map((l) => ({
                 lenderOrgId: l.lenderOrgId,
                 lenderName: l.lender?.name,
-                profileImage:
-                  l.lender?.users?.[0]?.profileImage || null,
+                profileImage: l.lender?.users?.[0]?.profileImage || null,
                 status: l.status,
                 sentAt: l.sentAt,
               })) || [],
@@ -281,14 +395,14 @@ const location =
       } catch (error) {
         fastify.log.error(
           { message: error.message, stack: error.stack },
-          "Submissions API Error"
+          "Submissions API Error",
         );
 
         return reply.code(500).send({
           success: false,
-          message: "Server error while fetching submissions",
+          message: error.message,
         });
       }
-    }
+    },
   );
 };

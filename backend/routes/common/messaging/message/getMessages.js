@@ -45,7 +45,7 @@ module.exports = async function getMessages(fastify) {
         const userId =
           req.user?.id || req.user?.userId || req.user?.clientId;
 
-        if (!userId) {
+      if (!userId && !req.user?.email) {
           return reply.code(401).send({
             success: false,
             message: "Invalid user token",
@@ -68,12 +68,26 @@ module.exports = async function getMessages(fastify) {
 
         /* ================= CHECK PARTICIPATION ================= */
 
-        const participant = await prisma.conversationParticipant.findFirst({
-          where: {
-            conversationId,
-            participantId: userId,
-          },
-        });
+const userEmail = req.user?.email;
+
+const normalize = (str) => str?.trim().toLowerCase();
+
+const participant =
+  await prisma.conversationParticipant.findFirst({
+    where: {
+      conversationId,
+
+      OR: [
+        { participantId: userId },
+
+        userEmail
+          ? {
+              participantEmail: normalize(userEmail),
+            }
+          : undefined,
+      ].filter(Boolean),
+    },
+  });
 
         if (!participant) {
           return reply.code(403).send({
@@ -101,18 +115,34 @@ module.exports = async function getMessages(fastify) {
 
         /* ================= FORMAT RESPONSE ================= */
 
-        const formatted = messages.map((msg) => ({
-          id: msg.id,
-          type: msg.type,
-          text: msg.text,
-          fileUrl: msg.fileUrl,
-          fileName: msg.fileName,
-          fileSize: msg.fileSize,
-          mimeType: msg.mimeType,
-          senderType: msg.senderType,
-          senderId: msg.senderId,
-          createdAt: msg.createdAt,
-        }));
+const formatted = messages.map((msg) => ({
+  id: msg.id,
+
+  conversationId: msg.conversationId,
+
+  type: msg.type,
+
+  text: msg.text,
+
+  fileUrl: msg.fileUrl,
+
+  fileName: msg.fileName,
+
+  fileSize: msg.fileSize,
+
+  mimeType: msg.mimeType,
+
+  senderType: msg.senderType,
+
+  senderUserId: msg.senderUserId,
+
+  senderClientUserId:
+    msg.senderClientUserId,
+
+  senderName: msg.senderName,
+
+  createdAt: msg.createdAt,
+}));
 
         /* ================= RESPONSE ================= */
 

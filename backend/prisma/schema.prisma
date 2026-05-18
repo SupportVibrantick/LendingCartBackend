@@ -68,6 +68,9 @@ model UserAccount {
   createdEscrowInstructions  EscrowInstruction[]         @relation("CreatedEscrowInstructions")
   lenderReviews              LenderReview[]              @relation("ReviewedByUser")
   brokerLoanApplications     LoanApplication[]           @relation("BrokerUserLoanApplications")
+  submittedSubBrokerDocs     SubBrokerSubmission[]       @relation("SubBrokerSubmissionSubmittedBy")
+
+  reviewedSubBrokerDocs SubBrokerSubmission[] @relation("SubBrokerSubmissionReviewedBy")
 
   organization    Organization?      @relation(fields: [organizationId], references: [id])
   roles           UserRole[]
@@ -81,6 +84,7 @@ model UserAccount {
   createdBy            UserAccount?           @relation("CreatedSubBrokers", fields: [createdById], references: [id])
   createdSubBrokers    UserAccount[]          @relation("CreatedSubBrokers")
   assignedApplications SubBrokerApplication[] @relation("SubBrokerAssignedApplications")
+  createdConversations Conversation[]
 
   assignedSubBrokerApplications SubBrokerApplication[] @relation("SubBrokerAssignedBy")
 
@@ -567,6 +571,7 @@ model LoanApplication {
   clientUploadTokens     ClientUploadToken[]
   feeAgreement           FeeAgreement?                    @relation("LoanToFeeAgreement")
   subBrokerAssignments   SubBrokerApplication[]
+  subBrokerSubmissions   SubBrokerSubmission[]
 
   @@index([brokerOrgId])
   @@index([clientId])
@@ -710,6 +715,9 @@ model ApplicationDocumentRequirement {
   documentType      DocumentType                @relation(fields: [documentTypeId], references: [id])
   loanApplication   LoanApplication             @relation(fields: [loanApplicationId], references: [id])
   uploads           ApplicationDocumentUpload[]
+  isSentToBroker    Boolean                     @default(false)
+
+  sentToBrokerAt DateTime?
 
   @@index([loanApplicationId])
   @@index([documentTypeId])
@@ -734,6 +742,7 @@ model ApplicationDocumentUpload {
   loanApplication      LoanApplication                 @relation(fields: [loanApplicationId], references: [id])
   uploadedByClientUser ClientPortalUser?               @relation("UploadedByClient", fields: [uploadedByClientUserId], references: [id])
   uploadedByUser       UserAccount?                    @relation("UploadedByUser", fields: [uploadedByUserId], references: [id])
+  subBrokerSubmissions SubBrokerSubmission[]
 
   @@index([loanApplicationId])
   @@index([documentRequirementId])
@@ -1400,10 +1409,15 @@ model Conversation {
   loanApplicationId   String  @db.Uuid
   applicationLenderId String? @db.Uuid
 
-  type ConversationType
+  type         ConversationType
+  chatCategory String?
+
+  createdByUserId String?      @db.Uuid
+  createdBy       UserAccount? @relation(fields: [createdByUserId], references: [id])
 
   lastMessageAt DateTime?
 
+  // isArchived Boolean @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1479,6 +1493,7 @@ model Message {
   metadata Json?
 
   createdAt DateTime @default(now())
+  isDeleted Boolean  @default(false)
 
   conversation Conversation @relation(fields: [conversationId], references: [id])
 
@@ -1505,9 +1520,48 @@ model ConversationParticipant {
   @@index([participantEmail])
 }
 
+model SubBrokerSubmission {
+  id String @id @default(uuid()) @db.Uuid
+
+  loanApplicationId String @db.Uuid
+
+  documentUploadId String @db.Uuid
+
+  submittedBySubBrokerId String @db.Uuid
+
+  principalBrokerId String @db.Uuid
+
+  status SubBrokerSubmissionStatus @default(PENDING)
+
+  notes String?
+
+  skipReason String?
+
+  reviewedAt DateTime?
+
+  reviewedById String? @db.Uuid
+
+  sentToLenderAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  // relations
+
+  loanApplication LoanApplication @relation(fields: [loanApplicationId], references: [id])
+
+  documentUpload ApplicationDocumentUpload @relation(fields: [documentUploadId], references: [id])
+
+  submittedBy UserAccount @relation("SubBrokerSubmissionSubmittedBy", fields: [submittedBySubBrokerId], references: [id])
+
+  reviewedBy UserAccount? @relation("SubBrokerSubmissionReviewedBy", fields: [reviewedById], references: [id])
+}
+
 enum ConversationType {
   CLIENT_BROKER
   BROKER_LENDER
+  SUBBROKER_BROKER
 }
 
 enum MessageType {
@@ -1519,6 +1573,7 @@ enum MessageType {
 enum ParticipantRole {
   CLIENT
   BROKER
+  SUB_BROKER
   LENDER
 }
 
@@ -1783,6 +1838,7 @@ enum DocRequirementSource {
   PRODUCT_DEFAULT
   LENDER_DEFAULT
   BROKER_ADDED
+  SUB_BROKER_ADDED
   LENDER_ADDED
 }
 
@@ -1959,4 +2015,16 @@ enum CampaignIntervalUnit {
   MINUTES
   HOURS
   DAYS
+}
+
+enum SubBrokerSubmissionStatus {
+  PENDING
+  REVIEWED
+  SKIPPED
+  SENT_TO_LENDER
+}
+
+enum SubmissionSourceType {
+  BROKER
+  SUB_BROKER
 }

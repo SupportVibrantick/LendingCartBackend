@@ -21,7 +21,6 @@ module.exports = async function lenderRoutes(fastify, opts) {
   // Protected lender routes
   // -------------------------
   fastify.register(async function lenderProtected(instance) {
-
     //  Verify JWT + role
     instance.register(require("../../plugins/verifyLender"));
 
@@ -54,11 +53,11 @@ module.exports = async function lenderRoutes(fastify, opts) {
       prefix: "/loan-products",
     });
 
-    instance.register(documentConfigRoutes,{
+    instance.register(documentConfigRoutes, {
       prefix: "/document-config",
     });
 
-    instance.register(eligibilityRoutes,{
+    instance.register(eligibilityRoutes, {
       prefix: "/eligibility-engine",
     });
 
@@ -70,7 +69,7 @@ module.exports = async function lenderRoutes(fastify, opts) {
       prefix: "/loan-pipeline",
     });
 
-    instance.register(notificationRoutes,{
+    instance.register(notificationRoutes, {
       prefix: "/notifications",
     });
 

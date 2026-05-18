@@ -223,6 +223,10 @@ module.exports = async function submissionDocuments(fastify) {
                 orderBy: {
                   uploadedAt: "desc",
                 },
+
+                include: {
+                  subBrokerSubmissions: true,
+                },
               },
             },
           });
@@ -232,6 +236,9 @@ module.exports = async function submissionDocuments(fastify) {
         =============================== */
 
         const documents = documentRequirements.map((d) => {
+          const matchedSubmission = d.uploads.find(
+            (u) => u.subBrokerSubmissions?.length,
+          );
           const uploadedCount = d.uploads.length;
 
           const requestedBy = lenderMap.get(d.documentTypeId) || [];
@@ -247,7 +254,11 @@ module.exports = async function submissionDocuments(fastify) {
 
             isRequired: d.isRequired,
 
-            status: d.status,
+            status:
+              matchedSubmission?.subBrokerSubmissions?.[0]?.status || d.status,
+
+            skipReason:
+              matchedSubmission?.subBrokerSubmissions?.[0]?.skipReason || null,
 
             requestedByLenders: requestedBy,
 
@@ -270,7 +281,7 @@ module.exports = async function submissionDocuments(fastify) {
         });
 
         const pendingCount = documents.filter(
-          (doc) => doc.status === "PENDING",
+          (doc) => doc.status === "PENDING" || doc.status === "PARTIAL",
         ).length;
 
         /* ===============================

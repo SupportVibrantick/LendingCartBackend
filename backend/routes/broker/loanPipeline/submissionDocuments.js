@@ -37,11 +37,10 @@ module.exports = async function submissionDocuments(fastify) {
       /* ===============================
          FETCH SUBMISSION
       =============================== */
-      const submission =
-        await fastify.prisma.applicationSubmission.findUnique({
-          where: { id: submissionId },
-          include: { application: true },
-        });
+      const submission = await fastify.prisma.applicationSubmission.findUnique({
+        where: { id: submissionId },
+        include: { application: true },
+      });
 
       if (!submission) {
         return reply.code(404).send({
@@ -102,6 +101,18 @@ module.exports = async function submissionDocuments(fastify) {
       =============================== */
       const whereCondition = {
         loanApplicationId,
+
+        OR: [
+          {
+            source: "BROKER_ADDED",
+          },
+
+          {
+            source: "SUB_BROKER_ADDED",
+            isSentToBroker: true,
+          },
+        ],
+
         ...(search && {
           documentType: {
             name: {
@@ -130,11 +141,16 @@ module.exports = async function submissionDocuments(fastify) {
           take: pageSize,
           include: {
             documentType: true,
-            uploads: {
-              orderBy: {
-                uploadedAt: "desc",
-              },
-            },
+
+   uploads: {
+  orderBy: {
+    uploadedAt: "desc",
+  },
+
+  include: {
+    subBrokerSubmissions: true,
+  },
+},
           },
         });
 
@@ -142,6 +158,12 @@ module.exports = async function submissionDocuments(fastify) {
          FORMAT RESPONSE
       =============================== */
       const documents = documentRequirements.map((d) => {
+const matchedSubmission =
+  d.uploads.find(
+    (u) =>
+      u.subBrokerSubmissions
+        ?.length,
+  );
         const uploadedCount = d.uploads.length;
         const requestedBy = lenderMap.get(d.documentTypeId) || [];
 
@@ -151,7 +173,10 @@ module.exports = async function submissionDocuments(fastify) {
           documentName: d.documentType?.name ?? null,
           source: d.source,
           isRequired: d.isRequired,
-          status: d.status,
+          status:
+  matchedSubmission
+    ?.subBrokerSubmissions?.[0]
+    ?.status || d.status,
 
           // ✅ FULL LENDER DETAILS
           requestedByLenders: requestedBy,
@@ -166,11 +191,15 @@ module.exports = async function submissionDocuments(fastify) {
             fileMimeType: u.fileMimeType,
             uploadedAt: u.uploadedAt,
           })),
+subBrokerSubmissionId:
+  matchedSubmission
+    ?.subBrokerSubmissions?.[0]
+    ?.id || null,
         };
       });
 
       const pendingCount = documents.filter(
-        (doc) => doc.status === "PENDING"
+        (doc) => doc.status === "PENDING",
       ).length;
 
       /* ===============================
@@ -194,7 +223,6 @@ module.exports = async function submissionDocuments(fastify) {
           documents,
         },
       });
-
     } catch (error) {
       fastify.log.error({
         error: error.message,
@@ -204,7 +232,7 @@ module.exports = async function submissionDocuments(fastify) {
 
       return reply.code(500).send({
         success: false,
-        message: "Server error while fetching documents",
+        message: error.message,
       });
     }
   });

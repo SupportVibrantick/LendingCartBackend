@@ -6,35 +6,22 @@ const sendMail = require("../../../services/mail");
  * @param {import("fastify").FastifyInstance} fastify
  */
 
-async function subBrokerRequestDocumentsRoute(
-  fastify,
-) {
+async function subBrokerRequestDocumentsRoute(fastify) {
   fastify.post(
     "/:loanId/request-documents",
 
     {
-      preHandler: [
-        fastify.authenticate,
-
-        fastify.requireRole([
-          "SUB_BROKER",
-        ]),
-      ],
+      preHandler: [fastify.authenticate, fastify.requireRole(["SUB_BROKER"])],
 
       schema: {
-        tags: [
-          "Sub Broker -> Request Documents",
-        ],
+        tags: ["Sub Broker -> Request Documents"],
 
-        summary:
-          "Request documents from client",
+        summary: "Request documents from client",
 
         params: {
           type: "object",
 
-          required: [
-            "loanId",
-          ],
+          required: ["loanId"],
 
           properties: {
             loanId: {
@@ -46,28 +33,21 @@ async function subBrokerRequestDocumentsRoute(
         body: {
           type: "object",
 
-          required: [
-            "documentTypeIds",
-          ],
+          required: ["documentTypeIds"],
 
           properties: {
-            documentTypeIds:
-              {
-                type:
-                  "array",
+            documentTypeIds: {
+              type: "array",
 
-                items: {
-                  type:
-                    "string",
+              items: {
+                type: "string",
 
-                  format:
-                    "uuid",
-                },
+                format: "uuid",
               },
+            },
 
             message: {
-              type:
-                "string",
+              type: "string",
             },
           },
         },
@@ -75,128 +55,100 @@ async function subBrokerRequestDocumentsRoute(
     },
 
     async (req, reply) => {
-      const prisma =
-        fastify.prisma;
+      const prisma = fastify.prisma;
 
       try {
         /* ===============================
            AUTH CHECK
         =============================== */
 
-        if (!req.user) {
-          return reply
-            .code(401)
-            .send({
-              success: false,
+        if (!req.user || !req.user.userId) {
+          return reply.code(401).send({
+            success: false,
 
-              message:
-                "Unauthorized access",
-            });
+            message: "Unauthorized access",
+          });
         }
 
-        const userId =
-          req.user.userId;
+        const userId = req.user.userId;
+
+        const subBroker = await prisma.userAccount.findUnique({
+          where: {
+            id: userId,
+          },
+
+          select: {
+            firstName: true,
+            lastName: true,
+          },
+        });
 
         const actorName =
-          `${req.user.firstName || ""} ${req.user.lastName || ""}`.trim() ||
+          `${subBroker?.firstName || ""} ${subBroker?.lastName || ""}`.trim() ||
           "Sub Broker";
 
-        const { loanId } =
-          req.params;
+        const { loanId } = req.params;
 
-        const {
-          documentTypeIds,
-          message,
-        } = req.body;
+        const { documentTypeIds, message } = req.body;
 
         /* ===============================
            VALIDATION
         =============================== */
 
-        if (
-          !Array.isArray(
-            documentTypeIds,
-          ) ||
-          documentTypeIds.length === 0
-        ) {
-          return reply
-            .code(400)
-            .send({
-              success: false,
+        if (!Array.isArray(documentTypeIds) || documentTypeIds.length === 0) {
+          return reply.code(400).send({
+            success: false,
 
-              message:
-                "Please provide at least one document type",
-            });
+            message: "Please provide at least one document type",
+          });
         }
 
-        const uniqueDocIds =
-          [
-            ...new Set(
-              documentTypeIds,
-            ),
-          ];
+        const uniqueDocIds = [...new Set(documentTypeIds)];
 
         /* ===============================
            VERIFY ASSIGNED APPLICATION
         =============================== */
 
-        const assignment =
-          await prisma.subBrokerApplication.findFirst(
-            {
-              where: {
-                subBrokerId:
-                  userId,
+        const assignment = await prisma.subBrokerApplication.findFirst({
+          where: {
+            subBrokerId: userId,
 
-                loanApplicationId:
-                  loanId,
-              },
-            },
-          );
+            loanApplicationId: loanId,
+          },
+        });
 
         if (!assignment) {
-          return reply
-            .code(403)
-            .send({
-              success: false,
+          return reply.code(403).send({
+            success: false,
 
-              message:
-                "Access denied. Application not assigned.",
-            });
+            message: "Access denied. Application not assigned.",
+          });
         }
 
         /* ===============================
            FETCH LOAN + CLIENT
         =============================== */
 
-        const loan =
-          await prisma.loanApplication.findFirst(
-            {
-              where: {
-                id: loanId,
-              },
+        const loan = await prisma.loanApplication.findFirst({
+          where: {
+            id: loanId,
+          },
 
+          include: {
+            client: {
               include: {
-                client:
-                  {
-                    include:
-                      {
-                        contacts:
-                          true,
-                      },
-                  },
+                contacts: true,
               },
             },
-          );
+          },
+        });
 
         if (!loan) {
-          return reply
-            .code(404)
-            .send({
-              success: false,
+          return reply.code(404).send({
+            success: false,
 
-              message:
-                "Loan application not found",
-            });
+            message: "Loan application not found",
+          });
         }
 
         /* ===============================
@@ -204,147 +156,102 @@ async function subBrokerRequestDocumentsRoute(
         =============================== */
 
         const contact =
-          loan.client.contacts.find(
-            (c) =>
-              c.isPrimary &&
-              c.email,
-          ) ||
-          loan.client.contacts.find(
-            (c) =>
-              c.email,
-          );
+          loan.client.contacts.find((c) => c.isPrimary && c.email) ||
+          loan.client.contacts.find((c) => c.email);
 
-        const clientEmail =
-          contact?.email;
+        const clientEmail = contact?.email;
 
         if (!clientEmail) {
-          return reply
-            .code(400)
-            .send({
-              success: false,
+          return reply.code(400).send({
+            success: false,
 
-              message:
-                "Client email not available",
-            });
+            message: "Client email not available",
+          });
         }
 
         /* ===============================
            SOURCE
         =============================== */
 
-        const source =
-          "BROKER_ADDED";
+        const source = "SUB_BROKER_ADDED";
 
         /* ===============================
            TRANSACTION
         =============================== */
 
-        await prisma.$transaction(
-          async (tx) => {
-            const existingDocs =
-              await tx.applicationDocumentRequirement.findMany(
-                {
-                  where:
-                    {
-                      loanApplicationId:
-                        loan.id,
-                    },
+        await prisma.$transaction(async (tx) => {
+          const existingDocs = await tx.applicationDocumentRequirement.findMany(
+            {
+              where: {
+                loanApplicationId: loan.id,
+              },
+            },
+          );
+
+          for (const docTypeId of uniqueDocIds) {
+            const existing = existingDocs.find(
+              (d) => d.documentTypeId === docTypeId && d.source === source,
+            );
+
+            if (existing) {
+              /* RE-REQUEST */
+
+              await tx.applicationDocumentRequirement.update({
+                where: {
+                  id: existing.id,
                 },
-              );
 
-            for (const docTypeId of uniqueDocIds) {
-              const existing =
-                existingDocs.find(
-                  (d) =>
-                    d.documentTypeId ===
-                    docTypeId,
-                );
+                data: {
+                  status: "PENDING",
 
-              if (existing) {
-                /* RE-REQUEST */
+                  lastRequestedAt: new Date(),
 
-                await tx.applicationDocumentRequirement.update(
-                  {
-                    where:
-                      {
-                        id: existing.id,
-                      },
+                  updatedAt: new Date(),
+                },
+              });
+            } else {
+              /* NEW REQUEST */
 
-                    data: {
-                      status:
-                        "PENDING",
+              await tx.applicationDocumentRequirement.create({
+                data: {
+                  loanApplicationId: loan.id,
 
-                      lastRequestedAt:
-                        new Date(),
+                  documentTypeId: docTypeId,
 
-                      updatedAt:
-                        new Date(),
-                    },
-                  },
-                );
-              } else {
-                /* NEW REQUEST */
+                  source,
 
-                await tx.applicationDocumentRequirement.create(
-                  {
-                    data: {
-                      loanApplicationId:
-                        loan.id,
+                  isRequired: true,
 
-                      documentTypeId:
-                        docTypeId,
+                  status: "PENDING",
 
-                      source,
-
-                      isRequired:
-                        true,
-
-                      status:
-                        "PENDING",
-
-                      lastRequestedAt:
-                        new Date(),
-                    },
-                  },
-                );
-              }
+                  lastRequestedAt: new Date(),
+                },
+              });
             }
-          },
-        );
+          }
+        });
 
         /* ===============================
            EMAIL TEMPLATE
         =============================== */
 
-        const portalLink =
-          `${process.env.FRONTEND_URL}/client`;
+        const portalLink = `${process.env.FRONTEND_URL}/client`;
 
-        const html =
-          loadTemplate(
-            "broker/clientLink",
-            {
-              clientName:
-                loan.client
-                  ?.legalName ||
-                "Customer",
+        const html = loadTemplate("broker/clientLink", {
+          clientName: loan.client?.legalName || "Customer",
 
-              uploadLink:
-                portalLink,
+          uploadLink: portalLink,
 
-              applicationNumber:
-                loan.applicationNumber,
+          applicationNumber: loan.applicationNumber,
 
-              brokerName:
-                actorName,
+          brokerName: actorName,
 
-              message:
-                message ||
-                "New documents have been requested for your application.",
-            },
-          );
+          message:
+            message ||
+            "New documents have been requested for your application.",
+        });
 
-        const subject =
-          "Document Request Update for Your Loan";
+        const subject = "Document Request Update for Your Loan";
 
         const text = `
 Hello,
@@ -376,8 +283,7 @@ ${portalLink}
 
               loanId,
 
-              requestedBy:
-                "SUB_BROKER",
+              requestedBy: "SUB_BROKER",
             },
 
             "Document request email sent",
@@ -385,8 +291,7 @@ ${portalLink}
         } catch (err) {
           fastify.log.error(
             {
-              error:
-                err.message,
+              error: err.message,
 
               clientEmail,
 
@@ -404,40 +309,29 @@ ${portalLink}
         return reply.send({
           success: true,
 
-          message:
-            "Documents requested successfully",
+          message: "Documents requested successfully",
         });
       } catch (error) {
         fastify.log.error(
           {
-            error:
-              error.message,
+            error: error.message,
 
-            loanId:
-              req.params
-                .loanId,
+            loanId: req.params.loanId,
 
-            userId:
-              req.user
-                ?.userId,
+            userId: req.user?.userId,
           },
 
           "Document request failed",
         );
 
-        return reply
-          .code(500)
-          .send({
-            success: false,
+        return reply.code(500).send({
+          success: false,
 
-            message:
-              error.message ||
-              "Unexpected server error",
-          });
+          message: error.message || "Unexpected server error",
+        });
       }
     },
   );
 }
 
-module.exports =
-  subBrokerRequestDocumentsRoute;
+module.exports = subBrokerRequestDocumentsRoute;

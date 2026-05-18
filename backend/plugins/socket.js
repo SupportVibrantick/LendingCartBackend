@@ -25,7 +25,12 @@ async function socketPlugin(fastify) {
         return next(new Error("Unauthorized"));
       }
 
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+ const decoded = jwt.decode(token);
+
+console.log(
+  "🧠 SOCKET USER:",
+  decoded,
+);
 
       socket.user = decoded; //  attach user safely
 
@@ -38,6 +43,10 @@ async function socketPlugin(fastify) {
 
   io.on("connection", (socket) => {
     console.log(`🔌 [CONNECTED] Socket ID: ${socket.id}`);
+    console.log(
+  "👤 SOCKET CONNECTED USER:",
+  socket.user,
+);
 
     /* ===============================
        EXISTING (DO NOT TOUCH)

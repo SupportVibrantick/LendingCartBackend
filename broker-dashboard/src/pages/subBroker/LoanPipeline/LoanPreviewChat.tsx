@@ -20,17 +20,28 @@ const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
 type Conversation = {
   id: string;
+
   title?: string;
+
   type?: string;
+
+  chatCategory?: "PRINCIPAL_BROKER" | "LOAN_OFFICER";
+
   lastMessage?: string;
+
   lastMessageAt?: string;
+
   unread?: boolean;
+
+  unreadCount?: number;
 };
 
 type ChatMessage = {
   id: string;
   conversationId?: string;
   senderType?: string;
+  senderName?: string;
+  senderUserId?: string | null;
   type?: string;
   fileUrl?: string;
   fileName?: string;
@@ -102,7 +113,6 @@ const getAvatarTone = (value?: string) => {
 
 const LoanPreviewChat = ({ applicationId }: LoanPreviewChatProps) => {
   const socketRef = useRef<Socket | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const emojiPickerRef = useRef<HTMLDivElement | null>(null);
@@ -164,7 +174,9 @@ const LoanPreviewChat = ({ applicationId }: LoanPreviewChatProps) => {
       setMessagesLoading(true);
       const token = getToken();
       const res = await fetch(
-        `${API_BASE}/messaging/conversation/${conversationId}/messages`,
+        `${API_BASE}/subbroker/messaging/conversation/${encodeURIComponent(
+          conversationId,
+        )}/messages`,
         {
           method: "GET",
           headers: { ...(token && { Authorization: `Bearer ${token}` }) },
@@ -191,7 +203,7 @@ const LoanPreviewChat = ({ applicationId }: LoanPreviewChatProps) => {
       setChatLoading(true);
       const token = getToken();
       const res = await fetch(
-        `${API_BASE}/messaging/loan/${applicationId}/conversations`,
+        `${API_BASE}/subbroker/messaging/loan/${applicationId}/conversations`,
         {
           method: "GET",
           headers: { ...(token && { Authorization: `Bearer ${token}` }) },
@@ -204,12 +216,19 @@ const LoanPreviewChat = ({ applicationId }: LoanPreviewChatProps) => {
       }
 
       const nextConversations = json?.data?.conversations || [];
+
       setConversations(nextConversations);
+
       setSelectedConversation((prev) => {
-        if (!prev) return null;
+        if (!nextConversations.length) return null;
+
+        if (!prev) {
+          return null;
+        }
+
         return (
           nextConversations.find((item: Conversation) => item.id === prev.id) ||
-          null
+          nextConversations[0]
         );
       });
     } catch (err: any) {
@@ -219,29 +238,126 @@ const LoanPreviewChat = ({ applicationId }: LoanPreviewChatProps) => {
     }
   };
 
+  useEffect(() => {
+  if (!applicationId) return;
+
+  fetchConversations();
+}, [applicationId]);
+
+  const ensureConversation = async (
+    chatCategory: "PRINCIPAL_BROKER" | "LOAN_OFFICER",
+  ) => {
+    if (!applicationId) return;
+
+    const token = getToken();
+    const res = await fetch(`${API_BASE}/subbroker/messaging/conversations`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token && { Authorization: `Bearer ${token}` }),
+      },
+      body: JSON.stringify({
+        loanApplicationId: applicationId,
+        chatCategory,
+      }),
+    });
+
+    const json = await res.json();
+
+    if (!res.ok || !json.success) {
+      throw new Error(json.message || "Failed to create conversation");
+    }
+
+    return json.data;
+  };
+
   const joinConversation = async (conversationId: string) => {
     await fetchMessages(conversationId);
 
     setConversations((prev) =>
       prev.map((item) =>
-        item.id === conversationId ? { ...item, unread: false } : item,
+        item.id === conversationId
+          ? { ...item, unread: false, unreadCount: 0 }
+          : item,
       ),
     );
+
+    try {
+      const token = getToken();
+      await fetch(
+        `${API_BASE}/subbroker/messaging/conversation/${encodeURIComponent(
+          conversationId,
+        )}/read`,
+        {
+          method: "PATCH",
+          headers: { ...(token && { Authorization: `Bearer ${token}` }) },
+        },
+      );
+    } catch (err) {
+      console.error("Failed to mark conversation as read", err);
+    }
 
     const socket = socketRef.current;
     if (!socket || !socket.connected) return;
 
-    socket.emit("joinConversation", { conversationId });
+    socket.emit("joinConversation", {
+      conversationId: String(conversationId),
+    });
     socket.emit("markAsRead", { conversationId });
   };
 
-  const handleSelectConversation = (conversation: Conversation) => {
-    setSelectedConversation(conversation);
-    setConversations((prev) =>
-      prev.map((item) =>
-        item.id === conversation.id ? { ...item, unread: false } : item,
-      ),
-    );
+  const handleSelectConversation = async (conversation: Conversation) => {
+    try {
+      let finalConversation = conversation;
+
+      const isTemporary =
+        conversation.id.startsWith("broker-") ||
+        conversation.id.startsWith("officer-");
+
+      if (isTemporary) {
+        const created = await ensureConversation(
+          conversation.chatCategory === "LOAN_OFFICER"
+            ? "LOAN_OFFICER"
+            : "PRINCIPAL_BROKER",
+        );
+
+        if (created?.id) {
+          finalConversation = {
+            ...conversation,
+            id: created.id,
+          };
+
+          setConversations((prev) =>
+            prev.map((item) =>
+              item.id === conversation.id
+                ? {
+                    ...item,
+                    id: created.id,
+                  }
+                : item,
+            ),
+          );
+        }
+      }
+
+      setSelectedConversation(finalConversation);
+
+      setConversations((prev) =>
+        prev.map((item) =>
+          item.id === finalConversation.id
+            ? {
+                ...item,
+                unread: false,
+                unreadCount: 0,
+              }
+            : item,
+        ),
+      );
+
+      await joinConversation(finalConversation.id);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to open conversation");
+    }
   };
 
   const handleEmojiClick = (emojiData: EmojiClickData) => {
@@ -255,13 +371,14 @@ const LoanPreviewChat = ({ applicationId }: LoanPreviewChatProps) => {
   };
 
   const handleSendMessage = async () => {
-    const socket = socketRef.current;
-    if (!selectedConversation?.id || !socket) return;
+    if (!selectedConversation?.id) return;
 
     try {
       setSendingMessage(true);
       let fileUrl: string | null = null;
       let fileName: string | null = null;
+      let mimeType: string | null = null;
+      let fileSize: number | null = null;
 
       if (selectedFile) {
         const formData = new FormData();
@@ -281,15 +398,62 @@ const LoanPreviewChat = ({ applicationId }: LoanPreviewChatProps) => {
 
         fileUrl = uploadJson.url;
         fileName = selectedFile.name;
+        mimeType = selectedFile.type;
+        fileSize = selectedFile.size;
       }
 
-      socket.emit("sendMessage", {
+      const token = getToken();
+      const res = await fetch(
+        `${API_BASE}/subbroker/messaging/conversation/${encodeURIComponent(
+          selectedConversation.id,
+        )}/message`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+          body: JSON.stringify({
+            type: selectedFile ? "FILE" : "TEXT",
+            ...(selectedFile
+              ? {
+                  fileUrl,
+                  fileName,
+                  mimeType,
+                  fileSize,
+                }
+              : {
+                  text: messageText.trim(),
+                }),
+          }),
+        },
+      );
+
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Failed to send message");
+      }
+
+      const nextMessage: ChatMessage = {
         conversationId: selectedConversation.id,
-        type: selectedFile ? "FILE" : "TEXT",
-        text: messageText.trim(),
-        fileUrl,
-        fileName,
-      });
+        ...json.data,
+      };
+
+      setMessages((prev) => [...prev, nextMessage]);
+      setConversations((prev) =>
+        prev.map((item) =>
+          item.id === selectedConversation.id
+            ? {
+                ...item,
+                lastMessage: nextMessage.text || nextMessage.fileName || "File",
+                lastMessageAt: nextMessage.createdAt,
+                unread: false,
+                unreadCount: 0,
+              }
+            : item,
+        ),
+      );
 
       setMessageText("");
       removeSelectedFile();
@@ -309,25 +473,10 @@ const LoanPreviewChat = ({ applicationId }: LoanPreviewChatProps) => {
   };
 
   useEffect(() => {
-    setConversations([]);
-    setSelectedConversation(null);
-    setMessageText("");
-    setMessages([]);
-    setShowEmojiPicker(false);
-    setTypingUser(null);
-    setSelectedFile(null);
-    setSearchTerm("");
-
-    if (applicationId) {
-      fetchConversations();
-    }
-  }, [applicationId]);
-
-  useEffect(() => {
     const token = getToken();
 
     if (!token) {
-      console.log("❌ No broker token found");
+      console.log("No sub broker token found");
       return;
     }
 
@@ -345,11 +494,11 @@ const LoanPreviewChat = ({ applicationId }: LoanPreviewChatProps) => {
     });
 
     socket.on("connect", () => {
-      console.log("🟢 Socket connected:", socket.id);
+      console.log("Socket connected:", socket.id);
     });
 
     socket.on("connect_error", (err) => {
-      console.error("❌ Socket connection error:", err.message);
+      console.error("Socket connection error:", err.message);
     });
 
     socketRef.current = socket;
@@ -373,6 +522,10 @@ const LoanPreviewChat = ({ applicationId }: LoanPreviewChatProps) => {
                 lastMessage: msg.text || msg.fileName || "File",
                 lastMessageAt: msg.createdAt,
                 unread: selectedConversation?.id !== msg.conversationId,
+                unreadCount:
+                  selectedConversation?.id !== msg.conversationId
+                    ? (item.unreadCount || 0) + 1
+                    : 0,
               }
             : item,
         ),
@@ -381,6 +534,10 @@ const LoanPreviewChat = ({ applicationId }: LoanPreviewChatProps) => {
       setMessages((prev) => {
         if (msg.conversationId !== selectedConversation?.id) return prev;
         if (prev.some((item) => item.id === msg.id)) return prev;
+        const exists = prev.some((item) => item.id === msg.id);
+
+        if (exists) return prev;
+
         return [...prev, msg];
       });
     };
@@ -408,24 +565,6 @@ const LoanPreviewChat = ({ applicationId }: LoanPreviewChatProps) => {
   }, []);
 
   useEffect(() => {
-    const socket = socketRef.current;
-    if (!socket || !selectedConversation?.id) return;
-
-    const syncConversation = () => {
-      joinConversation(selectedConversation.id);
-    };
-
-    if (socket.connected) {
-      syncConversation();
-    }
-
-    socket.on("connect", syncConversation);
-    return () => {
-      socket.off("connect", syncConversation);
-    };
-  }, [selectedConversation?.id]);
-
-  useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
         showEmojiPicker &&
@@ -443,7 +582,7 @@ const LoanPreviewChat = ({ applicationId }: LoanPreviewChatProps) => {
   useEffect(() => {
     if (selectedConversation?.id) {
       setTimeout(() => {
-        scrollToBottom("auto"); // instant open at bottom
+        scrollToBottom("auto");
       }, 100);
     }
   }, [selectedConversation?.id]);
@@ -560,7 +699,7 @@ lg:border-b-0 lg:border-r"
                       >
                         {getInitials(chat.title)}
                       </div>
-                      <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-[#fbfbfa]  bg-lime-500" />
+                      <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-[#fbfbfa] bg-lime-500" />
                     </div>
 
                     <div className="min-w-0 flex-1">
@@ -577,9 +716,9 @@ lg:border-b-0 lg:border-r"
                         <p className="truncate text-xs text-slate-500">
                           {chat.lastMessage || "No messages yet"}
                         </p>
-                        {chat.unread && (
+                        {(chat.unreadCount || 0) > 0 && (
                           <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-lime-500 px-1 text-[10px] font-semibold text-white">
-                            1
+                            {chat.unreadCount}
                           </span>
                         )}
                       </div>
@@ -653,7 +792,11 @@ bg-[#f8f8f6] dark:bg-slate-950 px-4 py-5 sm:px-7"
                   {[1, 2, 3].map((item) => (
                     <div
                       key={item}
-                      className={`h-12 rounded-2xl border border-slate-200 ${item % 2 === 0 ? "ml-auto w-44 bg-sky-100" : "w-56 bg-white"}`}
+                      className={`h-12 rounded-2xl border border-slate-200 ${
+                        item % 2 === 0
+                          ? "ml-auto w-44 bg-sky-100"
+                          : "w-56 bg-white"
+                      }`}
                     />
                   ))}
                 </div>
@@ -671,7 +814,7 @@ bg-[#f8f8f6] dark:bg-slate-950 px-4 py-5 sm:px-7"
               ) : (
                 <div className="space-y-5">
                   {messages.map((msg, index) => {
-                    const isBroker = msg.senderType === "BROKER";
+                    const isOwnMessage = msg.senderType === "SUB_BROKER";
                     const previousMessage =
                       index > 0 ? messages[index - 1] : null;
                     const currentDay = formatDayLabel(msg.createdAt);
@@ -691,18 +834,28 @@ bg-[#f8f8f6] dark:bg-slate-950 px-4 py-5 sm:px-7"
                         )}
 
                         <div
-                          className={`flex ${isBroker ? "justify-end" : "justify-start"}`}
+                          className={`flex ${
+                            isOwnMessage ? "justify-end" : "justify-start"
+                          }`}
                         >
                           <div
-                            className={`flex max-w-[80%] items-end gap-2 ${isBroker ? "flex-row-reverse" : "flex-row"}`}
+                            className={`flex max-w-[80%] items-end gap-2 ${
+                              isOwnMessage ? "flex-row-reverse" : "flex-row"
+                            }`}
                           >
                             <div
-                              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold ${getAvatarTone(isBroker ? "Broker" : selectedConversation?.title)}`}
+                              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold ${getAvatarTone(
+                                isOwnMessage
+                                  ? "Sub Broker"
+                                  : msg.senderName ||
+                                      selectedConversation?.title,
+                              )}`}
                             >
                               {getInitials(
-                                isBroker
-                                  ? "Broker"
-                                  : selectedConversation?.title,
+                                isOwnMessage
+                                  ? "Sub Broker"
+                                  : msg.senderName ||
+                                      selectedConversation?.title,
                               )}
                             </div>
 
@@ -712,7 +865,11 @@ bg-[#f8f8f6] dark:bg-slate-950 px-4 py-5 sm:px-7"
                               </div>
 
                               <div
-                                className={`rounded-[18px] border px-4 py-2.5 text-sm leading-6 ${isBroker ? "border-sky-500 bg-sky-500 text-white" : "border-slate-200 bg-white text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"}`}
+                                className={`rounded-[18px] border px-4 py-2.5 text-sm leading-6 ${
+                                  isOwnMessage
+                                    ? "border-sky-500 bg-sky-500 text-white"
+                                    : "border-slate-200 bg-white text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                                }`}
                               >
                                 {msg.type === "FILE" && msg.fileUrl && (
                                   <div className={msg.text ? "mb-3" : ""}>
@@ -727,7 +884,11 @@ bg-[#f8f8f6] dark:bg-slate-950 px-4 py-5 sm:px-7"
                                         href={msg.fileUrl}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-sm ${isBroker ? "border-sky-400 bg-sky-400 text-white" : "border-slate-200 bg-slate-50 text-slate-700"}`}
+                                        className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-sm ${
+                                          isOwnMessage
+                                            ? "border-sky-400 bg-sky-400 text-white"
+                                            : "border-slate-200 bg-slate-50 text-slate-700"
+                                        }`}
                                       >
                                         <FiPaperclip />
                                         {msg.fileName || "Download file"}
@@ -748,7 +909,6 @@ bg-[#f8f8f6] dark:bg-slate-950 px-4 py-5 sm:px-7"
                       </div>
                     );
                   })}
-                  <div ref={messagesEndRef} />
                 </div>
               )}
             </div>
@@ -796,7 +956,6 @@ bg-[#f8f8f6] dark:bg-slate-950 px-4 py-5 sm:px-7"
   dark:bg-slate-900 dark:border-slate-800
   px-3 py-2.5 rounded-xl shadow-sm"
               >
-                {/* ATTACH */}
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
@@ -806,7 +965,6 @@ bg-[#f8f8f6] dark:bg-slate-950 px-4 py-5 sm:px-7"
                   <FiPaperclip size={17} />
                 </button>
 
-                {/* EMOJI */}
                 <button
                   type="button"
                   onClick={() => setShowEmojiPicker((prev) => !prev)}
@@ -823,7 +981,6 @@ bg-[#f8f8f6] dark:bg-slate-950 px-4 py-5 sm:px-7"
                   onChange={handleFileSelect}
                 />
 
-                {/* INPUT */}
                 <input
                   value={messageText}
                   onChange={(e) => setMessageText(e.target.value)}
@@ -834,7 +991,6 @@ bg-[#f8f8f6] dark:bg-slate-950 px-4 py-5 sm:px-7"
     outline-none placeholder:text-slate-400"
                 />
 
-                {/* SEND BUTTON */}
                 <button
                   onClick={handleSendMessage}
                   disabled={

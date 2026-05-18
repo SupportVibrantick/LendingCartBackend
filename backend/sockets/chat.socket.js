@@ -54,8 +54,15 @@ module.exports = function chatSocket(socket, io, prisma) {
   ===================================================== */
   socket.on("joinConversation", async ({ conversationId }) => {
     try {
+      
       const userId = normalizeUser(socket.user);
-
+console.log(
+  "🔍 JOIN REQUEST:",
+  {
+    user: socket.user,
+    conversationId,
+  },
+);
       console.log("🔍 JOIN REQUEST:", { userId, conversationId });
 
       if (!userId) {
@@ -63,12 +70,27 @@ module.exports = function chatSocket(socket, io, prisma) {
         return socket.emit("error", { message: "Invalid user" });
       }
 
-      const participant = await prisma.conversationParticipant.findFirst({
-        where: {
-          conversationId,
+const participant =
+  await prisma.conversationParticipant.findFirst({
+    where: {
+      conversationId,
+
+      OR: [
+        {
           participantId: userId,
         },
-      });
+
+        socket.user?.email
+          ? {
+              participantEmail:
+                socket.user.email
+                  .trim()
+                  .toLowerCase(),
+            }
+          : undefined,
+      ].filter(Boolean),
+    },
+  });
 
       if (!participant) {
         console.log("❌ NOT PARTICIPANT");
@@ -80,6 +102,10 @@ module.exports = function chatSocket(socket, io, prisma) {
       const room = `conversation_${conversationId}`;
 
       socket.join(room);
+      console.log(
+  "✅ JOINED ROOM:",
+  room,
+);
 
       console.log(`✅ JOINED ROOM: ${room}`);
 
@@ -111,12 +137,27 @@ module.exports = function chatSocket(socket, io, prisma) {
         });
       }
 
-      const participant = await prisma.conversationParticipant.findFirst({
-        where: {
-          conversationId,
+const participant =
+  await prisma.conversationParticipant.findFirst({
+    where: {
+      conversationId,
+
+      OR: [
+        {
           participantId: userId,
         },
-      });
+
+        socket.user?.email
+          ? {
+              participantEmail:
+                socket.user.email
+                  .trim()
+                  .toLowerCase(),
+            }
+          : undefined,
+      ].filter(Boolean),
+    },
+  });
 
       if (!participant) {
         return socket.emit("error", {
@@ -181,6 +222,11 @@ module.exports = function chatSocket(socket, io, prisma) {
       const room = `conversation_${conversationId}`;
 
       console.log("🚀 EMITTING MESSAGE TO:", room);
+
+      console.log(
+  "🚀 EMITTING MESSAGE TO:",
+  room,
+);
 
       io.to(room).emit("newMessage", response);
 

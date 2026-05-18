@@ -72,14 +72,23 @@ async function lenderLoginRoutes(fastify) {
         // ---------------------------
         // Password verification
         // ---------------------------
-        const isValid = await bcrypt.compare(password, user.passwordHash);
+       console.log("LOGIN EMAIL:", email);
+console.log("LOGIN PASSWORD:", password);
+console.log("DB HASH:", user.passwordHash);
 
-        if (!isValid) {
-          return reply.status(401).send({
-            success: false,
-            message: "Invalid email or password",
-          });
-        }
+const isValid = await bcrypt.compare(
+  password,
+  user.passwordHash
+);
+
+console.log("PASSWORD MATCH:", isValid);
+
+if (!isValid) {
+  return reply.status(401).send({
+    success: false,
+    message: "Invalid email or password",
+  });
+}
 
         // ---------------------------
         // Issue JWT (STANDARD PAYLOAD)

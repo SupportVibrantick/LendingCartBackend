@@ -6,7 +6,9 @@ const feeAgreementRoutes = require("./feeAgreement");
 
 const loiRoutes = require("./loi/listLoi");
 
-const documentRoutes = require("./documents")
+const documentRoutes = require("./documents");
+
+const messagingRoutes = require("./messaging");
 
 async function subBrokerRoutes(fastify, options) {
   // AUTH
@@ -32,6 +34,11 @@ async function subBrokerRoutes(fastify, options) {
   // DOCUMENT
   fastify.register(documentRoutes, {
     prefix: "/documents",
+  });
+
+  // MESSAGING
+    fastify.register(messagingRoutes, {
+    prefix: "/messaging",
   });
 }
 

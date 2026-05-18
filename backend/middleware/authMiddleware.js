@@ -56,15 +56,43 @@ function registerAuthMiddleware(fastify, opts, done) {
       }
 
       // DO NOT REMOVE OLD KEYS (super-admin safety)
-      request.user = {
-        userId,
-        orgId: organizationId,      // backward compatibility
-        organizationId,             // new standard
-        orgType,                    // new standard
-        roles,
-        impersonatedBy: decoded.impersonatedBy ?? null, 
-        raw: decoded,
-      };
+request.user = {
+  // IDs
+  userId,
+  id: userId,
+
+  clientId:
+    decoded.clientId ??
+    decoded.client?.id ??
+    null,
+
+  // organization
+  orgId: organizationId,
+  organizationId,
+
+  orgType,
+
+  // roles
+  roles,
+  role: decoded.role ?? null,
+
+  // 🔥 IMPORTANT
+  email:
+    decoded.email ??
+    decoded.user?.email ??
+    decoded.clientEmail ??
+    null,
+
+  clientEmail:
+    decoded.clientEmail ??
+    decoded.email ??
+    null,
+
+  impersonatedBy:
+    decoded.impersonatedBy ?? null,
+
+  raw: decoded,
+};
     } catch (err) {
       logger.commonLogs.error("Invalid or expired token", {
         endpoint: request.url,

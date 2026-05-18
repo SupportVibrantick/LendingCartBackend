@@ -16,7 +16,28 @@ async function clientAuthMiddleware(req, reply) {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     //  IMPORTANT
-    req.client = decoded;
+req.user = {
+  id: decoded.id,
+  userId: decoded.id,
+
+  clientId: decoded.clientId,
+
+  email:
+    decoded.email ||
+    decoded.clientEmail,
+
+  clientEmail:
+    decoded.clientEmail ||
+    decoded.email,
+
+  role: decoded.role,
+  roles: decoded.role,
+
+  raw: decoded,
+};
+
+// optional backward compatibility
+req.client = decoded;
 
   } catch (error) {
     return reply.code(401).send({

@@ -56,9 +56,11 @@ module.exports = async function getConversations(fastify) {
           });
         }
 
-        // Broker access
+        // Broker + Sub Broker access
+        // Broker + Sub Broker access
+
         if (
-          req.user.orgType === "BROKER" &&
+          (req.user.orgType === "BROKER" || req.user.role === "SUB_BROKER") &&
           loan.brokerOrgId !== req.user.organizationId
         ) {
           return reply.code(403).send({
@@ -69,14 +71,14 @@ module.exports = async function getConversations(fastify) {
 
         // Client access (optional depending on your auth)
         if (
-  (req.user.orgType === "CLIENT" || req.user.role === "CLIENT") &&
-  loan.clientId !== req.user.clientId
-) {
-  return reply.code(403).send({
-    success: false,
-    message: "Access denied",
-  });
-}
+          (req.user.orgType === "CLIENT" || req.user.role === "CLIENT") &&
+          loan.clientId !== req.user.clientId
+        ) {
+          return reply.code(403).send({
+            success: false,
+            message: "Access denied",
+          });
+        }
 
         /* =====================================================
            3️⃣ FETCH CONVERSATIONS
@@ -85,6 +87,16 @@ module.exports = async function getConversations(fastify) {
         const conversations = await prisma.conversation.findMany({
           where: {
             loanApplicationId: loanId,
+
+            ...(req.user.role === "SUB_BROKER"
+              ? {
+                  participants: {
+                    some: {
+                      participantId: req.user.userId,
+                    },
+                  },
+                }
+              : {}),
           },
           include: {
             participants: true,
@@ -101,6 +113,28 @@ module.exports = async function getConversations(fastify) {
         /* =====================================================
            4️⃣ ENRICH DATA (CLIENT / LENDER NAME)
         ===================================================== */
+
+        const subBrokerParticipantIds = conversations.flatMap((conv) =>
+          conv.participants
+            .filter((p) => p.participantType === "SUB_BROKER")
+            .map((p) => p.participantId),
+        );
+
+        const subBrokerUsers = await prisma.userAccount.findMany({
+          where: {
+            id: {
+              in: subBrokerParticipantIds,
+            },
+          },
+
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+          },
+        });
+
+        const subBrokerMap = new Map(subBrokerUsers.map((u) => [u.id, u]));
 
         const formatted = await Promise.all(
           conversations.map(async (conv) => {
@@ -127,20 +161,42 @@ module.exports = async function getConversations(fastify) {
                 },
               });
 
-              title = `Lender - ${
-                appLender?.lender?.name || "Unknown"
-              }`;
+              title = `Lender - ${appLender?.lender?.name || "Unknown"}`;
+            }
+
+            // SUB BROKER CHAT
+
+            if (conv.type === "SUBBROKER_BROKER") {
+              const subBrokerParticipant = conv.participants.find(
+                (p) => p.participantType === "SUB_BROKER",
+              );
+
+              const subBroker = subBrokerMap.get(
+                subBrokerParticipant?.participantId,
+              );
+
+              const subBrokerName =
+                `${subBroker?.firstName || ""} ${
+                  subBroker?.lastName || ""
+                }`.trim() || "Sub Broker";
+title =
+  conv.chatCategory === "LOAN_OFFICER"
+    ? `Sub Broker • ${subBrokerName} (Loan Officer Chat)`
+    : `Sub Broker • ${subBrokerName}`;
             }
 
             return {
               id: conv.id,
+
               type: conv.type,
+
+              chatCategory: conv.chatCategory || null,
               title,
               lastMessage: conv.messages[0]?.text || null,
               lastMessageAt: conv.lastMessageAt,
               unread: false, // (we’ll handle later)
             };
-          })
+          }),
         );
 
         /* =====================================================
@@ -162,7 +218,7 @@ module.exports = async function getConversations(fastify) {
             loanId,
             userId: req.user?.id,
           },
-          "Failed to fetch conversations"
+          "Failed to fetch conversations",
         );
 
         return reply.code(500).send({
@@ -170,6 +226,6 @@ module.exports = async function getConversations(fastify) {
           message: "Internal server error",
         });
       }
-    }
+    },
   );
 };

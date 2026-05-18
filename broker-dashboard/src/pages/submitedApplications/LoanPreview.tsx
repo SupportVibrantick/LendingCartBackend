@@ -153,12 +153,21 @@ function getAuthHeaders(): HeadersInit {
 
 const getDocumentStatusChip = (status: string) => {
   switch (status) {
-    case "COMPLETED":
+    case "COMPLETE":
       return "bg-emerald-100 text-emerald-700";
+
     case "PARTIAL":
       return "bg-amber-100 text-amber-700";
+
     case "PENDING":
       return "bg-yellow-100 text-yellow-600";
+
+    case "SKIPPED":
+      return "bg-red-100 text-red-700";
+
+    case "SENT_TO_LENDER":
+      return "bg-blue-100 text-blue-700";
+
     default:
       return "bg-slate-100 text-slate-500";
   }
@@ -449,17 +458,31 @@ const LoanPreview = () => {
   // const [debouncedLenderSearch, setDebouncedLenderSearch] = useState("");
   // const itemsPerPage = 9;
 
-  const isAllSelected =
-    documentsData?.documents?.length > 0 &&
-    selectedRows.length === documentsData.documents.length;
+const selectableDocuments =
+  documentsData?.documents?.filter(
+    (d: any) =>
+      d.status !== "SKIPPED",
+  ) || [];
 
-  const handleSelectAll = () => {
-    if (isAllSelected) {
-      setSelectedRows([]);
-    } else {
-      setSelectedRows(documentsData.documents.map((d: any) => d.requirementId));
-    }
-  };
+const isAllSelected =
+  selectableDocuments.length > 0 &&
+  selectedRows.length ===
+    selectableDocuments.length;
+
+const handleSelectAll = () => {
+  if (isAllSelected) {
+    setSelectedRows([]);
+    return;
+  }
+
+  const selectableIds =
+    selectableDocuments.map(
+      (d: any) =>
+        d.requirementId,
+    );
+
+  setSelectedRows(selectableIds);
+};
 
   const handleSelectRow = (id: string) => {
     setSelectedRows((prev) =>
@@ -2754,9 +2777,10 @@ dark:bg-red-900/20 dark:text-red-400"
                       <td className="px-5 py-4">
                         <input
                           type="checkbox"
+                          disabled={doc.status === "SKIPPED"}
                           checked={selectedRows.includes(doc.requirementId)}
                           onChange={() => handleSelectRow(doc.requirementId)}
-                          className="h-4 w-4 accent-emerald-600 cursor-pointer"
+                          className="h-4 w-4 accent-emerald-600 cursor-pointer disabled:opacity-40"
                         />
                       </td>
                       {/* NAME */}
@@ -2775,13 +2799,30 @@ dark:bg-red-900/20 dark:text-red-400"
 
                       {/* SOURCE */}
                       <td className="px-5 py-4 text-center">
-                        <span className="px-3 py-1 text-xs rounded-full bg-indigo-100 text-indigo-700 font-medium">
-                          {doc.source === "BROKER_ADDED"
-                            ? "Broker"
-                            : doc?.requestedByLenders?.length
-                              ? doc.requestedByLenders[0].lenderName
-                              : "-"}
-                        </span>
+                        {(() => {
+                          let sourceLabel = "-";
+                          let sourceClass = "bg-slate-100 text-slate-600";
+
+                          if (doc.source === "BROKER_ADDED") {
+                            sourceLabel = "Principal Broker";
+                            sourceClass = "bg-indigo-100 text-indigo-700";
+                          } else if (doc.source === "SUB_BROKER_ADDED") {
+                            sourceLabel = "Sub Broker";
+                            sourceClass = "bg-cyan-100 text-cyan-700";
+                          } else if (doc?.requestedByLenders?.length) {
+                            sourceLabel = doc.requestedByLenders[0].lenderName;
+
+                            sourceClass = "bg-emerald-100 text-emerald-700";
+                          }
+
+                          return (
+                            <span
+                              className={`px-3 py-1 text-xs rounded-full font-medium ${sourceClass}`}
+                            >
+                              {sourceLabel}
+                            </span>
+                          );
+                        })()}
                       </td>
 
                       {/* STATUS */}
@@ -2791,7 +2832,9 @@ dark:bg-red-900/20 dark:text-red-400"
                             doc.status,
                           )}`}
                         >
-                          {doc.status}
+                         {doc.status
+  ?.replaceAll("_", " ")
+  ?.toUpperCase()}
                         </span>
                       </td>
 
@@ -2883,6 +2926,89 @@ dark:bg-red-900/20 dark:text-red-400"
                                 }}
                               />
                             </label>
+                            {doc.source === "SUB_BROKER_ADDED" &&
+                              doc.status !== "SKIPPED" && (
+                                <button
+                                  onClick={async () => {
+                                    const result = await Swal.fire({
+                                      title: "Skip Document?",
+                                      input: "textarea",
+                                      inputLabel: "Reason",
+                                      inputPlaceholder: "Enter skip reason...",
+                                      inputValidator: (value) => {
+                                        if (!value) {
+                                          return "Reason is required";
+                                        }
+                                      },
+                                      showCancelButton: true,
+                                      confirmButtonText: "Skip",
+                                      confirmButtonColor: "#dc2626",
+                                    });
+
+                                    if (!result.isConfirmed) return;
+
+                                    try {
+                                      const token =
+                                        sessionStorage.getItem("broker_token");
+
+                                      const res = await fetch(
+                                        `${API_BASE}/broker/loan-pipeline/sub-broker-submissions/${doc.subBrokerSubmissionId}/skip`,
+                                        {
+                                          method: "POST",
+
+                                          headers: {
+                                            "Content-Type": "application/json",
+
+                                            ...(token && {
+                                              Authorization: `Bearer ${token}`,
+                                            }),
+                                          },
+
+                                          body: JSON.stringify({
+                                            reason: result.value,
+                                          }),
+                                        },
+                                      );
+
+                                      const json = await res.json();
+
+                                      if (!res.ok || !json.success) {
+                                        throw new Error(
+                                          json.message ||
+                                            "Failed to skip document",
+                                        );
+                                      }
+
+                                      toast.success(
+                                        "Document skipped successfully",
+                                      );
+
+                                      setSelectedRows((prev) =>
+                                        prev.filter(
+                                          (id) => id !== doc.requirementId,
+                                        ),
+                                      );
+
+                                      await fetchSubmissionDocuments(
+                                        documentsData.submissionId,
+                                        page,
+                                        debouncedSearch,
+                                      );
+                                    } catch (err: any) {
+                                      toast.error(
+                                        err.message ||
+                                          "Failed to skip document",
+                                      );
+                                    } finally {
+                                      setActiveAction(null);
+                                    }
+                                  }}
+                                  className="flex w-full items-center gap-2 px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition"
+                                >
+                                  <Send size={14} />
+                                  Skip Document
+                                </button>
+                              )}
                           </div>
                         )}
                       </td>

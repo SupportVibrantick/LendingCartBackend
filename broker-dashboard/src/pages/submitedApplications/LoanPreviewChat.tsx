@@ -20,22 +20,55 @@ const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
 type Conversation = {
   id: string;
+
   title?: string;
+
   type?: string;
+
+  chatCategory?: "PRINCIPAL_BROKER" | "LOAN_OFFICER";
+
+  participant?: {
+    id?: string;
+
+    role?: string;
+
+    name?: string;
+
+    profileImage?: string | null;
+  };
+
   lastMessage?: string;
+
   lastMessageAt?: string;
+
   unread?: boolean;
+
+  unreadCount?: number;
 };
 
 type ChatMessage = {
   id: string;
+
   conversationId?: string;
+
   senderType?: string;
+
+  senderUserId?: string;
+
+  senderClientUserId?: string;
+
+  senderName?: string;
+
   type?: string;
+
   fileUrl?: string;
+
   fileName?: string;
+
   mimeType?: string;
+
   text?: string;
+
   createdAt: string;
 };
 
@@ -101,6 +134,7 @@ const getAvatarTone = (value?: string) => {
 };
 
 const LoanPreviewChat = ({ applicationId }: LoanPreviewChatProps) => {
+  const activeConversationRef = useRef<string | null>(null);
   const socketRef = useRef<Socket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -219,27 +253,20 @@ const LoanPreviewChat = ({ applicationId }: LoanPreviewChatProps) => {
     }
   };
 
-  const joinConversation = async (conversationId: string) => {
-    await fetchMessages(conversationId);
-
-    setConversations((prev) =>
-      prev.map((item) =>
-        item.id === conversationId ? { ...item, unread: false } : item,
-      ),
-    );
-
-    const socket = socketRef.current;
-    if (!socket || !socket.connected) return;
-
-    socket.emit("joinConversation", { conversationId });
-    socket.emit("markAsRead", { conversationId });
-  };
-
-  const handleSelectConversation = (conversation: Conversation) => {
+  const handleSelectConversation = async (conversation: Conversation) => {
     setSelectedConversation(conversation);
+
+    setMessages([]);
+
     setConversations((prev) =>
       prev.map((item) =>
-        item.id === conversation.id ? { ...item, unread: false } : item,
+        item.id === conversation.id
+          ? {
+              ...item,
+              unread: false,
+              unreadCount: 0,
+            }
+          : item,
       ),
     );
   };
@@ -255,8 +282,7 @@ const LoanPreviewChat = ({ applicationId }: LoanPreviewChatProps) => {
   };
 
   const handleSendMessage = async () => {
-    const socket = socketRef.current;
-    if (!selectedConversation?.id || !socket) return;
+    if (!selectedConversation?.id) return;
 
     try {
       setSendingMessage(true);
@@ -283,13 +309,56 @@ const LoanPreviewChat = ({ applicationId }: LoanPreviewChatProps) => {
         fileName = selectedFile.name;
       }
 
-      socket.emit("sendMessage", {
-        conversationId: selectedConversation.id,
-        type: selectedFile ? "FILE" : "TEXT",
-        text: messageText.trim(),
-        fileUrl,
-        fileName,
-      });
+      const token = getToken();
+
+      const response = await fetch(
+        `${API_BASE}/messaging/conversation/${selectedConversation.id}/message`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token && {
+              Authorization: `Bearer ${token}`,
+            }),
+          },
+          body: JSON.stringify({
+            type: selectedFile ? "FILE" : "TEXT",
+            text: messageText.trim(),
+            fileUrl,
+            fileName,
+            mimeType: selectedFile?.type,
+            fileSize: selectedFile?.size,
+          }),
+        },
+      );
+
+      const json = await response.json();
+
+      if (!response.ok || !json.success) {
+        throw new Error(json.message || "Failed to send message");
+      }
+
+      // const newMessage = json.data;
+
+      // setMessages((prev) => {
+      //   const alreadyExists = prev.some((item) => item.id === newMessage.id);
+
+      //   if (alreadyExists) return prev;
+
+      //   return [...prev, newMessage];
+      // });
+
+      setConversations((prev) =>
+        prev.map((item) =>
+          item.id === selectedConversation.id
+            ? {
+                ...item,
+                lastMessage: json.data.text || json.data.fileName || "File",
+                lastMessageAt: json.data.createdAt,
+              }
+            : item,
+        ),
+      );
 
       setMessageText("");
       removeSelectedFile();
@@ -361,34 +430,7 @@ const LoanPreviewChat = ({ applicationId }: LoanPreviewChatProps) => {
   }, []);
 
   useEffect(() => {
-    const socket = socketRef.current;
-    if (!socket) return;
-
-    const handleNewMessage = (msg: ChatMessage) => {
-      setConversations((prev) =>
-        prev.map((item) =>
-          item.id === msg.conversationId
-            ? {
-                ...item,
-                lastMessage: msg.text || msg.fileName || "File",
-                lastMessageAt: msg.createdAt,
-                unread: selectedConversation?.id !== msg.conversationId,
-              }
-            : item,
-        ),
-      );
-
-      setMessages((prev) => {
-        if (msg.conversationId !== selectedConversation?.id) return prev;
-        if (prev.some((item) => item.id === msg.id)) return prev;
-        return [...prev, msg];
-      });
-    };
-
-    socket.on("newMessage", handleNewMessage);
-    return () => {
-      socket.off("newMessage", handleNewMessage);
-    };
+    activeConversationRef.current = selectedConversation?.id || null;
   }, [selectedConversation?.id]);
 
   useEffect(() => {
@@ -408,22 +450,99 @@ const LoanPreviewChat = ({ applicationId }: LoanPreviewChatProps) => {
   }, []);
 
   useEffect(() => {
-    const socket = socketRef.current;
-    if (!socket || !selectedConversation?.id) return;
+    if (!selectedConversation?.id) return;
 
-    const syncConversation = () => {
-      joinConversation(selectedConversation.id);
+    const socket = socketRef.current;
+
+    const initConversation = async () => {
+      await fetchMessages(selectedConversation.id);
+
+      setConversations((prev) =>
+        prev.map((item) =>
+          item.id === selectedConversation.id
+            ? {
+                ...item,
+                unread: false,
+                unreadCount: 0,
+              }
+            : item,
+        ),
+      );
+
+      if (socket) {
+        socket.emit("joinConversation", {
+          conversationId: selectedConversation.id,
+        });
+
+        socket.emit("markAsRead", {
+          conversationId: selectedConversation.id,
+        });
+      }
     };
 
-    if (socket.connected) {
-      syncConversation();
-    }
+    initConversation();
 
-    socket.on("connect", syncConversation);
+    const handleConnect = () => {
+      socket?.emit("joinConversation", {
+        conversationId: selectedConversation.id,
+      });
+    };
+
+    socket?.on("connect", handleConnect);
+
     return () => {
-      socket.off("connect", syncConversation);
+      socket?.off("connect", handleConnect);
     };
   }, [selectedConversation?.id]);
+
+  useEffect(() => {
+    const socket = socketRef.current;
+
+    if (!socket) return;
+
+    const handleRealtimeMessage = (msg: ChatMessage) => {
+      if (!msg || !msg.id) return;
+      setConversations((prev) =>
+        prev.map((item) =>
+          item.id === msg.conversationId
+            ? {
+                ...item,
+
+                lastMessage: msg.text || msg.fileName || "File",
+
+                lastMessageAt: msg.createdAt,
+
+                unread: activeConversationRef.current !== msg.conversationId,
+
+                unreadCount:
+                  activeConversationRef.current !== msg.conversationId
+                    ? (item.unreadCount || 0) + 1
+                    : 0,
+              }
+            : item,
+        ),
+      );
+
+      setMessages((prev) => {
+        const isCurrentChat =
+          msg.conversationId === activeConversationRef.current;
+
+        if (!isCurrentChat) return prev;
+
+        const alreadyExists = prev.some((item) => item.id === msg.id);
+
+        if (alreadyExists) return prev;
+
+        return [...prev, msg];
+      });
+    };
+
+    socket.on("newMessage", handleRealtimeMessage);
+
+    return () => {
+      socket.off("newMessage", handleRealtimeMessage);
+    };
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -454,16 +573,18 @@ const LoanPreviewChat = ({ applicationId }: LoanPreviewChatProps) => {
     }
   }, [messages]);
 
+  const brokerUser = JSON.parse(sessionStorage.getItem("broker_user") || "{}");
+
   const isChatSelected = Boolean(selectedConversation);
 
   return (
     <div
-      className="grid h-[80vh] overflow-hidden rounded-[22px] border border-slate-200 
+      className="grid h-[calc(100vh-220px)] min-h-0 overflow-hidden rounded-[22px] border border-slate-200 
 bg-slate-50 dark:bg-slate-950 
 dark:border-slate-800 lg:grid-cols-[320px_minmax(0,1fr)]"
     >
       <aside
-        className="flex h-full flex-col border-b border-slate-200 
+        className="flex h-full min-h-0 flex-col border-b border-slate-200 
 bg-[#fbfbfa] 
 dark:bg-slate-900 dark:border-slate-800 
 lg:border-b-0 lg:border-r"
@@ -511,7 +632,7 @@ lg:border-b-0 lg:border-r"
           </p>
         </div>
 
-        <div className="flex-1 overflow-y-auto">
+        <div className="min-h-0 flex-1 overflow-y-auto">
           {chatLoading ? (
             <div className="space-y-3 px-4 py-4">
               {[1, 2, 3, 4, 5].map((item) => (
@@ -533,7 +654,7 @@ lg:border-b-0 lg:border-r"
               </p>
               <p className="mt-2 max-w-[220px] text-xs leading-6 text-slate-400">
                 {conversations.length === 0
-                  ? "Chats will appear here once messaging starts."
+                  ? "Open Principal Broker or Loan Officer chat to start messaging."
                   : "Try another keyword or participant name."}
               </p>
             </div>
@@ -566,22 +687,52 @@ lg:border-b-0 lg:border-r"
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-2">
                         <p className="truncate text-xs font-semibold text-slate-900 dark:text-slate-300">
-                          {chat.title || "Conversation"}
+                         {chat.type === "CLIENT_BROKER"
+  ? chat.title || "Client Chat"
+  : chat.title ||
+    (chat.chatCategory === "LOAN_OFFICER"
+      ? "Loan Officer Chat"
+      : "Sub Broker Chat")}
                         </p>
                         <span className="text-[10px] text-slate-400">
                           {formatTime(chat.lastMessageAt)}
                         </span>
                       </div>
 
+                      {(chat.type === "SUBBROKER_BROKER" ||
+  chat.type === "CLIENT_BROKER") && (
+                        <div className="mt-1 flex items-center gap-1">
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-[9px] font-medium ${
+                              chat.type === "CLIENT_BROKER"
+  ? "bg-emerald-100 text-emerald-700"
+  : chat.chatCategory === "LOAN_OFFICER"
+    ? "bg-violet-100 text-violet-700"
+    : "bg-sky-100 text-sky-700"
+                            }`}
+                          >
+                           {chat.type === "CLIENT_BROKER"
+  ? "Client Chat"
+  : chat.chatCategory === "LOAN_OFFICER"
+    ? "Loan Officer Chat"
+    : "Sub Broker Chat"}
+                          </span>
+                        </div>
+                      )}
+
                       <div className="mt-1 flex items-center justify-between gap-2">
                         <p className="truncate text-xs text-slate-500">
-                          {chat.lastMessage || "No messages yet"}
+                          {chat.lastMessage
+                            ? chat.lastMessage.length > 40
+                              ? `${chat.lastMessage.slice(0, 40)}...`
+                              : chat.lastMessage
+                            : "No messages yet"}
                         </p>
-                        {chat.unread && (
+                        {chat.unreadCount ? (
                           <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-lime-500 px-1 text-[10px] font-semibold text-white">
-                            1
+                            {chat.unreadCount}
                           </span>
-                        )}
+                        ) : null}
                       </div>
                     </div>
                   </button>
@@ -592,7 +743,7 @@ lg:border-b-0 lg:border-r"
         </div>
       </aside>
 
-      <section className="flex min-h-0 flex-col bg-[#f8f8f6] dark:bg-slate-950">
+      <section className="relative flex h-full min-h-0 flex-col bg-[#f8f8f6] dark:bg-slate-950">
         {!isChatSelected ? (
           <div className="flex h-full items-center justify-center px-6 text-center">
             <div className="max-w-md">
@@ -600,10 +751,11 @@ lg:border-b-0 lg:border-r"
                 <FiMessageCircle size={24} />
               </div>
               <h3 className="mt-5 text-xl font-semibold text-slate-900 dark:text-slate-400">
-                Select a conversation
+                Open a conversation
               </h3>
               <p className="mt-2 text-sm leading-7 text-slate-500">
-                Choose any chat from the left panel to open the thread.
+                Open any client, lender, or sub broker conversation from the
+                left panel.
               </p>
             </div>
           </div>
@@ -624,9 +776,30 @@ lg:border-b-0 lg:border-r"
                   <p className="truncate text-lg font-semibold text-slate-900 dark:text-slate-300">
                     {selectedConversation?.title || "Conversation"}
                   </p>
-                  <p className="text-xs text-slate-400">
-                    {typingUser ? "Typing..." : "Online"}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs text-slate-400">
+                      {typingUser ? "Typing..." : "Online"}
+                    </p>
+
+                    {(selectedConversation?.chatCategory ||
+  selectedConversation?.type === "CLIENT_BROKER") && (
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                      selectedConversation?.type === "CLIENT_BROKER"
+  ? "bg-emerald-100 text-emerald-700"
+  : selectedConversation.chatCategory === "LOAN_OFFICER"
+    ? "bg-violet-100 text-violet-700"
+    : "bg-sky-100 text-sky-700"
+                        }`}
+                      >
+                      {selectedConversation?.type === "CLIENT_BROKER"
+  ? "Client Chat"
+  : selectedConversation.chatCategory === "LOAN_OFFICER"
+    ? "Loan Officer Chat"
+    : "Sub Broker Chat"}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -645,7 +818,7 @@ lg:border-b-0 lg:border-r"
 
             <div
               ref={containerRef}
-              className="flex-1 overflow-y-auto 
+              className="h-full min-h-0 flex-1 overflow-y-auto
 bg-[#f8f8f6] dark:bg-slate-950 px-4 py-5 sm:px-7"
             >
               {messagesLoading ? (
@@ -658,7 +831,7 @@ bg-[#f8f8f6] dark:bg-slate-950 px-4 py-5 sm:px-7"
                   ))}
                 </div>
               ) : messages.length === 0 ? (
-                <div className="flex h-full items-center justify-center text-center">
+                <div className="flex min-h-[300px] items-center justify-center text-center">
                   <div>
                     <p className="text-sm font-medium text-slate-400">
                       Beginning of your conversation
@@ -671,7 +844,9 @@ bg-[#f8f8f6] dark:bg-slate-950 px-4 py-5 sm:px-7"
               ) : (
                 <div className="space-y-5">
                   {messages.map((msg, index) => {
-                    const isBroker = msg.senderType === "BROKER";
+                    const isOwnMessage =
+                      msg.senderUserId === brokerUser?.id ||
+                      msg.senderClientUserId === brokerUser?.id;
                     const previousMessage =
                       index > 0 ? messages[index - 1] : null;
                     const currentDay = formatDayLabel(msg.createdAt);
@@ -691,17 +866,25 @@ bg-[#f8f8f6] dark:bg-slate-950 px-4 py-5 sm:px-7"
                         )}
 
                         <div
-                          className={`flex ${isBroker ? "justify-end" : "justify-start"}`}
+                          className={`flex ${isOwnMessage ? "justify-end" : "justify-start"}`}
                         >
                           <div
-                            className={`flex max-w-[80%] items-end gap-2 ${isBroker ? "flex-row-reverse" : "flex-row"}`}
+                            className={`flex max-w-[80%] items-end gap-2 ${isOwnMessage ? "flex-row-reverse" : "flex-row"}`}
                           >
                             <div
-                              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold ${getAvatarTone(isBroker ? "Broker" : selectedConversation?.title)}`}
+                              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold ${getAvatarTone(
+                                isOwnMessage
+                                  ? msg.senderType === "SUB_BROKER"
+                                    ? "Sub Broker"
+                                    : "Broker"
+                                  : selectedConversation?.title,
+                              )}`}
                             >
                               {getInitials(
-                                isBroker
-                                  ? "Broker"
+                                isOwnMessage
+                                  ? msg.senderType === "SUB_BROKER"
+                                    ? "Sub Broker"
+                                    : "Broker"
                                   : selectedConversation?.title,
                               )}
                             </div>
@@ -712,7 +895,7 @@ bg-[#f8f8f6] dark:bg-slate-950 px-4 py-5 sm:px-7"
                               </div>
 
                               <div
-                                className={`rounded-[18px] border px-4 py-2.5 text-sm leading-6 ${isBroker ? "border-sky-500 bg-sky-500 text-white" : "border-slate-200 bg-white text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"}`}
+                                className={`rounded-[18px] border px-4 py-2.5 text-sm leading-6 ${isOwnMessage ? "border-sky-500 bg-sky-500 text-white" : "border-slate-200 bg-white text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"}`}
                               >
                                 {msg.type === "FILE" && msg.fileUrl && (
                                   <div className={msg.text ? "mb-3" : ""}>
@@ -727,7 +910,7 @@ bg-[#f8f8f6] dark:bg-slate-950 px-4 py-5 sm:px-7"
                                         href={msg.fileUrl}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-sm ${isBroker ? "border-sky-400 bg-sky-400 text-white" : "border-slate-200 bg-slate-50 text-slate-700"}`}
+                                        className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-sm ${isOwnMessage ? "border-sky-400 bg-sky-400 text-white" : "border-slate-200 bg-slate-50 text-slate-700"}`}
                                       >
                                         <FiPaperclip />
                                         {msg.fileName || "Download file"}
@@ -753,7 +936,7 @@ bg-[#f8f8f6] dark:bg-slate-950 px-4 py-5 sm:px-7"
               )}
             </div>
 
-            <div className="border-t border-slate-200 bg-[#fbfbfa] dark:bg-slate-900 dark:border-slate-800 px-4 py-3 sm:px-5">
+            <div className="relative z-20 shrink-0 border-t border-slate-200 bg-[#fbfbfa] dark:bg-slate-900 dark:border-slate-800 px-4 py-3 sm:px-5">
               {showEmojiPicker && (
                 <div
                   ref={emojiPickerRef}
@@ -792,7 +975,7 @@ bg-[#f8f8f6] dark:bg-slate-950 px-4 py-5 sm:px-7"
               )}
 
               <div
-                className="flex items-center gap-2 border border-slate-200 bg-white 
+                className="flex w-full items-center gap-2 border border-slate-200 bg-white 
   dark:bg-slate-900 dark:border-slate-800
   px-3 py-2.5 rounded-xl shadow-sm"
               >
@@ -829,7 +1012,7 @@ bg-[#f8f8f6] dark:bg-slate-950 px-4 py-5 sm:px-7"
                   onChange={(e) => setMessageText(e.target.value)}
                   onKeyDown={handleMessageInputKeyDown}
                   placeholder="Write a message..."
-                  className="min-w-0 flex-1 border-none bg-transparent px-2 text-sm 
+                  className="w-full flex-1 border-none bg-transparent px-2 text-sm
     text-slate-700 dark:text-slate-200 
     outline-none placeholder:text-slate-400"
                 />

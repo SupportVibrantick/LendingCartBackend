@@ -16,10 +16,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { useLocation, useNavigate } from "react-router";
 import { motion } from "framer-motion";
-import Select, { components } from "react-select";
+// import Select, { components } from "react-select";
 
 import { FiFolder, FiSend, FiTag, FiUser } from "react-icons/fi";
-import Swal from "sweetalert2";
+// import Swal from "sweetalert2";
 import { FaRegCreditCard } from "react-icons/fa6";
 import LoanPreviewChat from "./LoanPreviewChat";
 import FeeAgreement from "./FeeAgreement";
@@ -151,16 +151,65 @@ function getAuthHeaders(): HeadersInit {
   };
 }
 
-const getDocumentStatusChip = (status: string) => {
+const getDocumentStatusChip = (
+  status: string,
+) => {
   switch (status) {
     case "COMPLETED":
       return "bg-emerald-100 text-emerald-700";
+
     case "PARTIAL":
       return "bg-amber-100 text-amber-700";
+
     case "PENDING":
-      return "bg-yellow-100 text-yellow-600";
+      return "bg-yellow-100 text-yellow-700";
+
+    case "SKIPPED":
+      return "bg-red-100 text-red-700";
+
+    case "SENT TO PRINCIPAL BROKER":
+      return "bg-blue-100 text-blue-700";
+
     default:
       return "bg-slate-100 text-slate-500";
+  }
+};
+
+const getSourceChip = (source?: string) => {
+  switch (source) {
+    case "SUB_BROKER_ADDED":
+      return "bg-cyan-100 text-cyan-700";
+
+    case "BROKER_ADDED":
+      return "bg-blue-100 text-blue-700";
+
+    case "LENDER_ADDED":
+      return "bg-purple-100 text-purple-700";
+
+    case "PRODUCT_DEFAULT":
+      return "bg-slate-100 text-slate-700";
+
+    default:
+      return "bg-gray-100 text-gray-600";
+  }
+};
+
+const formatSource = (source?: string) => {
+  switch (source) {
+    case "SUB_BROKER_ADDED":
+      return "Sub Broker";
+
+    case "BROKER_ADDED":
+      return "Principal Broker";
+
+    case "LENDER_ADDED":
+      return "Lender";
+
+    case "PRODUCT_DEFAULT":
+      return "System";
+
+    default:
+      return source || "-";
   }
 };
 
@@ -427,8 +476,7 @@ const LoanPreview = () => {
   const [requestMessage, setRequestMessage] = useState("");
   const [requestSubmitting, setRequestSubmitting] = useState(false);
 
-  const [submittedLenders, setSubmittedLenders] = useState<any[]>([]);
-  const [selectedLenders, setSelectedLenders] = useState<string[]>([]);
+  // const [submittedLenders, setSubmittedLenders] = useState<any[]>([]);
 
   const [documentsLoading, setDocumentsLoading] = useState(false);
   const [documentsData, setDocumentsData] = useState<any>(null);
@@ -472,153 +520,34 @@ const LoanPreview = () => {
   const [limit] = useState(10);
   const [pagination, setPagination] = useState<any>(null);
   // const [search, setSearch] = useState("");
-  const [selectedRows, setSelectedRows] = useState<string[]>([]);
-  const [sending, setSending] = useState(false);
+  // const [selectedRows, setSelectedRows] = useState<string[]>([]);
   // const [currentPage, setCurrentPage] = useState(1);
 
   // const [search, setSearch] = useState("");
   // const [debouncedLenderSearch, setDebouncedLenderSearch] = useState("");
   // const itemsPerPage = 9;
 
-  const isAllSelected =
-    documentsData?.documents?.length > 0 &&
-    selectedRows.length === documentsData.documents.length;
+  // const isAllSelected =
+  //   documentsData?.documents?.length > 0 &&
+  //   selectedRows.length === documentsData.documents.length;
 
-  const handleSelectAll = () => {
-    if (isAllSelected) {
-      setSelectedRows([]);
-    } else {
-      setSelectedRows(documentsData.documents.map((d: any) => d.requirementId));
-    }
-  };
+  // const handleSelectAll = () => {
+  //   if (isAllSelected) {
+  //     setSelectedRows([]);
+  //   } else {
+  //     setSelectedRows(documentsData.documents.map((d: any) => d.requirementId));
+  //   }
+  // };
 
-  const handleSelectRow = (id: string) => {
-    setSelectedRows((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
-    );
-  };
-
-  const fetchSubmittedLenders = async () => {
-    if (!applicationId) return;
-
-    try {
-      setLenderLoading(true);
-
-      const token = sessionStorage.getItem("sub_broker_token");
-
-      const res = await fetch(
-        `${API_BASE}/subbroker/documents/${applicationId}/submitted-lenders`,
-        {
-          headers: {
-            ...(token && { Authorization: `Bearer ${token}` }),
-          },
-        },
-      );
-
-      const json = await res.json();
-
-      if (!res.ok || !json.success) {
-        throw new Error("Failed to fetch lenders");
-      }
-
-      setSubmittedLenders(json.data || []);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLenderLoading(false);
-    }
-  };
-
-  const handleSendToLender = async () => {
-    if (!submissionId || selectedRows.length === 0) {
-      toast.error("Please select at least one document");
-      return;
-    }
-
-    if (selectedLenders.length === 0) {
-      toast.error("Please select at least one lender");
-      return;
-    }
-
-    const result = await Swal.fire({
-      title: "Send Documents?",
-      text: "Selected documents will be sent to selected lenders.",
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonText: "Yes, send",
-      cancelButtonText: "Cancel",
-      confirmButtonColor: "#2563eb",
-      cancelButtonColor: "#ef4444",
-    });
-
-    if (!result.isConfirmed) return;
-
-    try {
-      setSending(true);
-
-      Swal.fire({
-        title: "Sending...",
-        text: "Please wait while we send documents",
-        allowOutsideClick: false,
-        didOpen: () => {
-          Swal.showLoading();
-        },
-      });
-
-      const token = sessionStorage.getItem("broker_token");
-
-      const payload = {
-        lenders: selectedLenders.map((applicationLenderId) => ({
-          applicationLenderId,
-          requirementIds: selectedRows,
-        })),
-      };
-
-      const res = await fetch(
-        `${API_BASE}/broker/loan-pipeline/submissions/${submissionId}/documents/submit`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token && { Authorization: `Bearer ${token}` }),
-          },
-          body: JSON.stringify(payload),
-        },
-      );
-
-      const json = await res.json();
-
-      if (!res.ok || !json.success) {
-        throw new Error(json.message || "Failed to send documents");
-      }
-
-      await Swal.fire({
-        title: "Success",
-        text: "Documents sent to lenders successfully",
-        icon: "success",
-        confirmButtonColor: "#22c55e",
-      });
-
-      setSelectedRows([]);
-      setSelectedLenders([]);
-
-      await fetchSubmissionDocuments(submissionId, page, debouncedSearch);
-    } catch (err: any) {
-      Swal.fire({
-        title: "Error",
-        text: err.message || "Something went wrong",
-        icon: "error",
-        confirmButtonColor: "#ef4444",
-      });
-    } finally {
-      setSending(false);
-    }
-  };
+  // const handleSelectRow = (id: string) => {
+  //   setSelectedRows((prev) =>
+  //     prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
+  //   );
+  // };
 
   const fields = submissionDetail?.fields || [];
   const applicationId = submissionDetail?.applicationId;
   const submissionId = Location.state?.submissionId;
-
 
   const formatPhoneNumber = (value: string) => {
     const digits = value.replace(/\D/g, "").slice(0, 10);
@@ -951,7 +880,7 @@ const LoanPreview = () => {
   //       formData.append("file", file);
 
   //       const res = await fetch(
-  //         `${API_BASE}/subbroker/documents/submissions/${currentSubmissionId}/documents/${requirementId}/upload`, 
+  //         `${API_BASE}/subbroker/documents/submissions/${currentSubmissionId}/documents/${requirementId}/upload`,
   //         {
   //           method: "POST",
   //           headers: {
@@ -985,12 +914,6 @@ const LoanPreview = () => {
   //     setUploadingDocId(null);
   //   }
   // };
-
-  useEffect(() => {
-    if (activeTab === "documents" && applicationId) {
-      fetchSubmittedLenders();
-    }
-  }, [activeTab, applicationId]);
 
   useEffect(() => {
     setSubmissionDetail(null);
@@ -2449,59 +2372,6 @@ dark:bg-red-900/20 dark:text-red-400"
   //   );
   // };
 
-  const lenderOptions = useMemo(() => {
-    return submittedLenders.map((l) => ({
-      value: l.applicationLenderId,
-      label: l.lenderName,
-      status: l.status,
-    }));
-  }, [submittedLenders]);
-
-  const CustomOption = (props: any) => {
-    const { data } = props;
-
-    return (
-      <components.Option {...props}>
-        <div className="flex items-center justify-between gap-2">
-          {/* LEFT */}
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium">{data.label}</span>
-          </div>
-
-          {/* STATUS */}
-          <span
-            className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${
-              data.status === "IN_REVIEW"
-                ? "bg-yellow-100 text-yellow-700"
-                : "bg-blue-100 text-blue-700"
-            }`}
-          >
-            {data.status}
-          </span>
-        </div>
-      </components.Option>
-    );
-  };
-
-  const CustomMultiValue = (props: any) => {
-    const { data } = props;
-
-    return (
-      <components.MultiValue {...props}>
-        <div className="flex items-center gap-1">
-          <span>{data.label}</span>
-        </div>
-      </components.MultiValue>
-    );
-  };
-
-  const selectAllOption = {
-    value: "__all__",
-    label: "Select All Lenders",
-  };
-
-  const finalOptions = [selectAllOption, ...lenderOptions];
-
   const renderDocuments = () => (
     <div className="min-h-screen h-[90vh] rounded-3xl  p-6">
       {/* HEADER */}
@@ -2517,65 +2387,6 @@ dark:bg-red-900/20 dark:text-red-400"
         </div>
 
         <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
-          {selectedRows.length > 0 && (
-            <div className="w-full md:w-72 z-999">
-              <Select
-                isMulti
-                options={finalOptions}
-                value={lenderOptions.filter((opt) =>
-                  selectedLenders.includes(opt.value),
-                )}
-                closeMenuOnSelect={false}
-                hideSelectedOptions={false}
-                placeholder="Select Lenders"
-                isLoading={lenderLoading}
-                onChange={(selected: any) => {
-                  if (!selected) {
-                    setSelectedLenders([]);
-                    return;
-                  }
-
-                  const isSelectAll = selected.find(
-                    (s: any) => s.value === "__all__",
-                  );
-
-                  if (isSelectAll) {
-                    setSelectedLenders(lenderOptions.map((l) => l.value));
-                  } else {
-                    setSelectedLenders(selected.map((s: any) => s.value));
-                  }
-                }}
-                components={{
-                  Option: CustomOption,
-                  MultiValue: (props) => {
-                    if (props.index < 2) return <CustomMultiValue {...props} />;
-                    if (props.index === 2)
-                      return (
-                        <div className="text-xs px-2">
-                          +{selectedLenders.length - 2} more
-                        </div>
-                      );
-                    return null;
-                  },
-                }}
-                styles={{
-                  control: (base) => ({
-                    ...base,
-                    minHeight: "42px",
-                    maxHeight: "42px",
-                    overflow: "hidden",
-                    borderRadius: "12px",
-                  }),
-                  valueContainer: (base) => ({
-                    ...base,
-                    flexWrap: "nowrap",
-                    overflow: "hidden",
-                  }),
-                }}
-              />
-            </div>
-          )}
-
           {/* SEARCH */}
           <div className="relative w-full md:w-80">
             <input
@@ -2599,33 +2410,6 @@ dark:bg-red-900/20 dark:text-red-400"
         </div>
       </div>
 
-      {selectedRows.length > 0 && (
-        <div className="mb-4 flex items-center justify-between rounded-2xl border border-blue-200 bg-gradient-to-r from-blue-50 to-cyan-50 px-5 py-3 shadow-sm dark:border-blue-900/40 dark:from-slate-900 dark:to-slate-800">
-          {/* LEFT TEXT */}
-          <p className="text-sm font-medium text-blue-700 dark:text-cyan-300">
-            {selectedRows.length} document(s) selected
-          </p>
-
-          {/* BUTTON */}
-          <button
-            onClick={handleSendToLender}
-            className="inline-flex items-center gap-2 px-3 py-2 text-xs font-semibold
-      bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-xl
-      shadow-md hover:shadow-lg hover:scale-[1.03] active:scale-95
-      transition-all duration-200"
-          >
-            {sending ? (
-              "Sending..."
-            ) : (
-              <>
-                <FiSend size={16} />
-                Send To Lender
-              </>
-            )}
-          </button>
-        </div>
-      )}
-
       {documentsLoading ? (
         <div className="flex flex-col items-center justify-center py-16">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-500 border-t-transparent"></div>
@@ -2639,14 +2423,14 @@ dark:bg-red-900/20 dark:text-red-400"
               {/* HEADER */}
               <thead className="sticky top-0 z-10 bg-white/80 backdrop-blur border-b dark:bg-slate-900/80">
                 <tr className="text-xs uppercase text-slate-500">
-                  <th className="px-5 py-4 text-left">
+                  {/* <th className="px-5 py-4 text-left">
                     <input
                       type="checkbox"
                       checked={isAllSelected}
                       onChange={handleSelectAll}
                       className="h-4 w-4 accent-emerald-600 cursor-pointer"
                     />
-                  </th>
+                  </th> */}
                   <th className="px-5 py-4 text-left">Document</th>
                   <th className="px-5 py-4 text-center">Source</th>
                   <th className="px-5 py-4 text-center">Status</th>
@@ -2665,14 +2449,14 @@ dark:bg-red-900/20 dark:text-red-400"
                       key={doc.requirementId}
                       className="group hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-all hover:shadow-sm"
                     >
-                      <td className="px-5 py-4">
+                      {/* <td className="px-5 py-4">
                         <input
                           type="checkbox"
                           checked={selectedRows.includes(doc.requirementId)}
                           onChange={() => handleSelectRow(doc.requirementId)}
                           className="h-4 w-4 accent-emerald-600 cursor-pointer"
                         />
-                      </td>
+                      </td> */}
                       {/* NAME */}
                       <td className="px-5 py-4">
                         <div className="flex flex-col">
@@ -2688,31 +2472,53 @@ dark:bg-red-900/20 dark:text-red-400"
                       </td>
 
                       {/* SOURCE */}
-                      <td className="px-5 py-4 text-center">
-                        <span className="px-3 py-1 text-xs rounded-full bg-indigo-100 text-indigo-700 font-medium">
-                          {doc.source === "BROKER_ADDED"
-                            ? "Broker"
-                            : doc?.requestedByLenders?.length
-                              ? doc.requestedByLenders[0].lenderName
-                              : "-"}
+                      <td className="px-4 py-3">
+                        <span
+                          className={`rounded-full px-2 py-1 text-xs font-semibold ${getSourceChip(
+                            doc.source,
+                          )}`}
+                        >
+                          {formatSource(doc.source)}
                         </span>
                       </td>
 
-                      {/* STATUS */}
-                      <td className="px-5 py-4 text-center">
-                        <span
-                          className={`px-3 py-1 rounded-full text-xs font-semibold ${getDocumentStatusChip(
-                            doc.status,
-                          )}`}
-                        >
-                          {doc.status}
-                        </span>
-                      </td>
+ {/* STATUS */}
+<td className="px-5 py-4 text-center">
+  <div className="flex flex-col items-center gap-1">
+    <span
+      className={`px-3 py-1 rounded-full text-xs font-semibold ${getDocumentStatusChip(
+        doc.status,
+      )}`}
+    >
+      {doc.status
+        ?.replaceAll("_", " ")
+        ?.toUpperCase()}
+    </span>
+
+    {doc.isSentToBroker &&
+      doc.status !== "SKIPPED" && (
+        <span className="text-[10px] font-medium text-blue-600">
+          SENT TO PRINCIPAL BROKER
+        </span>
+      )}
+
+    {doc.skipReason && (
+      <span className="max-w-[180px] text-center text-[11px] text-red-500">
+        Reason: {doc.skipReason}
+      </span>
+    )}
+  </div>
+</td>
 
                       {/* FILES */}
                       <td className="px-5 py-4 text-center">
                         {doc.uploadedCount > 0 ? (
                           <div className="flex justify-center items-center gap-2">
+                            {doc.isSentToBroker && (
+                              <span className="px-2 py-1 text-[10px] rounded-full bg-blue-100 text-blue-700 font-semibold">
+                                Sent To PB
+                              </span>
+                            )}
                             <span className="px-3 py-1 text-xs rounded-full bg-emerald-100 text-emerald-700 font-semibold">
                               {doc.uploadedCount} Files
                             </span>
@@ -2735,23 +2541,19 @@ dark:bg-red-900/20 dark:text-red-400"
                       </td>
 
                       {/* ACTION */}
-<td className="relative px-5 py-4 text-right">
-  <button
-    onClick={() =>
-      setActiveAction(
-        isOpen
-          ? null
-          : doc.requirementId,
-      )
-    }
-    className="rounded-lg p-2 transition hover:bg-slate-100 dark:hover:bg-slate-700"
-  >
-    <MoreVertical size={16} />
-  </button>
+                      <td className="relative px-5 py-4 text-right">
+                        <button
+                          onClick={() =>
+                            setActiveAction(isOpen ? null : doc.requirementId)
+                          }
+                          className="rounded-lg p-2 transition hover:bg-slate-100 dark:hover:bg-slate-700"
+                        >
+                          <MoreVertical size={16} />
+                        </button>
 
-  {isOpen && (
-    <div
-      className="
+                        {isOpen && (
+                          <div
+                            className="
 absolute right-0 z-50 mt-2 w-44 overflow-hidden
 rounded-xl border border-slate-200
 bg-white shadow-2xl
@@ -2760,110 +2562,140 @@ animate-in fade-in zoom-in-95
 dark:border-slate-700
 dark:bg-slate-900
 "
-    >
-      <label
-        className="
+                          >
+                            <label
+                              className="
 flex cursor-pointer items-center gap-2
 px-4 py-3 text-sm text-amber-600
 transition hover:bg-amber-50
 dark:hover:bg-amber-500/10
 "
-      >
-        <Upload size={14} />
+                            >
+                              <Upload size={14} />
+                              Upload Files
+                              <input
+                                type="file"
+                                multiple
+                                className="hidden"
+                                onChange={async (e) => {
+                                  const files = e.target.files;
 
-        Upload Files
+                                  if (!files) return;
 
-        <input
-          type="file"
-          multiple
-          className="hidden"
-          onChange={async (e) => {
-            const files =
-              e.target.files;
+                                  try {
+                                    // ✅ SUB BROKER TOKEN
+                                    const token =
+                                      sessionStorage.getItem(
+                                        "sub_broker_token",
+                                      );
 
-            if (!files) return;
+                                    for (const file of Array.from(files)) {
+                                      const formData = new FormData();
 
-            try {
-              // ✅ SUB BROKER TOKEN
-              const token =
-                sessionStorage.getItem(
-                  "sub_broker_token",
-                );
+                                      formData.append("file", file);
 
-              for (const file of Array.from(
-                files,
-              )) {
-                const formData =
-                  new FormData();
+                                      // ✅ SUB BROKER API
+                                      const res = await fetch(
+                                        `${API_BASE}/subbroker/documents/submissions/${documentsData.submissionId}/documents/${doc.requirementId}/upload`,
+                                        {
+                                          method: "POST",
 
-                formData.append(
-                  "file",
-                  file,
-                );
+                                          headers: {
+                                            ...(token && {
+                                              Authorization: `Bearer ${token}`,
+                                            }),
+                                          },
 
-                // ✅ SUB BROKER API
-                const res =
-                  await fetch(
-                    `${API_BASE}/subbroker/documents/submissions/${documentsData.submissionId}/documents/${doc.requirementId}/upload`,
-                    {
-                      method:
-                        "POST",
+                                          body: formData,
+                                        },
+                                      );
 
-                      headers:
-                        {
-                          ...(token && {
-                            Authorization:
-                              `Bearer ${token}`,
-                          }),
-                        },
+                                      const json = await res.json();
 
-                      body:
-                        formData,
-                    },
-                  );
+                                      if (!res.ok || !json.success) {
+                                        throw new Error(
+                                          json.message || `${file.name} failed`,
+                                        );
+                                      }
+                                    }
 
-                const json =
-                  await res.json();
+                                    toast.success("Uploaded successfully");
 
-                if (
-                  !res.ok ||
-                  !json.success
-                ) {
-                  throw new Error(
-                    json.message ||
-                      `${file.name} failed`,
-                  );
-                }
-              }
+                                    // refresh
+                                    await fetchSubmissionDocuments(
+                                      documentsData.submissionId,
+                                    );
+                                  } catch (err: any) {
+                                    console.error(err);
 
-              toast.success(
-                "Uploaded successfully",
-              );
+                                    toast.error(err.message || "Upload failed");
+                                  } finally {
+                                    setActiveAction(null);
+                                  }
+                                }}
+                              />
+                            </label>
+                            {doc.source === "SUB_BROKER_ADDED" &&
+  doc.uploadedCount > 0 &&
+  !doc.isSentToBroker &&
+  doc.status !== "SKIPPED" && (
+                            <button
+  onClick={async () => {
+    try {
+      const token = sessionStorage.getItem("sub_broker_token");
 
-              // refresh
-              await fetchSubmissionDocuments(
-                documentsData.submissionId,
-              );
-            } catch (err: any) {
-              console.error(
-                err,
-              );
+      const res = await fetch(
+        `${API_BASE}/subbroker/documents/${doc.requirementId}/send-to-broker`,
+        {
+          method: "POST",
 
-              toast.error(
-                err.message ||
-                  "Upload failed",
-              );
-            } finally {
-              setActiveAction(
-                null,
-              );
-            }
-          }}
-        />
-      </label>
-    </div>
-  )}
-</td>
+          headers: {
+            ...(token && {
+              Authorization: `Bearer ${token}`,
+            }),
+          },
+        },
+      );
+
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        throw new Error(
+          json.message || "Failed to send document",
+        );
+      }
+
+      toast.success(
+        "Document sent to Principal Broker",
+      );
+
+      await fetchSubmissionDocuments(
+        documentsData.submissionId,
+      );
+    } catch (err: any) {
+      console.error(err);
+
+      toast.error(
+        err.message || "Failed to send",
+      );
+    } finally {
+      setActiveAction(null);
+    }
+  }}
+  className="
+flex w-full items-center gap-2
+px-4 py-3 text-sm text-blue-600
+transition hover:bg-blue-50
+dark:hover:bg-blue-500/10
+"
+>
+  <FiSend size={14} />
+  Send To PB
+</button>
+                              )}
+                          </div>
+                        )}
+                      </td>
                     </tr>
                   );
                 })}

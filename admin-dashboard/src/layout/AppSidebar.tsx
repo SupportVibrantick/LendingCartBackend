@@ -16,7 +16,7 @@ import {
   // UserCircleIcon,
 } from "../icons";
 
-import { FaAppStore } from "react-icons/fa6";
+// import { FaAppStore } from "react-icons/fa6";
 import { useSidebar } from "../context/SidebarContext";
 // import GroupOutlinedIcon from '@mui/icons-material/GroupOutlined';
 import GroupsOutlinedIcon from "@mui/icons-material/GroupsOutlined";
@@ -56,17 +56,17 @@ const navItems: NavItem[] = [
   //     { name: "Broker Assigned Lenders", path: "/all-brokers-lenders" },
   //   ],
   // },
-  {
-    icon: <FaAppStore />,
-    name: "Application Builder",
-    subItems: [
-      { name: "Create Application", path: "/create-application" },
-      { name: "Loan Application Config", path: "/loan-application-config" },
-      { name: "Add Sections", path: "/add-app-sections" },
-      { name: "Application Builder", path: "/application-builder" },
-      { name: "Active Application", path: "/active-application" },
-    ],
-  },
+  // {
+  //   icon: <FaAppStore />,
+  //   name: "Application Builder",
+  //   subItems: [
+  //     { name: "Create Application", path: "/create-application" },
+  //     { name: "Loan Application Config", path: "/loan-application-config" },
+  //     { name: "Add Sections", path: "/add-app-sections" },
+  //     { name: "Application Builder", path: "/application-builder" },
+  //     { name: "Active Application", path: "/active-application" },
+  //   ],
+  // },
   {
     icon: <CurrencyExchangeOutlinedIcon />,
     name: "Loan Products",
@@ -121,6 +121,17 @@ const navItems: NavItem[] = [
           { name: "Add Loan Products", path: "/add-loan-product" },
           { name: "Add Sections", path: "/add-sections" },
           { name: "Add Fields", path: "/add-fields" },
+        ],
+      },
+      {
+        // icon: <FaAppStore />,
+        name: "Application Builder",
+        subItems: [
+          { name: "Create Application", path: "/create-application" },
+          { name: "Loan Application Config", path: "/loan-application-config" },
+          { name: "Add Sections", path: "/add-app-sections" },
+          { name: "Application Builder", path: "/application-builder" },
+          { name: "Active Application", path: "/active-application" },
         ],
       },
       {

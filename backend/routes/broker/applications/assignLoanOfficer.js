@@ -3,6 +3,8 @@
 const fp = require("fastify-plugin");
 const { logAudit } = require("../../../services/logger/auditLogger");
 
+const SUBBROKER_CHAT_DB_TYPE = "CLIENT_BROKER";
+
 async function assignLoanOfficer(fastify) {
   fastify.patch(
     "/:id/assign",
@@ -90,6 +92,65 @@ async function assignLoanOfficer(fastify) {
             brokerUserId: loanOfficerId
           }
         });
+
+        /* ================= SYNC SUB-BROKER CHAT ================= */
+
+        const assignments = await prisma.subBrokerApplication.findMany({
+          where: {
+            loanApplicationId: applicationId
+          },
+          select: {
+            subBrokerId: true
+          }
+        });
+
+        if (assignments.length > 0) {
+          const existingConversation = await prisma.conversation.findFirst({
+            where: {
+              loanApplicationId: applicationId,
+              type: SUBBROKER_CHAT_DB_TYPE
+            },
+            select: {
+              id: true
+            }
+          });
+
+          const conversation = existingConversation
+            ? existingConversation
+            : await prisma.conversation.create({
+                data: {
+                  loanApplicationId: applicationId,
+                  applicationLenderId: null,
+                  type: SUBBROKER_CHAT_DB_TYPE
+                },
+                select: {
+                  id: true
+                }
+              });
+
+          const participantRows = [
+            {
+              conversationId: conversation.id,
+              participantType: "BROKER",
+              participantId: req.user.userId
+            },
+            {
+              conversationId: conversation.id,
+              participantType: "BROKER",
+              participantId: loanOfficerId
+            },
+            ...assignments.map((assignment) => ({
+              conversationId: conversation.id,
+              participantType: "SUB_BROKER",
+              participantId: assignment.subBrokerId
+            }))
+          ];
+
+          await prisma.conversationParticipant.createMany({
+            data: participantRows,
+            skipDuplicates: true
+          });
+        }
 
         /* ================= AUDIT LOG ================= */
 
