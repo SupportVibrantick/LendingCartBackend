@@ -138,7 +138,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user }) => {
               Edit profile
             </DropdownItem>
           </li>
-          <li>
+          {/* <li>
             <DropdownItem
               onItemClick={closeDropdown}
               tag="a"
@@ -163,8 +163,8 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user }) => {
               </svg>
               Account settings
             </DropdownItem>
-          </li>
-          <li>
+          </li> */}
+          {/* <li>
             <DropdownItem
               onItemClick={closeDropdown}
               tag="a"
@@ -189,7 +189,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user }) => {
               </svg>
               Support
             </DropdownItem>
-          </li>
+          </li> */}
         </ul>
 
         <button

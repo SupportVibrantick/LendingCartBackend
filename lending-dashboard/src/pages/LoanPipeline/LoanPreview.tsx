@@ -40,6 +40,89 @@ const formatFieldKey = (key: string | null | undefined) => {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 };
 
+const normalizeText = (value: unknown) =>
+  String(value || "").trim();
+
+const getSubmissionFieldValue = (
+  submissionDetail: any,
+  ...keys: string[]
+) => {
+  const fields =
+    submissionDetail?.loanApplication?.submissions?.[0]?.fields || [];
+
+  return fields.find((field: any) =>
+    keys.includes(field.fieldKey),
+  )?.value;
+};
+
+const getBorrowerDisplayName = (submissionDetail: any) => {
+  const firstName = normalizeText(
+    getSubmissionFieldValue(
+      submissionDetail,
+      "borrowerFirstName",
+      "firstName",
+      "first_name",
+    ),
+  );
+  const lastName = normalizeText(
+    getSubmissionFieldValue(
+      submissionDetail,
+      "borrowerLastName",
+      "lastName",
+      "last_name",
+    ),
+  );
+
+  const fullName = [firstName, lastName]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+
+  if (fullName) {
+    return fullName;
+  }
+
+  const borrowerName = normalizeText(
+    getSubmissionFieldValue(
+      submissionDetail,
+      "borrowerName",
+      "applicantName",
+      "fullName",
+      "name",
+    ),
+  );
+
+  if (borrowerName) {
+    return borrowerName;
+  }
+
+  const legalName = normalizeText(
+    submissionDetail?.loanApplication?.client?.legalName,
+  );
+
+  if (
+    legalName &&
+    legalName !== "Applicant" &&
+    legalName !== "Individual Applicant"
+  ) {
+    return legalName;
+  }
+
+  return "N/A";
+};
+
+const getBorrowerEntityType = (submissionDetail: any) =>
+  normalizeText(
+    submissionDetail?.loanApplication?.client?.entityType ||
+      getSubmissionFieldValue(
+        submissionDetail,
+        "entityType",
+        "borrowerEntityType",
+        "businessType",
+      ) ||
+      "-",
+  );
+
 function getAuthHeaders(): HeadersInit {
   const token = sessionStorage.getItem("lender_token");
   return {
@@ -643,11 +726,11 @@ export default function LoanPreview() {
           />
           <InfoCard
             label="Borrower"
-            value={submissionDetail.loanApplication?.client?.legalName}
+            value={getBorrowerDisplayName(submissionDetail)}
           />
           <InfoCard
             label="Entity Type"
-            value={submissionDetail.loanApplication?.client?.entityType}
+            value={getBorrowerEntityType(submissionDetail)}
           />
           <InfoCard
             label="Broker"
@@ -715,153 +798,152 @@ export default function LoanPreview() {
     );
   };
 
- const renderDocuments = () => {
-  if (documentsLoading) {
+  const renderDocuments = () => {
+    if (documentsLoading) {
+      return (
+        <div className="flex flex-col items-center justify-center py-24 gap-4">
+          <Loader2 className="animate-spin w-10 h-10 text-blue-500" />
+          <p className="text-sm text-slate-500">Loading documents...</p>
+        </div>
+      );
+    }
+
+    if (!documentsData) {
+      return (
+        <div className="text-center py-20 text-slate-400">
+          No document data available.
+        </div>
+      );
+    }
+
     return (
-      <div className="flex flex-col items-center justify-center py-24 gap-4">
-        <Loader2 className="animate-spin w-10 h-10 text-blue-500" />
-        <p className="text-sm text-slate-500">Loading documents...</p>
-      </div>
-    );
-  }
+      <div className="space-y-6">
+        {/* STATS CARDS */}
+        <div className="grid grid-cols-2 gap-4">
+          <div className="rounded-2xl p-5 bg-gradient-to-br from-amber-50 to-white dark:from-slate-800 dark:to-slate-900 border dark:border-slate-700">
+            <p className="text-xs uppercase tracking-wider text-slate-400 font-semibold">
+              Pending Documents
+            </p>
+            <p className="text-xl font-bold text-amber-600 mt-1">
+              {documentsData.documentsPendingCount}
+            </p>
+          </div>
 
-  if (!documentsData) {
-    return (
-      <div className="text-center py-20 text-slate-400">
-        No document data available.
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      {/* STATS CARDS */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="rounded-2xl p-5 bg-gradient-to-br from-amber-50 to-white dark:from-slate-800 dark:to-slate-900 border dark:border-slate-700">
-          <p className="text-xs uppercase tracking-wider text-slate-400 font-semibold">
-            Pending Documents
-          </p>
-          <p className="text-xl font-bold text-amber-600 mt-1">
-            {documentsData.documentsPendingCount}
-          </p>
+          <div className="rounded-2xl p-5 bg-gradient-to-br from-blue-50 to-white dark:from-slate-800 dark:to-slate-900 border dark:border-slate-700">
+            <p className="text-xs uppercase tracking-wider text-slate-400 font-semibold">
+              Total Documents
+            </p>
+            <p className="text-xl font-bold text-blue-600 mt-1">
+              {documentsData.documents?.length || 0}
+            </p>
+          </div>
         </div>
 
-        <div className="rounded-2xl p-5 bg-gradient-to-br from-blue-50 to-white dark:from-slate-800 dark:to-slate-900 border dark:border-slate-700">
-          <p className="text-xs uppercase tracking-wider text-slate-400 font-semibold">
-            Total Documents
-          </p>
-          <p className="text-xl font-bold text-blue-600 mt-1">
-            {documentsData.documents?.length || 0}
-          </p>
-        </div>
-      </div>
+        {/* TABLE CARD */}
+        <div className="rounded-2xl border bg-white dark:bg-slate-900 overflow-hidden dark:border-slate-700">
+          <div className="px-5 py-4 border-b dark:border-slate-800">
+            <h2 className="text-sm font-semibold text-slate-600 dark:text-slate-300">
+              Documents List
+            </h2>
+          </div>
 
-      {/* TABLE CARD */}
-      <div className="rounded-2xl border bg-white dark:bg-slate-900 overflow-hidden dark:border-slate-700">
-        <div className="px-5 py-4 border-b dark:border-slate-800">
-          <h2 className="text-sm font-semibold text-slate-600 dark:text-slate-300">
-            Documents List
-          </h2>
-        </div>
-
-        <table className="w-full text-left">
-          <thead className="text-xs uppercase text-slate-400">
-            <tr>
-              <th className="px-5 py-3">Document</th>
-              <th className="px-5 py-3 text-center">Status</th>
-              <th className="px-5 py-3 text-center">Uploads</th>
-              <th className="px-5 py-3 text-right">Action</th>
-            </tr>
-          </thead>
-
-          <tbody className="divide-y dark:divide-slate-800">
-            {documentsData.documents?.map((doc: any) => (
-              <tr
-                key={doc.requirementId}
-                className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-all"
-              >
-                {/* 📄 DOCUMENT INFO */}
-                <td className="px-5 py-4">
-                  <div className="flex flex-col">
-                    <span className="font-semibold text-slate-700 dark:text-slate-200 text-sm">
-                      {doc.documentName}
-                    </span>
-
-                    <span className="text-xs text-slate-400 mt-1">
-                      {doc.source}
-                      {doc.isRequired && (
-                        <span className="ml-2 text-rose-500 font-semibold text-xs">
-                          • Required
-                        </span>
-                      )}
-                    </span>
-                  </div>
-                </td>
-
-                {/* 📊 STATUS */}
-                <td className="px-5 py-4 text-center">
-                  <span
-                    className={`px-3 py-1 text-xs rounded-full ${
-                      doc.status === "COMPLETED"
-                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400"
-                        : doc.status === "PARTIAL"
-                        ? "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400"
-                        : "bg-yellow-100 text-yellow-700 dark:bg-yellow-500/10 dark:text-yellow-400"
-                    }`}
-                  >
-                    {doc.status}
-                  </span>
-                </td>
-
-                {/* COUNT */}
-                <td className="px-5 py-4 text-center">
-                  <span className="font-bold text-sm text-slate-700 dark:text-slate-200">
-                    {doc.uploadedCount}
-                  </span>
-                </td>
-
-                {/* ACTION */}
-                <td className="px-5 py-4 text-right">
-                  {doc.uploadedCount > 0 ? (
-                    <button
-                      onClick={() => {
-                        if (doc.uploadedCount === 1) {
-                          const file = doc.uploadedFiles[0];
-                          setPreviewFile({
-                            url: `${API_BASE}${file.fileUrl}`,
-                            type: file.fileMimeType,
-                            name: file.fileName,
-                          });
-                        } else {
-                          setMultiFileModal({
-                            isOpen: true,
-                            doc,
-                          });
-                        }
-                      }}
-                      className="group flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition-all duration-300"
-                    >
-                      <Eye size={14} />
-                      <span className="text-xs font-semibold">
-                        View
-                        {doc.uploadedCount > 1 &&
-                          ` (${doc.uploadedCount})`}
-                      </span>
-                    </button>
-                  ) : (
-                    <span className="text-xs text-slate-400 italic">
-                      No files
-                    </span>
-                  )}
-                </td>
+          <table className="w-full text-left">
+            <thead className="text-xs uppercase text-slate-400">
+              <tr>
+                <th className="px-5 py-3">Document</th>
+                <th className="px-5 py-3 text-center">Status</th>
+                <th className="px-5 py-3 text-center">Uploads</th>
+                <th className="px-5 py-3 text-right">Action</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+
+            <tbody className="divide-y dark:divide-slate-800">
+              {documentsData.documents?.map((doc: any) => (
+                <tr
+                  key={doc.requirementId}
+                  className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-all"
+                >
+                  {/* 📄 DOCUMENT INFO */}
+                  <td className="px-5 py-4">
+                    <div className="flex flex-col">
+                      <span className="font-semibold text-slate-700 dark:text-slate-200 text-sm">
+                        {doc.documentName}
+                      </span>
+
+                      <span className="text-xs text-slate-400 mt-1">
+                        {doc.source}
+                        {doc.isRequired && (
+                          <span className="ml-2 text-rose-500 font-semibold text-xs">
+                            • Required
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                  </td>
+
+                  {/* 📊 STATUS */}
+                  <td className="px-5 py-4 text-center">
+                    <span
+                      className={`px-3 py-1 text-xs rounded-full ${
+                        doc.status === "COMPLETED"
+                          ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400"
+                          : doc.status === "PARTIAL"
+                            ? "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400"
+                            : "bg-yellow-100 text-yellow-700 dark:bg-yellow-500/10 dark:text-yellow-400"
+                      }`}
+                    >
+                      {doc.status}
+                    </span>
+                  </td>
+
+                  {/* COUNT */}
+                  <td className="px-5 py-4 text-center">
+                    <span className="font-bold text-sm text-slate-700 dark:text-slate-200">
+                      {doc.uploadedCount}
+                    </span>
+                  </td>
+
+                  {/* ACTION */}
+                  <td className="px-5 py-4 text-right">
+                    {doc.uploadedCount > 0 ? (
+                      <button
+                        onClick={() => {
+                          if (doc.uploadedCount === 1) {
+                            const file = doc.uploadedFiles[0];
+                            setPreviewFile({
+                              url: `${API_BASE}${file.fileUrl}`,
+                              type: file.fileMimeType,
+                              name: file.fileName,
+                            });
+                          } else {
+                            setMultiFileModal({
+                              isOpen: true,
+                              doc,
+                            });
+                          }
+                        }}
+                        className="group flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition-all duration-300"
+                      >
+                        <Eye size={14} />
+                        <span className="text-xs font-semibold">
+                          View
+                          {doc.uploadedCount > 1 && ` (${doc.uploadedCount})`}
+                        </span>
+                      </button>
+                    ) : (
+                      <span className="text-xs text-slate-400 italic">
+                        No files
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
-    </div>
-  );
-};
+    );
+  };
   const handleClearCustomDocs = () => {
     setCustomDocs([]);
   };
@@ -876,7 +958,7 @@ export default function LoanPreview() {
         {/* LOAN PRODUCT SELECT */}
         <div className="space-y-1">
           <label className="text-xs font-semibold text-gray-500">
-            LOAN PROGRAM
+            LOAN PROGRAM 
           </label>
 
           <div className="relative">
@@ -1189,11 +1271,15 @@ export default function LoanPreview() {
 
           <button
             onClick={handleRequestDocuments}
-            disabled={
-              requestLoading ||
-              docSelectModal.selectedDocs?.length === 0 ||
-              !selectedLoanProduct
-            }
+           disabled={
+  requestLoading ||
+  !selectedLoanProduct ||
+  (
+    (docSelectModal.selectedDocs
+      ?.length || 0) === 0 &&
+    customDocs.length === 0
+  )
+}
             className="px-5 py-2 rounded-xl bg-[#0F766E] text-white font-medium disabled:opacity-40"
           >
             {requestLoading ? "Requesting..." : "Request Documents"}
@@ -1248,10 +1334,10 @@ export default function LoanPreview() {
   }
 
   const getFieldValue = (key: string) => {
-    const fields =
-      submissionDetail?.loanApplication?.submissions?.[0]?.fields || [];
-
-    return fields.find((f: any) => f.fieldKey === key)?.value;
+    return getSubmissionFieldValue(
+      submissionDetail,
+      key,
+    );
   };
 
   return (
@@ -1278,6 +1364,11 @@ export default function LoanPreview() {
                 {/* Application ID */}
                 <p className="text-xs text-slate-500 mt-1">
                   {submissionDetail?.loanApplication?.applicationNumber}
+                </p>
+                <p className="text-xs text-slate-500 mt-1">
+                  {getBorrowerDisplayName(submissionDetail)}
+                  {/* {" • "}
+                  {getBorrowerEntityType(submissionDetail)} */}
                 </p>
               </div>
             </div>

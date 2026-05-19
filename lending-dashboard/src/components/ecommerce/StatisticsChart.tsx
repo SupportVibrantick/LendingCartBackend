@@ -1,92 +1,120 @@
+import {
+  useEffect,
+  useState,
+} from "react";
+
 import Chart from "react-apexcharts";
+
 import { ApexOptions } from "apexcharts";
+
 import ChartTab from "../common/ChartTab";
 
 /* ================= DUMMY DATA (LENDER) ================= */
 
-const DUMMY_STATS = {
-  totalApplications: 150,
-  totalSubmitted: 120,
-  totalInReview: 35,
-  totalApproved: 80,
-  totalFunded: 65,
-};
+const API_BASE = import.meta.env.VITE_API_BASE ||
+  "http://localhost:4000";;
 
 /* ================= COMPONENT ================= */
 
 export default function LenderStatisticsChart() {
-  /* ================= CALCULATIONS ================= */
+  const [stats, setStats] =
+  useState<any>(null);
 
-  const approvalRate =
-    DUMMY_STATS.totalSubmitted > 0
-      ? Number(
-          (
-            (DUMMY_STATS.totalApproved /
-              DUMMY_STATS.totalSubmitted) *
-            100
-          ).toFixed(1)
-        )
-      : 0;
+const [loading, setLoading] =
+  useState(true);
 
-  const fundingConversion =
-    DUMMY_STATS.totalApproved > 0
-      ? Number(
-          (
-            (DUMMY_STATS.totalFunded /
-              DUMMY_STATS.totalApproved) *
-            100
-          ).toFixed(1)
-        )
-      : 0;
+  const fetchPipelinePerformance =
+  async () => {
+    try {
+      setLoading(true);
 
-  const submittedConversion =
-    DUMMY_STATS.totalApplications > 0
-      ? Number(
-          (
-            (DUMMY_STATS.totalSubmitted /
-              DUMMY_STATS.totalApplications) *
-            100
-          ).toFixed(1)
-        )
-      : 0;
+      const token =
+        sessionStorage.getItem(
+          "lender_token",
+        );
 
-  const reviewConversion =
-    DUMMY_STATS.totalSubmitted > 0
-      ? Number(
-          (
-            (DUMMY_STATS.totalInReview /
-              DUMMY_STATS.totalSubmitted) *
-            100
-          ).toFixed(1)
-        )
-      : 0;
+      const res = await fetch(
+        `${API_BASE}/lender/dashboard/pipeline-performance`,
+        {
+          headers: {
+            ...(token && {
+              Authorization: `Bearer ${token}`,
+            }),
+          },
+        },
+      );
+
+      const json =
+        await res.json();
+
+      if (
+        !res.ok ||
+        !json.success
+      ) {
+        throw new Error(
+          json.message ||
+            "Failed to fetch chart stats",
+        );
+      }
+
+      setStats(json.data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+useEffect(() => {
+  fetchPipelinePerformance();
+}, []);
 
   /* ================= SERIES ================= */
-
   const series = [
-    {
-      name: "Volume (Count)",
-      type: "area" as const,
-      data: [
-        DUMMY_STATS.totalApplications,
-        DUMMY_STATS.totalSubmitted,
-        DUMMY_STATS.totalInReview,
-        DUMMY_STATS.totalApproved,
-        DUMMY_STATS.totalFunded,
-      ],
-    },
-    {
-      name: "Efficiency (%)",
-      type: "line" as const,
-      data: [
-        100,
-        submittedConversion,
-        reviewConversion,
-        approvalRate,
-        fundingConversion,
-      ],
-    },
-  ];
+  {
+    name: "Volume (Count)",
+
+    type: "area" as const,
+
+    data: [
+      stats?.totalApplications ||
+        0,
+
+      stats?.totalSubmitted ||
+        0,
+
+      stats?.totalInReview ||
+        0,
+
+      stats?.totalApproved ||
+        0,
+
+      stats?.totalFunded ||
+        0,
+    ],
+  },
+
+  {
+    name: "Efficiency (%)",
+
+    type: "line" as const,
+
+    data: [
+      100,
+
+      stats?.submittedConversion ||
+        0,
+
+      stats?.reviewConversion ||
+        0,
+
+      stats?.approvalRate || 0,
+
+      stats?.fundingConversion ||
+        0,
+    ],
+  },
+];
 
   /* ================= OPTIONS ================= */
 
@@ -160,6 +188,20 @@ export default function LenderStatisticsChart() {
     },
   };
 
+  if (loading) {
+  return (
+    <div
+      className="
+        h-[520px]
+        rounded-2xl
+        animate-pulse
+        bg-slate-200
+        dark:bg-slate-800
+      "
+    />
+  );
+}
+
   return (
     <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-white/[0.03]">
       <div className="flex flex-col items-center justify-between gap-4 mb-8 sm:flex-row">
@@ -182,7 +224,7 @@ export default function LenderStatisticsChart() {
             Avg. Approval Rate
           </p>
           <h4 className="mt-1 text-2xl font-bold text-green-600">
-            {approvalRate}%
+            {stats?.approvalRate || 0}%
           </h4>
         </div>
 
@@ -191,7 +233,7 @@ export default function LenderStatisticsChart() {
             Funding Success
           </p>
           <h4 className="mt-1 text-2xl font-bold text-blue-600">
-            {fundingConversion}%
+            {stats?.fundingConversion || 0}%
           </h4>
         </div>
       </div>

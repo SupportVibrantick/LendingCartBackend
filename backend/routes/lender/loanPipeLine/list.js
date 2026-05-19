@@ -1,6 +1,93 @@
 /**
  * @param {import("fastify").FastifyInstance} fastify
  */
+function getFieldValue(fields = [], ...keys) {
+  return fields.find((field) =>
+    keys.includes(
+      field.builderField?.fieldKey ||
+        field.fieldKey,
+    ),
+  )?.value;
+}
+
+function normalizeText(value) {
+  return String(value || "").trim();
+}
+
+function resolveBorrowerName(app) {
+  const contact =
+    app?.client?.contacts?.[0] || null;
+  const fields =
+    app?.submissions?.[0]?.fields || [];
+  const borrowerFirstName =
+    normalizeText(
+      getFieldValue(
+        fields,
+        "borrowerFirstName",
+        "firstName",
+        "first_name",
+      ),
+    );
+  const borrowerLastName =
+    normalizeText(
+      getFieldValue(
+        fields,
+        "borrowerLastName",
+        "lastName",
+        "last_name",
+      ),
+    );
+  const fullNameFromFields = [
+    borrowerFirstName,
+    borrowerLastName,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+  const clientLegalName = normalizeText(
+    app?.client?.legalName,
+  );
+
+  return (
+    [contact?.firstName, contact?.lastName]
+      .filter(Boolean)
+      .join(" ")
+      .trim() ||
+    fullNameFromFields ||
+    getFieldValue(
+      fields,
+      "borrowerName",
+      "applicantName",
+      "fullName",
+      "name",
+    ) ||
+    (clientLegalName &&
+    ![
+      "Applicant",
+      "Individual Applicant",
+    ].includes(clientLegalName)
+      ? clientLegalName
+      : null) ||
+    "N/A"
+  );
+}
+
+function resolveBorrowerEntityType(app) {
+  const fields =
+    app?.submissions?.[0]?.fields || [];
+
+  return (
+    app?.client?.entityType ||
+    getFieldValue(
+      fields,
+      "entityType",
+      "borrowerEntityType",
+      "businessType",
+    ) ||
+    "-"
+  );
+}
+
 async function listSubmittedApplications(fastify) {
   fastify.get(
     "/",
@@ -79,6 +166,13 @@ async function listSubmittedApplications(fastify) {
                     id: true,
                     legalName: true,
                     entityType: true,
+                    contacts: {
+                      select: {
+                        firstName: true,
+                        lastName: true,
+                      },
+                      take: 1,
+                    },
                   },
                 },
                 brokerOrg: {
@@ -110,21 +204,61 @@ async function listSubmittedApplications(fastify) {
           .map((item) => {
             const app = item.loanApplication;
             const latestReview = item.lenderReviews?.[0] ?? null;
+            const fields =
+              app.submissions?.[0]?.fields ||
+              [];
+            const borrowerFirstName =
+              normalizeText(
+                getFieldValue(
+                  fields,
+                  "borrowerFirstName",
+                  "firstName",
+                  "first_name",
+                ),
+              );
+            const borrowerLastName =
+              normalizeText(
+                getFieldValue(
+                  fields,
+                  "borrowerLastName",
+                  "lastName",
+                  "last_name",
+                ),
+              );
 
             let amountRequested = null;
             let termMonthsRequested = null;
 
             if (app.submissions?.length) {
-              const fields = app.submissions[0].fields || [];
+              const getField = (...keys) =>
+                getFieldValue(
+                  fields,
+                  ...keys,
+                );
 
-              const getField = (key) =>
-                fields.find((f) => f.fieldKey === key)?.value;
+              amountRequested =
+                Number(
+                  getField(
+                    "amountRequested",
+                    "loan_amount",
+                  ),
+                ) || null;
 
-              amountRequested = Number(getField("amountRequested")) || null;
-
-              const minTerm = Number(getField("minTermMonths"));
-              const maxTerm = Number(getField("maxTermMonths"));
-              const termYears = Number(getField("requested_term_years"));
+              const minTerm = Number(
+                getField(
+                  "minTermMonths",
+                ),
+              );
+              const maxTerm = Number(
+                getField(
+                  "maxTermMonths",
+                ),
+              );
+              const termYears = Number(
+                getField(
+                  "requested_term_years",
+                ),
+              );
 
               if (maxTerm) {
                 termMonthsRequested = maxTerm;
@@ -157,6 +291,12 @@ async function listSubmittedApplications(fastify) {
 
               applicationId: app.id,
               applicationNumber: app.applicationNumber,
+              borrowerFirstName,
+              borrowerLastName,
+              borrowerName:
+                resolveBorrowerName(app),
+              borrowerEntityType:
+                resolveBorrowerEntityType(app),
               loanProductCode: app.loanProductCode,
               amountRequested,
               termMonthsRequested,

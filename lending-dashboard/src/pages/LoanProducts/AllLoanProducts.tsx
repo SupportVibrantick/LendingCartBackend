@@ -248,6 +248,30 @@ export default function AlloanProducts() {
     }
   };
 
+  const formatAmount = (
+  amount: number,
+) => {
+  if (amount >= 1000000000) {
+    return `$${(
+      amount / 1000000000
+    ).toFixed(1)}B`;
+  }
+
+  if (amount >= 1000000) {
+    return `$${(
+      amount / 1000000
+    ).toFixed(1)}M`;
+  }
+
+  if (amount >= 1000) {
+    return `$${(
+      amount / 1000
+    ).toFixed(1)}K`;
+  }
+
+  return `$${amount}`;
+};
+
   return (
     <div className="px-6 py-6 text-gray-900 dark:text-gray-100">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
@@ -256,7 +280,7 @@ export default function AlloanProducts() {
             <span className="text-[#18B6B4]">Loan</span> Products
           </h1>
           <p className="text-sm text-gray-500 mt-1 dark:text-slate-400">
-            Manage global loan products available on the platform.
+            Manage global loan products available on the platform. 
           </p>
         </div>
 
@@ -332,13 +356,21 @@ export default function AlloanProducts() {
                         className="border-b border-gray-100 last:border-0 hover:bg-gray-50/40 dark:border-slate-800 dark:hover:bg-slate-800/60"
                       >
                         <td className="py-3 pr-4 text-gray-900 whitespace-nowrap dark:text-gray-100">
-                          {item.loanProductCode}
+{item.loanProductCode
+  ?.replace(/_/g, " ")
+  ?.replace(/\b\w/g, (c) =>
+    c.toUpperCase(),
+  )}
                         </td>
                         <td className="py-3 pr-4 text-gray-600 whitespace-nowrap dark:text-slate-300">
-                          {item.minLoanAmount}
+                          {formatAmount(
+  item.minLoanAmount,
+)}
                         </td>
                         <td className="py-3 pr-4 text-gray-600 whitespace-nowrap dark:text-slate-300">
-                          {item.maxLoanAmount}
+                          {formatAmount(
+  item.maxLoanAmount,
+)}
                         </td>
                         <td className="py-3 pr-4 text-gray-600 whitespace-nowrap dark:text-slate-300">
                           {item.minTermMonths} - {item.maxTermMonths} months
@@ -546,14 +578,18 @@ export default function AlloanProducts() {
             <div className="grid grid-cols-2 gap-4 text-sm">
               <Detail
                 label="Product Code"
-                value={viewDetails.loanProductCode}
+                value={viewDetails.loanProductCode
+  ?.replace(/_/g, " ")
+  ?.replace(/\b\w/g, (c: any) =>
+    c.toUpperCase(),
+  )}
               />
               <Detail
                 label="Product Name"
                 value={viewDetails.loanProduct?.name}
               />
-              <Detail label="Min Amount" value={viewDetails.minLoanAmount} />
-              <Detail label="Max Amount" value={viewDetails.maxLoanAmount} />
+              <Detail label="Min Amount" value={formatAmount(viewDetails.minLoanAmount)} />
+              <Detail label="Max Amount" value={formatAmount(viewDetails.maxLoanAmount)} />
               <Detail
                 label="Tenure"
                 value={`${viewDetails.minTermMonths} - ${viewDetails.maxTermMonths}`}

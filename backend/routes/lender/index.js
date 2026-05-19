@@ -7,6 +7,7 @@ const eligibilityRoutes = require("./eligibility");
 const brokerRoutes = require("./broker");
 const loanPipelineRoutes = require("./loanPipeLine");
 const notificationRoutes = require("./notifications");
+const dashboardRoutes = require("./dashboard/index");
 
 // const brokerRoutes = require("./broker");
 // const commonRoutes = require("./common");
@@ -71,6 +72,10 @@ module.exports = async function lenderRoutes(fastify, opts) {
 
     instance.register(notificationRoutes, {
       prefix: "/notifications",
+    });
+
+    instance.register(dashboardRoutes, {
+      prefix: "/dashboard",
     });
 
     // Later:

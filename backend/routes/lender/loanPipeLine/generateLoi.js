@@ -351,7 +351,7 @@ async function generateLoiRoute(fastify) {
 
         return reply.code(500).send({
           success: false,
-          message: "Internal server error",
+          message: error.message,
         });
       }
     }

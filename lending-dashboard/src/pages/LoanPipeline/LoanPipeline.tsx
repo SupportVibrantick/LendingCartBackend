@@ -22,6 +22,8 @@ import { useNavigate } from "react-router";
 type TableRow = {
   applicationLenderId: string;
   applicationNumber: string;
+  borrowerFirstName?: string;
+  borrowerLastName?: string;
   borrowerName: string;
   entityType: string;
   loanType: string;
@@ -37,13 +39,6 @@ type TableRow = {
 
 /* ================= HELPERS ================= */
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
-const parseValue = (val: string): any => {
-  try {
-    return JSON.parse(val);
-  } catch {
-    return val;
-  }
-};
 
 const formatApplicationStatus = (status: string) => {
   if (!status) return "-";
@@ -116,15 +111,36 @@ const formatCompactAmount = (amount?: number) => {
   return `$${amount}`;
 };
 
+const buildBorrowerDisplayName = (item: any) => {
+  const fullName = [
+    item.borrowerFirstName,
+    item.borrowerLastName,
+  ]
+    .map((value: string) => (value || "").trim())
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+
+  if (fullName) {
+    return fullName;
+  }
+
+  if (
+    item.borrowerName &&
+    item.borrowerName !== "Individual Applicant"
+  ) {
+    return item.borrowerName;
+  }
+
+  return item.client?.legalName || "N/A";
+};
+
 /* ================= COMPONENT ================= */
 export default function LoanPipeline() {
   const navigate = useNavigate();
   const [rows, setRows] = useState<TableRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [viewSubmissionId, setViewSubmissionId] = useState<string | null>(null);
-  const [submissionDetail, setSubmissionDetail] = useState<any>(null);
-  const [detailLoading, setDetailLoading] = useState(false);
   const [decisionModal, setDecisionModal] = useState<{
     type: "APPROVED" | "DECLINED" | null;
     applicationId: string | null;
@@ -182,21 +198,6 @@ export default function LoanPipeline() {
   const [currentPage, setCurrentPage] = useState(1);
   const rowsPerPage = 5;
 
-  const InfoCard = ({ label, value }: { label: string; value: any }) => (
-    <div
-      className="
-    bg-slate-50 
-    dark:bg-slate-800/60 
-    border border-slate-100 dark:border-slate-700
-    p-4 rounded-xl
-    transition-colors duration-300
-"
-    >
-      <p className="text-xs text-slate-500 mb-1">{label}</p>
-      <p className="text-sm font-semibold">{value || "-"}</p>
-    </div>
-  );
-
   //     const getDecisionColor = (status: string) => {
   //   switch (status) {
   //     case "APPROVED":
@@ -207,24 +208,6 @@ export default function LoanPipeline() {
   //       return "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300";
   //   }
   // };
-
-  const formatFieldKey = (key: string | null | undefined) => {
-    if (!key) return "";
-
-    return (
-      key
-        // camelCase → camel Case
-        .replace(/([a-z])([A-Z])/g, "$1 $2")
-        // snake_case → snake case
-        .replace(/_/g, " ")
-        // multiple spaces remove
-        .replace(/\s+/g, " ")
-        // trim
-        .trim()
-        // capitalize each word
-        .replace(/\b\w/g, (char) => char.toUpperCase())
-    );
-  };
 
   const handleDownload = async (url: string, filename: string) => {
     try {
@@ -256,33 +239,6 @@ export default function LoanPipeline() {
   ).length;
 
   const totalVolume = rows.reduce((sum, r) => sum + r.amount, 0);
-
-  const fetchLenderApplicationDetail = async (applicationLenderId: string) => {
-    try {
-      setDetailLoading(true);
-      setViewSubmissionId(applicationLenderId);
-
-      const res = await fetch(
-        `${API_BASE}/lender/loan-pipeline/${applicationLenderId}`,
-        {
-          headers: getAuthHeaders(),
-        },
-      );
-
-      const json = await res.json();
-
-      if (!res.ok || !json.success) {
-        throw new Error(json.message || "Failed to load application");
-      }
-
-      setSubmissionDetail(json.data);
-    } catch (err: any) {
-      toast.error(err.message || "Failed to load application");
-      setViewSubmissionId(null);
-    } finally {
-      setDetailLoading(false);
-    }
-  };
 
   const fetchDocuments = async (applicationLenderId: string) => {
     try {
@@ -370,8 +326,11 @@ export default function LoanPipeline() {
       const mappedRows: TableRow[] = json.data.map((item: any) => ({
         applicationLenderId: item.applicationLenderId,
         applicationNumber: item.applicationNumber,
-        borrowerName: item.client?.legalName || "N/A",
-        entityType: item.client?.entityType || "-",
+        borrowerFirstName: item.borrowerFirstName || "",
+        borrowerLastName: item.borrowerLastName || "",
+        borrowerName: buildBorrowerDisplayName(item),
+        entityType:
+          item.borrowerEntityType || item.client?.entityType || "-",
         loanType: item.loanProductCode,
         amount: Number(item.amountRequested || 0),
         lenderStatus: item.lenderPipelineStatus || item.lenderStatus,
@@ -626,7 +585,6 @@ export default function LoanPipeline() {
                 className="pl-10 pr-4 py-2.5 w-full md:w-80 rounded-xl text-sm
                   bg-white dark:bg-slate-900
                   border border-slate-200 dark:border-slate-800
-                  shadow-sm
                   focus:ring-2 focus:ring-[#18B6B4]/20
                   focus:border-[#18B6B4]
                   text-slate-800 dark:text-slate-100
@@ -636,7 +594,7 @@ export default function LoanPipeline() {
             </div>
             <button
               onClick={loadSubmissions}
-              className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-blue-500 transition-all shadow-sm active:scale-95"
+              className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-blue-500 transition-all active:scale-95"
             >
               <Loader2
                 className={`w-5 h-5 text-slate-600 dark:text-slate-400 ${loading ? "animate-spin text-blue-500" : ""}`}
@@ -653,7 +611,6 @@ export default function LoanPipeline() {
     bg-white dark:bg-slate-900
     border border-slate-200 dark:border-slate-800
     rounded-2xl p-6
-    shadow-sm hover:shadow-md
     transition-all duration-200
     flex items-center justify-between
   "
@@ -678,7 +635,6 @@ export default function LoanPipeline() {
               bg-white dark:bg-slate-900
               border border-slate-200 dark:border-slate-800
               rounded-2xl p-6
-              shadow-sm hover:shadow-md
               transition-all duration-200
               flex items-center justify-between
             "
@@ -703,7 +659,6 @@ export default function LoanPipeline() {
               bg-white dark:bg-slate-900
               border border-slate-200 dark:border-slate-800
               rounded-2xl p-6
-              shadow-sm hover:shadow-md
               transition-all duration-200
               flex items-center justify-between
             "
@@ -725,8 +680,8 @@ export default function LoanPipeline() {
       </header>
 
       {/* Main Table Container */}
-      <div className="max-w-7xl mx-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-slate-200/50 dark:shadow-none overflow-hidden">
-        <div className="w-full bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm relative">
+      <div className="max-w-7xl mx-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+        <div className="w-full bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 relative">
           <div className="w-full overflow-x-auto loan-table-scroll">
             <table className="min-w-[1100px] w-full border-separate border-spacing-0">
               <thead>
@@ -794,16 +749,18 @@ export default function LoanPipeline() {
                             <span className="font-semibold text-slate-900 dark:text-slate-100 text-sm">
                               {row.borrowerName.slice(0, 10) + "..."}
                             </span>
-                            <span className="text-[10px] text-slate-500">
+                            {/* <span className="text-[10px] text-slate-500">
                               {row.entityType.slice(0, 10) + "..."}
-                            </span>
+                            </span> */}
                           </div>
                         </td>
 
                         {/* Loan Type */}
                         <td className="px-5 py-4">
                           <span className="text-[12px] text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/50 px-2 py-1 rounded">
-                            {row.loanType}
+                            {row.loanType
+                              ?.replace(/_/g, " ")
+                              ?.replace(/\b\w/g, (c) => c.toUpperCase())}
                           </span>
                         </td>
 
@@ -904,7 +861,7 @@ export default function LoanPipeline() {
                                       top: dropdownPos.top,
                                       left: dropdownPos.left,
                                     }}
-                                    className="w-56 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 py-2 z-50 animate-in fade-in zoom-in-95 backdrop-blur"
+                                    className="w-56 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 py-2 z-50 animate-in fade-in zoom-in-95 backdrop-blur"
                                   >
                                     {/* App Preview */}
                                     <button
@@ -927,7 +884,7 @@ transition rounded-lg mx-1"
                                     </button>
 
                                     {/* View */}
-                                    <button
+                                    {/* <button
                                       onClick={() => {
                                         fetchLenderApplicationDetail(
                                           row.applicationLenderId,
@@ -941,7 +898,7 @@ transition rounded-lg mx-1"
                                     >
                                       <Eye size={16} />
                                       View Details
-                                    </button>
+                                    </button> */}
 
                                     {/* Documents */}
                                     <button
@@ -957,7 +914,7 @@ transition rounded-lg mx-1"
                                       <FileIcon size={16} />
                                       Documents
                                       {(row.pendingDocumentsCount ?? 0) > 0 && (
-                                        <span className="ml-auto bg-amber-500 text-white text-[10px] px-2 py-0.5 rounded-full shadow">
+                                        <span className="ml-auto bg-amber-500 text-white text-[10px] px-2 py-0.5 rounded-full">
                                           {row.pendingDocumentsCount}
                                         </span>
                                       )}
@@ -1004,58 +961,62 @@ transition rounded-lg mx-1"
                                     )}
 
                                     {/* Approve */}
-                                    <button
-                                      disabled={!isActionAllowed}
-                                      onClick={() => {
-                                        setActiveDropdown(null);
+                                    {normalizeStatus(row.lenderDecision) ===
+                                      "CONDITIONAL" && (
+                                      <button
+                                        disabled={!isActionAllowed}
+                                        onClick={() => {
+                                          setActiveDropdown(null);
 
-                                        if (
-                                          normalizeStatus(
-                                            row.lenderDecision,
-                                          ) === "CONDITIONAL"
-                                        ) {
+                                          if (
+                                            normalizeStatus(
+                                              row.lenderDecision,
+                                            ) === "CONDITIONAL"
+                                          ) {
+                                            setDecisionModal({
+                                              type: "APPROVED",
+                                              applicationId:
+                                                row.applicationLenderId,
+                                            });
+                                          } else {
+                                            openDocumentSelector(row);
+                                          }
+                                        }}
+                                        className={`flex items-center gap-3 w-full px-4 py-2.5 text-sm rounded-lg mx-1 transition ${
+                                          isActionAllowed
+                                            ? "text-emerald-600 bg-emerald-50/50 dark:bg-emerald-900/10 hover:bg-emerald-100 dark:hover:bg-emerald-900/20"
+                                            : "text-slate-300 bg-slate-50 cursor-not-allowed"
+                                        }`}
+                                      >
+                                        <CheckCircle size={16} />
+                                        Final Approval
+                                      </button>
+                                    )}
+
+                                    {/* Reject */}
+                                    {formatApplicationStatus(
+                                      row.lenderDecision,
+                                    ) !== "Approved" && (
+                                      <button
+                                        disabled={!isActionAllowed}
+                                        onClick={() => {
+                                          setActiveDropdown(null);
                                           setDecisionModal({
-                                            type: "APPROVED",
+                                            type: "DECLINED",
                                             applicationId:
                                               row.applicationLenderId,
                                           });
-                                        } else {
-                                          openDocumentSelector(row);
-                                        }
-                                      }}
-                                      className={`flex items-center gap-3 w-full px-4 py-2.5 text-sm rounded-lg mx-1 transition ${
-                                        isActionAllowed
-                                          ? "text-emerald-600 bg-emerald-50/50 dark:bg-emerald-900/10 hover:bg-emerald-100 dark:hover:bg-emerald-900/20"
-                                          : "text-slate-300 bg-slate-50 cursor-not-allowed"
-                                      }`}
-                                    >
-                                      <CheckCircle size={16} />
-                                      {normalizeStatus(row.lenderDecision) ===
-                                      "CONDITIONAL"
-                                        ? "Final Approval"
-                                        : "Request Document"}
-                                    </button>
-
-                                    {/* Reject */}
-                                    <button
-                                      disabled={!isActionAllowed}
-                                      onClick={() => {
-                                        setActiveDropdown(null);
-                                        setDecisionModal({
-                                          type: "DECLINED",
-                                          applicationId:
-                                            row.applicationLenderId,
-                                        });
-                                      }}
-                                      className={`flex items-center gap-3 w-full px-4 py-2.5 text-sm rounded-lg mx-1 transition ${
-                                        isActionAllowed
-                                          ? "text-rose-600 bg-rose-50/50 dark:bg-rose-900/10 hover:bg-rose-100 dark:hover:bg-rose-900/20"
-                                          : "text-slate-300 bg-slate-50 cursor-not-allowed"
-                                      }`}
-                                    >
-                                      <XCircle size={16} />
-                                      Reject
-                                    </button>
+                                        }}
+                                        className={`flex items-center gap-3 w-full px-4 py-2.5 text-sm rounded-lg mx-1 transition ${
+                                          isActionAllowed
+                                            ? "text-rose-600 bg-rose-50/50 dark:bg-rose-900/10 hover:bg-rose-100 dark:hover:bg-rose-900/20"
+                                            : "text-slate-300 bg-slate-50 cursor-not-allowed"
+                                        }`}
+                                      >
+                                        <XCircle size={16} />
+                                        Reject
+                                      </button>
+                                    )}
                                   </div>
                                 </>,
                                 document.body,
@@ -1181,7 +1142,7 @@ transition rounded-lg mx-1"
             {decisionModal.type &&
               createPortal(
                 <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-                  <div className="w-full max-w-lg bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800">
+                  <div className="w-full max-w-lg bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800">
                     {/* Header */}
                     <div className="flex items-center justify-between px-6 py-4 border-b dark:border-slate-800">
                       <h2 className="text-lg font-bold">
@@ -1303,324 +1264,11 @@ transition rounded-lg mx-1"
                 document.body,
               )}
 
-            {/* ================= VIEW APPLICATION MODAL ================= */}
-            {viewSubmissionId &&
-              createPortal(
-                <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/40 dark:bg-black/70 backdrop-blur-sm p-4 transition-colors duration-300">
-                  <div
-                    className="
-                                        bg-white 
-                                        dark:bg-[#0f172a] 
-                                        text-slate-900 
-                                        dark:text-slate-100
-                                        w-full max-w-5xl max-h-[90vh] overflow-y-auto 
-                                        rounded-2xl shadow-2xl 
-                                        border border-slate-200 dark:border-slate-800
-                                        transition-colors duration-300
-                                    "
-                  >
-                    {/* HEADER */}
-                    <div
-                      className="
-                                                sticky top-0 z-10 
-                                                bg-white/95 dark:bg-[#0f172a]/95 
-                                                backdrop-blur-md
-                                                flex items-center justify-between px-6 py-4 
-                                                border-b border-slate-200 dark:border-slate-800
-                                            "
-                    >
-                      <h2 className="text-lg font-bold">Application Details</h2>
-                      <button
-                        onClick={() => {
-                          setViewSubmissionId(null);
-                          setSubmissionDetail(null);
-                        }}
-                        className="text-sm px-3 py-1 rounded-lg bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400"
-                      >
-                        Close
-                      </button>
-                    </div>
-
-                    {detailLoading ? (
-                      <div className="flex items-center justify-center py-20">
-                        <Loader2 className="animate-spin w-6 h-6 text-blue-500" />
-                      </div>
-                    ) : submissionDetail ? (
-                      <div className="p-6 space-y-8">
-                        {/* ===== LENDER REVIEW SUMMARY ===== */}
-                        {submissionDetail.lenderReviews?.length > 0 &&
-                          (() => {
-                            const review = submissionDetail.lenderReviews[0];
-                            const reviewStatus =
-                              review.reviewStatus ||
-                              review.decision ||
-                              "PENDING";
-
-                            const isApproved = reviewStatus === "APPROVED";
-                            const isRejected =
-                              reviewStatus === "DECLINED" ||
-                              reviewStatus === "REJECTED";
-                            const isConditional =
-                              reviewStatus === "CONDITIONAL" ||
-                              reviewStatus === "LENDER_CONDITIONAL";
-
-                            return (
-                              <div
-                                className={`
-        relative overflow-hidden rounded-2xl border p-6 mb-8 dark:bg-slate-900 shadow-md
-        ${
-          isApproved
-            ? "border-emerald-200 dark:border-emerald-500/30 bg-[#F7FEFB]"
-            : isRejected
-              ? "border-rose-200 dark:border-rose-500/30 bg-[#FFF9FA]"
-              : isConditional
-                ? "border-amber-200 dark:border-amber-500/30 bg-amber-50/50 dark:bg-amber-900/10"
-                : "border-slate-200 dark:border-slate-700"
-        }
-      `}
-                              >
-                                {/* Top Accent Bar */}
-                                <div
-                                  className={`absolute top-0 left-0 right-0 h-1
-          ${
-            isApproved
-              ? "bg-emerald-500"
-              : isRejected
-                ? "bg-rose-500"
-                : isConditional
-                  ? "bg-amber-500"
-                  : "bg-slate-400"
-          }
-        `}
-                                />
-
-                                {/* Header */}
-                                <div className="flex items-center gap-3 mb-6">
-                                  <div
-                                    className={`
-                           flex items-center justify-center h-12 w-12 rounded-xl text-white text-xl font-bold
-                            ${
-                              isApproved
-                                ? "bg-emerald-500 text-white dark:bg-emerald-500/10 dark:text-emerald-400"
-                                : isRejected
-                                  ? "bg-rose-100 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400"
-                                  : isConditional
-                                    ? "bg-amber-500 text-amber-500 dark:bg-amber-500/10 dark:text-amber-400"
-                                    : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
-                            }
-                        `}
-                                  >
-                                    {isApproved
-                                      ? "✔"
-                                      : isRejected
-                                        ? "✖"
-                                        : isConditional
-                                          ? "!"
-                                          : "•"}
-                                  </div>
-
-                                  <div>
-                                    <p className="text-xs uppercase tracking-wider text-slate-400">
-                                      Lender Decision
-                                    </p>
-                                    <h3
-                                      className={`text-lg font-bold
-                            ${
-                              isApproved
-                                ? "text-emerald-600 dark:text-emerald-400"
-                                : isRejected
-                                  ? "text-rose-600 dark:text-rose-400"
-                                  : isConditional
-                                    ? "text-amber-600 dark:text-amber-400"
-                                    : "text-slate-700 dark:text-slate-200"
-                            }
-                            `}
-                                    >
-                                      {reviewStatus}
-                                    </h3>
-                                  </div>
-                                </div>
-
-                                {/* Review Details */}
-                                {/* ===== TOP ROW ===== */}
-                                <div className="grid md:grid-cols-3 gap-6 text-sm">
-                                  {review.approvedAmount && (
-                                    <div>
-                                      <p className="text-xs text-slate-400 mb-1">
-                                        Approved Amount
-                                      </p>
-                                      <p className="font-semibold text-slate-800 dark:text-slate-200">
-                                        $
-                                        {Number(
-                                          review.approvedAmount,
-                                        ).toLocaleString()}
-                                      </p>
-                                    </div>
-                                  )}
-
-                                  {review.interestRate && (
-                                    <div>
-                                      <p className="text-xs text-slate-400 mb-1">
-                                        Interest Rate
-                                      </p>
-                                      <p className="font-semibold text-slate-800 dark:text-slate-200">
-                                        {review.interestRate}%
-                                      </p>
-                                    </div>
-                                  )}
-
-                                  {(review.updatedAt || review.createdAt) && (
-                                    <div>
-                                      <p className="text-xs text-slate-400 mb-1">
-                                        Reviewed On
-                                      </p>
-                                      <p className="font-semibold text-slate-800 dark:text-slate-200">
-                                        {new Date(
-                                          review.updatedAt || review.createdAt,
-                                        ).toLocaleString()}
-                                      </p>
-                                    </div>
-                                  )}
-                                </div>
-
-                                {/* ===== NOTES (FULL WIDTH BELOW) ===== */}
-                                {review.notes && (
-                                  <div className="mt-6 border-t border-slate-200 dark:border-slate-700 pt-4">
-                                    <p className="text-xs text-slate-400 mb-2">
-                                      Notes
-                                    </p>
-
-                                    <p className="text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap break-words text-sm">
-                                      {review.notes}
-                                    </p>
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })()}
-
-                        {/* BASIC INFO */}
-                        <div className="grid md:grid-cols-3 gap-6">
-                          <InfoCard
-                            label="Application Id"
-                            value={
-                              submissionDetail.loanApplication
-                                ?.applicationNumber
-                            }
-                          />
-                          <InfoCard
-                            label="Status"
-                            value={submissionDetail.status}
-                          />
-                          <InfoCard
-                            label="Loan Product"
-                            value={
-                              submissionDetail.loanApplication?.loanProductCode
-                            }
-                          />
-                          <InfoCard
-                            label="Borrower"
-                            value={
-                              submissionDetail.loanApplication?.client
-                                ?.legalName
-                            }
-                          />
-                          <InfoCard
-                            label="Entity Type"
-                            value={
-                              submissionDetail.loanApplication?.client
-                                ?.entityType
-                            }
-                          />
-                          <InfoCard
-                            label="Broker"
-                            value={
-                              submissionDetail.loanApplication?.brokerOrg?.name
-                            }
-                          />
-                        </div>
-
-                        {/* SUBMISSION FIELDS */}
-                        <div>
-                          <h3 className="font-semibold mb-4 text-slate-700 dark:text-slate-300">
-                            Submission Details
-                          </h3>
-
-                          {(() => {
-                            const fields =
-                              submissionDetail.loanApplication?.submissions?.[0]
-                                ?.fields || [];
-
-                            const normalFields = fields.filter(
-                              (f: any) => f.fieldKey !== "borrowerSignature",
-                            );
-
-                            const signatureField = fields.find(
-                              (f: any) => f.fieldKey === "borrowerSignature",
-                            );
-
-                            return (
-                              <>
-                                {/* NORMAL FIELDS */}
-                                <div className="grid md:grid-cols-2 gap-4">
-                                  {normalFields.map((field: any) => {
-                                    const value = parseValue(field.value);
-
-                                    return (
-                                      <div
-                                        key={field.id}
-                                        className="bg-slate-50 dark:bg-slate-800 p-3 rounded-lg"
-                                      >
-                                        <p className="text-xs text-slate-500 mb-1">
-                                          {formatFieldKey(field.fieldKey)}
-                                        </p>
-                                        <p className="text-sm font-medium break-words">
-                                          {String(value)}
-                                        </p>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-
-                                {/* SIGNATURE LAST CENTER */}
-                                {signatureField && (
-                                  <div className="mt-10 flex flex-col items-center">
-                                    <p className="text-sm font-semibold mb-3 text-slate-600 dark:text-slate-300">
-                                      Borrower Signature
-                                    </p>
-
-                                    <div
-                                      className="
-                                                                                bg-white dark:bg-slate-800
-                                                                                p-4 rounded-xl 
-                                                                                border border-slate-200 dark:border-slate-700
-                                                                                shadow-sm
-                                                                            "
-                                    >
-                                      <img
-                                        src={signatureField.value}
-                                        alt="Signature"
-                                        className="h-28 object-contain"
-                                      />
-                                    </div>
-                                  </div>
-                                )}
-                              </>
-                            );
-                          })()}
-                        </div>
-                      </div>
-                    ) : null}
-                  </div>
-                </div>,
-                document.body,
-              )}
-
             {/* ================= DOCUMENTS MODAL ================= */}
             {isDocumentsModalOpen &&
               createPortal(
                 <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-                  <div className="w-full max-w-4xl bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col max-h-[90vh]">
+                  <div className="w-full max-w-4xl bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 flex flex-col max-h-[90vh]">
                     {/* Header */}
                     <div className="flex items-center justify-between px-6 py-4 border-b dark:border-slate-800">
                       <div>
@@ -1791,7 +1439,7 @@ transition rounded-lg mx-1"
               multiFileModal.doc &&
               createPortal(
                 <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-                  <div className="w-full max-w-3xl bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col max-h-[80vh]">
+                  <div className="w-full max-w-3xl bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 flex flex-col max-h-[80vh]">
                     <div className="flex items-center justify-between px-6 py-4 border-b dark:border-slate-800">
                       <div>
                         <h2 className="text-lg font-bold">
@@ -1873,7 +1521,7 @@ transition rounded-lg mx-1"
             {previewFile &&
               createPortal(
                 <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
-                  <div className="w-full max-w-5xl bg-white dark:bg-slate-900 rounded-2xl shadow-2xl flex flex-col h-[90vh] overflow-hidden">
+                  <div className="w-full max-w-5xl bg-white dark:bg-slate-900 rounded-2xl flex flex-col h-[90vh] overflow-hidden">
                     {/* Header */}
                     <div className="flex items-center justify-between px-6 py-4 border-b dark:border-slate-800 shrink-0">
                       <div>
@@ -1910,7 +1558,7 @@ transition rounded-lg mx-1"
                         <img
                           src={previewFile.url}
                           alt={previewFile.name}
-                          className="max-w-full max-h-full object-contain shadow-lg rounded-lg"
+                          className="max-w-full max-h-full object-contain rounded-lg"
                         />
                       ) : previewFile.type === "application/pdf" ? (
                         <iframe
@@ -1946,7 +1594,7 @@ transition rounded-lg mx-1"
             {loiPreview &&
               createPortal(
                 <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
-                  <div className="w-full max-w-6xl bg-white dark:bg-slate-900 rounded-2xl shadow-2xl flex flex-col h-[90vh] overflow-hidden">
+                  <div className="w-full max-w-6xl bg-white dark:bg-slate-900 rounded-2xl flex flex-col h-[90vh] overflow-hidden">
                     {/* Header */}
                     <div className="flex items-center justify-between px-6 py-4 border-b dark:border-slate-800">
                       <h2 className="text-lg font-bold">LOI Preview</h2>
@@ -1981,7 +1629,7 @@ transition rounded-lg mx-1"
             {docSelectModal.isOpen &&
               createPortal(
                 <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-                  <div className="w-full max-w-3xl bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+                  <div className="w-full max-w-3xl bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
                     {/* HEADER */}
                     <div className="px-6 py-4 border-b dark:border-slate-800 flex items-center justify-between">
                       <h2 className="text-lg font-semibold text-[#134E4A] dark:text-teal-300">
@@ -2097,11 +1745,11 @@ transition rounded-lg mx-1"
                                     key={doc.documentTypeId}
                                     className={`
                         flex items-center justify-between p-4 rounded-2xl cursor-pointer
-                        border transition-all duration-200 shadow-sm
+                        border transition-all duration-200
                         ${
                           isChecked
                             ? "border-[#134E4A] bg-[#134E4A]/5"
-                            : "border-slate-200 dark:border-slate-700 hover:border-[#134E4A]/40 hover:shadow-md"
+                            : "border-slate-200 dark:border-slate-700 hover:border-[#134E4A]/40"
                         }
                       `}
                                   >
@@ -2231,7 +1879,7 @@ transition rounded-lg mx-1"
                             }
                           }}
                           className="px-5 py-2 text-sm font-semibold text-white rounded-xl
-              bg-[#134E4A] hover:bg-[#0f3d3a] active:scale-95 transition-all shadow"
+              bg-[#134E4A] hover:bg-[#0f3d3a] active:scale-95 transition-all"
                         >
                           Request Documents
                         </button>

@@ -153,8 +153,7 @@ const getAvatarTone = (value?: string) => {
 };
 
 const Chat = ({ applicationId }: LoanPreviewChatProps) => {
-  const activeConversationRef =
-  useRef<string | null>(null);
+  const activeConversationRef = useRef<string | null>(null);
   const socketRef = useRef<Socket | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -361,7 +360,6 @@ const Chat = ({ applicationId }: LoanPreviewChatProps) => {
           : item,
       ),
     );
-
   };
 
   const handleEmojiClick = (emojiData: EmojiClickData) => {
@@ -434,15 +432,13 @@ const Chat = ({ applicationId }: LoanPreviewChatProps) => {
 
       const newMessage = json.data;
 
-setMessages((prev) => {
-  const alreadyExists = prev.some(
-    (item) => item.id === newMessage.id,
-  );
+      setMessages((prev) => {
+        const alreadyExists = prev.some((item) => item.id === newMessage.id);
 
-  if (alreadyExists) return prev;
+        if (alreadyExists) return prev;
 
-  return [...prev, newMessage];
-});
+        return [...prev, newMessage];
+      });
 
       setConversations((prev) =>
         prev.map((item) =>
@@ -509,10 +505,9 @@ setMessages((prev) => {
       reconnectionAttempts: 5,
     });
 
-socket.on("connect", () => {
-  console.log("🟢 Socket connected:", socket.id);
-
-});
+    socket.on("connect", () => {
+      console.log("🟢 Socket connected:", socket.id);
+    });
 
     socket.on("connect_error", (err) => {
       console.error("❌ Socket connection error:", err.message);
@@ -527,72 +522,50 @@ socket.on("connect", () => {
   }, []);
 
   useEffect(() => {
-  activeConversationRef.current =
-    selectedConversation?.id || null;
-}, [selectedConversation?.id]);
+    activeConversationRef.current = selectedConversation?.id || null;
+  }, [selectedConversation?.id]);
 
-useEffect(() => {
-  const socket = socketRef.current;
+  useEffect(() => {
+    const socket = socketRef.current;
 
-  if (!socket) return;
+    if (!socket) return;
 
-  const handleRealtimeMessage = (
-    msg: ChatMessage,
-  ) => {
-    setConversations((prev) =>
-      prev.map((item) =>
-        item.id ===
-        msg.conversationId
-          ? {
-              ...item,
-              lastMessage:
-                msg.text ||
-                msg.fileName ||
-                "File",
+    const handleRealtimeMessage = (msg: ChatMessage) => {
+      setConversations((prev) =>
+        prev.map((item) =>
+          item.id === msg.conversationId
+            ? {
+                ...item,
+                lastMessage: msg.text || msg.fileName || "File",
 
-              lastMessageAt:
-                msg.createdAt,
+                lastMessageAt: msg.createdAt,
 
-              unread:
-              activeConversationRef.current !==
-  msg.conversationId,
-            }
-          : item,
-      ),
-    );
+                unread: activeConversationRef.current !== msg.conversationId,
+              }
+            : item,
+        ),
+      );
 
-    setMessages((prev) => {
-      const isCurrentChat =
-        msg.conversationId ===
-         activeConversationRef.current;
+      setMessages((prev) => {
+        const isCurrentChat =
+          msg.conversationId === activeConversationRef.current;
 
-      if (!isCurrentChat)
-        return prev;
+        if (!isCurrentChat) return prev;
 
-      const alreadyExists =
-        prev.some(
-          (m) => m.id === msg.id,
-        );
+        const alreadyExists = prev.some((m) => m.id === msg.id);
 
-      if (alreadyExists)
-        return prev;
+        if (alreadyExists) return prev;
 
-      return [...prev, msg];
-    });
-  };
+        return [...prev, msg];
+      });
+    };
 
-  socket.on(
-    "newMessage",
-    handleRealtimeMessage,
-  );
+    socket.on("newMessage", handleRealtimeMessage);
 
-  return () => {
-    socket.off(
-      "newMessage",
-      handleRealtimeMessage,
-    );
-  };
-}, []);
+    return () => {
+      socket.off("newMessage", handleRealtimeMessage);
+    };
+  }, []);
   useEffect(() => {
     const socket = socketRef.current;
     if (!socket) return;
@@ -609,19 +582,15 @@ useEffect(() => {
     };
   }, []);
 
-useEffect(() => {
-  if (!selectedConversation?.id) return;
+  useEffect(() => {
+    if (!selectedConversation?.id) return;
 
-  const initConversation =
-    async () => {
-      await fetchMessages(
-        selectedConversation.id,
-      );
+    const initConversation = async () => {
+      await fetchMessages(selectedConversation.id);
 
       setConversations((prev) =>
         prev.map((item) =>
-          item.id ===
-          selectedConversation.id
+          item.id === selectedConversation.id
             ? {
                 ...item,
                 unread: false,
@@ -630,36 +599,22 @@ useEffect(() => {
         ),
       );
 
-      const socket =
-        socketRef.current;
+      const socket = socketRef.current;
 
-      if(
-        socket
-      ) {
-        console.log(
-  "🏠 LENDER JOINING:",
-  selectedConversation.id,
-);
-        socket.emit(
-          "joinConversation",
-          {
-            conversationId:
-              selectedConversation.id,
-          },
-        );
+      if (socket) {
+        console.log("🏠 LENDER JOINING:", selectedConversation.id);
+        socket.emit("joinConversation", {
+          conversationId: selectedConversation.id,
+        });
 
-        socket.emit(
-          "markAsRead",
-          {
-            conversationId:
-              selectedConversation.id,
-          },
-        );
+        socket.emit("markAsRead", {
+          conversationId: selectedConversation.id,
+        });
       }
     };
 
-  initConversation();
-}, [selectedConversation?.id]);
+    initConversation();
+  }, [selectedConversation?.id]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
