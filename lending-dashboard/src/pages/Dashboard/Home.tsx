@@ -162,27 +162,32 @@ function MetricCard({
 }) {
   return (
     <div className="group relative overflow-hidden rounded-[28px] border border-slate-200/70 bg-white p-5 transition-transform duration-300 hover:-translate-y-1">
-      <div className="absolute inset-x-0 top-0 h-1" style={{ backgroundColor: accentColor }} />
+      <div
+        className="absolute inset-x-0 top-0 h-1"
+        style={{ backgroundColor: accentColor }}
+      />
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-sm font-medium text-slate-500">{label}</p>
           <h3 className="mt-3 text-[28px] font-semibold leading-none tracking-tight text-slate-900">
             {value}
           </h3>
-          <p className="mt-3 max-w-[220px] text-xs leading-5 text-slate-500">{helper}</p>
+          <p className="mt-3 max-w-[220px] text-xs leading-5 text-slate-500">
+            {helper}
+          </p>
         </div>
-<div
-  className="
+        <div
+          className="
     flex h-14 w-14 items-center
     justify-center rounded-[22px]
   "
-  style={{
-    backgroundColor: `${accentColor}15`,
-    color: accentColor,
-  }}
->
-  {icon}
-</div>
+          style={{
+            backgroundColor: `${accentColor}15`,
+            color: accentColor,
+          }}
+        >
+          {icon}
+        </div>
       </div>
     </div>
   );
@@ -203,7 +208,9 @@ function DashboardSection({
     <div className="rounded-[30px] border border-slate-200/80 bg-white p-6">
       <div className="mb-6 flex items-start justify-between gap-4">
         <div>
-          <h3 className="text-lg font-semibold tracking-tight text-slate-900">{title}</h3>
+          <h3 className="text-lg font-semibold tracking-tight text-slate-900">
+            {title}
+          </h3>
           <p className="mt-1 text-sm leading-6 text-slate-500">{subtitle}</p>
         </div>
         {action}
@@ -214,7 +221,9 @@ function DashboardSection({
 }
 
 function PulseLoader({ height }: { height: string }) {
-  return <div className={`${height} animate-pulse rounded-[28px] bg-slate-100`} />;
+  return (
+    <div className={`${height} animate-pulse rounded-[28px] bg-slate-100`} />
+  );
 }
 
 export default function Home() {
@@ -236,7 +245,9 @@ export default function Home() {
 
         const [overviewRes, pipelineRes] = await Promise.all([
           fetch(`${API_BASE}/lender/dashboard/overview-stats`, { headers }),
-          fetch(`${API_BASE}/lender/dashboard/pipeline-performance`, { headers }),
+          fetch(`${API_BASE}/lender/dashboard/pipeline-performance`, {
+            headers,
+          }),
         ]);
 
         const [overviewJson, pipelineJson] = await Promise.all([
@@ -245,11 +256,15 @@ export default function Home() {
         ]);
 
         if (!overviewRes.ok || !overviewJson.success) {
-          throw new Error(overviewJson.message || "Failed to load overview stats");
+          throw new Error(
+            overviewJson.message || "Failed to load overview stats",
+          );
         }
 
         if (!pipelineRes.ok || !pipelineJson.success) {
-          throw new Error(pipelineJson.message || "Failed to load pipeline analytics");
+          throw new Error(
+            pipelineJson.message || "Failed to load pipeline analytics",
+          );
         }
 
         setOverview(overviewJson.data);
@@ -259,8 +274,6 @@ export default function Home() {
         //   fetchError instanceof Error
         //     ? fetchError.message
         //     : "Failed to load dashboard";
-
-
         // setError(message);
       } finally {
         setLoading(false);
@@ -368,8 +381,7 @@ export default function Home() {
     },
   };
 
-const monthlyTrendOptions: ApexOptions =
-  {
+  const monthlyTrendOptions: ApexOptions = {
     chart: {
       type: "line",
 
@@ -383,17 +395,12 @@ const monthlyTrendOptions: ApexOptions =
         enabled: false,
       },
 
-      fontFamily:
-        "Outfit, sans-serif",
+      fontFamily: "Outfit, sans-serif",
 
       foreColor: "#64748b",
     },
 
-    colors: [
-      "#2563eb",
-      "#14b8a6",
-      "#f59e0b",
-    ],
+    colors: ["#2563eb", "#14b8a6", "#f59e0b"],
 
     stroke: {
       width: [0, 4, 3],
@@ -410,11 +417,7 @@ const monthlyTrendOptions: ApexOptions =
     },
 
     fill: {
-      type: [
-        "solid",
-        "solid",
-        "gradient",
-      ],
+      type: ["solid", "solid", "gradient"],
 
       gradient: {
         shadeIntensity: 1,
@@ -453,8 +456,7 @@ const monthlyTrendOptions: ApexOptions =
     legend: {
       position: "top",
 
-      horizontalAlign:
-        "left",
+      horizontalAlign: "left",
 
       fontSize: "13px",
 
@@ -464,10 +466,7 @@ const monthlyTrendOptions: ApexOptions =
     },
 
     xaxis: {
-      categories:
-        pipeline?.monthlyTrend.map(
-          (item) => item.label,
-        ) || [],
+      categories: pipeline?.monthlyTrend.map((item) => item.label) || [],
 
       axisBorder: {
         show: false,
@@ -493,12 +492,7 @@ const monthlyTrendOptions: ApexOptions =
         },
 
         labels: {
-          formatter: (
-            value,
-          ) =>
-            `${Math.round(
-              value,
-            )}`,
+          formatter: (value) => `${Math.round(value)}`,
         },
       },
 
@@ -506,17 +500,11 @@ const monthlyTrendOptions: ApexOptions =
         opposite: true,
 
         title: {
-          text:
-            "Funded Volume",
+          text: "Funded Volume",
         },
 
         labels: {
-          formatter: (
-            value,
-          ) =>
-            formatCompactCurrency(
-              value,
-            ),
+          formatter: (value) => formatCompactCurrency(value),
         },
       },
     ],
@@ -529,59 +517,39 @@ const monthlyTrendOptions: ApexOptions =
       theme: "light",
 
       y: {
-        formatter: (
-          value,
-          context,
-        ) =>
-          context.seriesIndex ===
-          2
-            ? formatCurrency(
-                value,
-              )
-            : `${Math.round(
-                value,
-              )}`,
+        formatter: (value, context) =>
+          context.seriesIndex === 2
+            ? formatCurrency(value)
+            : `${Math.round(value)}`,
       },
     },
   };
 
-const monthlyTrendSeries = [
-  {
-    name: "Applications",
+  const monthlyTrendSeries = [
+    {
+      name: "Applications",
 
-    type: "bar" as const,
+      type: "bar" as const,
 
-    data:
-      pipeline?.monthlyTrend.map(
-        (item) =>
-          item.applications,
-      ) || [],
-  },
+      data: pipeline?.monthlyTrend.map((item) => item.applications) || [],
+    },
 
-  {
-    name: "Approvals",
+    {
+      name: "Approvals",
 
-    type: "line" as const,
+      type: "line" as const,
 
-    data:
-      pipeline?.monthlyTrend.map(
-        (item) =>
-          item.approved,
-      ) || [],
-  },
+      data: pipeline?.monthlyTrend.map((item) => item.approved) || [],
+    },
 
-  {
-    name: "Funded Volume",
+    {
+      name: "Funded Volume",
 
-    type: "area" as const,
+      type: "area" as const,
 
-    data:
-      pipeline?.monthlyTrend.map(
-        (item) =>
-          item.fundedVolume,
-      ) || [],
-  },
-];
+      data: pipeline?.monthlyTrend.map((item) => item.fundedVolume) || [],
+    },
+  ];
 
   return (
     <>
@@ -592,13 +560,14 @@ const monthlyTrendSeries = [
 
       <div className="min-h-screen bg-slate-50">
         <div className="space-y-6">
-
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
             {loading
               ? Array.from({ length: 6 }).map((_, index) => (
                   <PulseLoader key={index} height="h-44" />
                 ))
-              : metricCards.map((card) => <MetricCard key={card.label} {...card} />)}
+              : metricCards.map((card) => (
+                  <MetricCard key={card.label} {...card} />
+                ))}
           </div>
 
           <div className="grid grid-cols-12 gap-6">
@@ -616,14 +585,14 @@ const monthlyTrendSeries = [
                   <PulseLoader height="h-[360px]" />
                 ) : (
                   <div
-  className="
+                    className="
     rounded-[26px]
     border border-slate-100
     bg-gradient-to-br
     from-white to-slate-50
     p-4
   "
->
+                  >
                     <Chart
                       options={monthlyTrendOptions}
                       series={monthlyTrendSeries}
@@ -636,7 +605,7 @@ const monthlyTrendSeries = [
             </div>
 
             <div className="col-span-12 xl:col-span-4">
-              <DashboardSection 
+              <DashboardSection
                 title="Pipeline Mix"
                 subtitle="See where the book is currently clustering across decision stages."
                 action={
@@ -664,7 +633,9 @@ const monthlyTrendSeries = [
                           <p className="text-[9px] uppercase tracking-[0.2em] text-slate-400">
                             {item.label}
                           </p>
-                          <p className="mt-2 text-xl font-semibold text-slate-900">{item.count}</p>
+                          <p className="mt-2 text-xl font-semibold text-slate-900">
+                            {item.count}
+                          </p>
                         </div>
                       ))}
                     </div>
@@ -701,29 +672,27 @@ const monthlyTrendSeries = [
                       </thead>
                       <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
                         {pipeline?.recentApplications.map((item) => (
-                          <tr key={item.applicationLenderId} className="transition-colors hover:bg-slate-50/80">
+                          <tr
+                            key={item.applicationLenderId}
+                            className="transition-colors hover:bg-slate-50/80"
+                          >
                             <td className="px-4 py-4">
-                              <div className="font-semibold text-slate-900">{item.applicationNumber}</div>
+                              <div className="font-semibold text-slate-900">
+                                {item.applicationNumber}
+                              </div>
                             </td>
                             <td className="px-4 py-4">{item.clientName}</td>
                             <td className="px-4 py-4">{item.brokerName}</td>
                             <td className="px-4 py-4">
-  {item.productCode
-    ?.replace(/_/g, " ")
-    ?.replace(/\b\w/g, (c) =>
-      c.toUpperCase(),
-    )}
-</td>
+                              {item.productCode
+                                ?.replace(/_/g, " ")
+                                ?.replace(/\b\w/g, (c) => c.toUpperCase())}
+                            </td>
                             <td className="px-4 py-4 font-medium text-slate-900">
-                             {Intl.NumberFormat(
-  "en",
-  {
-    notation: "compact",
-    maximumFractionDigits: 1,
-  },
-).format(
-  item.amountRequested || 0,
-)}
+                              {Intl.NumberFormat("en", {
+                                notation: "compact",
+                                maximumFractionDigits: 1,
+                              }).format(item.amountRequested || 0)}
                             </td>
                             <td className="px-4 py-4">
                               <span
@@ -761,7 +730,8 @@ const monthlyTrendSeries = [
                         {pipeline?.submittedConversion ?? 0}%
                       </p>
                       <p className="mt-1 text-sm text-slate-500">
-                        {pipeline?.totalSubmitted ?? 0} of {pipeline?.totalApplications ?? 0} files
+                        {pipeline?.totalSubmitted ?? 0} of{" "}
+                        {pipeline?.totalApplications ?? 0} files
                       </p>
                     </div>
                   </div>
@@ -799,7 +769,8 @@ const monthlyTrendSeries = [
                         {pipeline?.approvalRate ?? 0}%
                       </p>
                       <p className="mt-1 text-sm text-slate-500">
-                        {pipeline?.totalApproved ?? 0} approvals including funded deals
+                        {pipeline?.totalApproved ?? 0} approvals including
+                        funded deals
                       </p>
                     </div>
                   </div>
@@ -818,7 +789,8 @@ const monthlyTrendSeries = [
                         {pipeline?.fundingConversion ?? 0}%
                       </p>
                       <p className="mt-1 text-sm text-slate-500">
-                        {pipeline?.totalFunded ?? 0} funded out of {pipeline?.totalApproved ?? 0}
+                        {pipeline?.totalFunded ?? 0} funded out of{" "}
+                        {pipeline?.totalApproved ?? 0}
                       </p>
                     </div>
                   </div>

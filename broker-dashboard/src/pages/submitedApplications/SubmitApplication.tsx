@@ -1332,10 +1332,19 @@ text-emerald-600
 
                       {/* Loan Info - Medium Emphasis */}
                       <td className="px-6 py-3">
-                        <span className="text-[10px] text-slate-700 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/50 px-2 py-1 rounded">
-                          {row.loanType}
-                        </span>
-                      </td>
+  <span
+    className="inline-flex flex-wrap max-w-[170px]
+    text-[10px] leading-4 text-slate-700 dark:text-slate-300
+    bg-slate-100 dark:bg-slate-800/50
+    px-2 py-1 rounded"
+  >
+    {row.loanType
+      ?.replace(/_/g, " ")
+      ?.replace(/\b\w/g, (c: string) =>
+        c.toUpperCase(),
+      )}
+  </span>
+</td>
 
                       {/* Location */}
                       <td className="px-6 py-3 min-w-[200px]">
@@ -1350,7 +1359,6 @@ text-emerald-600
 
                           {/* Location Text */}
                           <div className="min-w-0 leading-tight">
-  
   <div
     className="
 truncate

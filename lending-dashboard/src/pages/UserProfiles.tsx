@@ -589,14 +589,13 @@ export default function EditLenderProfile() {
 
               <input
                 name="loanTypes"
-                disabled
                 placeholder="SBA, DSCR, Fix & Flip"
                 value={form.loanTypes}
                 onChange={handleChange}
                 className={`h-11 w-full rounded-2xl border
         bg-slate-50 dark:bg-slate-800
         px-4 text-sm outline-none transition-all
-        focus:border-[#134E4A] cursor-not-allowed
+        focus:border-[#134E4A]
         ${
           errors.loanTypes
             ? "border-red-500"

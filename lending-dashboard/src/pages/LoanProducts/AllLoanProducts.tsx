@@ -10,7 +10,11 @@ type LoanProductList = {
   id: string;
   lenderOrgId: string;
   loanProductId: string;
-  loanProductCode: string;
+  loanProduct?: {
+    id?: string;
+    name?: string;
+    code?: string;
+  };
   loanProductName: string;
   minLoanAmount: number;
   maxLoanAmount: number;
@@ -127,7 +131,7 @@ export default function AlloanProducts() {
     if (!q) return lenders;
 
     return lenders.filter((item) =>
-      (item.loanProductCode || "").toLowerCase().includes(q),
+      (item.loanProduct?.name || "").toLowerCase().includes(q),
     );
   }, [lenders, query]);
 
@@ -248,29 +252,21 @@ export default function AlloanProducts() {
     }
   };
 
-  const formatAmount = (
-  amount: number,
-) => {
-  if (amount >= 1000000000) {
-    return `$${(
-      amount / 1000000000
-    ).toFixed(1)}B`;
-  }
+  const formatAmount = (amount: number) => {
+    if (amount >= 1000000000) {
+      return `$${(amount / 1000000000).toFixed(1)}B`;
+    }
 
-  if (amount >= 1000000) {
-    return `$${(
-      amount / 1000000
-    ).toFixed(1)}M`;
-  }
+    if (amount >= 1000000) {
+      return `$${(amount / 1000000).toFixed(1)}M`;
+    }
 
-  if (amount >= 1000) {
-    return `$${(
-      amount / 1000
-    ).toFixed(1)}K`;
-  }
+    if (amount >= 1000) {
+      return `$${(amount / 1000).toFixed(1)}K`;
+    }
 
-  return `$${amount}`;
-};
+    return `$${amount}`;
+  };
 
   return (
     <div className="px-6 py-6 text-gray-900 dark:text-gray-100">
@@ -280,7 +276,7 @@ export default function AlloanProducts() {
             <span className="text-[#18B6B4]">Loan</span> Products
           </h1>
           <p className="text-sm text-gray-500 mt-1 dark:text-slate-400">
-            Manage global loan products available on the platform. 
+            Manage global loan products available on the platform.
           </p>
         </div>
 
@@ -356,21 +352,13 @@ export default function AlloanProducts() {
                         className="border-b border-gray-100 last:border-0 hover:bg-gray-50/40 dark:border-slate-800 dark:hover:bg-slate-800/60"
                       >
                         <td className="py-3 pr-4 text-gray-900 whitespace-nowrap dark:text-gray-100">
-{item.loanProductCode
-  ?.replace(/_/g, " ")
-  ?.replace(/\b\w/g, (c) =>
-    c.toUpperCase(),
-  )}
+                          {item.loanProduct?.name || "-"}
                         </td>
                         <td className="py-3 pr-4 text-gray-600 whitespace-nowrap dark:text-slate-300">
-                          {formatAmount(
-  item.minLoanAmount,
-)}
+                          {formatAmount(item.minLoanAmount)}
                         </td>
                         <td className="py-3 pr-4 text-gray-600 whitespace-nowrap dark:text-slate-300">
-                          {formatAmount(
-  item.maxLoanAmount,
-)}
+                          {formatAmount(item.maxLoanAmount)}
                         </td>
                         <td className="py-3 pr-4 text-gray-600 whitespace-nowrap dark:text-slate-300">
                           {item.minTermMonths} - {item.maxTermMonths} months
@@ -579,17 +567,21 @@ export default function AlloanProducts() {
               <Detail
                 label="Product Code"
                 value={viewDetails.loanProductCode
-  ?.replace(/_/g, " ")
-  ?.replace(/\b\w/g, (c: any) =>
-    c.toUpperCase(),
-  )}
+                  ?.replace(/_/g, " ")
+                  ?.replace(/\b\w/g, (c: any) => c.toUpperCase())}
               />
               <Detail
                 label="Product Name"
                 value={viewDetails.loanProduct?.name}
               />
-              <Detail label="Min Amount" value={formatAmount(viewDetails.minLoanAmount)} />
-              <Detail label="Max Amount" value={formatAmount(viewDetails.maxLoanAmount)} />
+              <Detail
+                label="Min Amount"
+                value={formatAmount(viewDetails.minLoanAmount)}
+              />
+              <Detail
+                label="Max Amount"
+                value={formatAmount(viewDetails.maxLoanAmount)}
+              />
               <Detail
                 label="Tenure"
                 value={`${viewDetails.minTermMonths} - ${viewDetails.maxTermMonths}`}

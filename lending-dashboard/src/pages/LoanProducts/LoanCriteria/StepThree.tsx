@@ -207,13 +207,16 @@ const StepThree = ({ value, setValue }: any) => {
                     className={`cursor-pointer transition ${
                       isOpen ? "rotate-180 text-blue-600" : ""
                     }`}
-                    onClick={() => toggleOpen(index)}
+                  onClick={(e) => {
+  e.stopPropagation();
+  toggleOpen(index);
+}}
                   />
                 )}
               </div>
 
               {/* SUB TYPES */}
-              {isOpen && isSelected && item.subTypes.length > 0 && (
+              {isOpen && item.subTypes.length > 0 && (
                 <div className="px-4 pb-4">
                   {/* ACTION BAR */}
                   <div className="flex justify-between items-center mb-3">
