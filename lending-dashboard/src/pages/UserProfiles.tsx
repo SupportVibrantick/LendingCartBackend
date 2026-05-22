@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Camera, ShieldCheck } from "lucide-react";
 import toast from "react-hot-toast";
-import Select from "react-select";
+import Select, { MultiValue } from "react-select";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
@@ -702,9 +702,15 @@ export default function EditLenderProfile() {
                       .map((s) => s.trim())
                       .includes(state.value),
                   )}
-                  onChange={(selectedOptions) => {
+                  onChange={(
+                    selectedOptions: MultiValue<{
+                      value: string;
+                      label: string;
+                    }>,
+                  ) => {
                     const values = selectedOptions.map(
-                      (option) => option.value,
+                      (option: { value: string; label: string }) =>
+                        option.value,
                     );
 
                     setForm((prev) => ({
@@ -714,7 +720,11 @@ export default function EditLenderProfile() {
                   }}
                   className="text-sm"
                   classNames={{
-                    control: ({ isFocused }) =>
+                    control: ({
+  isFocused,
+}: {
+  isFocused: boolean;
+}) =>
                       `!min-h-[44px] !rounded-2xl !border
         !bg-slate-50 dark:!bg-slate-800
         ${
@@ -731,7 +741,13 @@ export default function EditLenderProfile() {
         dark:!border-slate-700
         !bg-white dark:!bg-slate-800`,
 
-                    option: ({ isFocused, isSelected }) =>
+                  option: ({
+  isFocused,
+  isSelected,
+}: {
+  isFocused: boolean;
+  isSelected: boolean;
+}) =>
                       `
         !text-sm
         ${
@@ -788,9 +804,15 @@ export default function EditLenderProfile() {
                       .map((s) => s.trim())
                       .includes(industry.value),
                   )}
-                  onChange={(selectedOptions) => {
+                  onChange={(
+                    selectedOptions: MultiValue<{
+                      value: string;
+                      label: string;
+                    }>,
+                  ) => {
                     const values = selectedOptions.map(
-                      (option) => option.value,
+                      (option: { value: string; label: string }) =>
+                        option.value,
                     );
 
                     setForm((prev) => ({
@@ -800,7 +822,11 @@ export default function EditLenderProfile() {
                   }}
                   className="text-sm"
                   classNames={{
-                    control: ({ isFocused }) =>
+                  control: ({
+  isFocused,
+}: {
+  isFocused: boolean;
+}) =>
                       `!min-h-[44px] !rounded-2xl !border
         !bg-slate-50 dark:!bg-slate-800
         ${
@@ -815,7 +841,13 @@ export default function EditLenderProfile() {
         dark:!border-slate-700
         !bg-white dark:!bg-slate-800`,
 
-                    option: ({ isFocused, isSelected }) =>
+                 option: ({
+  isFocused,
+  isSelected,
+}: {
+  isFocused: boolean;
+  isSelected: boolean;
+}) =>
                       `
         !text-sm
         ${

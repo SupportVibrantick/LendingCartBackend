@@ -922,7 +922,7 @@ export default function LoanPreview() {
       text-slate-700 dark:bg-slate-700 dark:text-slate-300"
     >
       {doc.source}
-    </span>
+    </span> 
   )}
 </td>
 
