@@ -103,7 +103,7 @@ export default function SignInForm() {
                   Email <span className="text-error-500">*</span>
                 </Label>
                 <Input
-                  placeholder="info@gmail.com"
+                  placeholder="admin@gmail.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                 />
@@ -146,7 +146,7 @@ export default function SignInForm() {
                 </div>
                 <Link
                   to="/reset-password"
-                  className="text-sm text-brand-500 hover:text-brand-600 dark:text-brand-400"
+                  className="text-sm text-[#13538A] hover:text-[#1572c4] dark:text-[#13538A]"
                 >
                   Forgot password?
                 </Link>
@@ -158,7 +158,7 @@ export default function SignInForm() {
                 {/* native button used to avoid prop mismatch on custom Button component */}
                 <button
                   type="submit"
-                  className="w-full px-4 py-2 text-sm rounded-md bg-blue-600 text-white disabled:opacity-60"
+                  className="w-full px-4 py-2 text-sm rounded-md bg-[#13538A] text-white disabled:opacity-60"
                   disabled={isSubmitting}
                 >
                   {isSubmitting ? "Signing in..." : "Sign in"}
@@ -172,9 +172,9 @@ export default function SignInForm() {
               Don&apos;t have an account?{" "}
               <Link
                 to="/signup"
-                className="text-brand-500 hover:text-brand-600 dark:text-brand-400"
+                className="text-[#0c5a9e] hover:text-[#1572c4] dark:text-[#13538A]"
               >
-                Sign Up
+                Sign Up 
               </Link>
             </p>
           </div>  

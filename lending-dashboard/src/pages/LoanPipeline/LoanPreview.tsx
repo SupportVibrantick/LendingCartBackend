@@ -40,19 +40,13 @@ const formatFieldKey = (key: string | null | undefined) => {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 };
 
-const normalizeText = (value: unknown) =>
-  String(value || "").trim();
+const normalizeText = (value: unknown) => String(value || "").trim();
 
-const getSubmissionFieldValue = (
-  submissionDetail: any,
-  ...keys: string[]
-) => {
+const getSubmissionFieldValue = (submissionDetail: any, ...keys: string[]) => {
   const fields =
     submissionDetail?.loanApplication?.submissions?.[0]?.fields || [];
 
-  return fields.find((field: any) =>
-    keys.includes(field.fieldKey),
-  )?.value;
+  return fields.find((field: any) => keys.includes(field.fieldKey))?.value;
 };
 
 const getBorrowerDisplayName = (submissionDetail: any) => {
@@ -73,10 +67,7 @@ const getBorrowerDisplayName = (submissionDetail: any) => {
     ),
   );
 
-  const fullName = [firstName, lastName]
-    .filter(Boolean)
-    .join(" ")
-    .trim();
+  const fullName = [firstName, lastName].filter(Boolean).join(" ").trim();
 
   if (fullName) {
     return fullName;
@@ -425,7 +416,10 @@ export default function LoanPreview() {
       const payload = {
         decision: "CONDITIONAL",
         notes: "Please upload required documents",
+
         documentTypeIds: docSelectModal.selectedDocs,
+
+        customDocuments: customDocs,
       };
 
       const res = await fetch(
@@ -450,6 +444,9 @@ export default function LoanPreview() {
         ...prev,
         selectedDocs: [],
       }));
+
+      setCustomDocs([]);
+      setCustomInput("");
 
       // refresh UI
       setSubmissionDetail(null);
@@ -852,6 +849,7 @@ export default function LoanPreview() {
               <tr>
                 <th className="px-5 py-3">Document</th>
                 <th className="px-5 py-3 text-center">Status</th>
+                <th className="px-5 py-3 text-center">Source</th>
                 <th className="px-5 py-3 text-center">Uploads</th>
                 <th className="px-5 py-3 text-right">Action</th>
               </tr>
@@ -870,14 +868,11 @@ export default function LoanPreview() {
                         {doc.documentName}
                       </span>
 
-                      <span className="text-xs text-slate-400 mt-1">
-                        {doc.source}
-                        {doc.isRequired && (
-                          <span className="ml-2 text-rose-500 font-semibold text-xs">
-                            • Required
-                          </span>
-                        )}
-                      </span>
+                      {doc.isRequired && (
+                        <span className="mt-1 text-rose-500 font-semibold text-[11px]">
+                          Required
+                        </span>
+                      )}
                     </div>
                   </td>
 
@@ -895,6 +890,41 @@ export default function LoanPreview() {
                       {doc.status}
                     </span>
                   </td>
+<td className="px-5 py-4 text-center">
+  {doc.source === "BROKER_ADDED" ? (
+    <span
+      className="inline-flex items-center rounded-full 
+      bg-blue-100 px-3 py-1 text-[11px] font-semibold 
+      text-blue-700 dark:bg-blue-500/10 dark:text-blue-400"
+    >
+      Broker
+    </span>
+  ) : doc.source === "SUB_BROKER_ADDED" ? (
+<span
+  className="inline-flex items-center rounded-full 
+  bg-emerald-100 px-3 py-1 text-[11px] font-semibold 
+  text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400"
+>
+  Sub Broker
+</span>
+  ) : doc.source === "LENDER_ADDED" ? (
+    <span
+      className="inline-flex items-center rounded-full 
+      bg-purple-100 px-3 py-1 text-[11px] font-semibold 
+      text-purple-700 dark:bg-purple-500/10 dark:text-purple-400"
+    >
+      Lender
+    </span>
+  ) : (
+    <span
+      className="inline-flex items-center rounded-full 
+      bg-slate-100 px-3 py-1 text-[11px] font-semibold 
+      text-slate-700 dark:bg-slate-700 dark:text-slate-300"
+    >
+      {doc.source}
+    </span>
+  )}
+</td>
 
                   {/* COUNT */}
                   <td className="px-5 py-4 text-center">
@@ -903,39 +933,71 @@ export default function LoanPreview() {
                     </span>
                   </td>
 
-                  {/* ACTION */}
-                  <td className="px-5 py-4 text-right">
-                    {doc.uploadedCount > 0 ? (
-                      <button
-                        onClick={() => {
-                          if (doc.uploadedCount === 1) {
-                            const file = doc.uploadedFiles[0];
-                            setPreviewFile({
-                              url: `${API_BASE}${file.fileUrl}`,
-                              type: file.fileMimeType,
-                              name: file.fileName,
-                            });
-                          } else {
-                            setMultiFileModal({
-                              isOpen: true,
-                              doc,
-                            });
-                          }
-                        }}
-                        className="group flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition-all duration-300"
-                      >
-                        <Eye size={14} />
-                        <span className="text-xs font-semibold">
-                          View
-                          {doc.uploadedCount > 1 && ` (${doc.uploadedCount})`}
-                        </span>
-                      </button>
-                    ) : (
-                      <span className="text-xs text-slate-400 italic">
-                        No files
-                      </span>
-                    )}
-                  </td>
+{/* ACTION  */}
+<td className="px-5 py-4 text-right">
+  {doc.uploadedCount > 0 ? (
+    <button
+      onClick={() => {
+        if (doc.uploadedCount === 1) {
+          const file = doc.uploadedFiles[0];
+
+          setPreviewFile({
+            url: `${API_BASE}${file.fileUrl}`,
+            type: file.fileMimeType,
+            name: file.fileName,
+          });
+        } else {
+          setMultiFileModal({
+            isOpen: true,
+            doc,
+          });
+        }
+      }}
+      className="
+        group inline-flex items-center gap-2
+        rounded-xl border border-blue-200
+        bg-gradient-to-r from-blue-50 to-indigo-50
+        px-3 py-2
+        text-blue-700
+        transition-all duration-300
+        hover:-translate-y-0.5
+        hover:border-blue-500
+        hover:bg-blue-600
+  
+        hover:shadow-md
+        dark:border-blue-500/20
+        dark:from-blue-500/10
+        dark:to-indigo-500/10
+        dark:text-blue-300
+        dark:hover:bg-blue-500
+      "
+    >
+      <Eye
+        size={14}
+        className="transition-transform duration-300 group-hover:scale-110"
+      />
+
+      <span className="text-[11px] font-semibold tracking-wide">
+        View
+        {doc.uploadedCount > 1 &&
+          ` (${doc.uploadedCount})`}
+      </span>
+    </button>
+  ) : (
+    <span
+      className="
+        inline-flex items-center rounded-lg
+        bg-slate-100 px-3 py-1.5
+        text-[11px] font-medium italic
+        text-slate-400
+        dark:bg-slate-800
+        dark:text-slate-500
+      "
+    >
+      No Files
+    </span>
+  )}
+</td>
                 </tr>
               ))}
             </tbody>
@@ -958,7 +1020,7 @@ export default function LoanPreview() {
         {/* LOAN PRODUCT SELECT */}
         <div className="space-y-1">
           <label className="text-xs font-semibold text-gray-500">
-            LOAN PROGRAM 
+            LOAN PROGRAM
           </label>
 
           <div className="relative">
@@ -1042,7 +1104,7 @@ export default function LoanPreview() {
 
         {selectedLoanProduct && (
           <p className="text-sm text-slate-500">
-            Select which documents are required.
+            Select configured documents or add custom document requests.
           </p>
         )}
 
@@ -1271,15 +1333,11 @@ export default function LoanPreview() {
 
           <button
             onClick={handleRequestDocuments}
-           disabled={
-  requestLoading ||
-  !selectedLoanProduct ||
-  (
-    (docSelectModal.selectedDocs
-      ?.length || 0) === 0 &&
-    customDocs.length === 0
-  )
-}
+            disabled={
+              requestLoading ||
+              ((docSelectModal.selectedDocs?.length || 0) === 0 &&
+                customDocs.length === 0)
+            }
             className="px-5 py-2 rounded-xl bg-[#0F766E] text-white font-medium disabled:opacity-40"
           >
             {requestLoading ? "Requesting..." : "Request Documents"}
@@ -1334,10 +1392,7 @@ export default function LoanPreview() {
   }
 
   const getFieldValue = (key: string) => {
-    return getSubmissionFieldValue(
-      submissionDetail,
-      key,
-    );
+    return getSubmissionFieldValue(submissionDetail, key);
   };
 
   return (

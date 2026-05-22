@@ -102,16 +102,20 @@ module.exports = async function submissionDocuments(fastify) {
       const whereCondition = {
         loanApplicationId,
 
-        OR: [
-          {
-            source: "BROKER_ADDED",
-          },
+OR: [
+  {
+    source: "BROKER_ADDED",
+  },
 
-          {
-            source: "SUB_BROKER_ADDED",
-            isSentToBroker: true,
-          },
-        ],
+  {
+    source: "SUB_BROKER_ADDED",
+    isSentToBroker: true,
+  },
+
+  {
+    source: "LENDER_ADDED",
+  },
+],
 
         ...(search && {
           documentType: {

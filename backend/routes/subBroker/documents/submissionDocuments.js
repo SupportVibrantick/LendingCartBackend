@@ -236,9 +236,17 @@ module.exports = async function submissionDocuments(fastify) {
         =============================== */
 
         const documents = documentRequirements.map((d) => {
-          const matchedSubmission = d.uploads.find(
-            (u) => u.subBrokerSubmissions?.length,
-          );
+const allSubmissions =
+  d.uploads.flatMap(
+    (u) => u.subBrokerSubmissions || [],
+  );
+
+const latestSubmission =
+  allSubmissions.sort(
+    (a, b) =>
+      new Date(b.createdAt) -
+      new Date(a.createdAt),
+  )[0];
           const uploadedCount = d.uploads.length;
 
           const requestedBy = lenderMap.get(d.documentTypeId) || [];
@@ -255,10 +263,10 @@ module.exports = async function submissionDocuments(fastify) {
             isRequired: d.isRequired,
 
             status:
-              matchedSubmission?.subBrokerSubmissions?.[0]?.status || d.status,
+  latestSubmission?.status || d.status,
 
             skipReason:
-              matchedSubmission?.subBrokerSubmissions?.[0]?.skipReason || null,
+  latestSubmission?.skipReason || null,
 
             requestedByLenders: requestedBy,
 
@@ -281,7 +289,7 @@ module.exports = async function submissionDocuments(fastify) {
         });
 
         const pendingCount = documents.filter(
-          (doc) => doc.status === "PENDING" || doc.status === "PARTIAL",
+          (doc) => doc.status === "PENDING",
         ).length;
 
         /* ===============================

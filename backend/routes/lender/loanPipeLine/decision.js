@@ -36,6 +36,10 @@ async function lenderDecisionRoutes(fastify) {
               type: "array",
               items: { type: "string", format: "uuid" },
             },
+            customDocuments: {
+              type: "array",
+              items: { type: "string" },
+            },
           },
         },
       },
@@ -70,6 +74,7 @@ async function lenderDecisionRoutes(fastify) {
           interestRate,
           notes,
           documentTypeIds,
+          customDocuments,
         } = req.body;
 
         /* ===============================
@@ -113,7 +118,7 @@ async function lenderDecisionRoutes(fastify) {
 
         for (const submission of record.loanApplication.submissions || []) {
           const emailField = submission.fields.find(
-            (f) => f.fieldKey === "email"
+            (f) => f.fieldKey === "email",
           );
 
           if (emailField) {
@@ -174,9 +179,60 @@ async function lenderDecisionRoutes(fastify) {
              CONDITIONAL FLOW
           =============================== */
           if (decision === "CONDITIONAL") {
-            if (!documentTypeIds || documentTypeIds.length === 0) {
+            const existingDocTypeIds = Array.isArray(documentTypeIds)
+              ? documentTypeIds
+              : [];
+
+            const customDocNames = Array.isArray(customDocuments)
+              ? customDocuments
+              : [];
+
+            if (
+              existingDocTypeIds.length === 0 &&
+              customDocNames.length === 0
+            ) {
               throw new Error("Please select at least one document");
             }
+
+            const createdCustomDocIds = [];
+
+            for (const docName of customDocNames) {
+              if (!docName?.trim()) continue;
+
+              const existingCustomDoc = await tx.documentType.findFirst({
+                where: {
+                  name: docName.trim(),
+                },
+              });
+
+              // already exists
+              if (existingCustomDoc) {
+                createdCustomDocIds.push(existingCustomDoc.id);
+                continue;
+              }
+
+              // create new custom document
+              const createdDoc = await tx.documentType.create({
+                data: {
+                  name: docName.trim(),
+
+                  code: `CUSTOM_${Date.now()}_${Math.random()
+                    .toString(36)
+                    .substring(2, 8)}`,
+
+                  isCustom: true,
+                  createdByOrgId: lenderOrgId,
+                  isActive: true,
+                },
+              });
+
+              createdCustomDocIds.push(createdDoc.id);
+            }
+
+            const finalDocumentTypeIds = [
+              ...existingDocTypeIds,
+              ...createdCustomDocIds,
+            ];
 
             const existingRequirements =
               await tx.applicationDocumentRequirement.findMany({
@@ -187,10 +243,10 @@ async function lenderDecisionRoutes(fastify) {
               });
 
             const existingMap = new Map(
-              existingRequirements.map((r) => [r.documentTypeId, r])
+              existingRequirements.map((r) => [r.documentTypeId, r]),
             );
 
-            for (const docId of documentTypeIds) {
+            for (const docId of finalDocumentTypeIds) {
               const existing = existingMap.get(docId);
 
               if (existing) {
@@ -220,7 +276,7 @@ async function lenderDecisionRoutes(fastify) {
             /* ===============================
                LENDER-SPECIFIC TRACKING
             =============================== */
-            for (const docId of documentTypeIds) {
+            for (const docId of finalDocumentTypeIds) {
               await tx.lenderDocumentRequest.upsert({
                 where: {
                   applicationLenderId_documentTypeId: {
@@ -274,10 +330,8 @@ async function lenderDecisionRoutes(fastify) {
         =============================== */
         if (decision === "CONDITIONAL" && clientEmail) {
           const html = loadTemplate("clientPortal/document", {
-            clientName:
-              record.loanApplication.client?.legalName || "Customer",
-            applicationNumber:
-              record.loanApplication.applicationNumber,
+            clientName: record.loanApplication.client?.legalName || "Customer",
+            applicationNumber: record.loanApplication.applicationNumber,
           });
 
           const subject = "Documents Required for Your Loan Application";
@@ -310,7 +364,7 @@ async function lenderDecisionRoutes(fastify) {
           message: error.message, // easier debugging
         });
       }
-    }
+    },
   );
 }
 

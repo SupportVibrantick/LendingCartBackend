@@ -132,11 +132,13 @@ module.exports = async function lenderViewDocuments(fastify) {
             isRequired: reqDoc.isRequired,
 
             status:
-              uploadedCount === 0
-                ? "PENDING"
-                : reqDoc.status === "COMPLETE"
-                ? "COMPLETE"
-                : "PARTIAL",
+              reqDoc.status === "SKIPPED"
+                ? "SKIPPED"
+                : uploadedCount === 0
+                  ? "PENDING"
+                  : reqDoc.status === "COMPLETE"
+                    ? "COMPLETE"
+                    : "PARTIAL",
 
             uploadedCount,
 
@@ -149,7 +151,10 @@ module.exports = async function lenderViewDocuments(fastify) {
 
               uploadedBy: upload.uploadedByUser
                 ? {
-                    type: "BROKER",
+                    type:
+                      reqDoc.source === "SUB_BROKER_ADDED"
+                        ? "SUB_BROKER"
+                        : "BROKER",
                     userId: upload.uploadedByUser.id,
                     name: `${upload.uploadedByUser.firstName ?? ""} ${
                       upload.uploadedByUser.lastName ?? ""
@@ -157,12 +162,12 @@ module.exports = async function lenderViewDocuments(fastify) {
                     email: upload.uploadedByUser.email,
                   }
                 : upload.uploadedByClientUser
-                ? {
-                    type: "CLIENT",
-                    userId: upload.uploadedByClientUser.id,
-                    email: upload.uploadedByClientUser.email,
-                  }
-                : null,
+                  ? {
+                      type: "CLIENT",
+                      userId: upload.uploadedByClientUser.id,
+                      email: upload.uploadedByClientUser.email,
+                    }
+                  : null,
             })),
           };
         });
@@ -171,14 +176,16 @@ module.exports = async function lenderViewDocuments(fastify) {
            FILTER (OPTIONAL CLEAN UX)
         =============================== */
         const visibleDocuments = documents.filter(
-          (doc) => doc.uploadedCount > 0 || doc.isRequired
+          (doc) =>
+            doc.status !== "SKIPPED" &&
+            (doc.uploadedCount > 0 || doc.isRequired),
         );
 
         /* ===============================
            PENDING COUNT
         =============================== */
         const pendingCount = visibleDocuments.filter(
-          (d) => d.uploadedCount === 0
+          (d) => d.uploadedCount === 0,
         ).length;
 
         /* ===============================
@@ -193,7 +200,6 @@ module.exports = async function lenderViewDocuments(fastify) {
             documents: visibleDocuments,
           },
         });
-
       } catch (error) {
         fastify.log.error({
           error: error.message,
@@ -205,6 +211,6 @@ module.exports = async function lenderViewDocuments(fastify) {
           message: "Server error while fetching documents",
         });
       }
-    }
+    },
   );
 };

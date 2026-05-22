@@ -836,6 +836,7 @@ const handleSelectAll = () => {
           profileImage: l.profileImage
             ? `${API_BASE}/public/${l.profileImage}`
             : null,
+            lenderProductId: l.lenderProductId,
           loanProductCode: l.loanProductCode,
           minFunding: l.fundingRange?.min ?? 0,
           maxFunding: l.fundingRange?.max ?? 0,
@@ -861,6 +862,7 @@ const handleSelectAll = () => {
             ? `${API_BASE}/public/${l.profileImage}`
             : null,
           loanProductCode: l.loanProductCode,
+          lenderProductId: l.lenderProductId,
           minFunding: l.fundingRange?.min ?? 0,
           maxFunding: l.fundingRange?.max ?? 0,
           minMonths: l.terms?.minMonths ?? 0,
@@ -884,6 +886,7 @@ const handleSelectAll = () => {
             ? `${API_BASE}/public/${l.profileImage}`
             : null,
           loanProductCode: l.loanProductCode,
+          lenderProductId: l.lenderProductId,
           minFunding: l.fundingRange?.min ?? 0,
           maxFunding: l.fundingRange?.max ?? 0,
           minMonths: l.terms?.minMonths ?? 0,

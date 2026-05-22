@@ -2483,8 +2483,8 @@ dark:bg-red-900/20 dark:text-red-400"
                       </td>
 
  {/* STATUS */}
-<td className="px-5 py-4 text-center">
-  <div className="flex flex-col items-center gap-1">
+<td className="w-[220px] min-w-[220px] max-w-[220px] px-4 py-4 text-center align-middle">
+<div className="relative flex flex-col items-center justify-center gap-1">
     <span
       className={`px-3 py-1 rounded-full text-xs font-semibold ${getDocumentStatusChip(
         doc.status,
@@ -2495,18 +2495,75 @@ dark:bg-red-900/20 dark:text-red-400"
         ?.toUpperCase()}
     </span>
 
+    {doc.status === "SKIPPED" && (
+      <span className="max-w-[180px] text-center text-[10px] font-medium text-red-500 break-words">
+        Skipped by Principal Broker
+      </span>
+    )}
+
     {doc.isSentToBroker &&
       doc.status !== "SKIPPED" && (
-        <span className="text-[10px] font-medium text-blue-600">
+        <span className="text-[10px] font-medium text-blue-600 text-center">
           SENT TO PRINCIPAL BROKER
         </span>
       )}
 
-    {doc.skipReason && (
-      <span className="max-w-[180px] text-center text-[11px] text-red-500">
-        Reason: {doc.skipReason}
-      </span>
-    )}
+    {doc.skipReason &&
+      doc.status === "SKIPPED" && (
+<div className="group/review relative flex justify-center">
+  <span
+    className="
+max-w-[180px]
+truncate
+text-center
+text-[10px]
+text-slate-500
+cursor-pointer
+"
+  >
+    {doc.skipReason}
+  </span>
+
+  <div
+   className="
+pointer-events-none
+absolute
+left-1/2
+bottom-full
+z-[9999]
+mb-2
+hidden
+w-72
+-translate-x-1/2
+rounded-xl
+border
+border-slate-200
+bg-white
+p-3
+text-left
+text-[11px]
+leading-relaxed
+text-slate-700
+shadow-2xl
+whitespace-pre-wrap
+break-words
+group-hover/review:block
+
+dark:border-slate-700
+dark:bg-slate-900
+dark:text-slate-200
+"
+  >
+    <p className="font-semibold text-red-500 mb-1">
+      Complete Review
+    </p>
+
+    <p className="break-words whitespace-pre-wrap">
+      {doc.skipReason}
+    </p>
+  </div>
+</div>
+      )}
   </div>
 </td>
 
@@ -2542,15 +2599,32 @@ dark:bg-red-900/20 dark:text-red-400"
 
                       {/* ACTION */}
                       <td className="relative px-5 py-4 text-right">
-                        <button
-                          onClick={() =>
-                            setActiveAction(isOpen ? null : doc.requirementId)
-                          }
-                          className="rounded-lg p-2 transition hover:bg-slate-100 dark:hover:bg-slate-700"
-                        >
-                          <MoreVertical size={16} />
-                        </button>
+                    <button
+  disabled={doc.status === "SKIPPED"}
+  onClick={() =>
+    setActiveAction(isOpen ? null : doc.requirementId)
+  }
+  className={`
+rounded-xl
+p-1.5
+transition-all
+duration-200
 
+${
+  doc.status === "SKIPPED"
+    ? "cursor-not-allowed opacity-40 text-slate-300 dark:text-slate-600"
+    : `
+      text-slate-500
+      hover:bg-slate-100
+      hover:text-slate-700
+      dark:hover:bg-slate-800
+      dark:hover:text-white
+    `
+}
+`}
+>
+  <MoreVertical size={15} />
+</button>
                         {isOpen && (
                           <div
                             className="

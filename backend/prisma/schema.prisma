@@ -1846,6 +1846,7 @@ enum DocRequirementStatus {
   PENDING
   PARTIAL
   COMPLETE
+  SKIPPED
 }
 
 enum ApplicationLenderStatus {

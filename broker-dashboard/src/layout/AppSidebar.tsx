@@ -359,12 +359,21 @@ text-gray-800 dark:text-gray-200 dark:border-gray-800 h-screen transition-all du
       >
         <Link to="/">
           {isExpanded || isHovered || isMobileOpen ? (
-            <div className="bg-white px-3 py-2 rounded">
+            // <div className="bg-white px-3 py-2 rounded">
+            //   <img
+            //     src="/ACOM_LOGO.png"
+            //     alt="Logo"
+            //     width={217}
+            //     height={53}
+            //     className="object-contain"
+            //   />
+            // </div>
+             <div className="bg-white px-3 py-2 rounded">
               <img
-                src="/ACOM_LOGO.png"
+                src="/loanAutomation.jpeg"
                 alt="Logo"
-                width={217}
-                height={53}
+                width={100}
+                height={15}
                 className="object-contain"
               />
             </div>

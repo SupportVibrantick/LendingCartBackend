@@ -21,7 +21,7 @@ export default function AuthLayout({
                 <img
                   width={231}
                   height={48}
-                  src="/ACOM_LOGO.png"
+                  src="/loanAutomation.jpeg"
                   alt="Logo"
                 />
               </Link>

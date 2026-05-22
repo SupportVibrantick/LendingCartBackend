@@ -134,65 +134,57 @@ module.exports = async function sendToPrincipalBroker(fastify) {
            UPDATE REQUIREMENT
         ========================================= */
 
-       const latestUpload =
-  requirement.uploads[0];
+        const uploads = requirement.uploads;
 
-const result =
-  await prisma.$transaction(
-    async (tx) => {
-      /* =========================
+        const result = await prisma.$transaction(async (tx) => {
+          /* =========================
          UPDATE REQUIREMENT
       ========================= */
 
-      const updatedRequirement =
-        await tx.applicationDocumentRequirement.update(
-          {
-            where: {
-              id: requirement.id,
-            },
+          const updatedRequirement =
+            await tx.applicationDocumentRequirement.update({
+              where: {
+                id: requirement.id,
+              },
 
-            data: {
-              isSentToBroker: true,
+              data: {
+                isSentToBroker: true,
 
-              sentToBrokerAt:
-                new Date(),
+                sentToBrokerAt: new Date(),
 
-              status: "COMPLETE",
-            },
-          },
-        );
+                status: "PARTIAL",
+              },
+            });
 
-      /* =========================
+          /* =========================
          CREATE SUBMISSION
       ========================= */
 
-      const submission =
-        await tx.subBrokerSubmission.create(
-          {
-            data: {
-              loanApplicationId:
-                requirement.loanApplicationId,
+          const createdSubmissions = [];
 
-              documentUploadId:
-                latestUpload.id,
+          for (const upload of uploads) {
+            const submission = await tx.subBrokerSubmission.create({
+              data: {
+                loanApplicationId: requirement.loanApplicationId,
 
-              submittedBySubBrokerId:
-                req.user.userId,
+                documentUploadId: upload.id,
 
-              principalBrokerId:
-                assignment.assignedById,
+                submittedBySubBrokerId: req.user.userId,
 
-              status: "PENDING",
-            },
-          },
-        );
+                principalBrokerId: assignment.assignedById,
 
-      return {
-        updatedRequirement,
-        submission,
-      };
-    },
-  );
+                status: "PENDING",
+              },
+            });
+
+            createdSubmissions.push(submission);
+          }
+
+          return {
+            updatedRequirement,
+            submissions: createdSubmissions,
+          };
+        });
 
         /* =========================================
            LOG
@@ -221,16 +213,11 @@ const result =
           message: "Document sent to Principal Broker successfully",
 
           data: {
-            requirementId:
-  result.updatedRequirement.id,
+            requirementId: result.updatedRequirement.id,
 
-            isSentToBroker:
-  result.updatedRequirement
-    .isSentToBroker,
+            isSentToBroker: result.updatedRequirement.isSentToBroker,
 
-            sentToBrokerAt:
-  result.updatedRequirement
-    .sentToBrokerAt,
+            sentToBrokerAt: result.updatedRequirement.sentToBrokerAt,
           },
         });
       } catch (error) {

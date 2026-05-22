@@ -68,10 +68,16 @@ module.exports = async function skipSubBrokerSubmission(
                 id: submissionId,
               },
 
-              include: {
-                loanApplication: true,
-                documentUpload: true,
-              },
+             include: {
+  loanApplication: true,
+
+  documentUpload: {
+    select: {
+      id: true,
+      documentRequirementId: true,
+    },
+  },
+},
             },
           );
 
@@ -139,12 +145,15 @@ module.exports = async function skipSubBrokerSubmission(
            UPDATE DOCUMENT REQUIREMENT
         =============================== */
         if (
-          submission.documentRequirementId
-        ) {
+  submission.documentUpload
+    ?.documentRequirementId
+){
           await fastify.prisma.applicationDocumentRequirement.update(
             {
               where: {
-                id: submission.documentRequirementId,
+              id:
+  submission.documentUpload
+    .documentRequirementId,
               },
 
               data: {
