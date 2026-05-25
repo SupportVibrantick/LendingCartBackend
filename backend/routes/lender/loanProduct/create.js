@@ -187,9 +187,9 @@ async function createLenderLoanProductRoutes(fastify) {
               statesSupported:
                 item.statesSupported?.join(",") ?? null,
 
-              // ✅ ONLY ARRAY (NO SUBTYPE)
+              // ✅ flat array stored as CSV
               equipmentTypes: isEquipmentFinance
-                ? item.equipmentTypes ?? null
+                ? item.equipmentTypes?.join(",") ?? null
                 : null,
 
               otherEquipmentExplanation: isEquipmentFinance

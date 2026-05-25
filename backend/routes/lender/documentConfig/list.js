@@ -62,6 +62,7 @@ async function listLenderDocumentConfigRoutes(fastify) {
         const where = {
           lenderProduct: {
             lenderOrgId, // 🔥 CRITICAL SECURITY FILTER
+            isActive: true,
           },
         };
 

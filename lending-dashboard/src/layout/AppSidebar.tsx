@@ -24,7 +24,7 @@ import { useSidebar } from "../context/SidebarContext";
 import CurrencyExchangeOutlinedIcon from "@mui/icons-material/CurrencyExchangeOutlined";
 // import { PiSecurityCameraFill } from "react-icons/pi";
 // import { GrDocumentText } from "react-icons/gr";
-import { FaPersonCirclePlus } from "react-icons/fa6";
+// import { FaPersonCirclePlus } from "react-icons/fa6";
 import { TrendingUp } from "lucide-react";
 
 type NavItem = {
@@ -87,15 +87,15 @@ const navItems: NavItem[] = [
   //   path: "/all-documents",
   // },
 
-  {
-    icon: <FaPersonCirclePlus />,
-    name: "Broker Interactions",
-    subItems: [
-      { name: "My Brokers", path: "/my-broker" },
-      { name: "Invited Brokers ", path: "/broker-request" },
-      { name: "Find Brokers", path: "/find-broker" },
-    ],
-  },
+  // {
+  //   icon: <FaPersonCirclePlus />,
+  //   name: "Broker Interactions",
+  //   subItems: [
+  //     { name: "My Brokers", path: "/my-broker" },
+  //     { name: "Invited Brokers ", path: "/broker-request" },
+  //     { name: "Find Brokers", path: "/find-broker" },
+  //   ],
+  // },
 
   {
     icon: <CgProfile />,
@@ -394,15 +394,15 @@ const AppSidebar: React.FC = () => {
             //     className="object-contain"
             //   />
             // </div>
-            <div className="px-3 py-2 rounded">
-              <img
-                src="/loanAutomation.jpeg"
-                alt="Logo"
-                width={100}
-                height={15}
-                className="object-contain  roiunded-full"
-              />
-            </div>
+<div className="flex justify-center items-center py-4">
+  <div className="rounded-full h-28 w-28 overflow-hidden border-4 border-white/20 shadow-lg">
+    <img
+      src="/loanAutomation.jpeg"
+      alt="Logo"
+      className="w-full h-full object-cover"
+    />
+  </div>
+</div>
           ) : (
             <img
               src="/images/logo/logo-icon.svg"

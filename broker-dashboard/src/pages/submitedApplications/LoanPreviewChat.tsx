@@ -338,15 +338,15 @@ const LoanPreviewChat = ({ applicationId }: LoanPreviewChatProps) => {
         throw new Error(json.message || "Failed to send message");
       }
 
-      // const newMessage = json.data;
+      const newMessage = json.data?.message || json.data;
 
-      // setMessages((prev) => {
-      //   const alreadyExists = prev.some((item) => item.id === newMessage.id);
+      setMessages((prev) => {
+        const alreadyExists = prev.some((item) => item.id === newMessage.id);
 
-      //   if (alreadyExists) return prev;
+        if (alreadyExists) return prev;
 
-      //   return [...prev, newMessage];
-      // });
+        return [...prev, newMessage];
+      });
 
       setConversations((prev) =>
         prev.map((item) =>

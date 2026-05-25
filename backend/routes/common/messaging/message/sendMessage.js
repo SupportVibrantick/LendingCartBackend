@@ -38,6 +38,7 @@ module.exports = async function sendMessage(fastify) {
     async (req, reply) => {
       const prisma = fastify.prisma;
       const { conversationId } = req.params;
+      const normalize = (str) => str?.trim().toLowerCase();
 
       const { type, text, fileUrl, fileName, fileSize, mimeType, metadata } =
         req.body;
@@ -83,6 +84,11 @@ module.exports = async function sendMessage(fastify) {
 
         const conversation = await prisma.conversation.findUnique({
           where: { id: conversationId },
+          select: {
+            id: true,
+            loanApplicationId: true,
+            applicationLenderId: true,
+          },
         });
 
         if (!conversation) {
@@ -94,29 +100,63 @@ module.exports = async function sendMessage(fastify) {
 
         /* ================= CHECK PARTICIPANT ================= */
 
-const participant =
-  await prisma.conversationParticipant.findFirst({
-    where: {
-      conversationId,
+        const participant =
+          await prisma.conversationParticipant.findFirst({
+            where: {
+              conversationId,
 
-      OR: [
-        {
-          participantId: userId,
-        },
+              OR: [
+                {
+                  participantId: userId,
+                },
 
-        req.user?.email
-          ? {
-              participantEmail:
-                req.user.email
-                  .trim()
-                  .toLowerCase(),
-            }
-          : undefined,
-      ].filter(Boolean),
-    },
-  });
+                req.user?.email
+                  ? {
+                      participantEmail: normalize(req.user.email),
+                    }
+                  : undefined,
+              ].filter(Boolean),
+            },
+          });
 
-        if (!participant) {
+        let hasFallbackAccess = false;
+
+        if (
+          !participant &&
+          req.user?.orgType === "LENDER" &&
+          req.user?.organizationId &&
+          conversation.applicationLenderId
+        ) {
+          const lenderAccess = await prisma.applicationLender.findFirst({
+            where: {
+              id: conversation.applicationLenderId,
+              lenderOrgId: req.user.organizationId,
+            },
+            select: { id: true },
+          });
+
+          hasFallbackAccess = Boolean(lenderAccess);
+        }
+
+        if (
+          !participant &&
+          !hasFallbackAccess &&
+          req.user?.orgType === "BROKER" &&
+          req.user?.organizationId &&
+          conversation.loanApplicationId
+        ) {
+          const brokerAccess = await prisma.loanApplication.findFirst({
+            where: {
+              id: conversation.loanApplicationId,
+              brokerOrgId: req.user.organizationId,
+            },
+            select: { id: true },
+          });
+
+          hasFallbackAccess = Boolean(brokerAccess);
+        }
+
+        if (!participant && !hasFallbackAccess) {
           return reply.code(403).send({
             success: false,
             message: "Access denied",

@@ -17,7 +17,14 @@ type BrokerLog = {
   action: string;
   entityType: string;
   entityId: string;
-  performedBy: string | null;
+  performedBy:
+  | string
+  | {
+      id?: string;
+      email?: string;
+      name?: string;
+    }
+  | null;
   ipAddress: string;
   createdAt: string;
   oldValue?: any;
@@ -298,7 +305,11 @@ const AdminLogs: React.FC = () => {
                           <div className="flex flex-col">
                             <div className="flex items-center gap-1.5 text-sm font-medium text-slate-700 dark:text-slate-200">
                               <User size={14} className="text-slate-400" />
-                              {log.performedBy || "System"}
+                            {typeof log.performedBy === "object"
+  ? log.performedBy?.name ||
+    log.performedBy?.email || 
+    "System"
+  : log.performedBy || "System"}
                             </div>
                             <div className="text-xs text-slate-400 ml-5">
                               {log.ipAddress}

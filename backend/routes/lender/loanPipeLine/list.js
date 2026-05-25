@@ -98,6 +98,9 @@ async function listSubmittedApplications(fastify) {
         querystring: {
           type: "object",
           properties: {
+            search: {
+  type: "string",
+},
             page: { type: "integer", minimum: 1, default: 1 },
             limit: { type: "integer", minimum: 1, maximum: 100, default: 10 },
             decision: {
@@ -135,6 +138,7 @@ async function listSubmittedApplications(fastify) {
         const limit = Number(req.query.limit) || 10;
         const skip = (page - 1) * limit;
         const decisionFilter = req.query.decision;
+        const search = req.query.search?.trim();
 
         // ==========================================
         // FETCH APPLICATIONS
@@ -142,7 +146,30 @@ async function listSubmittedApplications(fastify) {
         const applications = await prisma.applicationLender.findMany({
           where: {
             lenderOrgId,
+              ...(search && {
+      loanApplication: {
+        OR: [
+          {
+            applicationNumber: {
+              contains: search,
+              mode: "insensitive",
+            },
           },
+
+        {
+  client: {
+    is: {
+      legalName: {
+        contains: search,
+        mode: "insensitive",
+      },
+    },
+  },
+},
+        ],
+      },
+    }),
+  },
           orderBy: {
             sentAt: "desc",
           },
@@ -317,9 +344,35 @@ async function listSubmittedApplications(fastify) {
         // ==========================================
         // TOTAL COUNT
         // ==========================================
-        const total = await prisma.applicationLender.count({
-          where: { lenderOrgId },
-        });
+     const total = await prisma.applicationLender.count({
+  where: {
+    lenderOrgId,
+
+    ...(search && {
+      loanApplication: {
+        OR: [
+          {
+            applicationNumber: {
+              contains: search,
+              mode: "insensitive",
+            },
+          },
+
+          {
+            client: {
+              is: {
+                legalName: {
+                  contains: search,
+                  mode: "insensitive",
+                },
+              },
+            },
+          },
+        ],
+      },
+    }),
+  },
+});
 
         // ==========================================
         // RESPONSE

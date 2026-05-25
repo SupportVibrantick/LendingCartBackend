@@ -154,7 +154,7 @@ export default function MyBrokers() {
             My <span className="text-[#18B6B4]">Brokers</span>
           </h1>
           <p className="text-sm text-gray-500 dark:text-slate-400">
-            Manage assigned brokers
+            Manage assigned brokers 
           </p>
         </div>
 

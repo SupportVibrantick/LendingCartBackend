@@ -72,10 +72,13 @@ async function getApplicationDetails(fastify) {
             },
             lenderProduct: true,
             lenderReviews: {
-              include: {
-                conditions: true,
-              },
-            },
+  orderBy: {
+    createdAt: "desc",
+  },
+  include: {
+    conditions: true,
+  },
+},
           },
         });
 

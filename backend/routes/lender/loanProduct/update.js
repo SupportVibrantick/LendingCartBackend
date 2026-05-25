@@ -124,7 +124,9 @@ async function updateLenderLoanProductRoutes(fastify) {
           existing.loanProductCode === "EQUIPMENT_FINANCE";
 
         if (isEquipmentFinance) {
-          setValue("equipmentTypes", data.equipmentTypes);
+          if (data.equipmentTypes !== undefined) {
+            updateData.equipmentTypes = data.equipmentTypes?.join(",") ?? null;
+          }
           setValue(
             "otherEquipmentExplanation",
             data.otherEquipmentExplanation

@@ -80,6 +80,27 @@ module.exports = async function getConversations(fastify) {
           });
         }
 
+        let lenderAccess = null;
+
+        if (req.user.orgType === "LENDER") {
+          lenderAccess = await prisma.applicationLender.findFirst({
+            where: {
+              loanApplicationId: loanId,
+              lenderOrgId: req.user.organizationId,
+            },
+            select: {
+              id: true,
+            },
+          });
+
+          if (!lenderAccess) {
+            return reply.code(403).send({
+              success: false,
+              message: "Access denied",
+            });
+          }
+        }
+
         /* =====================================================
            3️⃣ FETCH CONVERSATIONS
         ===================================================== */
@@ -87,6 +108,12 @@ module.exports = async function getConversations(fastify) {
         const conversations = await prisma.conversation.findMany({
           where: {
             loanApplicationId: loanId,
+            ...(req.user.orgType === "LENDER"
+              ? {
+                  applicationLenderId: lenderAccess.id,
+                  type: "BROKER_LENDER",
+                }
+              : {}),
 
             ...(req.user.role === "SUB_BROKER"
               ? {

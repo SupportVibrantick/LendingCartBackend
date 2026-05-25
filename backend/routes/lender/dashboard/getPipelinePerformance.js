@@ -4,6 +4,76 @@ const {
   percentage,
 } = require("./dashboardAnalytics");
 
+function getFieldValue(fields = [], ...keys) {
+  return fields.find((field) =>
+    keys.includes(field.fieldKey),
+  )?.value;
+}
+
+function normalizeText(value) {
+  return String(value || "").trim();
+}
+
+function resolveBorrowerName(app) {
+  const contact =
+    app?.client?.contacts?.[0] || null;
+  const fields =
+    app?.submissions?.[0]?.fields || [];
+  const borrowerFirstName =
+    normalizeText(
+      getFieldValue(
+        fields,
+        "borrowerFirstName",
+        "firstName",
+        "first_name",
+      ),
+    );
+  const borrowerLastName =
+    normalizeText(
+      getFieldValue(
+        fields,
+        "borrowerLastName",
+        "lastName",
+        "last_name",
+      ),
+    );
+  const fullNameFromFields = [
+    borrowerFirstName,
+    borrowerLastName,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+  const clientLegalName = normalizeText(
+    app?.client?.legalName,
+  );
+
+  return (
+    [contact?.firstName, contact?.lastName]
+      .filter(Boolean)
+      .join(" ")
+      .trim() ||
+    fullNameFromFields ||
+    normalizeText(
+      getFieldValue(
+        fields,
+        "borrowerName",
+        "applicantName",
+        "fullName",
+        "name",
+      ),
+    ) ||
+    (clientLegalName &&
+    ![
+      "Applicant",
+      "Individual Applicant",
+    ].includes(clientLegalName)
+      ? clientLegalName
+      : null) ||
+    "N/A"
+  );
+}
+
 /**
  * @param {import("fastify").FastifyInstance} fastify
  */
@@ -77,6 +147,21 @@ module.exports =
                       client: {
                         select: {
                           legalName: true,
+                          contacts: {
+                            take: 1,
+                            orderBy: [
+                              {
+                                isPrimary: "desc",
+                              },
+                              {
+                                id: "asc",
+                              },
+                            ],
+                            select: {
+                              firstName: true,
+                              lastName: true,
+                            },
+                          },
                         },
                       },
                       submissions: {
@@ -478,9 +563,9 @@ module.exports =
                     ?.applicationNumber ||
                   "N/A",
                 clientName:
-                  item.loanApplication
-                    ?.client?.legalName ||
-                  "Unknown Client",
+                  resolveBorrowerName(
+                    item.loanApplication,
+                  ),
                 brokerName:
                   item.loanApplication
                     ?.brokerOrg?.name ||

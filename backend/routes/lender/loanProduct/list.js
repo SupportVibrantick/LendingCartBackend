@@ -1,6 +1,104 @@
 /**
  * @param {import("fastify").FastifyInstance} fastify
  */
+const toNumberOrNull = (value) => {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const toPositiveNumberOrNull = (value) => {
+  const parsed = toNumberOrNull(value);
+  return parsed && parsed > 0 ? parsed : null;
+};
+
+const toStringArray = (value) => {
+  if (Array.isArray(value)) {
+    return value.filter((item) => typeof item === "string" && item.trim());
+  }
+
+  if (typeof value !== "string") {
+    return [];
+  }
+
+  const trimmed = value.trim();
+
+  if (!trimmed) {
+    return [];
+  }
+
+  if (trimmed.startsWith("[")) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      return Array.isArray(parsed)
+        ? parsed.filter((item) => typeof item === "string" && item.trim())
+        : [];
+    } catch {
+      return [];
+    }
+  }
+
+  return trimmed
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+};
+
+const toGroupedSelectionMap = (value, keyField) => {
+  if (!value) {
+    return {};
+  }
+
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      return toGroupedSelectionMap(parsed, keyField);
+    } catch {
+      return {};
+    }
+  }
+
+  if (Array.isArray(value)) {
+    return value.reduce((acc, item) => {
+      if (!item || typeof item !== "object") {
+        return acc;
+      }
+
+      const key = item[keyField];
+      const list = Array.isArray(item.subTypes)
+        ? item.subTypes.filter(
+            (subType) => typeof subType === "string" && subType.trim(),
+          )
+        : [];
+
+      if (typeof key === "string" && key.trim()) {
+        acc[key] = list;
+      }
+
+      return acc;
+    }, {});
+  }
+
+  if (typeof value === "object") {
+    return Object.entries(value).reduce((acc, [key, list]) => {
+      if (!key) {
+        return acc;
+      }
+
+      acc[key] = Array.isArray(list)
+        ? list.filter((item) => typeof item === "string" && item.trim())
+        : [];
+
+      return acc;
+    }, {});
+  }
+
+  return {};
+};
+
 async function listLenderLoanProductsRoutes(fastify) {
   fastify.get(
     "/",
@@ -57,12 +155,7 @@ async function listLenderLoanProductsRoutes(fastify) {
         const lenderOrgId = req.user.organizationId;
 
         // 📄 QUERY PARAMS
-        const {
-          page = 1,
-          limit = 10,
-          isActive,
-          search,
-        } = req.query;
+        const { page = 1, limit = 10, isActive, search } = req.query;
 
         const skip = (page - 1) * limit;
 
@@ -75,24 +168,20 @@ async function listLenderLoanProductsRoutes(fastify) {
           where.isActive = isActive;
         }
 
-        if (search) {
-          where.OR = [
-            {
-              loanProductCode: {
-                contains: search,
-                mode: "insensitive",
-              },
-            },
-            {
-              loanProduct: {
-                name: {
-                  contains: search,
-                  mode: "insensitive",
-                },
-              },
-            },
-          ];
-        }
+if (search) {
+  where.OR = [
+    {
+      loanProduct: {
+        is: {
+          name: {
+            contains: search,
+            mode: "insensitive",
+          },
+        },
+      },
+    },
+  ];
+}
 
         // 📊 QUERY
         const [products, total] = await Promise.all([
@@ -141,17 +230,22 @@ async function listLenderLoanProductsRoutes(fastify) {
         const formatted = products.map((p) => ({
           ...p,
 
-          // ✅ JSON fields
-          businessTypes: p.businessTypes ?? {},
-          propertyTypes: p.propertyTypes ?? {},
+          minLoanAmount: toPositiveNumberOrNull(p.minLoanAmount),
+          maxLoanAmount: toPositiveNumberOrNull(p.maxLoanAmount),
+          minTermMonths: toPositiveNumberOrNull(p.minTermMonths),
+          maxTermMonths: toPositiveNumberOrNull(p.maxTermMonths),
+          minLtvPercent: toPositiveNumberOrNull(p.minLtvPercent),
+          maxLtvPercent: toPositiveNumberOrNull(p.maxLtvPercent),
 
-          // ✅ CSV → array
-          statesSupported: p.statesSupported
-            ? p.statesSupported.split(",")
-            : [],
+          // ✅ Normalize legacy + current JSON shapes
+          businessTypes: toGroupedSelectionMap(p.businessTypes, "name"),
+          propertyTypes: toGroupedSelectionMap(p.propertyTypes, "type"),
 
-          // ✅ array fallback
-          equipmentTypes: p.equipmentTypes ?? [],
+          // ✅ CSV / string / array → array
+          statesSupported: toStringArray(p.statesSupported),
+
+          // ✅ string / csv / array → array
+          equipmentTypes: toStringArray(p.equipmentTypes),
 
           // ✅ DOCUMENTS
           documents:
@@ -160,14 +254,11 @@ async function listLenderLoanProductsRoutes(fastify) {
 
               documentTypeId: doc.documentTypeId,
 
-              documentName:
-                doc.documentType?.name || null,
+              documentName: doc.documentType?.name || null,
 
-              documentCode:
-                doc.documentType?.code || null,
+              documentCode: doc.documentType?.code || null,
 
-              isCustom:
-                doc.documentType?.isCustom || false,
+              isCustom: doc.documentType?.isCustom || false,
 
               isRequired: doc.isRequired,
 
@@ -194,18 +285,15 @@ async function listLenderLoanProductsRoutes(fastify) {
 
           data: formatted,
         });
-
       } catch (error) {
         req.log.error(error);
 
         return reply.status(500).send({
           success: false,
-          message:
-            error.message ||
-            "Server error while fetching loan products",
+          message: error.message || "Server error while fetching loan products",
         });
       }
-    }
+    },
   );
 }
 

@@ -58,14 +58,7 @@ module.exports = async function listSubmissionsTable(fastify) {
         };
       }
 
-      /* ================= STATUS FILTER ================= */
-
-      if (status) {
-        whereCondition = {
-          ...whereCondition,
-          status,
-        };
-      }
+/* ================= STATUS FILTER ================= */
 
       /* ================= SORT ================= */
 

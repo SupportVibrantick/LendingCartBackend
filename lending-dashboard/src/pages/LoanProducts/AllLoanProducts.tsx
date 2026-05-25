@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { MdModeEdit, MdOutlineRemoveRedEye } from "react-icons/md";
 import { TiPlus } from "react-icons/ti";
@@ -10,16 +10,30 @@ type LoanProductList = {
   id: string;
   lenderOrgId: string;
   loanProductId: string;
+  loanProductCode?: string;
   loanProduct?: {
     id?: string;
     name?: string;
     code?: string;
   };
   loanProductName: string;
-  minLoanAmount: number;
-  maxLoanAmount: number;
-  minTermMonths: number;
-  maxTermMonths: number;
+  minLoanAmount: number | null;
+  maxLoanAmount: number | null;
+  minTermMonths: number | null;
+  maxTermMonths: number | null;
+  minLtvPercent?: number | null;
+  maxLtvPercent?: number | null;
+  minCreditScore?: number | null;
+  minExperience?: string | null;
+  interestRateRange?: string | null;
+  statesSupported?: string[];
+  documents?: Array<{
+    id: string;
+    documentTypeId?: string;
+    documentName?: string | null;
+  }>;
+  businessTypes?: Record<string, string[]> | Array<any> | null;
+  propertyTypes?: Record<string, string[]> | Array<any> | null;
   industriesSupported: string[];
   regionsSupported: string[];
   isActive: boolean;
@@ -45,6 +59,52 @@ const safeParseArray = (value: any): string[] => {
   }
 };
 
+const safeGroupedEntries = (
+  value: unknown,
+  keyField?: "name" | "type",
+): Array<[string, string[]]> => {
+  if (!value) return [];
+
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => {
+        if (!item || typeof item !== "object") return null;
+
+        const label =
+          typeof item[keyField || "name"] === "string"
+            ? item[keyField || "name"]
+            : typeof item.name === "string"
+              ? item.name
+              : typeof item.type === "string"
+                ? item.type
+                : "";
+
+        const list = Array.isArray(item.subTypes)
+          ? item.subTypes.filter(
+              (subType: unknown): subType is string =>
+                typeof subType === "string" && subType.trim().length > 0,
+            )
+          : [];
+
+        return label ? ([label, list] as [string, string[]]) : null;
+      })
+      .filter(Boolean) as Array<[string, string[]]>;
+  }
+
+  if (typeof value === "object") {
+    return Object.entries(value as Record<string, unknown>).map(
+      ([key, list]) => [
+        key,
+        Array.isArray(list)
+          ? list.filter((item): item is string => typeof item === "string")
+          : [],
+      ],
+    );
+  }
+
+  return [];
+};
+
 function statusClass(status?: string) {
   switch (status) {
     case "ACTIVE":
@@ -65,20 +125,42 @@ export default function AlloanProducts() {
     null,
   );
   const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [pageSize, setPageSize] = useState<number>(10);
   const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 10,
+    total: 0,
+    totalPages: 1,
+  });
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
   const [viewDetails, setViewDetails] = useState<any | null>(null);
 
   const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
   useEffect(() => {
-    fetchLoanProducts();
-  }, []);
+    const controller = new AbortController();
+
+    fetchLoanProducts(controller.signal);
+
+    return () => {
+      controller.abort();
+    };
+  }, [currentPage, pageSize, debouncedQuery]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [query, pageSize]);
+  }, [debouncedQuery, pageSize]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedQuery(query);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [query]);
 
   function getAuthHeaders(): Record<string, string> {
     try {
@@ -95,23 +177,32 @@ export default function AlloanProducts() {
     return { "Content-Type": "application/json" };
   }
 
-  async function fetchLoanProducts() {
+  async function fetchLoanProducts(signal?: AbortSignal) {
     setLoading(true);
     try {
       const headers = getAuthHeaders();
-      const res = await fetch(`${API_BASE}/lender/loan-products/list`, {
-        method: "GET",
-        headers,
-      });
+      const res = await fetch(
+        `${API_BASE}/lender/loan-products/list?page=${currentPage}&limit=${pageSize}&search=${encodeURIComponent(debouncedQuery)}`,
+        {
+          method: "GET",
+          headers,
+          signal,
+        },
+      );
 
       if (!res.ok) {
         throw new Error(`Failed to fetch loan products: ${res.status}`);
       }
 
       const json = await res.json();
-      const list = Array.isArray(json)
-        ? json
-        : json.data?.results || json.data || [];
+      const list = Array.isArray(json.data) ? json.data : [];
+
+      setPagination({
+        page: json.meta?.page || 1,
+        limit: json.meta?.limit || 10,
+        total: json.meta?.total || 0,
+        totalPages: json.meta?.totalPages || 1,
+      });
       const normalized = (list as LoanProductList[]).map((product) => ({
         ...product,
         industriesSupported: safeParseArray(product.industriesSupported),
@@ -120,38 +211,18 @@ export default function AlloanProducts() {
 
       setLenders(normalized);
     } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") {
+        return;
+      }
       console.error(err);
     } finally {
       setLoading(false);
     }
   }
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return lenders;
-
-    return lenders.filter((item) =>
-      (item.loanProduct?.name || "").toLowerCase().includes(q),
-    );
-  }, [lenders, query]);
-
-  const total = filtered.length;
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-
-  useEffect(() => {
-    if (currentPage > totalPages) {
-      setCurrentPage(totalPages);
-    }
-  }, [currentPage, totalPages]);
-
-  const paginated = useMemo(() => {
-    const start = (currentPage - 1) * pageSize;
-    return filtered.slice(start, start + pageSize);
-  }, [filtered, currentPage, pageSize]);
-
   function gotoPage(page: number) {
     if (page < 1) page = 1;
-    if (page > totalPages) page = totalPages;
+    if (page > pagination.totalPages) page = pagination.totalPages;
     setCurrentPage(page);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -252,21 +323,45 @@ export default function AlloanProducts() {
     }
   };
 
-  const formatAmount = (amount: number) => {
-    if (amount >= 1000000000) {
-      return `$${(amount / 1000000000).toFixed(1)}B`;
+  const formatAmount = (amount?: number | null) => {
+    if (amount === null || amount === undefined) {
+      return "-";
     }
 
-    if (amount >= 1000000) {
-      return `$${(amount / 1000000).toFixed(1)}M`;
+    const numericAmount = Number(amount);
+
+    if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
+      return "-";
     }
 
-    if (amount >= 1000) {
-      return `$${(amount / 1000).toFixed(1)}K`;
+    if (numericAmount >= 1000000000) {
+      return `$${(numericAmount / 1000000000).toFixed(1)}B`;
     }
 
-    return `$${amount}`;
+    if (numericAmount >= 1000000) {
+      return `$${(numericAmount / 1000000).toFixed(1)}M`;
+    }
+
+    if (numericAmount >= 1000) {
+      return `$${(numericAmount / 1000).toFixed(1)}K`;
+    }
+
+    return `$${numericAmount}`;
   };
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setOpenMenuId(null);
+      }
+    }
+
+    document.addEventListener("click", handleClickOutside);
+
+    return () => {
+      document.removeEventListener("click", handleClickOutside);
+    };
+  }, []);
 
   return (
     <div className="px-6 py-6 text-gray-900 dark:text-gray-100">
@@ -276,7 +371,7 @@ export default function AlloanProducts() {
             <span className="text-[#18B6B4]">Loan</span> Products
           </h1>
           <p className="text-sm text-gray-500 mt-1 dark:text-slate-400">
-            Manage global loan products available on the platform.
+            Manage global loan products available on the platform. 
           </p>
         </div>
 
@@ -323,7 +418,7 @@ export default function AlloanProducts() {
           <div className="py-16 text-center text-sm text-gray-500 dark:text-slate-400">
             Loading loan products...
           </div>
-        ) : total === 0 ? (
+        ) : pagination.total === 0 ? (
           <div className="py-16 text-center text-sm text-gray-500 dark:text-slate-400">
             No Loan Products found.
           </div>
@@ -343,7 +438,7 @@ export default function AlloanProducts() {
                   </tr>
                 </thead>
                 <tbody>
-                  {paginated.map((item) => {
+                  {lenders.map((item) => {
                     const isLoading = rowLoadingId === item.id;
 
                     return (
@@ -352,7 +447,9 @@ export default function AlloanProducts() {
                         className="border-b border-gray-100 last:border-0 hover:bg-gray-50/40 dark:border-slate-800 dark:hover:bg-slate-800/60"
                       >
                         <td className="py-3 pr-4 text-gray-900 whitespace-nowrap dark:text-gray-100">
-                          {item.loanProduct?.name || "-"}
+                          {item.loanProduct?.name
+                            ?.replace(/_/g, " ")
+                            ?.replace(/\b\w/g, (c) => c.toUpperCase()) || "-"}
                         </td>
                         <td className="py-3 pr-4 text-gray-600 whitespace-nowrap dark:text-slate-300">
                           {formatAmount(item.minLoanAmount)}
@@ -361,7 +458,9 @@ export default function AlloanProducts() {
                           {formatAmount(item.maxLoanAmount)}
                         </td>
                         <td className="py-3 pr-4 text-gray-600 whitespace-nowrap dark:text-slate-300">
-                          {item.minTermMonths} - {item.maxTermMonths} months
+                          {item.minTermMonths && item.maxTermMonths
+                            ? `${item.minTermMonths} - ${item.maxTermMonths} months`
+                            : "-"}
                         </td>
                         <td className="py-3 pr-4 whitespace-nowrap">
                           <button
@@ -403,7 +502,11 @@ export default function AlloanProducts() {
                             : "-"}
                         </td>
                         <td className="py-3 pr-4 relative overflow-visible">
-                          <div className="flex items-center justify-end">
+                          <div
+                            ref={openMenuId === item.id ? menuRef : null}
+                            className="flex items-center justify-end"
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             {/* THREE DOT BUTTON */}
                             <button
                               onClick={() =>
@@ -471,9 +574,9 @@ export default function AlloanProducts() {
                 </span>{" "}
                 -{" "}
                 <span className="font-medium">
-                  {Math.min(currentPage * pageSize, total)}
+                  {Math.min(currentPage * pagination.limit, pagination.total)}
                 </span>{" "}
-                of <span className="font-medium">{total}</span>
+                of <span className="font-medium">{pagination.total}</span>
               </div>
 
               <div className="flex items-center gap-2">
@@ -488,39 +591,39 @@ export default function AlloanProducts() {
                 </button>
 
                 <div className="flex items-center gap-1">
-                  {Array.from({ length: Math.min(totalPages, 5) }).map(
-                    (_, i) => {
-                      const half = Math.floor(5 / 2);
-                      let start = 1;
-                      if (totalPages <= 5) start = 1;
-                      else if (currentPage <= half + 1) start = 1;
-                      else if (currentPage >= totalPages - half)
-                        start = totalPages - 4;
-                      else start = currentPage - half;
+                  {Array.from({
+                    length: Math.min(pagination.totalPages, 5),
+                  }).map((_, i) => {
+                    const half = Math.floor(5 / 2);
+                    let start = 1;
+                    if (pagination.totalPages <= 5) start = 1;
+                    else if (currentPage <= half + 1) start = 1;
+                    else if (currentPage >= pagination.totalPages - half)
+                      start = pagination.totalPages - 4;
+                    else start = currentPage - half;
 
-                      const page = start + i;
-                      if (page > totalPages) return null;
+                    const page = start + i;
+                    if (page > pagination.totalPages) return null;
 
-                      return (
-                        <button
-                          key={page}
-                          onClick={() => gotoPage(page)}
-                          className={`px-3 py-1 rounded-md ${
-                            page === currentPage
-                              ? "bg-[#18B6B4] text-white"
-                              : "border border-gray-300 bg-white text-gray-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                          }`}
-                        >
-                          {page}
-                        </button>
-                      );
-                    },
-                  )}
+                    return (
+                      <button
+                        key={page}
+                        onClick={() => gotoPage(page)}
+                        className={`px-3 py-1 rounded-md ${
+                          page === currentPage
+                            ? "bg-[#18B6B4] text-white"
+                            : "border border-gray-300 bg-white text-gray-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    );
+                  })}
                 </div>
 
                 <button
                   onClick={() => gotoPage(currentPage + 1)}
-                  disabled={currentPage === totalPages}
+                  disabled={currentPage === pagination.totalPages}
                   className="px-3 py-1 border rounded-md disabled:opacity-40
                              border-gray-300 bg-white text-gray-800
                              dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
@@ -536,7 +639,7 @@ export default function AlloanProducts() {
       {editingLender && (
         <EditLoanProductModal
           isOpen={Boolean(editingLender)}
-          loanProduct={editingLender}
+          loanProduct={editingLender as any}
           onClose={() => setEditingLender(null)}
           onSave={handleEditSave as any}
         />
@@ -572,7 +675,9 @@ export default function AlloanProducts() {
               />
               <Detail
                 label="Product Name"
-                value={viewDetails.loanProduct?.name}
+                value={viewDetails.loanProduct?.name
+                  ?.replace(/_/g, " ")
+                  ?.replace(/\b\w/g, (c: string) => c.toUpperCase())}
               />
               <Detail
                 label="Min Amount"
@@ -584,7 +689,11 @@ export default function AlloanProducts() {
               />
               <Detail
                 label="Tenure"
-                value={`${viewDetails.minTermMonths} - ${viewDetails.maxTermMonths}`}
+                value={
+                  viewDetails.minTermMonths && viewDetails.maxTermMonths
+                    ? `${viewDetails.minTermMonths} - ${viewDetails.maxTermMonths} months`
+                    : "-"
+                }
               />
               <Detail
                 label="Interest Rate"
@@ -649,17 +758,23 @@ export default function AlloanProducts() {
                 <p className="font-medium text-gray-700 dark:text-slate-300 mb-1">
                   States Supported
                 </p>
-                <div className="flex flex-wrap gap-2">
-                  {viewDetails.statesSupported?.map((s: string) => (
-                    <span
-                      key={s}
-                      className="px-2 py-1 text-xs rounded-full bg-emerald-100 text-emerald-700
+                {viewDetails.statesSupported?.length ? (
+                  <div className="flex flex-wrap gap-2">
+                    {viewDetails.statesSupported.map((s: string) => (
+                      <span
+                        key={s}
+                        className="px-2 py-1 text-xs rounded-full bg-emerald-100 text-emerald-700
                            dark:bg-emerald-500/10 dark:text-emerald-300"
-                    >
-                      {s}
-                    </span>
-                  ))}
-                </div>
+                      >
+                        {s}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-xs text-gray-400">
+                    No states configured
+                  </div>
+                )}
               </div>
 
               {/* BUSINESS TYPES */}
@@ -667,19 +782,27 @@ export default function AlloanProducts() {
                 <p className="font-medium text-gray-700 dark:text-slate-300 mb-1">
                   Business Types
                 </p>
-                {Object.entries(viewDetails.businessTypes || {}).map(
-                  ([category, list]: any) => (
-                    <div key={category} className="mb-2">
-                      <p className="text-xs font-semibold text-gray-500">
-                        {category}
-                      </p>
-                      <ul className="list-disc ml-5 text-gray-700 dark:text-slate-300">
-                        {list.map((item: string) => (
-                          <li key={item}>{item}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  ),
+                {safeGroupedEntries(viewDetails.businessTypes, "name").length ? (
+                  safeGroupedEntries(viewDetails.businessTypes, "name").map(
+                    ([category, list]) => (
+                      <div key={category} className="mb-2">
+                        <p className="text-xs font-semibold text-gray-500">
+                          {category}
+                        </p>
+                        <ul className="list-disc ml-5 text-gray-700 dark:text-slate-300">
+                          {list.length ? (
+                            list.map((item: string) => <li key={item}>{item}</li>)
+                          ) : (
+                            <li>No sub-types configured</li>
+                          )}
+                        </ul>
+                      </div>
+                    ),
+                  )
+                ) : (
+                  <div className="text-xs text-gray-400">
+                    No business types configured
+                  </div>
                 )}
               </div>
 
@@ -688,19 +811,27 @@ export default function AlloanProducts() {
                 <p className="font-medium text-gray-700 dark:text-slate-300 mb-1">
                   Property Types
                 </p>
-                {Object.entries(viewDetails.propertyTypes || {}).map(
-                  ([category, list]: any) => (
-                    <div key={category} className="mb-2">
-                      <p className="text-xs font-semibold text-gray-500">
-                        {category}
-                      </p>
-                      <ul className="list-disc ml-5 text-gray-700 dark:text-slate-300">
-                        {list.map((item: string) => (
-                          <li key={item}>{item}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  ),
+                {safeGroupedEntries(viewDetails.propertyTypes, "type").length ? (
+                  safeGroupedEntries(viewDetails.propertyTypes, "type").map(
+                    ([category, list]) => (
+                      <div key={category} className="mb-2">
+                        <p className="text-xs font-semibold text-gray-500">
+                          {category}
+                        </p>
+                        <ul className="list-disc ml-5 text-gray-700 dark:text-slate-300">
+                          {list.length ? (
+                            list.map((item: string) => <li key={item}>{item}</li>)
+                          ) : (
+                            <li>No sub-types configured</li>
+                          )}
+                        </ul>
+                      </div>
+                    ),
+                  )
+                ) : (
+                  <div className="text-xs text-gray-400">
+                    No property types configured
+                  </div>
                 )}
               </div>
             </div>
@@ -715,7 +846,7 @@ const Detail = ({ label, value }: any) => (
   <div>
     <p className="text-gray-500 text-xs">{label}</p>
     <p className="font-medium text-gray-800 dark:text-white rounded-md bg-blue-100 px-2 py-2 text-xs mt-1">
-      {value || "-"}
+      {value === null || value === undefined || value === "" ? "-" : value}
     </p>
   </div>
 );

@@ -21,9 +21,28 @@ function getEffectiveStatus(record) {
   return record?.status || "SENT";
 }
 
+function parseAmount(value) {
+  if (value === null || value === undefined || value === "") {
+    return 0;
+  }
+
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : 0;
+  }
+
+  if (typeof value === "string") {
+    const normalized = value.replace(/[$,\s]/g, "");
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
 function extractRequestedAmount(loanApplication) {
-  const directAmount = Number(
-    loanApplication?.amountRequested || 0,
+  const directAmount = parseAmount(
+    loanApplication?.amountRequested,
   );
 
   if (directAmount > 0) {
@@ -40,7 +59,7 @@ function extractRequestedAmount(loanApplication) {
       "amountRequested",
   );
 
-  return Number(amountField?.value || 0);
+  return parseAmount(amountField?.value);
 }
 
 function consolidateApplicationLenders(records = []) {
@@ -87,8 +106,8 @@ function consolidateApplicationLenders(records = []) {
         record?.loanApplication,
       ),
     activityAt:
-      record?.sentAt ||
       record?.lastUpdatedAt ||
+      record?.sentAt ||
       record?.loanApplication?.createdAt ||
       null,
   }));
@@ -105,5 +124,6 @@ function percentage(numerator, denominator, precision = 1) {
 module.exports = {
   consolidateApplicationLenders,
   extractRequestedAmount,
+  parseAmount,
   percentage,
 };

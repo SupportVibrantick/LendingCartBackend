@@ -36,23 +36,23 @@ async function createDocumentTypeRoutes(fastify) {
           });
         }
 
-        const { name, code, description, isActive } = parsed.data;
+const { name, description, isActive } = parsed.data;
 
         // ---------------------------
         // Check duplicate (code)
         // ---------------------------
-        const existing = await prisma.documentType.findFirst({
-          where: {
-            code,
-          },
-        });
+        // const existing = await prisma.documentType.findFirst({
+        //   where: {
+        //     code,
+        //   },
+        // });
 
-        if (existing) {
-          return reply.status(409).send({
-            success: false,
-            message: "Document type with this code already exists",
-          });
-        }
+        // if (existing) {
+        //   return reply.status(409).send({
+        //     success: false,
+        //     message: "Document type with this code already exists",
+        //   });
+        // }
 
         // ---------------------------
         // Create document type
@@ -60,7 +60,6 @@ async function createDocumentTypeRoutes(fastify) {
         const documentType = await prisma.documentType.create({
           data: {
             name,
-            code,
             description: description ?? null,
             isActive: isActive ?? true,
           },
@@ -68,7 +67,7 @@ async function createDocumentTypeRoutes(fastify) {
 
         adminLogs.info("Document type created", {
           documentTypeId: documentType.id,
-          code: documentType.code,
+         name: documentType.name,
         });
 
         return reply.status(201).send({

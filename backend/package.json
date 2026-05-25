@@ -12,7 +12,8 @@
     "migrations": "prisma migrate dev --name init",
     "migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
-    "seed": "node prisma/seed.js"
+    "seed": "node prisma/seed.js",
+    "seedLoanProducts": "node prisma/broker/seedLoanProducts.js"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",

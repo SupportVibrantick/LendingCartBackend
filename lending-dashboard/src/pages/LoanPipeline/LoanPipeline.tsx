@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { createPortal } from "react-dom";
 import {
@@ -60,8 +60,9 @@ const getApplicationStatusColor = (status: string) => {
     case "LENDER_APPROVED":
       return "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400";
 
-    case "LENDER_DECLINED":
-      return "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400";
+      case "DECLINED":
+case "LENDER_DECLINED":
+  return "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400";
 
     case "PENDING":
       return "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400";
@@ -141,6 +142,7 @@ export default function LoanPipeline() {
   const [rows, setRows] = useState<TableRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+const [debouncedSearch, setDebouncedSearch] = useState("");
   const [decisionModal, setDecisionModal] = useState<{
     type: "APPROVED" | "DECLINED" | null;
     applicationId: string | null;
@@ -168,11 +170,6 @@ export default function LoanPipeline() {
     loading: false,
   });
 
-  // Documents Modal State
-  const [isDocumentsModalOpen, setIsDocumentsModalOpen] = useState(false);
-  const [documentsData, setDocumentsData] = useState<any>(null);
-  const [documentsLoading, setDocumentsLoading] = useState(false);
-
   // File Preview State
   const [previewFile, setPreviewFile] = useState<{
     url: string;
@@ -195,8 +192,20 @@ export default function LoanPipeline() {
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
 
   // Find Lenders Modal State
-  const [currentPage, setCurrentPage] = useState(1);
-  const rowsPerPage = 5;
+const [currentPage, setCurrentPage] = useState(1);
+
+const [pagination, setPagination] = useState({
+  page: 1,
+  limit: 10,
+  total: 0,
+ totalPages: 1,
+});
+
+const [stats, setStats] = useState({
+  totalVolume: 0,
+  newApplications: 0,
+  approvedApplications: 0,
+});
 
   //     const getDecisionColor = (status: string) => {
   //   switch (status) {
@@ -230,43 +239,9 @@ export default function LoanPipeline() {
     }
   };
 
-  const newCount = rows.filter(
-    (r) => r.lenderStatus === "PENDING" || r.lenderStatus === "IN_REVIEW",
-  ).length;
-
-  const approvedCount = rows.filter(
-    (r) => r.lenderStatus === "APPROVED",
-  ).length;
-
-  const totalVolume = rows.reduce((sum, r) => sum + r.amount, 0);
-
-  const fetchDocuments = async (applicationLenderId: string) => {
-    try {
-      setDocumentsLoading(true);
-      setIsDocumentsModalOpen(true);
-      // setSelectedApplicationLenderId(applicationLenderId);
-
-      const res = await fetch(
-        `${API_BASE}/lender/loan-pipeline/lender/applications/${applicationLenderId}/documents`,
-        {
-          headers: getAuthHeaders(),
-        },
-      );
-
-      const json = await res.json();
-
-      if (!res.ok || !json.success) {
-        throw new Error(json.message || "Failed to load documents");
-      }
-
-      setDocumentsData(json.data);
-    } catch (err: any) {
-      toast.error(err.message || "Failed to load documents");
-      setIsDocumentsModalOpen(false);
-    } finally {
-      setDocumentsLoading(false);
-    }
-  };
+const newCount = stats.newApplications;
+const approvedCount = stats.approvedApplications;
+const totalVolume = stats.totalVolume;
 
   const openDocumentSelector = async (row: any) => {
     try {
@@ -309,11 +284,37 @@ export default function LoanPipeline() {
     }
   };
 
+  const loadStats = async () => {
+  try {
+    const res = await fetch(
+      `${API_BASE}/lender/loan-pipeline/stats`,
+      {
+        headers: getAuthHeaders(),
+      },
+    );
+
+    const json = await res.json();
+
+    if (!res.ok || !json.success) {
+      throw new Error(json.message || "Failed to load stats");
+    }
+
+    setStats({
+      totalVolume: json.data.totalVolume || 0,
+      newApplications: json.data.newApplications || 0,
+      approvedApplications:
+        json.data.approvedApplications || 0,
+    });
+  } catch (err: any) {
+    toast.error(err.message || "Failed to load stats");
+  }
+};
+
   const loadSubmissions = async () => {
     try {
       setLoading(true);
 
-      const res = await fetch(`${API_BASE}/lender/loan-pipeline`, {
+      const res = await fetch(`${API_BASE}/lender/loan-pipeline?page=${currentPage}&limit=10&search=${encodeURIComponent(debouncedSearch)}`, {
         headers: getAuthHeaders(), // lender_token use hoga
       });
 
@@ -322,6 +323,13 @@ export default function LoanPipeline() {
       if (!res.ok || !json.success) {
         throw new Error(json.message || "Failed to load loan pipeline");
       }
+
+      setPagination({
+  page: json.page,
+  limit: json.limit,
+  total: json.total,
+totalPages: json.totalPages,
+});
 
       const mappedRows: TableRow[] = json.data.map((item: any) => ({
         applicationLenderId: item.applicationLenderId,
@@ -382,9 +390,10 @@ export default function LoanPipeline() {
     }
   };
 
-  useEffect(() => {
-    loadSubmissions();
-  }, []);
+useEffect(() => {
+  loadSubmissions();
+  loadStats();
+}, [currentPage, debouncedSearch]);
 
   const normalizeStatus = (status?: string) => status?.toUpperCase().trim();
 
@@ -400,31 +409,16 @@ export default function LoanPipeline() {
     );
   };
 
-  const filteredRows = useMemo(() => {
-    return rows.filter(
-      (r) =>
-        r.borrowerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        r.applicationNumber.toLowerCase().includes(searchTerm.toLowerCase()),
-    );
-  }, [rows, searchTerm]);
-
   // Reset page when search changes
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm]);
 
-  const totalPages = Math.ceil(filteredRows.length / rowsPerPage);
-
-  const paginatedRows = filteredRows.slice(
-    (currentPage - 1) * rowsPerPage,
-    currentPage * rowsPerPage,
-  );
-
   useEffect(() => {
-    if (currentPage > totalPages && totalPages > 0) {
-      setCurrentPage(totalPages);
+    if (currentPage > pagination.totalPages && pagination.totalPages > 0) {
+      setCurrentPage(pagination.totalPages);
     }
-  }, [totalPages, currentPage]);
+  }, [pagination.totalPages, currentPage]);
 
   // const handleConditionalApproval = async (applicationId: string) => {
   //   try {
@@ -557,6 +551,14 @@ export default function LoanPipeline() {
     }
   };
 
+  useEffect(() => {
+  const timer = setTimeout(() => {
+    setDebouncedSearch(searchTerm);
+  }, 500);
+
+  return () => clearTimeout(timer);
+}, [searchTerm]);
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#0b1120] p-2 text-slate-900 dark:text-slate-100 selection:bg-blue-100 dark:selection:bg-blue-900/30">
       {/* Header Area */}
@@ -569,7 +571,7 @@ export default function LoanPipeline() {
             <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">
               You have{" "}
               <span className="text-[#18B6B4] dark:text-[#6ee7e5] font-medium">
-                {filteredRows.length} active
+                {pagination.total} active
               </span>{" "}
               applications today.
             </p>
@@ -728,8 +730,8 @@ export default function LoanPipeline() {
                       </td>
                     </tr>
                   ))
-                ) : paginatedRows.length > 0 ? (
-                  paginatedRows.map((row) => {
+                ) : pagination.total > 0 ? (
+rows.map((row) => {
                     const isActionAllowed = canTakeDecision(
                       row.applicationStatus,
                     );
@@ -901,7 +903,7 @@ transition rounded-lg mx-1"
                                     </button> */}
 
                                     {/* Documents */}
-                                    <button
+                                    {/* <button
                                       onClick={() => {
                                         fetchDocuments(row.applicationLenderId);
                                         setActiveDropdown(null);
@@ -918,7 +920,7 @@ transition rounded-lg mx-1"
                                           {row.pendingDocumentsCount}
                                         </span>
                                       )}
-                                    </button>
+                                    </button> */}
 
                                     <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
 
@@ -1078,21 +1080,21 @@ transition rounded-lg mx-1"
               </tbody>
             </table>
             {/* ================= PAGINATION ================= */}
-            {filteredRows.length > rowsPerPage && (
+          {pagination.totalPages > 1 && (
               <div className="flex flex-col md:flex-row items-center justify-between gap-4 px-6 py-4 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
                 {/* Showing Info */}
                 <p className="text-sm text-slate-500 dark:text-slate-400">
                   Showing{" "}
                   <span className="font-semibold text-slate-700 dark:text-slate-200">
-                    {(currentPage - 1) * rowsPerPage + 1}
+{(currentPage - 1) * pagination.limit + 1}
                   </span>{" "}
                   to{" "}
                   <span className="font-semibold text-slate-700 dark:text-slate-200">
-                    {Math.min(currentPage * rowsPerPage, filteredRows.length)}
+{Math.min(currentPage * pagination.limit, pagination.total)}
                   </span>{" "}
                   of{" "}
                   <span className="font-semibold text-slate-700 dark:text-slate-200">
-                    {filteredRows.length}
+{pagination.total}
                   </span>{" "}
                   results
                 </p>
@@ -1109,7 +1111,7 @@ transition rounded-lg mx-1"
                   </button>
 
                   {/* Page Numbers */}
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                  {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map(
                     (page) => (
                       <button
                         key={page}
@@ -1129,7 +1131,7 @@ transition rounded-lg mx-1"
 
                   {/* Next */}
                   <button
-                    disabled={currentPage === totalPages}
+                    disabled={currentPage === pagination.totalPages}
                     onClick={() => setCurrentPage((p) => p + 1)}
                     className="p-2 rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-40 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
                   >
@@ -1258,176 +1260,6 @@ transition rounded-lg mx-1"
                             : "Confirm Rejection"}
                         </button>
                       </div>
-                    </div>
-                  </div>
-                </div>,
-                document.body,
-              )}
-
-            {/* ================= DOCUMENTS MODAL ================= */}
-            {isDocumentsModalOpen &&
-              createPortal(
-                <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-                  <div className="w-full max-w-4xl bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 flex flex-col max-h-[90vh]">
-                    {/* Header */}
-                    <div className="flex items-center justify-between px-6 py-4 border-b dark:border-slate-800">
-                      <div>
-                        <h2 className="text-lg font-bold">
-                          Application Documents
-                        </h2>
-                        {/* <p className="text-xs text-slate-500">
-                          ID: {selectedApplicationLenderId}
-                        </p> */}
-                      </div>
-
-                      <button
-                        onClick={() => {
-                          setIsDocumentsModalOpen(false);
-                          setDocumentsData(null);
-                        }}
-                        className="text-sm px-3 py-1 rounded-lg bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400"
-                      >
-                        Close
-                      </button>
-                    </div>
-
-                    {/* Content */}
-                    <div className="flex-1 overflow-y-auto p-6">
-                      {documentsLoading ? (
-                        <div className="flex flex-col items-center justify-center py-20 gap-3">
-                          <Loader2 className="animate-spin w-8 h-8 text-blue-500" />
-                          <p className="text-sm text-slate-500">
-                            Loading documents...
-                          </p>
-                        </div>
-                      ) : documentsData ? (
-                        <div className="space-y-6">
-                          {/* Summary Bar */}
-                          <div className="flex items-center gap-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800">
-                            <div className="flex-1">
-                              <p className="text-xs text-slate-500 uppercase font-bold tracking-wider dark:text-slate-300">
-                                Pending Documents
-                              </p>
-                              <p className="text-xl font-bold text-amber-600">
-                                {documentsData.documentsPendingCount}
-                              </p>
-                            </div>
-                            <div className="flex-1">
-                              <p className="text-xs text-slate-500 uppercase font-bold tracking-wider dark:text-slate-300">
-                                Total Documents
-                              </p>
-                              <p className="text-xl font-bold text-amber-600">
-                                {documentsData.documents?.length || 0}
-                              </p>
-                            </div>
-                          </div>
-
-                          {/* Documents Table */}
-                          <div className="overflow-hidden border border-slate-200 dark:border-slate-800 rounded-xl">
-                            <table className="w-full text-left border-collapse">
-                              <thead className="bg-slate-50 dark:bg-slate-800/50 text-xs font-bold uppercase text-slate-500">
-                                <tr>
-                                  <th className="px-4 py-3">Document Name</th>
-                                  <th className="px-4 py-3 text-center">
-                                    Status
-                                  </th>
-                                  <th className="px-4 py-3 text-center">
-                                    Uploads
-                                  </th>
-                                  <th className="px-4 py-3 text-right">
-                                    Actions
-                                  </th>
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                {documentsData.documents?.map((doc: any) => (
-                                  <tr
-                                    key={doc.requirementId}
-                                    className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors"
-                                  >
-                                    <td className="px-4 py-4">
-                                      <div className="flex flex-col">
-                                        <span className="text-sm font-semibold dark:text-slate-300">
-                                          {doc.documentName}
-                                        </span>
-                                        <span className="text-[10px] text-slate-400">
-                                          Source: {doc.source}
-                                          {doc.isRequired && (
-                                            <span className="ml-2 text-rose-500 font-bold">
-                                              * Required
-                                            </span>
-                                          )}
-                                        </span>
-                                      </div>
-                                    </td>
-                                    <td className="px-4 py-4 text-center">
-                                      <span
-                                        className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${
-                                          doc.status === "COMPLETED"
-                                            ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400"
-                                            : doc.status === "PARTIAL"
-                                              ? "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400"
-                                              : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
-                                        }`}
-                                      >
-                                        {doc.status}
-                                      </span>
-                                    </td>
-                                    <td className="px-4 py-4 text-center font-mono text-sm font-bold text-slate-400">
-                                      {doc.uploadedCount}
-                                    </td>
-                                    <td className="px-4 py-4">
-                                      <div className="flex justify-end gap-2">
-                                        {doc.uploadedCount > 0 ? (
-                                          <button
-                                            onClick={() => {
-                                              if (doc.uploadedCount === 1) {
-                                                const file =
-                                                  doc.uploadedFiles[0];
-                                                setPreviewFile({
-                                                  url: `${API_BASE}${file.fileUrl}`,
-                                                  type: file.fileMimeType,
-                                                  name: file.fileName,
-                                                });
-                                              } else {
-                                                setMultiFileModal({
-                                                  isOpen: true,
-                                                  doc: doc,
-                                                });
-                                              }
-                                            }}
-                                            className="p-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition-all flex items-center gap-1.5"
-                                            title={
-                                              doc.uploadedCount === 1
-                                                ? "View Document"
-                                                : "View Uploads"
-                                            }
-                                          >
-                                            <Eye size={14} />
-                                            {doc.uploadedCount > 1 && (
-                                              <span className="text-[10px] font-bold">
-                                                ({doc.uploadedCount})
-                                              </span>
-                                            )}
-                                          </button>
-                                        ) : (
-                                          <span className="text-xs text-slate-400 italic">
-                                            No files
-                                          </span>
-                                        )}
-                                      </div>
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="text-center py-10 text-slate-500">
-                          No document data available.
-                        </div>
-                      )}
                     </div>
                   </div>
                 </div>,

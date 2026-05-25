@@ -3,7 +3,7 @@ import toast from "react-hot-toast";
 import { IoIosArrowBack } from "react-icons/io";
 import { MdDeleteForever } from "react-icons/md";
 import { useNavigate } from "react-router";
-import { IoClose } from "react-icons/io5";
+import { IoArrowBack } from "react-icons/io5";
 import { Building2, HomeIcon, Landmark, Settings } from "lucide-react";
 
 interface Borrower {
@@ -74,6 +74,13 @@ interface FormDataType {
     yearsInBusiness: string;
   };
 }
+
+type LoanCategory =
+  | "RESIDENTIAL_1_4"
+  | "CRE_MULTIFAMILY"
+  | "SBA_USDA"
+  | "ABL"
+  | "";
 
 const US_STATES = [
   "Alabama",
@@ -185,6 +192,108 @@ const ALL_LOAN_PURPOSES = [
   "Supply Chain Finance",
 ];
 
+export const CATEGORY_LOAN_TYPES: Record<
+  Exclude<LoanCategory, "">,
+  string[]
+> = {
+  /**
+   * ==========================================
+   * 1-4 Units Residential
+   * ==========================================
+   */
+  RESIDENTIAL_1_4: [
+    "BRIDGE_LOAN_1_TO_4_UNITS",
+    "FIX_AND_FLIP_LOAN_1_TO_4_UNITS",
+    "DSCR_LOAN_1_TO_4_UNITS",
+    "CONSTRUCTION_LOAN_1_TO_4_UNITS",
+    "RENTAL_PORTFOLIO",
+  ],
+
+  /**
+   * ==========================================
+   * CRE & Multifamily
+   * ==========================================
+   */
+  CRE_MULTIFAMILY: [
+    "BRIDGE_LOAN",
+    // "FIX_AND_FLIP_LOAN_1_TO_4_UNITS",
+    // "DSCR_LOAN_1_TO_4_UNITS",
+    "CONSTRUCTION_LOAN",
+    "RENTAL_PORTFOLIO",
+    "CRE_PERMANENT_LOAN",
+    "AGENCY_LOAN_MULTIFAMILY",
+    "CMBS",
+    "MEZZANINE_FINANCE",
+    "PREFERRED_EQUITY",
+  ],
+
+  /**
+   * ==========================================
+   * SBA & USDA
+   * ==========================================
+   */
+  SBA_USDA: [
+    "SBA_7A_BUSINESS_ACQUISITION",
+    "SBA_7A_WORKING_CAPITAL",
+    "SBA_7A_EQUIPMENT_PURCHASE",
+    "USDA_BI",
+    "SBA_7A_REAL_ESTATE",
+    "SBA_504_REAL_ESTATE_AND_EQUIPMENT",
+  ],
+
+  /**
+   * ==========================================
+   * Asset Based Lending
+   * ==========================================
+   */
+  ABL: [
+    "EQUIPMENT_FINANCE",
+    "PURCHASE_ORDER_FINANCE",
+    "ACCOUNTS_RECEIVABLE_FINANCE",
+    "ACCOUNTS_PAYABLE_FINANCE",
+  ],
+};
+
+const PRODUCT_LABELS: Record<string, string> = {
+  // Residential
+  BRIDGE_LOAN_1_TO_4_UNITS: "Bridge Loan",
+  FIX_AND_FLIP_LOAN_1_TO_4_UNITS: "Fix & Flip",
+  DSCR_LOAN_1_TO_4_UNITS: "DSCR",
+  CONSTRUCTION_LOAN_1_TO_4_UNITS: "Construction",
+  RENTAL_PORTFOLIO: "Rental Portfolio",
+
+  // CRE
+  BRIDGE_LOAN: "Bridge",
+  CONSTRUCTION_LOAN: "Construction",
+  CRE_PERMANENT_LOAN: "CRE Permanent",
+  AGENCY_LOAN_MULTIFAMILY: "Agency Multifamily",
+  CMBS: "CMBS",
+  MEZZANINE_FINANCE: "Mezzanine Finance",
+  PREFERRED_EQUITY: "Preferred Equity",
+
+  // SBA
+  SBA_7A_BUSINESS_ACQUISITION: "SBA 7A Acquisition",
+
+  SBA_7A_WORKING_CAPITAL: "SBA 7A Working Capital",
+
+  SBA_7A_EQUIPMENT_PURCHASE: "SBA 7A Equipment",
+
+  USDA_BI: "USDA B&I",
+
+  SBA_7A_REAL_ESTATE: "SBA 7A Real Estate",
+
+  SBA_504_REAL_ESTATE_AND_EQUIPMENT: "SBA 504 Real Estate & Equipment",
+
+  // ABL
+  EQUIPMENT_FINANCE: "Equipment Finance",
+
+  PURCHASE_ORDER_FINANCE: "Purchase Order Finance",
+
+  ACCOUNTS_RECEIVABLE_FINANCE: "Accounts Receivable",
+
+  ACCOUNTS_PAYABLE_FINANCE: "Accounts Payable",
+};
+
 /* ================= HELPERS ================= */
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
@@ -203,7 +312,8 @@ const LoanApplication = () => {
   const [productsMeta, setProductsMeta] = useState<any[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [selectedCategory, setSelectedCategory] = useState("OTHER");
+
+  const [selectedCategory, setSelectedCategory] = useState<LoanCategory>("");
   const navigate = useNavigate();
 
   const baseSteps = [
@@ -945,11 +1055,11 @@ const LoanApplication = () => {
 
         setProductsMeta(products);
         setApplicationId(result?.data?.applicationId || "");
-        const productCodes = products.map(
-          (product: any) => product.loanProductCode,
-        );
+        // const productCodes = products.map(
+        //   (product: any) => product.loanProductCode,
+        // );
 
-        setLoanProducts(productCodes);
+        setLoanProducts([]);
       } catch (error) {
         console.error("Error fetching loan products:", error);
       } finally {
@@ -1288,19 +1398,16 @@ const LoanApplication = () => {
   }, [selectedProduct]);
 
   useEffect(() => {
-    if (productsMeta.length && !selectedCategory) {
-      setSelectedCategory("OTHER");
-    }
-  }, [productsMeta]);
-
-  useEffect(() => {
     if (!selectedCategory) return;
 
-    const filtered = productsMeta.filter((p: any) => {
-      return getCategoryFromCode(p.loanProductCode) === selectedCategory;
-    });
+    const allowedProducts = CATEGORY_LOAN_TYPES[selectedCategory] || [];
 
-    setLoanProducts(filtered.map((p: any) => p.loanProductCode));
+    const filteredProducts = productsMeta.filter((p: any) =>
+      allowedProducts.includes(p.loanProductCode),
+    );
+
+    setLoanProducts(filteredProducts.map((p: any) => p.loanProductCode));
+
     setSelectedProduct("");
   }, [selectedCategory, productsMeta]);
 
@@ -1388,7 +1495,7 @@ const LoanApplication = () => {
 
   const LOAN_PURPOSE_MAP: Record<string, string[]> = {
     /* 1️⃣ Bridge Loan */
-    BRIDGE_REALESTATE: [
+    BRIDGE_LOAN: [
       "Purchase / Acquisition",
       "Refinance (Rate & Term)",
       "Cash Out Refinance",
@@ -1404,29 +1511,41 @@ const LoanApplication = () => {
     ],
 
     /* 3️⃣ Fix & Flip */
-    FIX_AND_FLIP: ["Purchase & Rehab", "Refinance & Rehab"],
+    FIX_AND_FLIP_LOAN_1_TO_4_UNITS: ["Purchase & Rehab", "Refinance & Rehab"],
+
+    MEZZANINE_FINANCE: ["Gap Finance", "Leverage Enhancement", "JV Equity"],
+
+    PREFERRED_EQUITY: ["Acquisition Bridge", "Recapitalization"],
 
     /* 4️⃣ DSCR */
-    DSCR_RENTAL: [
+    DSCR_LOAN_1_TO_4_UNITS: [
       "Purchase",
       "Refinance (Rate & Term)",
       "Cash Out Refinance",
       "Portfolio Blanket",
     ],
 
+    BRIDGE_LOAN_1_TO_4_UNITS: ["Purchase", "Refinance", "Cash Out Refinance"],
+
+    CONSTRUCTION_LOAN_1_TO_4_UNITS: [
+      "Ground-up Construction",
+      "Major Renovation",
+      "Construction Completion",
+    ],
+
     /* 5️⃣ CRE Permanent */
     CRE_PERMANENT_LOAN: ["Purchase", "Refinance", "Recapitalization"],
 
     /* 6️⃣ Mezz Finance / Pref Equity */
-    MEZZ_FINANCE_PREF_EQUITY: [
-      "Gap Finance",
-      "Leverage Enhancement",
-      "JV Equity",
-      "Acquisition Bridge",
-    ],
+    // MEZZ_FINANCE_PREF_EQUITY: [
+    //   "Gap Finance",
+    //   "Leverage Enhancement",
+    //   "JV Equity",
+    //   "Acquisition Bridge",
+    // ],
 
     /* 7️⃣ Agency Loan */
-    AGENCY_LOAN: [
+    AGENCY_LOAN_MULTIFAMILY: [
       "Purchase / Acquisition",
       "Cash Out Refinance",
       "Affordable Housing",
@@ -1475,7 +1594,7 @@ const LoanApplication = () => {
     ],
 
     /* 13️⃣ SBA 504 */
-    SBA_504_REAL_ESTATE_EQUIPMENT: [
+    SBA_504_REAL_ESTATE_AND_EQUIPMENT: [
       "Real Estate Acquisition",
       "Real Estate Construction",
       "Heavy Equipment",
@@ -1534,37 +1653,25 @@ const LoanApplication = () => {
   const subPropertyOptions =
     PROPERTY_TYPE_MAP[formData.loanRequest.propertyType] || [];
 
-  const getCategoryFromCode = (code: string) => {
-    const upper = code.toUpperCase();
-
-    if (upper.includes("SBA")) return "SBA";
-    if (upper.includes("CRE")) return "CRE";
-    if (upper.includes("DSCR") || upper.includes("FLIP")) return "RESIDENTIAL";
-    if (upper.includes("FINANCE") || upper.includes("RECEIVABLE")) return "ABL";
-
-    return "OTHER"; // fallback
-  };
-
-  const categories = Array.from(
-    new Set(
-      productsMeta.map((p: any) => getCategoryFromCode(p.loanProductCode)),
-    ),
-  );
+  const categories: LoanCategory[] = [
+    "RESIDENTIAL_1_4",
+    "CRE_MULTIFAMILY",
+    "SBA_USDA",
+    "ABL",
+  ];
 
   const CATEGORY_ICONS: Record<string, any> = {
-    RESIDENTIAL: HomeIcon,
-    CRE: Building2,
-    SBA: Landmark,
+    RESIDENTIAL_1_4: HomeIcon,
+    CRE_MULTIFAMILY: Building2,
+    SBA_USDA: Landmark,
     ABL: Settings,
-    OTHER: Settings,
   };
 
   const CATEGORY_LABELS: Record<string, string> = {
-    RESIDENTIAL: "1–4 Units Residential",
-    CRE: "CRE & Multifamily",
-    SBA: "SBA & USDA",
+    RESIDENTIAL_1_4: "1-4 Units Residential",
+    CRE_MULTIFAMILY: "CRE & Multifamily",
+    SBA_USDA: "SBA & USDA",
     ABL: "Asset Based Lending",
-    OTHER: "Other Programs",
   };
 
   return (
@@ -1573,28 +1680,32 @@ const LoanApplication = () => {
         {/* ===== FIXED HEADER SECTION ===== */}
         <div className="w-full sticky top-[1px] z-30 bg-slate-50 dark:bg-slate-900 pb-4">
           {/* HEADER */}
-          <div className="mb-6 flex items-start justify-between">
-            <div className="pt-4">
+          <div className="mb-6">
+            {/* BACK BUTTON */}
+            <button
+              type="button"
+              onClick={() => navigate(-1)}
+              className="
+      mb-4 flex items-center gap-2
+      text-sm font-medium text-slate-600
+      hover:text-[#2C92D5]
+      transition
+    "
+            >
+              <IoArrowBack size={18} />
+              Back to Submit Applications
+            </button>
+
+            {/* TITLE */}
+            <div className="pt-1">
               <h2 className="text-2xl font-bold text-[#2C92D5]">
                 New Loan Application
               </h2>
+
               <p className="text-sm text-slate-500">
-                Complete comprehensive loan application 
+                Complete comprehensive loan application
               </p>
             </div>
-
-            {/* Close Button */}
-            <button
-              onClick={() => navigate("/submit-applications")}
-              className="
-            mt-2 w-9 h-9 flex items-center justify-center
-            rounded-full border border-slate-300
-            text-slate-600 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-50 dark:text-red-600
-            transition
-          "
-            >
-              <IoClose size={20} />
-            </button>
           </div>
           {/* STEPPER */}
           <div className="flex flex-wrap gap-2 mb-4 pt-4">
@@ -1654,8 +1765,8 @@ rounded-2xl p-6 shadow-sm
                   Select a Loan Category <span className="text-red-500">*</span>
                 </label>
 
-                <div className="flex gap-4 overflow-x-auto pb-2">
-                  {categories.map((category) => {
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  {categories.map((category: LoanCategory) => {
                     const Icon = CATEGORY_ICONS[category] || Settings;
 
                     return (
@@ -1664,7 +1775,7 @@ rounded-2xl p-6 shadow-sm
                         type="button"
                         onClick={() => setSelectedCategory(category)}
                         className={`flex-shrink-0 flex flex-col items-center justify-center gap-2 
-        w-[160px] h-[100px] rounded-2xl border transition-all text-center
+        w-full h-[110px] rounded-2xl border transition-all text-center
         
         ${
           selectedCategory === category
@@ -1672,9 +1783,16 @@ rounded-2xl p-6 shadow-sm
             : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:shadow-md"
         }`}
                       >
-                        <Icon size={26} />
+                        <Icon
+                          size={28}
+                          className={
+                            selectedCategory === category
+                              ? "text-white"
+                              : "text-[#2C92D5]"
+                          }
+                        />
 
-                        <span className="text-xs font-semibold leading-tight px-2">
+                        <span className="text-sm font-semibold leading-tight px-2">
                           {CATEGORY_LABELS[category] || category}
                         </span>
                       </button>
@@ -1711,14 +1829,14 @@ focus:border-blue-500 outline-none text-sm ${
   bg-white focus:ring-2 focus:ring-blue-500/20 
   focus:border-blue-500 outline-none transition text-sm`}
                   >
-                    <option value="">Select Program</option>
+                    <option value="">Select loan type</option>
 
                     {loadingProducts ? (
                       <option disabled>Loading...</option>
                     ) : (
                       loanProducts.map((code) => (
                         <option key={code} value={code}>
-                          {code.replace(/_/g, " ")}
+                          {PRODUCT_LABELS[code] || code.replace(/_/g, " ")}
                         </option>
                       ))
                     )}

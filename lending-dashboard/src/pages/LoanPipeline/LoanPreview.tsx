@@ -125,7 +125,13 @@ function getAuthHeaders(): HeadersInit {
 const InfoCard = ({ label, value }: { label: string; value: any }) => (
   <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700 p-4 rounded-xl transition-colors duration-300">
     <p className="text-xs text-slate-500 mb-1">{label}</p>
-    <p className="text-sm font-semibold break-words">{value || "-"}</p>
+    <p className="text-sm font-semibold break-words">
+  {typeof value === "string"
+    ? value
+        .replace(/_/g, " ")
+        .replace(/\b\w/g, (c) => c.toUpperCase())
+    : value ?? "-"}
+</p>
   </div>
 );
 
@@ -352,9 +358,13 @@ export default function LoanPreview() {
     }
   };
 
-  const fetchDocuments = async () => {
-    if (!applicationLenderId || documentsData) return;
+  const amountField =
+  submissionDetail?.loanApplication?.submissions?.[0]?.fields?.find(
+    (f: any) => f.fieldKey === "amountRequested"
+  );
 
+  const fetchDocuments = async () => {
+if (!applicationLenderId) return;
     try {
       setDocumentsLoading(true);
       const res = await fetch(
@@ -439,20 +449,24 @@ export default function LoanPreview() {
 
       toast.success("Documents requested");
 
-      // reset selection
-      setDocSelectModal((prev) => ({
-        ...prev,
-        selectedDocs: [],
-      }));
+// reset selection
+setDocSelectModal((prev) => ({
+  ...prev,
+  selectedDocs: [],
+}));
 
-      setCustomDocs([]);
-      setCustomInput("");
+setCustomDocs([]);
+setCustomInput("");
 
-      // refresh UI
-      setSubmissionDetail(null);
-      fetchLenderApplicationDetail();
+// IMPORTANT
+setDocumentsData(null);
 
-      setActiveTab("documents");
+await fetchDocuments();
+
+setSubmissionDetail(null);
+await fetchLenderApplicationDetail();
+
+setActiveTab("documents");
     } catch (err: any) {
       toast.error(err.message);
     } finally {
@@ -589,7 +603,11 @@ export default function LoanPreview() {
       <div className="space-y-8">
         {submissionDetail.lenderReviews?.length > 0 &&
           (() => {
-            const review = submissionDetail.lenderReviews[0];
+            const latestReview = submissionDetail?.lenderReviews?.[0];
+
+            if (!latestReview) return null;
+
+            const review = latestReview;
             const reviewStatus =
               review.reviewStatus || review.decision || "PENDING";
             const isApproved = reviewStatus === "APPROVED";
@@ -765,7 +783,11 @@ export default function LoanPreview() {
                           {formatFieldKey(field.fieldKey)}
                         </p>
                         <p className="text-sm font-medium break-words">
-                          {String(value)}
+                          {typeof value === "string"
+  ? value
+      .replace(/_/g, " ")
+      .replace(/\b\w/g, (c) => c.toUpperCase())
+  : String(value ?? "-")}
                         </p>
                       </div>
                     );
@@ -890,41 +912,41 @@ export default function LoanPreview() {
                       {doc.status}
                     </span>
                   </td>
-<td className="px-5 py-4 text-center">
-  {doc.source === "BROKER_ADDED" ? (
-    <span
-      className="inline-flex items-center rounded-full 
+                  <td className="px-5 py-4 text-center">
+                    {doc.source === "BROKER_ADDED" ? (
+                      <span
+                        className="inline-flex items-center rounded-full 
       bg-blue-100 px-3 py-1 text-[11px] font-semibold 
       text-blue-700 dark:bg-blue-500/10 dark:text-blue-400"
-    >
-      Broker
-    </span>
-  ) : doc.source === "SUB_BROKER_ADDED" ? (
-<span
-  className="inline-flex items-center rounded-full 
+                      >
+                        Broker
+                      </span>
+                    ) : doc.source === "SUB_BROKER_ADDED" ? (
+                      <span
+                        className="inline-flex items-center rounded-full 
   bg-emerald-100 px-3 py-1 text-[11px] font-semibold 
   text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400"
->
-  Sub Broker
-</span>
-  ) : doc.source === "LENDER_ADDED" ? (
-    <span
-      className="inline-flex items-center rounded-full 
+                      >
+                        Sub Broker
+                      </span>
+                    ) : doc.source === "LENDER_ADDED" ? (
+                      <span
+                        className="inline-flex items-center rounded-full 
       bg-purple-100 px-3 py-1 text-[11px] font-semibold 
       text-purple-700 dark:bg-purple-500/10 dark:text-purple-400"
-    >
-      Lender
-    </span>
-  ) : (
-    <span
-      className="inline-flex items-center rounded-full 
+                      >
+                        Lender
+                      </span>
+                    ) : (
+                      <span
+                        className="inline-flex items-center rounded-full 
       bg-slate-100 px-3 py-1 text-[11px] font-semibold 
       text-slate-700 dark:bg-slate-700 dark:text-slate-300"
-    >
-      {doc.source}
-    </span> 
-  )}
-</td>
+                      >
+                        {doc.source}
+                      </span>
+                    )}
+                  </td>
 
                   {/* COUNT */}
                   <td className="px-5 py-4 text-center">
@@ -933,27 +955,27 @@ export default function LoanPreview() {
                     </span>
                   </td>
 
-{/* ACTION  */}
-<td className="px-5 py-4 text-right">
-  {doc.uploadedCount > 0 ? (
-    <button
-      onClick={() => {
-        if (doc.uploadedCount === 1) {
-          const file = doc.uploadedFiles[0];
+                  {/* ACTION  */}
+                  <td className="px-5 py-4 text-right">
+                    {doc.uploadedCount > 0 ? (
+                      <button
+                        onClick={() => {
+                          if (doc.uploadedCount === 1) {
+                            const file = doc.uploadedFiles[0];
 
-          setPreviewFile({
-            url: `${API_BASE}${file.fileUrl}`,
-            type: file.fileMimeType,
-            name: file.fileName,
-          });
-        } else {
-          setMultiFileModal({
-            isOpen: true,
-            doc,
-          });
-        }
-      }}
-      className="
+                            setPreviewFile({
+                              url: `${API_BASE}${file.fileUrl}`,
+                              type: file.fileMimeType,
+                              name: file.fileName,
+                            });
+                          } else {
+                            setMultiFileModal({
+                              isOpen: true,
+                              doc,
+                            });
+                          }
+                        }}
+                        className="
         group inline-flex items-center gap-2
         rounded-xl border border-blue-200
         bg-gradient-to-r from-blue-50 to-indigo-50
@@ -971,21 +993,20 @@ export default function LoanPreview() {
         dark:text-blue-300
         dark:hover:bg-blue-500
       "
-    >
-      <Eye
-        size={14}
-        className="transition-transform duration-300 group-hover:scale-110"
-      />
+                      >
+                        <Eye
+                          size={14}
+                          className="transition-transform duration-300 group-hover:scale-110"
+                        />
 
-      <span className="text-[11px] font-semibold tracking-wide">
-        View
-        {doc.uploadedCount > 1 &&
-          ` (${doc.uploadedCount})`}
-      </span>
-    </button>
-  ) : (
-    <span
-      className="
+                        <span className="text-[11px] font-semibold tracking-wide">
+                          View
+                          {doc.uploadedCount > 1 && ` (${doc.uploadedCount})`}
+                        </span>
+                      </button>
+                    ) : (
+                      <span
+                        className="
         inline-flex items-center rounded-lg
         bg-slate-100 px-3 py-1.5
         text-[11px] font-medium italic
@@ -993,11 +1014,11 @@ export default function LoanPreview() {
         dark:bg-slate-800
         dark:text-slate-500
       "
-    >
-      No Files
-    </span>
-  )}
-</td>
+                      >
+                        No Files
+                      </span>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -1518,30 +1539,36 @@ export default function LoanPreview() {
               </div>
 
               {/* LOAN AMOUNT */}
-              <div
-                className="flex items-center gap-3 px-4 py-2 rounded-xl border
-    bg-gradient-to-r from-orange-50 to-orange-100 border-orange-200
-    dark:from-orange-900/30 dark:to-orange-800/20 dark:border-orange-800"
-              >
-                <div className="w-7 h-7 rounded-full bg-[#F7A400] text-white flex items-center justify-center text-xs font-bold">
-                  <FaDollarSign size={14} />
-                </div>
+<div
+  className="flex items-center gap-3 px-4 py-2 rounded-xl border
+  bg-gradient-to-r from-orange-50 to-amber-100 border-orange-200
+  dark:from-orange-900/30 dark:to-amber-800/20 dark:border-orange-800"
+>
+  <div
+    className="w-7 h-7 rounded-full bg-orange-500 text-white
+    flex items-center justify-center text-xs"
+  >
+    <FaDollarSign />
+  </div>
 
-                <div className="flex flex-col leading-tight">
-                  <span
-                    className="text-[10px] uppercase tracking-wide font-semibold
-        text-[#F7A400] dark:text-orange-400"
-                  >
-                    Loan Amount
-                  </span>
-                  <span
-                    className="text-sm font-semibold
-        text-[#F7A400] dark:text-orange-200"
-                  >
-                    {submissionDetail.loanApplication.amountRequested || "-"}
-                  </span>
-                </div>
-              </div>
+  <div className="flex flex-col leading-tight">
+    <span
+      className="text-[10px] uppercase tracking-wide font-semibold
+      text-orange-500 dark:text-orange-400"
+    >
+      Loan Amount
+    </span>
+
+    <span
+      className="text-sm font-medium
+      text-orange-900 dark:text-orange-100"
+    >
+      {amountField?.value
+        ? `$${Number(amountField.value).toLocaleString()}`
+        : "-"}
+    </span>
+  </div>
+</div>
             </div>
           )}
         </div>

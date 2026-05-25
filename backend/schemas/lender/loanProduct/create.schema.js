@@ -40,7 +40,7 @@ const baseProductSchema = z.object({
 
   statesSupported: z.array(z.string()).optional(),
 
-  equipmentTypes: nestedTypeSchema.optional(),
+  equipmentTypes: z.array(z.string()).optional(),
   otherEquipmentExplanation: z.string().optional(),
 
   isActive: z.boolean().optional(),
@@ -75,7 +75,7 @@ const createLenderLoanProductSchema = z
 
     statesSupported: z.array(z.string()).optional(),
 
-    equipmentTypes: nestedTypeSchema.optional(),
+    equipmentTypes: z.array(z.string()).optional(),
     otherEquipmentExplanation: z.string().optional(),
 
     isActive: z.boolean().optional(),

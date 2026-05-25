@@ -214,7 +214,7 @@ export default function SignUpForm() {
                 checked={isChecked}
                 onChange={setIsChecked}
               />
-              <p className="inline-block font-normal text-gray-500 dark:text-gray-400">
+              <p className="inline-block font-normal text-gray-500 dark:text-gray-400 text-xs">
                 By creating an account means you agree to the{" "}
                 <span className="text-gray-800 dark:text-white/90">
                   Terms and Conditions,
@@ -227,7 +227,7 @@ export default function SignUpForm() {
             </div>
             {/* <!-- Button --> */}
             <div>
-              <button className="flex items-center justify-center w-full px-4 py-3 text-sm font-medium text-white transition rounded-lg bg-brand-500 shadow-theme-xs hover:bg-brand-600">
+              <button className="flex items-center justify-center w-full px-4 py-3 text-sm font-medium text-white transition rounded-lg bg-[#134E4A] shadow-theme-xs hover:bg-[#134E4A]/90">
                 Sign Up
               </button>
             </div>
@@ -239,7 +239,7 @@ export default function SignUpForm() {
             Already have an account? {""}
             <Link
               to="/signin"
-              className="text-brand-500 hover:text-brand-600 dark:text-brand-400"
+              className="text-[#134E4A] dark:text-[#134E4A] hover:text-[#134E4A]/90"
             >
               Sign In
             </Link>

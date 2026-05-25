@@ -22,34 +22,27 @@ module.exports = async function getConversationById(fastify) {
     async (req, reply) => {
       const prisma = fastify.prisma;
       const { conversationId } = req.params;
+      const normalize = (str) => str?.trim().toLowerCase();
 
       try {
         /* ================= AUTH CHECK ================= */
 
         if (!req.user) {
-          console.error("❌ No user found in request");
+          console.error("No user found in request");
           return reply.code(401).send({
             success: false,
             message: "Unauthorized",
           });
         }
 
-        // ✅ FIX: universal userId (no breaking)
-        const userId =
-          req.user?.id ||
-          req.user?.userId ||
-          req.user?.clientId;
+        const userId = req.user?.id || req.user?.userId || req.user?.clientId;
+        const userEmail = req.user?.email || req.user?.clientEmail;
 
-       const userEmail =
-  req.user?.email ||
-  req.user?.clientEmail;
-
-    console.log("REQ USER FULL:", req.user);
-
-console.log("USER EMAIL:", userEmail);
+        console.log("REQ USER FULL:", req.user);
+        console.log("USER EMAIL:", userEmail);
 
         if (!userId && !userEmail) {
-          console.error("❌ Invalid user token");
+          console.error("Invalid user token");
           return reply.code(401).send({
             success: false,
             message: "Invalid user token",
@@ -66,58 +59,91 @@ console.log("USER EMAIL:", userEmail);
         });
 
         console.log(
-  "📌 Conversation Participants:",
-  conversation?.participants?.map((p) => ({
-    participantId: p.participantId,
-    participantEmail: p.participantEmail,
-    participantType: p.participantType,
-  }))
-);
+          "Conversation Participants:",
+          conversation?.participants?.map((p) => ({
+            participantId: p.participantId,
+            participantEmail: p.participantEmail,
+            participantType: p.participantType,
+          })),
+        );
 
         if (!conversation) {
-          console.error("❌ Conversation not found:", conversationId);
+          console.error("Conversation not found:", conversationId);
           return reply.code(404).send({
             success: false,
             message: "Conversation not found",
           });
         }
 
-        console.log("📦 Conversation fetched:", {
+        console.log("Conversation fetched:", {
           conversationId,
           participantsCount: conversation.participants.length,
         });
 
         /* ================= PARTICIPANT VALIDATION ================= */
 
-    const normalize = (str) =>
-  str?.trim().toLowerCase();
+        const isParticipant = conversation.participants.some((p) => {
+          const matchById =
+            p.participantId &&
+            userId &&
+            p.participantId === userId;
 
-const isParticipant = conversation.participants.some((p) => {
-  const matchById =
-    p.participantId &&
-    userId &&
-    p.participantId === userId;
+          const matchByEmail =
+            p.participantEmail &&
+            userEmail &&
+            normalize(p.participantEmail) === normalize(userEmail);
 
-  const matchByEmail =
-    p.participantEmail &&
-    userEmail &&
-    normalize(p.participantEmail) ===
-      normalize(userEmail);
+          console.log("CHECKING PARTICIPANT:", {
+            dbParticipantId: p.participantId,
+            dbParticipantEmail: p.participantEmail,
+            requestUserId: userId,
+            requestUserEmail: userEmail,
+            matchById,
+            matchByEmail,
+          });
 
-  console.log("CHECKING PARTICIPANT:", {
-    dbParticipantId: p.participantId,
-    dbParticipantEmail: p.participantEmail,
-    requestUserId: userId,
-    requestUserEmail: userEmail,
-    matchById,
-    matchByEmail,
-  });
+          return matchById || matchByEmail;
+        });
 
-  return matchById || matchByEmail;
-});
+        let hasFallbackAccess = false;
 
-        if (!isParticipant) {
-          console.error("❌ Access denied:", {
+        if (
+          !isParticipant &&
+          req.user?.orgType === "LENDER" &&
+          req.user?.organizationId &&
+          conversation.applicationLenderId
+        ) {
+          const lenderAccess = await prisma.applicationLender.findFirst({
+            where: {
+              id: conversation.applicationLenderId,
+              lenderOrgId: req.user.organizationId,
+            },
+            select: { id: true },
+          });
+
+          hasFallbackAccess = Boolean(lenderAccess);
+        }
+
+        if (
+          !isParticipant &&
+          !hasFallbackAccess &&
+          req.user?.orgType === "BROKER" &&
+          req.user?.organizationId &&
+          conversation.loanApplicationId
+        ) {
+          const brokerAccess = await prisma.loanApplication.findFirst({
+            where: {
+              id: conversation.loanApplicationId,
+              brokerOrgId: req.user.organizationId,
+            },
+            select: { id: true },
+          });
+
+          hasFallbackAccess = Boolean(brokerAccess);
+        }
+
+        if (!isParticipant && !hasFallbackAccess) {
+          console.error("Access denied:", {
             userId,
             userEmail,
             conversationId,
@@ -129,6 +155,13 @@ const isParticipant = conversation.participants.some((p) => {
             message: "Access denied",
           });
         }
+
+        console.log("Conversation access mode:", {
+          conversationId,
+          isParticipant,
+          hasFallbackAccess,
+          orgType: req.user?.orgType,
+        });
 
         /* ================= BUILD TITLE ================= */
 
@@ -164,10 +197,10 @@ const isParticipant = conversation.participants.some((p) => {
             title = `Lender - ${appLender?.lender?.name || "Unknown"}`;
           }
         } catch (err) {
-          console.error("⚠️ Title generation failed:", err.message);
+          console.error("Title generation failed:", err.message);
         }
 
-        /* ================= 🔥 ENRICH PARTICIPANTS (NAMES - OPTIMIZED) ================= */
+        /* ================= ENRICH PARTICIPANTS ================= */
 
         let enrichedParticipants = [];
 
@@ -176,19 +209,14 @@ const isParticipant = conversation.participants.some((p) => {
             .filter(
               (p) =>
                 p.participantId &&
-                (
- p.participantType === "BROKER" ||
- p.participantType === "LENDER" ||
- p.participantType === "SUB_BROKER"
-)
+                (p.participantType === "BROKER" ||
+                  p.participantType === "LENDER" ||
+                  p.participantType === "SUB_BROKER"),
             )
             .map((p) => p.participantId);
 
           const clientIds = conversation.participants
-            .filter(
-              (p) =>
-                p.participantId && p.participantType === "CLIENT"
-            )
+            .filter((p) => p.participantId && p.participantType === "CLIENT")
             .map((p) => p.participantId);
 
           const users = await prisma.userAccount.findMany({
@@ -212,42 +240,32 @@ const isParticipant = conversation.participants.some((p) => {
           const userMap = new Map(users.map((u) => [u.id, u]));
           const clientMap = new Map(clients.map((c) => [c.id, c]));
 
-          if (
-  conversation.type ===
-  "SUBBROKER_BROKER"
-) {
-  const subBrokerParticipant =
-    conversation.participants.find(
-      (p) =>
-        p.participantType ===
-        "SUB_BROKER"
-    );
+          if (conversation.type === "SUBBROKER_BROKER") {
+            const subBrokerParticipant = conversation.participants.find(
+              (p) => p.participantType === "SUB_BROKER",
+            );
 
-  const subBroker =
-    userMap.get(
-      subBrokerParticipant?.participantId,
-    );
+            const subBroker = userMap.get(subBrokerParticipant?.participantId);
 
-  const subBrokerName =
-    `${subBroker?.firstName || ""} ${
-      subBroker?.lastName || ""
-    }`.trim() || "Sub Broker";
+            const subBrokerName =
+              `${subBroker?.firstName || ""} ${
+                subBroker?.lastName || ""
+              }`.trim() || "Sub Broker";
 
-  title =
-    conversation.chatCategory ===
-    "LOAN_OFFICER"
-      ? `Sub Broker • ${subBrokerName} (Loan Officer Chat)`
-      : `Sub Broker • ${subBrokerName}`;
-}
+            title =
+              conversation.chatCategory === "LOAN_OFFICER"
+                ? `Sub Broker • ${subBrokerName} (Loan Officer Chat)`
+                : `Sub Broker • ${subBrokerName}`;
+          }
 
           enrichedParticipants = conversation.participants.map((p) => {
             let name = "Unknown";
 
             if (
-  p.participantType === "BROKER" ||
-  p.participantType === "LENDER" ||
-  p.participantType === "SUB_BROKER"
-) {
+              p.participantType === "BROKER" ||
+              p.participantType === "LENDER" ||
+              p.participantType === "SUB_BROKER"
+            ) {
               const user = userMap.get(p.participantId);
               name =
                 user?.organization?.name ||
@@ -257,25 +275,22 @@ const isParticipant = conversation.participants.some((p) => {
 
             if (p.participantType === "CLIENT") {
               const client = clientMap.get(p.participantId);
-              name =
-                client?.client?.legalName ||
-                p.participantEmail ||
-                "Client";
+              name = client?.client?.legalName || p.participantEmail || "Client";
             }
 
             return {
               ...p,
-              name, // ✅ added
+              name,
             };
           });
         } catch (err) {
-          console.error("❌ Name enrichment failed:", err.message);
+          console.error("Name enrichment failed:", err.message);
           enrichedParticipants = conversation.participants;
         }
 
         /* ================= RESPONSE ================= */
 
-        console.log("✅ Conversation access granted:", conversationId);
+        console.log("Conversation access granted:", conversationId);
 
         return reply.send({
           success: true,
@@ -285,14 +300,13 @@ const isParticipant = conversation.participants.some((p) => {
             loanApplicationId: conversation.loanApplicationId,
             applicationLenderId: conversation.applicationLenderId,
             title,
-            participants: enrichedParticipants, // ✅ enhanced
+            participants: enrichedParticipants,
             lastMessageAt: conversation.lastMessageAt,
             createdAt: conversation.createdAt,
           },
         });
-
       } catch (error) {
-        console.error("💥 SERVER ERROR:", {
+        console.error("SERVER ERROR:", {
           message: error.message,
           stack: error.stack,
           conversationId,
@@ -303,12 +317,9 @@ const isParticipant = conversation.participants.some((p) => {
             error: error.message,
             stack: error.stack,
             conversationId,
-            userId:
-              req.user?.id ||
-              req.user?.userId ||
-              req.user?.clientId,
+            userId: req.user?.id || req.user?.userId || req.user?.clientId,
           },
-          "Failed to fetch conversation"
+          "Failed to fetch conversation",
         );
 
         return reply.code(500).send({
@@ -316,6 +327,6 @@ const isParticipant = conversation.participants.some((p) => {
           message: "Internal server error",
         });
       }
-    }
+    },
   );
 };

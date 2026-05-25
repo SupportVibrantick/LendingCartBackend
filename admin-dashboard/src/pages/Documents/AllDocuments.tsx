@@ -9,7 +9,6 @@ const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
 type Document = {
   id: string;
-  code: string;
   name: string;
   description?: string | null;
   isActive: boolean;
@@ -17,7 +16,6 @@ type Document = {
 };
 
 type DocumentForm = {
-  code: string;
   name: string;
   description: string;
 };
@@ -60,13 +58,12 @@ const AllDocuments = () => {
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<DocumentForm>({
-    code: "",
     name: "",
     description: "",
   });
 
-  const [loanProducts, setLoanProducts] = useState<any[]>([]);
-  const [loadingProducts, setLoadingProducts] = useState(false);
+  // const [loanProducts, setLoanProducts] = useState<any[]>([]);
+  // const [loadingProducts, setLoadingProducts] = useState(false);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [limit] = useState(5);
@@ -81,7 +78,7 @@ const AllDocuments = () => {
 
   const resetForm = () => {
     setEditingId(null);
-    setForm({ code: "", name: "", description: "" });
+    setForm({ name: "", description: "" });
   };
 
   /* ================= API ================= */
@@ -126,10 +123,10 @@ const AllDocuments = () => {
 
   const fetchLoanProducts = async () => {
     try {
-      setLoadingProducts(true);
+      // setLoadingProducts(true);
 
       const res = await fetch(
-        "https://api-lendingcart.vibrantick.org/admin/loan-products/list",
+        `${API_BASE}/admin/loan-products/list`,
         {
           headers: getAuthHeaders(),
         },
@@ -143,20 +140,20 @@ const AllDocuments = () => {
       }
 
       // sirf active products
-      const active = json.data.filter((item: any) => item.isActive);
+      // const active = json.data.filter((item: any) => item.isActive);
 
-      setLoanProducts(active);
+      // setLoanProducts(active);
     } catch (err: any) {
       toast.error(err.message || "Something went wrong");
     } finally {
-      setLoadingProducts(false);
+      // setLoadingProducts(false);
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.code || !form.name) {
-      toast.error("Code and Name are required");
+    if (!form.name) {
+      toast.error("Name is required");
       return;
     }
 
@@ -199,7 +196,7 @@ const AllDocuments = () => {
   const handleEdit = (doc: Document) => {
     setEditingId(doc.id);
     setForm({
-      code: doc.code,
+      // code: doc.code,
       name: doc.name,
       description: doc.description || "",
     });
@@ -280,7 +277,7 @@ const AllDocuments = () => {
 
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* CODE SELECT */}
-            <div>
+            {/* <div>
               <label className="text-xs text-slate-500 mb-1 block">
                 Document Code
               </label>
@@ -298,11 +295,14 @@ const AllDocuments = () => {
 
                 {loanProducts.map((item) => (
                   <option key={item.id} value={item.code}>
-                    {item.code}
+                   {item.code
+  .replace(/_/g, " ")
+  .toLowerCase()
+  .replace(/\b\w/g, (c: string) => c.toUpperCase())}
                   </option>
                 ))}
               </select>
-            </div>
+            </div> */}
 
             {/* NAME */}
             <div>
@@ -360,7 +360,7 @@ const AllDocuments = () => {
               {/* HEADER */}
               <thead>
                 <tr className="text-xs uppercase text-slate-500 dark:text-slate-400">
-                  <th className="px-4 py-2 text-left">Code</th>
+                  {/* <th className="px-4 py-2 text-left">Code</th> */}
                   <th className="px-4 py-2 text-left">Name</th>
                   <th className="px-4 py-2 text-left">Status</th>
                   <th className="px-4 py-2 text-left">Created</th>
@@ -372,7 +372,7 @@ const AllDocuments = () => {
                 {loadingList ? (
                   <tr>
                     <td
-                      colSpan={5}
+                      colSpan={4}
                       className="py-14 text-center text-slate-500"
                     >
                       <span className="animate-pulse">
@@ -382,7 +382,7 @@ const AllDocuments = () => {
                   </tr>
                 ) : documents.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="py-20 text-center">
+                    <td colSpan={4} className="py-20 text-center">
                       <div className="flex flex-col items-center">
                         <div className="w-14 h-14 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-4">
                           <FiAlertCircle size={26} className="text-slate-400" />
@@ -411,11 +411,11 @@ const AllDocuments = () => {
           "
                     >
                       {/* CODE */}
-                      <td className="px-4 py-3">
+                      {/* <td className="px-4 py-3">
                         <span className="px-2 py-1 text-xs font-medium rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
                           {p.code}
                         </span>
-                      </td>
+                      </td> */}
 
                       {/* NAME */}
                       <td className="px-4 py-3">

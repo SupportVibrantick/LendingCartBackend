@@ -10,6 +10,7 @@ const validStatuses = [
   "APPROVED",
   "DECLINED",
   "COMPLETED",
+  "SUSPENDED",
 ];
 
 module.exports = async function listSubmissionsTable(fastify) {
@@ -59,49 +60,54 @@ module.exports = async function listSubmissionsTable(fastify) {
 
         /* ================= WHERE ================= */
 
-        const whereCondition = {
-          application: {
-            brokerOrgId: orgId,
+      const whereCondition = {
+  ...(status
+    ? {
+        status,
+      }
+    : {
+        status: {
+          not: "SUPERSEDED",
+        },
+      }),
 
-            ...(isOfficer && {
-              brokerUserId: userId,
-            }),
+  application: {
+    brokerOrgId: orgId,
 
-            ...(isSubBroker && {
-              subBrokerAssignments: {
-                some: {
-                  subBrokerId: userId,
-                },
-              },
-            }),
+    ...(isOfficer && {
+      brokerUserId: userId,
+    }),
 
-            ...(search && {
-              OR: [
-                {
-                  applicationNumber: {
-                    contains: search,
-                    mode: "insensitive",
-                  },
-                },
-                {
-                  client: {
-                    is: {
-                      legalName: {
-                        contains: search,
-                        mode: "insensitive",
-                      },
-                    },
-                  },
-                },
-              ],
-            }),
+    ...(isSubBroker && {
+      subBrokerAssignments: {
+        some: {
+          subBrokerId: userId,
+        },
+      },
+    }),
+
+    ...(search && {
+      OR: [
+        {
+          applicationNumber: {
+            contains: search,
+            mode: "insensitive",
           },
-
-          ...(validStatuses.includes(status) && {
-            status,
-          }),
-        };
-
+        },
+        {
+          client: {
+            is: {
+              legalName: {
+                contains: search,
+                mode: "insensitive",
+              },
+            },
+          },
+        },
+      ],
+    }),
+  },
+};
         /* ================= QUERY ================= */
 
         const allowedSortFields = ["createdAt", "updatedAt", "status"];
@@ -330,6 +336,17 @@ const country =
   ) ||
   null;
 
+  const lenderApproved =
+  app?.applicationLenders?.some(
+    (l) => l.status === "APPROVED",
+  );
+
+const lenderDeclined =
+  app?.applicationLenders?.length > 0 &&
+  app?.applicationLenders?.every(
+    (l) => l.status === "DECLINED",
+  );
+  
           const location =
             [city, state, country].filter(Boolean).join(", ") || "N/A";
 
@@ -345,7 +362,11 @@ const country =
             location,
             amount,
 
-            status: app?.status,
+status: lenderApproved
+  ? "APPROVED"
+  : lenderDeclined
+  ? "DECLINED"
+  : app?.status,
             submissionStatus: s.status,
 
             submittedOn: s.createdAt,
