@@ -200,13 +200,13 @@ const AppHeader: React.FC = () => {
 
           <Link to="/" className="lg:hidden">
             <img
-              className="dark:hidden w-45 h-12"
-              src="/ACOM_LOGO.png"
+              className="dark:hidden h-18 rounded-full"
+              src="/loanAutomation.jpeg"
               alt="Logo"
             />
             <img
-              className="hidden dark:block w-45 h-12"
-              src="/ACOM_LOGO.png"
+              className="hidden dark:block h-18 rounded-full"
+              src="/loanAutomation.jpeg"
               alt="Logo"
             />
           </Link>

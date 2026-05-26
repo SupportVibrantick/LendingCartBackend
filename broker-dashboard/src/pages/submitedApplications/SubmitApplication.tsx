@@ -18,6 +18,7 @@ import {
   CheckCircle,
   MoreVertical,
   Send,
+  Users,
   // Mail,
   // UserPlus,
 } from "lucide-react";
@@ -56,6 +57,11 @@ type TableRow = {
 
   assignedOfficerName: string | null;
   assignedOfficerImage: string | null;
+  assignedSubBrokers?: {
+    id: string;
+    name: string;
+    profileImage?: string | null;
+  }[];
 };
 
 type Lender = {
@@ -102,6 +108,7 @@ function getAuthHeaders(): HeadersInit {
 
 /* ================= COMPONENT ================= */
 export default function LoanApplicationsPage() {
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
@@ -151,6 +158,18 @@ export default function LoanApplicationsPage() {
   const [loiModalOpen, setLoiModalOpen] = useState(false);
   const [lois] = useState<any[]>([]);
 
+  const [pipelineStats, setPipelineStats] = useState({
+    totalVolume: 0,
+    totalApplications: 0,
+    newApplications: 0,
+    submitted: 0,
+    clientPending: 0,
+    approved: 0,
+    rejected: 0,
+    inReview: 0,
+    draft: 0,
+  });
+
   const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0 });
 
   const [assignSubBrokerModal, setAssignSubBrokerModal] = useState({
@@ -188,6 +207,13 @@ export default function LoanApplicationsPage() {
 
   const [loanOfficers, setLoanOfficers] = useState<any[]>([]);
   const [selectedOfficer, setSelectedOfficer] = useState<string>("");
+  const [subBrokerModal, setSubBrokerModal] = useState<{
+    open: boolean;
+    brokers: any[];
+  }>({
+    open: false,
+    brokers: [],
+  });
   const [assignLoading, setAssignLoading] = useState(false);
 
   const navigate = useNavigate();
@@ -261,20 +287,6 @@ export default function LoanApplicationsPage() {
         return "bg-slate-500/10 border-slate-500/20 text-slate-600 dark:text-slate-400";
     }
   };
-
-  const newCount = rows.filter(
-    (r) => r.status === "NEW" || r.status === "SUBMITTED",
-  ).length;
-
-  const approvedCount = rows.filter((r) => r.status === "APPROVED").length;
-
-  const totalVolume = rows.reduce((sum, r) => {
-    const amount = Number(r.amount);
-
-    if (!isFinite(amount)) return sum; // skip bad values
-
-    return sum + amount;
-  }, 0);
 
   // const fetchSubmissionDetail = async (submissionId: string) => {
   //   try {
@@ -571,11 +583,14 @@ export default function LoanApplicationsPage() {
     }
   }, [findLenderModalOpen, lenderSubmissionId]);
 
-  const loadSubmissions = async (cursor?: string) => {
+  const loadSubmissions = async (cursor?: string, searchValue?: string) => {
     try {
       setLoading(true);
 
       const url = new URL(API_BASE + "/broker/loan-pipeline/submissions");
+      if (searchValue?.trim()) {
+        url.searchParams.append("search", searchValue.trim());
+      }
 
       if (cursor) {
         url.searchParams.append("cursor", cursor);
@@ -596,19 +611,16 @@ export default function LoanApplicationsPage() {
         applicationId: item.applicationId,
         company: "-",
         loanType: item.loanInfo,
-        cityState:
-  item.location?.split(",")[0]?.trim() ||
-  "N/A",
+        cityState: item.location?.split(",")[0]?.trim() || "N/A",
 
-country:
-  item.location?.split(",")[1]?.trim() ||
-  "",
+        country: item.location?.split(",")[1]?.trim() || "",
         amount: Number(item.amount) || 0,
         status: item.status,
         date: item.submittedOn,
         pendingDocumentsCount: item.pendingDocumentsCount,
         assignedOfficerName: item.assignedLoanOfficer?.name || null,
         assignedOfficerImage: item.assignedLoanOfficer?.profileImage || null,
+        assignedSubBrokers: item.assignedSubBrokers || [],
       }));
 
       setRows((prev) => (cursor ? [...prev, ...formatted] : formatted));
@@ -617,6 +629,28 @@ country:
       setHasMore(json.pagination.hasMore);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchPipelineStats = async () => {
+    try {
+      const res = await fetch(
+        `${API_BASE}/broker/loan-pipeline/pipeline-stats`,
+        {
+          headers: getAuthHeaders(),
+        },
+      );
+
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Failed to fetch stats");
+      }
+
+      setPipelineStats(json.data);
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Failed to load stats");
     }
   };
 
@@ -750,6 +784,7 @@ country:
 
   useEffect(() => {
     loadSubmissions();
+    fetchPipelineStats();
   }, []);
 
   useEffect(() => {
@@ -764,26 +799,13 @@ country:
     };
   }, [viewSubmissionId, findLenderModalOpen]);
 
-  const normalize = (str = "") => str.toLowerCase().replace(/[^a-z0-9]/g, "");
-
-  const filteredRows = rows.filter((r) => {
-    const query = normalize(searchTerm);
-
-    return (
-      normalize(r.borrowerName).includes(query) ||
-      normalize(r.company).includes(query) ||
-      normalize(r.loanType).includes(query) ||
-      normalize(r.applicationNumber || "").includes(query) // MAIN FIX
-    );
-  });
-
   const filteredLenders = lenders.filter(
     (l) =>
       l.name.toLowerCase().includes(lenderSearchQ.toLowerCase()) ||
       l.email?.toLowerCase().includes(lenderSearchQ.toLowerCase()),
   );
 
-  const totalPages = Math.ceil(filteredRows.length / rowsPerPage);
+  const totalPages = Math.ceil(rows.length / rowsPerPage);
 
   useEffect(() => {
     if (currentPage > totalPages && totalPages > 0) {
@@ -1067,6 +1089,131 @@ country:
   //   loadSubmissions();
   // };
 
+  const StatCard = ({
+    title,
+    value,
+    icon,
+    color,
+    subtitle,
+  }: {
+    title: string;
+    value: number | string;
+    icon: React.ReactNode;
+    color:
+      | "blue"
+      | "green"
+      | "rose"
+      | "amber"
+      | "indigo"
+      | "cyan"
+      | "pink"
+      | "slate";
+    subtitle?: string;
+  }) => {
+    const styles = {
+      blue: {
+        card: "hover:border-blue-200",
+        icon: "bg-blue-50 text-blue-600",
+        dot: "bg-blue-500",
+      },
+
+      green: {
+        card: "hover:border-emerald-200",
+        icon: "bg-emerald-50 text-emerald-600",
+        dot: "bg-emerald-500",
+      },
+
+      rose: {
+        card: "hover:border-rose-200",
+        icon: "bg-rose-50 text-rose-600",
+        dot: "bg-rose-500",
+      },
+
+      amber: {
+        card: "hover:border-amber-200",
+        icon: "bg-amber-50 text-amber-600",
+        dot: "bg-amber-500",
+      },
+
+      indigo: {
+        card: "hover:border-indigo-200",
+        icon: "bg-indigo-50 text-indigo-600",
+        dot: "bg-indigo-500",
+      },
+
+      cyan: {
+        card: "hover:border-cyan-200",
+        icon: "bg-cyan-50 text-cyan-600",
+        dot: "bg-cyan-500",
+      },
+
+      pink: {
+        card: "hover:border-pink-200",
+        icon: "bg-pink-50 text-pink-600",
+        dot: "bg-pink-500",
+      },
+
+      slate: {
+        card: "hover:border-slate-300",
+        icon: "bg-slate-100 text-slate-600",
+        dot: "bg-slate-500",
+      },
+    };
+
+    const theme = styles[color];
+
+    return (
+      <div
+        className={`
+group rounded-2xl border border-slate-200
+bg-white p-5
+transition-all duration-300
+hover:-translate-y-0.5
+hover:shadow-lg hover:shadow-slate-200/60
+${theme.card}
+`}
+      >
+        <div className="flex items-start justify-between">
+          <div className="min-w-0">
+            <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">
+              {title}
+            </p>
+
+            <h3 className="mt-2 text-2xl font-bold text-slate-900 truncate">
+              {value}
+            </h3>
+          </div>
+
+          <div
+            className={`
+flex h-11 w-11 items-center justify-center
+rounded-2xl shrink-0
+${theme.icon}
+`}
+          >
+            {icon}
+          </div>
+        </div>
+
+        {subtitle && (
+          <div className="mt-4 flex items-center gap-2">
+            <div className={`h-1.5 w-1.5 rounded-full ${theme.dot}`} />
+
+            <p className="text-[11px] text-slate-400 truncate">{subtitle}</p>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  useEffect(() => {
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, []);
+
   return (
     <div className="min-w-full bg-slate-50 dark:bg-[#0b1120] p-3 text-slate-900 dark:text-slate-100 selection:bg-blue-100 dark:selection:bg-blue-900/30">
       {/* Header Area */}
@@ -1084,7 +1231,7 @@ country:
             <p className="text-slate-500 dark:text-slate-400 text-sm">
               You have{" "}
               <span className="text-blue-600 dark:text-blue-400">
-                {filteredRows.length} active
+                {rows.length} active
               </span>{" "}
               applications today.
             </p>
@@ -1108,7 +1255,19 @@ country:
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
                 <input
                   placeholder="Search by name, company, or app no..."
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onChange={(e) => {
+                    const value = e.target.value;
+
+                    setSearchTerm(value);
+
+                    if (searchTimeoutRef.current) {
+                      clearTimeout(searchTimeoutRef.current);
+                    }
+
+                    searchTimeoutRef.current = setTimeout(() => {
+                      loadSubmissions(undefined, value);
+                    }, 500);
+                  }}
                   className="pl-10 pr-4 py-2.5 w-full md:w-80 rounded-xl text-sm 
                    bg-white dark:bg-slate-900 
                    border border-slate-200 dark:border-slate-800 
@@ -1135,136 +1294,80 @@ country:
         </div>
 
         {/* Quick Status Cards */}
-       <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-  
-  {/* TOTAL VOLUME */}
-  <div
-    className="
-group rounded-2xl border border-slate-200
-bg-white p-5
-transition-all duration-300
-hover:border-indigo-200
+        <div
+          className="
+mt-6
+grid
+grid-cols-1
+sm:grid-cols-2
+md:grid-cols-4
+gap-4
 "
-  >
-    <div className="flex items-start justify-between">
-      
-      <div>
-        <p className="text-xs font-medium text-slate-500">
-          Total Volume
-        </p>
+        >
+          <StatCard
+            title="Total Volume"
+            value={formatCompactAmount(pipelineStats.totalVolume)}
+            subtitle="Total funded volume"
+            icon={<DollarSign className="h-5 w-5" />}
+            color="indigo"
+          />
 
-        <h3 className="mt-2 text-xl font-bold text-slate-900">
-          {formatCompactAmount(
-            totalVolume,
-          )}
-        </h3>
-      </div>
+          <StatCard
+            title="Total Applications"
+            value={pipelineStats.totalApplications}
+            subtitle="Overall applications"
+            icon={<Building2 className="h-5 w-5" />}
+            color="blue"
+          />
 
-      <div
-        className="
-flex h-10 w-10 items-center justify-center
-rounded-xl
-bg-indigo-50
-text-indigo-600
-"
-      >
-        <DollarSign className="h-4 w-4" />
-      </div>
-    </div>
+          <StatCard
+            title="Submitted"
+            value={pipelineStats.submitted}
+            subtitle="Submitted applications"
+            icon={<Send className="h-5 w-5" />}
+            color="cyan"
+          />
 
-    <div className="mt-4 flex items-center gap-2">
-      <div className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
+          <StatCard
+            title="In Review"
+            value={pipelineStats.inReview}
+            subtitle="Under lender review"
+            icon={<Loader2 className="h-5 w-5" />}
+            color="amber"
+          />
 
-      <p className="text-[11px] text-slate-400">
-        Total funded volume
-      </p>
-    </div>
-  </div>
+          <StatCard
+            title="Approved"
+            value={pipelineStats.approved}
+            subtitle="Successfully approved"
+            icon={<CheckCircle className="h-5 w-5" />}
+            color="green"
+          />
 
-  {/* NEW APPLICATIONS */}
-  <div
-    className="
-group rounded-2xl border border-slate-200
-bg-white p-5
-transition-all duration-300
-hover:border-blue-200
-"
-  >
-    <div className="flex items-start justify-between">
-      
-      <div>
-        <p className="text-xs font-medium text-slate-500">
-          New Applications
-        </p>
+          <StatCard
+            title="Rejected"
+            value={pipelineStats.rejected}
+            subtitle="Declined applications"
+            icon={<SearchX className="h-5 w-5" />}
+            color="rose"
+          />
 
-        <h3 className="mt-2 text-xl font-bold text-slate-900">
-          {newCount}
-        </h3>
-      </div>
+          <StatCard
+            title="Draft"
+            value={pipelineStats.draft}
+            subtitle="Incomplete applications"
+            icon={<FileText className="h-5 w-5" />}
+            color="slate"
+          />
 
-      <div
-        className="
-flex h-10 w-10 items-center justify-center
-rounded-xl
-bg-blue-50
-text-blue-600
-"
-      >
-        <FileText className="h-4 w-4" />
-      </div>
-    </div>
-
-    <div className="mt-4 flex items-center gap-2">
-      <div className="h-1.5 w-1.5 rounded-full bg-blue-500" />
-
-      <p className="text-[11px] text-slate-400">
-        Recently submitted
-      </p>
-    </div>
-  </div>
-
-  {/* APPROVED */}
-  <div
-    className="
-group rounded-2xl border border-slate-200
-bg-white p-5
-transition-all duration-300
-hover:border-emerald-200
-"
-  >
-    <div className="flex items-start justify-between">
-      
-      <div>
-        <p className="text-xs font-medium text-slate-500">
-          Approved
-        </p>
-
-        <h3 className="mt-2 text-xl font-bold text-slate-900">
-          {approvedCount}
-        </h3>
-      </div>
-
-      <div
-        className="
-flex h-10 w-10 items-center justify-center
-rounded-xl
-bg-emerald-50
-text-emerald-600
-"
-      >
-        <CheckCircle className="h-4 w-4" />
-      </div>
-    </div>
-
-    <div className="mt-4 flex items-center gap-2">
-      <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-
-      <p className="text-[11px] text-slate-400">
-        Successfully approved
-      </p>
-    </div>
-  </div>
-</div>
+          <StatCard
+            title="Client Pending"
+            value={pipelineStats.clientPending}
+            subtitle="Waiting for client"
+            icon={<Users className="h-5 w-5" />}
+            color="pink"
+          />
+        </div>
       </header>
 
       {/* Main Table Container */}
@@ -1275,15 +1378,16 @@ text-emerald-600
               <thead className="sticky top-0 z-20 bg-white dark:bg-slate-900 shadow-sm">
                 <tr className="bg-slate-50/50 dark:bg-slate-800/40">
                   {[
-                    { label: "Borrower", width: "w-[120px]" },
+                    { label: "Borrower", width: "w-[110px]" },
                     { label: "Application No.", width: "w-[160px]" },
-                    { label: "Loan Info", width: "w-[200px]" },
+                    // { label: "Loan Info", width: "w-[200px]" },
                     { label: "Location", width: "w-[150px]" },
                     { label: "Amount", width: "w-[80px]" },
                     { label: "Submitted On", width: "w-[110px]" },
-                    { label: "Status", width: "w-[160px]" },
+                    { label: "Status", width: "w-[140px]" },
                     // { label: "Lenders", width: "w-[100px]" },
                     { label: "Loan Officer", width: "w-[140px]" },
+                    { label: "Sub Brokers", width: "w-[100px]" },
                     { label: "Action", width: "w-[80px]" },
                   ].map((h) => (
                     <th
@@ -1331,7 +1435,7 @@ text-emerald-600
                       </td>
 
                       {/* Loan Info - Medium Emphasis */}
-                      <td className="px-6 py-3">
+                      {/* <td className="px-6 py-3">
   <span
     className="inline-flex flex-wrap max-w-[170px]
     text-[10px] leading-4 text-slate-700 dark:text-slate-300
@@ -1344,7 +1448,7 @@ text-emerald-600
         c.toUpperCase(),
       )}
   </span>
-</td>
+</td> */}
 
                       {/* Location */}
                       <td className="px-6 py-3 min-w-[200px]">
@@ -1359,21 +1463,21 @@ text-emerald-600
 
                           {/* Location Text */}
                           <div className="min-w-0 leading-tight">
-  <div
-    className="
+                            <div
+                              className="
 truncate
 text-[12px]
 font-medium
 text-slate-700
 dark:text-slate-300
 "
-  >
-    {row.cityState || "Global"}
-  </div>
+                            >
+                              {row.cityState || "Global"}
+                            </div>
 
-  {row.country && (
-    <div
-      className="
+                            {row.country && (
+                              <div
+                                className="
 mt-1
 inline-flex items-center
 rounded-full
@@ -1387,11 +1491,11 @@ text-slate-500
 dark:bg-slate-800
 dark:text-slate-400
 "
-    >
-      {row.country}
-    </div>
-  )}
-</div>
+                              >
+                                {row.country}
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </td>
 
@@ -1445,7 +1549,9 @@ dark:text-slate-400
                             ? "REJECTED"
                             : row.status === "CLIENT_PENDING"
                               ? "Client Pending"
-                              : row.status}
+                              : row.status === "IN_REVIEW"
+                                ? "In Review"
+                                : row.status}
                         </span>
                       </td>
 
@@ -1472,8 +1578,8 @@ dark:text-slate-400
                         {row.assignedOfficerName ? (
                           <div className="flex items-center gap-2">
                             {/* CHIP */}
-                           <div
-  className="
+                            <div
+                              className="
 inline-flex items-center gap-1.5
 px-2.5 py-1
 rounded-full
@@ -1481,11 +1587,11 @@ bg-indigo-50 border border-indigo-200
 dark:bg-indigo-500/10 dark:border-indigo-500/20
 whitespace-nowrap
 "
->
-  <span className="text-[10px] font-medium text-indigo-700 dark:text-indigo-300 leading-none">
-    {row.assignedOfficerName}
-  </span>
-</div>
+                            >
+                              <span className="text-[10px] font-medium text-indigo-700 dark:text-indigo-300 leading-none">
+                                {row.assignedOfficerName}
+                              </span>
+                            </div>
                           </div>
                         ) : (
                           <span
@@ -1494,6 +1600,46 @@ whitespace-nowrap
     dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700"
                           >
                             Not Assigned
+                          </span>
+                        )}
+                      </td>
+
+                      <td className="px-5 py-3">
+                        {row.assignedSubBrokers &&
+                        row.assignedSubBrokers.length > 0 ? (
+                          <button
+                            onClick={() =>
+                              setSubBrokerModal({
+                                open: true,
+                                brokers: row.assignedSubBrokers || [],
+                              })
+                            }
+                            className="
+      inline-flex items-center gap-2
+      px-3 py-1.5 rounded-full
+      bg-cyan-50 border border-cyan-200
+      hover:bg-cyan-100
+      dark:bg-cyan-500/10
+      dark:border-cyan-500/20
+      text-cyan-700 dark:text-cyan-300
+      transition-all
+    "
+                          >
+                            <Users size={14} />
+
+                            <span className="text-xs font-semibold">
+                              {row.assignedSubBrokers.length}
+                            </span>
+                          </button>
+                        ) : (
+                          <span
+                            className="
+      px-2.5 py-1 rounded-full text-xs font-medium 
+      bg-slate-100 text-slate-500 border border-slate-200
+      dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700
+    "
+                          >
+                            None
                           </span>
                         )}
                       </td>
@@ -1597,16 +1743,16 @@ whitespace-nowrap
                               </button>
 
                               {/* Assign */}
-                                <button
-                                  onClick={() => {
-                                    openAssignModal(row.applicationId);
-                                    setActiveDropdown(null);
-                                  }}
-                                  className="flex items-center gap-3 w-full px-4 py-3 text-sm text-indigo-600 hover:bg-indigo-50"
-                                >
-                                  <MdEdit size={14} />
-                                  Assign Officer
-                                </button>
+                              <button
+                                onClick={() => {
+                                  openAssignModal(row.applicationId);
+                                  setActiveDropdown(null);
+                                }}
+                                className="flex items-center gap-3 w-full px-4 py-3 text-sm text-indigo-600 hover:bg-indigo-50"
+                              >
+                                <MdEdit size={14} />
+                                Assign Officer
+                              </button>
 
                               <button
                                 onClick={() => {
@@ -2163,6 +2309,112 @@ text-sm text-slate-600 dark:text-slate-400 flex justify-between"
                       );
                     })()
                   ) : null}
+                </div>
+              </div>
+            </div>,
+            document.body,
+          )}
+
+        {subBrokerModal.open &&
+          createPortal(
+            <div className="fixed inset-0 z-[9999] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+              <div
+                className="
+        w-full max-w-2xl
+        rounded-2xl
+        bg-white dark:bg-slate-900
+        border border-slate-200 dark:border-slate-800
+        shadow-2xl
+        overflow-hidden
+      "
+              >
+                <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-slate-800">
+                  <h3 className="font-semibold text-slate-900 dark:text-white">
+                    Assigned Sub Brokers
+                  </h3>
+
+                  <button
+                    onClick={() =>
+                      setSubBrokerModal({
+                        open: false,
+                        brokers: [],
+                      })
+                    }
+                    className="text-slate-400 hover:text-red-500 text-lg"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <div
+                  className="
+  p-5
+  grid grid-cols-1 sm:grid-cols-2 gap-4
+
+  max-h-[70vh]
+  overflow-y-auto
+
+  scrollbar-thin
+  scrollbar-thumb-slate-300
+  dark:scrollbar-thumb-slate-700
+  scrollbar-track-transparent
+
+  overscroll-contain
+"
+                >
+                  {subBrokerModal.brokers.map((broker) => (
+                    <div
+                      key={broker.id}
+                      className="
+  relative overflow-hidden
+  rounded-2xl
+  border border-slate-200 dark:border-slate-700
+  bg-white dark:bg-slate-800/40
+  p-4
+  hover:-translate-y-0.5
+  transition-all duration-300
+"
+                    >
+                      {/* TOP */}
+                      <div className="flex items-start gap-3">
+                        {/* Avatar */}
+                        <div
+                          className="
+      h-12 w-12 rounded-2xl
+      bg-gradient-to-br from-cyan-500 to-blue-500
+      flex items-center justify-center
+      text-white
+      font-bold text-base
+      shrink-0
+    "
+                        >
+                          {broker.name?.charAt(0) || "S"}
+                        </div>
+
+                        {/* INFO */}
+                        <div className="min-w-0 flex-1">
+                          <h4
+                            className="
+        text-sm font-semibold
+        text-slate-800 dark:text-slate-100
+        truncate
+      "
+                          >
+                            {broker.name}
+                          </h4>
+
+                          <p
+                            className="
+        mt-1 text-xs
+        text-slate-500 dark:text-slate-400
+      "
+                          >
+                            Sub Broker
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>,
@@ -2923,7 +3175,7 @@ dark:scrollbar-thumb-slate-700 w-full
                           </div>
 
                           <div>
-                            <span className="text-slate-500 dark:text-slate-300">
+                            <span className="text-slate-500 dark:text-slate-300"> 
                               Approved Amount
                             </span>
                             <div className="dark:text-slate-400">
@@ -3307,7 +3559,7 @@ dark:scrollbar-thumb-slate-700 w-full
 
         {assignSubBrokerModal.open && (
           <div className="fixed inset-0 z-[99999999] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-            <div className="w-full max-w-lg rounded-[32px] border border-white/20 bg-white p-8 shadow-2xl">
+            <div className="w-full max-w-lg rounded-[32px] border border-white/20 bg-white p-8">
               <div className="mb-6">
                 <h2 className="text-2xl font-bold text-slate-900">
                   Assign Sub Broker

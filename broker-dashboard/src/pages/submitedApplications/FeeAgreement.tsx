@@ -178,9 +178,9 @@ dark:text-slate-300"
           {/* LOGO */}
           <div className="flex justify-center">
             <img
-              src="/ACOM_LOGO.jpeg"
-              alt="ACOM Logo"
-              className="h-12 object-contain"
+              src="/loanAutomation.jpeg"
+              alt="Loan Automation Logo"
+              className="object-contain  rounded-full h-24 w-24"
             />
           </div>
 

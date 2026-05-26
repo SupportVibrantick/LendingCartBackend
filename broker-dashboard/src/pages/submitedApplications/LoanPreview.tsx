@@ -339,7 +339,7 @@ const EditableFieldItem = ({
       ) : shouldUseTextarea ? (
         /* TEXTAREA */
         <textarea
-          value={value}
+          value={String(value).replace(/_/g, " ")}
           onChange={(e) => {
             if (!fieldKey) return;
             onChange(fieldKey, e.target.value);
@@ -354,7 +354,7 @@ const EditableFieldItem = ({
         /* INPUT */
         <input
           type="text"
-          value={value}
+          value={String(value).replace(/_/g, " ")}
           onChange={(e) => {
             if (!fieldKey) return;
 
@@ -1650,7 +1650,7 @@ dark:border-slate-800 dark:bg-slate-900"
           <div>
             <span className="font-semibold">Borrower Name:</span>{" "}
             <span className="text-slate-700 dark:text-slate-300">
-              {submissionDetail?.borrowerName || "-"}
+              {borrowerName}
             </span>
           </div>
 
@@ -1658,9 +1658,7 @@ dark:border-slate-800 dark:bg-slate-900"
           <div>
             <span className="font-semibold">Product Code:</span>{" "}
             <span className="text-slate-700 dark:text-slate-300">
-              {submissionDetail &&
-                submissionDetail?.loanProduct &&
-                submissionDetail?.loanProduct?.name}
+             {productCode}
             </span>
           </div>
 
@@ -3119,6 +3117,30 @@ dark:bg-red-900/20 dark:text-red-400"
     );
   }
 
+const borrowerName = useMemo(() => {
+  const firstNameField = fields.find(
+    (f: any) => f.fieldKey === "borrowerFirstName",
+  );
+
+  const lastNameField = fields.find(
+    (f: any) => f.fieldKey === "borrowerLastName",
+  );
+
+  const firstName = firstNameField?.value || "";
+  const lastName = lastNameField?.value || "";
+
+  return `${firstName} ${lastName}`.trim() || "-";
+}, [fields]);
+
+const productCode =
+  (
+    getFieldValue(fields, "loanProductCode") ||
+    submissionDetail?.loanProduct?.name ||
+    "-"
+  )
+    ?.replace(/_/g, " ")
+    ?.replace(/\b\w/g, (c: string) => c.toUpperCase());
+
   return (
     <>
       <div className="min-h-screen bg-slate-50 p-6 dark:bg-[#0b1120] dark:text-slate-100">
@@ -3163,14 +3185,10 @@ dark:bg-red-900/20 dark:text-red-400"
 
                   <div className="flex flex-col leading-tight">
                     <span className="text-[11px] font-medium text-blue-500 dark:text-blue-400">
-                      Borrower Name
+                      Borrower Name 
                     </span>
                     <span className="text-sm font-semibold text-blue-900 dark:text-white">
-                      {submissionDetail?.borrowerName ||
-                        `${getFieldValue(fields, "borrowerFirstName") || ""} ${
-                          getFieldValue(fields, "borrowerLastName") || ""
-                        }`.trim() ||
-                        "Unknown"}
+                       {borrowerName}
                     </span>
                   </div>
                 </div>
@@ -3194,9 +3212,7 @@ dark:bg-red-900/20 dark:text-red-400"
                       Product Name
                     </span>
                     <span className="text-sm font-semibold text-indigo-900 dark:text-white">
-                      {submissionDetail?.loanProduct?.name ||
-                        getFieldValue(fields, "loanProductCode") ||
-                        "No Product"}
+                      {productCode}
                     </span>
                   </div>
                 </div>

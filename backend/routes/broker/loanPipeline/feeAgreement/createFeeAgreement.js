@@ -131,15 +131,31 @@ module.exports = async function createFeeAgreement(fastify, loanId) {
     clientName: clientFullName,
     clientEntityName: loan.client?.legalName || "",
     clientEmail: primaryContact?.email || "",
-    clientPhone: primaryContact?.phone || "",
-    clientAddress,
+    clientPhone:
+  primaryContact?.phone ||
+  fieldMap.phone ||
+  fieldMap.mobile ||
+  "",
+    clientAddress:
+  clientAddress ||
+  primaryContact?.address ||
+  "",
 
     // BROKER
     brokerName: brokerFullName,
-    brokerCompany: brokerProfile?.company || loan.brokerOrg?.name || "",
+    brokerCompany:
+  loan.brokerOrg?.companyName ||
+  brokerProfile?.company ||
+  "",
     brokerEmail: loan.brokerUser?.email || "",
-    brokerPhone: loan.brokerUser?.phone || "",
-    brokerAddress,
+    brokerPhone:
+  brokerProfile?.phone ||
+  loan.brokerUser?.phone ||
+  "",
+    brokerAddress:
+  brokerAddress ||
+  loan.brokerOrg?.address ||
+  "",
     brokerState: brokerProfile?.state || "",
     brokerCounty: "",
 

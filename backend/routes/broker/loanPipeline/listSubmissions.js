@@ -86,26 +86,73 @@ module.exports = async function listSubmissionsTable(fastify) {
       },
     }),
 
-    ...(search && {
-      OR: [
-        {
-          applicationNumber: {
-            contains: search,
+...(search?.trim() && {
+  OR: [
+    {
+      applicationNumber: {
+        contains: search.trim(),
+        mode: "insensitive",
+      },
+    },
+
+    {
+      client: {
+        is: {
+          legalName: {
+            contains: search.trim(),
             mode: "insensitive",
           },
         },
-        {
-          client: {
-            is: {
-              legalName: {
-                contains: search,
+      },
+    },
+
+    {
+      brokerUser: {
+        is: {
+          OR: [
+            {
+              firstName: {
+                contains: search.trim(),
                 mode: "insensitive",
               },
             },
+
+            {
+              lastName: {
+                contains: search.trim(),
+                mode: "insensitive",
+              },
+            },
+          ],
+        },
+      },
+    },
+
+    {
+      subBrokerAssignments: {
+        some: {
+          subBroker: {
+            OR: [
+              {
+                firstName: {
+                  contains: search.trim(),
+                  mode: "insensitive",
+                },
+              },
+
+              {
+                lastName: {
+                  contains: search.trim(),
+                  mode: "insensitive",
+                },
+              },
+            ],
           },
         },
-      ],
-    }),
+      },
+    },
+  ],
+}),
   },
 };
         /* ================= QUERY ================= */
@@ -165,14 +212,37 @@ module.exports = async function listSubmissionsTable(fastify) {
                   select: { status: true },
                 },
 
-                brokerUser: {
-                  select: {
-                    id: true,
-                    firstName: true,
-                    lastName: true,
-                    profileImage: true,
-                  },
-                },
+               brokerUser: {
+  select: {
+    id: true,
+    firstName: true,
+    lastName: true,
+    profileImage: true,
+
+    roles: {
+      select: {
+        role: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    },
+  },
+},
+
+subBrokerAssignments: {
+  select: {
+    subBroker: {
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        profileImage: true,
+      },
+    },
+  },
+},
 
                 applicationLenders: {
                   select: {
@@ -372,15 +442,32 @@ status: lenderApproved
             submittedOn: s.createdAt,
             pendingDocumentsCount,
 
-            assignedLoanOfficer: app?.brokerUser
-              ? {
-                  id: app.brokerUser.id,
-                  name: `${app.brokerUser.firstName || ""} ${
-                    app.brokerUser.lastName || ""
-                  }`.trim(),
-                  profileImage: app.brokerUser.profileImage || null,
-                }
-              : null,
+            // replace assignedLoanOfficer with this
+
+assignedLoanOfficer:
+  app?.brokerUser &&
+  app.brokerUser.roles?.some(
+    (r) => r.role?.name === "BROKER_OFFICER",
+  )
+    ? {
+        id: app.brokerUser.id,
+        name: `${app.brokerUser.firstName || ""} ${
+          app.brokerUser.lastName || ""
+        }`.trim(),
+        profileImage: app.brokerUser.profileImage || null,
+      }
+    : null,
+
+assignedSubBrokers:
+  app?.subBrokerAssignments?.map((assignment) => ({
+    id: assignment.subBroker?.id,
+    name: `${assignment.subBroker?.firstName || ""} ${
+      assignment.subBroker?.lastName || ""
+    }`.trim(),
+    profileImage:
+      assignment.subBroker?.profileImage || null,
+  })) || [],
+
 
             submittedToLenders:
               app?.applicationLenders?.map((l) => ({

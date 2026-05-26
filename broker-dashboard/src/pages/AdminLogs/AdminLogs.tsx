@@ -139,7 +139,7 @@ const AdminLogs: React.FC = () => {
             </h1>
             <p className="text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-2 text-sm">
               <ShieldCheck size={16} />
-              Audit trail for all broker-level system events
+              Audit trail for all broker-level system events 
             </p>
           </div>
 
@@ -276,15 +276,16 @@ const AdminLogs: React.FC = () => {
                             <span
                               className={`inline-flex items-center w-fit px-2.5 py-0.5 rounded-full text-xs font-bold ${actionClass(log.action)}`}
                             >
-                              {log.action}
+                          {String(log.action).replace(/_/g, " ")}
                             </span>
                             <span className="text-xs text-slate-400 font-medium uppercase tracking-tight">
-                              {log.category}
+                              {String(log.category).replace(/_/g, " ")}
                             </span>
                           </div>
                         </td>
                         <td className="px-6 py-4">
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-ce
+                          nter gap-3">
                             <div
                               className="p-2 
                 bg-slate-100 dark:bg-slate-800
