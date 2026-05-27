@@ -14,11 +14,46 @@ module.exports = async function findEligibleLenders(fastify) {
             submissionId: { type: "string", format: "uuid" },
           },
         },
+        querystring: {
+  type: "object",
+  properties: {
+    page: {
+      type: "integer",
+      minimum: 1,
+      default: 1,
+    },
+    limit: {
+      type: "integer",
+      minimum: 1,
+      maximum: 100,
+      default: 10,
+    },
+    search: {
+      type: "string",
+      default: "",
+    },
+    filter: {
+      type: "string",
+      enum: ["all", "eligible", "rejected", "sent"],
+      default: "all",
+    },
+  },
+},
       },
     },
     async (req, reply) => {
       const prisma = fastify.prisma;
       const { submissionId } = req.params;
+
+const {
+  page: rawPage = 1,
+  limit: rawLimit = 10,
+  search = "",
+  filter = "all",
+} = req.query;
+
+const page = Number(rawPage);
+const limit = Number(rawLimit);
 
       try {
         /* =====================================================
@@ -275,12 +310,72 @@ module.exports = async function findEligibleLenders(fastify) {
         );
 
         const eligibleLenders = evaluatedLenders.filter(
-          (l) => l.eligible && !l.alreadySent
-        );
+  (l) => l.eligible && !l.alreadySent
+);
 
-        const rejectedLenders = evaluatedLenders.filter(
-          (l) => !l.eligible && !l.alreadySent
-        );
+const rejectedLenders = evaluatedLenders.filter(
+  (l) => !l.eligible && !l.alreadySent
+);
+
+        const allLenders = [
+  ...eligibleLenders.map((l) => ({
+    ...l,
+    type: "eligible",
+  })),
+
+  ...rejectedLenders.map((l) => ({
+    ...l,
+    type: "rejected",
+  })),
+
+  ...alreadySentLenders.map((l) => ({
+    ...l,
+    type: "sent",
+  })),
+];
+
+const normalizedSearch = search.toLowerCase().trim();
+
+const filteredLenders = allLenders.filter((lender) => {
+  const matchesSearch =
+    lender.lenderName
+      ?.toLowerCase()
+      .includes(normalizedSearch) ||
+    lender.loanProductCode
+      ?.toLowerCase()
+      .includes(normalizedSearch);
+
+  const matchesFilter =
+    filter === "all"
+      ? true
+      : lender.type === filter;
+
+  return matchesSearch && matchesFilter;
+});
+
+const total = filteredLenders.length;
+
+const totalPages = Math.max(
+  1,
+  Math.ceil(total / limit)
+);
+
+const paginatedLenders = filteredLenders.slice(
+  (page - 1) * limit,
+  page * limit
+);
+
+const paginatedEligibleLenders = paginatedLenders.filter(
+  (l) => l.type === "eligible"
+);
+
+const paginatedRejectedLenders = paginatedLenders.filter(
+  (l) => l.type === "rejected"
+);
+
+const paginatedAlreadySentLenders = paginatedLenders.filter(
+  (l) => l.type === "sent"
+);
 
         /* =====================================================
            8️⃣ RESPONSE
@@ -303,9 +398,18 @@ module.exports = async function findEligibleLenders(fastify) {
             totalRejectedLenders: rejectedLenders.length,
             totalAlreadySentLenders: alreadySentLenders.length,
 
-            eligibleLenders,
-            rejectedLenders,
-            alreadySentLenders,
+            eligibleLenders: paginatedEligibleLenders,
+rejectedLenders: paginatedRejectedLenders,
+alreadySentLenders: paginatedAlreadySentLenders,
+
+pagination: {
+  total,
+  page,
+  limit,
+  totalPages,
+  hasNextPage: page < totalPages,
+  hasPrevPage: page > 1,
+},
           },
         });
       } catch (error) {
@@ -321,7 +425,7 @@ module.exports = async function findEligibleLenders(fastify) {
 
         return reply.code(500).send({
           success: false,
-          message: "Internal server error while evaluating lenders",
+          message: error.message ||"Internal server error while evaluating lenders",
         });
       }
     }

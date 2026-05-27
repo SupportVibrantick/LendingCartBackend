@@ -45,6 +45,7 @@ interface FormDataType {
     purchaseDate: string;
     totalAssets: string;
     totalLiabilities: string;
+    afterRepairValue: string;
 
     propertyType: string;
     subPropertyType: string;
@@ -297,6 +298,57 @@ const PRODUCT_LABELS: Record<string, string> = {
 /* ================= HELPERS ================= */
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
+const STATIC_FIELD_KEYS = [
+  // Loan Request
+  "purpose",
+  "amount",
+  "interestRate",
+  "currentMarketValue",
+  "purchasePrice",
+  "purchaseDate",
+  "afterRepairValue",
+  "totalAssets",
+  "totalLiabilities",
+  "propertyType",
+  "subPropertyType",
+  "recourse",
+  "businessAddress",
+  "city",
+  "state",
+  "zip",
+
+  // Loan Term
+  "loanTerm",
+  "monthlyRent",
+  "grossRevenueActual",
+  "grossRevenueProforma",
+  "noiActual",
+  "noiProforma",
+  "annualTaxes",
+  "floodZone",
+  "insurancePremium",
+  "hoaDues",
+
+  // Borrower
+  "name",
+  "entityName",
+  "phone",
+  "email",
+  "employer",
+  "dob",
+  "ssn",
+  "creditScore",
+  "address",
+  "mailingAddress",
+
+  // Entity
+  "legalName",
+  "entityType",
+  "dba",
+  "formationDate",
+  "yearsInBusiness",
+];
+
 const LoanApplication = () => {
   const coBorrowerRefs = useRef<Record<number, HTMLDivElement | null>>({});
   const [lastAddedId, setLastAddedId] = useState<number | null>(null);
@@ -427,6 +479,7 @@ const LoanApplication = () => {
       purchaseDate: "",
       totalAssets: "",
       totalLiabilities: "",
+      afterRepairValue: "",
 
       propertyType: "",
       subPropertyType: "",
@@ -604,6 +657,7 @@ const LoanApplication = () => {
       "amount",
       "currentMarketValue",
       "purchasePrice",
+      "afterRepairValue",
       "totalAssets",
       "totalLiabilities",
       "monthlyRent",
@@ -785,7 +839,19 @@ const LoanApplication = () => {
     }
     /* ================= DYNAMIC STEP ================= */
     if (activeSectionIndex !== null && dynamicSections[activeSectionIndex]) {
-      dynamicSections[activeSectionIndex].fields.forEach((field: any) => {
+      const visibleFields = dynamicSections[activeSectionIndex]?.fields.filter(
+        (field: any) => {
+          const normalized = (field.fieldKey || field.label || "")
+            .toLowerCase()
+            .replace(/\s+/g, "");
+
+          return !STATIC_FIELD_KEYS.map((k) =>
+            k.toLowerCase().replace(/\s+/g, ""),
+          ).includes(normalized);
+        },
+      );
+
+      visibleFields.forEach((field: any) => {
         const value = dynamicFormData[field.fieldId];
 
         const error = validateFieldValue(
@@ -897,6 +963,10 @@ const LoanApplication = () => {
       addField(
         "currentMarketValue",
         toNumber(formData.loanRequest.currentMarketValue),
+      );
+      addField(
+        "afterRepairValue",
+        toNumber(formData.loanRequest.afterRepairValue),
       );
       addField("purchasePrice", toNumber(formData.loanRequest.purchasePrice));
       addField("purchaseDate", formData.loanRequest.purchaseDate);
@@ -1086,7 +1156,21 @@ const LoanApplication = () => {
 
       const sections = matchedProduct?.sections || [];
 
-      const sortedSections = [...sections].sort(
+      const normalizeKey = (key: string = "") =>
+        key.toLowerCase().replace(/\s+/g, "");
+
+      const staticKeysSet = new Set(STATIC_FIELD_KEYS.map(normalizeKey));
+
+      const cleanedSections = sections.map((section: any) => ({
+        ...section,
+        fields: (section.fields || []).filter((field: any) => {
+          const fieldKey = normalizeKey(field.fieldKey || field.label || "");
+
+          return !staticKeysSet.has(fieldKey);
+        }),
+      }));
+
+      const sortedSections = [...cleanedSections].sort(
         (a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0),
       );
 
@@ -1152,9 +1236,7 @@ const LoanApplication = () => {
   const ltc =
     purchasePrice > 0 ? ((loanAmount / purchasePrice) * 100).toFixed(2) : "—";
 
-  const afterRepairValue = toNumber(
-    formData.loanTermIncome.grossRevenueProforma,
-  );
+  const afterRepairValue = toNumber(formData.loanRequest.afterRepairValue);
 
   const arv =
     afterRepairValue > 0
@@ -1163,7 +1245,7 @@ const LoanApplication = () => {
 
   const interestRate = toNumber(formData.loanRequest.interestRate);
   const termMonths = toNumber(formData.loanTermIncome.loanTerm);
-  const noiActual = toNumber(formData.loanTermIncome.noiActual);
+  const noiActual = toNumber(formData.loanTermIncome.noiActual) * 12;
 
   const annualDebtService = calculateAnnualDebtService(
     loanAmount,
@@ -2214,6 +2296,41 @@ focus:border-blue-500 outline-none text-sm ${
                   {errors["loanRequest.purchasePrice"] && (
                     <p className="text-xs text-red-500 mt-1">
                       {errors["loanRequest.purchasePrice"]}
+                    </p>
+                  )}
+                </div>
+
+                {/* After Repair Value */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-600 mb-1 dark:text-slate-300">
+                    After Repair Value (ARV) $
+                    <span className="text-red-500">*</span>
+                  </label>
+
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={formData.loanRequest.afterRepairValue}
+                    onChange={(e) =>
+                      handleAmountChange(
+                        "loanRequest",
+                        "afterRepairValue",
+                        e.target.value,
+                      )
+                    }
+                    placeholder="2,000,000"
+                    className={`w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
+                      errors["loanRequest.afterRepairValue"]
+                        ? "border-red-500 bg-red-50"
+                        : "border-slate-300"
+                    }
+    focus:ring-2 focus:ring-blue-500/20
+    focus:border-blue-500 outline-none transition text-sm`}
+                  />
+
+                  {errors["loanRequest.afterRepairValue"] && (
+                    <p className="text-xs text-red-500 mt-1">
+                      {errors["loanRequest.afterRepairValue"]}
                     </p>
                   )}
                 </div>

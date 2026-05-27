@@ -13,7 +13,8 @@
     "migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "seed": "node prisma/seed.js",
-    "seedLoanProducts": "node prisma/broker/seedLoanProducts.js"
+    "seedLoanProducts": "node prisma/broker/seedLoanProducts.js",
+    "productFieldsSeed": "node prisma/broker/product-fields.seed.js"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",

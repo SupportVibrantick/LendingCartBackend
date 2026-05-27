@@ -9,6 +9,7 @@ import {
   MoreVertical,
   Pencil,
   Search,
+  SearchX,
   Send,
   Upload,
 } from "lucide-react";
@@ -175,6 +176,10 @@ const getDocumentStatusChip = (status: string) => {
 
 const formatFieldKey = (key: string | null | undefined) => {
   if (!key) return "";
+
+    if (key === "amountRequested") {
+    return "Loan Amount Requested";
+  }
 
   return key
     .replace(/^coBorrower_\d+_/, "coBorrower_")
@@ -435,20 +440,24 @@ const LoanPreview = () => {
   const [lenderPage, setLenderPage] = useState(1);
   const [lenderLimit, setLenderLimit] = useState(6);
   // const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
-  const [lendersLoadedFor, setLendersLoadedFor] = useState<string | null>(null);
   // const [previewFile, setPreviewFile] = useState<UploadedPreview | null>(null);
   const [editableFieldValues, setEditableFieldValues] = useState<
     Record<string, string>
   >({});
   const [updateSubmitting, setUpdateSubmitting] = useState(false);
-
+const [debouncedLenderSearch, setDebouncedLenderSearch] =
+  useState("");
   const [lenderFilter, setLenderFilter] = useState<
     "all" | "eligible" | "rejected" | "sent"
   >("all");
 
   const [page, setPage] = useState(1);
   const [limit] = useState(10);
-  const [pagination, setPagination] = useState<any>(null);
+  const [documentsPagination, setDocumentsPagination] =
+  useState<any>(null);
+
+const [lenderPagination, setLenderPagination] =
+  useState<any>(null);
   // const [search, setSearch] = useState("");
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [sending, setSending] = useState(false);
@@ -482,6 +491,26 @@ const handleSelectAll = () => {
     );
 
   setSelectedRows(selectableIds);
+};
+
+const HIDDEN_METRIC_FIELDS = [
+  "ltvPercentage",
+  "ltcPercentage",
+  "arvPercentage",
+  "dscr",
+  "netWorth",
+];
+
+const shouldHideMetricField = (field: any) => {
+  const key = (
+    field?.fieldKey ||
+    field?.key ||
+    ""
+  ).toLowerCase();
+
+  return HIDDEN_METRIC_FIELDS.some(
+    (hidden) => hidden.toLowerCase() === key,
+  );
 };
 
   const handleSelectRow = (id: string) => {
@@ -645,6 +674,15 @@ const handleSelectAll = () => {
     return Object.keys(newErrors).length === 0;
   };
 
+  useEffect(() => {
+  const timer = setTimeout(() => {
+    setDebouncedLenderSearch(lenderSearchQ);
+    setLenderPage(1);
+  }, 400);
+
+  return () => clearTimeout(timer);
+}, [lenderSearchQ]);
+
   const formatPhoneNumber = (value: string) => {
     const digits = value.replace(/\D/g, "").slice(0, 10);
 
@@ -716,11 +754,21 @@ const handleSelectAll = () => {
 
       const json = await res.json();
 
-      if (json.success) {
-        setDocumentsData(json.data);
-        setPagination(json.data.pagination);
-        setPage(json.data.pagination.page);
-      }
+if (json.success) {
+  setDocumentsData(json.data);
+
+  setDocumentsPagination(
+    json.data.pagination,
+  );
+
+  setPage(
+    json.data.pagination.page,
+  );
+
+  setDocumentsLoadedFor(
+    submissionId,
+  );
+}
     } catch (err) {
       console.error(err);
     } finally {
@@ -800,7 +848,6 @@ const handleSelectAll = () => {
   };
 
   const fetchLenders = async (id: string) => {
-    setLenderPage(1);
     setLenders([]);
     setBorrowerSummary(null);
     // setSentLenders({});
@@ -809,7 +856,7 @@ const handleSelectAll = () => {
 
     try {
       const res = await fetch(
-        `${API_BASE}/broker/lender-discovery/applications/submissions/${id}/eligible`,
+        `${API_BASE}/broker/lender-discovery/applications/submissions/${id}/eligible?page=${lenderPage}&limit=${lenderLimit}&search=${debouncedLenderSearch}&filter=${lenderFilter}`,
         {
           headers: getAuthHeaders(),
           method: "GET",
@@ -823,6 +870,7 @@ const handleSelectAll = () => {
       }
 
       const data = json.data;
+      setLenderPagination(data.pagination || null);
 
       setBorrowerSummary(data.borrowerData);
 
@@ -1022,7 +1070,6 @@ const handleSelectAll = () => {
     setBorrowerSummary(null);
     // setSentLenders({});
     // setImageErrors({});
-    setLendersLoadedFor(null);
     setLenderSearchQ("");
     setLenderPage(1);
     // setSelectedFiles({});
@@ -1037,50 +1084,64 @@ const handleSelectAll = () => {
     }
   }, [submissionId]);
 
-  useEffect(() => {
-    if (
-      activeTab === "find-lenders" &&
-      submissionId &&
-      lendersLoadedFor !== submissionId
-    ) {
-      fetchLenders(submissionId);
-    }
-    if (
-      activeTab === "request-document" &&
-      applicationId &&
-      requestDocsLoadedFor !== applicationId
-    ) {
-      fetchDocumentTypes(applicationId);
-    }
-    if (
-      activeTab === "documents" &&
-      submissionId &&
-      documentsLoadedFor !== submissionId
-    ) {
-      fetchSubmissionDocuments(submissionId, 1, debouncedSearch);
-    }
-    if (
-      activeTab === "view-loi" &&
-      submissionId &&
-      loiLoadedFor !== submissionId
-    ) {
-      fetchLois(submissionId);
-    }
-  }, [
-    activeTab,
-    applicationId,
-    submissionId,
-    lendersLoadedFor,
-    requestDocsLoadedFor,
-    documentsLoadedFor,
-    loiLoadedFor,
-  ]);
+useEffect(() => {
+  if (
+    activeTab === "request-document" &&
+    applicationId &&
+    requestDocsLoadedFor !== applicationId
+  ) {
+    fetchDocumentTypes(applicationId);
+  }
+
+  if (
+    activeTab === "documents" &&
+    submissionId &&
+    documentsLoadedFor !== submissionId
+  ) {
+    fetchSubmissionDocuments(
+      submissionId,
+      1,
+      debouncedSearch,
+    );
+  }
+
+  if (
+    activeTab === "view-loi" &&
+    submissionId &&
+    loiLoadedFor !== submissionId
+  ) {
+    fetchLois(submissionId);
+  }
+}, [
+  activeTab,
+  applicationId,
+  submissionId,
+  requestDocsLoadedFor,
+  documentsLoadedFor,
+  loiLoadedFor,
+]);
 
   useEffect(() => {
     if (submissionId) {
       fetchSubmissionDocuments(submissionId, page, debouncedSearch);
     }
   }, [page, debouncedSearch, submissionId]);
+
+  useEffect(() => {
+  if (
+    activeTab === "find-lenders" &&
+    submissionId
+  ) {
+    fetchLenders(submissionId);
+  }
+}, [
+  lenderPage,
+  lenderLimit,
+  lenderFilter,
+  debouncedLenderSearch,
+  activeTab,
+  submissionId,
+]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -1668,9 +1729,12 @@ dark:border-slate-800 dark:bg-slate-900"
             <span
               className={`rounded-full px-3 py-1 text-xs font-semibold tracking-wide ${getStatusChip(submissionDetail?.status)}`}
             >
-              {submissionDetail?.status === "DECLINED"
-                ? "REJECTED"
-                : submissionDetail?.status || "-"}
+{submissionDetail?.status === "DECLINED"
+  ? "REJECTED"
+  : (submissionDetail?.status || "-")
+      .replace(/_/g, " ")
+      .toLowerCase()
+      .replace(/\b\w/g, (c) => c.toUpperCase())}
             </span>
           </div>
         </div>
@@ -1747,7 +1811,9 @@ text-slate-800 dark:border-slate-700 dark:text-slate-200"
                 Primary Borrower
               </h3>
               <div className="grid gap-6 md:grid-cols-2">
-                {groupedFields.primaryBorrower.map((field: any) => (
+                {groupedFields.primaryBorrower
+  .filter((field: any) => !shouldHideMetricField(field))
+  .map((field: any) => (
                   <EditableFieldItem
                     key={field.fieldKey}
                     field={field}
@@ -1766,7 +1832,9 @@ text-slate-800 dark:border-slate-700 dark:text-slate-200"
                 Co Borrower {index}
               </h3>
               <div className="grid gap-6 md:grid-cols-2">
-                {groupedFields.coBorrowers[index].map((field: any) => (
+                {groupedFields.coBorrowers[index]
+  .filter((field: any) => !shouldHideMetricField(field))
+  .map((field: any) => (
                   <EditableFieldItem
                     key={field.fieldKey}
                     field={field}
@@ -1779,7 +1847,7 @@ text-slate-800 dark:border-slate-700 dark:text-slate-200"
             </div>
           ))}
 
-          {groupedFields.others.length > 0 && (
+          {/* {groupedFields.others.length > 0 && (
             <div>
               <h3 className="mb-4 border-b pb-2 text-md font-bold dark:border-slate-800">
                 Loan Details
@@ -1796,7 +1864,7 @@ text-slate-800 dark:border-slate-700 dark:text-slate-200"
                 ))}
               </div>
             </div>
-          )}
+          )} */}
 
           {/* Entity */}
           {groupedFields.entity.length > 0 && (
@@ -1805,7 +1873,9 @@ text-slate-800 dark:border-slate-700 dark:text-slate-200"
                 Entity Information
               </h3>
               <div className="grid gap-6 md:grid-cols-2">
-                {groupedFields.entity.map((field) => (
+                {groupedFields.entity
+  .filter((field) => !shouldHideMetricField(field))
+  .map((field) => (
                   <EditableFieldItem
                     key={field.fieldKey}
                     field={field}
@@ -1825,7 +1895,9 @@ text-slate-800 dark:border-slate-700 dark:text-slate-200"
                 Property Details
               </h3>
               <div className="grid gap-6 md:grid-cols-2">
-                {groupedFields.property.map((field) => (
+                {groupedFields.property
+  .filter((field) => !shouldHideMetricField(field))
+  .map((field) => (
                   <EditableFieldItem
                     key={field.fieldKey}
                     field={field}
@@ -1845,7 +1917,9 @@ text-slate-800 dark:border-slate-700 dark:text-slate-200"
                 Financial Details
               </h3>
               <div className="grid gap-6 md:grid-cols-2">
-                {groupedFields.financial.map((field) => (
+                {groupedFields.financial
+  .filter((field) => !shouldHideMetricField(field))
+  .map((field) => (
                   <EditableFieldItem
                     key={field.fieldKey}
                     field={field}
@@ -1865,7 +1939,9 @@ text-slate-800 dark:border-slate-700 dark:text-slate-200"
                 Loan Details
               </h3>
               <div className="grid gap-6 md:grid-cols-2">
-                {groupedFields.loan.map((field) => (
+                {groupedFields.loan
+  .filter((field) => !shouldHideMetricField(field))
+  .map((field) => (
                   <EditableFieldItem
                     key={field.fieldKey}
                     field={field}
@@ -1885,7 +1961,9 @@ text-slate-800 dark:border-slate-700 dark:text-slate-200"
                 Other Details
               </h3>
               <div className="grid gap-6 md:grid-cols-2">
-                {groupedFields.others.map((field) => (
+                {groupedFields.others
+  .filter((field) => !shouldHideMetricField(field))
+  .map((field) => (
                   <EditableFieldItem
                     key={field.fieldKey}
                     field={field}
@@ -2138,27 +2216,9 @@ text-slate-800 dark:border-slate-700 dark:text-slate-200"
   );
 
   const renderFindLenders = () => {
-    const filteredEligibleLenders = lenders
-      .filter((lender) => {
-        // Filter by type
-        if (lenderFilter === "all") return true;
-        return lender.type === lenderFilter;
-      })
-      .filter(
-        (lender) =>
-          lender.name.toLowerCase().includes(lenderSearchQ.toLowerCase()) ||
-          lender.email?.toLowerCase().includes(lenderSearchQ.toLowerCase()),
-      );
 
-    const paginatedEligibleLenders = filteredEligibleLenders.slice(
-      (lenderPage - 1) * lenderLimit,
-      lenderPage * lenderLimit,
-    );
-
-    const totalEligiblePages = Math.ceil(
-      filteredEligibleLenders.length / lenderLimit,
-    );
-
+    const paginatedEligibleLenders =
+  lenders || [];
     return (
       <div
         className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm 
@@ -2168,14 +2228,17 @@ dark:border-slate-800 dark:bg-slate-900"
           {["all", "eligible", "rejected", "sent"].map((type) => (
             <button
               key={type}
-              onClick={() => {
-                setLenderFilter(type as any);
-                setLenderPage(1);
+onClick={() => {
+  setLenderFilter(
+    type as
+      | "all"
+      | "eligible"
+      | "rejected"
+      | "sent",
+  );
 
-                setTimeout(() => {
-                  bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-                }, 100);
-              }}
+  setLenderPage(1);
+}}
               className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all
       ${
         lenderFilter === type
@@ -2228,21 +2291,19 @@ focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200
 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:focus:ring-cyan-800"
               />
             </div>
-
-            <select
-              value={lenderLimit}
-              onChange={(e) => {
-                setLenderPage(1);
-                setLenderLimit(Number(e.target.value));
-              }}
-              className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm 
-text-slate-800 outline-none
-dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-            >
-              <option value={6}>6 / page</option>
-              <option value={9}>9 / page</option>
-              <option value={12}>12 / page</option>
-            </select>
+<select
+  value={lenderLimit}
+  onChange={(e) => {
+    setLenderLimit(Number(e.target.value));
+    setLenderPage(1);
+  }}
+  className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm"
+>
+  <option value={6}>6</option>
+  <option value={9}>9</option>
+  <option value={12}>12</option>
+  <option value={18}>18</option>
+</select>
           </div>
         </div>
 
@@ -2292,11 +2353,38 @@ dark:border-slate-800 dark:bg-slate-900"
         {/* LOADING */}
         {lenderLoading && <div>Loading...</div>}
 
-        {/* EMPTY */}
-        {!lenderLoading && lenders.length === 0 && (
-          <div className="text-center py-10">No lenders found</div>
-        )}
+{/* EMPTY */}
+{!lenderLoading && lenders.length === 0 && (
+  <div
+    className="flex flex-col items-center justify-center rounded-3xl 
+    border border-dashed border-slate-300 bg-gradient-to-br 
+    from-slate-50 to-slate-100 px-6 py-14 text-center
+    shadow-sm dark:border-slate-700 dark:from-slate-900 dark:to-slate-950"
+  >
+    {/* ICON */}
+    <div
+      className="mb-5 flex h-14 w-14 items-center justify-center rounded-full 
+      bg-gradient-to-br from-cyan-500 to-blue-600 text-white shadow-lg"
+    >
+      <SearchX className="h-8 w-8" />
+    </div>
 
+    {/* TITLE */}
+    <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100">
+      No Lenders Found
+    </h3>
+
+    {/* DESCRIPTION */}
+    <p
+      className="mt-2 max-w-md text-sm leading-relaxed 
+      text-slate-500 dark:text-slate-400"
+    >
+      We couldn&apos;t find any lenders matching your current
+      filters or search criteria. Try adjusting filters or
+      searching with different keywords.
+    </p>
+  </div>
+)}
         {/* LIST */}
         {!lenderLoading && lenders.length > 0 && (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -2335,7 +2423,10 @@ dark:border-slate-800 dark:bg-slate-900"
 
                   {/* DETAILS */}
                   <div className="text-sm space-y-1">
-                    <div>Product: {lender.loanProductCode}</div>
+                    <div>Product: {(lender.loanProductCode || "")
+  .replace(/_/g, " ")
+  .toLowerCase()
+  .replace(/\b\w/g, (c) => c.toUpperCase())}</div>
                     <div>
                       Funding: ${lender.minFunding} - ${lender.maxFunding}
                     </div>
@@ -2400,164 +2491,67 @@ dark:bg-red-900/20 dark:text-red-400"
         )}
 
         {/* PAGINATION */}
-        {!lenderLoading && filteredEligibleLenders.length > lenderLimit && (
-          <div className="px-4 py-2 rounded-lg border border-slate-300 text-sm bg-white text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800">
-            <button
-              disabled={lenderPage === 1}
-              onClick={() => setLenderPage((p) => p - 1)}
-            >
-              Prev
-            </button>
+  {lenderPagination &&
+  lenderPagination.totalPages > 1 && (
+    <div className="mt-10 flex flex-wrap items-center justify-center gap-2">
 
+      {/* PREVIOUS */}
+      <button
+        disabled={!lenderPagination.hasPrevPage}
+        onClick={() =>
+          setLenderPage((prev) =>
+            Math.max(prev - 1, 1),
+          )
+        }
+        className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        Previous
+      </button>
+
+      {/* PAGE NUMBERS */}
+      {Array.from(
+        {
+          length:
+            lenderPagination.totalPages,
+        },
+        (_, i) => {
+          const pageNum = i + 1;
+
+          return (
             <button
-              disabled={lenderPage >= totalEligiblePages}
-              onClick={() => setLenderPage((p) => p + 1)}
+              key={pageNum}
+              onClick={() =>
+                setLenderPage(pageNum)
+              }
+              className={`h-10 w-10 rounded-xl text-sm font-semibold transition ${
+                lenderPage === pageNum
+                  ? "bg-cyan-600 text-white"
+                  : "border border-slate-300 bg-white hover:bg-slate-50"
+              }`}
             >
-              Next
+              {pageNum}
             </button>
-          </div>
-        )}
+          );
+        },
+      )}
+
+      {/* NEXT */}
+      <button
+        disabled={!lenderPagination.hasNextPage}
+        onClick={() =>
+          setLenderPage(
+            (prev) => prev + 1,
+          )
+        }
+        className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        Next
+      </button>
+    </div>
+  )}
       </div>
     );
   };
-
-  // const renderSubmittedLenders = () => {
-  //   const lenders = submissionDetail.lenders || [];
-
-  //   const filteredLenders = lenders.filter((lender: any) =>
-  //     lender.lenderName
-  //       ?.toLowerCase()
-  //       .includes(debouncedLenderSearch.toLowerCase()),
-  //   );
-
-  //   const totalPages = Math.ceil(filteredLenders.length / itemsPerPage);
-
-  //   const paginatedLenders = filteredLenders.slice(
-  //     (currentPage - 1) * itemsPerPage,
-  //     currentPage * itemsPerPage,
-  //   );
-
-  //   return (
-  //     <div className="rounded-2xl border bg-white p-6 dark:bg-slate-950 dark:border-slate-800">
-  //       <div className="flex items-center justify-between mb-4">
-  //         <h2 className="text-lg font-semibold">Submitted To Lenders</h2>
-
-  //         <div className="relative w-60">
-  //           {/* ICON */}
-  //           <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
-
-  //           {/* INPUT */}
-  //           <input
-  //             type="text"
-  //             placeholder="Search lender..."
-  //             value={search}
-  //             onChange={(e) => setSearch(e.target.value)}
-  //             className="w-full pl-9 pr-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-900 dark:border-slate-700"
-  //           />
-  //         </div>
-  //       </div>
-
-  //       {filteredLenders.length === 0 ? (
-  //         <div className="flex flex-col items-center justify-center py-16 text-center">
-  //           {/* ICON */}
-  //           <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-blue-100 to-cyan-100 shadow-sm">
-  //             <Send className="h-7 w-7 text-blue-600" />
-  //           </div>
-
-  //           {/* TITLE */}
-  //           <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">
-  //             No Lenders Yet
-  //           </h3>
-
-  //           {/* SUBTEXT */}
-  //           <p className="mt-1 max-w-sm text-sm text-slate-500 dark:text-slate-400">
-  //             This application has not been submitted to any lenders yet. Once
-  //             you send documents, lenders will appear here.
-  //           </p>
-  //         </div>
-  //       ) : (
-  //         <>
-  //           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-  //             {paginatedLenders.map((lender: any, index: number) => (
-  //               <div
-  //                 key={index}
-  //                 className="flex items-center justify-between p-4 rounded-xl border bg-white dark:bg-slate-900 dark:border-slate-700 hover:shadow-md hover:scale-[1.02] transition cursor-pointer"
-  //               >
-  //                 {/* LEFT */}
-  //                 <div className="flex items-center gap-3 min-w-0">
-  //                   <div className="h-10 w-10 rounded-full overflow-hidden flex items-center justify-center bg-gradient-to-br from-blue-500 to-indigo-600 text-white font-semibold text-sm">
-  //                     {lender.profileImage && lender.profileImage != null ? (
-  //                       <img
-  //                         src={`${API_BASE}${lender.profileImage}`}
-  //                         alt={lender.lenderName}
-  //                         className="h-full w-full object-cover"
-  //                       />
-  //                     ) : (
-  //                       <span>{lender.lenderName?.charAt(0) || "L"}</span>
-  //                     )}
-  //                   </div>
-
-  //                   {/* INFO */}
-  //                   <div className="min-w-0">
-  //                     <p className="text-sm font-semibold text-slate-800 dark:text-white truncate">
-  //                       {lender.lenderName || "Unknown"}
-  //                     </p>
-
-  //                     <p className="text-xs text-slate-500 truncate">
-  //                       {lender.sentAt
-  //                         ? new Date(lender.sentAt).toLocaleDateString()
-  //                         : "No date"}
-  //                     </p>
-  //                   </div>
-  //                 </div>
-
-  //                 {/* STATUS */}
-  //                 <span
-  //                   className={`px-2.5 py-1 text-[10px] rounded-full font-semibold whitespace-nowrap ${getStatusChip(
-  //                     lender.lenderStatus,
-  //                   )}`}
-  //                 >
-  //                   {lender.lenderStatus || "PENDING"}
-  //                 </span>
-  //               </div>
-  //             ))}
-  //           </div>
-
-  //           {lenders.length > itemsPerPage && (
-  //             <div className="flex items-center justify-between mt-6">
-  //               {/* PREVIOUS */}
-  //               <button
-  //                 onClick={() =>
-  //                   setCurrentPage((prev) => Math.max(prev - 1, 1))
-  //                 }
-  //                 disabled={currentPage === 1}
-  //                 className="px-4 py-2 text-sm rounded-lg border disabled:opacity-50 hover:bg-slate-100 dark:hover:bg-slate-800"
-  //               >
-  //                 ← Previous
-  //               </button>
-
-  //               {/* PAGE INFO */}
-  //               <p className="text-sm text-slate-500">
-  //                 Page {currentPage} of {totalPages}
-  //               </p>
-
-  //               {/* NEXT */}
-  //               <button
-  //                 onClick={() =>
-  //                   setCurrentPage((prev) => Math.min(prev + 1, totalPages))
-  //                 }
-  //                 disabled={currentPage === totalPages}
-  //                 className="px-4 py-2 text-sm rounded-lg border disabled:opacity-50 hover:bg-slate-100 dark:hover:bg-slate-800"
-  //               >
-  //                 Next →
-  //               </button>
-  //             </div>
-  //           )}
-  //         </>
-  //       )}
-  //     </div>
-  //   );
-  // };
 
   const lenderOptions = useMemo(() => {
     return submittedLenders.map((l) => ({
@@ -3233,7 +3227,7 @@ const productCode =
 
                   <div className="flex flex-col leading-tight">
                     <span className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
-                      Amount Requested
+                     Loan Amount Requested
                     </span>
                     <span className="text-sm font-semibold text-emerald-900 dark:text-white">
                       ${submissionDetail?.amountRequested || 0}
@@ -3274,9 +3268,12 @@ const productCode =
                   submissionDetail?.status,
                 )}`}
               >
-                {submissionDetail?.status === "DECLINED"
-                  ? "REJECTED"
-                  : submissionDetail?.status || "Draft"}
+             {submissionDetail?.status === "DECLINED"
+  ? "REJECTED"
+  : (submissionDetail?.status || "-")
+      .replace(/_/g, " ")
+      .toLowerCase()
+      .replace(/\b\w/g, (c) => c.toUpperCase())}
               </span>
             </div>
           </div>
