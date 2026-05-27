@@ -1734,7 +1734,7 @@ dark:border-slate-800 dark:bg-slate-900"
   : (submissionDetail?.status || "-")
       .replace(/_/g, " ")
       .toLowerCase()
-      .replace(/\b\w/g, (c) => c.toUpperCase())}
+      .replace(/\b\w/g, (c: string) => c.toUpperCase())}
             </span>
           </div>
         </div>
@@ -3017,8 +3017,8 @@ dark:bg-red-900/20 dark:text-red-400"
           {/* PAGINATION */}
           <div className="flex items-center justify-between px-4 py-3 border-t dark:border-slate-800 bg-white dark:bg-slate-900">
             <p className="text-sm text-slate-500">
-              Page <span className="font-semibold">{pagination?.page}</span> of{" "}
-              <span className="font-semibold">{pagination?.totalPages}</span>
+              Page <span className="font-semibold">{documentsPagination?.page}</span> of{" "}
+              <span className="font-semibold">{documentsPagination?.totalPages}</span>
             </p>
 
             <div className="flex items-center gap-2">
@@ -3031,7 +3031,7 @@ dark:bg-red-900/20 dark:text-red-400"
               </button>
 
               <button
-                disabled={page === pagination?.totalPages}
+                disabled={page === documentsPagination?.totalPages}
                 onClick={() => setPage((p) => p + 1)}
                 className="px-3 py-1.5 rounded-lg border text-sm hover:bg-slate-100 disabled:opacity-40"
               >
@@ -3273,7 +3273,7 @@ const productCode =
   : (submissionDetail?.status || "-")
       .replace(/_/g, " ")
       .toLowerCase()
-      .replace(/\b\w/g, (c) => c.toUpperCase())}
+      .replace(/\b\w/g, (c: string) => c.toUpperCase())}
               </span>
             </div>
           </div>
