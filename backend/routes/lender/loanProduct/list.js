@@ -229,13 +229,20 @@ if (search) {
         // 🧠 FORMAT RESPONSE
         const formatted = products.map((p) => ({
           ...p,
-
+  // ✅ IMPORTANT
+  code: p.loanProduct?.code || p.loanProductCode || null,
+  name: p.loanProduct?.name || null,
           minLoanAmount: toPositiveNumberOrNull(p.minLoanAmount),
           maxLoanAmount: toPositiveNumberOrNull(p.maxLoanAmount),
           minTermMonths: toPositiveNumberOrNull(p.minTermMonths),
           maxTermMonths: toPositiveNumberOrNull(p.maxTermMonths),
-          minLtvPercent: toPositiveNumberOrNull(p.minLtvPercent),
-          maxLtvPercent: toPositiveNumberOrNull(p.maxLtvPercent),
+maxLtvPercent: toPositiveNumberOrNull(p.maxLtvPercent),
+
+// ✅ ARV
+maxArvPercent: toPositiveNumberOrNull(p.maxArvPercent),
+
+// ✅ LTC
+maxLtcPercent: toPositiveNumberOrNull(p.maxLtcPercent),
 
           // ✅ Normalize legacy + current JSON shapes
           businessTypes: toGroupedSelectionMap(p.businessTypes, "name"),
@@ -246,6 +253,12 @@ if (search) {
 
           // ✅ string / csv / array → array
           equipmentTypes: toStringArray(p.equipmentTypes),
+
+          // ✅ Interest Range
+interestRateRange:
+  typeof p.interestRateRange === "string"
+    ? p.interestRateRange.replace("%", "")
+    : p.interestRateRange,
 
           // ✅ DOCUMENTS
           documents:

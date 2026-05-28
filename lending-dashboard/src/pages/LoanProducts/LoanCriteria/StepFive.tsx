@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { ChevronDown, Settings, FileText, CheckCircle2 } from "lucide-react";
+import toast from "react-hot-toast";
 
 const fields = [
   { label: "Min Loan Amount ($)", key: "minLoan" },
@@ -7,10 +8,27 @@ const fields = [
   { label: "Min Rate (%)", key: "minRate" },
   { label: "Max Rate (%)", key: "maxRate" },
 
-  { label: "Min LTV (%)", key: "minLtv" },
+{
+  label: "Max LTV (%)",
+  key: "maxLtv",
+},
 
-  { label: "Max LTV (%)", key: "maxLtv" },
-  // { label: "Max LTC (%)", key: "maxLtc" },
+{
+  label: "Max ARV (%)",
+  key: "maxArv",
+  // products: ["FIX_AND_FLIP", "BRIDGE"],
+},
+
+{
+  label: "Max LTC (%)",
+  key: "maxLtc",
+  products: [
+    "MEZZ_FINANCE_PREF_EQUITY",
+    "MEZZ_FINANCE",
+    "FIX_AND_FLIP",
+    "CONSTRUCTION_LOAN",
+  ],
+},
 
   { label: "Min FICO Score", key: "fico" },
 
@@ -127,6 +145,7 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
       }
     } catch (err) {
       console.error("Failed to load documents", err);
+      toast.error("Failed to load documents");
     } finally {
       setLoadingDocs(false);
     }
@@ -270,11 +289,25 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
       }
     }
 
-    if (key === "minLtv" || key === "maxLtv") {
-      if (numVal > 100) {
-        return "LTV cannot exceed 100%";
-      }
+if (
+  key === "maxLtv" ||
+  key === "maxArv" ||
+  key === "maxLtc"
+) {
+  if (numVal > 100) {
+    if (key === "maxLtv") {
+      return "LTV cannot exceed 100%";
     }
+
+    if (key === "maxArv") {
+      return "ARV cannot exceed 100%";
+    }
+
+    if (key === "maxLtc") {
+      return "LTC cannot exceed 100%";
+    }
+  }
+}
 
     if (key === "fico") {
       if (numVal < 300 || numVal > 900) {
@@ -326,7 +359,7 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
           <Settings size={14} /> Loan Criteria
         </h2>
         <p className="text-sm text-gray-500">
-          Configure lending criteria for each selected loan program.
+          Configure lending criteria for each selected loan program. 
         </p>
       </div>
 
@@ -363,7 +396,13 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
             {isOpen && (
               <div className="p-4 bg-gray-50 border-t">
                 <div className="grid grid-cols-2 gap-4">
-                  {fields.map((field) => (
+                  {fields
+  .filter((field: any) => {
+    if (!field.products) return true;
+
+    return field.products.includes(product.code);
+  })
+  .map((field: any) => (
                     <div key={field.key}>
                       <label className="text-xs text-gray-600 mb-1 block">
                         {field.label} <span className="text-red-500">*</span>

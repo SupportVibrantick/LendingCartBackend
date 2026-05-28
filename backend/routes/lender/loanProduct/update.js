@@ -45,8 +45,7 @@ async function updateLenderLoanProductRoutes(fastify) {
         const { id } = req.params;
 
         // 🧪 VALIDATION
-        const parsed =
-          updateLenderLoanProductSchema.safeParse(req.body);
+        const parsed = updateLenderLoanProductSchema.safeParse(req.body);
 
         if (!parsed.success) {
           return reply.status(400).send({
@@ -90,8 +89,23 @@ async function updateLenderLoanProductRoutes(fastify) {
         // 💰 FINANCIAL
         setDecimal("minLoanAmount", data.minLoanAmount);
         setDecimal("maxLoanAmount", data.maxLoanAmount);
-        setDecimal("minLtvPercent", data.minLtvPercent);
+
+        // ✅ LTV
         setDecimal("maxLtvPercent", data.maxLtvPercent);
+
+        // ✅ ARV (ALL PRODUCTS)
+        setDecimal("maxArvPercent", data.maxArvPercent);
+
+        // ✅ LTC (ONLY SPECIFIC PRODUCTS)
+        if (
+          [
+            "MEZZ_FINANCE_PREF_EQUITY",
+            "FIX_AND_FLIP",
+            "CONSTRUCTION_LOAN",
+          ].includes(existing.loanProductCode)
+        ) {
+          setDecimal("maxLtcPercent", data.maxLtcPercent);
+        }
 
         // 🔢 NUMERIC
         setValue("minTermMonths", data.minTermMonths);
@@ -101,9 +115,7 @@ async function updateLenderLoanProductRoutes(fastify) {
         // ✅ SAME AS CREATE (STRING)
         if (data.minExperience !== undefined) {
           updateData.minExperience =
-            data.minExperience !== null
-              ? String(data.minExperience)
-              : null;
+            data.minExperience !== null ? String(data.minExperience) : null;
         }
 
         // 📝 STRING
@@ -115,8 +127,7 @@ async function updateLenderLoanProductRoutes(fastify) {
 
         // ⚠️ CSV (same as create)
         if (data.statesSupported !== undefined) {
-          updateData.statesSupported =
-            data.statesSupported?.join(",") ?? null;
+          updateData.statesSupported = data.statesSupported?.join(",") ?? null;
         }
 
         // ✅ EQUIPMENT (ONLY ARRAY, ONLY FOR EQUIPMENT_FINANCE)
@@ -127,10 +138,7 @@ async function updateLenderLoanProductRoutes(fastify) {
           if (data.equipmentTypes !== undefined) {
             updateData.equipmentTypes = data.equipmentTypes?.join(",") ?? null;
           }
-          setValue(
-            "otherEquipmentExplanation",
-            data.otherEquipmentExplanation
-          );
+          setValue("otherEquipmentExplanation", data.otherEquipmentExplanation);
         }
 
         // 🔘 BOOLEAN
@@ -160,12 +168,10 @@ async function updateLenderLoanProductRoutes(fastify) {
 
         return reply.status(500).send({
           success: false,
-          message:
-            error.message ||
-            "Server error while updating loan product",
+          message: error.message || "Server error while updating loan product",
         });
       }
-    }
+    },
   );
 }
 

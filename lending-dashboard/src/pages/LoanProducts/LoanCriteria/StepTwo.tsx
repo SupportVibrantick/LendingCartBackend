@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import toast from "react-hot-toast";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
@@ -113,10 +114,13 @@ const StepTwo = ({
         createdAt: p.createdAt ?? undefined,
       }));
 
+      console.log(mapped);
+
       setProducts(mapped);
       onProductsLoad?.(mapped);
     } catch (err) {
       console.error("Failed to load loan products", err);
+      toast.error("Failed to load loan products");
     }
   };
 

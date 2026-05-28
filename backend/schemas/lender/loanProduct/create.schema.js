@@ -28,12 +28,13 @@ const baseProductSchema = z.object({
   minTermMonths: z.number().int().positive().optional(),
   maxTermMonths: z.number().int().positive().optional(),
 
-  minLtvPercent: z.number().positive().optional(),
-  maxLtvPercent: z.number().positive().optional(),
+maxLtvPercent: z.number().min(0).optional(),
+
+maxArvPercent: z.number().min(0).optional(),
+maxLtcPercent: z.number().min(0).optional(),
 
   minCreditScore: z.number().int().optional(),
 
-  // ✅ FIXED HERE
   minExperience: experienceSchema,
 
   interestRateRange: z.string().optional(),
@@ -63,8 +64,9 @@ const createLenderLoanProductSchema = z
     minTermMonths: z.number().int().positive().optional(),
     maxTermMonths: z.number().int().positive().optional(),
 
-    minLtvPercent: z.number().positive().optional(),
-    maxLtvPercent: z.number().positive().optional(),
+maxArvPercent: z.number().min(0).optional(),
+maxLtcPercent: z.number().min(0).optional(),
+maxLtvPercent: z.number().min(0).optional(),
 
     minCreditScore: z.number().int().optional(),
 

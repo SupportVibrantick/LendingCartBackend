@@ -177,7 +177,7 @@ const getDocumentStatusChip = (status: string) => {
 const formatFieldKey = (key: string | null | undefined) => {
   if (!key) return "";
 
-    if (key === "amountRequested") {
+  if (key === "amountRequested") {
     return "Loan Amount Requested";
   }
 
@@ -445,19 +445,16 @@ const LoanPreview = () => {
     Record<string, string>
   >({});
   const [updateSubmitting, setUpdateSubmitting] = useState(false);
-const [debouncedLenderSearch, setDebouncedLenderSearch] =
-  useState("");
+  const [debouncedLenderSearch, setDebouncedLenderSearch] = useState("");
   const [lenderFilter, setLenderFilter] = useState<
     "all" | "eligible" | "rejected" | "sent"
   >("all");
 
   const [page, setPage] = useState(1);
   const [limit] = useState(10);
-  const [documentsPagination, setDocumentsPagination] =
-  useState<any>(null);
+  const [documentsPagination, setDocumentsPagination] = useState<any>(null);
 
-const [lenderPagination, setLenderPagination] =
-  useState<any>(null);
+  const [lenderPagination, setLenderPagination] = useState<any>(null);
   // const [search, setSearch] = useState("");
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [sending, setSending] = useState(false);
@@ -467,51 +464,38 @@ const [lenderPagination, setLenderPagination] =
   // const [debouncedLenderSearch, setDebouncedLenderSearch] = useState("");
   // const itemsPerPage = 9;
 
-const selectableDocuments =
-  documentsData?.documents?.filter(
-    (d: any) =>
-      d.status !== "SKIPPED",
-  ) || [];
+  const selectableDocuments =
+    documentsData?.documents?.filter((d: any) => d.status !== "SKIPPED") || [];
 
-const isAllSelected =
-  selectableDocuments.length > 0 &&
-  selectedRows.length ===
-    selectableDocuments.length;
+  const isAllSelected =
+    selectableDocuments.length > 0 &&
+    selectedRows.length === selectableDocuments.length;
 
-const handleSelectAll = () => {
-  if (isAllSelected) {
-    setSelectedRows([]);
-    return;
-  }
+  const handleSelectAll = () => {
+    if (isAllSelected) {
+      setSelectedRows([]);
+      return;
+    }
 
-  const selectableIds =
-    selectableDocuments.map(
-      (d: any) =>
-        d.requirementId,
-    );
+    const selectableIds = selectableDocuments.map((d: any) => d.requirementId);
 
-  setSelectedRows(selectableIds);
-};
+    setSelectedRows(selectableIds);
+  };
 
-const HIDDEN_METRIC_FIELDS = [
-  "ltvPercentage",
-  "ltcPercentage",
-  "arvPercentage",
-  "dscr",
-  "netWorth",
-];
+  const HIDDEN_METRIC_FIELDS = [
+    "ltvPercentage",
+    "ltcPercentage",
+    "arvPercentage",
+    "dscr",
+    "netWorth",
+    "afterRepairValue",
+  ];
 
-const shouldHideMetricField = (field: any) => {
-  const key = (
-    field?.fieldKey ||
-    field?.key ||
-    ""
-  ).toLowerCase();
+  const shouldHideMetricField = (field: any) => {
+    const key = (field?.fieldKey || field?.key || "").toLowerCase();
 
-  return HIDDEN_METRIC_FIELDS.some(
-    (hidden) => hidden.toLowerCase() === key,
-  );
-};
+    return HIDDEN_METRIC_FIELDS.some((hidden) => hidden.toLowerCase() === key);
+  };
 
   const handleSelectRow = (id: string) => {
     setSelectedRows((prev) =>
@@ -675,13 +659,13 @@ const shouldHideMetricField = (field: any) => {
   };
 
   useEffect(() => {
-  const timer = setTimeout(() => {
-    setDebouncedLenderSearch(lenderSearchQ);
-    setLenderPage(1);
-  }, 400);
+    const timer = setTimeout(() => {
+      setDebouncedLenderSearch(lenderSearchQ);
+      setLenderPage(1);
+    }, 400);
 
-  return () => clearTimeout(timer);
-}, [lenderSearchQ]);
+    return () => clearTimeout(timer);
+  }, [lenderSearchQ]);
 
   const formatPhoneNumber = (value: string) => {
     const digits = value.replace(/\D/g, "").slice(0, 10);
@@ -754,21 +738,15 @@ const shouldHideMetricField = (field: any) => {
 
       const json = await res.json();
 
-if (json.success) {
-  setDocumentsData(json.data);
+      if (json.success) {
+        setDocumentsData(json.data);
 
-  setDocumentsPagination(
-    json.data.pagination,
-  );
+        setDocumentsPagination(json.data.pagination);
 
-  setPage(
-    json.data.pagination.page,
-  );
+        setPage(json.data.pagination.page);
 
-  setDocumentsLoadedFor(
-    submissionId,
-  );
-}
+        setDocumentsLoadedFor(submissionId);
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -884,7 +862,7 @@ if (json.success) {
           profileImage: l.profileImage
             ? `${API_BASE}/public/${l.profileImage}`
             : null,
-            lenderProductId: l.lenderProductId,
+          lenderProductId: l.lenderProductId,
           loanProductCode: l.loanProductCode,
           minFunding: l.fundingRange?.min ?? 0,
           maxFunding: l.fundingRange?.max ?? 0,
@@ -1084,42 +1062,38 @@ if (json.success) {
     }
   }, [submissionId]);
 
-useEffect(() => {
-  if (
-    activeTab === "request-document" &&
-    applicationId &&
-    requestDocsLoadedFor !== applicationId
-  ) {
-    fetchDocumentTypes(applicationId);
-  }
+  useEffect(() => {
+    if (
+      activeTab === "request-document" &&
+      applicationId &&
+      requestDocsLoadedFor !== applicationId
+    ) {
+      fetchDocumentTypes(applicationId);
+    }
 
-  if (
-    activeTab === "documents" &&
-    submissionId &&
-    documentsLoadedFor !== submissionId
-  ) {
-    fetchSubmissionDocuments(
-      submissionId,
-      1,
-      debouncedSearch,
-    );
-  }
+    if (
+      activeTab === "documents" &&
+      submissionId &&
+      documentsLoadedFor !== submissionId
+    ) {
+      fetchSubmissionDocuments(submissionId, 1, debouncedSearch);
+    }
 
-  if (
-    activeTab === "view-loi" &&
-    submissionId &&
-    loiLoadedFor !== submissionId
-  ) {
-    fetchLois(submissionId);
-  }
-}, [
-  activeTab,
-  applicationId,
-  submissionId,
-  requestDocsLoadedFor,
-  documentsLoadedFor,
-  loiLoadedFor,
-]);
+    if (
+      activeTab === "view-loi" &&
+      submissionId &&
+      loiLoadedFor !== submissionId
+    ) {
+      fetchLois(submissionId);
+    }
+  }, [
+    activeTab,
+    applicationId,
+    submissionId,
+    requestDocsLoadedFor,
+    documentsLoadedFor,
+    loiLoadedFor,
+  ]);
 
   useEffect(() => {
     if (submissionId) {
@@ -1128,20 +1102,17 @@ useEffect(() => {
   }, [page, debouncedSearch, submissionId]);
 
   useEffect(() => {
-  if (
-    activeTab === "find-lenders" &&
-    submissionId
-  ) {
-    fetchLenders(submissionId);
-  }
-}, [
-  lenderPage,
-  lenderLimit,
-  lenderFilter,
-  debouncedLenderSearch,
-  activeTab,
-  submissionId,
-]);
+    if (activeTab === "find-lenders" && submissionId) {
+      fetchLenders(submissionId);
+    }
+  }, [
+    lenderPage,
+    lenderLimit,
+    lenderFilter,
+    debouncedLenderSearch,
+    activeTab,
+    submissionId,
+  ]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -1719,7 +1690,7 @@ dark:border-slate-800 dark:bg-slate-900"
           <div>
             <span className="font-semibold">Product Code:</span>{" "}
             <span className="text-slate-700 dark:text-slate-300">
-             {productCode}
+              {productCode}
             </span>
           </div>
 
@@ -1729,12 +1700,12 @@ dark:border-slate-800 dark:bg-slate-900"
             <span
               className={`rounded-full px-3 py-1 text-xs font-semibold tracking-wide ${getStatusChip(submissionDetail?.status)}`}
             >
-{submissionDetail?.status === "DECLINED"
-  ? "REJECTED"
-  : (submissionDetail?.status || "-")
-      .replace(/_/g, " ")
-      .toLowerCase()
-      .replace(/\b\w/g, (c: string) => c.toUpperCase())}
+              {submissionDetail?.status === "DECLINED"
+                ? "REJECTED"
+                : (submissionDetail?.status || "-")
+                    .replace(/_/g, " ")
+                    .toLowerCase()
+                    .replace(/\b\w/g, (c: string) => c.toUpperCase())}
             </span>
           </div>
         </div>
@@ -1812,16 +1783,16 @@ text-slate-800 dark:border-slate-700 dark:text-slate-200"
               </h3>
               <div className="grid gap-6 md:grid-cols-2">
                 {groupedFields.primaryBorrower
-  .filter((field: any) => !shouldHideMetricField(field))
-  .map((field: any) => (
-                  <EditableFieldItem
-                    key={field.fieldKey}
-                    field={field}
-                    value={editableFieldValues[field.fieldKey || ""] ?? ""}
-                    onChange={handleEditableFieldChange}
-                    errors={errors}
-                  />
-                ))}
+                  .filter((field: any) => !shouldHideMetricField(field))
+                  .map((field: any) => (
+                    <EditableFieldItem
+                      key={field.fieldKey}
+                      field={field}
+                      value={editableFieldValues[field.fieldKey || ""] ?? ""}
+                      onChange={handleEditableFieldChange}
+                      errors={errors}
+                    />
+                  ))}
               </div>
             </div>
           )}
@@ -1833,16 +1804,16 @@ text-slate-800 dark:border-slate-700 dark:text-slate-200"
               </h3>
               <div className="grid gap-6 md:grid-cols-2">
                 {groupedFields.coBorrowers[index]
-  .filter((field: any) => !shouldHideMetricField(field))
-  .map((field: any) => (
-                  <EditableFieldItem
-                    key={field.fieldKey}
-                    field={field}
-                    value={editableFieldValues[field.fieldKey || ""] ?? ""}
-                    onChange={handleEditableFieldChange}
-                    errors={errors}
-                  />
-                ))}
+                  .filter((field: any) => !shouldHideMetricField(field))
+                  .map((field: any) => (
+                    <EditableFieldItem
+                      key={field.fieldKey}
+                      field={field}
+                      value={editableFieldValues[field.fieldKey || ""] ?? ""}
+                      onChange={handleEditableFieldChange}
+                      errors={errors}
+                    />
+                  ))}
               </div>
             </div>
           ))}
@@ -1874,16 +1845,16 @@ text-slate-800 dark:border-slate-700 dark:text-slate-200"
               </h3>
               <div className="grid gap-6 md:grid-cols-2">
                 {groupedFields.entity
-  .filter((field) => !shouldHideMetricField(field))
-  .map((field) => (
-                  <EditableFieldItem
-                    key={field.fieldKey}
-                    field={field}
-                    value={editableFieldValues[field.fieldKey || ""] ?? ""}
-                    onChange={handleEditableFieldChange}
-                    errors={errors}
-                  />
-                ))}
+                  .filter((field) => !shouldHideMetricField(field))
+                  .map((field) => (
+                    <EditableFieldItem
+                      key={field.fieldKey}
+                      field={field}
+                      value={editableFieldValues[field.fieldKey || ""] ?? ""}
+                      onChange={handleEditableFieldChange}
+                      errors={errors}
+                    />
+                  ))}
               </div>
             </div>
           )}
@@ -1896,16 +1867,16 @@ text-slate-800 dark:border-slate-700 dark:text-slate-200"
               </h3>
               <div className="grid gap-6 md:grid-cols-2">
                 {groupedFields.property
-  .filter((field) => !shouldHideMetricField(field))
-  .map((field) => (
-                  <EditableFieldItem
-                    key={field.fieldKey}
-                    field={field}
-                    value={editableFieldValues[field.fieldKey || ""] ?? ""}
-                    onChange={handleEditableFieldChange}
-                    errors={errors}
-                  />
-                ))}
+                  .filter((field) => !shouldHideMetricField(field))
+                  .map((field) => (
+                    <EditableFieldItem
+                      key={field.fieldKey}
+                      field={field}
+                      value={editableFieldValues[field.fieldKey || ""] ?? ""}
+                      onChange={handleEditableFieldChange}
+                      errors={errors}
+                    />
+                  ))}
               </div>
             </div>
           )}
@@ -1918,16 +1889,16 @@ text-slate-800 dark:border-slate-700 dark:text-slate-200"
               </h3>
               <div className="grid gap-6 md:grid-cols-2">
                 {groupedFields.financial
-  .filter((field) => !shouldHideMetricField(field))
-  .map((field) => (
-                  <EditableFieldItem
-                    key={field.fieldKey}
-                    field={field}
-                    value={editableFieldValues[field.fieldKey || ""] ?? ""}
-                    onChange={handleEditableFieldChange}
-                    errors={errors}
-                  />
-                ))}
+                  .filter((field) => !shouldHideMetricField(field))
+                  .map((field) => (
+                    <EditableFieldItem
+                      key={field.fieldKey}
+                      field={field}
+                      value={editableFieldValues[field.fieldKey || ""] ?? ""}
+                      onChange={handleEditableFieldChange}
+                      errors={errors}
+                    />
+                  ))}
               </div>
             </div>
           )}
@@ -1940,16 +1911,16 @@ text-slate-800 dark:border-slate-700 dark:text-slate-200"
               </h3>
               <div className="grid gap-6 md:grid-cols-2">
                 {groupedFields.loan
-  .filter((field) => !shouldHideMetricField(field))
-  .map((field) => (
-                  <EditableFieldItem
-                    key={field.fieldKey}
-                    field={field}
-                    value={editableFieldValues[field.fieldKey || ""] ?? ""}
-                    onChange={handleEditableFieldChange}
-                    errors={errors}
-                  />
-                ))}
+                  .filter((field) => !shouldHideMetricField(field))
+                  .map((field) => (
+                    <EditableFieldItem
+                      key={field.fieldKey}
+                      field={field}
+                      value={editableFieldValues[field.fieldKey || ""] ?? ""}
+                      onChange={handleEditableFieldChange}
+                      errors={errors}
+                    />
+                  ))}
               </div>
             </div>
           )}
@@ -1962,16 +1933,16 @@ text-slate-800 dark:border-slate-700 dark:text-slate-200"
               </h3>
               <div className="grid gap-6 md:grid-cols-2">
                 {groupedFields.others
-  .filter((field) => !shouldHideMetricField(field))
-  .map((field) => (
-                  <EditableFieldItem
-                    key={field.fieldKey}
-                    field={field}
-                    value={editableFieldValues[field.fieldKey || ""] ?? ""}
-                    onChange={handleEditableFieldChange}
-                    errors={errors}
-                  />
-                ))}
+                  .filter((field) => !shouldHideMetricField(field))
+                  .map((field) => (
+                    <EditableFieldItem
+                      key={field.fieldKey}
+                      field={field}
+                      value={editableFieldValues[field.fieldKey || ""] ?? ""}
+                      onChange={handleEditableFieldChange}
+                      errors={errors}
+                    />
+                  ))}
               </div>
             </div>
           )}
@@ -2216,9 +2187,7 @@ text-slate-800 dark:border-slate-700 dark:text-slate-200"
   );
 
   const renderFindLenders = () => {
-
-    const paginatedEligibleLenders =
-  lenders || [];
+    const paginatedEligibleLenders = lenders || [];
     return (
       <div
         className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm 
@@ -2228,17 +2197,13 @@ dark:border-slate-800 dark:bg-slate-900"
           {["all", "eligible", "rejected", "sent"].map((type) => (
             <button
               key={type}
-onClick={() => {
-  setLenderFilter(
-    type as
-      | "all"
-      | "eligible"
-      | "rejected"
-      | "sent",
-  );
+              onClick={() => {
+                setLenderFilter(
+                  type as "all" | "eligible" | "rejected" | "sent",
+                );
 
-  setLenderPage(1);
-}}
+                setLenderPage(1);
+              }}
               className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all
       ${
         lenderFilter === type
@@ -2291,19 +2256,19 @@ focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200
 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:focus:ring-cyan-800"
               />
             </div>
-<select
-  value={lenderLimit}
-  onChange={(e) => {
-    setLenderLimit(Number(e.target.value));
-    setLenderPage(1);
-  }}
-  className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm"
->
-  <option value={6}>6</option>
-  <option value={9}>9</option>
-  <option value={12}>12</option>
-  <option value={18}>18</option>
-</select>
+            <select
+              value={lenderLimit}
+              onChange={(e) => {
+                setLenderLimit(Number(e.target.value));
+                setLenderPage(1);
+              }}
+              className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm"
+            >
+              <option value={6}>6</option>
+              <option value={9}>9</option>
+              <option value={12}>12</option>
+              <option value={18}>18</option>
+            </select>
           </div>
         </div>
 
@@ -2353,38 +2318,38 @@ dark:border-slate-800 dark:bg-slate-900"
         {/* LOADING */}
         {lenderLoading && <div>Loading...</div>}
 
-{/* EMPTY */}
-{!lenderLoading && lenders.length === 0 && (
-  <div
-    className="flex flex-col items-center justify-center rounded-3xl 
+        {/* EMPTY */}
+        {!lenderLoading && lenders.length === 0 && (
+          <div
+            className="flex flex-col items-center justify-center rounded-3xl 
     border border-dashed border-slate-300 bg-gradient-to-br 
     from-slate-50 to-slate-100 px-6 py-14 text-center
     shadow-sm dark:border-slate-700 dark:from-slate-900 dark:to-slate-950"
-  >
-    {/* ICON */}
-    <div
-      className="mb-5 flex h-14 w-14 items-center justify-center rounded-full 
+          >
+            {/* ICON */}
+            <div
+              className="mb-5 flex h-14 w-14 items-center justify-center rounded-full 
       bg-gradient-to-br from-cyan-500 to-blue-600 text-white shadow-lg"
-    >
-      <SearchX className="h-8 w-8" />
-    </div>
+            >
+              <SearchX className="h-8 w-8" />
+            </div>
 
-    {/* TITLE */}
-    <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100">
-      No Lenders Found
-    </h3>
+            {/* TITLE */}
+            <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100">
+              No Lenders Found
+            </h3>
 
-    {/* DESCRIPTION */}
-    <p
-      className="mt-2 max-w-md text-sm leading-relaxed 
+            {/* DESCRIPTION */}
+            <p
+              className="mt-2 max-w-md text-sm leading-relaxed 
       text-slate-500 dark:text-slate-400"
-    >
-      We couldn&apos;t find any lenders matching your current
-      filters or search criteria. Try adjusting filters or
-      searching with different keywords.
-    </p>
-  </div>
-)}
+            >
+              We couldn&apos;t find any lenders matching your current filters or
+              search criteria. Try adjusting filters or searching with different
+              keywords.
+            </p>
+          </div>
+        )}
         {/* LIST */}
         {!lenderLoading && lenders.length > 0 && (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -2423,10 +2388,13 @@ dark:border-slate-800 dark:bg-slate-900"
 
                   {/* DETAILS */}
                   <div className="text-sm space-y-1">
-                    <div>Product: {(lender.loanProductCode || "")
-  .replace(/_/g, " ")
-  .toLowerCase()
-  .replace(/\b\w/g, (c) => c.toUpperCase())}</div>
+                    <div>
+                      Product:{" "}
+                      {(lender.loanProductCode || "")
+                        .replace(/_/g, " ")
+                        .toLowerCase()
+                        .replace(/\b\w/g, (c) => c.toUpperCase())}
+                    </div>
                     <div>
                       Funding: ${lender.minFunding} - ${lender.maxFunding}
                     </div>
@@ -2491,64 +2459,51 @@ dark:bg-red-900/20 dark:text-red-400"
         )}
 
         {/* PAGINATION */}
-  {lenderPagination &&
-  lenderPagination.totalPages > 1 && (
-    <div className="mt-10 flex flex-wrap items-center justify-center gap-2">
-
-      {/* PREVIOUS */}
-      <button
-        disabled={!lenderPagination.hasPrevPage}
-        onClick={() =>
-          setLenderPage((prev) =>
-            Math.max(prev - 1, 1),
-          )
-        }
-        className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        Previous
-      </button>
-
-      {/* PAGE NUMBERS */}
-      {Array.from(
-        {
-          length:
-            lenderPagination.totalPages,
-        },
-        (_, i) => {
-          const pageNum = i + 1;
-
-          return (
+        {lenderPagination && lenderPagination.totalPages > 1 && (
+          <div className="mt-10 flex flex-wrap items-center justify-center gap-2">
+            {/* PREVIOUS */}
             <button
-              key={pageNum}
-              onClick={() =>
-                setLenderPage(pageNum)
-              }
-              className={`h-10 w-10 rounded-xl text-sm font-semibold transition ${
-                lenderPage === pageNum
-                  ? "bg-cyan-600 text-white"
-                  : "border border-slate-300 bg-white hover:bg-slate-50"
-              }`}
+              disabled={!lenderPagination.hasPrevPage}
+              onClick={() => setLenderPage((prev) => Math.max(prev - 1, 1))}
+              className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {pageNum}
+              Previous
             </button>
-          );
-        },
-      )}
 
-      {/* NEXT */}
-      <button
-        disabled={!lenderPagination.hasNextPage}
-        onClick={() =>
-          setLenderPage(
-            (prev) => prev + 1,
-          )
-        }
-        className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        Next
-      </button>
-    </div>
-  )}
+            {/* PAGE NUMBERS */}
+            {Array.from(
+              {
+                length: lenderPagination.totalPages,
+              },
+              (_, i) => {
+                const pageNum = i + 1;
+
+                return (
+                  <button
+                    key={pageNum}
+                    onClick={() => setLenderPage(pageNum)}
+                    className={`h-10 w-10 rounded-xl text-sm font-semibold transition ${
+                      lenderPage === pageNum
+                        ? "bg-cyan-600 text-white"
+                        : "border border-slate-300 bg-white hover:bg-slate-50"
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              },
+            )}
+
+            {/* NEXT */}
+            <button
+              disabled={!lenderPagination.hasNextPage}
+              onClick={() => setLenderPage((prev) => prev + 1)}
+              className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Next
+            </button>
+          </div>
+        )}
       </div>
     );
   };
@@ -2827,9 +2782,7 @@ dark:bg-red-900/20 dark:text-red-400"
                             doc.status,
                           )}`}
                         >
-                         {doc.status
-  ?.replaceAll("_", " ")
-  ?.toUpperCase()}
+                          {doc.status?.replaceAll("_", " ")?.toUpperCase()}
                         </span>
                       </td>
 
@@ -3017,8 +2970,12 @@ dark:bg-red-900/20 dark:text-red-400"
           {/* PAGINATION */}
           <div className="flex items-center justify-between px-4 py-3 border-t dark:border-slate-800 bg-white dark:bg-slate-900">
             <p className="text-sm text-slate-500">
-              Page <span className="font-semibold">{documentsPagination?.page}</span> of{" "}
-              <span className="font-semibold">{documentsPagination?.totalPages}</span>
+              Page{" "}
+              <span className="font-semibold">{documentsPagination?.page}</span>{" "}
+              of{" "}
+              <span className="font-semibold">
+                {documentsPagination?.totalPages}
+              </span>
             </p>
 
             <div className="flex items-center gap-2">
@@ -3111,23 +3068,22 @@ dark:bg-red-900/20 dark:text-red-400"
     );
   }
 
-const borrowerName = useMemo(() => {
-  const firstNameField = fields.find(
-    (f: any) => f.fieldKey === "borrowerFirstName",
-  );
+  const borrowerName = useMemo(() => {
+    const firstNameField = fields.find(
+      (f: any) => f.fieldKey === "borrowerFirstName",
+    );
 
-  const lastNameField = fields.find(
-    (f: any) => f.fieldKey === "borrowerLastName",
-  );
+    const lastNameField = fields.find(
+      (f: any) => f.fieldKey === "borrowerLastName",
+    );
 
-  const firstName = firstNameField?.value || "";
-  const lastName = lastNameField?.value || "";
+    const firstName = firstNameField?.value || "";
+    const lastName = lastNameField?.value || "";
 
-  return `${firstName} ${lastName}`.trim() || "-";
-}, [fields]);
+    return `${firstName} ${lastName}`.trim() || "-";
+  }, [fields]);
 
-const productCode =
-  (
+  const productCode = (
     getFieldValue(fields, "loanProductCode") ||
     submissionDetail?.loanProduct?.name ||
     "-"
@@ -3179,10 +3135,10 @@ const productCode =
 
                   <div className="flex flex-col leading-tight">
                     <span className="text-[11px] font-medium text-blue-500 dark:text-blue-400">
-                      Borrower Name 
+                      Borrower Name
                     </span>
                     <span className="text-sm font-semibold text-blue-900 dark:text-white">
-                       {borrowerName}
+                      {borrowerName}
                     </span>
                   </div>
                 </div>
@@ -3227,7 +3183,7 @@ const productCode =
 
                   <div className="flex flex-col leading-tight">
                     <span className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
-                     Loan Amount Requested
+                      Loan Amount Requested
                     </span>
                     <span className="text-sm font-semibold text-emerald-900 dark:text-white">
                       ${submissionDetail?.amountRequested || 0}
@@ -3268,12 +3224,12 @@ const productCode =
                   submissionDetail?.status,
                 )}`}
               >
-             {submissionDetail?.status === "DECLINED"
-  ? "REJECTED"
-  : (submissionDetail?.status || "-")
-      .replace(/_/g, " ")
-      .toLowerCase()
-      .replace(/\b\w/g, (c: string) => c.toUpperCase())}
+                {submissionDetail?.status === "DECLINED"
+                  ? "REJECTED"
+                  : (submissionDetail?.status || "-")
+                      .replace(/_/g, " ")
+                      .toLowerCase()
+                      .replace(/\b\w/g, (c: string) => c.toUpperCase())}
               </span>
             </div>
           </div>

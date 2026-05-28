@@ -88,6 +88,7 @@ export default function Main() {
       setLenders(normalized);
     } catch (err) {
       console.error(err);
+      toast.error("Failed to load lenders");
     } finally {
       setLoadingLenders(false);
     }
@@ -418,8 +419,17 @@ export default function Main() {
         maxTermMonths: Number(criteria.maxTerm) || 0,
 
         // ✅ ADD MISSING FIELDS
-        minLtvPercent: Number(criteria.minLtv) || 0,
         maxLtvPercent: Number(criteria.maxLtv) || 0,
+
+        maxArvPercent:
+          criteria.maxArv !== undefined && criteria.maxArv !== ""
+            ? Number(criteria.maxArv)
+            : null,
+
+        maxLtcPercent:
+          criteria.maxLtc !== undefined && criteria.maxLtc !== ""
+            ? Number(criteria.maxLtc)
+            : null,
 
         minCreditScore: Number(criteria.fico) || 0,
 
@@ -484,6 +494,19 @@ export default function Main() {
         if (!data[field] && data[field] !== 0) {
           return `${product.name}: ${field} is required`;
         }
+      }
+
+if (!data.maxArv) {
+  return `${product.name}: maxArv is required`;
+}
+
+      if (
+        ["MEZZ_FINANCE", "FIX_AND_FLIP", "CONSTRUCTION_LOAN"].includes(
+          product.code,
+        ) &&
+        !data.maxLtc
+      ) {
+        return `${product.name}: maxLtc is required`;
       }
 
       if (!data.states || data.states.length === 0) {

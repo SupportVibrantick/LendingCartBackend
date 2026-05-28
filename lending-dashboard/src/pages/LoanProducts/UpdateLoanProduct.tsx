@@ -86,12 +86,39 @@ export default function UpdateLoanProduct() {
         return `Please fill details for ${product.name}`;
       }
 
-      const requiredFields = ["minLoan", "maxLoan", "minTerm", "maxTerm"];
+      const requiredFields = [
+        "minLoan",
+        "maxLoan",
+        "minRate",
+        "maxRate",
+        "maxLtv",
+        "fico",
+        "experience",
+        "minTerm",
+        "maxTerm",
+      ];
 
       for (const field of requiredFields) {
         if (!data[field] && data[field] !== 0) {
           return `${product.name}: ${field} is required`;
         }
+      }
+
+      // ✅ ARV REQUIRED
+      if (!data.maxArv) {
+        return `${product.name}: maxArv is required`;
+      }
+
+      // ✅ LTC REQUIRED
+      if (
+        [
+          "MEZZ_FINANCE_PREF_EQUITY",
+          "FIX_AND_FLIP",
+          "CONSTRUCTION_LOAN",
+        ].includes(product.code) &&
+        !data.maxLtc
+      ) {
+        return `${product.name}: maxLtc is required`;
       }
 
       if (!data.states || data.states.length === 0) {
@@ -160,14 +187,21 @@ export default function UpdateLoanProduct() {
             ? Number(criteria.maxTerm)
             : null,
 
-        minLtvPercent:
-          criteria.minLtv !== undefined && criteria.minLtv !== ""
-            ? Number(criteria.minLtv)
-            : null,
-
         maxLtvPercent:
           criteria.maxLtv !== undefined && criteria.maxLtv !== ""
             ? Number(criteria.maxLtv)
+            : null,
+
+        // ✅ ARV
+        maxArvPercent:
+          criteria.maxArv !== undefined && criteria.maxArv !== ""
+            ? Number(criteria.maxArv)
+            : null,
+
+        // ✅ LTC
+        maxLtcPercent:
+          criteria.maxLtc !== undefined && criteria.maxLtc !== ""
+            ? Number(criteria.maxLtc)
             : null,
 
         minCreditScore:
@@ -426,21 +460,42 @@ export default function UpdateLoanProduct() {
 
       equipmentFinance: updatedLoanProduct.equipmentTypes || [],
 
-      loanCriteria: {
-        [updatedLoanProduct.loanProductId]: {
-          minLoan: updatedLoanProduct.minLoanAmount,
-          maxLoan: updatedLoanProduct.maxLoanAmount,
-          minTerm: updatedLoanProduct.minTermMonths,
-          maxTerm: updatedLoanProduct.maxTermMonths,
-          minLtv: updatedLoanProduct.minLtvPercent,
-          maxLtv: updatedLoanProduct.maxLtvPercent,
-          fico: updatedLoanProduct.minCreditScore,
-          experience: updatedLoanProduct.minExperience,
-          states: updatedLoanProduct.statesSupported || [],
-          documents: updatedLoanProduct.documents || [],
-          minRate: updatedLoanProduct.interestRateRange?.split("-")[0],
-          maxRate: updatedLoanProduct.interestRateRange?.split("-")[1],
-        },
+loanCriteria: {
+  [updatedLoanProduct.loanProductId]: {
+    minLoan: updatedLoanProduct.minLoanAmount,
+    maxLoan: updatedLoanProduct.maxLoanAmount,
+
+    minTerm: updatedLoanProduct.minTermMonths,
+    maxTerm: updatedLoanProduct.maxTermMonths,
+
+    maxLtv: updatedLoanProduct.maxLtvPercent,
+
+    // ✅ IMPORTANT
+    maxArv: updatedLoanProduct.maxArvPercent,
+
+    // ✅ IMPORTANT
+    maxLtc: updatedLoanProduct.maxLtcPercent,
+
+    fico: updatedLoanProduct.minCreditScore,
+
+    experience: updatedLoanProduct.minExperience,
+
+    states: Array.isArray(updatedLoanProduct.statesSupported)
+      ? updatedLoanProduct.statesSupported
+      : updatedLoanProduct.statesSupported
+        ? updatedLoanProduct.statesSupported.split(",")
+        : [],
+
+    documents: updatedLoanProduct.documents || [],
+
+    minRate:
+      updatedLoanProduct.interestRateRange?.split("-")[0] || "",
+
+    maxRate:
+      updatedLoanProduct.interestRateRange
+        ?.split("-")[1]
+        ?.replace("%", "") || "",
+  },
       },
     });
   }, [updatedLoanProduct]);

@@ -148,15 +148,20 @@ export default function AddLoanProduct() {
               ? Number(criteria.maxTerm)
               : null,
 
-          minLtvPercent:
-            criteria.minLtv !== undefined && criteria.minLtv !== ""
-              ? Number(criteria.minLtv)
-              : null,
+          ...(criteria.maxLtv !== undefined &&
+            criteria.maxLtv !== "" && {
+              maxLtvPercent: Number(criteria.maxLtv),
+            }),
 
-          maxLtvPercent:
-            criteria.maxLtv !== undefined && criteria.maxLtv !== ""
-              ? Number(criteria.maxLtv)
-              : null,
+          ...(criteria.maxArv !== undefined &&
+            criteria.maxArv !== "" && {
+              maxArvPercent: Number(criteria.maxArv),
+            }),
+
+          ...(criteria.maxLtc !== undefined &&
+            criteria.maxLtc !== "" && {
+              maxLtcPercent: Number(criteria.maxLtc),
+            }),
 
           minCreditScore:
             criteria.fico !== undefined && criteria.fico !== ""

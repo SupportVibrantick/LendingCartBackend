@@ -21,8 +21,9 @@ type LoanProductList = {
   maxLoanAmount: number | null;
   minTermMonths: number | null;
   maxTermMonths: number | null;
-  minLtvPercent?: number | null;
   maxLtvPercent?: number | null;
+  maxArvPercent?: number | null;
+  maxLtcPercent?: number | null;
   minCreditScore?: number | null;
   minExperience?: string | null;
   interestRateRange?: string | null;
@@ -203,9 +204,43 @@ export default function AlloanProducts() {
         total: json.meta?.total || 0,
         totalPages: json.meta?.totalPages || 1,
       });
-      const normalized = (list as LoanProductList[]).map((product) => ({
+      const normalized = (list as LoanProductList[]).map((product: any) => ({
         ...product,
+
+        // ✅ PRODUCT DETAILS
+        loanProductName: product.loanProduct?.name || product.name || "-",
+
+        loanProductCode: product.loanProduct?.code || product.code || "-",
+
+        // ✅ STATES
+        statesSupported: Array.isArray(product.statesSupported)
+          ? product.statesSupported
+          : [],
+
+        // ✅ DOCUMENTS
+        documents: Array.isArray(product.documents) ? product.documents : [],
+
+        // ✅ BUSINESS / PROPERTY TYPES
+        businessTypes:
+          typeof product.businessTypes === "object"
+            ? product.businessTypes
+            : {},
+
+        propertyTypes:
+          typeof product.propertyTypes === "object"
+            ? product.propertyTypes
+            : {},
+
+        // ✅ NEW FIELDS
+        maxArvPercent: product.maxArvPercent ?? null,
+        maxLtcPercent: product.maxLtcPercent ?? null,
+        maxLtvPercent: product.maxLtvPercent ?? null,
+
+        minExperience: product.minExperience ?? "",
+
+        // OLD SAFE PARSE
         industriesSupported: safeParseArray(product.industriesSupported),
+
         regionsSupported: safeParseArray(product.regionsSupported),
       }));
 
@@ -371,7 +406,7 @@ export default function AlloanProducts() {
             <span className="text-[#18B6B4]">Loan</span> Products
           </h1>
           <p className="text-sm text-gray-500 mt-1 dark:text-slate-400">
-            Manage global loan products available on the platform. 
+            Manage global loan products available on the platform.
           </p>
         </div>
 
@@ -700,9 +735,38 @@ export default function AlloanProducts() {
                 value={viewDetails.interestRateRange}
               />
               <Detail
-                label="LTV Range"
-                value={`${viewDetails.minLtvPercent} - ${viewDetails.maxLtvPercent}`}
+                label="Max LTV"
+                value={
+                  viewDetails.maxLtvPercent != null
+                    ? `${viewDetails.maxLtvPercent}%`
+                    : "-"
+                }
               />
+
+              <Detail
+                label="Max ARV"
+                value={
+                  viewDetails.maxArvPercent != null
+                    ? `${viewDetails.maxArvPercent}%`
+                    : "-"
+                }
+              />
+
+              {[
+                "MEZZ_FINANCE_PREF_EQUITY",
+                "MEZZ_FINANCE",
+                "FIX_AND_FLIP",
+                "CONSTRUCTION_LOAN",
+              ].includes(viewDetails.loanProductCode) && (
+                <Detail
+                  label="Max LTC"
+                  value={
+                    viewDetails.maxLtcPercent != null
+                      ? `${viewDetails.maxLtcPercent}%`
+                      : "-"
+                  }
+                />
+              )}
               <Detail label="Credit Score" value={viewDetails.minCreditScore} />
               <Detail label="Experience" value={viewDetails.minExperience} />
 
@@ -782,7 +846,8 @@ export default function AlloanProducts() {
                 <p className="font-medium text-gray-700 dark:text-slate-300 mb-1">
                   Business Types
                 </p>
-                {safeGroupedEntries(viewDetails.businessTypes, "name").length ? (
+                {safeGroupedEntries(viewDetails.businessTypes, "name")
+                  .length ? (
                   safeGroupedEntries(viewDetails.businessTypes, "name").map(
                     ([category, list]) => (
                       <div key={category} className="mb-2">
@@ -791,7 +856,9 @@ export default function AlloanProducts() {
                         </p>
                         <ul className="list-disc ml-5 text-gray-700 dark:text-slate-300">
                           {list.length ? (
-                            list.map((item: string) => <li key={item}>{item}</li>)
+                            list.map((item: string) => (
+                              <li key={item}>{item}</li>
+                            ))
                           ) : (
                             <li>No sub-types configured</li>
                           )}
@@ -811,7 +878,8 @@ export default function AlloanProducts() {
                 <p className="font-medium text-gray-700 dark:text-slate-300 mb-1">
                   Property Types
                 </p>
-                {safeGroupedEntries(viewDetails.propertyTypes, "type").length ? (
+                {safeGroupedEntries(viewDetails.propertyTypes, "type")
+                  .length ? (
                   safeGroupedEntries(viewDetails.propertyTypes, "type").map(
                     ([category, list]) => (
                       <div key={category} className="mb-2">
@@ -820,7 +888,9 @@ export default function AlloanProducts() {
                         </p>
                         <ul className="list-disc ml-5 text-gray-700 dark:text-slate-300">
                           {list.length ? (
-                            list.map((item: string) => <li key={item}>{item}</li>)
+                            list.map((item: string) => (
+                              <li key={item}>{item}</li>
+                            ))
                           ) : (
                             <li>No sub-types configured</li>
                           )}

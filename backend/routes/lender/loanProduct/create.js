@@ -73,8 +73,9 @@ async function createLenderLoanProductRoutes(fastify) {
             maxLoanAmount: data.maxLoanAmount,
             minTermMonths: data.minTermMonths,
             maxTermMonths: data.maxTermMonths,
-            minLtvPercent: data.minLtvPercent,
             maxLtvPercent: data.maxLtvPercent,
+maxArvPercent: data.maxArvPercent,
+maxLtcPercent: data.maxLtcPercent,
             minCreditScore: data.minCreditScore,
             minExperience: data.minExperience,
             interestRateRange: data.interestRateRange,
@@ -165,13 +166,25 @@ async function createLenderLoanProductRoutes(fastify) {
               minTermMonths: item.minTermMonths ?? null,
               maxTermMonths: item.maxTermMonths ?? null,
 
-              minLtvPercent: item.minLtvPercent
-                ? new Prisma.Decimal(item.minLtvPercent)
-                : null,
-
               maxLtvPercent: item.maxLtvPercent
                 ? new Prisma.Decimal(item.maxLtvPercent)
                 : null,
+
+              // ✅ ARV
+maxArvPercent: item.maxArvPercent
+  ? new Prisma.Decimal(item.maxArvPercent)
+  : null,
+
+// ✅ LTC
+maxLtcPercent:
+  [
+    "MEZZ_FINANCE",
+    "FIX_AND_FLIP",
+    "CONSTRUCTION_LOAN",
+  ].includes(item.loanProductCode) &&
+  item.maxLtcPercent
+    ? new Prisma.Decimal(item.maxLtcPercent)
+    : null,
 
               minCreditScore: item.minCreditScore ?? null,
 
