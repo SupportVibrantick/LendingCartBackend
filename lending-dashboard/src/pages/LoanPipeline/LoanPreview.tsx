@@ -126,12 +126,10 @@ const InfoCard = ({ label, value }: { label: string; value: any }) => (
   <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700 p-4 rounded-xl transition-colors duration-300">
     <p className="text-xs text-slate-500 mb-1">{label}</p>
     <p className="text-sm font-semibold break-words">
-  {typeof value === "string"
-    ? value
-        .replace(/_/g, " ")
-        .replace(/\b\w/g, (c) => c.toUpperCase())
-    : value ?? "-"}
-</p>
+      {typeof value === "string"
+        ? value.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+        : (value ?? "-")}
+    </p>
   </div>
 );
 
@@ -359,12 +357,12 @@ export default function LoanPreview() {
   };
 
   const amountField =
-  submissionDetail?.loanApplication?.submissions?.[0]?.fields?.find(
-    (f: any) => f.fieldKey === "amountRequested"
-  );
+    submissionDetail?.loanApplication?.submissions?.[0]?.fields?.find(
+      (f: any) => f.fieldKey === "amountRequested",
+    );
 
   const fetchDocuments = async () => {
-if (!applicationLenderId) return;
+    if (!applicationLenderId) return;
     try {
       setDocumentsLoading(true);
       const res = await fetch(
@@ -449,24 +447,24 @@ if (!applicationLenderId) return;
 
       toast.success("Documents requested");
 
-// reset selection
-setDocSelectModal((prev) => ({
-  ...prev,
-  selectedDocs: [],
-}));
+      // reset selection
+      setDocSelectModal((prev) => ({
+        ...prev,
+        selectedDocs: [],
+      }));
 
-setCustomDocs([]);
-setCustomInput("");
+      setCustomDocs([]);
+      setCustomInput("");
 
-// IMPORTANT
-setDocumentsData(null);
+      // IMPORTANT
+      setDocumentsData(null);
 
-await fetchDocuments();
+      await fetchDocuments();
 
-setSubmissionDetail(null);
-await fetchLenderApplicationDetail();
+      setSubmissionDetail(null);
+      await fetchLenderApplicationDetail();
 
-setActiveTab("documents");
+      setActiveTab("documents");
     } catch (err: any) {
       toast.error(err.message);
     } finally {
@@ -780,14 +778,16 @@ setActiveTab("documents");
                         className="bg-slate-50 dark:bg-slate-800 p-3 rounded-lg"
                       >
                         <p className="text-xs text-slate-500 mb-1">
-                          {formatFieldKey(field.fieldKey)}
+                          {field.fieldKey === "amountRequested"
+                            ? "Loan Amount Requested"
+                            : formatFieldKey(field.fieldKey)}
                         </p>
                         <p className="text-sm font-medium break-words">
                           {typeof value === "string"
-  ? value
-      .replace(/_/g, " ")
-      .replace(/\b\w/g, (c) => c.toUpperCase())
-  : String(value ?? "-")}
+                            ? value
+                                .replace(/_/g, " ")
+                                .replace(/\b\w/g, (c) => c.toUpperCase())
+                            : String(value ?? "-")}
                         </p>
                       </div>
                     );
@@ -1442,7 +1442,7 @@ setActiveTab("documents");
                   {submissionDetail?.loanApplication?.applicationNumber}
                 </p>
                 <p className="text-xs text-slate-500 mt-1">
-                  {getBorrowerDisplayName(submissionDetail)}
+                  Borrower: {getBorrowerDisplayName(submissionDetail)}
                   {/* {" • "}
                   {getBorrowerEntityType(submissionDetail)} */}
                 </p>
@@ -1539,36 +1539,36 @@ setActiveTab("documents");
               </div>
 
               {/* LOAN AMOUNT */}
-<div
-  className="flex items-center gap-3 px-4 py-2 rounded-xl border
+              <div
+                className="flex items-center gap-3 px-4 py-2 rounded-xl border
   bg-gradient-to-r from-orange-50 to-amber-100 border-orange-200
   dark:from-orange-900/30 dark:to-amber-800/20 dark:border-orange-800"
->
-  <div
-    className="w-7 h-7 rounded-full bg-orange-500 text-white
+              >
+                <div
+                  className="w-7 h-7 rounded-full bg-orange-500 text-white
     flex items-center justify-center text-xs"
-  >
-    <FaDollarSign />
-  </div>
+                >
+                  <FaDollarSign />
+                </div>
 
-  <div className="flex flex-col leading-tight">
-    <span
-      className="text-[10px] uppercase tracking-wide font-semibold
+                <div className="flex flex-col leading-tight">
+                  <span
+                    className="text-[10px] uppercase tracking-wide font-semibold
       text-orange-500 dark:text-orange-400"
-    >
-      Loan Amount
-    </span>
+                  >
+                    Loan Amount Requested
+                  </span>
 
-    <span
-      className="text-sm font-medium
+                  <span
+                    className="text-sm font-medium
       text-orange-900 dark:text-orange-100"
-    >
-      {amountField?.value
-        ? `$${Number(amountField.value).toLocaleString()}`
-        : "-"}
-    </span>
-  </div>
-</div>
+                  >
+                    {amountField?.value
+                      ? `$${Number(amountField.value).toLocaleString()}`
+                      : "-"}
+                  </span>
+                </div>
+              </div>
             </div>
           )}
         </div>

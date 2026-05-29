@@ -13,6 +13,7 @@ import {
   Send,
   Upload,
 } from "lucide-react";
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { useLocation, useNavigate } from "react-router";
@@ -393,12 +394,14 @@ const EditableFieldItem = ({
 const LoanPreview = () => {
   const Location = useLocation();
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  const lendersSectionRef = useRef<HTMLDivElement | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState<TabKey>("view-details");
   const [submissionDetail, setSubmissionDetail] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [filterLoading, setFilterLoading] = useState(false);
 
   const [requestDocs, setRequestDocs] = useState<any[]>([]);
   const [requestDocsLoading, setRequestDocsLoading] = useState(false);
@@ -490,6 +493,13 @@ const LoanPreview = () => {
     "netWorth",
     "afterRepairValue",
   ];
+
+  const scrollToLenders = () => {
+    lendersSectionRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  };
 
   const shouldHideMetricField = (field: any) => {
     const key = (field?.fieldKey || field?.key || "").toLowerCase();
@@ -934,6 +944,7 @@ const LoanPreview = () => {
       toast.error(err.message || "Failed to load eligible lenders");
     } finally {
       setLenderLoading(false);
+      setFilterLoading(false);
     }
   };
 
@@ -967,6 +978,7 @@ const LoanPreview = () => {
       // }));
 
       await fetchSubmissionDetails(submissionId);
+      await fetchLenders(submissionId);
     } catch (err: any) {
       toast.error(err.message || "Failed to send");
     } finally {
@@ -2187,7 +2199,19 @@ text-slate-800 dark:border-slate-700 dark:text-slate-200"
   );
 
   const renderFindLenders = () => {
-    const paginatedEligibleLenders = lenders || [];
+    const filteredLenders = (lenders || []).filter((lender) => {
+      const matchesSearch =
+        lender.name?.toLowerCase().includes(lenderSearchQ.toLowerCase()) ||
+        lender.email?.toLowerCase().includes(lenderSearchQ.toLowerCase());
+
+      const matchesFilter =
+        lenderFilter === "all" || lender.type === lenderFilter;
+
+      return matchesSearch && matchesFilter;
+    });
+
+    const paginatedEligibleLenders = filteredLenders;
+
     return (
       <div
         className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm 
@@ -2198,11 +2222,17 @@ dark:border-slate-800 dark:bg-slate-900"
             <button
               key={type}
               onClick={() => {
+                if (lenderFilter === type) return;
+
+                setFilterLoading(true);
+
                 setLenderFilter(
                   type as "all" | "eligible" | "rejected" | "sent",
                 );
 
                 setLenderPage(1);
+
+                scrollToLenders();
               }}
               className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all
       ${
@@ -2231,7 +2261,7 @@ dark:border-slate-800 dark:bg-slate-900"
 
         {/* HEADER */}
         <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div>
+          <div ref={lendersSectionRef} className="mb-4">
             <h2 className="text-lg font-bold text-slate-900 dark:text-white">
               Find Lenders
             </h2>
@@ -2293,8 +2323,7 @@ dark:border-slate-800 dark:bg-slate-900"
               <div>
                 <b>Term:</b>
                 <div className="text-blue-400 font-semibold">
-                  {borrowerSummary.borrowerMinTerm} -{" "}
-                  {borrowerSummary.borrowerMaxTerm} months
+                  {borrowerSummary.termMonths ?? "-"} Months
                 </div>
               </div>
 
@@ -2302,6 +2331,41 @@ dark:border-slate-800 dark:bg-slate-900"
                 <b>Score:</b>
                 <div className="text-blue-400 font-semibold">
                   {borrowerSummary.creditScore}
+                </div>
+              </div>
+
+              <div>
+                <b>LTV:</b>
+                <div className="text-blue-400 font-semibold">
+                  {borrowerSummary.ltv ?? "-"}%
+                </div>
+              </div>
+
+              <div>
+                <b>LTC:</b>
+                <div className="text-blue-400 font-semibold">
+                  {borrowerSummary.ltc ?? "-"}%
+                </div>
+              </div>
+
+              <div>
+                <b>ARV:</b>
+                <div className="text-blue-400 font-semibold">
+                  {borrowerSummary.arv ?? "-"}%
+                </div>
+              </div>
+
+              <div>
+                <b>Property:</b>
+                <div className="text-blue-400 font-semibold">
+                  {borrowerSummary.propertyType ?? "-"}
+                </div>
+              </div>
+
+              <div>
+                <b>State:</b>
+                <div className="text-blue-400 font-semibold">
+                  {borrowerSummary.propertyState ?? "-"}
                 </div>
               </div>
 
@@ -2319,117 +2383,132 @@ dark:border-slate-800 dark:bg-slate-900"
         {lenderLoading && <div>Loading...</div>}
 
         {/* EMPTY */}
-        {!lenderLoading && lenders.length === 0 && (
-          <div
-            className="flex flex-col items-center justify-center rounded-3xl 
+        {!lenderLoading &&
+          !filterLoading &&
+          paginatedEligibleLenders.length === 0 && (
+            <div
+              className="flex flex-col items-center justify-center rounded-3xl 
     border border-dashed border-slate-300 bg-gradient-to-br 
     from-slate-50 to-slate-100 px-6 py-14 text-center
     shadow-sm dark:border-slate-700 dark:from-slate-900 dark:to-slate-950"
-          >
-            {/* ICON */}
-            <div
-              className="mb-5 flex h-14 w-14 items-center justify-center rounded-full 
+            >
+              {/* ICON */}
+              <div
+                className="mb-5 flex h-14 w-14 items-center justify-center rounded-full 
       bg-gradient-to-br from-cyan-500 to-blue-600 text-white shadow-lg"
-            >
-              <SearchX className="h-8 w-8" />
-            </div>
+              >
+                <SearchX className="h-8 w-8" />
+              </div>
 
-            {/* TITLE */}
-            <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100">
-              No Lenders Found
-            </h3>
+              {/* TITLE */}
+              <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100">
+                No Lenders Found
+              </h3>
 
-            {/* DESCRIPTION */}
-            <p
-              className="mt-2 max-w-md text-sm leading-relaxed 
+              {/* DESCRIPTION */}
+              <p
+                className="mt-2 max-w-md text-sm leading-relaxed 
       text-slate-500 dark:text-slate-400"
-            >
-              We couldn&apos;t find any lenders matching your current filters or
-              search criteria. Try adjusting filters or searching with different
-              keywords.
-            </p>
+              >
+                We couldn&apos;t find any lenders matching your current filters
+                or search criteria. Try adjusting filters or searching with
+                different keywords.
+              </p>
+            </div>
+          )}
+
+        {filterLoading && (
+          <div className="flex items-center justify-center py-10">
+            <Loader2 className="h-8 w-8 animate-spin text-cyan-600" />
           </div>
         )}
+
         {/* LIST */}
-        {!lenderLoading && lenders.length > 0 && (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {paginatedEligibleLenders.map((lender) => (
-              <div
-                key={lender.id}
-                className="rounded-xl border border-slate-200 bg-white p-5 
+        {!lenderLoading &&
+          !filterLoading &&
+          paginatedEligibleLenders.length > 0 && (
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {paginatedEligibleLenders.map((lender) => (
+                <div
+                  key={lender.id}
+                  className="rounded-xl border border-slate-200 bg-white p-5 
 hover:shadow-md transition flex flex-col h-full
 dark:border-slate-800 dark:bg-slate-900"
-              >
-                {/* TOP CONTENT */}
-                <div className="flex-1">
-                  {/* HEADER */}
-                  <div className="flex justify-between items-center mb-3">
-                    <div>
-                      <h3 className="font-bold text-slate-800 dark:text-slate-100">
-                        {lender.name}
-                      </h3>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
-                        {lender.email || "-"}
-                      </p>
-                    </div>
-
-                    <span
-                      className={`px-2 py-1 text-xs rounded-full ${
-                        lender.type === "eligible"
-                          ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                          : lender.type === "rejected"
-                            ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                            : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
-                      }`}
-                    >
-                      {lender.type}
-                    </span>
-                  </div>
-
-                  {/* DETAILS */}
-                  <div className="text-sm space-y-1">
-                    <div>
-                      Product:{" "}
-                      {(lender.loanProductCode || "")
-                        .replace(/_/g, " ")
-                        .toLowerCase()
-                        .replace(/\b\w/g, (c) => c.toUpperCase())}
-                    </div>
-                    <div>
-                      Funding: ${lender.minFunding} - ${lender.maxFunding}
-                    </div>
-                    <div>
-                      Term: {lender.minMonths} - {lender.maxMonths}
-                    </div>
-                    <div>Interest: {lender.interestRateRange}</div>
-                  </div>
-
-                  {/* REJECTION */}
-                  {lender.type === "rejected" &&
-                    lender.rejectionReasons?.length > 0 && (
-                      <div
-                        className="mt-3 text-xs text-red-600 bg-red-50 p-2 rounded
-dark:bg-red-900/20 dark:text-red-400"
-                      >
-                        {lender.rejectionReasons.map((r: string, i: number) => (
-                          <div key={i}>• {r}</div>
-                        ))}
+                >
+                  {/* TOP CONTENT */}
+                  <div className="flex-1">
+                    {/* HEADER */}
+                    <div className="flex justify-between items-center mb-3">
+                      <div>
+                        <h3 className="font-bold text-slate-800 dark:text-slate-100">
+                          {lender.name}
+                        </h3>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          {lender.email || "-"}
+                        </p>
                       </div>
-                    )}
-                </div>
 
-                {/* BUTTON ALWAYS BOTTOM */}
-                <div ref={bottomRef} className="mt-4 pt-4 border-t">
-                  <button
-                    disabled={
-                      sendingId === lender.lenderProductId ||
-                      lender.alreadySent ||
-                      !lender.canSend
-                    }
-                    onClick={() =>
-                      sendApplicationToLender(lender.lenderProductId)
-                    }
-                    className={`w-full py-2 rounded-lg text-white font-semibold transition-all duration-300
+                      <span
+                        className={`px-2 py-1 text-xs rounded-full ${
+                          lender.type === "eligible"
+                            ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                            : lender.type === "rejected"
+                              ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                              : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                        }`}
+                      >
+                        {lender.type}
+                      </span>
+                    </div>
+
+                    {/* DETAILS */}
+                    <div className="text-sm space-y-1">
+                      <div>
+                        Product:{" "}
+                        {(lender.loanProductCode || "")
+                          .replace(/_/g, " ")
+                          .toLowerCase()
+                          .replace(/\b\w/g, (c) => c.toUpperCase())}
+                      </div>
+                      <div>
+                        Funding: ${Number(lender.minFunding).toLocaleString()} -
+                        ${Number(lender.maxFunding).toLocaleString()}
+                      </div>
+                      <div>
+                        Term: {lender.minMonths} - {lender.maxMonths}
+                      </div>
+                      <div>Interest: {lender.interestRateRange}</div>
+                      <div>Funding Speed: {lender.fundingSpeedDays} Days</div>
+                    </div>
+
+                    {/* REJECTION */}
+                    {lender.type === "rejected" &&
+                      lender.rejectionReasons?.length > 0 && (
+                        <div
+                          className="mt-3 text-xs text-red-600 bg-red-50 p-2 rounded
+dark:bg-red-900/20 dark:text-red-400"
+                        >
+                          {lender.rejectionReasons.map(
+                            (r: string, i: number) => (
+                              <div key={i}>• {r}</div>
+                            ),
+                          )}
+                        </div>
+                      )}
+                  </div>
+
+                  {/* BUTTON ALWAYS BOTTOM */}
+                  <div ref={bottomRef} className="mt-4 pt-4 border-t">
+                    <button
+                      disabled={
+                        sendingId === lender.lenderProductId ||
+                        lender.alreadySent ||
+                        !lender.canSend
+                      }
+                      onClick={() =>
+                        sendApplicationToLender(lender.lenderProductId)
+                      }
+                      className={`w-full py-2 rounded-lg text-white font-semibold transition-all duration-300
 
      ${
        sendingId === lender.lenderProductId
@@ -2443,20 +2522,20 @@ dark:bg-red-900/20 dark:text-red-400"
 
       disabled:opacity-70
       `}
-                  >
-                    {sendingId === lender.lenderProductId
-                      ? "Sending..."
-                      : lender.alreadySent
-                        ? "Already Sent"
-                        : lender.type === "rejected"
-                          ? "Not Eligible"
-                          : "Send to Lender"}
-                  </button>
+                    >
+                      {sendingId === lender.lenderProductId
+                        ? "Sending..."
+                        : lender.alreadySent
+                          ? "Already Sent"
+                          : lender.type === "rejected"
+                            ? "Not Eligible"
+                            : "Send to Lender"}
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
 
         {/* PAGINATION */}
         {lenderPagination && lenderPagination.totalPages > 1 && (

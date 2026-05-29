@@ -135,21 +135,43 @@ module.exports = async function findEligibleLenders(fastify) {
           safeNumber(getFieldValue("amountRequested")) ??
           safeNumber(application.amountRequested);
 
-        const termMonths = safeNumber(getFieldValue("requested_term_months"));
+        const termMonths =
+          safeNumber(getFieldValue("loanTerm")) ??
+          safeNumber(getFieldValue("requested_term_months"));
 
         const borrowerMinTerm = safeNumber(getFieldValue("minTermMonths"));
 
         const borrowerMaxTerm = safeNumber(getFieldValue("maxTermMonths"));
 
-        let creditScore = safeNumber(getFieldValue("credit_score")) ?? null;
+        let creditScore =
+          safeNumber(getFieldValue("creditScore")) ??
+          safeNumber(getFieldValue("credit_score"));
 
-        if (!creditScore) {
+        if (creditScore === null) {
           const range = getFieldValue("creditScoreRange");
           if (range && typeof range === "string") {
             const minRange = parseInt(range.split("-")[0]);
             creditScore = isNaN(minRange) ? null : minRange;
           }
         }
+
+        const ltv = safeNumber(getFieldValue("ltvPercentage"));
+
+        const ltc = safeNumber(getFieldValue("ltcPercentage"));
+
+        const arv = safeNumber(getFieldValue("arvPercentage"));
+
+        const dscr = safeNumber(getFieldValue("dscr"));
+
+        const netWorth = safeNumber(getFieldValue("netWorth"));
+
+        const propertyType = getFieldValue("propertyType");
+
+        const propertyState = getFieldValue("propertyState");
+
+        const businessIndustry = getFieldValue("business_industry");
+
+        const yearsInBusiness = safeNumber(getFieldValue("yearsInBusiness"));
 
         const { loanProductCode } = application;
 
@@ -251,6 +273,66 @@ module.exports = async function findEligibleLenders(fastify) {
           if (creditScore !== null && lp.minCreditScore) {
             if (creditScore < lp.minCreditScore)
               reasons.push(`Credit score below minimum (${lp.minCreditScore})`);
+          }
+
+          if (
+            ltv !== null &&
+            lp.maxLtvPercent &&
+            ltv > Number(lp.maxLtvPercent)
+          ) {
+            reasons.push(`LTV exceeds maximum (${lp.maxLtvPercent}%)`);
+          }
+
+          if (
+            ltc !== null &&
+            lp.maxLtcPercent &&
+            ltc > Number(lp.maxLtcPercent)
+          ) {
+            reasons.push(`LTC exceeds maximum (${lp.maxLtcPercent}%)`);
+          }
+
+          if (
+            arv !== null &&
+            lp.maxArvPercent &&
+            arv > Number(lp.maxArvPercent)
+          ) {
+            reasons.push(`ARV exceeds maximum (${lp.maxArvPercent}%)`);
+          }
+
+          if (propertyState && lp.statesSupported) {
+            const supportedStates = lp.statesSupported
+              .split(",")
+              .map((s) => s.trim().toLowerCase());
+
+            if (!supportedStates.includes(propertyState.toLowerCase())) {
+              reasons.push("Property state not supported");
+            }
+          }
+
+          if (
+            propertyType &&
+            Array.isArray(lp.propertyTypes) &&
+            lp.propertyTypes.length > 0
+          ) {
+            const lenderPropertyTypes = lp.propertyTypes.map((p) =>
+              String(p?.value ?? p).toLowerCase(),
+            );
+
+            if (
+              !lenderPropertyTypes.includes(String(propertyType).toLowerCase())
+            ) {
+              reasons.push("Property type not supported");
+            }
+          }
+
+          const minExp = Number(lp.minExperience);
+
+          if (
+            yearsInBusiness !== null &&
+            !isNaN(minExp) &&
+            yearsInBusiness < minExp
+          ) {
+            reasons.push(`Minimum experience required (${minExp} years)`);
           }
 
           const lender = lp.lender;
@@ -366,6 +448,18 @@ module.exports = async function findEligibleLenders(fastify) {
               borrowerMinTerm,
               borrowerMaxTerm,
               creditScore,
+
+              ltv,
+              ltc,
+              arv,
+
+              dscr,
+              netWorth,
+
+              propertyType,
+              propertyState,
+              businessIndustry,
+              yearsInBusiness,
             },
 
             totalEligibleLenders: eligibleLenders.length,

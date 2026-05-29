@@ -53,20 +53,19 @@ async function brokerSubmitApplication(fastify) {
 
         /* ================= VALIDATE PRODUCT ================= */
 
-        const brokerProduct =
-          await prisma.brokerApplicationProduct.findFirst({
-            where: {
-              id: applicationProductId,
+        const brokerProduct = await prisma.brokerApplicationProduct.findFirst({
+          where: {
+            id: applicationProductId,
+            isActive: true,
+            brokerApplication: {
               isActive: true,
-              brokerApplication: {
-                isActive: true,
-                brokerOrgId,
-              },
+              brokerOrgId,
             },
-            select: {
-              loanProductCode: true,
-            },
-          });
+          },
+          select: {
+            loanProductCode: true,
+          },
+        });
 
         if (!brokerProduct) {
           return reply.code(404).send({
@@ -80,11 +79,9 @@ async function brokerSubmitApplication(fastify) {
         const result = await prisma.$transaction(async (tx) => {
           const emailField = fields.find((f) => f.fieldKey === "email");
           const firstNameField = fields.find(
-            (f) => f.fieldKey === "first_name"
+            (f) => f.fieldKey === "first_name",
           );
-          const lastNameField = fields.find(
-            (f) => f.fieldKey === "last_name"
-          );
+          const lastNameField = fields.find((f) => f.fieldKey === "last_name");
 
           if (!emailField?.value) {
             throw new Error("Email is required");
@@ -217,8 +214,7 @@ async function brokerSubmitApplication(fastify) {
               },
             ];
 
-            const clientEmail =
-              result.client.contacts?.[0]?.email;
+            const clientEmail = result.client.contacts?.[0]?.email;
 
             if (clientEmail) {
               participants.push({
@@ -236,7 +232,7 @@ async function brokerSubmitApplication(fastify) {
         } catch (err) {
           fastify.log.error(
             { error: err.message },
-            "Conversation creation failed"
+            "Conversation creation failed",
           );
         }
 
@@ -244,8 +240,7 @@ async function brokerSubmitApplication(fastify) {
 
         return reply.code(201).send({
           success: true,
-          message:
-            "Application created successfully (awaiting client action)",
+          message: "Application created successfully (awaiting client action)",
           data: {
             submissionId: result.submission.id,
             applicationId: result.loanApplication.id,
@@ -266,11 +261,10 @@ async function brokerSubmitApplication(fastify) {
 
         return reply.code(500).send({
           success: false,
-          message:
-            "Internal server error while creating application",
+          message: "Internal server error while creating application",
         });
       }
-    }
+    },
   );
 }
 
