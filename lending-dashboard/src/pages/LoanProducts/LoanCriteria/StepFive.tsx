@@ -27,6 +27,8 @@ const fields = [
     "MEZZ_FINANCE",
     "FIX_AND_FLIP",
     "CONSTRUCTION_LOAN",
+    "CONSTRUCTION_LOAN_1_TO_4_UNITS",
+    "FIX_AND_FLIP_LOAN_1_TO_4_UNITS",
   ],
 },
 

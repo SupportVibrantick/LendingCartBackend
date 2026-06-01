@@ -1,6 +1,7 @@
 // prisma/seed/documentTypes.seed.js
+const prisma = require("../client");
 
-async function seedDocumentTypes(prisma) {
+async function seedDocumentTypes() {
   const documentTypes = [
     // =====================================================
     // 🏢 BUSINESS DOCUMENTS
@@ -241,6 +242,41 @@ async function seedDocumentTypes(prisma) {
       name: "Accounts Payable Aging Report",
       description: "AP aging report",
     },
+    {
+  category: "CONSTRUCTION_REHAB",
+  name: "Detailed Construction Budget / Scope of Work",
+  description: "Detailed construction budget and scope of work",
+},
+{
+  category: "CONSTRUCTION_REHAB",
+  name: "Contractor Bids / Contracts",
+  description: "Contractor bids and contracts",
+},
+{
+  category: "CONSTRUCTION_REHAB",
+  name: "Contractor License & Insurance",
+  description: "Contractor license and insurance documents",
+},
+{
+  category: "CONSTRUCTION_REHAB",
+  name: "Draw Schedule",
+  description: "Construction draw schedule",
+},
+{
+  category: "CONSTRUCTION_REHAB",
+  name: "Construction Plans / Permits",
+  description: "Construction plans and permits",
+},
+{
+  category: "CONSTRUCTION_REHAB",
+  name: "As-Built Appraisal (ARV)",
+  description: "After Repair Value appraisal",
+},
+{
+  category: "CONSTRUCTION_REHAB",
+  name: "Architect Plans (if applicable)",
+  description: "Architect plans and drawings",
+},
   ];
 
   for (const doc of documentTypes) {
@@ -268,23 +304,6 @@ async function seedDocumentTypes(prisma) {
   console.log("🎉 All Document Types Seeded Successfully");
 }
 
-const { PrismaClient } = require("@prisma/client");
-
-const prisma = new PrismaClient();
-
-async function main() {
-  await seedDocumentTypes(prisma);
-}
-
-main()
-  .then(async () => {
-    console.log("✅ Document types seeded successfully");
-    await prisma.$disconnect();
-  })
-  .catch(async (e) => {
-    console.error("❌ Seed failed:", e);
-    await prisma.$disconnect();
-    process.exit(1);
-  });
-
-module.exports = seedDocumentTypes;
+module.exports = {
+  seedDocumentTypes,
+};

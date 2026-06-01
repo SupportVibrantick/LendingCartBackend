@@ -209,7 +209,7 @@ const LoanApplicationConfig: React.FC = () => {
     <div className="px-6 py-6 text-gray-900 dark:text-gray-100">
       <div className="mb-6">
         <h1 className="text-2xl font-semibold text-[#2C92D5]">
-          Loan Application Config
+          Loan Application Config 
         </h1>
         <p className="text-sm text-slate-400">
           Map applications with loan products
@@ -264,7 +264,7 @@ const LoanApplicationConfig: React.FC = () => {
                     />
                     <span>
                       {p.name}{" "}
-                      <span className="text-slate-400">({p.code})</span>
+                      {/* <span className="text-slate-400">({p.code})</span> */}
                     </span>
                   </label>
                 ))}

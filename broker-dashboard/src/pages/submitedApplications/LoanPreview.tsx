@@ -492,6 +492,7 @@ const LoanPreview = () => {
     "dscr",
     "netWorth",
     "afterRepairValue",
+    "loanProductCode",
   ];
 
   const scrollToLenders = () => {
@@ -3162,13 +3163,7 @@ dark:bg-red-900/20 dark:text-red-400"
     return `${firstName} ${lastName}`.trim() || "-";
   }, [fields]);
 
-  const productCode = (
-    getFieldValue(fields, "loanProductCode") ||
-    submissionDetail?.loanProduct?.name ||
-    "-"
-  )
-    ?.replace(/_/g, " ")
-    ?.replace(/\b\w/g, (c: string) => c.toUpperCase());
+const productCode = submissionDetail?.loanProduct?.name || "-";
 
   return (
     <>

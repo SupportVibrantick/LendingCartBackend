@@ -1,105 +1,62 @@
-// backend/prisma/seedSubBrokerRole.js
-
 const { PrismaClient } = require("@prisma/client");
 
 const prisma = new PrismaClient();
 
+// Admin seeds
+const { seedRoles } = require("./admin/role.seed");
+const { seedPermissions } = require("./admin/permission.seed");
+const { seedRolePermissions } = require("./admin/rolePermission.seed");
+const { seedPlatformOrg } = require("./admin/platformOrg.seed");
+const { seedAdminUser } = require("./admin/admin.seed");
+const { seedDocumentTypes } = require("./admin/documentTypes.seed");
+
+// Broker seeds
+const { seedBrokerOrg } = require("./broker/brokerOrg.seed");
+const { seedBrokerUser } = require("./broker/broker.seed");
+const { seedApplicationBuilder } = require("./broker/applicationBuilder.seed");
+const {
+  seedApplicationSubmission,
+} = require("./broker/applicationSubmission.seed");
+
+// Lender seeds
+const { seedLenderOrg } = require("./lender/lenderOrg.seed");
+const { seedLenderUser } = require("./lender/lender.seed");
+const { seedLenderProfile } = require("./lender/lenderProfile.seed");
+const { seedLoanProducts } = require("./admin/loanProduct.seed");
+
 async function main() {
-  console.log("▶️ Seeding SUB_BROKER role...");
+  console.log("🚀 Starting database seed...\n");
 
-  const roleName = "SUB_BROKER";
+  // ================== Admin ==================
+  await seedRoles();
+  await seedPermissions();
+  await seedRolePermissions();
+  await seedPlatformOrg();
+  await seedAdminUser();
 
-  const orgName = process.env.SEED_ADMIN_ORG_NAME || "LendingCart Platform";
-  const orgEmail =
-    process.env.SEED_ADMIN_ORG_EMAIL || "platform@lendingcart.local";
+  // ================== Broker ==================
+  await seedBrokerOrg();
+  await seedBrokerUser();
 
-  const adminEmail = process.env.SEED_ADMIN_EMAIL || "admin@lendingcart.local";
-  const adminPassword = process.env.SEED_ADMIN_PASSWORD || "admin@123";
-  const hashed = await bcrypt.hash(adminPassword, 10);
+  // ================== Lender ==================
+  await seedLenderOrg();
+  await seedLenderUser();
+  await seedLenderProfile();
 
-  // 1) Seed roles
-  console.log("📦 Seeding roles...");
-  await ensureRoles(rolesToSeed);
+  await seedLoanProducts();
+  await seedDocumentTypes();
 
-  // 2) Find or create Organization
-  let organization = await prisma.organization.findFirst({
-    where: { name: orgName },
-  });
+  // Application builder
+  await seedApplicationBuilder();
 
-  if (existing) {
-    console.log(`ℹ️ Role already exists: ${roleName} (${existing.id})`);
-    return;
-  }
-
-  // Create role
-  const role = await prisma.role.create({
-    data: {
-      name: roleName,
-      description: "Sub broker role",
-    },
-  });
-
-  console.log("Admin user upserted:", admin.id);
-
-  // 4) Ensure PLATFORM_ADMIN role exists and link user -> role via UserRole if not already linked
-  const platformAdminRole = await prisma.role.findFirst({
-    where: { name: "PLATFORM_ADMIN" },
-  });
-  if (!platformAdminRole) {
-    throw new Error("PLATFORM_ADMIN role not found after seeding.");
-  }
-
-  const existingUserRole = await prisma.userRole.findFirst({
-    where: { userId: admin.id, roleId: platformAdminRole.id },
-  });
-
-  if (!existingUserRole) {
-    await prisma.userRole.create({
-      data: {
-        userId: admin.id,
-        roleId: platformAdminRole.id,
-      },
-    });
-    console.log(`✅ Linked user ${admin.id} -> role ${platformAdminRole.name}`);
-  } else {
-    console.log(
-      `ℹ️  User ${admin.id} already has role ${platformAdminRole.name}`,
-    );
-  }
-
-  console.log("\n🎉 Seed finished.");
-  console.log(`Organization: ${organization.name} (${organization.id})`);
-  console.log(`Admin Email: ${admin.email}`);
-  console.log(`Admin Password (plaintext): ${adminPassword}`);
+  console.log("\n✅ Database seed completed successfully.");
 }
 
 main()
-  .catch((e) => {
-    console.error("❌ Seeding failed:", e);
+  .catch((error) => {
+    console.error("❌ Seed failed:", error);
     process.exit(1);
   })
   .finally(async () => {
     await prisma.$disconnect();
   });
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  

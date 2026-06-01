@@ -1832,6 +1832,7 @@ enum LoanProductCode {
    * SBA & USDA
    * ==========================================
    */
+   
   SBA_504_REAL_ESTATE_AND_EQUIPMENT
   SBA_7A_WORKING_CAPITAL
   SBA_7A_BUSINESS_ACQUISITION

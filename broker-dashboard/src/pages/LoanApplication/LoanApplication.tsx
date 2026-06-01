@@ -250,8 +250,10 @@ export const CATEGORY_LOAN_TYPES: Record<
   ABL: [
     "EQUIPMENT_FINANCE",
     "PURCHASE_ORDER_FINANCE",
+    "ACCOUNTS_RECEIVABLE",
     "ACCOUNTS_RECEIVABLE_FINANCE",
     "ACCOUNTS_PAYABLE_FINANCE",
+    "ASSET_BASED_LENDING",
   ],
 };
 
@@ -291,7 +293,7 @@ const PRODUCT_LABELS: Record<string, string> = {
   PURCHASE_ORDER_FINANCE: "Purchase Order Finance",
 
   ACCOUNTS_RECEIVABLE_FINANCE: "Accounts Receivable",
-
+  ACCOUNTS_RECEIVABLE: "Accounts Receivable",
   ACCOUNTS_PAYABLE_FINANCE: "Accounts Payable",
 };
 
@@ -595,14 +597,14 @@ const LoanApplication = () => {
     </div>
   );
 
-  const handleStepClick = (index: number) => {
-    if (index > currentStep) {
-      const isValid = validateCurrentStep();
-      if (!isValid) return;
-    }
+  // const handleStepClick = (index: number) => {
+  //   if (index > currentStep) {
+  //     const isValid = validateCurrentStep();
+  //     if (!isValid) return;
+  //   }
 
-    goToStep(index);
-  };
+  //   goToStep(index);
+  // };
 
   const activeProduct = productsMeta.find(
     (p: any) => p.loanProductCode === selectedProduct,
@@ -1312,6 +1314,21 @@ const LoanApplication = () => {
         );
       }
 
+      case "TEXTAREA":
+        case "textarea":
+  return (
+    <textarea
+      rows={4}
+      placeholder={field.placeholder || ""}
+      required={field.required}
+      value={dynamicFormData[field.fieldId] || ""}
+      onChange={(e) =>
+        handleDynamicFieldChange(field.fieldId, e.target.value)
+      }
+      className={commonClasses}
+    />
+  );
+
       case "EMAIL":
         return (
           <input
@@ -1716,6 +1733,13 @@ const LoanApplication = () => {
       "International Receivables",
     ],
 
+    ACCOUNTS_RECEIVABLE: [
+      "Invoice Factoring",
+      "ABL Line",
+      "Selective Receivable Finance",
+      "International Receivables",
+    ],
+
     /* 18️⃣ Accounts Payable Finance */
     ACCOUNTS_PAYABLE_FINANCE: [
       "Supplier Finance Program",
@@ -1795,14 +1819,14 @@ const LoanApplication = () => {
               <button
                 key={step}
                 type="button"
-                onClick={() => handleStepClick(index)}
+                // onClick={() => handleStepClick(index)}
                 className={`px-4 py-2 text-xs rounded-full font-medium transition
         ${
           index === currentStep
             ? "bg-[#2C92D5] text-white shadow"
             : index < currentStep
               ? "bg-green-500 text-white hover:bg-green-600"
-              : "bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600"
+              : "bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300  dark:hover:bg-slate-600"
         }`}
               >
                 {step}

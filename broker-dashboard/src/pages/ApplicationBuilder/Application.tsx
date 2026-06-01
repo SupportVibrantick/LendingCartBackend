@@ -687,6 +687,35 @@ export default function ApplicationBuilder() {
     }
   };
 
+  const PRODUCT_LABELS: Record<string, string> = {
+  FIX_AND_FLIP_LOAN_1_TO_4_UNITS: "FIX & FLIP",
+  DSCR_LOAN_1_TO_4_UNITS: "DSCR",
+  CONSTRUCTION_LOAN_1_TO_4_UNITS: "CONSTRUCTION",
+  BRIDGE_LOAN_1_TO_4_UNITS: "BRIDGE LOAN",
+
+  SBA_7A: "SBA 7A",
+  SBA_7A_WORKING_CAPITAL: "SBA 7A WORKING CAPITAL",
+  SBA_7A_BUSINESS_ACQUISITION: "SBA 7A BUSINESS ACQUISITION",
+  SBA_7A_EQUIPMENT_PURCHASE: "SBA 7A EQUIPMENT PURCHASE",
+  SBA_7A_REAL_ESTATE: "SBA 7A REAL ESTATE",
+  SBA_504_REAL_ESTATE_AND_EQUIPMENT: "SBA 504 Real Estate",
+
+  USDA_BI: "USDA B&I",
+
+  CMBS: "CMBS",
+  AGENCY_LOAN_MULTIFAMILY: "AGENCY MULTIFAMILY",
+  CRE_PERMANENT_LOAN: "CRE PERMANENT",
+  RENTAL_PORTFOLIO: "RENTAL PORTFOLIO",
+  MEZZANINE_FINANCE: "MEZZANINE FINANCE",
+  PREFERRED_EQUITY: "PREFERRED EQUITY",
+
+  PURCHASE_ORDER_FINANCE: "PURCHASE ORDER FINANCE",
+  EQUIPMENT_FINANCE: "EQUIPMENT FINANCE",
+  ACCOUNTS_PAYABLE_FINANCE: "ACCOUNTS PAYABLE FINANCE",
+  ACCOUNTS_RECEIVABLE: "ACCOUNTS RECEIVABLE",
+  INVOICE_FACTORING: "INVOICE FACTORING",
+};
+
   /* ================= UI ================= */
 
   return (
@@ -723,7 +752,8 @@ export default function ApplicationBuilder() {
             </option>
             {products.map((p) => (
               <option key={p.id} value={p.id}>
-                {p.loanProductCode}
+                {PRODUCT_LABELS[p.loanProductCode] ??
+  p.loanProductCode.replace(/_/g, " ")}
               </option>
             ))}
           </select>

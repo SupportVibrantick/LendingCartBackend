@@ -180,7 +180,9 @@ maxLtcPercent:
   [
     "MEZZ_FINANCE",
     "FIX_AND_FLIP",
+    "FIX_AND_FLIP_LOAN_1_TO_4_UNITS",
     "CONSTRUCTION_LOAN",
+    "CONSTRUCTION_LOAN_1_TO_4_UNITS",
   ].includes(item.loanProductCode) &&
   item.maxLtcPercent
     ? new Prisma.Decimal(item.maxLtcPercent)

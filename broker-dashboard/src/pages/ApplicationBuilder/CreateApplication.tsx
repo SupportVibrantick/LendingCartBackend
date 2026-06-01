@@ -203,7 +203,7 @@ const CreateApplication: React.FC = () => {
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-[#2C92D5]">
-          Application Builder
+          Application Builder 
         </h1>
         <p className="text-sm text-gray-500 dark:text-slate-400">
           Create & manage application flows

@@ -48,7 +48,7 @@ async function listLoanProducts(fastify) {
         success: true,
         data: sortedProducts,
       });
-    }
+    },
   );
 }
 

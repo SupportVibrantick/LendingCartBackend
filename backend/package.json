@@ -9,13 +9,11 @@
   "scripts": {
     "dev": "nodemon ./bin/www",
     "start": "node ./bin/www",
-    "migrations": "prisma migrate dev --name init",
-    "migrate": "prisma migrate dev",
+    "db:migrations": "prisma migrate dev --name init",
+    "db:migrate": "prisma migrate dev",
+    "db:reset": "prisma migrate dev reset",
     "prisma:studio": "prisma studio",
-    "seed": "node prisma/seed.js",
-    "seedLoanProducts": "node prisma/broker/seedLoanProducts.js",
-    "productFieldsSeed": "node prisma/broker/productFields.seed.js",
-    "documentTypesSeed": "node prisma/admin/documentTypes.seed.js"
+    "db:seed": "node prisma/seed.js"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",
