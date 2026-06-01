@@ -8,16 +8,15 @@ async function seedApplicationBuilder() {
   const brokerOrgName =
     process.env.SEED_BROKER_ORG_NAME || "LendingCart Broker";
 
-  const brokerOrg = await prisma.organization.findFirst({
-    where: {
-      name: brokerOrgName,
-      type: "BROKER",
-    },
-  });
+const brokerOrg = await prisma.organization.findFirst({
+  where: {
+    type: "BROKER",
+  },
+});
 
-  if (!brokerOrg) {
-    throw new Error(`Broker organization not found: ${brokerOrgName}`);
-  }
+if (!brokerOrg) {
+  throw new Error("Broker organization not found");
+}
 
   /*
    * ==========================================
