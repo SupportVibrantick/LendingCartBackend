@@ -23,6 +23,7 @@ const { seedLenderOrg } = require("./lender/lenderOrg.seed");
 const { seedLenderUser } = require("./lender/lender.seed");
 const { seedLenderProfile } = require("./lender/lenderProfile.seed");
 const { seedLoanProducts } = require("./admin/loanProduct.seed");
+// const { seedEligibleApplication } = require("./broker/application.seed");
 
 async function main() {
   console.log("🚀 Starting database seed...\n");
@@ -37,14 +38,16 @@ async function main() {
   // ================== Broker ==================
   await seedBrokerOrg();
   await seedBrokerUser();
+  await seedLoanProducts();
 
   // ================== Lender ==================
   await seedLenderOrg();
   await seedLenderUser();
   await seedLenderProfile();
 
-  await seedLoanProducts();
+  
   await seedDocumentTypes();
+  // await seedEligibleApplication();
 
   // Application builder
   await seedApplicationBuilder();

@@ -93,6 +93,73 @@ function mapApiFieldTypeToUI(type: ApiFieldType) {
   }
 }
 
+const STATIC_SECTIONS = [
+  {
+    name: "Loan Request",
+    fields: [
+      "Purpose of the Loan",
+      "Amount of Loan Request",
+      "Expected Interest Rate %",
+      "Current Market Value (As-Is)",
+      "Purchase Price $",
+      "Purchase Date",
+      "After Repair Value (ARV)",
+      "Total Assets",
+      "Total Liabilities",
+      "Property Type",
+      "Sub Property Type",
+      "Recourse",
+      "Property Address",
+      "Property City",
+      "Property State",
+      "Property Zip",
+    ],
+  },
+
+  {
+    name: "Borrower Info",
+    fields: [
+      "Borrower Name",
+      "Company Name",
+      "Phone",
+      "Email",
+      "Employer",
+      "Date of Birth",
+      "SSN",
+      "Credit Score",
+      "Address",
+      "Mailing Address",
+    ],
+  },
+
+  {
+    name: "Entity Info",
+    fields: [
+      "Entity Legal Name",
+      "Entity Type",
+      "DBA",
+      "Formation Date",
+      "Years In Business",
+    ],
+  },
+
+  {
+    name: "Loan Term & Income",
+    fields: [
+      "Loan Term",
+      "Monthly Rent",
+      "Gross Revenue Actual",
+      "Gross Revenue Proforma",
+      "NOI Actual",
+      "NOI Proforma",
+      "Annual Taxes",
+      "Flood Zone",
+      "Insurance Premium",
+      "HOA Dues",
+    ],
+  },
+];
+
 /* ================= FIELD RENDERER ================= */
 
 function RenderActiveField({
@@ -196,10 +263,11 @@ function RenderActiveField({
     return (
       <textarea
         rows={4}
+        disabled
         placeholder={field.placeholder || ""}
         className="w-full rounded-lg border px-3 py-2 text-xs
            bg-white text-slate-900 border-slate-300
-           dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600"
+           dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600 cursor-not-allowed"
         onChange={(e) => onChange(field.fieldKey, e.target.value)}
       />
     );
@@ -210,9 +278,10 @@ function RenderActiveField({
     return (
       <input
         type="file"
+        disabled
         className="w-full rounded-lg border px-3 py-2 text-xs
            bg-white text-slate-900 border-slate-300
-           dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600"
+           dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600 cursor-not-allowed"
         onChange={(e) => onChange(field.fieldKey, e.target.files?.[0] || null)}
       />
     );
@@ -223,7 +292,7 @@ function RenderActiveField({
     <input
       type={uiType}
       placeholder={field.placeholder || ""}
-      className="w-full rounded-lg border px-3 py-2 text-xs"
+      className="w-full rounded-lg border px-3 py-2 text-xs cursor-not-allowed"
       onChange={(e) => onChange(field.fieldKey, e.target.value)}
       disabled
     />
@@ -265,6 +334,7 @@ export default function ActiveApplication() {
   const [data, setData] = useState<ActiveApplicationResponse | null>(null);
   const [activeProductId, setActiveProductId] = useState("");
   const [values, setValues] = useState<Record<string, any>>({});
+  const [productLoading, setProductLoading] = useState(false);
 
   const handleChange = (key: string, value: any) => {
     setValues(values);
@@ -311,7 +381,7 @@ export default function ActiveApplication() {
           {/* Tooltip */}
           <div
             className="
-    absolute left-1/2 -translate-x-1/2 bottom-full mb-2
+    absolute left-1/2 -translate-x-1/2 bottom-full
     w-64
     bg-slate-900 dark:bg-slate-800
     text-white text-xs
@@ -335,15 +405,25 @@ export default function ActiveApplication() {
              bg-white text-slate-900 border-slate-300
              dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600"
         value={activeProductId}
-        onChange={(e) => setActiveProductId(e.target.value)}
+        onChange={(e) => {
+          const value = e.target.value;
+
+          setProductLoading(true);
+
+          setTimeout(() => {
+            setActiveProductId(value);
+            setProductLoading(false);
+          }, 300);
+        }}
       >
         {data.products.map((p) => (
           <option key={p.productId} value={p.productId}>
             {PRODUCT_LABELS[p.loanProductCode] ??
-  p.loanProductCode.replace(/_/g, " ")}
+              p.loanProductCode.replace(/_/g, " ")}
           </option>
         ))}
       </select>
+
       {hasNoFields && (
         <div
           className="flex flex-col items-center justify-center py-16
@@ -388,46 +468,58 @@ export default function ActiveApplication() {
           </p>
         </div>
       )}
-      <form
-        className="space-y-8 p-6 rounded-xl border
+      {productLoading ? (
+        <div className="flex items-center justify-center py-20">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-300 border-t-blue-600" />
+        </div>
+      ) : (
+        <form
+          className="space-y-8 p-6 rounded-xl border
                  bg-white border-slate-200
                  dark:bg-slate-900 dark:border-slate-700"
-      >
-        {product?.sections.map((section) => (
-          <div key={section.id}>
-            <h3 className="text-sm font-semibold mb-3 text-slate-800 dark:text-slate-200">
-              {section.name}
-            </h3>
+        >
+          {STATIC_SECTIONS.map((section) => (
+            <div key={section.name}>
+              <h3 className="text-sm font-semibold mb-3 text-slate-800 dark:text-slate-200">
+                {section.name}
+              </h3>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              {section.fields.map((f) => (
-                <div key={f.id}>
-                  <label
-                    className="block text-sm font-medium mb-2
-                  text-slate-700 dark:text-slate-300"
-                  >
-                    {f.label}
-                    {f.isRequired && (
-                      <span className="text-red-500 ml-1">*</span>
-                    )}
-                  </label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {section.fields.map((fieldKey) => (
+                  <div key={fieldKey}>
+                    <label
+                      className="block text-sm font-medium mb-2
+            text-slate-700 dark:text-slate-300"
+                    >
+                      {fieldKey}
+                    </label>
 
-                  <RenderActiveField field={f} onChange={handleChange} />
-                </div>
-              ))}
+                    <input
+                      type="text"
+                      disabled
+                      className="w-full rounded-lg border px-3 py-2 text-xs
+            bg-white text-slate-900 border-slate-300
+            dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600 cursor-not-allowed"
+                      onChange={(e) => handleChange(fieldKey, e.target.value)}
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+          {product?.sections.map((section) => (
+            <div key={section.id}>
+              <h3 className="text-sm font-semibold mb-3 text-slate-800 dark:text-slate-200">
+                {section.name}
+              </h3>
 
-        {(product?.unsectionedFields?.length ?? 0) > 0 && (
-          <div>
-            <h3 className="font-semibold mb-4">Other Information</h3>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              {product &&
-                (product.unsectionedFields ?? []).map((f) => (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {section.fields.map((f) => (
                   <div key={f.id}>
-                    <label className="block text-sm font-medium mb-2">
+                    <label
+                      className="block text-sm font-medium mb-2
+                  text-slate-700 dark:text-slate-300"
+                    >
                       {f.label}
                       {f.isRequired && (
                         <span className="text-red-500 ml-1">*</span>
@@ -437,18 +529,41 @@ export default function ActiveApplication() {
                     <RenderActiveField field={f} onChange={handleChange} />
                   </div>
                 ))}
+              </div>
             </div>
-          </div>
-        )}
+          ))}
 
-        {/* <button
+          {(product?.unsectionedFields?.length ?? 0) > 0 && (
+            <div>
+              <h3 className="font-semibold mb-4">Other Information</h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {product &&
+                  (product.unsectionedFields ?? []).map((f) => (
+                    <div key={f.id}>
+                      <label className="block text-sm font-medium mb-2">
+                        {f.label}
+                        {f.isRequired && (
+                          <span className="text-red-500 ml-1">*</span>
+                        )}
+                      </label>
+
+                      <RenderActiveField field={f} onChange={handleChange} />
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
+
+          {/* <button
           type="button"
           onClick={() => console.log(values)}
           className="bg-blue-600 text-white px-6 py-2 rounded"
         >
           Submit Application
         </button> */}
-      </form>
+        </form>
+      )}
     </div>
   );
 }

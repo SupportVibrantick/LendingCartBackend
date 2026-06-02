@@ -16,6 +16,7 @@
     "db:seed": "node prisma/seed.js"
   },
   "dependencies": {
+    "@faker-js/faker": "^10.4.0",
     "@fastify/cookie": "^11.0.2",
     "@fastify/cors": "^11.1.0",
     "@fastify/formbody": "^8.0.2",

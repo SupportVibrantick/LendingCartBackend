@@ -2199,6 +2199,22 @@ text-slate-800 dark:border-slate-700 dark:text-slate-200"
     </div>
   );
 
+  const PRODUCT_LABELS: Record<string, string> = {
+  FIX_AND_FLIP_LOAN_1_TO_4_UNITS: "FIX & FLIP",
+  DSCR_LOAN_1_TO_4_UNITS: "DSCR",
+  CONSTRUCTION_LOAN_1_TO_4_UNITS: "CONSTRUCTION",
+  BRIDGE_LOAN_1_TO_4_UNITS: "BRIDGE LOAN",
+  SBA_504_REAL_ESTATE_AND_EQUIPMENT: "SBA 504",
+  USDA_BI: "USDA B&I",
+  AGENCY_LOAN_MULTIFAMILY: "AGENCY MULTIFAMILY",
+  CRE_PERMANENT_LOAN: "CRE PERMANENT",
+  RENTAL_PORTFOLIO: "RENTAL PORTFOLIO",
+  PURCHASE_ORDER_FINANCE: "PURCHASE ORDER FINANCE",
+  ACCOUNTS_PAYABLE_FINANCE: "AP SUPPLY CHAIN",
+  ACCOUNTS_RECEIVABLE: "ACCOUNTS RECEIVABLE",
+  INVOICE_FACTORING: "AR FACTORING",
+};
+
   const renderFindLenders = () => {
     const filteredLenders = (lenders || []).filter((lender) => {
       const matchesSearch =
@@ -2466,10 +2482,10 @@ dark:border-slate-800 dark:bg-slate-900"
                     <div className="text-sm space-y-1">
                       <div>
                         Product:{" "}
-                        {(lender.loanProductCode || "")
-                          .replace(/_/g, " ")
-                          .toLowerCase()
-                          .replace(/\b\w/g, (c) => c.toUpperCase())}
+{PRODUCT_LABELS[lender.loanProductCode] ??
+  lender.loanProductCode
+    ?.replace(/_/g, " ")
+    .toUpperCase()}
                       </div>
                       <div>
                         Funding: ${Number(lender.minFunding).toLocaleString()} -

@@ -559,6 +559,22 @@ useEffect(() => {
   return () => clearTimeout(timer);
 }, [searchTerm]);
 
+const PRODUCT_LABELS: Record<string, string> = {
+  FIX_AND_FLIP_LOAN_1_TO_4_UNITS: "FIX & FLIP",
+  DSCR_LOAN_1_TO_4_UNITS: "DSCR",
+  CONSTRUCTION_LOAN_1_TO_4_UNITS: "CONSTRUCTION",
+  BRIDGE_LOAN_1_TO_4_UNITS: "BRIDGE LOAN",
+  SBA_504_REAL_ESTATE_AND_EQUIPMENT: "SBA 504",
+  USDA_BI: "USDA B&I",
+  AGENCY_LOAN_MULTIFAMILY: "AGENCY MULTIFAMILY",
+  CRE_PERMANENT_LOAN: "CRE PERMANENT",
+  RENTAL_PORTFOLIO: "RENTAL PORTFOLIO",
+  PURCHASE_ORDER_FINANCE: "PURCHASE ORDER FINANCE",
+  ACCOUNTS_PAYABLE_FINANCE: "AP SUPPLY CHAIN",
+  ACCOUNTS_RECEIVABLE: "ACCOUNTS RECEIVABLE",
+  INVOICE_FACTORING: "AR FACTORING",
+};
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#0b1120] p-2 text-slate-900 dark:text-slate-100 selection:bg-blue-100 dark:selection:bg-blue-900/30">
       {/* Header Area */}
@@ -760,9 +776,10 @@ rows.map((row) => {
                         {/* Loan Type */}
                         <td className="px-5 py-4">
                           <span className="text-[12px] text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/50 px-2 py-1 rounded">
-                            {row.loanType
-                              ?.replace(/_/g, " ")
-                              ?.replace(/\b\w/g, (c) => c.toUpperCase())}
+                              {PRODUCT_LABELS[row.loanType] ??
+  row.loanType
+    ?.replace(/_/g, " ")
+    .toUpperCase()}
                           </span>
                         </td>
 
@@ -996,9 +1013,9 @@ transition rounded-lg mx-1"
                                     )}
 
                                     {/* Reject */}
-                                    {formatApplicationStatus(
-                                      row.lenderDecision,
-                                    ) !== "Approved" && (
+                                  {!["APPROVED", "DECLINED"].includes(
+  normalizeStatus(row.lenderDecision) || ""
+) && (
                                       <button
                                         disabled={!isActionAllowed}
                                         onClick={() => {

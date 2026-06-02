@@ -1205,7 +1205,7 @@ const LoanApplication = () => {
     formData.loanRequest.totalLiabilities || "0",
   );
 
-  const netWorth = borrowerAssets - borrowerLiabilities;
+  const netWorth = borrowerAssets - borrowerLiabilities; 
 
   const calculateAnnualDebtService = (
     loanAmount: number,
@@ -1315,19 +1315,19 @@ const LoanApplication = () => {
       }
 
       case "TEXTAREA":
-        case "textarea":
-  return (
-    <textarea
-      rows={4}
-      placeholder={field.placeholder || ""}
-      required={field.required}
-      value={dynamicFormData[field.fieldId] || ""}
-      onChange={(e) =>
-        handleDynamicFieldChange(field.fieldId, e.target.value)
-      }
-      className={commonClasses}
-    />
-  );
+      case "textarea":
+        return (
+          <textarea
+            rows={4}
+            placeholder={field.placeholder || ""}
+            required={field.required}
+            value={dynamicFormData[field.fieldId] || ""}
+            onChange={(e) =>
+              handleDynamicFieldChange(field.fieldId, e.target.value)
+            }
+            className={commonClasses}
+          />
+        );
 
       case "EMAIL":
         return (

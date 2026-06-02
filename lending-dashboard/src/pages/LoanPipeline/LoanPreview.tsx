@@ -229,6 +229,22 @@ export default function LoanPreview() {
     };
   }, [loiUrl]);
 
+  const PRODUCT_LABELS: Record<string, string> = {
+    FIX_AND_FLIP_LOAN_1_TO_4_UNITS: "FIX & FLIP",
+    DSCR_LOAN_1_TO_4_UNITS: "DSCR",
+    CONSTRUCTION_LOAN_1_TO_4_UNITS: "CONSTRUCTION",
+    BRIDGE_LOAN_1_TO_4_UNITS: "BRIDGE LOAN",
+    SBA_504_REAL_ESTATE_AND_EQUIPMENT: "SBA 504",
+    USDA_BI: "USDA B&I",
+    AGENCY_LOAN_MULTIFAMILY: "AGENCY MULTIFAMILY",
+    CRE_PERMANENT_LOAN: "CRE PERMANENT",
+    RENTAL_PORTFOLIO: "RENTAL PORTFOLIO",
+    PURCHASE_ORDER_FINANCE: "PURCHASE ORDER FINANCE",
+    ACCOUNTS_PAYABLE_FINANCE: "AP SUPPLY CHAIN",
+    ACCOUNTS_RECEIVABLE: "ACCOUNTS RECEIVABLE",
+    INVOICE_FACTORING: "AR FACTORING",
+  };
+
   const Metric = ({ label, value }: any) => {
     return (
       <div className="flex flex-col gap-1 border-r border-white/20 pr-4 last:border-none">
@@ -735,7 +751,11 @@ export default function LoanPreview() {
           <InfoCard label="Status" value={submissionDetail.status} />
           <InfoCard
             label="Loan Product"
-            value={submissionDetail.loanApplication?.loanProductCode}
+            value={
+              PRODUCT_LABELS[
+                submissionDetail.loanApplication?.loanProductCode
+              ] || submissionDetail.loanApplication?.loanProductCode
+            }
           />
           <InfoCard
             label="Borrower"
@@ -783,11 +803,13 @@ export default function LoanPreview() {
                             : formatFieldKey(field.fieldKey)}
                         </p>
                         <p className="text-sm font-medium break-words">
-                          {typeof value === "string"
-                            ? value
-                                .replace(/_/g, " ")
-                                .replace(/\b\w/g, (c) => c.toUpperCase())
-                            : String(value ?? "-")}
+                          {field.fieldKey === "loanProductCode"
+                            ? PRODUCT_LABELS[value] || value
+                            : typeof value === "string"
+                              ? value
+                                  .replace(/_/g, " ")
+                                  .replace(/\b\w/g, (c) => c.toUpperCase())
+                              : String(value ?? "-")}
                         </p>
                       </div>
                     );
@@ -1533,7 +1555,12 @@ export default function LoanPreview() {
                     className="text-sm font-semibold
         text-purple-900 dark:text-purple-100"
                   >
-                    {submissionDetail.loanApplication.loanProductCode}
+                    {PRODUCT_LABELS[
+                      submissionDetail.loanApplication.loanProductCode
+                    ] ??
+                      submissionDetail.loanApplication.loanProductCode
+                        ?.replace(/_/g, " ")
+                        .toUpperCase()}
                   </span>
                 </div>
               </div>
