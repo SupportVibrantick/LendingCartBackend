@@ -171,10 +171,26 @@ module.exports = async function getConversations(fastify) {
             if (conv.type === "CLIENT_BROKER") {
               const client = await prisma.client.findUnique({
                 where: { id: loan.clientId },
-                select: { legalName: true },
+                include: {
+                  contacts: {
+                    where: {
+                      isPrimary: true,
+                    },
+                    take: 1,
+                  },
+                },
               });
 
-              title = `Client - ${client?.legalName || "Unknown"}`;
+              const primaryContact = client?.contacts?.[0];
+
+              const clientName =
+                `${primaryContact?.firstName || ""} ${
+                  primaryContact?.lastName || ""
+                }`.trim() ||
+                client?.legalName ||
+                "Unknown";
+
+              title = `Client - ${clientName}`;
             }
 
             // LENDER CHAT
@@ -206,10 +222,10 @@ module.exports = async function getConversations(fastify) {
                 `${subBroker?.firstName || ""} ${
                   subBroker?.lastName || ""
                 }`.trim() || "Sub Broker";
-title =
-  conv.chatCategory === "LOAN_OFFICER"
-    ? `Sub Broker • ${subBrokerName} (Loan Officer Chat)`
-    : `Sub Broker • ${subBrokerName}`;
+              title =
+                conv.chatCategory === "LOAN_OFFICER"
+                  ? `Sub Broker • ${subBrokerName} (Loan Officer Chat)`
+                  : `Sub Broker • ${subBrokerName}`;
             }
 
             return {

@@ -65,7 +65,11 @@ async function getClientApplicationDetailsRoute(fastify) {
           collaterals: true,
           financials: true,
           statusHistory: true,
-          client: true,
+          client: {
+  include: {
+    contacts: true,
+  },
+},
           brokerOrg: true,
           applicationLenders: true,
         },
@@ -106,7 +110,21 @@ async function getClientApplicationDetailsRoute(fastify) {
         }
       }
 
-      const getField = (key) => fieldMap.get(key) ?? null;
+      const getField = (...keys) => {
+  for (const key of keys) {
+    const value = fieldMap.get(key);
+
+    if (
+      value !== undefined &&
+      value !== null &&
+      value !== ""
+    ) {
+      return value;
+    }
+  }
+
+  return null;
+};
 
       const toNumber = (val) => {
         if (val === null || val === undefined) return null;
@@ -117,27 +135,59 @@ async function getClientApplicationDetailsRoute(fastify) {
       /* ===============================
          FIXED VALUES
       =============================== */
-      let amountRequested = null;
+const amountRequested =
+  toNumber(
+    getField(
+      "amountRequested",
+      "loan_amount",
+      "loanAmount"
+    )
+  ) ??
+  application.amountRequested ??
+  0;
 
-      if (getField("amountRequested") !== null) {
-        amountRequested = toNumber(getField("amountRequested"));
-      } else if (getField("loan_amount") !== null) {
-        amountRequested = toNumber(getField("loan_amount"));
-      } else if (getField("loanAmount") !== null) {
-        amountRequested = toNumber(getField("loanAmount"));
-      } else if (application.amountRequested !== null) {
-        amountRequested = Number(application.amountRequested);
-      }
+const loanProductCode =
+  getField(
+    "loanProductCode",
+    "loan_product",
+    "productCode"
+  ) ||
+  application.loanProductCode ||
+  null;
 
-      let loanProductCode = null;
+  const borrowerFirstName =
+  getField("borrowerFirstName", "first_name") ||
+  application.client?.contacts?.[0]?.firstName ||
+  "";
 
-      if (getField("loanProductCode")) {
-        loanProductCode = getField("loanProductCode");
-      } else if (getField("loan_product")) {
-        loanProductCode = getField("loan_product");
-      } else if (application.loanProductCode) {
-        loanProductCode = application.loanProductCode;
-      }
+const borrowerLastName =
+  getField("borrowerLastName", "last_name") ||
+  application.client?.contacts?.[0]?.lastName ||
+  "";
+
+const borrowerName =
+  `${borrowerFirstName} ${borrowerLastName}`.trim();
+
+const borrowerEmail =
+  getField("email", "borrowerEmail") ||
+  application.client?.contacts?.[0]?.email ||
+  "";
+
+const borrowerPhone =
+  getField("phone", "mobile", "borrowerPhone") ||
+  application.client?.contacts?.[0]?.phone ||
+  "";
+
+const propertyAddress =
+  getField(
+    "propertyAddress",
+    "property_address",
+    "businessAddress",
+    "business_address"
+  ) || "";
+
+const borrowerSignature =
+  getField("borrowerSignature") || null;
 
       /* ===============================
          FINAL RESPONSE ✅ FULL DATA
@@ -149,6 +199,12 @@ async function getClientApplicationDetailsRoute(fastify) {
 
           amountRequested,
           loanProductCode,
+
+  borrowerName,
+  borrowerEmail,
+  borrowerPhone,
+  propertyAddress,
+  borrowerSignature,
 
           // 🔥 FULL OBJECT (NO TRIM)
           feeAgreement: feeAgreement || null,

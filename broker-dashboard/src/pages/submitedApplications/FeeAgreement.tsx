@@ -25,6 +25,12 @@ export default function FeeAgreement({ applicationId, getAuthHeaders }: Props) {
     exclusivityMonths: "",
   });
 
+  const [errors, setErrors] = useState({
+  brokerPoints: "",
+  upfrontFee: "",
+  exclusivityMonths: "",
+});
+
   useEffect(() => {
     if (applicationId) fetchAgreement();
   }, [applicationId]);
@@ -66,6 +72,39 @@ export default function FeeAgreement({ applicationId, getAuthHeaders }: Props) {
 
   const handleUpdate = async () => {
     try {
+      const newErrors = {
+  brokerPoints: "",
+  upfrontFee: "",
+  exclusivityMonths: "",
+};
+
+if (!form.brokerPoints?.toString().trim()) {
+  newErrors.brokerPoints = "Broker Points is required";
+}
+
+if (!form.upfrontFee?.toString().trim()) {
+  newErrors.upfrontFee = "Upfront Fee is required";
+}
+
+if (!form.exclusivityMonths?.toString().trim()) {
+  newErrors.exclusivityMonths = "Exclusivity Months is required";
+}
+
+if (
+  newErrors.brokerPoints ||
+  newErrors.upfrontFee ||
+  newErrors.exclusivityMonths
+) {
+  setErrors(newErrors);
+  return;
+}
+
+setErrors({
+  brokerPoints: "",
+  upfrontFee: "",
+  exclusivityMonths: "",
+});
+
       setUpdating(true);
 
       const res = await fetch(
@@ -325,9 +364,9 @@ dark:text-slate-300"
           <p>
             <b>Phone:</b> {data.brokerPhone || "—"}
           </p>
-          <p>
+          {/* <p>
             <b>Address:</b> {data.brokerAddress || "—"}
-          </p>
+          </p> */}
         </div>
 
         {/* CLIENT DETAILS */}
@@ -386,9 +425,9 @@ dark:border-slate-700 dark:bg-slate-800"
           <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-6 relative">
             {/* HEADER */}
             <h3 className="text-lg font-semibold mb-4 text-gray-800">
-              Update Fee Agreement
+              Update Fee Agreement 
             </h3>
-
+  
             {/* FORM */}
             <div className="space-y-4">
               {/* Broker Points */}
@@ -396,14 +435,32 @@ dark:border-slate-700 dark:bg-slate-800"
                 <label className="text-sm font-medium text-gray-600">
                   Broker Points (%)
                 </label>
-                <input
-                  type="number"
-                  value={form.brokerPoints}
-                  onChange={(e) =>
-                    setForm({ ...form, brokerPoints: e.target.value })
-                  }
-                  className="w-full mt-1 rounded-lg border px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                />
+<input
+  type="number"
+  value={form.brokerPoints}
+  onChange={(e) => {
+    setForm({ ...form, brokerPoints: e.target.value });
+
+    if (errors.brokerPoints) {
+      setErrors((prev) => ({
+        ...prev,
+        brokerPoints: "",
+      }));
+    }
+  }}
+  className={`w-full mt-1 rounded-lg border px-3 py-2 text-sm outline-none
+  ${
+    errors.brokerPoints
+      ? "border-red-500 focus:ring-2 focus:ring-red-500"
+      : "focus:ring-2 focus:ring-indigo-500"
+  }`}
+/>
+
+{errors.brokerPoints && (
+  <p className="mt-1 text-xs text-red-500">
+    {errors.brokerPoints}
+  </p>
+)}
               </div>
 
               {/* Upfront Fee */}
@@ -414,11 +471,28 @@ dark:border-slate-700 dark:bg-slate-800"
                 <input
                   type="number"
                   value={form.upfrontFee}
-                  onChange={(e) =>
-                    setForm({ ...form, upfrontFee: e.target.value })
-                  }
-                  className="w-full mt-1 rounded-lg border px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                   onChange={(e) => {
+    setForm({ ...form, upfrontFee: e.target.value });
+
+    if (errors.upfrontFee) {
+      setErrors((prev) => ({
+        ...prev,
+        upfrontFee: "",
+      }));
+    }
+  }}
+                   className={`w-full mt-1 rounded-lg border px-3 py-2 text-sm outline-none
+  ${
+    errors.upfrontFee
+      ? "border-red-500 focus:ring-2 focus:ring-red-500"
+      : "focus:ring-2 focus:ring-indigo-500"
+  }`}
                 />
+                {errors.upfrontFee && (
+  <p className="mt-1 text-xs text-red-500">
+    {errors.upfrontFee}
+  </p>
+)}
               </div>
 
               {/* Exclusivity */}
@@ -426,14 +500,32 @@ dark:border-slate-700 dark:bg-slate-800"
                 <label className="text-sm font-medium text-gray-600">
                   Exclusivity (Months)
                 </label>
-                <input
-                  type="number"
-                  value={form.exclusivityMonths}
-                  onChange={(e) =>
-                    setForm({ ...form, exclusivityMonths: e.target.value })
-                  }
-                  className="w-full mt-1 rounded-lg border px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                />
+<input
+  type="number"
+  value={form.exclusivityMonths}
+  onChange={(e) => {
+    setForm({ ...form, exclusivityMonths: e.target.value });
+
+    if (errors.exclusivityMonths) {
+      setErrors((prev) => ({
+        ...prev,
+        exclusivityMonths: "",
+      }));
+    }
+  }}
+  className={`w-full mt-1 rounded-lg border px-3 py-2 text-sm outline-none
+    ${
+      errors.exclusivityMonths
+        ? "border-red-500 focus:ring-2 focus:ring-red-500"
+        : "focus:ring-2 focus:ring-indigo-500"
+    }`}
+/>
+
+{errors.exclusivityMonths && (
+  <p className="mt-1 text-xs text-red-500">
+    {errors.exclusivityMonths}
+  </p>
+)}
               </div>
             </div>
 

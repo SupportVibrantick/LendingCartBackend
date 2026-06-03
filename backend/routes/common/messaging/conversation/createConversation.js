@@ -46,9 +46,18 @@ module.exports = async function createConversation(fastify) {
 
         const loan = await prisma.loanApplication.findUnique({
           where: { id: loanApplicationId },
-          include: {
-            client: true,
-          },
+include: {
+  client: {
+    include: {
+      contacts: {
+        where: {
+          isPrimary: true,
+        },
+        take: 1,
+      },
+    },
+  },
+},
         });
 
         if (!loan) {
@@ -119,7 +128,7 @@ module.exports = async function createConversation(fastify) {
             loanApplicationId,
             applicationLenderId:
               type === "BROKER_LENDER" ? applicationLenderId : null,
-            type,
+            type
           },
         });
 

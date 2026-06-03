@@ -5,7 +5,9 @@ import { ChevronLeftIcon, EyeCloseIcon, EyeIcon } from "../../icons";
 import Input from "../form/input/InputField";
 import Checkbox from "../form/input/Checkbox";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
+const API_BASE =
+  import.meta.env.VITE_API_BASE ||
+  "http://localhost:4000";
 
 type RegisterPayload = {
   organizationName: string;
@@ -93,21 +95,6 @@ export default function SignUpForm() {
     return true;
   };
 
-  function getAuthHeaders(): Record<string, string> {
-    try {
-      const token = sessionStorage.getItem("broker_token");
-      if (token) {
-        return {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        };
-      }
-    } catch {
-      /* ignore */
-    }
-    return { "Content-Type": "application/json" };
-  }
-
   const resetForm = () => {
     setForm({
       organizationName: "",
@@ -131,7 +118,9 @@ export default function SignUpForm() {
     try {
       const res = await fetch(`${API_BASE}/broker/auth/register`, {
         method: "POST",
-        headers: getAuthHeaders(),
+        headers: {
+  "Content-Type": "application/json",
+},
         body: JSON.stringify(form),
       });
 

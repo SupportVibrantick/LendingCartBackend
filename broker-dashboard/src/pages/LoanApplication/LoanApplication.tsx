@@ -1103,13 +1103,13 @@ const LoanApplication = () => {
         throw new Error(result.message || "Submission failed");
       }
 
-      toast.success("Application Submitted Successfully");
-      navigate("/submit-applications");
-    } catch (error: any) {
-      toast.error(error.message || "Something went wrong");
-    } finally {
-      setSubmitting(false);
-    }
+      toast.success("Application Submitted Successfully"); 
+      navigate("/submit-applications"); 
+    } catch (error: any) { 
+      toast.error(error.message || "Something went wrong"); 
+    } finally { 
+      setSubmitting(false); 
+    } 
   };
 
   useEffect(() => {
@@ -1205,7 +1205,7 @@ const LoanApplication = () => {
     formData.loanRequest.totalLiabilities || "0",
   );
 
-  const netWorth = borrowerAssets - borrowerLiabilities; 
+  const netWorth = borrowerAssets - borrowerLiabilities;
 
   const calculateAnnualDebtService = (
     loanAmount: number,
@@ -1319,7 +1319,7 @@ const LoanApplication = () => {
         return (
           <textarea
             rows={4}
-            placeholder={field.placeholder || ""}
+            placeholder={field.placeholder || ""} 
             required={field.required}
             value={dynamicFormData[field.fieldId] || ""}
             onChange={(e) =>

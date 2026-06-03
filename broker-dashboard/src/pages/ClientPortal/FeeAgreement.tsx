@@ -235,11 +235,11 @@ export default function FeeAgreement({
       >
         <div className="text-center space-y-2">
           {/* LOGO */}
-          <div className="flex justify-center">
+             <div className="flex justify-center">
             <img
-              src="/ACOM_LOGO.jpeg"
-              alt="ACOM Logo"
-              className="h-12 object-contain"
+              src="/loanAutomation.jpeg"
+              alt="Loan Automation Logo"
+              className="object-contain  rounded-full h-24 w-24"
             />
           </div>
 
@@ -361,9 +361,9 @@ export default function FeeAgreement({
           <p>
             <b>Phone:</b> {data.brokerPhone || "—"}
           </p>
-          <p>
+          {/* <p>
             <b>Address:</b> {data.brokerAddress || "—"}
-          </p>
+          </p> */}
         </div>
 
         {/* CLIENT DETAILS */}

@@ -43,10 +43,9 @@ module.exports = async function getMessages(fastify) {
         }
 
         // ✅ SAFE USER ID (ALL CASES COVERED)
-        const userId =
-          req.user?.id || req.user?.userId || req.user?.clientId;
+        const userId = req.user?.id || req.user?.userId || req.user?.clientId;
 
-      if (!userId && !req.user?.email) {
+        if (!userId && !req.user?.email) {
           return reply.code(401).send({
             success: false,
             message: "Invalid user token",
@@ -75,22 +74,21 @@ module.exports = async function getMessages(fastify) {
 
         const userEmail = req.user?.email;
 
-        const participant =
-          await prisma.conversationParticipant.findFirst({
-            where: {
-              conversationId,
+        const participant = await prisma.conversationParticipant.findFirst({
+          where: {
+            conversationId,
 
-              OR: [
-                { participantId: userId },
+            OR: [
+              { participantId: userId },
 
-                userEmail
-                  ? {
-                      participantEmail: normalize(userEmail),
-                    }
-                  : undefined,
-              ].filter(Boolean),
-            },
-          });
+              userEmail
+                ? {
+                    participantEmail: normalize(userEmail),
+                  }
+                : undefined,
+            ].filter(Boolean),
+          },
+        });
 
         let hasFallbackAccess = false;
 
@@ -149,40 +147,125 @@ module.exports = async function getMessages(fastify) {
           take: limit,
         });
 
+        const brokerUserIds = [
+          ...new Set(
+            messages
+              .filter((m) => m.senderType === "BROKER" && m.senderUserId)
+              .map((m) => m.senderUserId),
+          ),
+        ];
+
+        const clientUserIds = [
+          ...new Set(
+            messages
+              .filter((m) => m.senderType === "CLIENT" && m.senderClientUserId)
+              .map((m) => m.senderClientUserId),
+          ),
+        ];
+
+        const clientUsers = await prisma.clientPortalUser.findMany({
+          where: {
+            id: {
+              in: clientUserIds,
+            },
+          },
+          include: {
+            client: {
+              include: {
+                contacts: {
+                  where: {
+                    isPrimary: true,
+                  },
+                  take: 1,
+                },
+              },
+            },
+          },
+        });
+
+        const clientMap = new Map(clientUsers.map((c) => [c.id, c]));
+
+        const brokerUsers = await prisma.userAccount.findMany({
+          where: {
+            id: {
+              in: brokerUserIds,
+            },
+          },
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            organization: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        });
+
+        const brokerMap = new Map(brokerUsers.map((u) => [u.id, u]));
+
         const total = await prisma.message.count({
           where: { conversationId },
         });
 
         /* ================= FORMAT RESPONSE ================= */
 
-const formatted = messages.map((msg) => ({
-  id: msg.id,
+        const formatted = messages.map((msg) => ({
+          id: msg.id,
 
-  conversationId: msg.conversationId,
+          conversationId: msg.conversationId,
 
-  type: msg.type,
+          type: msg.type,
 
-  text: msg.text,
+          text: msg.text,
 
-  fileUrl: msg.fileUrl,
+          fileUrl: msg.fileUrl,
 
-  fileName: msg.fileName,
+          fileName: msg.fileName,
 
-  fileSize: msg.fileSize,
+          fileSize: msg.fileSize,
 
-  mimeType: msg.mimeType,
+          mimeType: msg.mimeType,
 
-  senderType: msg.senderType,
+          senderType: msg.senderType,
 
-  senderUserId: msg.senderUserId,
+          senderUserId: msg.senderUserId,
 
-  senderClientUserId:
-    msg.senderClientUserId,
+          senderClientUserId: msg.senderClientUserId,
 
-  senderName: msg.senderName,
+          senderName: (() => {
+            // Broker
+            if (msg.senderType === "BROKER" && msg.senderUserId) {
+              const broker = brokerMap.get(msg.senderUserId);
 
-  createdAt: msg.createdAt,
-}));
+              return (
+                broker?.organization?.name ||
+                `${broker?.firstName || ""} ${broker?.lastName || ""}`.trim() ||
+                "Broker"
+              );
+            }
+
+            // Client
+            if (msg.senderType === "CLIENT" && msg.senderClientUserId) {
+              const client = clientMap.get(msg.senderClientUserId);
+
+              const primaryContact = client?.client?.contacts?.[0];
+
+              return (
+                `${primaryContact?.firstName || ""} ${
+                  primaryContact?.lastName || ""
+                }`.trim() ||
+                client?.client?.legalName ||
+                "Client"
+              );
+            }
+
+            return msg.senderName || null;
+          })(),
+
+          createdAt: msg.createdAt,
+        }));
 
         /* ================= RESPONSE ================= */
 
@@ -201,12 +284,9 @@ const formatted = messages.map((msg) => ({
           {
             error: error.message,
             conversationId,
-            userId:
-              req.user?.id ||
-              req.user?.userId ||
-              req.user?.clientId,
+            userId: req.user?.id || req.user?.userId || req.user?.clientId,
           },
-          "Failed to fetch messages"
+          "Failed to fetch messages",
         );
 
         return reply.code(500).send({
@@ -214,6 +294,6 @@ const formatted = messages.map((msg) => ({
           message: "Internal server error",
         });
       }
-    }
+    },
   );
 };

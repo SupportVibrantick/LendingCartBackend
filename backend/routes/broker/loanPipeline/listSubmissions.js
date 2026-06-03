@@ -288,25 +288,27 @@ const getFieldValue = (...keys) =>
     ),
   )?.value;
 
+const borrowerFirstName =
+  getFieldValue(
+    "borrowerFirstName",
+    "firstName",
+  );
+
+const borrowerLastName =
+  getFieldValue(
+    "borrowerLastName",
+    "lastName",
+  );
+
 const borrower =
-  [
-    contact?.firstName,
-    contact?.lastName,
-  ]
+  [borrowerFirstName, borrowerLastName]
     .filter(Boolean)
     .join(" ")
     .trim() ||
 
   [
-    getFieldValue(
-      "borrowerFirstName",
-      "firstName",
-    ),
-
-    getFieldValue(
-      "borrowerLastName",
-      "lastName",
-    ),
+    contact?.firstName,
+    contact?.lastName,
   ]
     .filter(Boolean)
     .join(" ")
@@ -320,8 +322,7 @@ const borrower =
   ) ||
 
   (app?.client?.legalName &&
-  app.client.legalName !==
-    "Applicant"
+  app.client.legalName !== "Applicant"
     ? app.client.legalName
     : null) ||
 

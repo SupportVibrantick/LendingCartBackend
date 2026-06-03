@@ -119,6 +119,22 @@ export default function ClientUpload() {
   >("applications");
   const [isSignedFromAPI, setIsSignedFromAPI] = useState(false);
 
+  const PRODUCT_LABELS: Record<string, string> = {
+  FIX_AND_FLIP_LOAN_1_TO_4_UNITS: "FIX & FLIP",
+  DSCR_LOAN_1_TO_4_UNITS: "DSCR / Rental",
+  CONSTRUCTION_LOAN_1_TO_4_UNITS: "CONSTRUCTION",
+  BRIDGE_LOAN_1_TO_4_UNITS: "BRIDGE LOAN",
+  SBA_504_REAL_ESTATE_AND_EQUIPMENT: "SBA 504",
+  USDA_BI: "USDA B&I",
+  AGENCY_LOAN_MULTIFAMILY: "AGENCY MULTIFAMILY",
+  CRE_PERMANENT_LOAN: "CRE PERMANENT",
+  RENTAL_PORTFOLIO: "RENTAL PORTFOLIO",
+  PURCHASE_ORDER_FINANCE: "PURCHASE ORDER FINANCE",
+  ACCOUNTS_PAYABLE_FINANCE: "AP SUPPLY CHAIN",
+  ACCOUNTS_RECEIVABLE: "ACCOUNTS RECEIVABLE",
+  INVOICE_FACTORING: "AR FACTORING",
+};
+
   const getClientPortalAuthConfig = () => {
     const brokerToken = sessionStorage.getItem("broker_token");
     const clientToken = sessionStorage.getItem("client_token");
@@ -153,10 +169,14 @@ export default function ClientUpload() {
         (item: any) => item.key === "borrowerSignature",
       )?.value;
 
-      if (signatureFromAPI) {
-        setSignature(signatureFromAPI);
-        setIsSignedFromAPI(true);
-      }
+if (signatureFromAPI) {
+  setSignature(signatureFromAPI);
+  setIsSignedFromAPI(true);
+} else {
+  setSignature("");
+  setIsSignedFromAPI(false);
+}
+
       const docs = (data?.documents || []).map((doc: any) => ({
         id: doc.id,
         name: doc.name,
@@ -238,6 +258,10 @@ export default function ClientUpload() {
       const capturedSignature = sigRef.current
         .getCanvas()
         .toDataURL("image/png");
+
+        console.log("Submitting Application ID:", applicationId);
+console.log("Selected Application ID:", selectedApplication?.id);
+console.log("Selected Status:", selectedApplication?.status);
 
       let submitUrl = `${API_BASE}/client-portal/e-sign/submit`;
       if (token) {
@@ -396,19 +420,79 @@ export default function ClientUpload() {
 
       const data = res.data?.data;
 
+      setApplicationId(data.id);
+      setSignature("");
+setIsSignedFromAPI(false);
+
+const borrowerSignature =
+  data?.borrowerSignature ||
+  data?.submissions
+    ?.flatMap((s: any) => s.fields || [])
+    ?.find((f: any) => f.fieldKey === "borrowerSignature")
+    ?.value;
+
+if (borrowerSignature) {
+  setSignature(borrowerSignature);
+  setIsSignedFromAPI(true);
+}
       setSelectedApplication(data);
 
       // IMPORTANT: convert API fields → your UI format
-      const fields =
-        data?.submissions?.[0]?.fields?.map((f: any) => ({
-          key: f.fieldKey,
-          value: f.value,
-        })) || [];
+const submissionFields =
+  data?.submissions?.[0]?.fields?.map((f: any) => ({
+    key: f.fieldKey,
+    value: f.value,
+  })) || [];
 
-      setApplicationData({
-        ...data,
-        fullApplication: fields,
-      });
+const extraFields = [
+  { key: "borrowerName", value: data.borrowerName },
+  { key: "borrowerEmail", value: data.borrowerEmail },
+  { key: "borrowerPhone", value: data.borrowerPhone },
+
+  { key: "borrowerFirstName", value: data.borrowerFirstName },
+  { key: "borrowerLastName", value: data.borrowerLastName },
+
+  { key: "borrowerCity", value: data.borrowerCity },
+  { key: "borrowerState", value: data.borrowerState },
+  { key: "borrowerCountry", value: data.borrowerCountry },
+
+  { key: "propertyAddress", value: data.propertyAddress },
+
+  { key: "companyName", value: data.companyName },
+
+  { key: "email", value: data.borrowerEmail },
+  { key: "phone", value: data.borrowerPhone },
+
+  { key: "loanProductCode", value: data.loanProductCode },
+  { key: "amountRequested", value: data.amountRequested },
+
+  { key: "interestRate", value: data.interestRate },
+  { key: "loanTerm", value: data.loanTerm },
+
+  { key: "creditScore", value: data.creditScore },
+  { key: "ltvPercentage", value: data.ltvPercentage },
+  { key: "ltcPercentage", value: data.ltcPercentage },
+  { key: "arvPercentage", value: data.arvPercentage },
+  { key: "dscr", value: data.dscr },
+
+  { key: "totalAssets", value: data.totalAssets },
+  { key: "totalLiabilities", value: data.totalLiabilities },
+  { key: "netWorth", value: data.netWorth },
+
+  { key: "borrowerSignature", value: data.borrowerSignature },
+];
+
+const fields = [...submissionFields, ...extraFields];
+
+setApplicationData({
+  ...data,
+  borrower: {
+    name: data.borrowerName,
+    email: data.borrowerEmail,
+    phone: data.borrowerPhone,
+  },
+  fullApplication: fields,
+});
 
       setActiveTab("application"); // reuse existing UI
     } catch (err) {
@@ -1093,7 +1177,7 @@ export default function ClientUpload() {
                               Client Name
                             </p>
                             <p className="text-[13px] font-semibold text-blue-800 truncate">
-                              {getValue("borrowerFirstName") || "Applicant"}
+                             {getValue("borrowerName") || "Applicant"}
                             </p>
                           </div>
                         </div>
@@ -1111,10 +1195,10 @@ export default function ClientUpload() {
                               Product
                             </p>
                             <p className="text-[13px] font-semibold text-purple-700 truncate">
-                              {getValue("loanProductCode")?.replace(
-                                /_/g,
-                                " ",
-                              ) || "N/A"}
+                              {PRODUCT_LABELS[getValue("loanProductCode")] ??
+  getValue("loanProductCode")
+    ?.replace(/_/g, " ")
+    .toUpperCase()}
                             </p>
                           </div>
                         </div>
@@ -1129,7 +1213,7 @@ export default function ClientUpload() {
 
                           <div className="min-w-0">
                             <p className="text-[10px] text-green-600 uppercase tracking-[0.05em] font-bold mb-0.5">
-                              Requested
+                              Loan Amount Requested
                             </p>
                             <p className="text-[13px] font-bold text-green-600">
                               {formatCurrency(getValue("amountRequested"))}
@@ -1234,12 +1318,18 @@ export default function ClientUpload() {
                     </h3>
 
                     <div className="grid md:grid-cols-2 gap-4">
-                      <Input
-                        label="Borrower First Name"
-                        value={getValue("borrowerFirstName")}
-                      />
-                      <Input label="City" value={getValue("city")} />
-                      <Input label="State" value={getValue("state")} />
+                    <Input
+  label="Borrower Name"
+  value={`${getValue("borrowerFirstName")} ${getValue("borrowerLastName")}`}
+/>
+                     <Input
+  label="City"
+  value={getValue("borrowerCity")}
+/>
+                    <Input
+  label="State"
+  value={getValue("borrowerState")}
+/>
                     </div>
                   </div>
 
@@ -1260,13 +1350,19 @@ export default function ClientUpload() {
                         label="Credit Score"
                         value={getValue("creditScore")}
                       />
-                      <Input label="Country" value={getValue("country")} />
+<Input
+  label="Country"
+  value={getValue("borrowerCountry")}
+/>
                       <Input
                         label="Loan Product Code"
-                        value={getValue("loanProductCode")}
+                          value={
+    PRODUCT_LABELS[getValue("loanProductCode")] ||
+    getValue("loanProductCode")
+  }
                       />
                       <Input
-                        label="Amount Requested"
+                        label="Loan Amount Requested"
                         value={getValue("amountRequested")}
                       />
                       <Input
@@ -1277,14 +1373,187 @@ export default function ClientUpload() {
                     </div>
                   </div>
 
-                  {/* FINANCIALS */}
-                  <div className="mb-6">
-                    <h3 className="font-semibold text-gray-700 mb-3">
-                      Financials
-                    </h3>
+                  <div className="mt-8">
+  <h3 className="text-lg font-semibold mb-4">
+    Personal Information
+  </h3>
 
-                    <div className="grid md:grid-cols-2 gap-4">
-                      <Input
+  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <Input label="Date of Birth" value={getValue("dob")} />
+    <Input label="SSN" value={getValue("ssn")} />
+    <Input label="Employer" value={getValue("employer")} />
+
+    <Input label="Address" value={getValue("address")} />
+    <Input
+      label="Mailing Address"
+      value={getValue("mailingAddress")}
+    />
+  </div>
+</div>
+
+<div className="mt-8">
+  <h3 className="text-lg font-semibold mb-4">
+    Property Information
+  </h3>
+
+  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <Input label="Purpose" value={getValue("purpose")} />
+
+    <Input
+      label="Property Type"
+      value={getValue("propertyType")}
+    />
+
+    <Input
+      label="Sub Property Type"
+      value={getValue("subPropertyType")}
+    />
+
+    <Input
+      label="Recourse"
+      value={getValue("recourse")}
+    />
+
+    <Input
+      label="Property Address"
+      value={getValue("propertyAddress")}
+    />
+
+    <Input
+      label="Property City"
+      value={getValue("propertyCity")}
+    />
+
+    <Input
+      label="Property State"
+      value={getValue("propertyState")}
+    />
+
+    <Input
+      label="Property Zip"
+      value={getValue("propertyZip")}
+    />
+
+    <Input
+      label="Property Country"
+      value={getValue("propertyCountry")}
+    />
+  </div>
+</div>
+
+<div className="mt-8">
+  <h3 className="text-lg font-semibold mb-4">
+    Entity Information
+  </h3>
+
+  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <Input
+      label="Entity Legal Name"
+      value={getValue("entityLegalName")}
+    />
+
+    <Input
+      label="Entity Type"
+      value={getValue("entityType")}
+    />
+
+    <Input label="DBA" value={getValue("dba")} />
+
+    <Input
+      label="Formation Date"
+      value={getValue("formationDate")}
+    />
+
+    <Input
+      label="Years In Business"
+      value={getValue("yearsInBusiness")}
+    />
+  </div>
+</div>
+
+<div className="mt-8">
+  <h3 className="text-lg font-semibold mb-4">
+    Financial Information
+  </h3>
+
+  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <Input
+      label="Current Market Value"
+      value={formatCurrency(
+        getValue("currentMarketValue")
+      )}
+    />
+
+    <Input
+      label="After Repair Value"
+      value={formatCurrency(
+        getValue("afterRepairValue")
+      )}
+    />
+
+    <Input
+      label="Purchase Price"
+      value={formatCurrency(
+        getValue("purchasePrice")
+      )}
+    />
+
+    <Input
+      label="Purchase Date"
+      value={getValue("purchaseDate")}
+    />
+
+    <Input
+      label="Monthly Rent"
+      value={getValue("monthlyRent")}
+    />
+
+    <Input
+      label="Gross Revenue Actual"
+      value={getValue("grossRevenueActual")}
+    />
+
+    <Input
+      label="Gross Revenue Proforma"
+      value={getValue("grossRevenueProforma")}
+    />
+
+    <Input
+      label="NOI Actual"
+      value={getValue("noiActual")}
+    />
+
+    <Input
+      label="NOI Proforma"
+      value={getValue("noiProforma")}
+    />
+
+    <Input
+      label="Annual Taxes"
+      value={getValue("annualTaxes")}
+    />
+
+    <Input
+      label="Insurance Premium"
+      value={getValue("insurancePremium")}
+    />
+
+    <Input
+      label="HOA Dues"
+      value={getValue("hoaDues")}
+    />
+
+    <Input
+      label="Monthly Rental Income"
+      value={getValue("monthlyRentalIncome")}
+    />
+
+    <Input
+      label="DSCR Ratio"
+      value={getValue("dscrRatio")}
+    />
+
+                          <Input
                         label="Total Assets"
                         value={getValue("totalAssets")}
                       />
@@ -1293,8 +1562,8 @@ export default function ClientUpload() {
                         value={getValue("totalLiabilities")}
                       />
                       <Input label="Net Worth" value={getValue("netWorth")} />
-                    </div>
-                  </div>
+  </div>
+</div>
 
                   {/* SIGNATURE */}
                   <div className="mt-6">

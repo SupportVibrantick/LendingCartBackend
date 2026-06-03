@@ -37,12 +37,24 @@ async function clientLoginRoute(fastify) {
         /* ===============================
            FIND USER (SAFE)
         =============================== */
-        const user = await prisma.clientPortalUser.findFirst({
+     const user = await prisma.clientPortalUser.findFirst({
+  where: {
+    email,
+    isDeleted: false,
+  },
+  include: {
+    client: {
+      include: {
+        contacts: {
           where: {
-            email,
-            isDeleted: false,
+            isPrimary: true,
           },
-        });
+          take: 1,
+        },
+      },
+    },
+  },
+});
 
         /* ===============================
            DUMMY HASH (ANTI-TIMING)
@@ -74,17 +86,28 @@ async function clientLoginRoute(fastify) {
           });
         }
 
+        const primaryContact =
+  user?.client?.contacts?.[0];
+
+const clientName =
+  `${primaryContact?.firstName || ""} ${
+    primaryContact?.lastName || ""
+  }`.trim() ||
+  user?.client?.legalName ||
+  "Client";
+
         /* ===============================
            GENERATE JWT (KEEP jsonwebtoken)
         =============================== */
-       const token = jwt.sign(
+const token = jwt.sign(
   {
     id: user.id,
     clientId: user.clientId,
 
-    // IMPORTANT
     email: user.email,
     clientEmail: user.email,
+
+    clientName, // 👈 add
 
     role: "CLIENT",
   },
@@ -116,6 +139,7 @@ async function clientLoginRoute(fastify) {
               id: user.id,
               email: user.email,
               clientId: user.clientId,
+              clientName,
             },
           },
         });

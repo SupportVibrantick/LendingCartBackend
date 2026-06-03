@@ -77,11 +77,17 @@ module.exports = async function createFeeAgreement(fastify, loanId) {
   // ✅ CLIENT MAPPING (FIXED)
   // ===============================
 
-  const clientFirstName =
-    fieldMap.first_name || primaryContact?.firstName || "";
+const clientFirstName =
+  fieldMap.borrowerFirstName ||
+  fieldMap.first_name ||
+  primaryContact?.firstName ||
+  "";
 
-  const clientLastName =
-    fieldMap.last_name || primaryContact?.lastName || "";
+const clientLastName =
+  fieldMap.borrowerLastName ||
+  fieldMap.last_name ||
+  primaryContact?.lastName ||
+  "";
 
   const clientFullName =
     `${clientFirstName} ${clientLastName}`.trim() ||
@@ -106,21 +112,32 @@ module.exports = async function createFeeAgreement(fastify, loanId) {
 
   const brokerProfile = loan.brokerUser?.brokerProfile;
 
-  const brokerAddress =
-    brokerProfile?.address ||
-    `${brokerProfile?.city || ""}, ${brokerProfile?.state || ""} ${
-      brokerProfile?.zipCode || ""
-    }`.trim();
+const brokerAddress =
+  brokerProfile?.address ||
+  loan.brokerOrg?.address ||
+  [
+    brokerProfile?.city,
+    brokerProfile?.state,
+    brokerProfile?.zipCode,
+  ]
+    .filter(Boolean)
+    .join(", ") ||
+  "N/A";
 
   // ===============================
   // ✅ SUBJECT PROPERTY
   // ===============================
 
-  const subjectAddress =
-    fieldMap.property_address ||
-    fieldMap.business_address ||
-    fieldMap.subject_property ||
-    `${fieldMap.property_street || ""} ${fieldMap.property_city || ""}`.trim();
+const subjectAddress =
+  fieldMap.propertyAddress ||
+  fieldMap.businessAddress ||
+  fieldMap.subjectProperty ||
+  fieldMap.property_address ||
+  fieldMap.business_address ||
+  fieldMap.subject_property ||
+  `${fieldMap.propertyStreet || ""} ${
+    fieldMap.propertyCity || ""
+  }`.trim();
 
   // ===============================
   // ✅ SNAPSHOT
@@ -143,19 +160,16 @@ module.exports = async function createFeeAgreement(fastify, loanId) {
 
     // BROKER
     brokerName: brokerFullName,
-    brokerCompany:
-  loan.brokerOrg?.companyName ||
+brokerCompany:
+  loan.brokerOrg?.name ||
   brokerProfile?.company ||
   "",
     brokerEmail: loan.brokerUser?.email || "",
-    brokerPhone:
-  brokerProfile?.phone ||
+brokerPhone:
+  loan.brokerOrg?.phone ||
   loan.brokerUser?.phone ||
   "",
-    brokerAddress:
-  brokerAddress ||
-  loan.brokerOrg?.address ||
-  "",
+brokerAddress,
     brokerState: brokerProfile?.state || "",
     brokerCounty: "",
 

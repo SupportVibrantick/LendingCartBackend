@@ -189,6 +189,56 @@ module.exports = async function sendMessage(fastify) {
           senderClientUserId = userId;
         }
 
+        let senderName = null;
+
+if (senderType === "CLIENT") {
+  const clientUser = await prisma.clientPortalUser.findUnique({
+    where: { id: senderClientUserId },
+    include: {
+      client: {
+        include: {
+          contacts: {
+            where: {
+              isPrimary: true,
+            },
+            take: 1,
+          },
+        },
+      },
+    },
+  });
+
+  const primaryContact =
+    clientUser?.client?.contacts?.[0];
+
+  senderName =
+    `${primaryContact?.firstName || ""} ${
+      primaryContact?.lastName || ""
+    }`.trim() ||
+    clientUser?.client?.legalName ||
+    "Client";
+}
+
+if (
+  senderType === "BROKER" ||
+  senderType === "LENDER" ||
+  senderType === "SUB_BROKER"
+) {
+  const user = await prisma.userAccount.findUnique({
+    where: { id: senderUserId },
+    include: {
+      organization: true,
+    },
+  });
+
+  senderName =
+    user?.organization?.name ||
+    `${user?.firstName || ""} ${
+      user?.lastName || ""
+    }`.trim() ||
+    senderType;
+}
+
         /* ================= CREATE MESSAGE ================= */
 
         const message = await prisma.message.create({
@@ -197,6 +247,7 @@ module.exports = async function sendMessage(fastify) {
             senderType,
             senderUserId,
             senderClientUserId,
+            senderName,
             type,
             text: type === "TEXT" ? text : null,
             fileUrl: type === "FILE" ? fileUrl : null,
@@ -253,6 +304,7 @@ module.exports = async function sendMessage(fastify) {
             senderType: message.senderType,
             senderUserId: message.senderUserId,
             senderClientUserId: message.senderClientUserId,
+            senderName: message.senderName,
             createdAt: message.createdAt,
           },
         });

@@ -413,7 +413,7 @@ export default function ActiveApplication() {
           setTimeout(() => {
             setActiveProductId(value);
             setProductLoading(false);
-          }, 300);
+          }, 200);
         }}
       >
         {data.products.map((p) => (

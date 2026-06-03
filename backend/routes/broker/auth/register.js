@@ -4,7 +4,9 @@ const {
   brokerRegisterSchema,
 } = require("../../../schemas/broker/auth/register.schema");
 
-const { brokerLogs } = require("../../../services/logger/contextLogger");
+const { commonLogs } = require(
+  "../../../services/logger/contextLogger"
+);
 
 /**
  * Broker self-register (creates BROKER org + admin user)
@@ -119,7 +121,7 @@ async function brokerRegisterRoutes(fastify) {
           });
         });
 
-        brokerLogs.info("Broker self-registered", {
+        commonLogs.info("Broker self-registered", {
           organizationId: brokerOrg.id,
           userId: brokerAdmin.id,
         });
@@ -129,10 +131,10 @@ async function brokerRegisterRoutes(fastify) {
           message: "Broker registered successfully",
         });
       } catch (err) {
-        brokerLogs.error("Broker register failed", err);
+        commonLogs.error("Broker register failed", err);
         return reply.status(500).send({
           success: false,
-          message: "Server error during registration",
+          message: err.message || "Server error during registration",
         });
       }
     }

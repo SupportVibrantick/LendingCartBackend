@@ -181,8 +181,7 @@ module.exports = async function findEligibleLenders(fastify) {
 
         const alreadySent = await prisma.applicationLender.findMany({
           where: {
-            loanApplicationId: application.id,
-          },
+            loanApplicationId: application.id,          },
           select: {
             lenderProductId: true,
           },

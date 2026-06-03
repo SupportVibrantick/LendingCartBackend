@@ -486,7 +486,7 @@ SBA_504_REAL_ESTATE_AND_EQUIPMENT: [
     sectionName: "DSCR Metrics",
     fieldKey: "occupancyRate",
     label: "Occupancy Rate",
-    fieldType: "PERCENTAGE",
+    fieldType: "NUMBER",
     sortOrder: 2,
   },
   {
@@ -534,7 +534,7 @@ CRE_PERMANENT_LOAN: [
     sectionName: "CRE Financials",
     fieldKey: "capRate",
     label: "Cap Rate",
-    fieldType: "PERCENTAGE",
+    fieldType: "NUMBER",
     sortOrder: 2,
   },
   {

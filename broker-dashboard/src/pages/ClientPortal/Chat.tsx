@@ -32,6 +32,7 @@ type ChatMessage = {
   id: string;
   conversationId?: string;
   senderType?: string;
+  senderName?: string; 
   type?: string;
   fileUrl?: string;
   fileName?: string;
@@ -86,15 +87,6 @@ const getInitials = (value?: string) => {
   );
 };
 
-const getDisplayTitle = (title?: string) => {
-  if (!title) return "Conversation";
-
-  if (title.startsWith("Client -")) {
-    return title.replace("Client -", "Broker -");
-  }
-
-  return title;
-};
 
 const getAvatarTone = (value?: string) => {
   const tones = [
@@ -427,7 +419,17 @@ const Chat = ({ applicationId, onBack }: LoanPreviewChatProps) => {
       setMessages((prev) => {
         if (msg.conversationId !== selectedConversation?.id) return prev;
         if (prev.some((item) => item.id === msg.id)) return prev;
-        return [...prev, msg];
+        return [
+  ...prev,
+  {
+    ...msg,
+    senderName:
+      msg.senderName ||
+      (msg.senderType === "BROKER"
+        ? selectedConversation?.brokerName
+        : "Client"),
+  },
+];
       });
     };
 
@@ -663,7 +665,7 @@ const Chat = ({ applicationId, onBack }: LoanPreviewChatProps) => {
 
                   <div className="min-w-0">
                     <p className="truncate text-lg font-semibold text-slate-900">
-                      {getDisplayTitle(selectedConversation?.title)}
+                      {selectedConversation?.brokerName || "Broker"}
                     </p>
                     <p className="text-xs text-slate-400">
                       {typingUser ? "Typing..." : "Online"}
@@ -734,18 +736,24 @@ const Chat = ({ applicationId, onBack }: LoanPreviewChatProps) => {
                               className={`flex max-w-[80%] items-end gap-2 ${!isBroker ? "flex-row-reverse" : "flex-row"}`}
                             >
                               <div
-                                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold ${getAvatarTone(isBroker ? "Broker" : selectedConversation?.title)}`}
+                               className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold ${getAvatarTone(msg.senderName)}`}
                               >
-                                {getInitials(
-                                  !isBroker
-                                    ? "Broker"
-                                    : selectedConversation?.title,
-                                )}
+                             {getInitials(
+  msg.senderName ||
+    (isBroker ? "Broker" : "Client"),
+)}
                               </div>
 
                               <div>
-                                <div className="mb-1 px-1 text-[10px] text-slate-400">
-                                  {formatTime(msg.createdAt)}
+                                <div className="mb-1 px-1">
+                                  <div className="text-[11px] font-medium text-slate-600">
+                                    {msg.senderName ||
+                                      (isBroker ? "Broker" : "Client")}
+                                  </div>
+
+                                  <div className="text-[10px] text-slate-400">
+                                    {formatTime(msg.createdAt)}
+                                  </div>
                                 </div>
 
                                 <div
