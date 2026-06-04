@@ -387,15 +387,13 @@ const AppSidebar: React.FC = () => {
             //     className="object-contain"
             //   />
             // </div>
-            <div className="px-3 py-2 rounded">
-              <img
-                src="/loanAutomation.jpeg"
-                alt="Logo"
-                width={100}
-                height={15}
-                className="object-contain"
-              />
-            </div>
+          <div className="rounded-full h-28 w-28 overflow-hidden">
+    <img
+      src="/loanAutomation.jpeg"
+      alt="Logo"
+      className="w-full h-full object-cover"
+    />
+  </div>
           ) : (
             <img
               src="/images/logo/logo-icon.svg"

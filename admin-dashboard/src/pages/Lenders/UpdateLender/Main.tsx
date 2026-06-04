@@ -516,8 +516,17 @@ export default function Main() {
         minTermMonths: Number(criteria.minTerm) || 0,
         maxTermMonths: Number(criteria.maxTerm) || 0,
 
-        minLtvPercent: Number(criteria.minLtv || ""),
-        maxLtvPercent: Number(criteria.maxLtv || ""),
+       maxLtvPercent: Number(criteria.maxLtv || ""),
+
+maxArvPercent:
+  criteria.maxArv !== ""
+    ? Number(criteria.maxArv)
+    : null,
+
+maxLtcPercent:
+  criteria.maxLtc !== ""
+    ? Number(criteria.maxLtc)
+    : null,
 
         minCreditScore: Number(criteria.fico) || 0,
         minExperience: String(criteria.experience || 0),
@@ -560,17 +569,44 @@ export default function Main() {
         return `Please fill details for ${product.name}`;
       }
 
-      const requiredFields = [
-        "minLoan",
-        "maxLoan",
-        "minRate",
-        "maxRate",
-        "maxLtv",
-        "fico",
-        "experience",
-        "minTerm",
-        "maxTerm",
-      ];
+const requiredFields = [
+  "minLoan",
+  "maxLoan",
+  "minRate",
+  "maxRate",
+  "maxLtv",
+  "maxArv",
+  "fico",
+  "experience",
+  "minTerm",
+  "maxTerm",
+];
+
+for (const field of requiredFields) {
+  if (!data[field] && data[field] !== 0) {
+    return `${product.name}: ${field} is required`;
+  }
+}
+
+if (
+  [
+    "MEZZ_FINANCE_PREF_EQUITY",
+    "MEZZ_FINANCE",
+    "MEZZANINE_FINANCE",
+    "FIX_AND_FLIP",
+    "CONSTRUCTION_LOAN",
+    "CONSTRUCTION_LOAN_1_TO_4_UNITS",
+    "FIX_AND_FLIP_LOAN_1_TO_4_UNITS",
+  ].includes(product.code)
+) {
+  if (
+    data.maxLtc === undefined ||
+    data.maxLtc === null ||
+    data.maxLtc === ""
+  ) {
+    return `${product.name}: maxLtc is required`;
+  }
+}
 
       for (const field of requiredFields) {
         if (!data[field] && data[field] !== 0) {
@@ -659,8 +695,9 @@ export default function Main() {
               minTerm: updated.minTermMonths || "",
               maxTerm: updated.maxTermMonths || "",
 
-              minLtv: updated.minLtvPercent || "",
               maxLtv: updated.maxLtvPercent || "",
+maxArv: updated.maxArvPercent || "",
+maxLtc: updated.maxLtcPercent || "",
 
               fico: updated.minCreditScore || "",
               experience: updated.minExperience || "",
@@ -828,6 +865,8 @@ export default function Main() {
           // ✅ IMPORTANT FIELDS
           minLtv: item.minLtvPercent || "",
           maxLtv: item.maxLtvPercent || "",
+maxArv: item.maxArvPercent || "",
+maxLtc: item.maxLtcPercent || "",
           fico: item.minCreditScore || "",
           experience: item.minExperience || "",
 
@@ -1011,8 +1050,8 @@ export default function Main() {
               disabled={
                 (step === 0 && !!validateStep0()) ||
                 (step === 1 && form.loanPrograms.length === 0) ||
-                (step === 2 && Object.keys(form.propertyTypes).length === 0) ||
-                (step === 3 && Object.keys(form.businessTypes).length === 0) ||
+                // (step === 2 && Object.keys(form.propertyTypes).length === 0) ||
+                // (step === 3 && Object.keys(form.businessTypes).length === 0) ||
                 // ✅ NEW
                 (step === 4 &&
                   isEquipmentSelected &&

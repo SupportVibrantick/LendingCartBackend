@@ -187,7 +187,7 @@ async function updateBrokerRoutes(fastify, options) {
         adminLogs.error("Failed to update broker", { err, orgId });
         return reply.status(500).send({
           success: false,
-          message: "Server error while updating broker",
+          message: err.message || "Server error while updating broker",
           details: process.env.NODE_ENV === "development" ? err.message : undefined,
         });
       }

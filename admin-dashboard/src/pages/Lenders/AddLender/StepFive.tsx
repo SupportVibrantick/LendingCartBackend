@@ -7,10 +7,26 @@ const fields = [
   { label: "Min Rate (%)", key: "minRate" },
   { label: "Max Rate (%)", key: "maxRate" },
 
-  { label: "Min LTV (%)", key: "minLtv" },
-  { label: "Max LTV (%)", key: "maxLtv" },
+{ label: "Max LTV (%)", key: "maxLtv" },
 
-  { label: "Min LTC (%)", key: "maxLtc" },
+{
+  label: "Max ARV (%)",
+  key: "maxArv",
+},
+
+{
+  label: "Max LTC (%)",
+  key: "maxLtc",
+  products: [
+    "MEZZ_FINANCE_PREF_EQUITY",
+    "MEZZ_FINANCE",
+    "MEZZANINE_FINANCE",
+    "FIX_AND_FLIP",
+    "CONSTRUCTION_LOAN",
+    "CONSTRUCTION_LOAN_1_TO_4_UNITS",
+    "FIX_AND_FLIP_LOAN_1_TO_4_UNITS",
+  ],
+},
 
   { label: "Min FICO Score", key: "fico" },
   { label: "Min Experience (Years)", key: "experience" },
@@ -209,12 +225,25 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
       }
     }
 
-    // ✅ LTV VALIDATION
-    if (key === "minLtv" || key === "maxLtv") {
-      if (numVal > 100) {
-        return "LTV cannot exceed 100%";
-      }
+if (
+  key === "maxLtv" ||
+  key === "maxArv" ||
+  key === "maxLtc"
+) {
+  if (numVal > 100) {
+    if (key === "maxLtv") {
+      return "LTV cannot exceed 100%";
     }
+
+    if (key === "maxArv") {
+      return "ARV cannot exceed 100%";
+    }
+
+    if (key === "maxLtc") {
+      return "LTC cannot exceed 100%";
+    }
+  }
+}
 
     // ✅ FICO VALIDATION
     if (key === "fico") {
@@ -300,7 +329,13 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
             {isOpen && (
               <div className="p-4 bg-gray-50 border-t">
                 <div className="grid grid-cols-2 gap-4">
-                  {fields.map((field) => (
+                 {fields
+  .filter((field: any) => {
+    if (!field.products) return true;
+
+    return field.products.includes(product.code);
+  })
+  .map((field: any) => (
                     <div key={field.key}>
                       <label className="text-xs text-gray-600 mb-1 block">
                         {field.label} <span className="text-red-500">*</span>

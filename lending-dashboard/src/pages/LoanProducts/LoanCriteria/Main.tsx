@@ -148,7 +148,7 @@ export default function Main() {
             <div>
               <h2 className="text-lg font-semibold">Select Lender</h2>
               <p className="text-sm text-gray-500">
-                Choose a lender to assign loan products
+                Choose a lender to assign loan products 
               </p>
             </div>
 

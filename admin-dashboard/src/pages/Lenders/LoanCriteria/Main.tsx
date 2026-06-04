@@ -147,7 +147,7 @@ export default function Main() {
             <div>
               <h2 className="text-lg font-semibold">Select Lender</h2>
               <p className="text-sm text-gray-500">
-                Choose a lender to assign loan products
+                Choose a lender to assign loan products j
               </p>
             </div>
 
@@ -418,9 +418,14 @@ export default function Main() {
         maxTermMonths: Number(criteria.maxTerm) || 0,
 
         // ✅ ADD MISSING FIELDS
-        minLtvPercent: Number(criteria.maxLtv) || 0,
         maxLtvPercent: Number(criteria.maxLtv) || 0,
+        ...(criteria.maxArv !== undefined && {
+          maxArvPercent: Number(criteria.maxArv) || 0,
+        }),
 
+        ...(criteria.maxLtc !== undefined && {
+          maxLtcPercent: Number(criteria.maxLtc) || 0,
+        }),
         minCreditScore: Number(criteria.fico) || 0,
 
         // ✅ IMPORTANT FIX
@@ -479,6 +484,14 @@ export default function Main() {
         "minTerm",
         "maxTerm",
       ];
+
+      if (data.showArv) {
+        requiredFields.push("maxArv");
+      }
+
+      if (data.showLtc) {
+        requiredFields.push("maxLtc");
+      }
 
       for (const field of requiredFields) {
         if (!data[field] && data[field] !== 0) {
@@ -647,12 +660,8 @@ export default function Main() {
               onClick={isLastStep ? handleSubmit : () => setStep((p) => p + 1)}
               disabled={
                 (!isLastStep &&
-                  ((step === 0 && !form.lenderId) || // ✅ FIXED
-                    (step === 1 && form.loanPrograms.length === 0) || // ✅ FIXED
-                    (step === 2 &&
-                      Object.keys(form.propertyTypes).length === 0) ||
-                    (step === 3 &&
-                      Object.keys(form.businessTypes).length === 0))) ||
+                  ((step === 0 && !form.lenderId) ||
+                    (step === 1 && form.loanPrograms.length === 0))) ||
                 (isLastStep && !isStep5Valid()) ||
                 hasStep5Errors
               }

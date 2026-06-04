@@ -48,144 +48,11 @@ function statusClass(status?: string) {
   }
 }
 
-// keep options in sync with Prisma enum LoanProductCode
-const LOAN_PRODUCT_CODES: { value: string; label: string }[] = [
-  /* ================= SBA / GOVERNMENT ================= */
-  { value: "SBA_7A", label: "SBA 7(a) Loan" },
-  {
-    value: "SBA_7A_BUSINESS_ACQUISITION",
-    label: "SBA 7(a) - Business Acquisition",
-  },
-  { value: "SBA_7A_WORKING_CAPITAL", label: "SBA 7(a) - Working Capital" },
-  {
-    value: "SBA_7A_EQUIPMENT_PURCHASE",
-    label: "SBA 7(a) - Equipment Purchase",
-  },
-  { value: "SBA_7A_REAL_ESTATE", label: "SBA 7(a) - Real Estate" },
-  { value: "SBA_504", label: "SBA 504 Loan" },
-  {
-    value: "SBA_504_REAL_ESTATE_EQUIPMENT",
-    label: "SBA 504 - Real Estate & Equipment",
-  },
-  { value: "SBA_EXPRESS", label: "SBA Express Loan" },
-  { value: "SBA_CAPLINES", label: "SBA CAPLines" },
-  { value: "SBA_MICROLOAN", label: "SBA Microloan" },
-  { value: "SBA_DISASTER", label: "SBA Disaster Loan" },
-  { value: "SBA_EXPORT", label: "SBA Export Loan" },
-  { value: "VA_BUSINESS", label: "VA Business Loan" },
-
-  /* ================= USDA ================= */
-  { value: "USDA_BUSINESS", label: "USDA Business Loan" },
-  { value: "USDA_BI", label: "USDA B&I Loan" },
-  { value: "USDA_RURAL_DEVELOPMENT", label: "USDA Rural Development Loan" },
-  { value: "USDA_FARM_OWNERSHIP", label: "USDA Farm Ownership Loan" },
-  { value: "USDA_FARM_OPERATING", label: "USDA Farm Operating Loan" },
-
-  /* ================= AGENCY / INSTITUTIONAL ================= */
-  { value: "AGENCY_LOAN", label: "Agency Loan (Fannie/Freddie/HUD)" },
-  { value: "HUD_223F", label: "HUD 223(f) Loan" },
-  { value: "HUD_221D4", label: "HUD 221(d)(4) Loan" },
-  { value: "CMBS", label: "CMBS Loan" },
-
-  /* ================= COMMERCIAL REAL ESTATE ================= */
-  { value: "CRE_PERMANENT_LOAN", label: "CRE Permanent Loan" },
-  { value: "CRE_PURCHASE", label: "Commercial Real Estate Purchase" },
-  { value: "CRE_REFINANCE", label: "Commercial Real Estate Refinance" },
-  { value: "CRE_CASH_OUT", label: "Commercial Cash-Out Refinance" },
-  {
-    value: "OWNER_OCCUPIED_CRE",
-    label: "Owner-Occupied Commercial Real Estate",
-  },
-  { value: "INVESTOR_CRE", label: "Investor Commercial Real Estate" },
-
-  /* ================= CONSTRUCTION ================= */
-  { value: "CONSTRUCTION_LOAN", label: "Construction Loan" },
-  { value: "GROUND_UP_CONSTRUCTION", label: "Ground Up Construction" },
-  { value: "CONSTRUCTION_TO_PERM", label: "Construction to Permanent" },
-  { value: "COMMERCIAL_CONSTRUCTION", label: "Commercial Construction Loan" },
-  { value: "LAND_DEVELOPMENT", label: "Land Development Loan" },
-  { value: "LAND_ACQUISITION", label: "Land Acquisition Loan" },
-
-  /* ================= RESIDENTIAL / MORTGAGE ================= */
-  { value: "CONVENTIONAL_MORTGAGE", label: "Conventional Mortgage" },
-  { value: "FHA_LOAN", label: "FHA Loan" },
-  { value: "VA_HOME_LOAN", label: "VA Home Loan" },
-  { value: "USDA_HOME_LOAN", label: "USDA Home Loan" },
-  { value: "NON_QM", label: "Non-QM Mortgage" },
-  { value: "JUMBO_LOAN", label: "Jumbo Mortgage Loan" },
-  { value: "REVERSE_MORTGAGE", label: "Reverse Mortgage" },
-
-  /* ================= RESIDENTIAL INVESTMENT ================= */
-  { value: "DSCR_RENTAL", label: "DSCR Rental Loan" },
-  { value: "DSCR", label: "DSCR Loan" },
-  { value: "FIX_AND_FLIP", label: "Fix & Flip Loan" },
-  { value: "BRIDGE_REALESTATE", label: "Bridge Loan" },
-  { value: "HARD_MONEY", label: "Hard Money Loan" },
-  { value: "RENTAL_PORTFOLIO", label: "Rental Portfolio Loan" },
-
-  /* ================= BUSINESS ================= */
-  { value: "BUSINESS_TERM", label: "Business Term Loan" },
-  { value: "WORKING_CAPITAL", label: "Working Capital Loan" },
-  { value: "BUSINESS_LINE_OF_CREDIT", label: "Business Line of Credit" },
-  { value: "STARTUP_FINANCING", label: "Startup Business Loan" },
-  { value: "SMALL_BUSINESS_LOAN", label: "Small Business Loan" },
-
-  /* ================= EQUIPMENT ================= */
-  { value: "EQUIPMENT_FINANCE", label: "Equipment Financing" },
-  { value: "EQUIPMENT_LEASE", label: "Equipment Leasing" },
-  { value: "FLEET_FINANCE", label: "Fleet Financing" },
-  { value: "HEAVY_EQUIPMENT", label: "Heavy Equipment Loan" },
-
-  /* ================= TRADE / ABL ================= */
-  { value: "ASSET_BASED_LENDING", label: "Asset Based Lending" },
-  { value: "INVOICE_FACTORING", label: "Invoice Factoring" },
-  { value: "PURCHASE_ORDER_FINANCE", label: "Purchase Order Finance" },
-  {
-    value: "ACCOUNTS_RECEIVABLE_FINANCE",
-    label: "Accounts Receivable Finance",
-  },
-  { value: "ACCOUNTS_PAYABLE_FINANCE", label: "Accounts Payable Finance" },
-  { value: "INVENTORY_FINANCE", label: "Inventory Finance" },
-  { value: "TRADE_FINANCE", label: "Trade Finance" },
-
-  /* ================= PRIVATE CREDIT ================= */
-  { value: "PRIVATE_CREDIT", label: "Private Credit Loan" },
-  { value: "MEZZANINE_FINANCE", label: "Mezzanine Financing" },
-  {
-    value: "MEZZ_FINANCE_PREF_EQUITY",
-    label: "Mezz Finance / Preferred Equity",
-  },
-  { value: "VENTURE_DEBT", label: "Venture Debt" },
-  { value: "MERCHANT_CASH_ADVANCE", label: "Merchant Cash Advance" },
-  { value: "REVENUE_BASED_FINANCE", label: "Revenue Based Financing" },
-
-  /* ================= FRANCHISE / INDUSTRY ================= */
-  { value: "FRANCHISE_FINANCE", label: "Franchise Financing" },
-  { value: "HOTEL_FINANCE", label: "Hotel Financing" },
-  { value: "RESTAURANT_FINANCE", label: "Restaurant Financing" },
-  { value: "MEDICAL_PRACTICE", label: "Medical Practice Financing" },
-  { value: "DENTAL_PRACTICE", label: "Dental Practice Financing" },
-  { value: "LAW_FIRM_FINANCE", label: "Law Firm Financing" },
-
-  /* ================= AGRICULTURE ================= */
-  { value: "AGRICULTURE_OPERATING", label: "Agriculture Operating Loan" },
-  { value: "FARM_EQUIPMENT", label: "Farm Equipment Loan" },
-  { value: "FARM_REAL_ESTATE", label: "Farm Real Estate Loan" },
-  { value: "LIVESTOCK_LOAN", label: "Livestock Loan" },
-
-  /* ================= CONSUMER ================= */
-  { value: "PERSONAL_LOAN", label: "Personal Loan" },
-  { value: "AUTO_LOAN", label: "Auto Loan" },
-  { value: "STUDENT_LOAN", label: "Student Loan" },
-  { value: "STUDENT_LOAN_REFINANCE", label: "Student Loan Refinance" },
-  { value: "HELOC", label: "Home Equity Line of Credit" },
-  { value: "HOME_EQUITY", label: "Home Equity Loan" },
-  { value: "PAYDAY_LOAN", label: "Payday Loan" },
-  { value: "BNPL", label: "Buy Now Pay Later (BNPL)" },
-];
-
 const AllLoanProducts: React.FC = () => {
   const [products, setProducts] = useState<LoanProduct[]>([]);
+  const [loanProductOptions, setLoanProductOptions] = useState<
+  { id: string; code: string; name: string }[]
+>([]);
   const [loadingList, setLoadingList] = useState(false);
   const [saving, setSaving] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
@@ -264,6 +131,22 @@ const AllLoanProducts: React.FC = () => {
       setLoadingList(false);
     }
   };
+
+  const fetchLoanProductCodes = async () => {
+  try {
+    const res = await fetch(
+      `${API_BASE}/common/loan-products/loan-product-code`
+    );
+
+    const json = await res.json();
+
+    if (json?.success) {
+      setLoanProductOptions(json.data || []);
+    }
+  } catch (error) {
+    console.error("Failed to load loan product codes", error);
+  }
+};
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -374,6 +257,7 @@ const AllLoanProducts: React.FC = () => {
   // ===== Effects =====
   useEffect(() => {
     fetchLoanProducts();
+     fetchLoanProductCodes();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -387,7 +271,7 @@ const AllLoanProducts: React.FC = () => {
             Loan Products
           </h1>
           <p className="text-sm text-gray-500 mt-1 dark:text-slate-400">
-            Manage global loan products available on the platform.
+            Manage global loan products available on the platform.  
           </p>
         </div>
       </div>
@@ -414,17 +298,25 @@ const AllLoanProducts: React.FC = () => {
                 className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900
                            dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
                 value={form.code}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, code: e.target.value }))
-                }
+                onChange={(e) => {
+  const selected = loanProductOptions.find(
+    (item) => item.code === e.target.value
+  );
+
+  setForm((f) => ({
+    ...f,
+    code: e.target.value,
+    name: selected?.name || "",
+  }));
+}}
                 disabled={!!editingProductId || saving}
               >
                 <option value="">Select a code</option>
-                {LOAN_PRODUCT_CODES.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
+              {loanProductOptions.map((opt) => (
+  <option key={opt.id} value={opt.code}>
+    {opt.name}
+  </option>
+))}
               </select>
               {editingProductId && (
                 <p className="mt-1 text-xs text-gray-500 dark:text-slate-400">

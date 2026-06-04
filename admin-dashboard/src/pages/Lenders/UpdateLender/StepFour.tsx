@@ -180,17 +180,26 @@ const data = [
 const StepFour = ({ value, setValue }: any) => {
   const [openIndexes, setOpenIndexes] = useState<number[]>([]);
 
-  const toggleCategory = (category: string, index: number) => {
-    if (value[category]) {
-      const updated = { ...value };
-      delete updated[category];
-      setValue(updated);
-      setOpenIndexes((prev) => prev.filter((i) => i !== index));
-    } else {
-      setValue({ ...value, [category]: [] });
-      setOpenIndexes((prev) => [...prev, index]);
-    }
-  };
+const toggleCategory = (category: string, index: number) => {
+  if (value[category]) {
+    const updated = { ...value };
+    delete updated[category];
+    setValue(updated);
+
+    setOpenIndexes((prev) =>
+      prev.filter((i) => i !== index)
+    );
+  } else {
+    setValue({
+      ...value,
+      [category]: [],
+    });
+
+    setOpenIndexes((prev) =>
+      prev.includes(index) ? prev : [...prev, index]
+    );
+  }
+};
 
   const toggleSubType = (category: string, sub: string, index: number) => {
     const existing = value[category] || [];
@@ -232,7 +241,7 @@ const StepFour = ({ value, setValue }: any) => {
         </h2>
 
         <p className="text-sm text-gray-500 mt-1">
-          Select industries this lender supports.
+          Select industries this lender supports. 
         </p>
       </div>
 
@@ -275,18 +284,21 @@ const StepFour = ({ value, setValue }: any) => {
                 </div>
 
                 {item.subTypes.length > 0 && (
-                  <ChevronDown
-                    size={18}
-                    className={`cursor-pointer transition ${
-                      isOpen ? "rotate-180 text-purple-600" : ""
-                    }`}
-                    onClick={() => toggleOpen(index)}
-                  />
+                 <ChevronDown
+  size={18}
+  className={`cursor-pointer transition ${
+    isOpen ? "rotate-180 text-purple-600" : ""
+  }`}
+  onClick={(e) => {
+    e.stopPropagation();
+    toggleOpen(index);
+  }}
+/>
                 )}
               </div>
 
               {/* SUB TYPES */}
-              {isOpen && isSelected && item.subTypes.length > 0 && (
+             {isOpen && item.subTypes.length > 0 && (
                 <div className="px-4 pb-4">
                   {/* ACTION BAR */}
                   <div className="flex justify-between items-center mb-3">

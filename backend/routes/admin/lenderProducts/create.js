@@ -54,25 +54,27 @@ async function createLenderProductRoutes(fastify) {
         if (isNewFormat) {
           normalizedProducts = data.products;
         } else {
-          normalizedProducts = data.loanProductCodes.map((code) => ({
-            loanProductCode: code,
+         normalizedProducts = data.loanProductCodes.map((code) => ({
+  loanProductCode: code,
 
-            // fallback (no types in old format)
-            businessTypes: data.businessTypes,
-            propertyTypes: data.propertyTypes,
+  businessTypes: data.businessTypes,
+  propertyTypes: data.propertyTypes,
 
-            minLoanAmount: data.minLoanAmount,
-            maxLoanAmount: data.maxLoanAmount,
-            minTermMonths: data.minTermMonths,
-            maxTermMonths: data.maxTermMonths,
-            minLtvPercent: data.minLtvPercent,
-            maxLtvPercent: data.maxLtvPercent,
-            minCreditScore: data.minCreditScore,
-            minExperience: data.minExperience,
-            interestRateRange: data.interestRateRange,
-            statesSupported: data.statesSupported,
-            isActive: data.isActive,
-          }));
+  minLoanAmount: data.minLoanAmount,
+  maxLoanAmount: data.maxLoanAmount,
+  minTermMonths: data.minTermMonths,
+  maxTermMonths: data.maxTermMonths,
+
+  maxLtvPercent: data.maxLtvPercent,
+  maxArvPercent: data.maxArvPercent,
+  maxLtcPercent: data.maxLtcPercent,
+
+  minCreditScore: data.minCreditScore,
+  minExperience: data.minExperience,
+  interestRateRange: data.interestRateRange,
+  statesSupported: data.statesSupported,
+  isActive: data.isActive,
+}));
         }
 
         if (!normalizedProducts.length) {
@@ -179,14 +181,21 @@ async function createLenderProductRoutes(fastify) {
               minTermMonths: item.minTermMonths ?? null,
               maxTermMonths: item.maxTermMonths ?? null,
 
-              minLtvPercent: item.minLtvPercent
-                ? new Prisma.Decimal(item.minLtvPercent)
-                : null,
-
               maxLtvPercent: item.maxLtvPercent
                 ? new Prisma.Decimal(item.maxLtvPercent)
                 : null,
 
+                maxArvPercent:
+  item.maxArvPercent !== undefined &&
+  item.maxArvPercent !== null
+    ? new Prisma.Decimal(item.maxArvPercent)
+    : null,
+
+maxLtcPercent:
+  item.maxLtcPercent !== undefined &&
+  item.maxLtcPercent !== null
+    ? new Prisma.Decimal(item.maxLtcPercent)
+    : null,
               minCreditScore: item.minCreditScore ?? null,
               minExperience: item.minExperience ?? null,
 

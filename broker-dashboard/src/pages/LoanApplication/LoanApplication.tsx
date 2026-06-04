@@ -412,6 +412,8 @@ const LoanApplication = () => {
     return formatted;
   };
 
+  const ZIP_REGEX = /^\d{5}(-\d{4})?$/;
+
   const formatCurrency = (value: string) => {
     // Remove everything except digits
     const cleaned = value.replace(/\D/g, "");
@@ -653,6 +655,13 @@ const LoanApplication = () => {
         return "Enter valid SSN (XXX-XX-XXXX)";
       }
     }
+
+    // ZIP Code
+if (key.toLowerCase() === "zip") {
+  if (trimmed && !ZIP_REGEX.test(trimmed)) {
+    return "Enter a valid US ZIP Code (12345 or 12345-6789)";
+  }
+}
 
     // Amount fields validation
     const amountKeys = [
@@ -2548,7 +2557,14 @@ focus:border-blue-500 outline-none text-sm ${
                     type="text"
                     inputMode="numeric"
                     value={formData.loanRequest.zip}
-                    onChange={(e) => updateLoanRequest("zip", e.target.value)}
+                      onChange={(e) => {
+    let value = e.target.value
+      .replace(/[^\d-]/g, "")
+      .slice(0, 10);
+
+    updateLoanRequest("zip", value);
+  }}
+  placeholder="12345 or 12345-6789"
                     className={`mt-1 w-full px-4 py-1 rounded-md border 
     dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200
     ${

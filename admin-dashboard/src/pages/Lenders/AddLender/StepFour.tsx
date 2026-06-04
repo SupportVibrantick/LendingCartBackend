@@ -180,19 +180,20 @@ const data = [
 const StepFour = ({ value, setValue }: any) => {
   const [openIndexes, setOpenIndexes] = useState<number[]>([]);
 
-  const toggleCategory = (category: string, index: number) => {
+  const toggleCategory = (category: string) => {
     if (value[category]) {
       const updated = { ...value };
       delete updated[category];
       setValue(updated);
-      setOpenIndexes((prev) => prev.filter((i) => i !== index));
     } else {
-      setValue({ ...value, [category]: [] });
-      setOpenIndexes((prev) => [...prev, index]);
+      setValue({
+        ...value,
+        [category]: [],
+      });
     }
   };
 
-  const toggleSubType = (category: string, sub: string, index: number) => {
+  const toggleSubType = (category: string, sub: string) => {
     const existing = value[category] || [];
 
     const updated = existing.includes(sub)
@@ -203,10 +204,6 @@ const StepFour = ({ value, setValue }: any) => {
       ...value,
       [category]: updated,
     });
-
-    if (!openIndexes.includes(index)) {
-      setOpenIndexes((prev) => [...prev, index]);
-    }
   };
 
   const selectAll = (category: string, subTypes: string[]) => {
@@ -255,7 +252,7 @@ const StepFour = ({ value, setValue }: any) => {
               <div className="flex items-center justify-between px-4 py-3">
                 <div
                   className="flex items-center gap-3 cursor-pointer flex-1"
-                  onClick={() => toggleCategory(item.name, index)}
+                  onClick={() => toggleCategory(item.name)}
                 >
                   <input
                     type="checkbox"
@@ -318,9 +315,7 @@ const StepFour = ({ value, setValue }: any) => {
                           <input
                             type="checkbox"
                             checked={checked || false}
-                            onChange={() =>
-                              toggleSubType(item.name, sub, index)
-                            }
+                            onChange={() => toggleSubType(item.name, sub)}
                             className="accent-purple-600"
                           />
 

@@ -30,14 +30,31 @@ type AssignedProduct = {
   maxLoanAmount?: string;
   minTermMonths?: number;
   maxTermMonths?: number;
-  minLtvPercent?: string;
-  maxLtvPercent?: string;
+maxLtvPercent?: string;
+maxArvPercent?: string;
+maxLtcPercent?: string;
   minCreditScore?: number;
   minExperience?: string;
   interestRateRange?: string;
   businessTypes?: string[];
   statesSupported?: string[];
   equipmentTypes?: string[];
+};
+
+const PRODUCT_LABELS: Record<string, string> = {
+  FIX_AND_FLIP_LOAN_1_TO_4_UNITS: "FIX & FLIP",
+  DSCR_LOAN_1_TO_4_UNITS: "DSCR",
+  CONSTRUCTION_LOAN_1_TO_4_UNITS: "CONSTRUCTION",
+  BRIDGE_LOAN_1_TO_4_UNITS: "BRIDGE LOAN",
+  SBA_504_REAL_ESTATE_AND_EQUIPMENT: "SBA 504",
+  USDA_BI: "USDA B&I",
+  AGENCY_LOAN_MULTIFAMILY: "AGENCY MULTIFAMILY",
+  CRE_PERMANENT_LOAN: "CRE PERMANENT",
+  RENTAL_PORTFOLIO: "RENTAL PORTFOLIO",
+  PURCHASE_ORDER_FINANCE: "PURCHASE ORDER FINANCE",
+  ACCOUNTS_PAYABLE_FINANCE: "AP SUPPLY CHAIN",
+  ACCOUNTS_RECEIVABLE: "ACCOUNTS RECEIVABLE",
+  INVOICE_FACTORING: "AR FACTORING",
 };
 
 /* ================= COMPONENT ================= */
@@ -86,9 +103,9 @@ const AssignedProducts: React.FC = () => {
 
           minTermMonths: a.minTermMonths,
           maxTermMonths: a.maxTermMonths,
-
-          minLtvPercent: a.minLtvPercent,
-          maxLtvPercent: a.maxLtvPercent,
+maxLtvPercent: a.maxLtvPercent,
+maxArvPercent: a.maxArvPercent,
+maxLtcPercent: a.maxLtcPercent,
 
           minCreditScore: a.minCreditScore,
           minExperience: a.minExperience,
@@ -215,7 +232,7 @@ const AssignedProducts: React.FC = () => {
             {/* TITLE */}
             <div>
               <h2 className="text-md font-semibold text-slate-900 dark:text-white tracking-tight">
-                Assigned Lender Products
+                Assigned Lender Products 
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 Manage lender ↔ product mappings efficiently
@@ -354,7 +371,10 @@ const AssignedProducts: React.FC = () => {
                       {a.productName}
                     </td>
                     <td className="py-3 pr-4 dark:text-white text-xs">
-                      {a.productCode}
+                      {PRODUCT_LABELS[a.productCode] ??
+  a.productCode
+    ?.replace(/_/g, " ")
+    .toUpperCase()}
                     </td>
                     <td className="py-3 pr-4 dark:text-slate-100 text-xs">
                       {a.minLoanAmount} – {a.maxLoanAmount}
@@ -569,7 +589,10 @@ const AssignedProducts: React.FC = () => {
                     <Section title="Loan Product">
                       <FieldCard
                         label="Code"
-                        value={detail.loanProduct?.code}
+                        value={PRODUCT_LABELS[detail.loanProduct?.code] ??
+  detail.loanProduct?.code
+    ?.replace(/_/g, " ")
+    .toUpperCase()}
                       />
                       <FieldCard
                         label="Name"
@@ -603,14 +626,21 @@ const AssignedProducts: React.FC = () => {
                         label="Max Term (Months)"
                         value={detail.maxTermMonths}
                       />
+             
                       <FieldCard
-                        label="Min LTV (%)"
-                        value={detail.minLtvPercent}
-                      />
-                      <FieldCard
-                        label="Max LTV (%)"
-                        value={detail.maxLtvPercent}
-                      />
+  label="Max LTV (%)"
+  value={detail.maxLtvPercent}
+/>
+
+<FieldCard
+  label="Max ARV (%)"
+  value={detail.maxArvPercent}
+/>
+
+<FieldCard
+  label="Max LTC (%)"
+  value={detail.maxLtcPercent}
+/>
                       <FieldCard
                         label="Min Credit Score"
                         value={detail.minCreditScore}

@@ -20,7 +20,7 @@ const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
 const API = {
   BROKERS: `${API_BASE}/admin/brokers/read`,
-  BROKER_BY_ID: `${API_BASE}/admin/brokers/read/`,
+  BROKER_BY_ID: `${API_BASE}/admin/brokers/read/`, 
   UPDATE_ADMIN: `${API_BASE}/admin/brokers/admin/update/`,
   DELETE_ADMIN: `${API_BASE}/admin/brokers/admin/delete/`,
 };

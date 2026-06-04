@@ -32,8 +32,25 @@ type Broker = {
   name: string;
   email: string;
   phone: string;
+
+    adminId?: string;
+  adminFirstName?: string;
+  adminLastName?: string;
+  adminEmail?: string;
+  adminPassword?: string;
+  adminStatus?: string;
+
+  affiliateLinks?: any[];
+  lenderAccess?: any[];
+  whiteLabel?: any;
+
+  adminCount?: number;
+  affiliateLinksCount?: number;
+  lenderAccessCount?: number;
+
   status?: string;
   createdAt?: string;
+  updatedAt?: string;
   profileImage?: string | null;
 };
 
@@ -252,9 +269,45 @@ export default function BrokersPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  const openEditModal = (b: Broker) => {
-    setEditingBroker(b);
-  };
+const openEditModal = async (b: Broker) => {
+  try {
+    const token = sessionStorage.getItem("admin_token");
+
+    const res = await fetch(
+      `${API_BASE}/admin/brokers/read/${b.id}`,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      }
+    );
+
+    const json = await res.json();
+
+    const brokerData = json?.data;
+
+ const admin = brokerData?.admins?.[0];
+
+setEditingBroker({
+  id: brokerData.id,
+  name: brokerData.name || "",
+  email: brokerData.email || "",
+  phone: brokerData.phone || "",
+  status: brokerData.status,
+
+  adminId: admin?.id,
+  adminFirstName: admin?.firstName || "",
+  adminLastName: admin?.lastName || "",
+  adminEmail: admin?.email || "",
+  adminStatus: admin?.status || "",
+
+  createdAt: brokerData.createdAt,
+});
+  } catch (err) {
+    console.error(err);
+  }
+};
 
   const handleEditSave = async (updated: Broker) => {
     // optimistic
@@ -271,11 +324,22 @@ export default function BrokersPage() {
             "Content-Type": "application/json",
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
-          body: JSON.stringify({
-            name: updated.name,
-            email: updated.email,
-            phone: updated.phone,
-          }),
+        body: JSON.stringify({
+  name: updated.name,
+  email: updated.email,
+  phone: updated.phone,
+    status: updated.status,
+
+admin: {
+  id: updated.adminId,
+  firstName: updated.adminFirstName,
+  lastName: updated.adminLastName,
+  email: updated.adminEmail,
+  password:
+    updated.adminPassword?.trim() || undefined,
+  status: updated.adminStatus,
+},
+})
         },
       );
 
@@ -984,7 +1048,7 @@ export default function BrokersPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <label className="block">
                       <span className="text-sm text-gray-700 dark:text-slate-200">
-                        Organization Name
+                        Organization Name <span className="text-red-500">*</span>
                       </span>
                       <input
                         value={form.organizationName}
@@ -999,7 +1063,7 @@ export default function BrokersPage() {
 
                     <label className="block">
                       <span className="text-sm text-gray-700 dark:text-slate-200">
-                        Organization Email
+                        Organization Email <span className="text-red-500">*</span>
                       </span>
                       <input
                         value={form.organizationEmail}
@@ -1017,7 +1081,7 @@ export default function BrokersPage() {
 
                     <label className="block md:col-span-1">
                       <span className="text-sm text-gray-700 dark:text-slate-200">
-                        Organization Phone
+                        Organization Phone <span className="text-red-500">*</span>
                       </span>
                       <input
                         value={form.organizationPhone}
@@ -1048,7 +1112,7 @@ export default function BrokersPage() {
                     {/* First + Last Name parallel */}
                     <label className="block">
                       <span className="text-sm text-gray-700 dark:text-slate-200">
-                        Admin First Name
+                        Admin First Name <span className="text-red-500">*</span>
                       </span>
                       <input
                         value={form.adminFirstName}
@@ -1063,7 +1127,7 @@ export default function BrokersPage() {
 
                     <label className="block">
                       <span className="text-sm text-gray-700 dark:text-slate-200">
-                        Admin Last Name
+                        Admin Last Name <span className="text-red-500">*</span>
                       </span>
                       <input
                         value={form.adminLastName}
@@ -1079,7 +1143,7 @@ export default function BrokersPage() {
                     {/* Email + Password parallel */}
                     <label className="block">
                       <span className="text-sm text-gray-700 dark:text-slate-200">
-                        Admin Email
+                        Admin Email <span className="text-red-500">*</span>
                       </span>
                       <input
                         value={form.adminEmail}
@@ -1094,7 +1158,7 @@ export default function BrokersPage() {
 
                     <label className="block">
                       <span className="text-sm text-gray-700 dark:text-slate-200">
-                        Admin Password
+                        Admin Password <span className="text-red-500">*</span>
                       </span>
 
                       <div className="relative">

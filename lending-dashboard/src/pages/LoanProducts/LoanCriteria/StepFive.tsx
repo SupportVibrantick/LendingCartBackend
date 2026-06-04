@@ -25,6 +25,7 @@ const fields = [
   products: [
     "MEZZ_FINANCE_PREF_EQUITY",
     "MEZZ_FINANCE",
+    "MEZZANINE_FINANCE",
     "FIX_AND_FLIP",
     "CONSTRUCTION_LOAN",
     "CONSTRUCTION_LOAN_1_TO_4_UNITS",

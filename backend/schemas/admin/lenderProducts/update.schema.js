@@ -47,8 +47,9 @@ const productSchema = z
     minTermMonths: z.number().int().nonnegative().optional(),
     maxTermMonths: z.number().int().nonnegative().optional(),
 
-    minLtvPercent: decimalField,
     maxLtvPercent: decimalField,
+    maxArvPercent: decimalField,
+maxLtcPercent: decimalField,
 
     minCreditScore: z.number().int().nonnegative().optional(),
 

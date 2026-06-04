@@ -1,6 +1,8 @@
 import { GrCircleInformation } from "react-icons/gr";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
+import {useNavigate} from "react-router-dom";
+import { Plus } from "lucide-react";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
@@ -331,6 +333,7 @@ const PRODUCT_LABELS: Record<string, string> = {
 /* ================= PAGE ================= */
 
 export default function ActiveApplication() {
+  const navigate = useNavigate();
   const [data, setData] = useState<ActiveApplicationResponse | null>(null);
   const [activeProductId, setActiveProductId] = useState("");
   const [values, setValues] = useState<Record<string, any>>({});
@@ -369,37 +372,65 @@ export default function ActiveApplication() {
 
   return (
     <div className="p-6 min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100">
-      <div className="flex items-center gap-3 mb-4">
-        <h1 className="text-xl font-bold text-[#2C92D5]">
-          {data.applicationName}
-        </h1>
+      <div className="flex items-start justify-between mb-6">
+  {/* LEFT SIDE */}
+  <div>
+    <div className="flex gap-2 items-center">
+      <h1 className="text-2xl font-bold text-[#2C92D5]">
+        Application: {data.applicationName}
+      </h1>
 
-        {/* Visibility Icon */}
-        <div className="relative group inline-flex">
-          <GrCircleInformation className="w-5 h-5 text-blue-600 dark:text-blue-400 cursor-pointer" />
+      <div className="relative group inline-flex">
+        <GrCircleInformation className="w-5 h-5 text-blue-600 cursor-pointer" />
 
-          {/* Tooltip */}
-          <div
-            className="
-    absolute left-1/2 -translate-x-1/2 bottom-full
-    w-64
-    bg-slate-900 dark:bg-slate-800
-    text-white text-xs
-    px-3 py-2 rounded-lg
-    shadow-lg
-    opacity-0 group-hover:opacity-100
-    transition-opacity duration-200
-    pointer-events-none
-    z-[999999999999999]
-  "
-          >
-            This application is currently active and visible across all
-            platforms.
-            {/* Arrow */}
-            <div className="absolute left-1/2 -translate-x-1/2 top-full w-2 h-2 bg-slate-900 dark:bg-slate-800 rotate-45"></div>
-          </div>
+        <div
+          className="
+            absolute left-1/2 -translate-x-1/2 bottom-full
+            w-64 bg-slate-900 text-white text-xs
+            px-3 py-2 rounded-lg shadow-lg
+            opacity-0 group-hover:opacity-100
+            transition-opacity duration-200
+            pointer-events-none z-50
+          "
+        >
+          This application is currently active and visible across all
+          platforms.
+          <div className="absolute left-1/2 -translate-x-1/2 top-full w-2 h-2 bg-slate-900 rotate-45" />
         </div>
       </div>
+    </div>
+
+    <p className="text-sm text-slate-500 mt-1">
+      View loan application fields and requirements by loan product.
+    </p>
+
+    
+  </div>
+
+  {/* RIGHT SIDE */}
+<button
+  type="button"
+  onClick={() => navigate("/loan-application")}
+  className="
+    inline-flex items-center gap-2
+    bg-[#2C92D5] text-white
+    px-4 py-2 text-sm font-medium
+    rounded-xl
+    hover:bg-[#237db6]
+    transition-colors
+  "
+>
+  <Plus size={16} />
+  Create Loan Application
+</button>
+</div>
+
+<div className="mb-6 rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
+  <strong>Reference View:</strong> This page displays the application fields
+  configured for the selected loan product. All fields are read-only and cannot
+  be edited from this screen.
+</div>
+
       <select
         className="mb-6 border rounded px-3 py-2 text-xs
              bg-white text-slate-900 border-slate-300

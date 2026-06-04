@@ -1,10 +1,15 @@
 // routes/admin/lenders/status.js
 const { adminLogs } = require("../../../services/logger/contextLogger.js");
+const {
+  DashboardType,
+  LogCategory,
+} = require("@prisma/client");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
  */
 async function lenderStatusRoutes(fastify) {
+    const prisma = fastify.prisma;
   /**
    * Toggle LENDER org status inside a transaction.
    * - Only allowed if lender is NOT under any active broker (BrokerLenderAccess).
@@ -65,17 +70,30 @@ async function lenderStatusRoutes(fastify) {
     });
 
     // 4) Audit log
-    await tx.auditLog.create({
-      data: {
-        actorUserId: actor.userId ?? null,
-        actorOrgId: actor.orgId ?? null,
-        entityType: "Organization",
-        entityId: orgId,
-        action: toActive ? "LENDER_ORG_ACTIVATED" : "LENDER_ORG_DEACTIVATED",
-        oldValueJson: JSON.stringify({ status: org.status }),
-        newValueJson: JSON.stringify({ status: newStatus }),
-      },
-    });
+await tx.auditLog.create({
+  data: {
+    actorUserId: actor.userId ?? null,
+    actorOrgId: actor.orgId ?? null,
+
+    dashboard: "PLATFORM",
+    category: "USER_MANAGEMENT",
+
+    entityType: "Organization",
+    entityId: orgId,
+
+    action: toActive
+      ? "LENDER_ORG_ACTIVATED"
+      : "LENDER_ORG_DEACTIVATED",
+
+    oldValueJson: JSON.stringify({
+      status: org.status,
+    }),
+
+    newValueJson: JSON.stringify({
+      status: newStatus,
+    }),
+  },
+});
 
     return {
       id: org.id,
@@ -143,7 +161,7 @@ async function lenderStatusRoutes(fastify) {
         adminLogs.error("Deactivate lender failed", { err, orgId: id });
         return reply
           .status(500)
-          .send({ success: false, message: "Server error" });
+          .send({ success: false, message: err.message || "Server error" });
       }
     }
   );

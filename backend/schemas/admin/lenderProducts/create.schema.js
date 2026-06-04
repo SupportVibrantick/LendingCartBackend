@@ -29,8 +29,9 @@ const productSchema = z.object({
   minTermMonths: z.number().int().nonnegative().optional(),
   maxTermMonths: z.number().int().nonnegative().optional(),
 
-  minLtvPercent: decimalField,
   maxLtvPercent: decimalField,
+  maxArvPercent: decimalField,
+  maxLtcPercent: decimalField,
 
   minCreditScore: z.number().int().nonnegative().optional(),
   minExperience: z.string().optional(),
@@ -61,8 +62,9 @@ const createLenderProductSchema = z
     minTermMonths: z.number().int().nonnegative().optional(),
     maxTermMonths: z.number().int().nonnegative().optional(),
 
-    minLtvPercent: decimalField,
     maxLtvPercent: decimalField,
+    maxArvPercent: decimalField,
+    maxLtcPercent: decimalField,
 
     minCreditScore: z.number().int().nonnegative().optional(),
     minExperience: z.string().optional(),
@@ -73,13 +75,9 @@ const createLenderProductSchema = z
 
     isActive: z.boolean().optional(),
   })
-  .refine(
-    (data) => data.loanProductCodes || data.products,
-    {
-      message:
-        "Either 'loanProductCodes' or 'products' must be provided",
-      path: ["loanProductCodes"],
-    }
-  );
+  .refine((data) => data.loanProductCodes || data.products, {
+    message: "Either 'loanProductCodes' or 'products' must be provided",
+    path: ["loanProductCodes"],
+  });
 
 module.exports = { createLenderProductSchema };

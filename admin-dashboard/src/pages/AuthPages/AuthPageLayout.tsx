@@ -18,12 +18,13 @@ export default function AuthLayout({
             <GridShape />
             <div className="flex flex-col items-center max-w-xs">
               <Link to="/" className="block mb-4">
+                <div className="rounded-full overflow-hidden">
                 <img
-                  width={231}
-                  height={48}
                   src="/loanAutomation.jpeg"
                   alt="Logo"
+                  className="w-full h-full object-cover"
                 />
+              </div>
               </Link>
               <p className="text-center text-gray-400 dark:text-white/60">
                 Smart Loans for Smarter Businesses.

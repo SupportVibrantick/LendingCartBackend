@@ -32,7 +32,7 @@ type ChatMessage = {
   id: string;
   conversationId?: string;
   senderType?: string;
-  senderName?: string; 
+  senderName?: string;
   type?: string;
   fileUrl?: string;
   fileName?: string;
@@ -86,7 +86,6 @@ const getInitials = (value?: string) => {
       .join("") || "C"
   );
 };
-
 
 const getAvatarTone = (value?: string) => {
   const tones = [
@@ -420,16 +419,16 @@ const Chat = ({ applicationId, onBack }: LoanPreviewChatProps) => {
         if (msg.conversationId !== selectedConversation?.id) return prev;
         if (prev.some((item) => item.id === msg.id)) return prev;
         return [
-  ...prev,
-  {
-    ...msg,
-    senderName:
-      msg.senderName ||
-      (msg.senderType === "BROKER"
-        ? selectedConversation?.brokerName
-        : "Client"),
-  },
-];
+          ...prev,
+          {
+            ...msg,
+            senderName:
+              msg.senderName ||
+              (msg.senderType === "BROKER"
+                ? selectedConversation?.brokerName
+                : "Client"),
+          },
+        ];
       });
     };
 
@@ -736,12 +735,12 @@ const Chat = ({ applicationId, onBack }: LoanPreviewChatProps) => {
                               className={`flex max-w-[80%] items-end gap-2 ${!isBroker ? "flex-row-reverse" : "flex-row"}`}
                             >
                               <div
-                               className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold ${getAvatarTone(msg.senderName)}`}
+                                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold ${getAvatarTone(msg.senderName)}`}
                               >
-                             {getInitials(
-  msg.senderName ||
-    (isBroker ? "Broker" : "Client"),
-)}
+                                {getInitials(
+                                  msg.senderName ||
+                                    (isBroker ? "Broker" : "Client"),
+                                )}
                               </div>
 
                               <div>

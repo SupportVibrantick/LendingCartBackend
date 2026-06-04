@@ -416,9 +416,16 @@ export default function Main() {
 
         minTermMonths: Number(criteria.minTerm) || 0,
         maxTermMonths: Number(criteria.maxTerm) || 0,
-        minLtvPercent: Number(criteria.minLtv) || 0,
+        maxArvPercent:
+          criteria.maxArv !== undefined && criteria.maxArv !== ""
+            ? Number(criteria.maxArv)
+            : null,
+
         maxLtvPercent: Number(criteria.maxLtv) || 0,
-        maxLtcPercent: Number(criteria.maxLtc) || 0,
+        maxLtcPercent:
+          criteria.maxLtc !== undefined && criteria.maxLtc !== ""
+            ? Number(criteria.maxLtc)
+            : 0,
 
         minCreditScore: Number(criteria.fico) || 0,
         minExperience: String(criteria.experience || 0),
@@ -510,7 +517,7 @@ export default function Main() {
 
       if (!createdId) {
         toast.error("Lender created but ID missing");
-        return;
+        return; 
       }
 
       // save lender id
@@ -539,13 +546,30 @@ export default function Main() {
         "maxLoan",
         "minRate",
         "maxRate",
-        "minLtv",
         "maxLtv",
         "fico",
         "experience",
         "minTerm",
         "maxTerm",
       ];
+
+if (data.maxArv === "" || data.maxArv === undefined) {
+  return `${product.name}: maxArv is required`;
+}
+
+if (
+  [
+    "MEZZ_FINANCE_PREF_EQUITY",
+    "MEZZ_FINANCE",
+    "FIX_AND_FLIP",
+    "CONSTRUCTION_LOAN",
+    "CONSTRUCTION_LOAN_1_TO_4_UNITS",
+    "FIX_AND_FLIP_LOAN_1_TO_4_UNITS",
+  ].includes(product.code) &&
+  (data.maxLtc === "" || data.maxLtc === undefined)
+) {
+  return `${product.name}: maxLtc is required`;
+}
 
       for (const field of requiredFields) {
         if (!data[field] && data[field] !== 0) {
@@ -741,8 +765,8 @@ export default function Main() {
                     !form.adminEmail ||
                     !form.password)) ||
                 (step === 1 && form.loanPrograms.length === 0) ||
-                (step === 2 && Object.keys(form.propertyTypes).length === 0) ||
-                (step === 3 && Object.keys(form.businessTypes).length === 0) ||
+                // (step === 2 && Object.keys(form.propertyTypes).length === 0) ||
+                // (step === 3 && Object.keys(form.businessTypes).length === 0) ||
                 (step === 4 &&
                   isEquipmentSelected &&
                   form.equipmentFinance.length === 0) ||

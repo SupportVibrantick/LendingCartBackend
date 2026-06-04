@@ -153,13 +153,17 @@ async function updateLenderProductRoutes(fastify) {
               maxTermMonths: item.maxTermMonths ?? null,
             }),
 
-            ...(item.minLtvPercent !== undefined && {
-              minLtvPercent: toDecimal(item.minLtvPercent),
-            }),
-
             ...(item.maxLtvPercent !== undefined && {
               maxLtvPercent: toDecimal(item.maxLtvPercent),
             }),
+
+            ...(item.maxArvPercent !== undefined && {
+  maxArvPercent: toDecimal(item.maxArvPercent),
+}),
+
+...(item.maxLtcPercent !== undefined && {
+  maxLtcPercent: toDecimal(item.maxLtcPercent),
+}),
 
             ...(item.minCreditScore !== undefined && {
               minCreditScore: item.minCreditScore ?? null,

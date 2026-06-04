@@ -24,12 +24,23 @@ async function listLenderProductRoutes(fastify) {
         // ---------------------------
         // Normalize response for frontend (Production-safe)
         // ---------------------------
-        const formatted = result.map((item) => ({
-          ...item,
+const formatted = result.map((item) => ({
+  ...item,
 
-          businessTypes: normalizeToArray(item.businessTypes),
-          statesSupported: normalizeToArray(item.statesSupported),
-        }));
+  businessTypes: normalizeToArray(item.businessTypes),
+  propertyTypes: normalizeToArray(item.propertyTypes),
+
+  statesSupported: normalizeToArray(item.statesSupported),
+
+  equipmentTypes: normalizeToArray(item.equipmentTypes),
+
+  maxLtvPercent: item.maxLtvPercent?.toString() ?? null,
+  maxArvPercent: item.maxArvPercent?.toString() ?? null,
+  maxLtcPercent: item.maxLtcPercent?.toString() ?? null,
+
+  minLoanAmount: item.minLoanAmount?.toString() ?? null,
+  maxLoanAmount: item.maxLoanAmount?.toString() ?? null,
+}));
 
         return reply.send({
           success: true,
