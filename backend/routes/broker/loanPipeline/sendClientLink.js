@@ -69,6 +69,13 @@ async function sendClientLinkRoute(fastify) {
           });
         }
 
+        if (loan.status !== "DRAFT") {
+          return reply.code(400).send({
+            success: false,
+            message: "Client link can only be sent for draft applications",
+          });
+        }
+
         /* ===============================
            GET CLIENT EMAIL (SAFE)
         =============================== */

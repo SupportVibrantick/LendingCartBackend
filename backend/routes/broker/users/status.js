@@ -1,4 +1,5 @@
 // backend/routes/broker/users/status.js
+const { DashboardType, LogCategory } = require("@prisma/client");
 
 module.exports = async function updateBrokerUserStatus(fastify) {
   fastify.patch(
@@ -98,6 +99,10 @@ module.exports = async function updateBrokerUserStatus(fastify) {
           data: {
             actorUserId: req.user.id,
             actorOrgId: brokerOrgId,
+
+            dashboard: DashboardType.BROKER,
+            category: LogCategory.USER_MANAGEMENT,
+
             entityType: "UserAccount",
             entityId: id,
             action: `UPDATE_STATUS_${status}`,
@@ -111,14 +116,14 @@ module.exports = async function updateBrokerUserStatus(fastify) {
       } catch (error) {
         fastify.log.error(
           { error: error.message, userId: id },
-          "Update user status failed"
+          "Update user status failed",
         );
 
         return reply.code(500).send({
           success: false,
-          message: "Internal server error",
+          message: error.message || "Internal server error",
         });
       }
-    }
+    },
   );
 };

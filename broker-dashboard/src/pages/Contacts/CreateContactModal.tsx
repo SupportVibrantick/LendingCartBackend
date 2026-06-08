@@ -3,9 +3,10 @@ import toast from "react-hot-toast";
 
 type Props = {
   onClose: () => void;
+  contact?: Record<string, any> | null;
 };
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
 export enum ContactType {
   ACCOUNTANT = "ACCOUNTANT",
@@ -166,27 +167,28 @@ const validateField = (name: string, value: string) => {
   return "";
 };
 
-export default function CreateContactModal({ onClose }: Props) {
+export default function CreateContactModal({ onClose, contact }: Props) {
+  const isEditing = Boolean(contact?.id);
   const [loading, setLoading] = useState(false);
 
   const [form, setForm] = useState({
-    contactType: ContactType.LENDER,
-    firstName: "",
-    lastName: "",
-    email: "",
-    companyName: "",
-    website: "",
-    phone: "",
-    tollFree: "",
-    cellNumber: "",
-    faxNumber: "",
-    address: "",
-    city: "",
-    state: "",
-    zipCode: "",
-    stateOfFormation: "",
-    entityType: "",
-    description: "",
+    contactType: contact?.contactType || ContactType.LENDER,
+    firstName: contact?.firstName || "",
+    lastName: contact?.lastName || "",
+    email: contact?.email || "",
+    companyName: contact?.companyName || "",
+    website: contact?.website || "",
+    phone: contact?.phone ? formatPhone(String(contact.phone)) : "",
+    tollFree: contact?.tollFree ? formatPhone(String(contact.tollFree)) : "",
+    cellNumber: contact?.cellNumber ? formatPhone(String(contact.cellNumber)) : "",
+    faxNumber: contact?.faxNumber ? formatPhone(String(contact.faxNumber)) : "",
+    address: contact?.address || "",
+    city: contact?.city || "",
+    state: contact?.state || "",
+    zipCode: contact?.zipCode || "",
+    stateOfFormation: contact?.stateOfFormation || "",
+    entityType: contact?.entityType || "",
+    description: contact?.description || "",
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -222,7 +224,7 @@ export default function CreateContactModal({ onClose }: Props) {
     }));
   };
 
-  const createContact = async (e: React.FormEvent) => {
+  const submitContact = async (e: React.FormEvent) => {
     e.preventDefault();
 
     const newErrors: Record<string, string> = {};
@@ -240,8 +242,13 @@ export default function CreateContactModal({ onClose }: Props) {
 
     try {
       const token = sessionStorage.getItem("broker_token");
-      const res = await fetch(`${API_BASE}/broker/contacts/create`, {
-        method: "POST",
+      const url = isEditing
+        ? `${API_BASE}/broker/contacts/${contact!.id}/update`
+        : `${API_BASE}/broker/contacts/create`;
+      const method = isEditing ? "PATCH" : "POST";
+
+      const res = await fetch(url, {
+        method,
         headers: {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -249,12 +256,16 @@ export default function CreateContactModal({ onClose }: Props) {
         body: JSON.stringify(form),
       });
 
-      if (!res.ok) throw new Error("Failed to create contact");
+      const json = await res.json();
 
-      toast.success("Contact created successfully");
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Request failed");
+      }
+
+      toast.success(isEditing ? "Contact updated successfully" : "Contact created successfully");
       onClose();
     } catch (err: any) {
-      toast.error(err.message);
+      toast.error(err.message || "Something went wrong");
     } finally {
       setLoading(false);
     }
@@ -265,7 +276,7 @@ export default function CreateContactModal({ onClose }: Props) {
       <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 w-[750px] rounded-xl shadow-lg p-6 max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between mb-6">
           <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
-            Create Contact
+            {isEditing ? "Edit Contact" : "Create Contact"}
           </h2>
           <button
             onClick={onClose}
@@ -275,7 +286,7 @@ export default function CreateContactModal({ onClose }: Props) {
           </button>
         </div>
 
-        <form onSubmit={createContact} className="grid grid-cols-2 gap-4">
+        <form onSubmit={submitContact} className="grid grid-cols-2 gap-4">
           <Select
             label="Contact Type"
             name="contactType"
@@ -449,7 +460,13 @@ export default function CreateContactModal({ onClose }: Props) {
               disabled={loading}
               className="text-sm px-4 py-2 bg-indigo-600 text-white rounded-lg"
             >
-              {loading ? "Creating..." : "Create Contact"}
+              {loading
+                ? isEditing
+                  ? "Updating..."
+                  : "Creating..."
+                : isEditing
+                  ? "Update Contact"
+                  : "Create Contact"}
             </button>
           </div>
         </form>

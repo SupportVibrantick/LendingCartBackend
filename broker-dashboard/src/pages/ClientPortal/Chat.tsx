@@ -1,8 +1,15 @@
 import type { ChangeEvent, KeyboardEvent } from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import EmojiPicker, { type EmojiClickData } from "emoji-picker-react";
 import toast from "react-hot-toast";
-import { io, Socket } from "socket.io-client";
+// import { isTemporaryConversationId } from "../../lib/chatSocket";
+import { useChatSocket } from "../../lib/useChatSocket";
+import {
+  getConversationBadge,
+  getConversationDisplayName,
+  isPlaceholderConversation,
+  type ChatConversationListItem,
+} from "../../lib/chatConversation";
 import {
   FiMessageCircle,
   FiMoreVertical,
@@ -18,15 +25,16 @@ import { Search } from "lucide-react";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
-type Conversation = {
-  id: string;
+type Conversation = ChatConversationListItem & {
   brokerName: string;
-  title?: string;
-  type?: string;
-  lastMessage?: string;
-  lastMessageAt?: string;
-  unread?: boolean;
+  participant?: {
+    id?: string;
+    role?: string;
+    name?: string;
+    profileImage?: string | null;
+  };
 };
+
 
 type ChatMessage = {
   id: string;
@@ -45,8 +53,6 @@ type LoanPreviewChatProps = {
   applicationId?: string | null;
   onBack: () => void;
 };
-
-const getToken = () => sessionStorage.getItem("client_token");
 
 const formatTime = (value?: string) => {
   if (!value) return "Now";
@@ -103,8 +109,11 @@ const getAvatarTone = (value?: string) => {
   return tones[seed % tones.length];
 };
 
+const getContactName = (conversation?: Conversation | null) =>
+  getConversationDisplayName(conversation);
+
 const Chat = ({ applicationId, onBack }: LoanPreviewChatProps) => {
-  const socketRef = useRef<Socket | null>(null);
+  const activeConversationRef = useRef<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const emojiPickerRef = useRef<HTMLDivElement | null>(null);
@@ -121,6 +130,47 @@ const Chat = ({ applicationId, onBack }: LoanPreviewChatProps) => {
   const [typingUser, setTypingUser] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+
+  const getToken = useCallback(() => sessionStorage.getItem("client_token"), []);
+
+  const handleRealtimeMessage = useCallback((msg: ChatMessage) => {
+    const contactLabel = getContactName(selectedConversation);
+
+    setConversations((prev) =>
+      prev.map((item) =>
+        item.id === msg.conversationId
+          ? {
+              ...item,
+              lastMessage: msg.text || msg.fileName || "File",
+              lastMessageAt: msg.createdAt,
+              unread: activeConversationRef.current !== msg.conversationId,
+            }
+          : item,
+      ),
+    );
+
+    setMessages((prev) => {
+      if (msg.conversationId !== activeConversationRef.current) return prev;
+      if (prev.some((item) => item.id === msg.id)) return prev;
+      return [
+        ...prev,
+        {
+          ...msg,
+          senderName:
+            msg.senderType === "BROKER"
+              ? contactLabel
+              : msg.senderName || "Client",
+        },
+      ];
+    });
+  }, [selectedConversation]);
+
+  useChatSocket({
+    getToken,
+    conversationId: selectedConversation?.id,
+    onMessage: handleRealtimeMessage,
+    onError: (message) => toast.error(message),
+  });
 
   const filteredConversations = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
@@ -204,50 +254,24 @@ const Chat = ({ applicationId, onBack }: LoanPreviewChatProps) => {
         throw new Error(json.message || "Failed to load chats");
       }
 
-      // STEP 1: only CLIENT_BROKER
-      const clientBrokerChats = (json?.data?.conversations || []).filter(
-        (item: Conversation) => item.type === "CLIENT_BROKER",
-      );
+      const nextConversations = (json?.data?.conversations || [])
+        .filter(
+          (item: Conversation) =>
+            item.type === "CLIENT_BROKER" || item.type === "CLIENT_OFFICER",
+        )
+        .map((item: Conversation) => ({
+          ...item,
+          brokerName: getConversationDisplayName(item),
+        }));
 
-      // STEP 2: fetch details + extract BROKER
-      const nextConversations = await Promise.all(
-        clientBrokerChats.map(async (item: Conversation) => {
-          try {
-            const detailRes = await fetch(
-              `${API_BASE}/messaging/conversation/${item.id}`,
-              {
-                method: "GET",
-                headers: {
-                  ...(token && { Authorization: `Bearer ${token}` }),
-                },
-              },
-            );
-
-            const detailJson = await detailRes.json();
-            if (!detailRes.ok || !detailJson.success) return item;
-
-            const participants = detailJson.data.participants || [];
-
-            const broker = participants.find(
-              (p: any) => p.participantType === "BROKER",
-            );
-
-            return {
-              ...item,
-              brokerName: broker?.name || "Broker",
-            };
-          } catch {
-            return item;
-          }
-        }),
-      );
-
-      // set state
       setConversations(nextConversations);
 
       setSelectedConversation((prev) => {
-        if (!prev) return null;
-        return nextConversations.find((c) => c.id === prev.id) || null;
+        if (prev) {
+          return nextConversations.find((c: Conversation) => c.id === prev.id) || null;
+        }
+
+        return nextConversations.length === 1 ? nextConversations[0] : null;
       });
     } catch (err: any) {
       toast.error(err.message || "Failed to load chats");
@@ -256,29 +280,59 @@ const Chat = ({ applicationId, onBack }: LoanPreviewChatProps) => {
     }
   };
 
-  const joinConversation = async (conversationId: string) => {
-    await fetchMessages(conversationId);
+  const ensureClientOfficerConversation = async () => {
+    if (!applicationId) return null;
 
-    setConversations((prev) =>
-      prev.map((item) =>
-        item.id === conversationId ? { ...item, unread: false } : item,
-      ),
-    );
+    const token = getToken();
+    const res = await fetch(`${API_BASE}/messaging/conversations/client-officer`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token && { Authorization: `Bearer ${token}` }),
+      },
+      body: JSON.stringify({ loanApplicationId: applicationId }),
+    });
 
-    const socket = socketRef.current;
-    if (!socket || !socket.connected) return;
+    const json = await res.json();
 
-    socket.emit("joinConversation", { conversationId });
-    socket.emit("markAsRead", { conversationId });
+    if (!res.ok || !json.success) {
+      throw new Error(json.message || "Failed to create conversation");
+    }
+
+    return json.data;
   };
 
-  const handleSelectConversation = (conversation: Conversation) => {
-    setSelectedConversation(conversation);
-    setConversations((prev) =>
-      prev.map((item) =>
-        item.id === conversation.id ? { ...item, unread: false } : item,
-      ),
-    );
+  const handleSelectConversation = async (conversation: Conversation) => {
+    try {
+      let finalConversation = conversation;
+
+      if (isPlaceholderConversation(conversation)) {
+        const created = await ensureClientOfficerConversation();
+
+        if (created?.id) {
+          finalConversation = {
+            ...conversation,
+            id: created.id,
+          };
+
+          setConversations((prev) =>
+            prev.map((item) =>
+              item.id === conversation.id ? { ...item, id: created.id } : item,
+            ),
+          );
+        }
+      }
+
+      setSelectedConversation(finalConversation);
+      setMessages([]);
+      setConversations((prev) =>
+        prev.map((item) =>
+          item.id === finalConversation.id ? { ...item, unread: false } : item,
+        ),
+      );
+    } catch (err: any) {
+      toast.error(err.message || "Failed to open conversation");
+    }
   };
 
   const handleEmojiClick = (emojiData: EmojiClickData) => {
@@ -292,8 +346,7 @@ const Chat = ({ applicationId, onBack }: LoanPreviewChatProps) => {
   };
 
   const handleSendMessage = async () => {
-    const socket = socketRef.current;
-    if (!selectedConversation?.id || !socket) return;
+    if (!selectedConversation?.id) return;
 
     try {
       setSendingMessage(true);
@@ -320,13 +373,50 @@ const Chat = ({ applicationId, onBack }: LoanPreviewChatProps) => {
         fileName = selectedFile.name;
       }
 
-      socket.emit("sendMessage", {
-        conversationId: selectedConversation.id,
-        type: selectedFile ? "FILE" : "TEXT",
-        text: messageText.trim(),
-        fileUrl,
-        fileName,
+      const token = getToken();
+      const response = await fetch(
+        `${API_BASE}/messaging/conversation/${selectedConversation.id}/message`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+          body: JSON.stringify({
+            type: selectedFile ? "FILE" : "TEXT",
+            text: messageText.trim(),
+            fileUrl,
+            fileName,
+            mimeType: selectedFile?.type,
+            fileSize: selectedFile?.size,
+          }),
+        },
+      );
+
+      const json = await response.json();
+
+      if (!response.ok || !json.success) {
+        throw new Error(json.message || "Failed to send message");
+      }
+
+      const newMessage = json.data?.message || json.data;
+
+      setMessages((prev) => {
+        if (prev.some((item) => item.id === newMessage.id)) return prev;
+        return [...prev, newMessage];
       });
+
+      setConversations((prev) =>
+        prev.map((item) =>
+          item.id === selectedConversation.id
+            ? {
+                ...item,
+                lastMessage: newMessage.text || newMessage.fileName || "File",
+                lastMessageAt: newMessage.createdAt,
+              }
+            : item,
+        ),
+      );
 
       setMessageText("");
       removeSelectedFile();
@@ -361,115 +451,17 @@ const Chat = ({ applicationId, onBack }: LoanPreviewChatProps) => {
   }, [applicationId]);
 
   useEffect(() => {
-    const token = getToken();
-
-    if (!token) {
-      console.log("❌ No broker token found");
-      return;
-    }
-
-    const socket = io(API_BASE, {
-      transports: ["websocket"],
-      auth: {
-        token,
-      },
-      extraHeaders: {
-        Authorization: `Bearer ${token}`,
-      },
-      withCredentials: true,
-      reconnection: true,
-      reconnectionAttempts: 5,
-    });
-
-    socket.on("connect", () => {
-      console.log("🟢 Socket connected:", socket.id);
-    });
-
-    socket.on("connect_error", (err) => {
-      console.error("❌ Socket connection error:", err.message);
-    });
-
-    socketRef.current = socket;
-
-    return () => {
-      socket.disconnect();
-      socketRef.current = null;
-    };
-  }, []);
-
-  useEffect(() => {
-    const socket = socketRef.current;
-    if (!socket) return;
-
-    const handleNewMessage = (msg: ChatMessage) => {
-      setConversations((prev) =>
-        prev.map((item) =>
-          item.id === msg.conversationId
-            ? {
-                ...item,
-                lastMessage: msg.text || msg.fileName || "File",
-                lastMessageAt: msg.createdAt,
-                unread: selectedConversation?.id !== msg.conversationId,
-              }
-            : item,
-        ),
-      );
-
-      setMessages((prev) => {
-        if (msg.conversationId !== selectedConversation?.id) return prev;
-        if (prev.some((item) => item.id === msg.id)) return prev;
-        return [
-          ...prev,
-          {
-            ...msg,
-            senderName:
-              msg.senderName ||
-              (msg.senderType === "BROKER"
-                ? selectedConversation?.brokerName
-                : "Client"),
-          },
-        ];
-      });
-    };
-
-    socket.on("newMessage", handleNewMessage);
-    return () => {
-      socket.off("newMessage", handleNewMessage);
-    };
+    activeConversationRef.current = selectedConversation?.id || null;
   }, [selectedConversation?.id]);
 
   useEffect(() => {
-    const socket = socketRef.current;
-    if (!socket) return;
+    if (!selectedConversation?.id) return;
 
-    const handleTyping = ({ userId }: { userId?: string }) =>
-      setTypingUser(userId || null);
-    const handleStopTyping = () => setTypingUser(null);
-
-    socket.on("typing", handleTyping);
-    socket.on("stopTyping", handleStopTyping);
-    return () => {
-      socket.off("typing", handleTyping);
-      socket.off("stopTyping", handleStopTyping);
-    };
-  }, []);
-
-  useEffect(() => {
-    const socket = socketRef.current;
-    if (!socket || !selectedConversation?.id) return;
-
-    const syncConversation = () => {
-      joinConversation(selectedConversation.id);
+    const load = async () => {
+      await fetchMessages(selectedConversation.id);
     };
 
-    if (socket.connected) {
-      syncConversation();
-    }
-
-    socket.on("connect", syncConversation);
-    return () => {
-      socket.off("connect", syncConversation);
-    };
+    load();
   }, [selectedConversation?.id]);
 
   useEffect(() => {
@@ -498,6 +490,8 @@ const Chat = ({ applicationId, onBack }: LoanPreviewChatProps) => {
       scrollToBottom();
     }
   }, [messages]);
+
+  const contactDisplayName = getContactName(selectedConversation);
 
   const isChatSelected = Boolean(selectedConversation);
 
@@ -538,9 +532,9 @@ const Chat = ({ applicationId, onBack }: LoanPreviewChatProps) => {
                 onlineConversations.map((chat) => (
                   <div key={chat.id} className="relative shrink-0">
                     <div
-                      className={`flex h-11 w-11 items-center justify-center rounded-full text-xs font-semibold ${getAvatarTone(chat.title)}`}
+                      className={`flex h-11 w-11 items-center justify-center rounded-full text-xs font-semibold ${getAvatarTone(chat.brokerName)}`}
                     >
-                      {getInitials(chat.title)}
+                      {getInitials(chat.brokerName)}
                     </div>
                     <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-[#fbfbfa] bg-lime-500" />
                   </div>
@@ -583,7 +577,7 @@ const Chat = ({ applicationId, onBack }: LoanPreviewChatProps) => {
               <div className="px-3 py-3">
                 {filteredConversations.map((chat) => {
                   const isActive = selectedConversation?.id === chat.id;
-                  const avatarTone = getAvatarTone(chat.title);
+                  const avatarTone = getAvatarTone(chat.brokerName);
 
                   return (
                     <button
@@ -600,7 +594,7 @@ const Chat = ({ applicationId, onBack }: LoanPreviewChatProps) => {
                         <div
                           className={`flex h-11 w-11 items-center justify-center rounded-full text-xs font-semibold ${avatarTone}`}
                         >
-                          {getInitials(chat.title)}
+                          {getInitials(chat.brokerName)}
                         </div>
                         <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-[#fbfbfa] bg-lime-500" />
                       </div>
@@ -613,6 +607,12 @@ const Chat = ({ applicationId, onBack }: LoanPreviewChatProps) => {
                           <span className="text-[10px] text-slate-400">
                             {formatTime(chat.lastMessageAt)}
                           </span>
+                        </div>
+
+                        <div className="mt-0.5">
+                          <p className="text-[10px] font-medium text-slate-400">
+                            {getConversationBadge(chat).label}
+                          </p>
                         </div>
 
                         <div className="mt-1 flex items-center justify-between gap-2">
@@ -655,16 +655,16 @@ const Chat = ({ applicationId, onBack }: LoanPreviewChatProps) => {
                 <div className="flex min-w-0 items-center gap-3">
                   <div className="relative shrink-0">
                     <div
-                      className={`flex h-11 w-11 items-center justify-center rounded-full text-xs font-semibold ${getAvatarTone(selectedConversation?.title)}`}
+                      className={`flex h-11 w-11 items-center justify-center rounded-full text-xs font-semibold ${getAvatarTone(contactDisplayName)}`}
                     >
-                      {getInitials(selectedConversation?.title)}
+                      {getInitials(contactDisplayName)}
                     </div>
                     <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-[#fbfbfa] bg-lime-500" />
                   </div>
 
                   <div className="min-w-0">
                     <p className="truncate text-lg font-semibold text-slate-900">
-                      {selectedConversation?.brokerName || "Broker"}
+                      {contactDisplayName}
                     </p>
                     <p className="text-xs text-slate-400">
                       {typingUser ? "Typing..." : "Online"}
@@ -710,6 +710,7 @@ const Chat = ({ applicationId, onBack }: LoanPreviewChatProps) => {
                   <div className="space-y-5">
                     {messages.map((msg, index) => {
                       const isBroker = msg.senderType === "BROKER";
+                      const brokerLabel = isBroker ? contactDisplayName : "Client";
                       const previousMessage =
                         index > 0 ? messages[index - 1] : null;
                       const currentDay = formatDayLabel(msg.createdAt);
@@ -735,19 +736,17 @@ const Chat = ({ applicationId, onBack }: LoanPreviewChatProps) => {
                               className={`flex max-w-[80%] items-end gap-2 ${!isBroker ? "flex-row-reverse" : "flex-row"}`}
                             >
                               <div
-                                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold ${getAvatarTone(msg.senderName)}`}
+                                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold ${getAvatarTone(isBroker ? brokerLabel : msg.senderName)}`}
                               >
                                 {getInitials(
-                                  msg.senderName ||
-                                    (isBroker ? "Broker" : "Client"),
+                                  msg.senderName || brokerLabel,
                                 )}
                               </div>
 
                               <div>
                                 <div className="mb-1 px-1">
                                   <div className="text-[11px] font-medium text-slate-600">
-                                    {msg.senderName ||
-                                      (isBroker ? "Broker" : "Client")}
+                                    {msg.senderName || brokerLabel}
                                   </div>
 
                                   <div className="text-[10px] text-slate-400">

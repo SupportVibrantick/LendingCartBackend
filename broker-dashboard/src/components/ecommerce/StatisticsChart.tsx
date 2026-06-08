@@ -49,7 +49,7 @@ function formatCurrency(value: number) {
 export default function StatisticsChart({ stats, loading }: Props) {
   if (loading) {
     return (
-      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-white/[0.03]">
+      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
         <p className="text-sm text-slate-500">
           Loading pipeline performance... 
         </p>
@@ -168,7 +168,7 @@ export default function StatisticsChart({ stats, loading }: Props) {
   ];
 
   return (
-    <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-white/[0.03]">
+    <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
       <div className="mb-8 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className="text-sm font-medium uppercase tracking-[0.24em] text-sky-600">

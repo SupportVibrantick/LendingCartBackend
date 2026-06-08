@@ -54,7 +54,7 @@ export default function UserProfileCard() {
     );
 
   const displayName = `${firstName} ${lastName}`.trim();
-  const roleLabel = user.roles?.[0]?.replaceAll("_", " ");
+  const roleLabel = user.roles?.[0]?.replace(/_/g, " ");
   const isChanged =
     firstName !== user.firstName || lastName !== user.lastName || profileImage;
 
@@ -93,12 +93,17 @@ export default function UserProfileCard() {
         ...prev,
         firstName,
         lastName,
-        profileImage: json.data?.profileImage || prev.profileImage,
+        profileImage: json.data?.user?.profileImage || json.data?.profileImage || prev.profileImage,
       }));
 
       setEditing(false);
       setProfileImage(null);
-      loadUser();
+      await loadUser();
+      window.dispatchEvent(
+        new CustomEvent("broker-profile-updated", {
+          detail: { firstName, lastName, profileImage: json.data?.user?.profileImage },
+        })
+      );
       toast.success("Profile updated successfully");
     } catch (err: any) {
       toast.error(err.message || "Update failed");
@@ -111,7 +116,7 @@ export default function UserProfileCard() {
     <div className="mx-auto p-4 md:p-6">
       <div className="dark:bg-gray-900 rounded-[1rem] overflow-hidden">
         {/* HEADER */}
-        <div className="relative h-32 bg-gradient-to-r from-blue-600 to-indigo-600">
+        <div className="relative h-32 bg-gradient-to-r from-[#13538A] to-[#1a6aad]">
           <div className="absolute -bottom-12 left-8 flex items-end gap-6">
             {/* AVATAR */}
             <div className="relative group">

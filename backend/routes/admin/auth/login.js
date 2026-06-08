@@ -80,15 +80,30 @@ module.exports = async function adminLoginRoute(fastify, opts) {
           );
         }
 
+        const dbRoles = user.roles?.map((r) => r.role.name) ?? [];
+
+        let permissions = [];
+        try {
+          const { resolveUserPermissions } = require("../../../services/adminUserPermissions.js");
+          permissions = await resolveUserPermissions(prisma, user.id, dbRoles);
+        } catch (permErr) {
+          fastify.log.warn("Failed to resolve admin permissions:", permErr?.message || permErr);
+        }
+
         const token = jwt.sign(
           {
             userId: user.id,
             orgId: user.organizationId,
-            roles: user.roles?.map((r) => r.role.name) ?? [],
+            roles: dbRoles,
+            permissions,
           },
           process.env.JWT_SECRET,
           { expiresIn: "24h" }
         );
+
+        const customPermCount = await prisma.userPermission.count({
+          where: { userId: user.id },
+        });
 
         return reply.send({
           ok: true,
@@ -100,7 +115,10 @@ module.exports = async function adminLoginRoute(fastify, opts) {
             lastName: user.lastName,
             orgId: user.organizationId,
             fgaRoles,
-            dbRoles: user.roles?.map((r) => r.role.name) ?? [],
+            dbRoles,
+            permissions,
+            hasFullAccess:
+              dbRoles.includes("PLATFORM_ADMIN") && customPermCount === 0,
           },
         });
       } catch (err) {

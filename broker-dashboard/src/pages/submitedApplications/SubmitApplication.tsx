@@ -1,30 +1,28 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { createPortal } from "react-dom";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import {
   MapPin,
-  // Eye,
+  Eye,
   Search,
   FileText,
-  DollarSign,
   Loader2,
-  // TrendingUp,
-  // RefreshCcw,
+  TrendingUp,
+  RefreshCw,
   Building2,
   SearchX,
   ChevronLeft,
   ChevronRight,
-  CheckCircle,
   MoreVertical,
   Send,
   Users,
-  // Mail,
-  // UserPlus,
+  X,
 } from "lucide-react";
 
 import Swal from "sweetalert2";
 import { MdEdit } from "react-icons/md";
+import PageMeta from "../../components/common/PageMeta";
 
 /* ================= TYPES ================= */
 // type SubmissionListItem = {
@@ -56,6 +54,7 @@ type TableRow = {
   pendingDocumentsCount?: number;
 
   assignedOfficerName: string | null;
+  assignedOfficerId: string | null;
   assignedOfficerImage: string | null;
   assignedSubBrokers?: {
     id: string;
@@ -106,18 +105,61 @@ function getAuthHeaders(): HeadersInit {
   };
 }
 
+function getInitials(name?: string) {
+  if (!name) return "?";
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() || "")
+    .join("");
+}
+
+function formatShortDate(value?: string) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function formatStatusLabel(status?: string) {
+  if (!status) return "Unknown";
+  if (status === "DECLINED") return "Rejected";
+  if (status === "CLIENT_PENDING") return "Client Pending";
+  if (status === "IN_REVIEW") return "In Review";
+  return status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+const STATUS_FILTERS = [
+  { value: "", label: "All", statKey: "totalApplications" as const },
+  { value: "CLIENT_PENDING", label: "Client Pending", statKey: "clientPending" as const },
+  { value: "DRAFT", label: "Draft", statKey: "draft" as const },
+  { value: "SUBMITTED", label: "Submitted", statKey: "submitted" as const },
+  { value: "IN_REVIEW", label: "In Review", statKey: "inReview" as const },
+  { value: "APPROVED", label: "Approved", statKey: "approved" as const },
+  { value: "DECLINED", label: "Rejected", statKey: "rejected" as const },
+];
+
 /* ================= COMPONENT ================= */
 export default function LoanApplicationsPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialQuery = searchParams.get("q") || "";
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const skipStatusReloadRef = useRef(true);
   const [rows, setRows] = useState<TableRow[]>([]);
   const [loading, setLoading] = useState(false);
   // const [roles, setRoles] = useState<string[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState(initialQuery);
+  const [statusFilter, setStatusFilter] = useState("");
   const [viewSubmissionId, setViewSubmissionId] = useState<string | null>(null);
   const [lenderSubmissionId] = useState<string | null>(null);
   const [submissionDetail, setSubmissionDetail] = useState<any>(null);
@@ -203,6 +245,7 @@ export default function LoanApplicationsPage() {
   const [assignModal, setAssignModal] = useState({
     open: false,
     applicationId: "",
+    currentOfficerId: null as string | null,
   });
 
   const [loanOfficers, setLoanOfficers] = useState<any[]>([]);
@@ -583,13 +626,21 @@ export default function LoanApplicationsPage() {
     }
   }, [findLenderModalOpen, lenderSubmissionId]);
 
-  const loadSubmissions = async (cursor?: string, searchValue?: string) => {
+  const loadSubmissions = useCallback(
+    async (cursor?: string, searchValue?: string, statusValue?: string) => {
     try {
       setLoading(true);
 
       const url = new URL(API_BASE + "/broker/loan-pipeline/submissions");
-      if (searchValue?.trim()) {
-        url.searchParams.append("search", searchValue.trim());
+      const activeSearch = (searchValue ?? searchTerm).trim();
+      const activeStatus = statusValue ?? statusFilter;
+
+      if (activeSearch) {
+        url.searchParams.append("search", activeSearch);
+      }
+
+      if (activeStatus) {
+        url.searchParams.append("status", activeStatus);
       }
 
       if (cursor) {
@@ -619,6 +670,7 @@ export default function LoanApplicationsPage() {
         date: item.submittedOn,
         pendingDocumentsCount: item.pendingDocumentsCount,
         assignedOfficerName: item.assignedLoanOfficer?.name || null,
+        assignedOfficerId: item.assignedLoanOfficer?.id || null,
         assignedOfficerImage: item.assignedLoanOfficer?.profileImage || null,
         assignedSubBrokers: item.assignedSubBrokers || [],
       }));
@@ -630,7 +682,9 @@ export default function LoanApplicationsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  },
+  [searchTerm, statusFilter],
+  );
 
   const fetchPipelineStats = async () => {
     try {
@@ -783,9 +837,35 @@ export default function LoanApplicationsPage() {
   };
 
   useEffect(() => {
-    loadSubmissions();
+    loadSubmissions(undefined, initialQuery || undefined, statusFilter);
     fetchPipelineStats();
   }, []);
+
+  useEffect(() => {
+    if (skipStatusReloadRef.current) {
+      skipStatusReloadRef.current = false;
+      return;
+    }
+    loadSubmissions(undefined, searchTerm, statusFilter);
+  }, [statusFilter]);
+
+  const handleRefresh = () => {
+    loadSubmissions(undefined, searchTerm, statusFilter);
+    fetchPipelineStats();
+  };
+
+  const openPreview = (submissionId: string) => {
+    navigate("/loan-preview", { state: { submissionId } });
+  };
+
+  useEffect(() => {
+    const q = searchTerm.trim();
+    if (q) {
+      setSearchParams({ q }, { replace: true });
+    } else if (searchParams.has("q")) {
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchTerm]);
 
   useEffect(() => {
     if (viewSubmissionId || findLenderModalOpen) {
@@ -815,16 +895,24 @@ export default function LoanApplicationsPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm]);
+  }, [searchTerm, statusFilter]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node)
-      ) {
-        setActiveDropdown(null);
+      const target = event.target as Node;
+
+      if (dropdownRef.current?.contains(target)) {
+        return;
       }
+
+      if (
+        target instanceof HTMLElement &&
+        target.closest("[data-dropdown-trigger]")
+      ) {
+        return;
+      }
+
+      setActiveDropdown(null);
     };
 
     document.addEventListener("mousedown", handleClickOutside);
@@ -1018,9 +1106,16 @@ export default function LoanApplicationsPage() {
     }
   };
 
-  const openAssignModal = async (applicationId: string) => {
-    setAssignModal({ open: true, applicationId });
-    setSelectedOfficer("");
+  const openAssignModal = async (
+    applicationId: string,
+    currentOfficerId?: string | null,
+  ) => {
+    setAssignModal({
+      open: true,
+      applicationId,
+      currentOfficerId: currentOfficerId || null,
+    });
+    setSelectedOfficer(currentOfficerId || "");
     setAssignError("");
     const officers = await fetchLoanOfficers();
     setLoanOfficers(officers);
@@ -1051,8 +1146,13 @@ export default function LoanApplicationsPage() {
         throw new Error(json.message || "Assignment failed");
       }
 
-      toast.success("Loan officer assigned successfully");
-      setAssignModal({ open: false, applicationId: "" });
+      toast.success(
+        assignModal.currentOfficerId
+          ? "Loan officer updated successfully"
+          : "Loan officer assigned successfully",
+      );
+      setAssignModal({ open: false, applicationId: "", currentOfficerId: null });
+      loadSubmissions();
     } catch (err: any) {
       setAssignError(err.message || "Something went wrong");
     } finally {
@@ -1089,123 +1189,6 @@ export default function LoanApplicationsPage() {
   //   loadSubmissions();
   // };
 
-  const StatCard = ({
-    title,
-    value,
-    icon,
-    color,
-    subtitle,
-  }: {
-    title: string;
-    value: number | string;
-    icon: React.ReactNode;
-    color:
-      | "blue"
-      | "green"
-      | "rose"
-      | "amber"
-      | "indigo"
-      | "cyan"
-      | "pink"
-      | "slate";
-    subtitle?: string;
-  }) => {
-    const styles = {
-      blue: {
-        card: "hover:border-blue-200",
-        icon: "bg-blue-50 text-blue-600",
-        dot: "bg-blue-500",
-      },
-
-      green: {
-        card: "hover:border-emerald-200",
-        icon: "bg-emerald-50 text-emerald-600",
-        dot: "bg-emerald-500",
-      },
-
-      rose: {
-        card: "hover:border-rose-200",
-        icon: "bg-rose-50 text-rose-600",
-        dot: "bg-rose-500",
-      },
-
-      amber: {
-        card: "hover:border-amber-200",
-        icon: "bg-amber-50 text-amber-600",
-        dot: "bg-amber-500",
-      },
-
-      indigo: {
-        card: "hover:border-indigo-200",
-        icon: "bg-indigo-50 text-indigo-600",
-        dot: "bg-indigo-500",
-      },
-
-      cyan: {
-        card: "hover:border-cyan-200",
-        icon: "bg-cyan-50 text-cyan-600",
-        dot: "bg-cyan-500",
-      },
-
-      pink: {
-        card: "hover:border-pink-200",
-        icon: "bg-pink-50 text-pink-600",
-        dot: "bg-pink-500",
-      },
-
-      slate: {
-        card: "hover:border-slate-300",
-        icon: "bg-slate-100 text-slate-600",
-        dot: "bg-slate-500",
-      },
-    };
-
-    const theme = styles[color];
-
-    return (
-      <div
-        className={`
-group rounded-2xl border border-slate-200
-bg-white p-5
-transition-all duration-300
-hover:-translate-y-0.5
-hover:shadow-lg hover:shadow-slate-200/60
-${theme.card}
-`}
-      >
-        <div className="flex items-start justify-between">
-          <div className="min-w-0">
-            <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">
-              {title}
-            </p>
-
-            <h3 className="mt-2 text-2xl font-bold text-slate-900 truncate">
-              {value}
-            </h3>
-          </div>
-
-          <div
-            className={`
-flex h-11 w-11 items-center justify-center
-rounded-2xl shrink-0
-${theme.icon}
-`}
-          >
-            {icon}
-          </div>
-        </div>
-
-        {subtitle && (
-          <div className="mt-4 flex items-center gap-2">
-            <div className={`h-1.5 w-1.5 rounded-full ${theme.dot}`} />
-
-            <p className="text-[11px] text-slate-400 truncate">{subtitle}</p>
-          </div>
-        )}
-      </div>
-    );
-  };
-
   useEffect(() => {
     return () => {
       if (searchTimeoutRef.current) {
@@ -1215,476 +1198,341 @@ ${theme.icon}
   }, []);
 
   return (
-    <div className="min-w-full bg-slate-50 dark:bg-[#0b1120] p-3 text-slate-900 dark:text-slate-100 selection:bg-blue-100 dark:selection:bg-blue-900/30">
-      {/* Header Area */}
-      <header className="max-w-ful mx-auto mb-10">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-          <div className="space-y-1">
-            <h2
-              className="text-3xl font-bold"
-              style={{
-                color: "var(--primary-color)",
-              }}
-            >
-              Loan Pipeline
-            </h2>
-            <p className="text-slate-500 dark:text-slate-400 text-sm">
-              You have{" "}
-              <span className="text-blue-600 dark:text-blue-400">
-                {rows.length} active
-              </span>{" "}
-              applications today.
-            </p>
-          </div>
+    <>
+      <PageMeta
+        title="Loan Pipeline | Broker Dashboard"
+        description="Track and manage broker loan applications"
+      />
 
-          <div className="flex flex-col md:flex-row md:items-center gap-3">
-            {/* Create Loan Application Button */}
-            <button
-              onClick={() => navigate("/loan-application")}
-              className="px-4 py-2.5 rounded-xl font-medium 
-               bg-[#2C92D5] text-white 
-               hover:bg-[#2379b3] 
-               shadow-sm transition-all active:scale-95 text-xs"
-            >
-              + Create Loan Application
-            </button>
-
-            {/* Search + Reload Section */}
-            <div className="flex items-center gap-3 flex-1">
-              <div className="relative group flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
-                <input
-                  placeholder="Search by name, company, or app no..."
-                  onChange={(e) => {
-                    const value = e.target.value;
-
-                    setSearchTerm(value);
-
-                    if (searchTimeoutRef.current) {
-                      clearTimeout(searchTimeoutRef.current);
-                    }
-
-                    searchTimeoutRef.current = setTimeout(() => {
-                      loadSubmissions(undefined, value);
-                    }, 500);
-                  }}
-                  className="pl-10 pr-4 py-2.5 w-full md:w-80 rounded-xl text-sm 
-                   bg-white dark:bg-slate-900 
-                   border border-slate-200 dark:border-slate-800 
-                   shadow-sm focus:ring-2 focus:ring-blue-500/20 
-                   focus:border-blue-500 transition-all outline-none"
-                />
+      <div className="mx-auto w-full min-w-0 max-w-[1400px] space-y-6">
+        {/* Hero */}
+        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-gradient-to-br from-[#13538A] via-[#1a6aad] to-[#2C92D5] p-6 text-white shadow-sm dark:border-gray-800 lg:p-8">
+          <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:gap-10">
+            <div className="min-w-0 flex-1">
+              <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-medium backdrop-blur-sm">
+                <TrendingUp className="h-3.5 w-3.5" />
+                Pipeline Management
               </div>
+              <h1 className="text-2xl font-semibold tracking-tight">Loan Pipeline</h1>
+              <p className="mt-1 max-w-2xl text-sm text-white/80">
+                {pipelineStats.totalApplications} total application
+                {pipelineStats.totalApplications === 1 ? "" : "s"} ·{" "}
+                {formatCompactAmount(pipelineStats.totalVolume)} pipeline volume
+              </p>
+            </div>
 
-              {/* <button
-                onClick={handleReload}
-                className="p-2.5 rounded-xl bg-white dark:bg-slate-900 
-                 border border-slate-200 dark:border-slate-800 
-                 hover:border-blue-500 transition-all 
-                 shadow-sm active:scale-95"
-              >
-                <Loader2
-                  className={`w-5 h-5 text-slate-600 dark:text-slate-400 ${
-                    loading ? "animate-spin text-blue-500" : ""
-                  }`}
-                />
-              </button> */}
+            <div className="grid w-full grid-cols-2 gap-3 sm:grid-cols-4 xl:w-[min(100%,520px)] xl:shrink-0">
+              {[
+                { label: "Total Apps", value: pipelineStats.totalApplications },
+                { label: "Submitted", value: pipelineStats.submitted },
+                { label: "In Review", value: pipelineStats.inReview },
+                { label: "Approved", value: pipelineStats.approved },
+              ].map(({ label, value }) => (
+                <div
+                  key={label}
+                  className="rounded-xl bg-white/10 px-4 py-3 ring-1 ring-white/20 backdrop-blur-sm"
+                >
+                  <p className="text-xs text-white/70">{label}</p>
+                  <p className="mt-1 text-2xl font-semibold">{value}</p>
+                </div>
+              ))}
             </div>
           </div>
         </div>
 
-        {/* Quick Status Cards */}
-        <div
-          className="
-mt-6
-grid
-grid-cols-1
-sm:grid-cols-2
-md:grid-cols-4
-gap-4
-"
-        >
-          <StatCard
-            title="Total Volume"
-            value={formatCompactAmount(pipelineStats.totalVolume)}
-            subtitle="Total funded volume"
-            icon={<DollarSign className="h-5 w-5" />}
-            color="indigo"
-          />
+        {/* Toolbar */}
+        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900 lg:p-5">
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+              <div className="relative min-w-0 flex-1">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                <input
+                  placeholder="Search borrower, app no., officer..."
+                  value={searchTerm}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setSearchTerm(value);
+                    if (searchTimeoutRef.current) {
+                      clearTimeout(searchTimeoutRef.current);
+                    }
+                    searchTimeoutRef.current = setTimeout(() => {
+                      loadSubmissions(undefined, value, statusFilter);
+                    }, 500);
+                  }}
+                  className="h-10 w-full rounded-xl border border-gray-200 bg-gray-50 pl-10 pr-10 text-sm outline-none focus:border-[#13538A]/40 focus:ring-2 focus:ring-[#13538A]/10 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
+                />
+                {searchTerm && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchTerm("");
+                      loadSubmissions(undefined, "", statusFilter);
+                    }}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
 
-          <StatCard
-            title="Total Applications"
-            value={pipelineStats.totalApplications}
-            subtitle="Overall applications"
-            icon={<Building2 className="h-5 w-5" />}
-            color="blue"
-          />
+              <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
+                <button
+                  type="button"
+                  onClick={() => navigate("/loan-application")}
+                  className="inline-flex h-10 flex-1 items-center justify-center rounded-xl bg-[#2C92D5] px-4 text-sm font-medium text-white transition hover:bg-[#2379b3] sm:flex-none"
+                >
+                  + New Application
+                </button>
 
-          <StatCard
-            title="Submitted"
-            value={pipelineStats.submitted}
-            subtitle="Submitted applications"
-            icon={<Send className="h-5 w-5" />}
-            color="cyan"
-          />
+                <button
+                  type="button"
+                  onClick={handleRefresh}
+                  disabled={loading}
+                  className="inline-flex h-10 items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-60 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-200"
+                >
+                  <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+                  Refresh
+                </button>
+              </div>
+            </div>
 
-          <StatCard
-            title="In Review"
-            value={pipelineStats.inReview}
-            subtitle="Under lender review"
-            icon={<Loader2 className="h-5 w-5" />}
-            color="amber"
-          />
-
-          <StatCard
-            title="Approved"
-            value={pipelineStats.approved}
-            subtitle="Successfully approved"
-            icon={<CheckCircle className="h-5 w-5" />}
-            color="green"
-          />
-
-          <StatCard
-            title="Rejected"
-            value={pipelineStats.rejected}
-            subtitle="Declined applications"
-            icon={<SearchX className="h-5 w-5" />}
-            color="rose"
-          />
-
-          <StatCard
-            title="Draft"
-            value={pipelineStats.draft}
-            subtitle="Incomplete applications"
-            icon={<FileText className="h-5 w-5" />}
-            color="slate"
-          />
-
-          <StatCard
-            title="Client Pending"
-            value={pipelineStats.clientPending}
-            subtitle="Waiting for client"
-            icon={<Users className="h-5 w-5" />}
-            color="pink"
-          />
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-medium text-gray-500">Status:</span>
+            {STATUS_FILTERS.map((filter) => {
+              const count = pipelineStats[filter.statKey] ?? 0;
+              const active = statusFilter === filter.value;
+              return (
+                <button
+                  key={filter.value || "all"}
+                  type="button"
+                  onClick={() => setStatusFilter(filter.value)}
+                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition ${
+                    active
+                      ? "bg-[#13538A] text-white"
+                      : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300"
+                  }`}
+                >
+                  {filter.label}
+                  <span
+                    className={`rounded-full px-1.5 py-0.5 text-[10px] ${
+                      active ? "bg-white/20" : "bg-white dark:bg-gray-900"
+                    }`}
+                  >
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          </div>
         </div>
-      </header>
 
-      {/* Main Table Container */}
-      <div className="w-full mx-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl shadow-slate-200/50 dark:shadow-none ">
-        <div className="w-full bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
-          <div className="overflow-x-auto applications-table-top">
-            <table className="min-w-[999px] w-full table-fixed border-separate border-spacing-0">
-              <thead className="sticky top-0 z-20 bg-white dark:bg-slate-900 shadow-sm">
-                <tr className="bg-slate-50/50 dark:bg-slate-800/40">
+        {/* Table */}
+        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
+          <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4 dark:border-gray-800 lg:px-8">
+            <div>
+              <h2 className="text-sm font-semibold text-gray-900 dark:text-white">
+                Applications
+              </h2>
+              <p className="text-xs text-gray-500">
+                {loading && rows.length === 0
+                  ? "Loading..."
+                  : `${rows.length} shown${hasMore ? "+" : ""}`}
+                {statusFilter ? ` · ${formatStatusLabel(statusFilter)}` : ""}
+              </p>
+            </div>
+          </div>
+
+          <div className="min-w-0">
+            <table className="w-full table-fixed text-left">
+              <colgroup>
+                <col className="w-[19%]" />
+                <col className="w-[15%]" />
+                <col className="w-[12%]" />
+                <col className="w-[7%]" />
+                <col className="w-[9%]" />
+                <col className="w-[11%]" />
+                <col className="w-[12%]" />
+                <col className="w-[7%]" />
+                <col className="w-[8%]" />
+              </colgroup>
+              <thead className="bg-gray-50/80 dark:bg-gray-800/50">
+                <tr>
                   {[
-                    { label: "Borrower", width: "w-[110px]" },
-                    { label: "Application No.", width: "w-[160px]" },
-                    // { label: "Loan Info", width: "w-[200px]" },
-                    { label: "Location", width: "w-[150px]" },
-                    { label: "Amount", width: "w-[80px]" },
-                    { label: "Submitted On", width: "w-[110px]" },
-                    { label: "Status", width: "w-[140px]" },
-                    // { label: "Lenders", width: "w-[100px]" },
-                    { label: "Loan Officer", width: "w-[140px]" },
-                    { label: "Sub Brokers", width: "w-[100px]" },
-                    { label: "Action", width: "w-[80px]" },
-                  ].map((h) => (
+                    "Borrower",
+                    "Application",
+                    "Location",
+                    "Amount",
+                    "Submitted",
+                    "Status",
+                    "Loan Officer",
+                    "Sub Brokers",
+                    "",
+                  ].map((label) => (
                     <th
-                      key={h.label}
-                      className={`${h.width} px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800 whitespace-nowrap`}
+                      key={label || "actions"}
+                      className="overflow-hidden px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 first:pl-6 last:pr-6 lg:first:pl-8 lg:last:pr-8"
                     >
-                      {h.label}
+                      <span className="block truncate">{label}</span>
                     </th>
                   ))}
                 </tr>
               </thead>
 
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {Array.isArray(rows) && rows.length > 0 ? (
+              <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                {loading && rows.length === 0 ? (
+                  Array.from({ length: 4 }).map((_, i) => (
+                    <tr key={i}>
+                      <td colSpan={9} className="px-4 py-4 first:pl-6 last:pr-6 lg:px-5 lg:first:pl-8 lg:last:pr-8">
+                        <div className="h-10 animate-pulse rounded-lg bg-gray-100 dark:bg-gray-800" />
+                      </td>
+                    </tr>
+                  ))
+                ) : Array.isArray(rows) && rows.length > 0 ? (
                   rows.map((row) => (
                     <tr
                       key={row.submissionId}
-                      className="group hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors duration-150"
+                      className="group cursor-pointer transition hover:bg-[#13538A]/[0.03] dark:hover:bg-gray-800/50"
                     >
-                      {/* Borrower - High Emphasis */}
-                      <td className="px-6 py-3">
-                        <div className="flex items-center gap-3">
-                          {/* <div className="h-10 w-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-700 dark:text-slate-300 font-bold">
-                            {row.borrowerName?.charAt(0) || "U"}
-                          </div> */}
-                          <div className="flex flex-col min-w-0">
-                            <span className="text-[13px] text-slate-900 dark:text-slate-100 truncate">
-                              {(row.borrowerName &&
-                              row.borrowerName.length >= 15
-                                ? row.borrowerName?.slice(0, 15) + "..."
-                                : row.borrowerName) || "Untitled Applicant"}
+                      <td
+                        onClick={() => openPreview(row.submissionId)}
+                        className="overflow-hidden px-3 py-3 align-middle first:pl-6 lg:first:pl-8"
+                        title={row.borrowerName}
+                      >
+                        <div className="flex min-w-0 items-center gap-2">
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#13538A]/10 text-xs font-semibold text-[#13538A]">
+                            {getInitials(row.borrowerName)}
+                          </div>
+                          <span className="truncate text-sm font-medium text-gray-900 dark:text-white">
+                            {row.borrowerName || "Untitled"}
+                          </span>
+                        </div>
+                      </td>
+
+                      <td
+                        onClick={() => openPreview(row.submissionId)}
+                        className="overflow-hidden px-3 py-3 align-middle"
+                        title={row.applicationNumber}
+                      >
+                        <div className="flex min-w-0 items-center gap-1.5">
+                          <span className="truncate text-sm text-gray-800 dark:text-gray-200">
+                            {row.applicationNumber || "—"}
+                          </span>
+                          {row.pendingDocumentsCount ? (
+                            <span className="shrink-0 rounded bg-amber-50 px-1 py-0.5 text-[10px] font-medium text-amber-700">
+                              {row.pendingDocumentsCount}
                             </span>
-                            {/* <span className="text-[12px] text-slate-500 dark:text-slate-500 flex items-center gap-1">
-                              <FileText className="w-3 h-3" />
-                              {row.company.slice(0, 15) + "..."}
-                            </span> */}
-                          </div>
+                          ) : null}
                         </div>
                       </td>
 
-                      <td className="px-6 py-3">
-                        <div className="text-xs text-slate-800 dark:text-slate-200">
-                          {row.applicationNumber || "-"}
+                      <td
+                        onClick={() => openPreview(row.submissionId)}
+                        className="overflow-hidden px-3 py-3 align-middle"
+                        title={[row.cityState, row.country].filter(Boolean).join(", ")}
+                      >
+                        <div className="flex min-w-0 items-center gap-1 text-sm text-gray-700 dark:text-gray-300">
+                          <MapPin className="h-3.5 w-3.5 shrink-0 text-gray-400" />
+                          <span className="truncate">
+                            {[row.cityState, row.country].filter(Boolean).join(", ") || "—"}
+                          </span>
                         </div>
                       </td>
 
-                      {/* Loan Info - Medium Emphasis */}
-                      {/* <td className="px-6 py-3">
-  <span
-    className="inline-flex flex-wrap max-w-[170px]
-    text-[10px] leading-4 text-slate-700 dark:text-slate-300
-    bg-slate-100 dark:bg-slate-800/50
-    px-2 py-1 rounded"
-  >
-    {row.loanType
-      ?.replace(/_/g, " ")
-      ?.replace(/\b\w/g, (c: string) =>
-        c.toUpperCase(),
-      )}
-  </span>
-</td> */}
-
-                      {/* Location */}
-                      <td className="px-6 py-3 min-w-[200px]">
-                        <div className="flex items-start gap-1">
-                          {/* Fixed Icon Wrapper */}
-                          <div className="w-5 h-5 flex items-center justify-center shrink-0 mt-[2px]">
-                            <MapPin
-                              className="w-2.5 h-2.5 text-slate-500 dark:text-slate-400"
-                              strokeWidth={2}
-                            />
-                          </div>
-
-                          {/* Location Text */}
-                          <div className="min-w-0 leading-tight">
-                            <div
-                              className="
-truncate
-text-[12px]
-font-medium
-text-slate-700
-dark:text-slate-300
-"
-                            >
-                              {row.cityState || "Global"}
-                            </div>
-
-                            {row.country && (
-                              <div
-                                className="
-mt-1
-inline-flex items-center
-rounded-full
-bg-slate-100
-px-2 py-0.5
-text-[10px]
-font-semibold
-uppercase tracking-wide
-text-slate-500
-
-dark:bg-slate-800
-dark:text-slate-400
-"
-                              >
-                                {row.country}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* Amount - Monospace for numbers */}
-                      <td className="px-6 py-3">
-                        <span className="font-mono text-[13px] text-slate-800 dark:text-slate-200">
+                      <td
+                        onClick={() => openPreview(row.submissionId)}
+                        className="overflow-hidden px-3 py-3 align-middle font-mono text-sm text-gray-800 dark:text-gray-200"
+                      >
+                        <span className="block truncate">
                           {formatCompactAmount(Number(row.amount || 0))}
                         </span>
                       </td>
 
-                      {/* Submitted Date & Time */}
-                      <td className="px-6 py-3 whitespace-nowrap">
-                        {(() => {
-                          const submitted = new Date(row.date);
-                          const formattedDate = submitted.toLocaleDateString();
-                          const formattedTime = submitted.toLocaleTimeString();
-
-                          return (
-                            <div className="flex flex-col leading-tight">
-                              <span className="text-[13px] text-slate-700 dark:text-slate-200">
-                                {formattedDate}
-                              </span>
-                              <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                                {formattedTime}
-                              </span>
-                            </div>
-                          );
-                        })()}
+                      <td
+                        onClick={() => openPreview(row.submissionId)}
+                        className="overflow-hidden px-3 py-3 align-middle text-sm text-gray-600 dark:text-gray-400"
+                      >
+                        <span className="block truncate">{formatShortDate(row.date)}</span>
                       </td>
 
-                      {/* Status - Dynamic Vibrant Badges */}
-                      <td className="px-6 py-3 whitespace-nowrap">
+                      <td
+                        onClick={() => openPreview(row.submissionId)}
+                        className="overflow-hidden px-3 py-3 align-middle"
+                      >
                         <span
-                          className={`
-      inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] uppercase tracking-wider 
-      border backdrop-blur-md transition-all duration-500 group-hover:scale-105
-      ${getStatusColor(row.status)}
-    `}
+                          className={`inline-flex max-w-full items-center truncate rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${getStatusColor(row.status)}`}
+                          title={formatStatusLabel(row.status)}
                         >
-                          {/* Animated Status Indicator Dot */}
-                          <span className="relative flex h-2 w-2">
-                            <span
-                              className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-40 bg-current`}
-                            ></span>
-                            <span
-                              className={`relative inline-flex rounded-full h-2 w-2 bg-current shadow-[0_0_8px_rgba(255,255,255,0.5)]`}
-                            ></span>
-                          </span>
-
-                          {row.status === "DECLINED"
-                            ? "REJECTED"
-                            : row.status === "CLIENT_PENDING"
-                              ? "Client Pending"
-                              : row.status === "IN_REVIEW"
-                                ? "In Review"
-                                : row.status}
+                          {formatStatusLabel(row.status)}
                         </span>
                       </td>
 
-                      {/* Lenders Button */}
-                      {/* <td className="px-2 py-2 whitespace-nowrap w-[70px] text-center">
-                        <button
-                          onClick={() => {
-                            setLenderSubmissionId(row.submissionId);
-                            setFindLenderModalOpen(true);
-                          }}
-                          className="inline-flex items-center justify-center 
-               h-8 w-8
-               text-white bg-[#2C92D5] hover:bg-[#1672af]
-               rounded-lg
-               transition-all 
-               shadow-sm hover:shadow-md
-               active:scale-95"
-                        >
-                          <Search className="w-4 h-4 stroke-[2.5px]" />
-                        </button>
-                      </td> */}
-
-                      <td className="px-5 py-3">
+                      <td
+                        onClick={() => openPreview(row.submissionId)}
+                        className="overflow-hidden px-3 py-3 align-middle"
+                        title={row.assignedOfficerName || undefined}
+                      >
                         {row.assignedOfficerName ? (
-                          <div className="flex items-center gap-2">
-                            {/* CHIP */}
-                            <div
-                              className="
-inline-flex items-center gap-1.5
-px-2.5 py-1
-rounded-full
-bg-indigo-50 border border-indigo-200
-dark:bg-indigo-500/10 dark:border-indigo-500/20
-whitespace-nowrap
-"
-                            >
-                              <span className="text-[10px] font-medium text-indigo-700 dark:text-indigo-300 leading-none">
-                                {row.assignedOfficerName}
-                              </span>
-                            </div>
-                          </div>
-                        ) : (
-                          <span
-                            className="px-2.5 py-1 rounded-full text-xs font-medium 
-    bg-slate-100 text-slate-500 border border-slate-200
-    dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700"
-                          >
-                            Not Assigned
+                          <span className="inline-flex max-w-full truncate rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300">
+                            {row.assignedOfficerName}
                           </span>
+                        ) : (
+                          <span className="text-xs text-gray-400">—</span>
                         )}
                       </td>
 
-                      <td className="px-5 py-3">
-                        {row.assignedSubBrokers &&
-                        row.assignedSubBrokers.length > 0 ? (
+                      <td
+                        onClick={() => openPreview(row.submissionId)}
+                        className="overflow-hidden px-3 py-3 align-middle text-center"
+                      >
+                        {row.assignedSubBrokers && row.assignedSubBrokers.length > 0 ? (
                           <button
-                            onClick={() =>
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
                               setSubBrokerModal({
                                 open: true,
                                 brokers: row.assignedSubBrokers || [],
-                              })
-                            }
-                            className="
-      inline-flex items-center gap-2
-      px-3 py-1.5 rounded-full
-      bg-cyan-50 border border-cyan-200
-      hover:bg-cyan-100
-      dark:bg-cyan-500/10
-      dark:border-cyan-500/20
-      text-cyan-700 dark:text-cyan-300
-      transition-all
-    "
+                              });
+                            }}
+                            className="inline-flex items-center gap-1 rounded-full bg-cyan-50 px-2 py-0.5 text-xs font-medium text-cyan-700 dark:bg-cyan-500/10 dark:text-cyan-300"
                           >
-                            <Users size={14} />
-
-                            <span className="text-xs font-semibold">
-                              {row.assignedSubBrokers.length}
-                            </span>
+                            <Users className="h-3 w-3" />
+                            {row.assignedSubBrokers.length}
                           </button>
                         ) : (
-                          <span
-                            className="
-      px-2.5 py-1 rounded-full text-xs font-medium 
-      bg-slate-100 text-slate-500 border border-slate-200
-      dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700
-    "
-                          >
-                            None
-                          </span>
+                          <span className="text-xs text-gray-400">—</span>
                         )}
                       </td>
 
-                      {/* Action - Clean & Subtle */}
-                      <td className="px-6 py-3 text-center relative">
-                        {/* Three Dot Button */}
-                        <button
-                          data-id={row.submissionId}
-                          onClick={(e) => {
-                            e.stopPropagation();
-
-                            const rect =
-                              e.currentTarget.getBoundingClientRect();
-
-                            setDropdownPos({
-                              top: rect.top - 8,
-                              left: rect.right - 192,
-                            });
-
-                            setActiveDropdown(
-                              activeDropdown === row.submissionId
-                                ? null
-                                : row.submissionId,
-                            );
-                          }}
-                          className={`
-    relative p-2 rounded-lg
-    text-slate-500 dark:text-slate-400
-    hover:bg-slate-100 dark:hover:bg-slate-800
-    hover:text-slate-700 dark:hover:text-white
-    transition-all duration-300
-    active:scale-90
-    ${
-      activeDropdown === row.submissionId
-        ? "bg-slate-200 dark:bg-slate-700 rotate-90"
-        : ""
-    }
-  `}
-                        >
-                          <MoreVertical
-                            size={18}
-                            className="transition-transform duration-300"
-                          />
-                        </button>
+                      <td
+                        className="overflow-hidden px-2 py-3 pr-6 text-right align-middle lg:pr-8"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="inline-flex items-center justify-end">
+                          <button
+                            type="button"
+                            title="More actions"
+                            data-id={row.submissionId}
+                            data-dropdown-trigger
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const rect = e.currentTarget.getBoundingClientRect();
+                              setDropdownPos({
+                                top: rect.top - 8,
+                                left: rect.right - 192,
+                              });
+                              setActiveDropdown(
+                                activeDropdown === row.submissionId
+                                  ? null
+                                  : row.submissionId,
+                              );
+                            }}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
+                          >
+                            <MoreVertical size={16} />
+                          </button>
+                        </div>
 
                         {activeDropdown === row.submissionId &&
                           createPortal(
@@ -1694,82 +1542,70 @@ whitespace-nowrap
                                 position: "fixed",
                                 top: dropdownPos.top,
                                 left: dropdownPos.left,
-                                transition: "top 0.1s linear",
                               }}
-                              className="
-        w-48
-        bg-white dark:bg-slate-900
-        border border-slate-200 dark:border-slate-800
-        rounded-xl shadow-xl
-        overflow-hidden z-[9999]
-        animate-in fade-in zoom-in-95
-      "
+                              onMouseDown={(e) => e.stopPropagation()}
+                              className="z-[9999] w-48 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl dark:border-gray-800 dark:bg-gray-900"
                             >
-                              {/* Application Preview */}
                               <button
-                                onClick={() =>
-                                  navigate("/loan-preview", {
-                                    state: { submissionId: row.submissionId },
-                                  })
-                                }
-                                className="flex items-center gap-3 w-full px-4 py-3 text-sm text-yellow-500 hover:bg-yellow-50"
-                              >
-                                <MdEdit size={14} />
-                                App Preview
-                              </button>
-
-                              {/* View Details */}
-                              {/* <button
-                                onClick={() => {
-                                  fetchSubmissionDetail(row.submissionId);
+                                type="button"
+                                onMouseDown={(e) => e.preventDefault()}
+                                onClick={(e) => {
+                                  e.stopPropagation();
                                   setActiveDropdown(null);
+                                  openPreview(row.submissionId);
                                 }}
-                                className="flex items-center gap-3 w-full px-4 py-3 text-sm text-blue-600 hover:bg-blue-50"
+                                className="flex w-full items-center gap-3 px-4 py-3 text-sm text-[#13538A] hover:bg-gray-50 dark:hover:bg-gray-800"
                               >
                                 <Eye size={14} />
-                                View Details
-                              </button> */}
-
-                              {/* Send Client Link */}
-                              <button
-                                onClick={() => {
-                                  handleSendClientLink(row.applicationId);
-                                  setActiveDropdown(null);
-                                }}
-                                className="flex items-center gap-3 w-full px-4 py-3 text-sm text-orange-600 hover:bg-orange-50"
-                              >
-                                <Send size={14} />
-                                Send Client Link
+                                Open Application
                               </button>
-
-                              {/* Assign */}
+                              {row.status === "DRAFT" && (
+                                <button
+                                  type="button"
+                                  onMouseDown={(e) => e.preventDefault()}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActiveDropdown(null);
+                                    handleSendClientLink(row.applicationId);
+                                  }}
+                                  className="flex w-full items-center gap-3 px-4 py-3 text-sm text-orange-600 hover:bg-orange-50"
+                                >
+                                  <Send size={14} />
+                                  Send Client Link
+                                </button>
+                              )}
                               <button
-                                onClick={() => {
-                                  openAssignModal(row.applicationId);
+                                type="button"
+                                onMouseDown={(e) => e.preventDefault()}
+                                onClick={(e) => {
+                                  e.stopPropagation();
                                   setActiveDropdown(null);
+                                  openAssignModal(
+                                    row.applicationId,
+                                    row.assignedOfficerId,
+                                  );
                                 }}
-                                className="flex items-center gap-3 w-full px-4 py-3 text-sm text-indigo-600 hover:bg-indigo-50"
+                                className="flex w-full items-center gap-3 px-4 py-3 text-sm text-indigo-600 hover:bg-indigo-50"
                               >
                                 <MdEdit size={14} />
-                                Assign Officer
+                                {row.assignedOfficerName
+                                  ? "Change Officer"
+                                  : "Assign Officer"}
                               </button>
-
                               <button
-                                onClick={() => {
+                                type="button"
+                                onMouseDown={(e) => e.preventDefault()}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setActiveDropdown(null);
                                   setAssignSubBrokerModal({
                                     open: true,
-
                                     applicationId: row.applicationId,
-
-                                    applicationNumber:
-                                      row.applicationNumber || "",
+                                    applicationNumber: row.applicationNumber || "",
                                   });
-
                                   fetchSubBrokers();
-
-                                  setActiveDropdown(null);
                                 }}
-                                className="flex items-center gap-3 w-full px-4 py-3 text-sm text-cyan-600 hover:bg-cyan-50"
+                                className="flex w-full items-center gap-3 px-4 py-3 text-sm text-cyan-600 hover:bg-cyan-50"
                               >
                                 <MdEdit size={14} />
                                 Assign Sub Broker
@@ -1781,65 +1617,49 @@ whitespace-nowrap
                     </tr>
                   ))
                 ) : (
-                  /* Professional Empty State */
                   <tr>
-                    <td
-                      colSpan={8}
-                      className="px-6 py-24 text-center align-middle"
-                    >
-                      <div className="flex flex-col items-center max-w-xs mx-auto">
-                        {/* Icon */}
-                        <div
-                          className={`
-          w-14 h-14 
-          rounded-2xl 
-          flex items-center justify-center 
-          mb-5
-          border
-          ${
-            rows.length === 0
-              ? "bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/20"
-              : "bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700"
-          }
-        `}
-                        >
-                          {rows.length === 0 ? (
-                            <span className="text-red-500 dark:text-red-400 text-2xl font-bold">
-                              ✕
-                            </span>
-                          ) : (
-                            <Search className="w-6 h-6 text-slate-400 dark:text-slate-500" />
-                          )}
+                    <td colSpan={9} className="px-6 py-20 text-center">
+                      <div className="mx-auto flex max-w-sm flex-col items-center">
+                        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gray-100 text-gray-400 dark:bg-gray-800">
+                          <SearchX className="h-6 w-6" />
                         </div>
-
-                        {/* Title */}
-                        <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">
-                          {rows.length === 0
-                            ? "Currently you have no loan applications"
-                            : "No applications found"}
+                        <h3 className="text-base font-semibold text-gray-900 dark:text-white">
+                          {searchTerm || statusFilter
+                            ? "No matching applications"
+                            : "No applications yet"}
                         </h3>
-
-                        {/* Subtext */}
-                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
-                          {rows.length === 0
-                            ? "Once applications are submitted, they will appear here."
-                            : "Try adjusting your search terms and try again."}
+                        <p className="mt-2 text-sm text-gray-500">
+                          {searchTerm || statusFilter
+                            ? "Try a different search or clear your filters."
+                            : "Create your first loan application to get started."}
                         </p>
+                        {!searchTerm && !statusFilter && (
+                          <button
+                            type="button"
+                            onClick={() => navigate("/loan-application")}
+                            className="mt-4 rounded-xl bg-[#2C92D5] px-4 py-2 text-sm font-medium text-white hover:bg-[#2379b3]"
+                          >
+                            + Create Application
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
                 )}
               </tbody>
             </table>
-            <div ref={loadMoreRef} className="py-6 text-center">
-              {loading && (
-                <div className="flex justify-center">
-                  <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
-                </div>
+
+            <div ref={loadMoreRef} className="px-6 py-6 text-center lg:px-8">
+              {loading && rows.length > 0 && (
+                <Loader2 className="mx-auto h-5 w-5 animate-spin text-[#13538A]" />
+              )}
+              {!loading && hasMore && (
+                <p className="text-xs text-gray-400">Scroll for more applications</p>
               )}
             </div>
           </div>
         </div>
+      </div>
 
         {viewSubmissionId &&
           createPortal(
@@ -3460,8 +3280,17 @@ dark:scrollbar-thumb-slate-700 w-full
             <div className="w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl p-6">
               {/* HEADER */}
               <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">
-                Assign Loan Officer
+                {assignModal.currentOfficerId
+                  ? "Change Loan Officer"
+                  : "Assign Loan Officer"}
               </h3>
+
+              {assignModal.currentOfficerId && (
+                <p className="mb-4 text-sm text-slate-500 dark:text-slate-400">
+                  Only one loan officer can be assigned per application. Selecting
+                  a new officer will replace the current assignment.
+                </p>
+              )}
 
               {/* SELECT */}
               <div className="space-y-2">
@@ -3537,7 +3366,11 @@ dark:scrollbar-thumb-slate-700 w-full
               <div className="flex justify-end gap-3 mt-6">
                 <button
                   onClick={() =>
-                    setAssignModal({ open: false, applicationId: "" })
+                    setAssignModal({
+                      open: false,
+                      applicationId: "",
+                      currentOfficerId: null,
+                    })
                   }
                   className="px-4 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 
           text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
@@ -3551,7 +3384,11 @@ dark:scrollbar-thumb-slate-700 w-full
                   className="px-4 py-2 text-sm rounded-lg bg-indigo-600 text-white 
           hover:bg-indigo-700 disabled:opacity-50"
                 >
-                  {assignLoading ? "Assigning..." : "Assign"}
+                  {assignLoading
+                    ? "Saving..."
+                    : assignModal.currentOfficerId
+                      ? "Update"
+                      : "Assign"}
                 </button>
               </div>
             </div>
@@ -3628,7 +3465,6 @@ dark:scrollbar-thumb-slate-700 w-full
             </div>
           </div>
         )}
-      </div>
-    </div>
+    </>
   );
 }

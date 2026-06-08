@@ -1,51 +1,72 @@
-// backend/routes/admin/adminUsers/read.js
 const fp = require("fastify-plugin");
-
 const { getUserRolesFromFGA } = require("../../../services/fgaService");
-
-
+const { resolveUserPermissions } = require("../../../services/adminUserPermissions.js");
 
 module.exports = fp(async function adminUserReadRoutes(fastify) {
-
-  /**
-   * GET /admin/admin-user/read
-   * → List only PLATFORM_ADMIN users
-   */
   fastify.get("/read", {
     preHandler: [fastify.authenticate, fastify.verifySuperAdmin],
-  }, 
-  async (req, reply) => {
+  }, async (req, reply) => {
     const prisma = fastify.prisma;
+
     try {
       const users = await prisma.userAccount.findMany({
-        where: { status: "ACTIVE" },
+        where: {
+          roles: {
+            some: {
+              role: { name: "PLATFORM_ADMIN" },
+            },
+          },
+        },
         select: {
           id: true,
           firstName: true,
           lastName: true,
           email: true,
           organizationId: true,
-          createdAt: true
-        }
+          status: true,
+          createdAt: true,
+          roles: { include: { role: true } },
+          userPermissions: { include: { permission: true } },
+        },
+        orderBy: { createdAt: "desc" },
       });
 
-      const filtered = [];
+      const mapped = [];
+
       for (const user of users) {
-        const roles = await getUserRolesFromFGA(user.id);
-        if (roles.includes("role:PLATFORM_ADMIN")) {
-          filtered.push({
-            ...user,
-            roles: roles.map(r => r.replace("role:", "")), // clean output
-            type: user.organizationId ? "ORG_ADMIN" : "ROOT_PLATFORM_ADMIN"
-          });
+        const roleNames = user.roles.map((r) => r.role.name);
+        let fgaRoles = [];
+        try {
+          fgaRoles = await getUserRolesFromFGA(user.id);
+        } catch {
+          fgaRoles = [];
         }
+
+        const hasCustomPermissions = user.userPermissions.length > 0;
+        const permissions = await resolveUserPermissions(prisma, user.id, roleNames);
+
+        mapped.push({
+          id: user.id,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          email: user.email,
+          organizationId: user.organizationId,
+          status: user.status,
+          createdAt: user.createdAt,
+          roles: roleNames,
+          fgaRoles: fgaRoles.map((r) => r.replace("role:", "")),
+          accessLevel: hasCustomPermissions ? "CUSTOM" : "FULL",
+          permissions: hasCustomPermissions ? permissions : ["*"],
+        });
       }
 
-      return reply.send({ count: filtered.length, users: filtered });
-
+      return reply.send({ success: true, count: mapped.length, data: mapped, users: mapped });
     } catch (err) {
       req.log.error(err);
-      return reply.code(500).send({ message: "Error retrieving PLATFORM_ADMIN users" });
+      return reply.code(500).send({
+        success: false,
+        message: "Error retrieving PLATFORM_ADMIN users",
+      });
     }
   });
 });

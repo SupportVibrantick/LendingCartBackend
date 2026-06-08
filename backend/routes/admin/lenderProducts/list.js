@@ -27,12 +27,26 @@ async function listLenderProductRoutes(fastify) {
 const formatted = result.map((item) => ({
   ...item,
 
-  businessTypes: normalizeToArray(item.businessTypes),
-  propertyTypes: normalizeToArray(item.propertyTypes),
+  // JSON object return karo
+businessTypes: Array.isArray(item.businessTypes)
+  ? item.businessTypes.filter(
+      (b) => b && b.name
+    )
+  : [],
+
+propertyTypes: Array.isArray(item.propertyTypes)
+  ? item.propertyTypes.filter(
+      (p) =>
+        p &&
+        p.type &&
+        p.type !== "undefined"
+    )
+  : [],
+
+  // array return karo
+  equipmentTypes: normalizeToArray(item.equipmentTypes),
 
   statesSupported: normalizeToArray(item.statesSupported),
-
-  equipmentTypes: normalizeToArray(item.equipmentTypes),
 
   maxLtvPercent: item.maxLtvPercent?.toString() ?? null,
   maxArvPercent: item.maxArvPercent?.toString() ?? null,

@@ -2,6 +2,11 @@
  * @param {import("fastify").FastifyInstance} fastify
  */
 
+const {
+  notifyBroker,
+  BROKER_NOTIFICATION_EVENTS,
+} = require("../../../services/brokerNotifications");
+
 module.exports = async function sendToPrincipalBroker(fastify) {
   fastify.post(
     "/:requirementId/send-to-broker",
@@ -202,6 +207,31 @@ module.exports = async function sendToPrincipalBroker(fastify) {
           },
           "Document sent to Principal Broker",
         );
+
+        const subBrokerUser = await prisma.userAccount.findUnique({
+          where: { id: req.user.userId || req.user.id },
+          select: { firstName: true, lastName: true },
+        });
+
+        const subBrokerName =
+          `${subBrokerUser?.firstName || ""} ${subBrokerUser?.lastName || ""}`.trim() ||
+          "Sub-Broker";
+
+        await notifyBroker(prisma, fastify.io, {
+          brokerOrgId: requirement.loanApplication.brokerOrgId,
+          eventType: BROKER_NOTIFICATION_EVENTS.SUBBROKER_DOCUMENT_SENT,
+          category: "DOCUMENT",
+          subject: "Sub-Broker Document Received",
+          body: `${subBrokerName} sent ${requirement.documentType?.name || "documents"} for application ${requirement.loanApplication.applicationNumber}`,
+          metadata: {
+            applicationId: requirement.loanApplicationId,
+            applicationNumber: requirement.loanApplication.applicationNumber,
+            requirementId: requirement.id,
+            documentType: requirement.documentType?.name || null,
+            subBrokerId: req.user.userId || req.user.id,
+            subBrokerName,
+          },
+        });
 
         /* =========================================
            RESPONSE

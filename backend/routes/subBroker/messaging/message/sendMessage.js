@@ -2,6 +2,8 @@
  * Send message in a sub-broker conversation
  */
 
+const { emitRealtimeMessage } = require("../../../../services/messagingAccess");
+
 module.exports = async function sendMessage(fastify) {
   fastify.post(
     "/conversation/:conversationId/message",
@@ -107,6 +109,8 @@ module.exports = async function sendMessage(fastify) {
             lastMessageAt: message.createdAt,
           },
         });
+
+        await emitRealtimeMessage(fastify.io, prisma, { ...message, conversationId }, conversationId);
 
         return reply.send({
           success: true,

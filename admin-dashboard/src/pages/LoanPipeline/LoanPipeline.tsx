@@ -1,16 +1,17 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { createPortal } from "react-dom";
 import {
   Eye,
   Search,
-  FileText,
-  DollarSign,
   Loader2,
   ChevronLeft,
   ChevronRight,
-  CheckCircle,
   Building2,
+  MoreVertical,
+  TrendingUp,
+  RefreshCw,
+  SearchX,
 } from "lucide-react";
 
 /* ================= TYPES ================= */
@@ -37,8 +38,28 @@ type TableRow = {
   createdAt: string;
 };
 
-/* ================= HELPERS ================= */
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
+
+const LOAN_TYPE_LABELS: Record<string, string> = {
+  FIX_AND_FLIP_LOAN_1_TO_4_UNITS: "Fix & Flip",
+  DSCR_LOAN: "DSCR",
+  BRIDGE_LOAN: "Bridge",
+  EQUIPMENT_FINANCE: "Equipment",
+};
+
+const STATUS_FILTERS = [
+  { value: "", label: "All" },
+  { value: "DRAFT", label: "Draft" },
+  { value: "CLIENT_PENDING", label: "Client Pending" },
+  { value: "SUBMITTED", label: "Submitted" },
+  { value: "IN_REVIEW", label: "In Review" },
+  { value: "APPROVED", label: "Approved" },
+  { value: "DECLINED", label: "Rejected" },
+];
+
+const TABLE_COLUMNS = 8;
+
+/* ================= HELPERS ================= */
 const parseValue = (val: string): any => {
   try {
     return JSON.parse(val);
@@ -47,37 +68,65 @@ const parseValue = (val: string): any => {
   }
 };
 
-const normalizeStatus = (status: string) => {
-  if (!status) return "";
-  return status.replace("LENDER_", "").toUpperCase();
-};
+function formatLoanType(code?: string) {
+  if (!code) return "—";
+  if (LOAN_TYPE_LABELS[code]) return LOAN_TYPE_LABELS[code];
+  return code.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
 
-const getApplicationStatusColor = (status: string) => {
-  if (!status) return "bg-slate-100 text-slate-700";
+function formatCompactAmount(value: number) {
+  if (!value || Number.isNaN(value)) return "—";
+  if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(value % 1_000_000 === 0 ? 0 : 1)}M`;
+  if (value >= 1_000) return `$${(value / 1_000).toFixed(value % 1_000 === 0 ? 0 : 1)}K`;
+  return `$${value.toLocaleString()}`;
+}
+
+function formatShortDate(value?: string) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function formatStatusLabel(status?: string) {
+  if (!status) return "Unknown";
+  const cleaned = status.replace("LENDER_", "");
+  if (cleaned === "DECLINED") return "Rejected";
+  if (cleaned === "CLIENT_PENDING") return "Client Pending";
+  if (cleaned === "IN_REVIEW") return "In Review";
+  return cleaned.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function getApplicationStatusColor(status: string) {
+  if (!status) return "bg-slate-100 text-slate-700 border-slate-200";
 
   const cleaned = status.replace("LENDER_", "");
 
   switch (cleaned) {
     case "APPROVED":
-      return "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400";
-
+      return "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20";
     case "DECLINED":
     case "REJECTED":
-      return "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400";
-
+      return "bg-red-50 text-red-700 border-red-200 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20";
     case "IN_REVIEW":
-      return "bg-indigo-100 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-400";
-
+      return "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-500/10 dark:text-indigo-400 dark:border-indigo-500/20";
+    case "SUBMITTED":
     case "SENT":
-      return "bg-blue-100 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400";
-
+      return "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20";
+    case "CLIENT_PENDING":
+      return "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/20";
+    case "DRAFT":
+      return "bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700";
     case "PENDING":
-      return "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400";
-
+      return "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20";
     default:
-      return "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300";
+      return "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700";
   }
-};
+}
 
 function getAuthHeaders(): HeadersInit {
   const token = sessionStorage.getItem("admin_token");
@@ -87,75 +136,59 @@ function getAuthHeaders(): HeadersInit {
   };
 }
 
+function getInitials(name: string) {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() || "")
+    .join("");
+}
+
 /* ================= COMPONENT ================= */
 export default function LoanPipeline() {
   const [rows, setRows] = useState<TableRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
   const [viewSubmissionId, setViewSubmissionId] = useState<string | null>(null);
   const [submissionDetail, setSubmissionDetail] = useState<any>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [viewLenders, setViewLenders] = useState<LenderItem[] | null>(null);
-  const [openActionId, setOpenActionId] = useState<string | null>(null);
+  const [activeActionId, setActiveActionId] = useState<string | null>(null);
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0 });
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
 
-  // Find Lenders Modal State
   const [currentPage, setCurrentPage] = useState(1);
-  const rowsPerPage = 6;
+  const rowsPerPage = 8;
 
   const InfoCard = ({ label, value }: { label: string; value: any }) => (
-    <div
-      className="
-    bg-slate-50 
-    dark:bg-slate-800/60 
-    border border-slate-100 dark:border-slate-700
-    p-4 rounded-xl
-    transition-colors duration-300
-"
-    >
-      <p className="text-xs text-slate-500 mb-1">{label}</p>
+    <div className="rounded-xl border border-slate-100 bg-slate-50 p-4 transition-colors dark:border-slate-700 dark:bg-slate-800/60">
+      <p className="mb-1 text-xs text-slate-500">{label}</p>
       <p className="text-sm font-semibold">{value || "-"}</p>
     </div>
   );
 
-  const formatStatus = (status: string) => {
-    if (!status) return "-";
-
-    const cleaned = status.replace("LENDER_", "");
-
-    return cleaned
-      .toLowerCase()
-      .replace(/_/g, " ")
-      .replace(/\b\w/g, (c) => c.toUpperCase());
-  };
-
   const formatFieldKey = (key: string | null | undefined) => {
     if (!key) return "";
-
-    return (
-      key
-        // camelCase → camel Case
-        .replace(/([a-z])([A-Z])/g, "$1 $2")
-        // snake_case → snake case
-        .replace(/_/g, " ")
-        // multiple spaces remove
-        .replace(/\s+/g, " ")
-        // trim
-        .trim()
-        // capitalize each word
-        .replace(/\b\w/g, (char) => char.toUpperCase())
-    );
+    return key
+      .replace(/([a-z])([A-Z])/g, "$1 $2")
+      .replace(/_/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .replace(/\b\w/g, (char) => char.toUpperCase());
   };
 
-  const newCount = rows.filter(
-    (r) =>
-      r.applicationStatus === "IN_REVIEW" || r.applicationStatus === "SENT",
+  const statusCounts = rows.reduce<Record<string, number>>((acc, row) => {
+    const key = row.applicationStatus || "UNKNOWN";
+    acc[key] = (acc[key] || 0) + 1;
+    return acc;
+  }, {});
+
+  const approvedCount = rows.filter((r) => r.applicationStatus === "APPROVED").length;
+  const inReviewCount = rows.filter(
+    (r) => r.applicationStatus === "IN_REVIEW" || r.applicationStatus === "SUBMITTED",
   ).length;
-
-  const approvedCount = rows.filter((r) => {
-    const status = normalizeStatus(r.applicationStatus);
-    return status === "APPROVED" || status === "APPROVE";
-  }).length;
-
   const totalVolume = rows.reduce((sum, r) => sum + (r.amount ?? 0), 0);
 
   const fetchApplicationDetail = async (applicationId: string) => {
@@ -163,10 +196,9 @@ export default function LoanPipeline() {
       setDetailLoading(true);
       setViewSubmissionId(applicationId);
 
-      const res = await fetch(
-        `${API_BASE}/admin/loan-pipeline/${applicationId}`,
-        { headers: getAuthHeaders() },
-      );
+      const res = await fetch(`${API_BASE}/admin/loan-pipeline/${applicationId}`, {
+        headers: getAuthHeaders(),
+      });
 
       const json = await res.json();
 
@@ -198,7 +230,7 @@ export default function LoanPipeline() {
       }
 
       const mappedRows: TableRow[] = json.data.map((item: any) => {
-        const lender = item.lenders?.[0]; // first lender
+        const lender = item.lenders?.[0];
 
         return {
           applicationId: item.applicationId,
@@ -228,18 +260,24 @@ export default function LoanPipeline() {
     loadSubmissions();
   }, []);
 
-  const filteredRows = rows.filter(
-    (r) =>
-      r.borrowerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      r.applicationNumber.toLowerCase().includes(searchTerm.toLowerCase()),
-  );
+  const filteredRows = rows.filter((r) => {
+    const q = searchTerm.trim().toLowerCase();
+    const matchesSearch =
+      !q ||
+      r.borrowerName.toLowerCase().includes(q) ||
+      r.applicationNumber.toLowerCase().includes(q) ||
+      r.brokerName.toLowerCase().includes(q);
 
-  // Reset page when search changes
+    const matchesStatus = !statusFilter || r.applicationStatus === statusFilter;
+
+    return matchesSearch && matchesStatus;
+  });
+
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm]);
+  }, [searchTerm, statusFilter]);
 
-  const totalPages = Math.ceil(filteredRows.length / rowsPerPage);
+  const totalPages = Math.ceil(filteredRows.length / rowsPerPage) || 1;
 
   const paginatedRows = filteredRows.slice(
     (currentPage - 1) * rowsPerPage,
@@ -253,708 +291,551 @@ export default function LoanPipeline() {
   }, [totalPages, currentPage]);
 
   useEffect(() => {
-    const handleClickOutside = () => {
-      setOpenActionId(null);
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+
+      if (dropdownRef.current?.contains(target)) return;
+
+      if (
+        target instanceof HTMLElement &&
+        target.closest("[data-dropdown-trigger]")
+      ) {
+        return;
+      }
+
+      setActiveActionId(null);
     };
 
-    if (openActionId) {
-      document.addEventListener("click", handleClickOutside);
-    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
-    return () => {
-      document.removeEventListener("click", handleClickOutside);
-    };
-  }, [openActionId]);
+  const openRowPreview = (applicationId: string) => {
+    fetchApplicationDetail(applicationId);
+  };
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-[#0b1120] p-3 text-slate-900 dark:text-slate-100 selection:bg-blue-100 dark:selection:bg-blue-900/30">
-      {/* Header Area */}
-      <header className="max-w-7xl mx-auto mb-10">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-          <div className="space-y-1">
-            <h2 className="text-2xl font-bold text-[#13538A] dark:text-indigo-600">
-              Loan Pipeline
-            </h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">
-              You have{" "}
-              <span className="text-blue-600 dark:text-blue-400">
-                {filteredRows.length} active
-              </span>{" "}
-              applications today.
+    <div className="mx-auto w-full min-w-0 max-w-[1400px] space-y-6 text-slate-900 dark:text-slate-100">
+      {/* Hero */}
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-br from-[#13538A] via-[#1a6aad] to-[#2C92D5] p-6 text-white shadow-sm dark:border-slate-800 lg:p-8">
+        <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:gap-10">
+          <div className="min-w-0 flex-1">
+            <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-medium backdrop-blur-sm">
+              <TrendingUp className="h-3.5 w-3.5" />
+              Platform Overview
+            </div>
+            <h1 className="text-2xl font-semibold tracking-tight">Loan Pipeline</h1>
+            <p className="mt-1 max-w-2xl text-sm text-white/80">
+              {filteredRows.length} application{filteredRows.length === 1 ? "" : "s"}
+              {statusFilter ? ` · ${formatStatusLabel(statusFilter)}` : ""} ·{" "}
+              {formatCompactAmount(totalVolume)} total volume
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="relative group">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
-              <input
-                placeholder="Search by name or company..."
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 pr-4 py-2.5 w-full md:w-80 rounded-xl text-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none"
-              />
-            </div>
-            <button
-              onClick={loadSubmissions}
-              className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-blue-500 transition-all shadow-sm active:scale-95"
-            >
-              <Loader2
-                className={`w-5 h-5 text-slate-600 dark:text-slate-400 ${loading ? "animate-spin text-blue-500" : ""}`}
-              />
-            </button>
-          </div>
-        </div>
-
-        {/* Quick Status Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
-          {/* TOTAL VOLUME */}
-          <div
-            className="
-    bg-white dark:bg-slate-900
-    border border-slate-200 dark:border-slate-800
-    rounded-2xl p-6
-    shadow-sm hover:shadow-md
-    transition-all duration-200
-    flex items-center justify-between
-  "
-          >
-            <div>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                Total Volume
-              </p>
-              <h3 className="text-xl font-semibold text-slate-900 dark:text-white mt-1">
-                ${totalVolume.toLocaleString()}
-              </h3>
-            </div>
-
-            <div className="h-8 w-8 flex items-center justify-center rounded-full bg-indigo-600 text-white">
-              <DollarSign className="w-5 h-5" />
-            </div>
-          </div>
-
-          {/* NEW APPLICATIONS */}
-          <div
-            className="
-    bg-white dark:bg-slate-900
-    border border-slate-200 dark:border-slate-800
-    rounded-2xl p-6
-    shadow-sm hover:shadow-md
-    transition-all duration-200
-    flex items-center justify-between
-  "
-          >
-            <div>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                New Applications
-              </p>
-              <h3 className="text-xl font-semibold text-slate-900 dark:text-white mt-1">
-                {newCount}
-              </h3>
-            </div>
-
-            <div className="h-8 w-8 flex items-center justify-center rounded-full bg-blue-600 text-white">
-              <FileText className="w-5 h-5" />
-            </div>
-          </div>
-
-          {/* APPROVED */}
-          <div
-            className="
-    bg-white dark:bg-slate-900
-    border border-slate-200 dark:border-slate-800
-    rounded-2xl p-6
-    shadow-sm hover:shadow-md
-    transition-all duration-200
-    flex items-center justify-between
-  "
-          >
-            <div>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                Approved
-              </p>
-              <h3 className="text-xl font-semibold text-slate-900 dark:text-white mt-1">
-                {approvedCount}
-              </h3>
-            </div>
-
-            <div className="h-8 w-8 flex items-center justify-center rounded-full bg-emerald-600 text-white">
-              <CheckCircle className="w-5 h-5" />
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Table Container */}
-      <div className="max-w-7xl mx-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl shadow-slate-200/50 dark:shadow-none overflow-hidden">
-        <div className="w-full bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-x-auto">
-          <div className="w-full overflow-hidden">
-            <table className="min-w-[1200px] table-auto border-separate border-spacing-0">
-              <thead>
-                <tr className="bg-slate-50/50 dark:bg-slate-800/40">
-                  {[
-                    // { label: "Application Id", width: "min-w-[180px]" },
-                    { label: "Borrower", width: "w-[150px]" },
-                    { label: "Loan Type", width: "w-[150px]" },
-                    { label: "Amount", width: "w-[160px]" },
-                    { label: "Broker", width: "w-[180px]" },
-                    { label: "Application Status", width: "w-[170px]" },
-                    { label: "Created At", width: "w-[180px]" },
-                    { label: "Lenders", width: "w-[120px]" },
-                    { label: "Actions", width: "w-[120px]" },
-                  ].map((h) => (
-                    <th
-                      key={h.label}
-                      className={`${h.width} px-6 py-4 text-[12px] font-semibold uppercase tracking-wider whitespace-nowrap text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800 ${
-                        h.label === "Application Status" ||
-                        h.label === "Loan Type" ||
-                        h.label === "Created At"
-                          ? "text-center"
-                          : "text-left"
-                      }`}
-                    >
-                      {h.label}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {loading ? (
-                  /* Professional Skeleton Loader */
-                  Array.from({ length: 5 }).map((_, i) => (
-                    <tr key={i}>
-                      <td colSpan={7} className="px-6 py-5">
-                        <div className="flex items-center gap-3 animate-pulse">
-                          <div className="h-10 w-10 rounded-lg bg-slate-100 dark:bg-slate-800" />
-                          <div className="space-y-2">
-                            <div className="h-3 w-32 bg-slate-100 dark:bg-slate-800 rounded" />
-                            <div className="h-2 w-20 bg-slate-50 dark:bg-slate-900 rounded" />
-                          </div>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                ) : paginatedRows.length > 0 ? (
-                  paginatedRows.map((row) => (
-                    <tr
-                      key={row.applicationId}
-                      className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors"
-                    >
-                      {/* Application Number */}
-                      {/* <td className="px-6 py-4 font-mono text-xs whitespace-nowrap align-middle">
-                        <span className="inline-block min-w-[160px]">
-                          {row.applicationNumber}
-                        </span>
-                      </td> */}
-
-                      {/* Borrower */}
-                      <td className="px-6 py-4">
-                        <div className="flex flex-col">
-                          <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                            {row.borrowerName.length > 12 ? row.borrowerName.slice(0, 12) + "..." : row.borrowerName}
-                          </span>
-                          <span className="text-[10px] text-slate-500">
-                            {row.entityType.slice(0, 15) + "..."}
-                          </span>
-                        </div>
-                      </td>
-
-                      {/* Loan Type */}
-                      <td className="px-6 py-4">
-                        <span className="text-[10px] text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/50 px-2 py-1 rounded">
-                          {row.loanType}
-                        </span>
-                      </td>
-
-                      {/* Amount */}
-                      <td className="px-3 py-2">
-                        <span className="text-sm text-slate-800 dark:text-slate-200">
-                          {row.amount ? `$${row.amount.toLocaleString()}` : "-"}
-                        </span>
-                      </td>
-
-                      {/* Broker */}
-                      <td className="px-4 py-2 text-xs text-slate-600 dark:text-slate-400">
-                        {row.brokerName.slice(0, 20) + "..."}
-                      </td>
-
-                      {/* Application Status */}
-                      <td className="px-5 py-2">
-                        <div className="flex justify-center">
-                          <span
-                            className={`
-                                                                                inline-flex items-center whitespace-nowrap
-                                                                                px-3 py-1 rounded-full text-xs uppercase tracking-wide
-                                                                                ${getApplicationStatusColor(row.applicationStatus)}
-                                                                           `}
-                          >
-                            {formatStatus(row.applicationStatus)}
-                          </span>
-                        </div>
-                      </td>
-
-                      {/* Sent Date */}
-                      <td className="px-6 py-4 text-sm text-slate-500">
-                        {new Date(row.createdAt).toLocaleDateString()}
-                      </td>
-
-                      {/* Lenders Button */}
-                      <td className="px-6 py-4 text-center">
-                        <button
-                          onClick={() => setViewLenders(row.lenders)}
-                          className="
-                                                                relative
-                                                                inline-flex items-center justify-center
-                                                                w-9 h-9
-                                                                rounded-lg
-                                                                bg-indigo-50 dark:bg-indigo-500/10 
-                                                                text-indigo-600 dark:text-indigo-400 
-                                                                hover:bg-indigo-100 dark:hover:bg-indigo-500/20 
-                                                                transition-all
-                                                                "
-                        >
-                          <Building2 size={16} />
-
-                          {/* Count Badge */}
-                          {row.lenders.length > 0 && (
-                            <span
-                              className="
-                                                                absolute -top-1 -right-1
-                                                                text-[10px]
-                                                                px-1.5 py-0.5
-                                                                rounded-full
-                                                                bg-indigo-600 text-white
-                                                                dark:bg-indigo-500
-                                                            "
-                            >
-                              {row.lenders.length}
-                            </span>
-                          )}
-                        </button>
-                      </td>
-
-                      {/* Actions */}
-                      <td className="px-6 py-4 relative">
-                        <div className="relative inline-block text-left">
-                          {/* 3 DOT BUTTON */}
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setOpenActionId((prev) =>
-                                prev === row.applicationId
-                                  ? null
-                                  : row.applicationId,
-                              );
-                            }}
-                            className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition"
-                          >
-                            <svg
-                              className="w-4 h-4 text-slate-600 dark:text-slate-300"
-                              fill="currentColor"
-                              viewBox="0 0 20 20"
-                            >
-                              <path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zm6 0a2 2 0 11-4 0 2 2 0 014 0zm6 0a2 2 0 11-4 0 2 2 0 014 0z" />
-                            </svg>
-                          </button>
-
-                          {/* DROPDOWN MENU */}
-                          {openActionId === row.applicationId && (
-                            <div
-                              onClick={(e) => e.stopPropagation()}
-                              className="
-          absolute right-0 mt-2 w-48
-          bg-white dark:bg-[#0f172a]
-          border border-slate-200 dark:border-slate-700
-          rounded-xl shadow-xl
-          z-50
-          animate-in fade-in zoom-in-95 duration-100
-        "
-                            >
-                              <div className="py-2 text-sm">
-                                {/* View Details */}
-                                <button
-                                  onClick={() => {
-                                    fetchApplicationDetail(row.applicationId);
-                                    setOpenActionId(null);
-                                  }}
-                                  className="flex items-center gap-3 w-full px-4 py-2 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-800 transition"
-                                >
-                                  <Eye size={16} />
-                                  View Details
-                                </button>
-
-                                {/* Documents */}
-                                {/* <button className="flex items-center justify-between w-full px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
-                                  <div className="flex items-center gap-3">
-                                    📄 Documents
-                                  </div> */}
-
-                                {/* Badge */}
-                                {/* {row.lenders.length > 0 && (
-                                    <span className="text-xs bg-orange-500 text-white px-2 py-0.5 rounded-full">
-                                      {row.lenders.length}
-                                    </span>
-                                  )}
-                                </button> */}
-
-                                {/* Request Document */}
-                                {/* <button className="flex items-center gap-3 w-full px-4 py-2 text-emerald-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
-                                  ✓ Request Document
-                                </button> */}
-
-                                {/* Divider */}
-                                {/* <div className="border-t border-slate-200 dark:border-slate-700 my-1"></div> */}
-
-                                {/* Reject */}
-                                {/* <button className="flex items-center gap-3 w-full px-4 py-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 transition">
-                                  ✕ Reject
-                                </button> */}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  /* Professional Empty State */
-                  <tr>
-                    <td
-                      colSpan={7}
-                      className="px-6 py-24 text-center align-middle"
-                    >
-                      <div className="flex flex-col items-center max-w-xs mx-auto">
-                        {/* Icon */}
-                        <div
-                          className={`
-                                                        w-14 h-14 
-                                                        rounded-2xl 
-                                                        flex items-center justify-center 
-                                                        mb-5
-                                                        border
-                                                        ${
-                                                          rows.length === 0
-                                                            ? "bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/20"
-                                                            : "bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700"
-                                                        }
-                                                    `}
-                        >
-                          {rows.length === 0 ? (
-                            <span className="text-red-500 dark:text-red-400 text-2xl font-bold">
-                              ✕
-                            </span>
-                          ) : (
-                            <Search className="w-6 h-6 text-slate-400 dark:text-slate-500" />
-                          )}
-                        </div>
-
-                        {/* Title */}
-                        <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">
-                          {rows.length === 0
-                            ? "Currently you have no loan applications"
-                            : "No applications found"}
-                        </h3>
-
-                        {/* Subtext */}
-                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
-                          {rows.length === 0
-                            ? "Once applications are submitted, they will appear here."
-                            : "Try adjusting your search terms and try again."}
-                        </p>
-                      </div>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-            {/* ================= PAGINATION ================= */}
-            {filteredRows.length > rowsPerPage && (
-              <div className="flex flex-col md:flex-row items-center justify-between gap-4 px-6 py-4 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-                {/* Showing Info */}
-                <p className="text-sm text-slate-500 dark:text-slate-400">
-                  Showing{" "}
-                  <span className="font-semibold text-slate-700 dark:text-slate-200">
-                    {(currentPage - 1) * rowsPerPage + 1}
-                  </span>{" "}
-                  to{" "}
-                  <span className="font-semibold text-slate-700 dark:text-slate-200">
-                    {Math.min(currentPage * rowsPerPage, filteredRows.length)}
-                  </span>{" "}
-                  of{" "}
-                  <span className="font-semibold text-slate-700 dark:text-slate-200">
-                    {filteredRows.length}
-                  </span>{" "}
-                  results
-                </p>
-
-                {/* Controls */}
-                <div className="flex items-center gap-2">
-                  {/* Previous */}
-                  <button
-                    disabled={currentPage === 1}
-                    onClick={() => setCurrentPage((p) => p - 1)}
-                    className="p-2 rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-40 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
-                  >
-                    <ChevronLeft size={16} />
-                  </button>
-
-                  {/* Page Numbers */}
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(
-                    (page) => (
-                      <button
-                        key={page}
-                        onClick={() => setCurrentPage(page)}
-                        className={`px-3 py-1 text-sm rounded-lg transition
-                                            ${
-                                              currentPage === page
-                                                ? "bg-blue-600 text-white"
-                                                : "border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800"
-                                            }
-                                    `}
-                      >
-                        {page}
-                      </button>
-                    ),
-                  )}
-
-                  {/* Next */}
-                  <button
-                    disabled={currentPage === totalPages}
-                    onClick={() => setCurrentPage((p) => p + 1)}
-                    className="p-2 rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-40 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
-                  >
-                    <ChevronRight size={16} />
-                  </button>
-                </div>
+          <div className="grid w-full grid-cols-2 gap-3 sm:grid-cols-4 xl:w-[min(100%,520px)] xl:shrink-0">
+            {[
+              { label: "Total Apps", value: rows.length },
+              { label: "In Review", value: inReviewCount },
+              { label: "Approved", value: approvedCount },
+              { label: "Volume", value: formatCompactAmount(totalVolume) },
+            ].map(({ label, value }) => (
+              <div
+                key={label}
+                className="rounded-xl bg-white/10 px-4 py-3 ring-1 ring-white/20 backdrop-blur-sm"
+              >
+                <p className="text-xs text-white/70">{label}</p>
+                <p className="mt-1 text-xl font-semibold">{value}</p>
               </div>
-            )}
-
-            {/* ================= VIEW APPLICATION MODAL ================= */}
-            {viewSubmissionId &&
-              createPortal(
-                <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/40 dark:bg-black/70 backdrop-blur-sm p-4 transition-colors duration-300">
-                  <div
-                    className="
-                                        bg-white 
-                                        dark:bg-[#0f172a] 
-                                        text-slate-900 
-                                        dark:text-slate-100
-                                        w-full max-w-5xl max-h-[90vh] overflow-y-auto 
-                                        rounded-2xl shadow-2xl 
-                                        border border-slate-200 dark:border-slate-800
-                                        transition-colors duration-300
-                                    "
-                  >
-                    {/* HEADER */}
-                    <div
-                      className="
-                                                sticky top-0 z-10 
-                                                bg-white/95 dark:bg-[#0f172a]/95 
-                                                backdrop-blur-md
-                                                flex items-center justify-between px-6 py-4 
-                                                border-b border-slate-200 dark:border-slate-800
-                                            "
-                    >
-                      <h2 className="text-lg font-bold">Application Details</h2>
-                      <button
-                        onClick={() => {
-                          setViewSubmissionId(null);
-                          setSubmissionDetail(null);
-                        }}
-                        className="text-sm px-3 py-1 rounded-lg bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400"
-                      >
-                        Close
-                      </button>
-                    </div>
-
-                    {detailLoading ? (
-                      <div className="flex items-center justify-center py-20">
-                        <Loader2 className="animate-spin w-6 h-6 text-blue-500" />
-                      </div>
-                    ) : submissionDetail ? (
-                      <div className="p-6 space-y-8">
-                        {/* BASIC INFO */}
-                        <div className="grid md:grid-cols-3 gap-6">
-                          <InfoCard
-                            label="Application Id"
-                            value={submissionDetail.applicationNumber}
-                          />
-                          <InfoCard
-                            label="Status"
-                            value={submissionDetail.status}
-                          />
-                          <InfoCard
-                            label="Loan Product"
-                            value={submissionDetail.loanProductCode}
-                          />
-                          <InfoCard
-                            label="Borrower"
-                            value={submissionDetail.client?.legalName}
-                          />
-                          <InfoCard
-                            label="Entity Type"
-                            value={submissionDetail.client?.entityType}
-                          />
-                          <InfoCard
-                            label="Broker"
-                            value={submissionDetail.brokerOrg?.name}
-                          />
-                          <InfoCard
-                            label="Amount"
-                            value={`$${Number(submissionDetail.amountRequested).toLocaleString()}`}
-                          />
-                          <InfoCard
-                            label="Term (Months)"
-                            value={submissionDetail.termMonthsRequested}
-                          />
-                          <InfoCard
-                            label="Purpose"
-                            value={submissionDetail.purpose}
-                          />
-                        </div>
-
-                        {/* SUBMISSION FIELDS */}
-                        <div>
-                          <h3 className="font-semibold mb-4 text-slate-700 dark:text-slate-300">
-                            Submission Details
-                          </h3>
-
-                          {(() => {
-                            const fields =
-                              submissionDetail.submissions?.[0]?.fields || [];
-
-                            const normalFields = fields.filter(
-                              (f: any) => f.fieldKey !== "borrowerSignature",
-                            );
-
-                            const signatureField = fields.find(
-                              (f: any) => f.fieldKey === "borrowerSignature",
-                            );
-
-                            return (
-                              <>
-                                {/* NORMAL FIELDS */}
-                                <div className="grid md:grid-cols-2 gap-4">
-                                  {normalFields.map((field: any) => {
-                                    const value = parseValue(field.value);
-
-                                    return (
-                                      <div
-                                        key={field.id}
-                                        className="bg-slate-50 dark:bg-slate-800 p-3 rounded-lg"
-                                      >
-                                        <p className="text-xs text-slate-500 mb-1">
-                                          {formatFieldKey(field.fieldKey)}
-                                        </p>
-                                        <p className="text-sm font-medium break-words">
-                                          {String(value)}
-                                        </p>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-
-                                {/* SIGNATURE LAST CENTER */}
-                                {signatureField && (
-                                  <div className="mt-10 flex flex-col items-center">
-                                    <p className="text-sm font-semibold mb-3 text-slate-600 dark:text-slate-300">
-                                      Borrower Signature
-                                    </p>
-
-                                    <div
-                                      className="
-                                                                                    bg-white dark:bg-slate-800
-                                                                                    p-4 rounded-xl 
-                                                                                    border border-slate-200 dark:border-slate-700
-                                                                                    shadow-sm
-                                                                                "
-                                    >
-                                      <img
-                                        src={signatureField.value}
-                                        alt="Signature"
-                                        className="h-28 object-contain"
-                                      />
-                                    </div>
-                                  </div>
-                                )}
-                              </>
-                            );
-                          })()}
-                        </div>
-                      </div>
-                    ) : null}
-                  </div>
-                </div>,
-                document.body,
-              )}
-
-            {/* ================= LENDERS MODAL ================= */}
-            {viewLenders &&
-              createPortal(
-                <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/40 dark:bg-black/70 backdrop-blur-sm p-4">
-                  <div className="bg-white dark:bg-[#0f172a] w-full max-w-2xl rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800">
-                    {/* HEADER */}
-                    <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800">
-                      <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">
-                        Lenders
-                      </h2>
-                      <button
-                        onClick={() => setViewLenders(null)}
-                        className="text-sm px-3 py-1 rounded-lg bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400"
-                      >
-                        Close
-                      </button>
-                    </div>
-
-                    {/* BODY */}
-                    <div className="p-6 space-y-4 max-h-[400px] overflow-y-auto">
-                      {viewLenders.length === 0 ? (
-                        <p className="text-sm text-slate-500 text-center">
-                          No lenders assigned.
-                        </p>
-                      ) : (
-                        viewLenders.map((lender) => (
-                          <div
-                            key={lender.lenderOrgId}
-                            className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800"
-                          >
-                            <div className="flex justify-between items-center flex-wrap gap-3">
-                              {/* Left */}
-                              <div>
-                                <p className="font-semibold text-slate-900 dark:text-slate-100">
-                                  {lender.lenderName}
-                                </p>
-                                <p className="text-xs text-slate-500">
-                                  Product: {lender.lenderProduct}
-                                </p>
-                              </div>
-
-                              {/* Right */}
-                              <div className="text-right">
-                                <span
-                                  className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide
-                                                                    ${getApplicationStatusColor(lender.lenderStatus)}`}
-                                >
-                                  {formatStatus(lender.lenderStatus)}
-                                </span>
-
-                                <p className="text-xs text-slate-500 mt-1">
-                                  {lender.sentAt
-                                    ? new Date(lender.sentAt).toLocaleString()
-                                    : "-"}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                </div>,
-                document.body,
-              )}
+            ))}
           </div>
         </div>
       </div>
+
+      {/* Toolbar */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:p-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="relative min-w-0 flex-1 lg:max-w-md">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              value={searchTerm}
+              placeholder="Search borrower, application #, or broker..."
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm outline-none transition focus:border-[#2C92D5] focus:ring-2 focus:ring-[#2C92D5]/20 dark:border-slate-700 dark:bg-slate-900"
+            />
+          </div>
+
+          <button
+            type="button"
+            onClick={loadSubmissions}
+            disabled={loading}
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+            Refresh
+          </button>
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          {STATUS_FILTERS.map(({ value, label }) => {
+            const count = value ? statusCounts[value] || 0 : rows.length;
+            const active = statusFilter === value;
+
+            return (
+              <button
+                key={value || "all"}
+                type="button"
+                onClick={() => setStatusFilter(value)}
+                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                  active
+                    ? "border-[#13538A] bg-[#13538A] text-white"
+                    : "border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                }`}
+              >
+                {label}
+                <span
+                  className={`rounded-full px-1.5 py-0.5 text-[10px] ${
+                    active ? "bg-white/20" : "bg-white dark:bg-slate-900"
+                  }`}
+                >
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Table */}
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 dark:border-slate-800 lg:px-8">
+          <div>
+            <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
+              Applications
+            </h2>
+            <p className="text-xs text-slate-500">
+              {loading ? "Loading..." : `${filteredRows.length} shown`}
+            </p>
+          </div>
+        </div>
+
+        <div className="min-w-0">
+          <table className="w-full table-fixed text-left">
+            <colgroup>
+              <col className="w-[17%]" />
+              <col className="w-[12%]" />
+              <col className="w-[9%]" />
+              <col className="w-[14%]" />
+              <col className="w-[12%]" />
+              <col className="w-[11%]" />
+              <col className="w-[8%]" />
+              <col className="w-[7%]" />
+            </colgroup>
+            <thead className="bg-slate-50/80 dark:bg-slate-800/50">
+              <tr>
+                {[
+                  "Borrower",
+                  "Loan Type",
+                  "Amount",
+                  "Broker",
+                  "Status",
+                  "Created",
+                  "Lenders",
+                  "",
+                ].map((label) => (
+                  <th
+                    key={label || "actions"}
+                    className="overflow-hidden px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 first:pl-6 last:pr-6 lg:first:pl-8 lg:last:pr-8"
+                  >
+                    <span className="block truncate">{label}</span>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              {loading && rows.length === 0 ? (
+                Array.from({ length: 4 }).map((_, i) => (
+                  <tr key={i}>
+                    <td colSpan={TABLE_COLUMNS} className="px-6 py-4 lg:px-8">
+                      <div className="h-10 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800" />
+                    </td>
+                  </tr>
+                ))
+              ) : paginatedRows.length > 0 ? (
+                paginatedRows.map((row) => (
+                  <tr
+                    key={row.applicationId}
+                    className="group transition hover:bg-[#13538A]/[0.03] dark:hover:bg-slate-800/50"
+                  >
+                    <td
+                      onClick={() => openRowPreview(row.applicationId)}
+                      className="cursor-pointer overflow-hidden px-3 py-3 align-middle first:pl-6 lg:first:pl-8"
+                      title={`${row.borrowerName} · ${row.applicationNumber}`}
+                    >
+                      <div className="flex min-w-0 items-center gap-2">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#13538A]/10 text-xs font-semibold text-[#13538A]">
+                          {getInitials(row.borrowerName)}
+                        </div>
+                        <div className="min-w-0">
+                          <span className="block truncate text-sm font-medium text-slate-900 dark:text-white">
+                            {row.borrowerName}
+                          </span>
+                          <span className="block truncate text-[11px] text-slate-500">
+                            {row.applicationNumber}
+                          </span>
+                        </div>
+                      </div>
+                    </td>
+
+                    <td
+                      onClick={() => openRowPreview(row.applicationId)}
+                      className="cursor-pointer overflow-hidden px-3 py-3 align-middle"
+                      title={row.loanType}
+                    >
+                      <span className="inline-flex max-w-full truncate rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                        {formatLoanType(row.loanType)}
+                      </span>
+                    </td>
+
+                    <td
+                      onClick={() => openRowPreview(row.applicationId)}
+                      className="cursor-pointer overflow-hidden px-3 py-3 align-middle font-mono text-sm text-slate-800 dark:text-slate-200"
+                    >
+                      <span className="block truncate">
+                        {row.amount != null ? formatCompactAmount(row.amount) : "—"}
+                      </span>
+                    </td>
+
+                    <td
+                      onClick={() => openRowPreview(row.applicationId)}
+                      className="cursor-pointer overflow-hidden px-3 py-3 align-middle text-sm text-slate-600 dark:text-slate-400"
+                      title={row.brokerName}
+                    >
+                      <span className="block truncate">{row.brokerName}</span>
+                    </td>
+
+                    <td
+                      onClick={() => openRowPreview(row.applicationId)}
+                      className="cursor-pointer overflow-hidden px-3 py-3 align-middle"
+                    >
+                      <span
+                        className={`inline-flex max-w-full items-center truncate rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${getApplicationStatusColor(row.applicationStatus)}`}
+                        title={formatStatusLabel(row.applicationStatus)}
+                      >
+                        {formatStatusLabel(row.applicationStatus)}
+                      </span>
+                    </td>
+
+                    <td
+                      onClick={() => openRowPreview(row.applicationId)}
+                      className="cursor-pointer overflow-hidden px-3 py-3 align-middle text-sm text-slate-500"
+                    >
+                      <span className="block truncate">{formatShortDate(row.createdAt)}</span>
+                    </td>
+
+                    <td className="overflow-hidden px-3 py-3 align-middle text-center">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setViewLenders(row.lenders);
+                        }}
+                        className="relative inline-flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 transition hover:bg-indigo-100 dark:bg-indigo-500/10 dark:text-indigo-400 dark:hover:bg-indigo-500/20"
+                        title="View lenders"
+                      >
+                        <Building2 size={15} />
+                        {row.lenders.length > 0 && (
+                          <span className="absolute -right-1 -top-1 rounded-full bg-indigo-600 px-1.5 py-0.5 text-[10px] text-white">
+                            {row.lenders.length}
+                          </span>
+                        )}
+                      </button>
+                    </td>
+
+                    <td
+                      className="overflow-hidden px-2 py-3 pr-6 text-right align-middle lg:pr-8"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <button
+                        type="button"
+                        data-dropdown-trigger
+                        data-id={row.applicationId}
+                        title="More actions"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          setDropdownPos({
+                            top: rect.bottom + 4,
+                            left: rect.right - 192,
+                          });
+                          setActiveActionId(
+                            activeActionId === row.applicationId
+                              ? null
+                              : row.applicationId,
+                          );
+                        }}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 dark:hover:bg-slate-800"
+                      >
+                        <MoreVertical size={16} />
+                      </button>
+
+                      {activeActionId === row.applicationId &&
+                        createPortal(
+                          <div
+                            ref={dropdownRef}
+                            style={{
+                              position: "fixed",
+                              top: dropdownPos.top,
+                              left: dropdownPos.left,
+                            }}
+                            onMouseDown={(e) => e.stopPropagation()}
+                            className="z-[9999] w-48 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-900"
+                          >
+                            <button
+                              type="button"
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActiveActionId(null);
+                                fetchApplicationDetail(row.applicationId);
+                              }}
+                              className="flex w-full items-center gap-3 px-4 py-3 text-sm text-[#13538A] hover:bg-slate-50 dark:hover:bg-slate-800"
+                            >
+                              <Eye size={14} />
+                              View Details
+                            </button>
+                          </div>,
+                          document.body,
+                        )}
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={TABLE_COLUMNS} className="px-6 py-20 text-center">
+                    <div className="mx-auto flex max-w-sm flex-col items-center">
+                      <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-400 dark:bg-slate-800">
+                        <SearchX className="h-6 w-6" />
+                      </div>
+                      <h3 className="text-base font-semibold text-slate-900 dark:text-white">
+                        {rows.length === 0
+                          ? "No loan applications yet"
+                          : "No matching applications"}
+                      </h3>
+                      <p className="mt-2 text-sm text-slate-500">
+                        {rows.length === 0
+                          ? "Applications will appear here once brokers submit them."
+                          : "Try a different search or clear your filters."}
+                      </p>
+                    </div>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+
+          {filteredRows.length > rowsPerPage && (
+            <div className="flex flex-col items-center justify-between gap-4 border-t border-slate-200 px-6 py-4 dark:border-slate-800 md:flex-row lg:px-8">
+              <p className="text-sm text-slate-500">
+                Showing {(currentPage - 1) * rowsPerPage + 1} to{" "}
+                {Math.min(currentPage * rowsPerPage, filteredRows.length)} of{" "}
+                {filteredRows.length}
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage((p) => p - 1)}
+                  className="rounded-lg border border-slate-200 p-2 transition hover:bg-slate-100 disabled:opacity-40 dark:border-slate-700 dark:hover:bg-slate-800"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                  <button
+                    key={page}
+                    type="button"
+                    onClick={() => setCurrentPage(page)}
+                    className={`rounded-lg px-3 py-1 text-sm transition ${
+                      currentPage === page
+                        ? "bg-[#13538A] text-white"
+                        : "border border-slate-200 hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
+                    }`}
+                  >
+                    {page}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage((p) => p + 1)}
+                  className="rounded-lg border border-slate-200 p-2 transition hover:bg-slate-100 disabled:opacity-40 dark:border-slate-700 dark:hover:bg-slate-800"
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Application detail modal */}
+      {viewSubmissionId &&
+        createPortal(
+          <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm dark:bg-black/70">
+            <div className="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-[#0f172a]">
+              <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white/95 px-6 py-4 backdrop-blur-md dark:border-slate-800 dark:bg-[#0f172a]/95">
+                <h2 className="text-lg font-bold">Application Details</h2>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setViewSubmissionId(null);
+                    setSubmissionDetail(null);
+                  }}
+                  className="rounded-lg bg-red-50 px-3 py-1 text-sm text-red-600 dark:bg-red-500/10 dark:text-red-400"
+                >
+                  Close
+                </button>
+              </div>
+
+              <div className="overflow-y-auto">
+                {detailLoading ? (
+                  <div className="flex items-center justify-center py-20">
+                    <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
+                  </div>
+                ) : submissionDetail ? (
+                  <div className="space-y-8 p-6">
+                    <div className="grid gap-6 md:grid-cols-3">
+                      <InfoCard label="Application Id" value={submissionDetail.applicationNumber} />
+                      <InfoCard label="Status" value={formatStatusLabel(submissionDetail.status)} />
+                      <InfoCard
+                        label="Loan Product"
+                        value={formatLoanType(submissionDetail.loanProductCode)}
+                      />
+                      <InfoCard label="Borrower" value={submissionDetail.client?.legalName} />
+                      <InfoCard label="Entity Type" value={submissionDetail.client?.entityType} />
+                      <InfoCard label="Broker" value={submissionDetail.brokerOrg?.name} />
+                      <InfoCard
+                        label="Amount"
+                        value={
+                          submissionDetail.amountRequested
+                            ? formatCompactAmount(Number(submissionDetail.amountRequested))
+                            : "-"
+                        }
+                      />
+                      <InfoCard label="Term (Months)" value={submissionDetail.termMonthsRequested} />
+                      <InfoCard label="Purpose" value={submissionDetail.purpose} />
+                    </div>
+
+                    <div>
+                      <h3 className="mb-4 font-semibold text-slate-700 dark:text-slate-300">
+                        Submission Details
+                      </h3>
+                      {(() => {
+                        const fields = submissionDetail.submissions?.[0]?.fields || [];
+                        const normalFields = fields.filter(
+                          (f: any) => f.fieldKey !== "borrowerSignature",
+                        );
+                        const signatureField = fields.find(
+                          (f: any) => f.fieldKey === "borrowerSignature",
+                        );
+
+                        return (
+                          <>
+                            <div className="grid gap-4 md:grid-cols-2">
+                              {normalFields.map((field: any) => (
+                                <div
+                                  key={field.id}
+                                  className="rounded-lg bg-slate-50 p-3 dark:bg-slate-800"
+                                >
+                                  <p className="mb-1 text-xs text-slate-500">
+                                    {formatFieldKey(field.fieldKey)}
+                                  </p>
+                                  <p className="break-words text-sm font-medium">
+                                    {String(parseValue(field.value))}
+                                  </p>
+                                </div>
+                              ))}
+                            </div>
+                            {signatureField && (
+                              <div className="mt-10 flex flex-col items-center">
+                                <p className="mb-3 text-sm font-semibold text-slate-600 dark:text-slate-300">
+                                  Borrower Signature
+                                </p>
+                                <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+                                  <img
+                                    src={signatureField.value}
+                                    alt="Signature"
+                                    className="h-28 object-contain"
+                                  />
+                                </div>
+                              </div>
+                            )}
+                          </>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
+
+      {/* Lenders modal */}
+      {viewLenders &&
+        createPortal(
+          <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm dark:bg-black/70">
+            <div className="w-full max-w-2xl rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-[#0f172a]">
+              <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4 dark:border-slate-800">
+                <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">Lenders</h2>
+                <button
+                  type="button"
+                  onClick={() => setViewLenders(null)}
+                  className="rounded-lg bg-red-50 px-3 py-1 text-sm text-red-600 dark:bg-red-500/10 dark:text-red-400"
+                >
+                  Close
+                </button>
+              </div>
+              <div className="max-h-[400px] space-y-4 overflow-y-auto p-6">
+                {viewLenders.length === 0 ? (
+                  <p className="text-center text-sm text-slate-500">No lenders assigned.</p>
+                ) : (
+                  viewLenders.map((lender) => (
+                    <div
+                      key={lender.lenderOrgId}
+                      className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate font-semibold text-slate-900 dark:text-slate-100">
+                            {lender.lenderName}
+                          </p>
+                          <p className="truncate text-xs text-slate-500">
+                            {formatLoanType(lender.lenderProduct)}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <span
+                            className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase ${getApplicationStatusColor(lender.lenderStatus)}`}
+                          >
+                            {formatStatusLabel(lender.lenderStatus)}
+                          </span>
+                          <p className="mt-1 text-xs text-slate-500">
+                            {lender.sentAt
+                              ? formatShortDate(lender.sentAt)
+                              : "—"}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

@@ -107,9 +107,9 @@ const token = jwt.sign(
     email: user.email,
     clientEmail: user.email,
 
-    clientName, // 👈 add
-
+    clientName,
     role: "CLIENT",
+    orgType: "CLIENT",
   },
   process.env.JWT_SECRET,
   {

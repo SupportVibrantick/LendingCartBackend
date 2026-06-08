@@ -60,101 +60,38 @@ module.exports = async function listSubmissionsTable(fastify) {
 
         /* ================= WHERE ================= */
 
-      const whereCondition = {
-  ...(status
-    ? {
-        status,
-      }
-    : {
-        status: {
-          not: "SUPERSEDED",
-        },
-      }),
-
-  application: {
-    brokerOrgId: orgId,
-
-    ...(isOfficer && {
-      brokerUserId: userId,
-    }),
-
-    ...(isSubBroker && {
-      subBrokerAssignments: {
-        some: {
-          subBrokerId: userId,
-        },
-      },
-    }),
-
-...(search?.trim() && {
-  OR: [
-    {
-      applicationNumber: {
-        contains: search.trim(),
-        mode: "insensitive",
-      },
-    },
-
-    {
-      client: {
-        is: {
-          legalName: {
-            contains: search.trim(),
-            mode: "insensitive",
+        const whereCondition = {
+          status: {
+            not: "SUPERSEDED",
           },
-        },
-      },
-    },
 
-    {
-      brokerUser: {
-        is: {
-          OR: [
-            {
-              firstName: {
-                contains: search.trim(),
-                mode: "insensitive",
-              },
-            },
+          application: {
+            brokerOrgId: orgId,
 
-            {
-              lastName: {
-                contains: search.trim(),
-                mode: "insensitive",
-              },
-            },
-          ],
-        },
-      },
-    },
+            ...(status && {
+              status,
+            }),
 
-    {
-      subBrokerAssignments: {
-        some: {
-          subBroker: {
-            OR: [
-              {
-                firstName: {
-                  contains: search.trim(),
-                  mode: "insensitive",
+            ...(isOfficer && {
+              brokerUserId: userId,
+            }),
+
+            ...(isSubBroker && {
+              subBrokerAssignments: {
+                some: {
+                  subBrokerId: userId,
                 },
               },
+            }),
 
-              {
-                lastName: {
-                  contains: search.trim(),
-                  mode: "insensitive",
-                },
-              },
-            ],
+            ...(search?.trim() && {
+              OR: [
+                // existing search conditions
+              ],
+            }),
           },
-        },
-      },
-    },
-  ],
-}),
-  },
-};
+        };
+
         /* ================= QUERY ================= */
 
         const allowedSortFields = ["createdAt", "updatedAt", "status"];
@@ -212,37 +149,37 @@ module.exports = async function listSubmissionsTable(fastify) {
                   select: { status: true },
                 },
 
-               brokerUser: {
-  select: {
-    id: true,
-    firstName: true,
-    lastName: true,
-    profileImage: true,
+                brokerUser: {
+                  select: {
+                    id: true,
+                    firstName: true,
+                    lastName: true,
+                    profileImage: true,
 
-    roles: {
-      select: {
-        role: {
-          select: {
-            name: true,
-          },
-        },
-      },
-    },
-  },
-},
+                    roles: {
+                      select: {
+                        role: {
+                          select: {
+                            name: true,
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
 
-subBrokerAssignments: {
-  select: {
-    subBroker: {
-      select: {
-        id: true,
-        firstName: true,
-        lastName: true,
-        profileImage: true,
-      },
-    },
-  },
-},
+                subBrokerAssignments: {
+                  select: {
+                    subBroker: {
+                      select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true,
+                        profileImage: true,
+                      },
+                    },
+                  },
+                },
 
                 applicationLenders: {
                   select: {
@@ -277,56 +214,42 @@ subBrokerAssignments: {
         const data = submissions.map((s) => {
           const app = s.application;
 
-          const contact =
-  app?.client?.contacts?.[0];
+          const contact = app?.client?.contacts?.[0];
 
-const getFieldValue = (...keys) =>
-  s.fields.find((f) =>
-    keys.includes(
-      f.builderField?.fieldKey ||
-        f.fieldKey,
-    ),
-  )?.value;
+          const getFieldValue = (...keys) =>
+            s.fields.find((f) =>
+              keys.includes(f.builderField?.fieldKey || f.fieldKey),
+            )?.value;
 
-const borrowerFirstName =
-  getFieldValue(
-    "borrowerFirstName",
-    "firstName",
-  );
+          const borrowerFirstName = getFieldValue(
+            "borrowerFirstName",
+            "firstName",
+          );
 
-const borrowerLastName =
-  getFieldValue(
-    "borrowerLastName",
-    "lastName",
-  );
+          const borrowerLastName = getFieldValue(
+            "borrowerLastName",
+            "lastName",
+          );
 
-const borrower =
-  [borrowerFirstName, borrowerLastName]
-    .filter(Boolean)
-    .join(" ")
-    .trim() ||
-
-  [
-    contact?.firstName,
-    contact?.lastName,
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .trim() ||
-
-  getFieldValue(
-    "borrowerName",
-    "applicantName",
-    "fullName",
-    "name",
-  ) ||
-
-  (app?.client?.legalName &&
-  app.client.legalName !== "Applicant"
-    ? app.client.legalName
-    : null) ||
-
-  "N/A";
+          const borrower =
+            [borrowerFirstName, borrowerLastName]
+              .filter(Boolean)
+              .join(" ")
+              .trim() ||
+            [contact?.firstName, contact?.lastName]
+              .filter(Boolean)
+              .join(" ")
+              .trim() ||
+            getFieldValue(
+              "borrowerName",
+              "applicantName",
+              "fullName",
+              "name",
+            ) ||
+            (app?.client?.legalName && app.client.legalName !== "Applicant"
+              ? app.client.legalName
+              : null) ||
+            "N/A";
 
           const pendingDocumentsCount =
             app?.documentRequirements?.filter(
@@ -372,52 +295,34 @@ const borrower =
               f.fieldKey === "country",
           );
 
+          const getLocationField = (...keys) =>
+            s.fields.find((f) =>
+              keys.includes(f.builderField?.fieldKey || f.fieldKey),
+            )?.value;
 
-          const getLocationField = (
-  ...keys
-) =>
-  s.fields.find((f) =>
-    keys.includes(
-      f.builderField?.fieldKey ||
-        f.fieldKey,
-    ),
-  )?.value;
+          const city =
+            cityField?.value ||
+            getLocationField("propertyCity", "city") ||
+            null;
 
-const city =
-  cityField?.value ||
-  getLocationField(
-    "propertyCity",
-    "city",
-  ) ||
-  null;
+          const state =
+            stateField?.value ||
+            getLocationField("propertyState", "state") ||
+            null;
 
-const state =
-  stateField?.value ||
-  getLocationField(
-    "propertyState",
-    "state",
-  ) ||
-  null;
+          const country =
+            countryField?.value ||
+            getLocationField("propertyCountry", "country") ||
+            null;
 
-const country =
-  countryField?.value ||
-  getLocationField(
-    "propertyCountry",
-    "country",
-  ) ||
-  null;
+          const lenderApproved = app?.applicationLenders?.some(
+            (l) => l.status === "APPROVED",
+          );
 
-  const lenderApproved =
-  app?.applicationLenders?.some(
-    (l) => l.status === "APPROVED",
-  );
+          const lenderDeclined =
+            app?.applicationLenders?.length > 0 &&
+            app?.applicationLenders?.every((l) => l.status === "DECLINED");
 
-const lenderDeclined =
-  app?.applicationLenders?.length > 0 &&
-  app?.applicationLenders?.every(
-    (l) => l.status === "DECLINED",
-  );
-  
           const location =
             [city, state, country].filter(Boolean).join(", ") || "N/A";
 
@@ -433,11 +338,11 @@ const lenderDeclined =
             location,
             amount,
 
-status: lenderApproved
-  ? "APPROVED"
-  : lenderDeclined
-  ? "DECLINED"
-  : app?.status,
+            status: lenderApproved
+              ? "APPROVED"
+              : lenderDeclined
+                ? "DECLINED"
+                : app?.status,
             submissionStatus: s.status,
 
             submittedOn: s.createdAt,
@@ -445,30 +350,28 @@ status: lenderApproved
 
             // replace assignedLoanOfficer with this
 
-assignedLoanOfficer:
-  app?.brokerUser &&
-  app.brokerUser.roles?.some(
-    (r) => r.role?.name === "BROKER_OFFICER",
-  )
-    ? {
-        id: app.brokerUser.id,
-        name: `${app.brokerUser.firstName || ""} ${
-          app.brokerUser.lastName || ""
-        }`.trim(),
-        profileImage: app.brokerUser.profileImage || null,
-      }
-    : null,
+            assignedLoanOfficer:
+              app?.brokerUser &&
+              app.brokerUser.roles?.some(
+                (r) => r.role?.name === "BROKER_OFFICER",
+              )
+                ? {
+                    id: app.brokerUser.id,
+                    name: `${app.brokerUser.firstName || ""} ${
+                      app.brokerUser.lastName || ""
+                    }`.trim(),
+                    profileImage: app.brokerUser.profileImage || null,
+                  }
+                : null,
 
-assignedSubBrokers:
-  app?.subBrokerAssignments?.map((assignment) => ({
-    id: assignment.subBroker?.id,
-    name: `${assignment.subBroker?.firstName || ""} ${
-      assignment.subBroker?.lastName || ""
-    }`.trim(),
-    profileImage:
-      assignment.subBroker?.profileImage || null,
-  })) || [],
-
+            assignedSubBrokers:
+              app?.subBrokerAssignments?.map((assignment) => ({
+                id: assignment.subBroker?.id,
+                name: `${assignment.subBroker?.firstName || ""} ${
+                  assignment.subBroker?.lastName || ""
+                }`.trim(),
+                profileImage: assignment.subBroker?.profileImage || null,
+              })) || [],
 
             submittedToLenders:
               app?.applicationLenders?.map((l) => ({

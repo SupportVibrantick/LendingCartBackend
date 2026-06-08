@@ -1,5 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router";
+import { useAdminPermissions } from "../context/AdminPermissionsContext";
+import { filterNavItems } from "../lib/adminPermissions";
 
 // Assume these icons are imported from an icon library
 import {
@@ -27,7 +29,14 @@ import { PiSecurityCameraFill } from "react-icons/pi";
 import { GrDocumentText } from "react-icons/gr";
 import { RiExternalLinkLine } from "react-icons/ri";
 import ContactsOutlinedIcon from "@mui/icons-material/ContactsOutlined";
-import { Mail, TrendingUp } from "lucide-react";
+import { 
+  // Mail, 
+  // MessageSquare,
+   BarChart3,
+    TrendingUp,
+     UserCog,
+      Users
+     } from "lucide-react";
 
 type NavItem = {
   name: string;
@@ -42,7 +51,11 @@ const navItems: NavItem[] = [
     name: "Dashboard",
     path: "/",
   },
-
+    {
+    icon: <BarChart3 />,
+    name: "Loan Pipeline",
+    path: "/loan-pipeline",
+  },
   {
     icon: <GroupsOutlinedIcon />,
     name: "Broker Database",
@@ -84,10 +97,30 @@ const navItems: NavItem[] = [
   },
 
   {
-    icon: <TrendingUp />,
-    name: "Loan Pipeline",
-    path: "/loan-pipeline",
+    icon: <UserCog />,
+    name: "Loan Officers",
+    path: "/all-loan-officers",
   },
+  {
+    icon: <Users />,
+    name: "Sub-Brokers",
+    path: "/all-sub-brokers",
+  },
+  {
+    icon: <ContactsOutlinedIcon />,
+    name: "Clients",
+    path: "/all-clients",
+  },
+  // {
+  //   icon: <BarChart3 />,
+  //   name: "Loan Pipeline",
+  //   path: "/loan-pipeline",
+  // },
+  // {
+  //   icon: <MessageSquare />,
+  //   name: "Communications",
+  //   path: "/all-communications",
+  // },
 
   {
     icon: <GrDocumentText />,
@@ -104,11 +137,11 @@ const navItems: NavItem[] = [
     name: "All Leads",
     path: "/all-landing-pages-leads",
   },
-  {
-    icon: <Mail />,
-    name: "Email Marketing",
-    path: "/email-marketing",
-  },
+  // {
+  //   icon: <Mail />,
+  //   name: "Email Marketing",
+  //   path: "/email-marketing",
+  // },
   {
     icon: <AdminPanelSettingsOutlinedIcon />,
     name: "Settings",
@@ -139,6 +172,11 @@ const navItems: NavItem[] = [
         path: "/system-settings",
       },
     ],
+  },
+    {
+    icon: <TrendingUp />,
+    name: "Reports & Analytics",
+    path: "/platform-reports",
   },
   {
     icon: <PiSecurityCameraFill />,
@@ -219,6 +257,17 @@ const othersItems: NavItem[] = [
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
   const location = useLocation();
+  const { permissions, hasFullAccess, loading } = useAdminPermissions();
+
+  const visibleNavItems = useMemo(
+    () => (loading ? navItems : filterNavItems(navItems, permissions, hasFullAccess)),
+    [permissions, hasFullAccess, loading]
+  );
+
+  const visibleOthersItems = useMemo(
+    () => (loading ? othersItems : filterNavItems(othersItems, permissions, hasFullAccess)),
+    [permissions, hasFullAccess, loading]
+  );
 
   const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({});
 
@@ -275,8 +324,8 @@ const AppSidebar: React.FC = () => {
       return result;
     };
 
-    setOpenMenus(findActiveMenus(navItems));
-  }, [location.pathname]);
+    setOpenMenus(findActiveMenus(visibleNavItems));
+  }, [location.pathname, visibleNavItems]);
 
   const renderMenuItems = (
     items: NavItem[],
@@ -284,7 +333,7 @@ const AppSidebar: React.FC = () => {
     level = 0,
     parentKey = "",
   ) => (
-    <ul className={`flex flex-col gap-4 ${level > 0 ? "ml-6 mt-2" : ""}`}>
+    <ul className={`flex flex-col gap-1 ${level > 0 ? "ml-4 mt-1 border-l border-white/10 pl-3" : ""}`}>
       {items.map((nav, index) => {
         const key = parentKey
           ? `${parentKey}-${index}`
@@ -299,7 +348,7 @@ const AppSidebar: React.FC = () => {
                   onClick={() => toggleMenu(key)}
                   className={`menu-item group ${
                     hasActiveChild(nav.subItems) || isOpen
-                      ? "menu-item-active"
+                      ? "menu-item-active shadow-sm ring-1 ring-white/15"
                       : "menu-item-inactive"
                   }`}
                 >
@@ -336,7 +385,7 @@ const AppSidebar: React.FC = () => {
                   to={nav.path}
                   className={`menu-item group ${
                     isActive(nav.path)
-                      ? "menu-item-active"
+                      ? "menu-item-active shadow-sm ring-1 ring-white/15"
                       : "menu-item-inactive"
                   }`}
                 >
@@ -358,7 +407,7 @@ const AppSidebar: React.FC = () => {
 
   return (
     <aside
-      className={`fixed mt-16 flex flex-col lg:mt-0 top-0 px-5 left-0 bg-[#13538A] text-white dark:bg-gray-900 dark:border-gray-800  h-screen transition-all duration-300 ease-in-out z-50 border-r border-[#5D28A8]
+      className={`fixed top-0 left-0 z-50 mt-16 flex h-[calc(100vh-4rem)] flex-col border-r border-[#5D28A8] bg-[#13538A] text-white transition-all duration-300 ease-in-out dark:border-gray-800 dark:bg-gray-900 lg:mt-0 lg:h-screen
         ${
           isExpanded || isMobileOpen
             ? "w-[290px]"
@@ -372,76 +421,69 @@ const AppSidebar: React.FC = () => {
       onMouseLeave={() => setIsHovered(false)}
     >
       <div
-        className={`py-8 flex ${
-          !isExpanded && !isHovered ? "lg:justify-center" : "justify-start"
+        className={`shrink-0 border-b border-white/10 px-4 py-4 ${
+          !isExpanded && !isHovered ? "lg:flex lg:justify-center" : ""
         }`}
       >
-        <Link to="/">
+        <Link to="/" className="block">
           {isExpanded || isHovered || isMobileOpen ? (
-            // <div className="bg-white px-3 py-2 rounded">
-            //   <img
-            //     src="/ACOM_LOGO.png"
-            //     alt="Logo"
-            //     width={217}
-            //     height={53}
-            //     className="object-contain"
-            //   />
-            // </div>
-          <div className="rounded-full h-28 w-28 overflow-hidden">
-    <img
-      src="/loanAutomation.jpeg"
-      alt="Logo"
-      className="w-full h-full object-cover"
-    />
-  </div>
+            <div className="flex items-center gap-3">
+              <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full ring-2 ring-white/20">
+                <img
+                  src="/loanAutomation.jpeg"
+                  alt="Logo"
+                  className="h-full w-full object-cover"
+                />
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-white">Loan Automation</p>
+                <p className="truncate text-[11px] text-white/60">Admin Portal</p>
+              </div>
+            </div>
           ) : (
-            <img
-              src="/images/logo/logo-icon.svg"
-              alt="Logo"
-              width={32}
-              height={32}
-            />
+            <div className="mx-auto flex h-10 w-10 items-center justify-center overflow-hidden rounded-full ring-2 ring-white/20">
+              <img
+                src="/loanAutomation.jpeg"
+                alt="Logo"
+                className="h-full w-full object-cover"
+              />
+            </div>
           )}
         </Link>
       </div>
-      <div className="flex flex-col overflow-y-auto duration-300 ease-linear no-scrollbar">
-        <nav className="mb-6">
-          <div className="flex flex-col gap-4">
-            <div>
-              <h2
-                className={`mb-4 text-xs uppercase flex leading-[20px] text-gray-400 ${
-                  !isExpanded && !isHovered
-                    ? "lg:justify-center"
-                    : "justify-start"
-                }`}
-              >
-                {isExpanded || isHovered || isMobileOpen ? (
-                  "Menu"
-                ) : (
-                  <HorizontaLDots className="size-6" />
-                )}
-              </h2>
-              {renderMenuItems(navItems, "main")}
-            </div>
-            <div className="">
-              <h2
-                className={`mb-4 text-xs uppercase flex leading-[20px] text-gray-400 ${
-                  !isExpanded && !isHovered
-                    ? "lg:justify-center"
-                    : "justify-start"
-                }`}
-              >
-                {isExpanded || isHovered || isMobileOpen ? (
-                  "Others Portals"
-                ) : (
-                  <HorizontaLDots className="size-6" />
-                )}
-              </h2>
-              {renderMenuItems(othersItems, "others")}
-            </div>
+
+      <div className="sidebar-scrollbar min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 py-4">
+        <nav className="space-y-6 pb-4">
+          <div>
+            <h2
+              className={`mb-2 px-2 text-[11px] font-semibold uppercase tracking-wider text-white/45 ${
+                !isExpanded && !isHovered ? "lg:text-center" : ""
+              }`}
+            >
+              {isExpanded || isHovered || isMobileOpen ? (
+                "Menu"
+              ) : (
+                <HorizontaLDots className="mx-auto size-5" />
+              )}
+            </h2>
+            {renderMenuItems(visibleNavItems, "main")}
+          </div>
+
+          <div>
+            <h2
+              className={`mb-2 px-2 text-[11px] font-semibold uppercase tracking-wider text-white/45 ${
+                !isExpanded && !isHovered ? "lg:text-center" : ""
+              }`}
+            >
+              {isExpanded || isHovered || isMobileOpen ? (
+                "Other Portals"
+              ) : (
+                <HorizontaLDots className="mx-auto size-5" />
+              )}
+            </h2>
+            {renderMenuItems(visibleOthersItems, "others")}
           </div>
         </nav>
-        {/* {isExpanded || isHovered || isMobileOpen ? <SidebarWidget /> : null} */}
       </div>
     </aside>
   );

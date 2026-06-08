@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router";
 import {
   RefreshCcw,
   Search,
@@ -41,16 +42,33 @@ function getAuthHeaders(): HeadersInit {
 }
 
 export default function FindLenders() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialQuery = searchParams.get("q") || "";
   const [lenders, setLenders] = useState<Lender[]>([]);
   const [meta, setMeta] = useState<Meta>({ page: 1, limit: 10, total: 0 });
   const [loading, setLoading] = useState(false);
   const [invitingId, setInvitingId] = useState<string | null>(null);
 
-  const [q, setQ] = useState("");
+  const [q, setQ] = useState(initialQuery);
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(9);
 
-  const [hasSearched, setHasSearched] = useState(false);
+  const [hasSearched, setHasSearched] = useState(Boolean(initialQuery));
+
+  useEffect(() => {
+    if (initialQuery) {
+      setHasSearched(true);
+    }
+  }, [initialQuery]);
+
+  useEffect(() => {
+    const trimmed = q.trim();
+    if (trimmed) {
+      setSearchParams({ q: trimmed }, { replace: true });
+    } else if (searchParams.has("q")) {
+      setSearchParams({}, { replace: true });
+    }
+  }, [q]);
 
   /* ================= FETCH ================= */
 

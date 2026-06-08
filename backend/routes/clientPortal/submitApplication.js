@@ -1,5 +1,9 @@
 const fp = require("fastify-plugin");
 const jwt = require("jsonwebtoken");
+const {
+  notifyBroker,
+  BROKER_NOTIFICATION_EVENTS,
+} = require("../../services/brokerNotifications");
 
 // ADDED (Fee Agreement)
 const createFeeAgreement = require("../../routes/broker/loanPipeline/feeAgreement/createFeeAgreement");
@@ -241,6 +245,19 @@ async function submitClientApplication(fastify) {
             "Fee Agreement creation failed (non-blocking)"
           );
         }
+
+        await notifyBroker(prisma, fastify.io, {
+          brokerOrgId: loan.brokerOrgId,
+          eventType: BROKER_NOTIFICATION_EVENTS.APPLICATION_SUBMITTED,
+          category: "APPLICATION",
+          subject: "Application Submitted",
+          body: `Client submitted application ${loan.applicationNumber}`,
+          metadata: {
+            applicationId: loan.id,
+            applicationNumber: loan.applicationNumber,
+            clientName: loan.client?.legalName || null,
+          },
+        });
 
         return reply.send({
           success: true,

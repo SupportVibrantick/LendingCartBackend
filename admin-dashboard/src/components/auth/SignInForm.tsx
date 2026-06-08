@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { canAccessPath } from "../../lib/adminPermissions";
 import { EyeCloseIcon, EyeIcon } from "../../icons";
 import Label from "../form/Label";
 import Input from "../form/input/InputField";
@@ -67,13 +68,34 @@ export default function SignInForm() {
         // optionally save a simple user object if returned
         if (json?.user) {
           sessionStorage.setItem("admin_user", JSON.stringify(json.user));
+          sessionStorage.setItem(
+            "admin_permissions",
+            JSON.stringify(json.user.permissions ?? [])
+          );
+          sessionStorage.setItem(
+            "admin_full_access",
+            String(json.user.hasFullAccess ?? false)
+          );
         }
       } catch (storageError) {
         console.warn("Unable to save token to sessionStorage", storageError);
       }
 
-      // Redirect to admin dashboard (adjust path as needed)
-      navigate("/");
+      // Redirect to first page the admin can access
+      const perms = Array.isArray(json?.user?.permissions) ? json.user.permissions : [];
+      const fullAccess = Boolean(json?.user?.hasFullAccess);
+      const landingPaths = [
+        "/",
+        "/platform-reports",
+        "/all-brokers-database",
+        "/all-loan-products",
+        "/all-lenders-Organization",
+        "/loan-pipeline",
+        "/profile",
+      ];
+      const landing =
+        landingPaths.find((path) => canAccessPath(path, perms, fullAccess)) ?? "/profile";
+      navigate(landing);
     } catch (err: any) {
       console.error(err);
       setError(err?.message || "Network error");
@@ -167,7 +189,7 @@ export default function SignInForm() {
             </div>
           </form>
 
-          <div className="mt-5">
+          {/* <div className="mt-5">
             <p className="text-sm font-normal text-center text-gray-700 dark:text-gray-400 sm:text-start">
               Don&apos;t have an account?{" "}
               <Link
@@ -177,7 +199,7 @@ export default function SignInForm() {
                 Sign Up 
               </Link>
             </p>
-          </div>  
+          </div>   */}
         </div>
       </div>
       {/* 🔻 FOOTER */}

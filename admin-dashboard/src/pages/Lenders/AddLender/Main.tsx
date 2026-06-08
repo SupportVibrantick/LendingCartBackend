@@ -10,6 +10,7 @@ import {
   ArrowLeft,
   Eye,
   EyeOff,
+  Loader2,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import EquipmentFinancingStep from "./EquipmentFinancingStep";
@@ -62,6 +63,7 @@ export default function Main() {
   const [createdLenderId, setCreatedLenderId] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [hasStep5Errors, setHasStep5Errors] = useState(false);
+  const [creatingLender, setCreatingLender] = useState(false);
 
   const [form, setForm] = useState<FormType>({
     lenderId: "",
@@ -91,7 +93,7 @@ export default function Main() {
       return "Organization email is required";
 
     if (!isValidEmail(form.organizationEmail))
-      return "Invalid organization email";
+      return "Please enter a valid organization email";
 
     if (!form.organizationPhone?.trim()) return "Phone number is required";
 
@@ -99,13 +101,18 @@ export default function Main() {
       return "Phone must be 10 digits (USA format)";
 
     if (!form.firstName?.trim()) return "First name is required";
+
     if (!form.lastName?.trim()) return "Last name is required";
 
     if (!form.adminEmail?.trim()) return "Admin email is required";
 
-    if (!isValidEmail(form.adminEmail)) return "Invalid admin email";
+    if (!isValidEmail(form.adminEmail))
+      return "Please enter a valid admin email";
 
     if (!form.password?.trim()) return "Password is required";
+
+    if (form.password.length < 8)
+      return "Password must be at least 8 characters";
 
     return null;
   };
@@ -483,6 +490,8 @@ export default function Main() {
     // setSubmitting(true);
 
     try {
+      setCreatingLender(true);
+
       const payload: any = {
         organizationName: form.organizationName.trim(),
         organizationEmail: form.organizationEmail.trim(),
@@ -509,6 +518,45 @@ export default function Main() {
       const json = await res.json();
 
       if (!res.ok) {
+        // Zod validation errors
+        if (Array.isArray(json?.errors) && json.errors.length > 0) {
+          json.errors.forEach((err: any) => {
+            toast.error(err.message);
+          });
+
+          return;
+        }
+
+        // Duplicate / business validation errors
+        if (json?.field) {
+          switch (json.field) {
+            case "organizationEmail":
+              toast.error(`Organization Email: ${json.message}`);
+              break;
+
+            case "adminEmail":
+              toast.error(`Admin Email: ${json.message}`);
+              break;
+
+            case "organizationPhone":
+              toast.error(`Phone Number: ${json.message}`);
+              break;
+
+            case "organizationName":
+              toast.error(`Organization Name: ${json.message}`);
+              break;
+
+            case "brokerOrgId":
+              toast.error(json.message);
+              break;
+
+            default:
+              toast.error(json.message || "Failed to create lender");
+          }
+
+          return;
+        }
+
         toast.error(json?.message || "Failed to create lender");
         return;
       }
@@ -517,7 +565,7 @@ export default function Main() {
 
       if (!createdId) {
         toast.error("Lender created but ID missing");
-        return; 
+        return;
       }
 
       // save lender id
@@ -530,6 +578,8 @@ export default function Main() {
     } catch (err) {
       console.error(err);
       toast.error("Something went wrong");
+    } finally {
+      setCreatingLender(false);
     }
   };
 
@@ -553,23 +603,23 @@ export default function Main() {
         "maxTerm",
       ];
 
-if (data.maxArv === "" || data.maxArv === undefined) {
-  return `${product.name}: maxArv is required`;
-}
+      if (data.maxArv === "" || data.maxArv === undefined) {
+        return `${product.name}: maxArv is required`;
+      }
 
-if (
-  [
-    "MEZZ_FINANCE_PREF_EQUITY",
-    "MEZZ_FINANCE",
-    "FIX_AND_FLIP",
-    "CONSTRUCTION_LOAN",
-    "CONSTRUCTION_LOAN_1_TO_4_UNITS",
-    "FIX_AND_FLIP_LOAN_1_TO_4_UNITS",
-  ].includes(product.code) &&
-  (data.maxLtc === "" || data.maxLtc === undefined)
-) {
-  return `${product.name}: maxLtc is required`;
-}
+      if (
+        [
+          "MEZZ_FINANCE_PREF_EQUITY",
+          "MEZZ_FINANCE",
+          "FIX_AND_FLIP",
+          "CONSTRUCTION_LOAN",
+          "CONSTRUCTION_LOAN_1_TO_4_UNITS",
+          "FIX_AND_FLIP_LOAN_1_TO_4_UNITS",
+        ].includes(product.code) &&
+        (data.maxLtc === "" || data.maxLtc === undefined)
+      ) {
+        return `${product.name}: maxLtc is required`;
+      }
 
       for (const field of requiredFields) {
         if (!data[field] && data[field] !== 0) {
@@ -731,7 +781,11 @@ if (
           <div className="flex items-center gap-3">
             {/* PREVIOUS */}
             <button
-              disabled={step === 0 || (!!createdLenderId && step === 1)}
+              disabled={
+                creatingLender ||
+                step === 0 ||
+                (!!createdLenderId && step === 1)
+              }
               onClick={() => {
                 // if (step === 2) return;
                 if (createdLenderId && step === 1) return;
@@ -756,6 +810,7 @@ if (
                 }
               }}
               disabled={
+                creatingLender ||
                 (step === 0 &&
                   (!form.organizationName ||
                     !form.organizationEmail ||
@@ -776,13 +831,21 @@ if (
   bg-gradient-to-r from-black to-gray-800 text-white shadow 
   hover:scale-[1.03] active:scale-[0.98] transition disabled:opacity-40"
             >
-              {step === 0
-                ? "Create Lender"
-                : isLastStep
-                  ? "Submit"
-                  : "Next Step"}
-
-              {step !== 0 && !isLastStep && <ChevronRight size={16} />}
+              {creatingLender && step === 0 ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  Creating...
+                </>
+              ) : step === 0 ? (
+                "Create Lender"
+              ) : isLastStep ? (
+                "Submit"
+              ) : (
+                <>
+                  Next Step
+                  <ChevronRight size={16} />
+                </>
+              )}
             </button>
           </div>
         </div>

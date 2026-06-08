@@ -1,131 +1,51 @@
 module.exports = function chatSocket(socket, io, prisma) {
+  const { logAudit } = require("../services/logger/auditLogger");
+  const {
+    assertCanSendMessage,
+    assertCanAccessConversation,
+    resolveAuditDashboard,
+    resolveMessageSenderType,
+    emitRealtimeMessage,
+    getUserId,
+  } = require("../services/messagingAccess");
 
-  /* =====================================================
-     🔥 HELPER: NORMALIZE USER
-  ===================================================== */
-  const normalizeUser = (user) => {
-    return user?.id || user?.userId || user?.clientId || null;
-  };
+  console.log("👤 CHAT SOCKET USER:", socket.user);
 
-  console.log("👤 SOCKET CONNECTED USER:", socket.user);
-
-  /* =====================================================
-     🔥 HELPER: GET SENDER NAME
-  ===================================================== */
-  const getSenderName = async (senderId, senderType) => {
-    try {
-      if (senderType === "BROKER" || senderType === "LENDER") {
-        const user = await prisma.userAccount.findUnique({
-          where: { id: senderId },
-          select: {
-            firstName: true,
-            lastName: true,
-            organization: { select: { name: true } },
-          },
-        });
-
-        return (
-          user?.organization?.name ||
-          `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
-          senderType
-        );
-      }
-
-      if (senderType === "CLIENT") {
-        const user = await prisma.clientPortalUser.findUnique({
-          where: { id: senderId },
-          select: {
-            client: { select: { legalName: true } },
-          },
-        });
-
-        return user?.client?.legalName || "Client";
-      }
-
-      return "Unknown";
-    } catch (err) {
-      console.error("❌ Sender name error:", err.message);
-      return "Unknown";
-    }
-  };
-
-  /* =====================================================
-     1️⃣ JOIN CONVERSATION (FIXED)
-  ===================================================== */
   socket.on("joinConversation", async ({ conversationId }) => {
     try {
-      
-      const userId = normalizeUser(socket.user);
-console.log(
-  "🔍 JOIN REQUEST:",
-  {
-    user: socket.user,
-    conversationId,
-  },
-);
-      console.log("🔍 JOIN REQUEST:", { userId, conversationId });
-
-      if (!userId) {
-        console.log("❌ Invalid user in socket");
-        return socket.emit("error", { message: "Invalid user" });
+      if (!conversationId) {
+        return socket.emit("error", { message: "Conversation id is required" });
       }
 
-const participant =
-  await prisma.conversationParticipant.findFirst({
-    where: {
-      conversationId,
+      const access = await assertCanAccessConversation(
+        prisma,
+        socket.user,
+        conversationId,
+      );
 
-      OR: [
-        {
-          participantId: userId,
-        },
-
-        socket.user?.email
-          ? {
-              participantEmail:
-                socket.user.email
-                  .trim()
-                  .toLowerCase(),
-            }
-          : undefined,
-      ].filter(Boolean),
-    },
-  });
-
-      if (!participant) {
-        console.log("❌ NOT PARTICIPANT");
+      if (!access.allowed) {
+        console.log("❌ JOIN DENIED:", access.error?.message, conversationId);
         return socket.emit("error", {
-          message: "Access denied to this conversation",
+          message: access.error?.message || "Access denied to this conversation",
         });
       }
 
       const room = `conversation_${conversationId}`;
-
       socket.join(room);
-      console.log(
-  "✅ JOINED ROOM:",
-  room,
-);
-
       console.log(`✅ JOINED ROOM: ${room}`);
 
-      // 🔥 CRITICAL FIX (you were missing this)
       socket.emit("joined", { conversationId });
-
     } catch (err) {
       console.error("❌ Join error:", err.message);
       socket.emit("error", { message: "Join failed" });
     }
   });
 
-  /* =====================================================
-     2️⃣ SEND MESSAGE (FULL FIXED)
-  ===================================================== */
   socket.on("sendMessage", async (payload) => {
     try {
       const { conversationId, type, text, fileUrl, fileName } = payload;
 
-      const userId = normalizeUser(socket.user);
+      const userId = getUserId(socket.user);
 
       if (!userId) {
         return socket.emit("error", { message: "Invalid user" });
@@ -137,61 +57,42 @@ const participant =
         });
       }
 
-const participant =
-  await prisma.conversationParticipant.findFirst({
-    where: {
-      conversationId,
+      const access = await assertCanAccessConversation(
+        prisma,
+        socket.user,
+        conversationId,
+      );
 
-      OR: [
-        {
-          participantId: userId,
-        },
-
-        socket.user?.email
-          ? {
-              participantEmail:
-                socket.user.email
-                  .trim()
-                  .toLowerCase(),
-            }
-          : undefined,
-      ].filter(Boolean),
-    },
-  });
-
-      if (!participant) {
+      if (!access.allowed) {
         return socket.emit("error", {
-          message: "You are not part of this conversation",
+          message: access.error?.message || "Access denied",
         });
       }
 
-      /* ================= DETERMINE SENDER ================= */
-
-      let senderType = "CLIENT";
-      let senderUserId = null;
-      let senderClientUserId = null;
-
-      if (
-        socket.user?.orgType === "BROKER" ||
-        socket.user?.orgType === "LENDER"
-      ) {
-        senderType = socket.user.orgType;
-        senderUserId = userId;
-      } else {
-        senderType = "CLIENT";
-        senderClientUserId = userId;
+      const typeAccessError = assertCanSendMessage(
+        { user: socket.user },
+        access.conversation.type,
+      );
+      if (typeAccessError) {
+        return socket.emit("error", { message: typeAccessError.message });
       }
 
-      const senderName = await getSenderName(userId, senderType);
+      const { senderType, senderUserId, senderClientUserId } =
+        resolveMessageSenderType(socket.user);
 
-      /* ================= CREATE MESSAGE ================= */
+      const senderName = await getSenderName(
+        prisma,
+        senderUserId || senderClientUserId,
+        senderType,
+        conversationId,
+      );
 
       const message = await prisma.message.create({
         data: {
           conversationId,
           senderType,
-          senderUserId,
-          senderClientUserId,
+          senderUserId: senderUserId || null,
+          senderClientUserId: senderClientUserId || null,
           senderName,
           type,
           text: type === "TEXT" ? text : null,
@@ -200,9 +101,34 @@ const participant =
         },
       });
 
+      await logAudit({
+        prisma,
+        req: {
+          user: socket.user,
+          ip: socket.handshake?.address,
+          headers: { "user-agent": socket.handshake?.headers?.["user-agent"] },
+        },
+        dashboard: resolveAuditDashboard({ user: socket.user }),
+        category: "SYSTEM",
+        entityType: "Message",
+        entityId: message.id,
+        action: "MESSAGE_SENT",
+        newValue: {
+          conversationId,
+          conversationType: access.conversation.type,
+          senderType,
+          messageType: type,
+          preview:
+            type === "TEXT"
+              ? text?.slice(0, 120) || null
+              : fileName || "File",
+          transport: "socket",
+        },
+      });
+
       await prisma.conversation.update({
         where: { id: conversationId },
-        data: { lastMessageAt: new Date() },
+        data: { lastMessageAt: message.createdAt },
       });
 
       const response = {
@@ -219,33 +145,29 @@ const participant =
         createdAt: message.createdAt,
       };
 
-      const room = `conversation_${conversationId}`;
-
-      console.log("🚀 EMITTING MESSAGE TO:", room);
-
-      console.log(
-  "🚀 EMITTING MESSAGE TO:",
-  room,
-);
-
-      io.to(room).emit("newMessage", response);
-
-      socket.to(room).emit("newUnread", { conversationId });
-
+      await emitRealtimeMessage(io, prisma, message, conversationId);
+      socket.to(`conversation_${conversationId}`).emit("newUnread", {
+        conversationId,
+      });
     } catch (err) {
       console.error("❌ Send message error:", err.message);
       socket.emit("error", { message: "Failed to send message" });
     }
   });
 
-  /* =====================================================
-     3️⃣ MARK AS READ
-  ===================================================== */
   socket.on("markAsRead", async ({ conversationId }) => {
     try {
-      const userId = normalizeUser(socket.user);
+      const userId = getUserId(socket.user);
 
-      if (!userId) return;
+      if (!userId || !conversationId) return;
+
+      const access = await assertCanAccessConversation(
+        prisma,
+        socket.user,
+        conversationId,
+      );
+
+      if (!access.allowed) return;
 
       await prisma.conversationParticipant.updateMany({
         where: {
@@ -257,18 +179,63 @@ const participant =
         },
       });
 
-      const room = `conversation_${conversationId}`;
-
-      socket.to(room).emit("messageRead", {
+      socket.to(`conversation_${conversationId}`).emit("messageRead", {
         userId,
         conversationId,
       });
-
-      console.log("👁️ Marked as read:", conversationId);
-
     } catch (err) {
       console.error("❌ Read error:", err.message);
     }
   });
-
 };
+
+async function getSenderName(prisma, senderId, senderType, conversationId) {
+  try {
+    if (
+      senderType === "BROKER" ||
+      senderType === "LENDER" ||
+      senderType === "SUB_BROKER"
+    ) {
+      const user = await prisma.userAccount.findUnique({
+        where: { id: senderId },
+        select: {
+          firstName: true,
+          lastName: true,
+          organization: { select: { name: true } },
+        },
+      });
+
+      return (
+        user?.organization?.name ||
+        `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
+        senderType
+      );
+    }
+
+    if (senderType === "CLIENT") {
+      const { resolveClientDisplayName } = require("../services/resolveClientDisplayName");
+
+      const clientUser = await prisma.clientPortalUser.findUnique({
+        where: { id: senderId },
+        select: { clientId: true },
+      });
+
+      const conversation = conversationId
+        ? await prisma.conversation.findUnique({
+            where: { id: conversationId },
+            select: { loanApplicationId: true },
+          })
+        : null;
+
+      return resolveClientDisplayName(prisma, {
+        clientId: clientUser?.clientId,
+        loanApplicationId: conversation?.loanApplicationId,
+      });
+    }
+
+    return "Unknown";
+  } catch (err) {
+    console.error("❌ Sender name error:", err.message);
+    return "Unknown";
+  }
+}

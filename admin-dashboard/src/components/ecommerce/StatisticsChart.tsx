@@ -1,13 +1,19 @@
 import Chart from "react-apexcharts";
 import { ApexOptions } from "apexcharts";
-import { Building2 } from "lucide-react";
+import { Building2, Loader2 } from "lucide-react";
 
 interface Props {
   stats: any;
 }
 
 export default function StatisticsChart({ stats }: Props) {
-  if (!stats) return null;
+  if (!stats) {
+    return (
+      <div className="flex h-[340px] items-center justify-center rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+        <Loader2 className="h-6 w-6 animate-spin text-[#13538A]" />
+      </div>
+    );
+  }
 
   const getOrgCount = (type: string) =>
     stats.organizations.breakdown.find((o: any) => o.type === type)?._count ||

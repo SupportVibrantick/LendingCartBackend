@@ -1,14 +1,18 @@
-import { useEffect, useRef, useState } from "react";
-
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { useSidebar } from "../context/SidebarContext";
 import { ThemeToggleButton } from "../components/common/ThemeToggleButton";
 import NotificationDropdown from "../components/header/NotificationDropdown";
 import UserDropdown from "../components/header/UserDropdown";
+import {
+  GlobalSearchField,
+  GlobalSearchProvider,
+} from "../components/header/GlobalSearch";
 import { jwtDecode } from "jwt-decode";
+import { CalendarDays, Menu, Search, X } from "lucide-react";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5173";
-const ADMIN_URI = import.meta.env.VITE_ADMIN_URI || "http://localhost:5173";
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
+const ADMIN_URI = import.meta.env.VITE_ADMIN_URI || "http://localhost:5174";
 
 function getAuthHeaders(): Record<string, string> {
   try {
@@ -26,17 +30,17 @@ function getAuthHeaders(): Record<string, string> {
 }
 
 const AppHeader: React.FC = () => {
-  const [isApplicationMenuOpen, setApplicationMenuOpen] = useState(false);
+  const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [user, setUser] = useState<any | null>(null);
-  const [time, setTime] = useState("");
+  const [dateLabel, setDateLabel] = useState("");
+  const [timeLabel, setTimeLabel] = useState("");
 
   const { isMobileOpen, toggleSidebar, toggleMobileSidebar } = useSidebar();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const mobileInputRef = useRef<HTMLInputElement>(null);
 
   const token = sessionStorage.getItem("broker_token");
-  // OR broker_token in broker app
-
   const decoded: any = token ? jwtDecode(token) : null;
-
   const isImpersonation = decoded?.impersonatedBy;
 
   const handleToggle = () => {
@@ -47,13 +51,7 @@ const AppHeader: React.FC = () => {
     }
   };
 
-  const toggleApplicationMenu = () => {
-    setApplicationMenuOpen(!isApplicationMenuOpen);
-  };
-
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  const fetchAuthUser = async () => {
+  const fetchAuthUser = useCallback(async () => {
     try {
       const res = await fetch(`${API_BASE}/broker/auth/me`, {
         method: "GET",
@@ -61,17 +59,13 @@ const AppHeader: React.FC = () => {
       });
 
       const json = await res.json();
+      if (!res.ok || json.ok !== true) return;
 
-      if (!res.ok || json.ok !== true) {
-        console.error("Failed to load user");
-        return;
-      }
-
-      setUser(json.data); // IMPORTANT
+      setUser(json.data);
     } catch (err) {
       console.error("Failed to load user:", err);
     }
-  };
+  }, []);
 
   const toTitleCase = (value?: string) =>
     value
@@ -84,193 +78,205 @@ const AppHeader: React.FC = () => {
 
   useEffect(() => {
     fetchAuthUser();
+
     const handleKeyDown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key === "k") {
         event.preventDefault();
-        inputRef.current?.focus();
+        const target =
+          window.innerWidth >= 1024 ? inputRef.current : mobileInputRef.current;
+        target?.focus();
       }
     };
 
+    const onProfileUpdated = () => fetchAuthUser();
+
     document.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("broker-profile-updated", onProfileUpdated);
 
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("broker-profile-updated", onProfileUpdated);
     };
-  }, []);
+  }, [fetchAuthUser]);
 
   useEffect(() => {
     const updateDateTime = () => {
       const now = new Date();
-
-      const day = now.getDate();
-      const month = now.toLocaleString("en-US", { month: "short" });
-      const year = now.getFullYear();
-
-      const time = now.toLocaleTimeString(undefined, {
-        hour: "2-digit",
-        minute: "2-digit",
-        // second: "2-digit",
-      });
-
-      const formatted = `${day} ${month} ${year}   ,        ${time}`;
-
-      setTime(formatted);
+      setDateLabel(
+        now.toLocaleDateString(undefined, {
+          day: "numeric",
+          month: "short",
+          year: "numeric",
+        }),
+      );
+      setTimeLabel(
+        now.toLocaleTimeString(undefined, {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+      );
     };
 
     updateDateTime();
-    const interval = setInterval(updateDateTime, 1000);
-
+    const interval = setInterval(updateDateTime, 60_000);
     return () => clearInterval(interval);
   }, []);
 
   const handleExitView = async () => {
     try {
       const impersonationToken = sessionStorage.getItem("broker_token");
-
       const res = await fetch(`${API_BASE}/admin/auth/stop-impersonation`, {
         method: "POST",
-        headers: {
-          // "Content-Type": "application/json",
-          Authorization: `Bearer ${impersonationToken}`,
-        },
+        headers: { Authorization: `Bearer ${impersonationToken}` },
       });
 
       const json = await res.json();
-
       if (!res.ok || !json.success) {
         throw new Error("Failed to stop impersonation");
       }
 
-      // Clear broker session
       sessionStorage.removeItem("broker_token");
       sessionStorage.removeItem("broker_user");
-
-      // Save new admin token
       sessionStorage.setItem("admin_token", json.token);
-
-      // Redirect to admin dashboard
       window.location.href = `${ADMIN_URI}`;
     } catch (err) {
       console.error(err);
     }
   };
 
+  const displayName =
+    user?.user?.firstName && user?.user?.lastName
+      ? `${user.user.firstName} ${user.user.lastName}`
+      : user?.user?.name || "Broker Admin";
+
+  const orgName = user?.organization?.name;
+
   return (
-    <header className="sticky z-999 top-0 flex w-full bg-white border-gray-200 dark:border-gray-800 dark:bg-gray-900 lg:border-b">
-      <div className="flex flex-col items-center justify-between grow lg:flex-row lg:px-6">
-        <div className="flex items-center justify-between w-full gap-2 px-3 py-3 border-b border-gray-200 dark:border-gray-800 sm:gap-4 lg:justify-normal lg:border-b-0 lg:px-0 lg:py-4">
+    <GlobalSearchProvider>
+    <header className="sticky top-0 z-[999] w-full border-b border-gray-200/80 bg-white/95 shadow-[0_1px_0_0_rgba(0,0,0,0.03)] backdrop-blur-md supports-[backdrop-filter]:bg-white/90 dark:border-gray-800 dark:bg-gray-900/95 dark:shadow-none">
+      <div className="flex h-16 items-center gap-3 px-3 sm:gap-4 sm:px-4 lg:px-6">
+        {/* Left: sidebar + greeting */}
+        <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
           <button
-            className="items-center justify-center w-10 h-10 text-gray-500 border-gray-200 rounded-lg z-99999 dark:border-gray-800 lg:flex dark:text-gray-400 lg:h-11 lg:w-11 lg:border"
+            type="button"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-200/90 text-gray-500 transition hover:border-gray-300 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 lg:h-10 lg:w-10"
             onClick={handleToggle}
-            aria-label="Toggle Sidebar"
+            aria-label="Toggle sidebar"
           >
-            {isMobileOpen ? (
-              <svg
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  fillRule="evenodd"
-                  clipRule="evenodd"
-                  d="M6.21967 7.28131C5.92678 6.98841 5.92678 6.51354 6.21967 6.22065C6.51256 5.92775 6.98744 5.92775 7.28033 6.22065L11.999 10.9393L16.7176 6.22078C17.0105 5.92789 17.4854 5.92788 17.7782 6.22078C18.0711 6.51367 18.0711 6.98855 17.7782 7.28144L13.0597 12L17.7782 16.7186C18.0711 17.0115 18.0711 17.4863 17.7782 17.7792C17.4854 18.0721 17.0105 18.0721 16.7176 17.7792L11.999 13.0607L7.28033 17.7794C6.98744 18.0722 6.51256 18.0722 6.21967 17.7794C5.92678 17.4865 5.92678 17.0116 6.21967 16.7187L10.9384 12L6.21967 7.28131Z"
-                  fill="currentColor"
-                />
-              </svg>
-            ) : (
-              <svg
-                width="16"
-                height="12"
-                viewBox="0 0 16 12"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  fillRule="evenodd"
-                  clipRule="evenodd"
-                  d="M0.583252 1C0.583252 0.585788 0.919038 0.25 1.33325 0.25H14.6666C15.0808 0.25 15.4166 0.585786 15.4166 1C15.4166 1.41421 15.0808 1.75 14.6666 1.75L1.33325 1.75C0.919038 1.75 0.583252 1.41422 0.583252 1ZM0.583252 11C0.583252 10.5858 0.919038 10.25 1.33325 10.25L14.6666 10.25C15.0808 10.25 15.4166 10.5858 15.4166 11C15.4166 11.4142 15.0808 11.75 14.6666 11.75L1.33325 11.75C0.919038 11.75 0.583252 11.4142 0.583252 11ZM1.33325 5.25C0.919038 5.25 0.583252 5.58579 0.583252 6C0.583252 6.41421 0.919038 6.75 1.33325 6.75L7.99992 6.75C8.41413 6.75 8.74992 6.41421 8.74992 6C8.74992 5.58579 8.41413 5.25 7.99992 5.25L1.33325 5.25Z"
-                  fill="currentColor"
-                />
-              </svg>
-            )}
-            {/* Cross Icon */}
+            {isMobileOpen ? <X size={18} /> : <Menu size={18} />}
           </button>
 
-          <Link to="/" className="lg:hidden">
+          <Link to="/" className="shrink-0 lg:hidden">
             <img
-              className="dark:hidden h-18 rounded-full"
               src="/loanAutomation.jpeg"
               alt="Logo"
-            />
-            <img
-              className="hidden dark:block h-18 rounded-full"
-              src="/loanAutomation.jpeg"
-              alt="Logo"
+              className="h-9 w-9 rounded-full ring-2 ring-[#13538A]/15"
             />
           </Link>
 
-          <button
-            onClick={toggleApplicationMenu}
-            className="flex items-center justify-center w-10 h-10 text-gray-700 rounded-lg z-99999 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 lg:hidden"
-          >
-            <svg
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                fillRule="evenodd"
-                clipRule="evenodd"
-                d="M5.99902 10.4951C6.82745 10.4951 7.49902 11.1667 7.49902 11.9951V12.0051C7.49902 12.8335 6.82745 13.5051 5.99902 13.5051C5.1706 13.5051 4.49902 12.8335 4.49902 12.0051V11.9951C4.49902 11.1667 5.1706 10.4951 5.99902 10.4951ZM17.999 10.4951C18.8275 10.4951 19.499 11.1667 19.499 11.9951V12.0051C19.499 12.8335 18.8275 13.5051 17.999 13.5051C17.1706 13.5051 16.499 12.8335 16.499 12.0051V11.9951C16.499 11.1667 17.1706 10.4951 17.999 10.4951ZM13.499 11.9951C13.499 11.1667 12.8275 10.4951 11.999 10.4951C11.1706 10.4951 10.499 11.1667 10.499 11.9951V12.0051C10.499 12.8335 11.1706 13.5051 11.999 13.5051C12.8275 13.5051 13.499 12.8335 13.499 12.0051V11.9951Z"
-                fill="currentColor"
-              />
-            </svg>
-          </button>
-
-          <div className="hidden lg:block">
-            <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
-              Welcome{" "}
-              <span className="text-[#2C92D5]">
-                {toTitleCase(user?.user?.name)}
-              </span>
-            </h1>
+          <div className="hidden min-w-0 lg:block">
+            <p className="truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-400">
+              Welcome back
+            </p>
+            <p className="truncate text-sm font-semibold leading-tight text-gray-900 dark:text-white">
+              {toTitleCase(displayName)}
+            </p>
+            {orgName && (
+              <p className="truncate text-xs leading-tight text-gray-500 dark:text-gray-400">
+                {orgName}
+              </p>
+            )}
           </div>
+        </div>
+
+        {/* Center: search (desktop) */}
+        <form
+          className="mx-auto hidden min-w-0 flex-1 lg:block lg:max-w-xl xl:max-w-2xl"
+          onSubmit={(e) => e.preventDefault()}
+        >
+          <GlobalSearchField inputRef={inputRef} />
+        </form>
+
+        {/* Right: actions */}
+        <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-2.5">
+          {isImpersonation && (
+            <button
+              type="button"
+              onClick={handleExitView}
+              className="hidden rounded-lg bg-red-500 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-red-600 sm:inline-flex"
+            >
+              Exit view
+            </button>
+          )}
+
+          <div
+            className="hidden items-center gap-2 rounded-xl border border-gray-200/80 bg-gray-50/70 px-2.5 py-1.5 dark:border-gray-700 dark:bg-gray-800/70 xl:flex"
+            title={`${dateLabel} ${timeLabel}`}
+          >
+            <CalendarDays size={15} className="shrink-0 text-[#13538A]" />
+            <div className="leading-none">
+              <p className="text-[11px] font-medium text-gray-700 dark:text-gray-200">
+                {dateLabel}
+              </p>
+              <p className="mt-0.5 text-[10px] text-gray-400">{timeLabel}</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1 rounded-xl border border-gray-200/80 bg-white p-1 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+            <div className="[&>button]:h-9 [&>button]:w-9 [&>button]:rounded-lg [&>button]:border-0 [&>button]:bg-transparent [&>button]:shadow-none [&>button]:hover:bg-gray-100 dark:[&>button]:hover:bg-gray-800">
+              <ThemeToggleButton />
+            </div>
+            <div className="[&>div>button]:h-9 [&>div>button]:w-9 [&>div>button]:rounded-lg [&>div>button]:border-0 [&>div>button]:bg-transparent [&>div>button]:shadow-none [&>div>button]:hover:bg-gray-100 dark:[&>div>button]:hover:bg-gray-800 [&_button.dropdown-toggle]:h-9 [&_button.dropdown-toggle]:w-9 [&_button.dropdown-toggle]:rounded-lg [&_button.dropdown-toggle]:border-0 [&_button.dropdown-toggle]:bg-transparent">
+              <NotificationDropdown />
+            </div>
+          </div>
+
+          <UserDropdown user={user} compact />
+
+          <button
+            type="button"
+            onClick={() => setMobileMenuOpen((v) => !v)}
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 lg:hidden"
+            aria-label="Open header menu"
+            aria-expanded={isMobileMenuOpen}
+          >
+            <Search size={18} />
+          </button>
+        </div>
+      </div>
+
+      {/* Mobile: greeting + search panel */}
+      {isMobileMenuOpen && (
+        <div className="border-t border-gray-100 px-3 pb-3 pt-2 dark:border-gray-800 lg:hidden">
+          <div className="mb-2.5 lg:hidden">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-400">
+              Welcome back
+            </p>
+            <p className="text-sm font-semibold text-gray-900 dark:text-white">
+              {toTitleCase(displayName)}
+            </p>
+            {orgName && (
+              <p className="text-xs text-gray-500 dark:text-gray-400">{orgName}</p>
+            )}
+          </div>
+
+          <form onSubmit={(e) => e.preventDefault()}>
+            <GlobalSearchField inputRef={mobileInputRef} />
+          </form>
 
           {isImpersonation && (
             <button
+              type="button"
               onClick={handleExitView}
-              className="px-4 py-2 text-sm bg-red-500 text-white rounded-md"
+              className="mt-2.5 w-full rounded-lg bg-red-500 px-3 py-2 text-xs font-medium text-white hover:bg-red-600 sm:hidden"
             >
-              Exit View Mode
+              Exit view mode
             </button>
           )}
         </div>
-        <div
-          className={`${
-            isApplicationMenuOpen ? "flex" : "hidden"
-          } items-center justify-between w-full gap-4 px-5 py-4 lg:flex shadow-theme-md lg:justify-end lg:px-0 lg:shadow-none`}
-        >
-          <div className="flex items-center gap-2 2xsm:gap-3">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold text-[#2C92D5]">
-                {time}
-              </span>
-            </div>
-            {/* <!-- Dark Mode Toggler --> */}
-            <ThemeToggleButton />
-            {/* <!-- Dark Mode Toggler --> */}
-            <NotificationDropdown />
-            {/* <!-- Notification Menu Area --> */}
-          </div>
-          {/* <!-- User Area --> */}
-          <UserDropdown user={user} />
-        </div>
-      </div>
+      )}
     </header>
+    </GlobalSearchProvider>
   );
 };
 

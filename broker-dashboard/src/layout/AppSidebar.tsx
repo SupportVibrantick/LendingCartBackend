@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router";
 
 import { ChevronDownIcon, GridIcon, HorizontaLDots } from "../icons";
-
 import { useSidebar } from "../context/SidebarContext";
 
 import { MdEmail, MdWeb } from "react-icons/md";
@@ -10,8 +9,10 @@ import { FaAppStore } from "react-icons/fa6";
 import { MdOutlineDocumentScanner } from "react-icons/md";
 import { FaUsersBetweenLines, FaUserGroup } from "react-icons/fa6";
 import { PiSecurityCameraFill } from "react-icons/pi";
-// import { TbTemplate } from "react-icons/tb";
-import { TrendingUp } from "lucide-react";
+import {
+   TrendingUp,
+  //  MessageSquare
+ } from "lucide-react";
 import { MdSettings } from "react-icons/md";
 import { CgProfile } from "react-icons/cg";
 
@@ -25,8 +26,6 @@ type NavItem = {
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
   const location = useLocation();
-
-  // FIX: allow multiple open menus
   const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({});
   const [isSubBroker, setIsSubBroker] = useState(false);
 
@@ -41,169 +40,134 @@ const AppSidebar: React.FC = () => {
     };
 
     updateRole();
-
     window.addEventListener("storage", updateRole);
     return () => window.removeEventListener("storage", updateRole);
   }, []);
 
-  // const subMenuRefs = useRef<Record<string, HTMLDivElement | null>>({});
-  // const [subMenuHeight, setSubMenuHeight] = useState<Record<string, number>>(
-  //   {},
-  // );
-  // const [permissions, setPermissions] = useState<string[]>([]);
-  // const [roles, setRoles] = useState<string[]>([]);
-
-  // useEffect(() => {
-  //   const storedPerms = sessionStorage.getItem("permissions");
-  //   const storedRoles = sessionStorage.getItem("roles");
-
-  //   if (storedPerms) setPermissions(JSON.parse(storedPerms));
-  //   if (storedRoles) setRoles(JSON.parse(storedRoles));
-  // }, []);
-
-  // useEffect(() => {
-  //   const stored = sessionStorage.getItem("permissions");
-  //   if (stored) {
-  //     setPermissions(JSON.parse(stored));
-  //   }
-  // }, []);
-
-  // const hasAccess = (key: string) => {
-  //   if (roles.includes("BROKER_ADMIN")) return true; // admin bypass
-  //   return permissions.includes(key);
-  // };
-
-  const navItems: NavItem[] = [
-    {
-      icon: <GridIcon />,
-      name: "Dashboard",
-      path: "/",
-    },
-
-    // ...(hasAccess("VIEW_PIPELINE")
-    //   ? [
-    {
-      icon: <TrendingUp />,
-      name: "Loan Pipeline",
-      path: "/submit-applications",
-    },
-    //   ]
-    // : []),
-
-    ...(!isSubBroker
-      ? [
-          {
-            icon: <MdWeb />,
-            name: "Website Builder",
-            subItems: [
-              {
-                name: "Config Website",
-                path: "/broker-website-dashboard/config-website",
-              },
-            ],
-          },
-        ]
-      : []),
-
-    // {
-    //   icon: <TbTemplate />,
-    //   name: "Loan Application Templates",
-    //   path: "/templates",
-    // },
-
-    ...(!isSubBroker
-      ? [
-          {
-            icon: <MdOutlineDocumentScanner />,
-            name: "New Loan Application",
-            path: "/active-application",
-          },
-        ]
-      : []),
-
-    ...(!isSubBroker
-      ? [
-          {
-            icon: <FaUserGroup />,
-            name: "CRM",
-            subItems: [
-              { name: "Sub Brokers", path: "/sub-brokers" },
-              { name: "Loan Officers", path: "/loan-officer" },
-              { name: "Contacts", path: "/contacts-list" },
-            ],
-          },
-        ]
-      : []),
-
-    ...(!isSubBroker
-      ? [
-          {
-            icon: <FaUsersBetweenLines />,
-            name: "Lender Marketplace",
-            subItems: [
-              { name: "My Lenders", path: "/my-lenders" },
-              { name: "Invited Lenders", path: "/invited-lenders" },
-              { name: "Find Lenders", path: "/find-lenders" },
-            ],
-          },
-        ]
-      : []),
-
-    ...(!isSubBroker
-      ? [
-          {
-            icon: <MdEmail />,
-            name: "Email Marketing",
-            path: "/email-marketing",
-          },
-        ]
-      : []),
-
-    // SETTINGS WITH NESTED APPLICATION BUILDER
-    ...(!isSubBroker
-      ? [
-          {
-            icon: <MdSettings />,
-            name: "Settings",
-            subItems: [
-              {
-                icon: <FaAppStore />,
-                name: "Application Builder",
-                subItems: [
-                  { name: "Create Application", path: "/create-application" },
-                  {
-                    name: "Loan Application Config",
-                    path: "/application-config",
-                  },
-                  { name: "Add Sections", path: "/add-section" },
-                  { name: "Application Builder", path: "/application" },
-                ],
-              },
-            ],
-          },
-        ]
-      : []),
-
-    ...(!isSubBroker
-      ? [
-          {
-            icon: <PiSecurityCameraFill />,
-            name: "Dashboard Logs",
-            path: "/admin-logs",
-          },
-        ]
-      : []),
-
-    {
-      icon: <CgProfile />,
-      name: "Profile",
-      path: "/profile",
-    },
-  ];
+  const navItems: NavItem[] = useMemo(
+    () => [
+      {
+        icon: <GridIcon />,
+        name: "Dashboard",
+        path: "/",
+      },
+      {
+        icon: <TrendingUp />,
+        name: "Loan Pipeline",
+        path: "/submit-applications",
+      },
+      // {
+      //   icon: <MessageSquare />,
+      //   name: "Messages",
+      //   path: "/messages",
+      // },
+      ...(!isSubBroker
+        ? [
+            {
+              icon: <MdWeb />,
+              name: "Website Builder",
+              subItems: [
+                {
+                  name: "Config Website",
+                  path: "/broker-website-dashboard/config-website",
+                },
+              ],
+            },
+          ]
+        : []),
+      ...(!isSubBroker
+        ? [
+            {
+              icon: <MdOutlineDocumentScanner />,
+              name: "New Loan Application",
+              path: "/active-application",
+            },
+          ]
+        : []),
+      ...(!isSubBroker
+        ? [
+            {
+              icon: <FaUserGroup />,
+              name: "CRM",
+              subItems: [
+                { name: "Sub Brokers", path: "/sub-brokers" },
+                { name: "Loan Officers", path: "/loan-officers" },
+                { name: "LO Activity", path: "/loan-officer-activity" },
+                { name: "Contacts", path: "/contacts-list" },
+              ],
+            },
+          ]
+        : []),
+      ...(!isSubBroker
+        ? [
+            {
+              icon: <FaUsersBetweenLines />,
+              name: "Lender Marketplace",
+              subItems: [
+                { name: "My Lenders", path: "/my-lenders" },
+                { name: "Invited Lenders", path: "/invited-lenders" },
+                { name: "Find Lenders", path: "/find-lenders" },
+              ],
+            },
+          ]
+        : []),
+      ...(!isSubBroker
+        ? [
+            {
+              icon: <MdEmail />,
+              name: "Email Marketing",
+              path: "/email-marketing",
+            },
+          ]
+        : []),
+      ...(!isSubBroker
+        ? [
+            {
+              icon: <MdSettings />,
+              name: "Settings",
+              subItems: [
+                {
+                  icon: <FaAppStore />,
+                  name: "Application Builder",
+                  subItems: [
+                    { name: "Create Application", path: "/create-application" },
+                    {
+                      name: "Loan Application Config",
+                      path: "/application-config",
+                    },
+                    { name: "Add Sections", path: "/add-section" },
+                    { name: "Application Builder", path: "/application" },
+                  ],
+                },
+              ],
+            },
+          ]
+        : []),
+      ...(!isSubBroker
+        ? [
+            {
+              icon: <PiSecurityCameraFill />,
+              name: "Dashboard Logs",
+              path: "/admin-logs",
+            },
+          ]
+        : []),
+      {
+        icon: <CgProfile />,
+        name: "Profile",
+        path: "/profile",
+      },
+    ],
+    [isSubBroker]
+  );
 
   const isActive = useCallback(
-    (path: string) => location.pathname === path,
-    [location.pathname],
+    (path?: string) => {
+      if (!path) return false;
+      if (path === "/") return location.pathname === "/";
+      return location.pathname.startsWith(path);
+    },
+    [location.pathname]
   );
 
   const toggleMenu = (key: string) => {
@@ -212,44 +176,6 @@ const AppSidebar: React.FC = () => {
       [key]: !prev[key],
     }));
   };
-
-  useEffect(() => {
-    const findActiveMenus = (
-      items: NavItem[],
-      parentKey = "",
-    ): Record<string, boolean> => {
-      let result: Record<string, boolean> = {};
-
-      items.forEach((item, index) => {
-        const key = parentKey ? `${parentKey}-${index}` : `${index}`;
-
-        if (item.subItems) {
-          const childActive = hasActiveChild(item.subItems);
-
-          if (childActive) {
-            result[key] = true;
-          }
-
-          Object.assign(result, findActiveMenus(item.subItems, key));
-        }
-      });
-
-      return result;
-    };
-
-    setOpenMenus(findActiveMenus(navItems));
-  }, [location.pathname]);
-
-  // useEffect(() => {
-  //   Object.keys(openMenus).forEach((key) => {
-  //     if (openMenus[key] && subMenuRefs.current[key]) {
-  //       setSubMenuHeight((prev) => ({
-  //         ...prev,
-  //         [key]: subMenuRefs.current[key]?.scrollHeight || 0,
-  //       }));
-  //     }
-  //   });
-  // }, [openMenus]);
 
   const hasActiveChild = (items?: NavItem[]): boolean => {
     if (!items) return false;
@@ -261,38 +187,78 @@ const AppSidebar: React.FC = () => {
     });
   };
 
-  const renderMenuItems = (items: NavItem[], level = 0, parentKey = "") => (
-    <ul className={`flex flex-col gap-2 ${level > 0 ? "ml-4 mt-1" : ""}`}>
+  useEffect(() => {
+    const findActiveMenus = (
+      items: NavItem[],
+      parentKey = ""
+    ): Record<string, boolean> => {
+      const result: Record<string, boolean> = {};
+
+      items.forEach((item, index) => {
+        const key = parentKey ? `${parentKey}-${index}` : `main-${index}`;
+
+        if (item.subItems) {
+          if (hasActiveChild(item.subItems)) {
+            result[key] = true;
+          }
+          Object.assign(result, findActiveMenus(item.subItems, key));
+        }
+      });
+
+      return result;
+    };
+
+    setOpenMenus(findActiveMenus(navItems));
+  }, [location.pathname, navItems]);
+
+  const renderMenuItems = (
+    items: NavItem[],
+    menuType: "main" = "main",
+    level = 0,
+    parentKey = ""
+  ) => (
+    <ul
+      className={`flex flex-col gap-0.5 ${level > 0 ? "ml-3 mt-1 border-l-2 border-gray-100 pl-3 dark:border-gray-800" : ""}`}
+    >
       {items.map((nav, index) => {
-        const key = parentKey ? `${parentKey}-${index}` : `${index}`;
+        const key = parentKey ? `${parentKey}-${index}` : `${menuType}-${index}`;
         const isOpen = openMenus[key];
+        const childActive = nav.subItems ? hasActiveChild(nav.subItems) : false;
+        const linkActive = nav.path ? isActive(nav.path) : false;
 
         return (
           <li key={key}>
             {nav.subItems ? (
               <>
                 <button
+                  type="button"
                   onClick={() => toggleMenu(key)}
                   className={`menu-item group ${
-                    hasActiveChild(nav.subItems) || isOpen
-                      ? "menu-item-active"
-                      : "menu-item-inactive"
+                    childActive || isOpen ? "menu-item-active" : "menu-item-inactive"
                   }`}
                 >
                   {nav.icon && (
-                    <span className="menu-item-icon-size">{nav.icon}</span>
+                    <span
+                      className={`menu-item-icon-size ${
+                        childActive || isOpen
+                          ? "menu-item-icon-active"
+                          : "menu-item-icon-inactive"
+                      }`}
+                    >
+                      {nav.icon}
+                    </span>
                   )}
 
                   {(isExpanded || isHovered || isMobileOpen) && (
-                    <span className="menu-item-text text-sm">{nav.name}</span>
+                    <span className="menu-item-text">{nav.name}</span>
                   )}
 
                   {(isExpanded || isHovered || isMobileOpen) && (
                     <ChevronDownIcon
-                      className={`ml-auto w-5 h-5 transition-all duration-200 ${
+                      className={`ml-auto h-4 w-4 transition-all duration-200 ${
                         isOpen
-                          ? "rotate-180 text-white"
-                          : "text-gray-400 group-hover:text-white"
+                          ? "rotate-180 text-[#13538A]"
+                          : "text-gray-400 group-hover:text-gray-600"
                       }`}
                     />
                   )}
@@ -301,12 +267,10 @@ const AppSidebar: React.FC = () => {
                 {(isExpanded || isHovered || isMobileOpen) && (
                   <div
                     className={`overflow-hidden transition-all duration-300 ${
-                      isOpen
-                        ? "max-h-[1000px] opacity-100 mt-2"
-                        : "max-h-0 opacity-0"
+                      isOpen ? "mt-1 max-h-[1000px]" : "max-h-0"
                     }`}
                   >
-                    {renderMenuItems(nav.subItems, level + 1, key)}
+                    {renderMenuItems(nav.subItems, menuType, level + 1, key)}
                   </div>
                 )}
               </>
@@ -315,13 +279,25 @@ const AppSidebar: React.FC = () => {
                 <Link
                   to={nav.path}
                   className={`menu-item group ${
-                    isActive(nav.path)
-                      ? "menu-item-active"
-                      : "menu-item-inactive"
-                  }`}
+                    linkActive ? "menu-item-active" : "menu-item-inactive"
+                  } ${level > 0 ? "menu-item-nested" : ""}`}
                 >
-                  {nav.icon && (
-                    <span className="menu-item-icon-size">{nav.icon}</span>
+                  {nav.icon ? (
+                    <span
+                      className={`menu-item-icon-size ${
+                        linkActive ? "menu-item-icon-active" : "menu-item-icon-inactive"
+                      }`}
+                    >
+                      {nav.icon}
+                    </span>
+                  ) : (
+                    level > 0 && (
+                      <span
+                        className={`ml-1 h-1.5 w-1.5 shrink-0 rounded-full ${
+                          linkActive ? "bg-[#13538A]" : "bg-gray-300"
+                        }`}
+                      />
+                    )
                   )}
 
                   {(isExpanded || isHovered || isMobileOpen) && (
@@ -338,8 +314,7 @@ const AppSidebar: React.FC = () => {
 
   return (
     <aside
-      className={`fixed mt-16 flex flex-col lg:mt-0 top-0 px-5 left-0 bg-white border-gray-200 dark:bg-gray-900 
-text-gray-800 dark:text-gray-200 dark:border-gray-800 h-screen transition-all duration-300 ease-in-out z-50 border-r
+      className={`fixed top-0 left-0 z-50 mt-16 flex h-[calc(100vh-4rem)] flex-col border-r border-gray-200 bg-white text-gray-800 shadow-sm transition-all duration-300 ease-in-out dark:border-gray-800 dark:bg-gray-900 dark:text-gray-100 lg:mt-0 lg:h-screen
         ${
           isExpanded || isMobileOpen
             ? "w-[290px]"
@@ -353,52 +328,52 @@ text-gray-800 dark:text-gray-200 dark:border-gray-800 h-screen transition-all du
       onMouseLeave={() => setIsHovered(false)}
     >
       <div
-        className={`py-8 flex ${
-          !isExpanded && !isHovered ? "lg:justify-center" : "justify-start"
+        className={`shrink-0 border-b border-gray-100 px-4 py-5 dark:border-gray-800 ${
+          !isExpanded && !isHovered ? "lg:flex lg:justify-center" : ""
         }`}
       >
-        <Link to="/">
+        <Link to="/" className="block">
           {isExpanded || isHovered || isMobileOpen ? (
-            // <div className="bg-white px-3 py-2 rounded">
-            //   <img
-            //     src="/ACOM_LOGO.png"
-            //     alt="Logo"
-            //     width={217}
-            //     height={53}
-            //     className="object-contain"
-            //   />
-            // </div>
-            <div className="flex justify-center items-center py-4">
-  <div className="rounded-full h-28 w-28 overflow-hidden">
-    <img
-      src="/loanAutomation.jpeg"
-      alt="Logo"
-      className="w-full h-full object-cover"
-    />
-  </div>
-</div>
+            <div className="flex items-center gap-3">
+              <div className="h-11 w-11 shrink-0 overflow-hidden rounded-full ring-2 ring-[#13538A]/15">
+                <img
+                  src="/loanAutomation.jpeg"
+                  alt="Logo"
+                  className="h-full w-full object-cover"
+                />
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-gray-900 dark:text-white">
+                  Loan Automation
+                </p>
+                <p className="truncate text-[11px] font-medium text-[#13538A]">
+                  Broker Portal
+                </p>
+              </div>
+            </div>
           ) : (
-            <img
-              src="/images/logo/logo-icon.svg"
-              alt="Logo"
-              width={32}
-              height={32}
-            />
+            <div className="mx-auto flex h-10 w-10 items-center justify-center overflow-hidden rounded-full ring-2 ring-[#13538A]/15">
+              <img
+                src="/loanAutomation.jpeg"
+                alt="Logo"
+                className="h-full w-full object-cover"
+              />
+            </div>
           )}
         </Link>
       </div>
 
-      <div className="flex flex-col overflow-y-auto duration-300 ease-linear no-scrollbar">
-        <nav className="mb-6">
+      <div className="sidebar-scrollbar-light min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 py-4">
+        <nav className="pb-4">
           <h2
-            className={`mb-4 text-xs uppercase flex text-gray-300 ${
-              !isExpanded && !isHovered ? "lg:justify-center" : "justify-start"
+            className={`mb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 ${
+              !isExpanded && !isHovered ? "lg:text-center" : ""
             }`}
           >
             {isExpanded || isHovered || isMobileOpen ? (
               "Menu"
             ) : (
-              <HorizontaLDots className="size-6" />
+              <HorizontaLDots className="mx-auto size-5 text-gray-300" />
             )}
           </h2>
 

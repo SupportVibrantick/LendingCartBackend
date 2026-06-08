@@ -93,6 +93,7 @@ async function loginRoute(fastify, options) {
             firstName: user.firstName,
             lastName: user.lastName,
             email: user.email,
+            organizationId: user.organizationId || null,
           },
         });
       } catch (err) {

@@ -2,6 +2,14 @@
 
 const fp = require("fastify-plugin");
 const { logAudit } = require("../../../services/logger/auditLogger");
+const {
+  findOrCreateClientOfficerConversation,
+  syncLoanOfficerForApplication,
+} = require("../../../services/brokerOfficerConversation");
+const {
+  notifyBroker,
+  BROKER_NOTIFICATION_EVENTS,
+} = require("../../../services/brokerNotifications");
 
 const SUBBROKER_CHAT_DB_TYPE = "CLIENT_BROKER";
 
@@ -51,7 +59,25 @@ async function assignLoanOfficer(fastify) {
           where: {
             id: applicationId,
             brokerOrgId: brokerOrgId
-          }
+          },
+          select: {
+            id: true,
+            clientId: true,
+            applicationNumber: true,
+            brokerUserId: true,
+            brokerUser: {
+              select: {
+                id: true,
+                roles: {
+                  select: {
+                    role: {
+                      select: { name: true },
+                    },
+                  },
+                },
+              },
+            },
+          },
         });
 
         if (!application) {
@@ -74,13 +100,36 @@ async function assignLoanOfficer(fastify) {
                 }
               }
             }
-          }
+          },
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+          },
         });
 
         if (!officer) {
           return reply.code(400).send({
             success: false,
             message: "Invalid loan officer"
+          });
+        }
+
+        const currentOfficerId =
+          application.brokerUser?.roles?.some(
+            (role) => role.role?.name === "BROKER_OFFICER",
+          )
+            ? application.brokerUserId
+            : null;
+
+        if (currentOfficerId === loanOfficerId) {
+          return reply.code(200).send({
+            success: true,
+            message: "Loan officer already assigned to this application",
+            data: {
+              applicationId,
+              loanOfficerId: currentOfficerId,
+            },
           });
         }
 
@@ -92,6 +141,22 @@ async function assignLoanOfficer(fastify) {
             brokerUserId: loanOfficerId
           }
         });
+
+        await syncLoanOfficerForApplication(prisma, {
+          loanApplicationId: applicationId,
+          previousOfficerId: currentOfficerId,
+          newOfficerId: loanOfficerId,
+        });
+
+        /* ================= SYNC CLIENT ↔ LOAN OFFICER CHAT ================= */
+
+        if (application.clientId) {
+          await findOrCreateClientOfficerConversation(prisma, {
+            loanApplicationId: applicationId,
+            loanOfficerId,
+            clientId: application.clientId,
+          });
+        }
 
         /* ================= SYNC SUB-BROKER CHAT ================= */
 
@@ -134,11 +199,6 @@ async function assignLoanOfficer(fastify) {
               participantType: "BROKER",
               participantId: req.user.userId
             },
-            {
-              conversationId: conversation.id,
-              participantType: "BROKER",
-              participantId: loanOfficerId
-            },
             ...assignments.map((assignment) => ({
               conversationId: conversation.id,
               participantType: "SUB_BROKER",
@@ -165,6 +225,25 @@ async function assignLoanOfficer(fastify) {
           newValue: {
             loanOfficerId
           }
+        });
+
+        const officerName =
+          `${officer.firstName || ""} ${officer.lastName || ""}`.trim() ||
+          "Loan Officer";
+
+        await notifyBroker(prisma, fastify.io, {
+          brokerOrgId,
+          eventType: BROKER_NOTIFICATION_EVENTS.LOAN_OFFICER_ASSIGNED,
+          category: "ASSIGNMENT",
+          subject: "Loan Officer Assigned",
+          body: `${officerName} assigned to application ${application.applicationNumber}`,
+          metadata: {
+            applicationId,
+            applicationNumber: application.applicationNumber,
+            loanOfficerId,
+            officerName,
+          },
+          recipientUserId: loanOfficerId,
         });
 
         /* ================= SUCCESS ================= */

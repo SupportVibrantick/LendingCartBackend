@@ -59,6 +59,11 @@ module.exports = async function adminRoutes(fastify, opts) {
       prefix: "/loan-pipeline",
     });
 
+    instance.register(require("./loanOfficers"), { prefix: "/loan-officers" });
+    instance.register(require("./subBrokers"), { prefix: "/sub-brokers" });
+    instance.register(require("./clients"), { prefix: "/clients" });
+    instance.register(require("./messaging"), { prefix: "/messaging" });
+
     instance.register(inviteLendersRoutes, {
       prefix: "/invite-lenders",
     });

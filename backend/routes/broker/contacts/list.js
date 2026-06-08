@@ -29,6 +29,7 @@ module.exports = async function listContactsRoutes(fastify) {
         }
 
         const brokerOrgId = req.user.organizationId;
+        const userId = req.user.id || req.user.userId;
 
         /* ================= QUERY ================= */
 
@@ -43,6 +44,9 @@ module.exports = async function listContactsRoutes(fastify) {
         const where = {
           brokerOrgId,
           isDeleted: false,
+          ...(req.user.roles?.includes("BROKER_OFFICER") && {
+            createdById: userId,
+          }),
           OR: search
             ? [
                 { firstName: { contains: search, mode: "insensitive" } },

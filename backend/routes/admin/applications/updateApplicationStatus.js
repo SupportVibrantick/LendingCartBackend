@@ -3,7 +3,6 @@ module.exports = async function updateApplicationStatus(fastify) {
     const { id } = req.params;
     const { isActive, brokerOrgId } = req.body;
 
-    // Validation
     if (typeof isActive !== "boolean") {
       return reply.code(400).send({
         success: false,
@@ -18,7 +17,18 @@ module.exports = async function updateApplicationStatus(fastify) {
       });
     }
 
-    // If activating one app, deactivate others for this broker
+    const application = await fastify.prisma.brokerApplication.findFirst({
+      where: { id, brokerOrgId },
+      select: { id: true },
+    });
+
+    if (!application) {
+      return reply.code(404).send({
+        success: false,
+        message: "Application not found for this broker",
+      });
+    }
+
     if (isActive) {
       await fastify.prisma.brokerApplication.updateMany({
         where: { brokerOrgId },

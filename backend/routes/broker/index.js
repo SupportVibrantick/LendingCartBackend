@@ -90,6 +90,12 @@ module.exports = async function brokerRoutes(fastify, opts) {
     instance.register(require("./sub-broker"), {
       prefix: "/sub-broker",
     });
+    instance.register(require("./globalSearch"), {
+      prefix: "/global-search",
+    });
+    instance.register(require("./loanOfficerActivity"), {
+      prefix: "/loan-officer-activity",
+    });
     fastify.register(require("./loanPipeline"), { prefix: "/loan-pipeline" });
     fastify.register(require("./logs"), { prefix: "/logs" });
     fastify.register(require("./stats"), { prefix: "/stats" });

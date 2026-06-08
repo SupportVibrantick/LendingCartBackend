@@ -1,6 +1,7 @@
 // backend/routes/admin/auth/me.js
 const prisma = require("../../../config/prisma.js");
 const { getUserRolesFromFGA } = require("../../../services/fgaService.js");
+const { resolveUserPermissions } = require("../../../services/adminUserPermissions.js");
 
 module.exports = async function adminMeRoute(fastify, opts) {
   // safe wrapper that calls fastify.authenticate if available, otherwise returns 500
@@ -34,6 +35,9 @@ module.exports = async function adminMeRoute(fastify, opts) {
             email: true,
             firstName: true,
             lastName: true,
+            phone: true,
+            profileImage: true,
+            status: true,
             organizationId: true,
             roles: { include: { role: true } },
             lastLoginAt: true,
@@ -44,6 +48,22 @@ module.exports = async function adminMeRoute(fastify, opts) {
         if (!user) {
           return reply.code(404).send({ ok: false, message: "User not found" });
         }
+
+        const dbRoles = user.roles?.map((r) => r.role?.name).filter(Boolean) ?? [];
+
+        let permissions = [];
+        try {
+          permissions = await resolveUserPermissions(prisma, user.id, dbRoles);
+        } catch (err) {
+          fastify.log.warn("resolveUserPermissions failed for /me", {
+            userId: user.id,
+            err: err && err.message ? err.message : err,
+          });
+        }
+
+        const customPermCount = await prisma.userPermission.count({
+          where: { userId: user.id },
+        });
 
         // best-effort: fetch FGA roles (may throw, so catch below)
         let fgaRoles = [];
@@ -61,9 +81,14 @@ module.exports = async function adminMeRoute(fastify, opts) {
             email: user.email,
             firstName: user.firstName,
             lastName: user.lastName,
+            phone: user.phone,
+            profileImage: user.profileImage,
+            status: user.status,
             organizationId: user.organizationId,
-            dbRoles: user.roles?.map(r => r.role?.name).filter(Boolean) ?? [],
+            dbRoles,
             fgaRoles,
+            permissions,
+            hasFullAccess: dbRoles.includes("PLATFORM_ADMIN") && customPermCount === 0,
             lastLoginAt: user.lastLoginAt,
             createdAt: user.createdAt
           }

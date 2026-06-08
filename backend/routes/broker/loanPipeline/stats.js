@@ -152,13 +152,11 @@ const approved = applications.filter(
       (l) => l.status === "APPROVED",
     ),
 ).length;
-
 /* ================= REJECTED ================= */
 
 const rejected = applications.filter(
   (submission) =>
-    submission.application?.applicationLenders
-      ?.length > 0 &&
+    submission.application?.applicationLenders?.length > 0 &&
     submission.application?.applicationLenders.every(
       (l) => l.status === "DECLINED",
     ),
@@ -168,11 +166,7 @@ const rejected = applications.filter(
 
 const inReview = applications.filter(
   (submission) =>
-    submission.application?.status ===
-      "IN_REVIEW" ||
-    submission.application?.applicationLenders?.some(
-      (l) => l.status === "IN_REVIEW",
-    ),
+    submission.application?.status === "IN_REVIEW",
 ).length;
 
 /* ================= DRAFT ================= */

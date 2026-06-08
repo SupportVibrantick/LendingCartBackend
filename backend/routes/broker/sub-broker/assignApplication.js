@@ -1,6 +1,10 @@
 const prisma = require("../../../config/prisma");
 
 const { z } = require("zod");
+const {
+  notifyBroker,
+  BROKER_NOTIFICATION_EVENTS,
+} = require("../../../services/brokerNotifications");
 
 const SUBBROKER_CHAT_DB_TYPE = "CLIENT_BROKER";
 
@@ -532,6 +536,26 @@ async function assignApplicationRoute(fastify, options) {
                 .email,
           },
         };
+
+        const subBrokerName =
+          `${subBroker.firstName || ""} ${subBroker.lastName || ""}`.trim() ||
+          "Sub-Broker";
+
+        await notifyBroker(prisma, fastify.io, {
+          brokerOrgId,
+          eventType: BROKER_NOTIFICATION_EVENTS.SUBBROKER_ASSIGNED,
+          category: "ASSIGNMENT",
+          subject: "Sub-Broker Assigned",
+          body: `${subBrokerName} assigned to application ${application.applicationNumber}`,
+          metadata: {
+            applicationId: loanApplicationId,
+            applicationNumber: application.applicationNumber,
+            subBrokerId,
+            subBrokerName,
+            assignmentId: assignment.id,
+          },
+          recipientUserId: subBrokerId,
+        });
 
         /* ===============================
            SUCCESS RESPONSE

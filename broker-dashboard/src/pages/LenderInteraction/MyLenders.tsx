@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router";
 import Swal from "sweetalert2";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
@@ -49,11 +50,13 @@ function getAuthHeaders(): HeadersInit {
 /* ================= PAGE ================= */
 
 export default function MyLenders() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialQuery = searchParams.get("q") || "";
   const [brokers, setBrokers] = useState<Broker[]>([]);
   const [loading, setLoading] = useState(true);
   // const [updatingId, setUpdatingId] = useState<string | null>(null);
 
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(initialQuery);
   const [pageSize, setPageSize] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -122,6 +125,15 @@ export default function MyLenders() {
   useEffect(() => {
     setCurrentPage(1);
   }, [search, pageSize]);
+
+  useEffect(() => {
+    const q = search.trim();
+    if (q) {
+      setSearchParams({ q }, { replace: true });
+    } else if (searchParams.has("q")) {
+      setSearchParams({}, { replace: true });
+    }
+  }, [search]);
 
   const isSearchEmpty = search.trim() !== "" && filtered.length === 0;
   const isTotalEmpty = brokers.length === 0;

@@ -659,12 +659,11 @@ export default function Main() {
             <button
               onClick={isLastStep ? handleSubmit : () => setStep((p) => p + 1)}
               disabled={
-                (!isLastStep &&
-                  ((step === 0 && !form.lenderId) ||
-                    (step === 1 && form.loanPrograms.length === 0))) ||
-                (isLastStep && !isStep5Valid()) ||
-                hasStep5Errors
-              }
+  (!isLastStep &&
+    ((step === 0 && !form.lenderId) ||
+      (step === 1 && form.loanPrograms.length === 0))) ||
+  (isLastStep && (!isStep5Valid() || hasStep5Errors))
+}
               className="flex items-center gap-2 px-6 py-2 rounded-lg text-sm font-medium bg-gradient-to-r from-black to-gray-800 text-white shadow hover:scale-[1.03] active:scale-[0.98] transition disabled:opacity-40"
             >
               {isLastStep ? "Submit" : "Next Step"}

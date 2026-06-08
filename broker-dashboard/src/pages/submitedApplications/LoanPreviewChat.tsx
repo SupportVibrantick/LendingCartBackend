@@ -1,8 +1,18 @@
 import type { ChangeEvent, KeyboardEvent } from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import EmojiPicker, { type EmojiClickData } from "emoji-picker-react";
 import toast from "react-hot-toast";
-import { io, Socket } from "socket.io-client";
+import {
+  isTemporaryConversationId,
+  getOrgIdsFromToken,
+} from "../../lib/chatSocket";
+import { useChatSocket } from "../../lib/useChatSocket";
+import {
+  getConversationBadge,
+  getConversationDisplayName,
+  isPlaceholderConversation,
+  type ChatConversationListItem,
+} from "../../lib/chatConversation";
 import {
   FiMessageCircle,
   FiMoreVertical,
@@ -18,31 +28,14 @@ import { Search } from "lucide-react";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
-type Conversation = {
-  id: string;
-
-  title?: string;
-
-  type?: string;
-
+type Conversation = ChatConversationListItem & {
   chatCategory?: "PRINCIPAL_BROKER" | "LOAN_OFFICER";
-
   participant?: {
     id?: string;
-
     role?: string;
-
     name?: string;
-
     profileImage?: string | null;
   };
-
-  lastMessage?: string;
-
-  lastMessageAt?: string;
-
-  unread?: boolean;
-
   unreadCount?: number;
 };
 
@@ -74,9 +67,8 @@ type ChatMessage = {
 
 type LoanPreviewChatProps = {
   applicationId?: string | null;
+  initialConversationId?: string | null;
 };
-
-const getToken = () => sessionStorage.getItem("broker_token");
 
 const formatTime = (value?: string) => {
   if (!value) return "Now";
@@ -133,9 +125,11 @@ const getAvatarTone = (value?: string) => {
   return tones[seed % tones.length];
 };
 
-const LoanPreviewChat = ({ applicationId }: LoanPreviewChatProps) => {
+const LoanPreviewChat = ({
+  applicationId,
+  initialConversationId,
+}: LoanPreviewChatProps) => {
   const activeConversationRef = useRef<string | null>(null);
-  const socketRef = useRef<Socket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -153,6 +147,52 @@ const LoanPreviewChat = ({ applicationId }: LoanPreviewChatProps) => {
   const [typingUser, setTypingUser] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+
+  const getToken = useCallback(() => sessionStorage.getItem("broker_token"), []);
+  const getBrokerOrgId = useCallback(() => {
+    try {
+      const user = JSON.parse(sessionStorage.getItem("broker_user") || "{}");
+      if (user.organizationId) return user.organizationId;
+    } catch {
+      /* ignore */
+    }
+    return getOrgIdsFromToken(getToken()).brokerOrgId;
+  }, [getToken]);
+
+  const handleRealtimeMessage = useCallback((msg: ChatMessage) => {
+    if (!msg || !msg.id) return;
+
+    setConversations((prev) =>
+      prev.map((item) =>
+        item.id === msg.conversationId
+          ? {
+              ...item,
+              lastMessage: msg.text || msg.fileName || "File",
+              lastMessageAt: msg.createdAt,
+              unread: activeConversationRef.current !== msg.conversationId,
+              unreadCount:
+                activeConversationRef.current !== msg.conversationId
+                  ? (item.unreadCount || 0) + 1
+                  : 0,
+            }
+          : item,
+      ),
+    );
+
+    setMessages((prev) => {
+      if (msg.conversationId !== activeConversationRef.current) return prev;
+      if (prev.some((item) => item.id === msg.id)) return prev;
+      return [...prev, msg];
+    });
+  }, []);
+
+  useChatSocket({
+    getToken,
+    getBrokerOrgId,
+    conversationId: selectedConversation?.id,
+    onMessage: handleRealtimeMessage,
+    onError: (message) => toast.error(message),
+  });
 
   const filteredConversations = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
@@ -253,22 +293,76 @@ const LoanPreviewChat = ({ applicationId }: LoanPreviewChatProps) => {
     }
   };
 
-  const handleSelectConversation = async (conversation: Conversation) => {
-    setSelectedConversation(conversation);
+  const ensureConversation = async () => {
+    if (!applicationId) return;
 
-    setMessages([]);
-
-    setConversations((prev) =>
-      prev.map((item) =>
-        item.id === conversation.id
-          ? {
-              ...item,
-              unread: false,
-              unreadCount: 0,
-            }
-          : item,
-      ),
+    const token = getToken();
+    const res = await fetch(
+      `${API_BASE}/messaging/conversations/broker-officer`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+        body: JSON.stringify({
+          loanApplicationId: applicationId,
+        }),
+      },
     );
+
+    const json = await res.json();
+
+    if (!res.ok || !json.success) {
+      throw new Error(json.message || "Failed to create conversation");
+    }
+
+    return json.data;
+  };
+
+  const handleSelectConversation = async (conversation: Conversation) => {
+    try {
+      let finalConversation = conversation;
+
+      if (isPlaceholderConversation(conversation)) {
+        const created = await ensureConversation();
+
+        if (created?.id) {
+          finalConversation = {
+            ...conversation,
+            id: created.id,
+          };
+
+          setConversations((prev) =>
+            prev.map((item) =>
+              item.id === conversation.id
+                ? {
+                    ...item,
+                    id: created.id,
+                  }
+                : item,
+            ),
+          );
+        }
+      }
+
+      setSelectedConversation(finalConversation);
+      setMessages([]);
+
+      setConversations((prev) =>
+        prev.map((item) =>
+          item.id === finalConversation.id
+            ? {
+                ...item,
+                unread: false,
+                unreadCount: 0,
+              }
+            : item,
+        ),
+      );
+    } catch (err: any) {
+      toast.error(err.message || "Failed to open conversation");
+    }
   };
 
   const handleEmojiClick = (emojiData: EmojiClickData) => {
@@ -393,69 +487,28 @@ const LoanPreviewChat = ({ applicationId }: LoanPreviewChatProps) => {
   }, [applicationId]);
 
   useEffect(() => {
-    const token = getToken();
-
-    if (!token) {
-      console.log("❌ No broker token found");
-      return;
-    }
-
-    const socket = io(API_BASE, {
-      transports: ["websocket"],
-      auth: {
-        token,
-      },
-      extraHeaders: {
-        Authorization: `Bearer ${token}`,
-      },
-      withCredentials: true,
-      reconnection: true,
-      reconnectionAttempts: 5,
-    });
-
-    socket.on("connect", () => {
-      console.log("🟢 Socket connected:", socket.id);
-    });
-
-    socket.on("connect_error", (err) => {
-      console.error("❌ Socket connection error:", err.message);
-    });
-
-    socketRef.current = socket;
-
-    return () => {
-      socket.disconnect();
-      socketRef.current = null;
-    };
-  }, []);
-
-  useEffect(() => {
     activeConversationRef.current = selectedConversation?.id || null;
   }, [selectedConversation?.id]);
 
   useEffect(() => {
-    const socket = socketRef.current;
-    if (!socket) return;
-
-    const handleTyping = ({ userId }: { userId?: string }) =>
-      setTypingUser(userId || null);
-    const handleStopTyping = () => setTypingUser(null);
-
-    socket.on("typing", handleTyping);
-    socket.on("stopTyping", handleStopTyping);
-    return () => {
-      socket.off("typing", handleTyping);
-      socket.off("stopTyping", handleStopTyping);
-    };
-  }, []);
-
-  useEffect(() => {
     if (!selectedConversation?.id) return;
-
-    const socket = socketRef.current;
+    if (isTemporaryConversationId(selectedConversation.id)) return;
 
     const initConversation = async () => {
       await fetchMessages(selectedConversation.id);
+
+      try {
+        const token = getToken();
+        await fetch(
+          `${API_BASE}/messaging/conversation/${selectedConversation.id}/read`,
+          {
+            method: "PATCH",
+            headers: { ...(token && { Authorization: `Bearer ${token}` }) },
+          },
+        );
+      } catch {
+        // non-blocking
+      }
 
       setConversations((prev) =>
         prev.map((item) =>
@@ -468,81 +521,19 @@ const LoanPreviewChat = ({ applicationId }: LoanPreviewChatProps) => {
             : item,
         ),
       );
-
-      if (socket) {
-        socket.emit("joinConversation", {
-          conversationId: selectedConversation.id,
-        });
-
-        socket.emit("markAsRead", {
-          conversationId: selectedConversation.id,
-        });
-      }
     };
 
     initConversation();
-
-    const handleConnect = () => {
-      socket?.emit("joinConversation", {
-        conversationId: selectedConversation.id,
-      });
-    };
-
-    socket?.on("connect", handleConnect);
-
-    return () => {
-      socket?.off("connect", handleConnect);
-    };
   }, [selectedConversation?.id]);
 
   useEffect(() => {
-    const socket = socketRef.current;
+    if (!initialConversationId || conversations.length === 0) return;
 
-    if (!socket) return;
-
-    const handleRealtimeMessage = (msg: ChatMessage) => {
-      if (!msg || !msg.id) return;
-      setConversations((prev) =>
-        prev.map((item) =>
-          item.id === msg.conversationId
-            ? {
-                ...item,
-
-                lastMessage: msg.text || msg.fileName || "File",
-
-                lastMessageAt: msg.createdAt,
-
-                unread: activeConversationRef.current !== msg.conversationId,
-
-                unreadCount:
-                  activeConversationRef.current !== msg.conversationId
-                    ? (item.unreadCount || 0) + 1
-                    : 0,
-              }
-            : item,
-        ),
-      );
-
-      setMessages((prev) => {
-        const isCurrentChat =
-          msg.conversationId === activeConversationRef.current;
-
-        if (!isCurrentChat) return prev;
-
-        const alreadyExists = prev.some((item) => item.id === msg.id);
-
-        if (alreadyExists) return prev;
-
-        return [...prev, msg];
-      });
-    };
-
-    socket.on("newMessage", handleRealtimeMessage);
-
-    return () => {
-      socket.off("newMessage", handleRealtimeMessage);
-    };
-  }, []);
+    const match = conversations.find((c) => c.id === initialConversationId);
+    if (match && selectedConversation?.id !== match.id) {
+      void handleSelectConversation(match);
+    }
+  }, [conversations, initialConversationId]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -654,7 +645,7 @@ lg:border-b-0 lg:border-r"
               </p>
               <p className="mt-2 max-w-[220px] text-xs leading-6 text-slate-400">
                 {conversations.length === 0
-                  ? "Open Principal Broker or Loan Officer chat to start messaging."
+                  ? "Open Loan Officer chat to start messaging."
                   : "Try another keyword or participant name."}
               </p>
             </div>
@@ -662,7 +653,9 @@ lg:border-b-0 lg:border-r"
             <div className="px-3 py-3">
               {filteredConversations.map((chat) => {
                 const isActive = selectedConversation?.id === chat.id;
-                const avatarTone = getAvatarTone(chat.title);
+                const displayName = getConversationDisplayName(chat);
+                const badge = getConversationBadge(chat);
+                const avatarTone = getAvatarTone(displayName);
 
                 return (
                   <button
@@ -679,7 +672,7 @@ lg:border-b-0 lg:border-r"
                       <div
                         className={`flex h-11 w-11 items-center justify-center rounded-full text-xs font-semibold ${avatarTone}`}
                       >
-                        {getInitials(chat.title)}
+                        {getInitials(displayName)}
                       </div>
                       <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-[#fbfbfa]  bg-lime-500" />
                     </div>
@@ -687,12 +680,7 @@ lg:border-b-0 lg:border-r"
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-2">
                         <p className="truncate text-xs font-semibold text-slate-900 dark:text-slate-300">
-                         {chat.type === "CLIENT_BROKER"
-  ? chat.title || "Client Chat"
-  : chat.title ||
-    (chat.chatCategory === "LOAN_OFFICER"
-      ? "Loan Officer Chat"
-      : "Sub Broker Chat")}
+                         {displayName}
                         </p>
                         <span className="text-[10px] text-slate-400">
                           {formatTime(chat.lastMessageAt)}
@@ -700,22 +688,15 @@ lg:border-b-0 lg:border-r"
                       </div>
 
                       {(chat.type === "SUBBROKER_BROKER" ||
-  chat.type === "CLIENT_BROKER") && (
+  chat.type === "CLIENT_BROKER" ||
+  chat.type === "CLIENT_OFFICER" ||
+  chat.type === "BROKER_OFFICER" ||
+  chat.type === "BROKER_LENDER") && (
                         <div className="mt-1 flex items-center gap-1">
                           <span
-                            className={`rounded-full px-2 py-0.5 text-[9px] font-medium ${
-                              chat.type === "CLIENT_BROKER"
-  ? "bg-emerald-100 text-emerald-700"
-  : chat.chatCategory === "LOAN_OFFICER"
-    ? "bg-violet-100 text-violet-700"
-    : "bg-sky-100 text-sky-700"
-                            }`}
+                            className={`rounded-full px-2 py-0.5 text-[9px] font-medium ${badge.className}`}
                           >
-                           {chat.type === "CLIENT_BROKER"
-  ? "Client Chat"
-  : chat.chatCategory === "LOAN_OFFICER"
-    ? "Loan Officer Chat"
-    : "Sub Broker Chat"}
+                           {badge.label}
                           </span>
                         </div>
                       )}
@@ -765,38 +746,27 @@ lg:border-b-0 lg:border-r"
               <div className="flex min-w-0 items-center gap-3">
                 <div className="relative shrink-0">
                   <div
-                    className={`flex h-11 w-11 items-center justify-center rounded-full text-xs font-semibold ${getAvatarTone(selectedConversation?.title)}`}
+                    className={`flex h-11 w-11 items-center justify-center rounded-full text-xs font-semibold ${getAvatarTone(getConversationDisplayName(selectedConversation))}`}
                   >
-                    {getInitials(selectedConversation?.title)}
+                    {getInitials(getConversationDisplayName(selectedConversation))}
                   </div>
                   <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-[#fbfbfa] bg-lime-500" />
                 </div>
 
                 <div className="min-w-0">
                   <p className="truncate text-lg font-semibold text-slate-900 dark:text-slate-300">
-                    {selectedConversation?.title || "Conversation"}
+                    {getConversationDisplayName(selectedConversation)}
                   </p>
                   <div className="flex items-center gap-2">
                     <p className="text-xs text-slate-400">
                       {typingUser ? "Typing..." : "Online"}
                     </p>
 
-                    {(selectedConversation?.chatCategory ||
-  selectedConversation?.type === "CLIENT_BROKER") && (
+                    {selectedConversation && (
                       <span
-                        className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                      selectedConversation?.type === "CLIENT_BROKER"
-  ? "bg-emerald-100 text-emerald-700"
-  : selectedConversation.chatCategory === "LOAN_OFFICER"
-    ? "bg-violet-100 text-violet-700"
-    : "bg-sky-100 text-sky-700"
-                        }`}
+                        className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${getConversationBadge(selectedConversation).className}`}
                       >
-                      {selectedConversation?.type === "CLIENT_BROKER"
-  ? "Client Chat"
-  : selectedConversation.chatCategory === "LOAN_OFFICER"
-    ? "Loan Officer Chat"
-    : "Sub Broker Chat"}
+                        {getConversationBadge(selectedConversation).label}
                       </span>
                     )}
                   </div>

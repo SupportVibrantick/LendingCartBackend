@@ -204,6 +204,10 @@ layer(base);
 } */
 
 
+@utility menu-item {
+  @apply relative flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium;
+}
+
 @utility menu-item-icon {
   @apply text-gray-500 group-hover:text-gray-700 dark:text-gray-400;
 }
@@ -272,6 +276,28 @@ layer(base);
   -ms-overflow-style: none; /* IE and Edge */
   scrollbar-width: none; /* Firefox */
 }
+
+@utility sidebar-scrollbar-light {
+  &::-webkit-scrollbar {
+    width: 5px;
+  }
+
+  &::-webkit-scrollbar-track {
+    @apply rounded-full bg-transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    @apply rounded-full bg-gray-200;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    @apply bg-gray-300;
+  }
+
+  scrollbar-width: thin;
+  scrollbar-color: rgb(229 231 235) transparent;
+}
+
 @utility custom-scrollbar {
   &::-webkit-scrollbar {
     @apply size-1.5;
@@ -820,72 +846,75 @@ span.flatpickr-weekday,
 
 
 
-/* ================= SIDEBAR BASE ITEM ================= */
+/* ================= SIDEBAR (WHITE THEME) ================= */
 .menu-item {
-  @apply w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all relative;
-  transition: all 0.2s ease;
+  @apply relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-medium transition-all duration-200;
 }
 
-/* ================= ACTIVE ITEM ================= */
-/* ================= ACTIVE ITEM ================= */
 .menu-item-active {
-  @apply text-blue-700 bg-blue-100 
-         dark:text-white dark:bg-gray-800;
-  border-left: 3px solid #2563eb;
+  @apply bg-blue-50 text-[#13538A] dark:bg-[#13538A]/15 dark:text-blue-300;
+  box-shadow: inset 3px 0 0 0 #13538A;
 }
 
-.menu-item-icon-size {
-  color: #2C92D5;
-}
-
-/* ================= INACTIVE ITEM ================= */
 .menu-item-inactive {
-  @apply text-gray-700 dark:text-gray-300;
+  @apply text-gray-600 dark:text-gray-300;
 }
 
 .menu-item-inactive:hover {
-  @apply text-blue-700 bg-blue-50 
-         dark:text-white dark:bg-gray-800;
+  @apply bg-gray-50 text-gray-900 dark:bg-gray-800 dark:text-white;
 }
 
-/* ================= ICONS ================= */
+.menu-item-nested {
+  @apply py-2 text-[12.5px];
+}
+
 .menu-item-icon-size {
-  @apply w-5 h-5 flex items-center justify-center;
+  @apply flex h-5 w-5 shrink-0 items-center justify-center;
 }
 
 .menu-item-icon-active {
-  color: white;
+  color: #13538A !important;
 }
 
 .menu-item-icon-inactive {
-  @apply text-gray-500 dark:text-gray-400;
+  color: #2c92d5 !important;
 }
 
-/* ================= TEXT ================= */
+.menu-item-inactive:hover .menu-item-icon-inactive {
+  color: #13538A !important;
+}
+
+.menu-item-icon-active svg,
+.menu-item-icon-inactive svg {
+  fill: currentColor;
+  color: inherit;
+}
+
 .menu-item-text {
-  @apply whitespace-nowrap;
-    font-size: 13px;
-    font-weight: 500;
-     color: inherit;
+  @apply truncate whitespace-nowrap;
+  font-size: 13px;
+  font-weight: 500;
+  color: inherit;
 }
 
-/* ================= DROPDOWN ITEMS ================= */
+.menu-item-active .menu-item-text {
+  font-weight: 600;
+}
+
 .menu-dropdown-item {
-  @apply flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-all;
+  @apply flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm transition-all;
 }
 
 .menu-dropdown-item-active {
-  @apply text-blue-700 bg-blue-100 
-         dark:text-white dark:bg-gray-800;
+  @apply bg-blue-50 text-[#13538A];
 }
 
 .menu-dropdown-item-inactive {
-  @apply text-gray-600 dark:text-gray-400;
+  @apply text-gray-600;
 }
 
 .menu-dropdown-item-inactive:hover {
-  @apply text-blue-700 bg-blue-50 
-         dark:text-white dark:bg-gray-800;
+  @apply bg-gray-50 text-[#13538A];
 }
 
 /* ================= BADGES ================= */

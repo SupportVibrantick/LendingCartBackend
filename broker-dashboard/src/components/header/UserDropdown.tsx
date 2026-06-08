@@ -5,11 +5,12 @@ import { useNavigate } from "react-router-dom";
 
 interface UserDropdownProps {
   user: any;
+  compact?: boolean;
 }
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5173";
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
-export default function UserDropdown({ user }: UserDropdownProps) {
+export default function UserDropdown({ user, compact = false }: UserDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const navigate = useNavigate();
 
@@ -19,6 +20,10 @@ export default function UserDropdown({ user }: UserDropdownProps) {
       : user?.user?.name || "Broker";
 
   const displayEmail = user?.user?.email || "";
+
+  const avatarSrc = user?.user?.profileImage
+    ? `${API_BASE}${user.user.profileImage}`
+    : `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=13538A&color=ffffff`;
 
   function toggleDropdown() {
     setIsOpen(!isOpen);
@@ -49,29 +54,29 @@ export default function UserDropdown({ user }: UserDropdownProps) {
   return (
     <div className="relative">
       <button
+        type="button"
         onClick={toggleDropdown}
-        className="flex items-center text-gray-700 dropdown-toggle dark:text-gray-400"
+        className={`flex items-center gap-2 rounded-xl border border-gray-200 bg-white transition hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:hover:bg-gray-800 ${
+          compact ? "p-1" : "py-1.5 pl-1.5 pr-3"
+        }`}
         aria-expanded={isOpen}
         aria-haspopup="true"
       >
-        <span className="mr-3 overflow-hidden rounded-full h-11 w-11">
-          <img
-            src={
-              user?.user?.profileImage
-                ? `${API_BASE}${user.user.profileImage}`
-                : "/profile.png"
-            }
-            alt="User"
-          />
+        <span className="h-9 w-9 overflow-hidden rounded-lg ring-2 ring-[#13538A]/10">
+          <img src={avatarSrc} alt={displayName} className="h-full w-full object-cover" />
         </span>
 
-        <span className="block mr-1 font-medium text-theme-sm">
+        <span
+          className={`font-medium text-sm text-gray-800 dark:text-gray-200 ${
+            compact ? "hidden" : "hidden sm:block"
+          }`}
+        >
           {displayName}
         </span>
         <svg
           className={`stroke-gray-500 dark:stroke-gray-400 transition-transform duration-200 ${
             isOpen ? "rotate-180" : ""
-          }`}
+          } ${compact ? "hidden" : ""}`}
           width="18"
           height="20"
           viewBox="0 0 18 20"

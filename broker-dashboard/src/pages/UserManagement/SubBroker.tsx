@@ -1,11 +1,31 @@
-import { Users, Eye, EyeOff } from "lucide-react";
-import { useEffect, useState } from "react";
+import {
+  ArrowUpDown,
+  Calendar,
+  ChevronDown,
+  ChevronUp,
+  Eye,
+  EyeOff,
+  Mail,
+  Pencil,
+  Phone,
+  Plus,
+  Power,
+  RefreshCw,
+  Search,
+  UserCheck,
+  Users,
+  UserX,
+  X,
+} from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router";
+import { createPortal } from "react-dom";
 import toast from "react-hot-toast";
-// import Swal from "sweetalert2";
+import PageMeta from "../../components/common/PageMeta";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "";
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
-interface LoanOfficer {
+interface SubBrokerUser {
   id: string;
   email: string;
   firstName: string;
@@ -24,152 +44,109 @@ const initialFormState = {
   phone: "",
 };
 
-export const PERMISSIONS = [
-  {
-    title: "Loan Management",
-    items: [
-      { label: "View Loan Pipeline", key: "VIEW_PIPELINE" },
-      { label: "View Applications", key: "VIEW_APPLICATIONS" },
-      { label: "Create Applications", key: "CREATE_APPLICATION" },
-    ],
-  },
-  {
-    title: "Team Management",
-    items: [{ label: "Manage Loan Officers", key: "MANAGE_LOAN_OFFICERS" }],
-  },
-  {
-    title: "Clients",
-    items: [
-      { label: "View Clients", key: "VIEW_CLIENTS" },
-      { label: "Manage Clients", key: "MANAGE_CLIENTS" },
-    ],
-  },
-  {
-    title: "Lenders",
-    items: [{ label: "View Lenders", key: "VIEW_LENDERS" }],
-  },
-  {
-    title: "Templates & Website",
-    items: [
-      { label: "View Templates", key: "VIEW_TEMPLATES" },
-      { label: "Manage Templates", key: "MANAGE_TEMPLATES" },
-      { label: "Website Builder Access", key: "VIEW_WEBSITE_BUILDER" },
-    ],
-  },
-  {
-    title: "Settings",
-    items: [
-      { label: "View Settings", key: "VIEW_SETTINGS" },
-      { label: "Manage Settings", key: "MANAGE_SETTINGS" },
-    ],
-  },
-  {
-    title: "Reports & Logs",
-    items: [
-      { label: "View Logs", key: "VIEW_LOGS" },
-      { label: "View Dashboard Stats", key: "VIEW_STATS" },
-    ],
-  },
-  {
-    title: "Notifications",
-    items: [{ label: "View Notifications", key: "VIEW_NOTIFICATIONS" }],
-  },
-];
-
-export const US_STATES = [
-  { code: "AL", name: "Alabama" },
-  { code: "AK", name: "Alaska" },
-  { code: "AZ", name: "Arizona" },
-  { code: "AR", name: "Arkansas" },
-  { code: "CA", name: "California" },
-  { code: "CO", name: "Colorado" },
-  { code: "CT", name: "Connecticut" },
-  { code: "DE", name: "Delaware" },
-  { code: "FL", name: "Florida" },
-  { code: "GA", name: "Georgia" },
-  { code: "HI", name: "Hawaii" },
-  { code: "ID", name: "Idaho" },
-  { code: "IL", name: "Illinois" },
-  { code: "IN", name: "Indiana" },
-  { code: "IA", name: "Iowa" },
-  { code: "KS", name: "Kansas" },
-  { code: "KY", name: "Kentucky" },
-  { code: "LA", name: "Louisiana" },
-  { code: "ME", name: "Maine" },
-  { code: "MD", name: "Maryland" },
-  { code: "MA", name: "Massachusetts" },
-  { code: "MI", name: "Michigan" },
-  { code: "MN", name: "Minnesota" },
-  { code: "MS", name: "Mississippi" },
-  { code: "MO", name: "Missouri" },
-  { code: "MT", name: "Montana" },
-  { code: "NE", name: "Nebraska" },
-  { code: "NV", name: "Nevada" },
-  { code: "NH", name: "New Hampshire" },
-  { code: "NJ", name: "New Jersey" },
-  { code: "NM", name: "New Mexico" },
-  { code: "NY", name: "New York" },
-  { code: "NC", name: "North Carolina" },
-  { code: "ND", name: "North Dakota" },
-  { code: "OH", name: "Ohio" },
-  { code: "OK", name: "Oklahoma" },
-  { code: "OR", name: "Oregon" },
-  { code: "PA", name: "Pennsylvania" },
-  { code: "RI", name: "Rhode Island" },
-  { code: "SC", name: "South Carolina" },
-  { code: "SD", name: "South Dakota" },
-  { code: "TN", name: "Tennessee" },
-  { code: "TX", name: "Texas" },
-  { code: "UT", name: "Utah" },
-  { code: "VT", name: "Vermont" },
-  { code: "VA", name: "Virginia" },
-  { code: "WA", name: "Washington" },
-  { code: "WV", name: "West Virginia" },
-  { code: "WI", name: "Wisconsin" },
-  { code: "WY", name: "Wyoming" },
-];
-
-const formatPhone = (value: string) => {
-  const digits = value.replace(/\D/g, "").slice(0, 10);
-
-  if (digits.length < 4) return digits;
-  if (digits.length < 7) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
-
-  return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
-};
-
 type FormState = typeof initialFormState;
 
-const inputStyle =
-  "w-full px-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 transition-all outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600";
+const AVATAR_TONES = [
+  "bg-blue-100 text-blue-700",
+  "bg-violet-100 text-violet-700",
+  "bg-emerald-100 text-emerald-700",
+  "bg-amber-100 text-amber-700",
+];
+
+function getAuthHeaders(): Record<string, string> {
+  const token = sessionStorage.getItem("broker_token");
+  return {
+    "Content-Type": "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+}
+
+function formatPhone(value: string) {
+  const digits = value.replace(/\D/g, "").slice(0, 10);
+  if (digits.length < 4) return digits;
+  if (digits.length < 7) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+  return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+}
+
+function getInitials(first?: string, last?: string) {
+  return `${first?.charAt(0) || ""}${last?.charAt(0) || ""}`.toUpperCase() || "?";
+}
+
+function getAvatarTone(seed: string) {
+  const index = seed.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  return AVATAR_TONES[index % AVATAR_TONES.length];
+}
+
+function formatDate(value?: string) {
+  if (!value) return "—";
+  return new Date(value).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+type SortKey = "name" | "email" | "phone" | "status" | "createdAt";
+type SortDir = "asc" | "desc";
+
+function SortHeader({
+  label,
+  active,
+  direction,
+  onClick,
+  align = "left",
+}: {
+  label: string;
+  active: boolean;
+  direction: SortDir;
+  onClick: () => void;
+  align?: "left" | "right";
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`group inline-flex w-full items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-gray-500 transition hover:text-[#13538A] ${
+        align === "right" ? "justify-end" : "justify-start"
+      } ${active ? "text-[#13538A]" : ""}`}
+    >
+      {label}
+      {active ? (
+        direction === "asc" ? (
+          <ChevronUp className="h-3.5 w-3.5" />
+        ) : (
+          <ChevronDown className="h-3.5 w-3.5" />
+        )
+      ) : (
+        <ArrowUpDown className="h-3.5 w-3.5 opacity-0 transition group-hover:opacity-60" />
+      )}
+    </button>
+  );
+}
+
+const inputClass =
+  "w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-800 outline-none transition focus:border-[#13538A]/40 focus:bg-white focus:ring-2 focus:ring-[#13538A]/10 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100";
 
 export default function SubBroker() {
-  const [officers, setOfficers] = useState<LoanOfficer[]>([]);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialQuery = searchParams.get("q") || "";
+  const [officers, setOfficers] = useState<SubBrokerUser[]>([]);
   const [loading, setLoading] = useState(false);
-  const [page, setPage] = useState(1);
-  //   const [limit] = useState(10);
-  const [totalPages, setTotalPages] = useState(1);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(initialQuery);
+  const [debouncedSearch, setDebouncedSearch] = useState(initialQuery);
+  const [statusFilter, setStatusFilter] = useState<"" | "ACTIVE" | "DISABLED">("");
   const [showModal, setShowModal] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [togglingId, setTogglingId] = useState<string | null>(null);
-  const [debouncedSearch, setDebouncedSearch] = useState(search);
-
   const [form, setForm] = useState(initialFormState);
   const [creating, setCreating] = useState(false);
-  const [showPassword, setShowPassword] = useState<Record<string, boolean>>({
-    password: false,
-    confirmPassword: false,
-  });
-  const [editOfficer, setEditOfficer] = useState<LoanOfficer | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [editOfficer, setEditOfficer] = useState<SubBrokerUser | null>(null);
+  const [sortKey, setSortKey] = useState<SortKey>("createdAt");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
 
-  const updateField = (key: keyof FormState, value: any) => {
-    setForm((prev) => ({
-      ...prev,
-      [key]: value,
-    }));
-
-    // Clear error on change
+  const updateField = (key: keyof FormState, value: string) => {
+    setForm((prev) => ({ ...prev, [key]: value }));
     if (errors[key]) {
       setErrors((prev) => {
         const copy = { ...prev };
@@ -179,41 +156,148 @@ export default function SubBroker() {
     }
   };
 
-  // const togglePermission = (key: string) => {
-  //   setSelectedPermissions((prev) =>
-  //     prev.includes(key) ? prev.filter((p) => p !== key) : [...prev, key],
-  //   );
-  // };
+  const fetchOfficers = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res = await fetch(`${API_BASE}/broker/sub-broker/list`, {
+        headers: getAuthHeaders(),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        toast.error(json.message || "Failed to fetch sub brokers");
+        return;
+      }
+      setOfficers(json.data || []);
+    } catch {
+      toast.error("Something went wrong");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  /* ================= STATUS ================= */
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 350);
+    return () => window.clearTimeout(timer);
+  }, [search]);
+
+  useEffect(() => {
+    const q = search.trim();
+    if (q) {
+      setSearchParams({ q }, { replace: true });
+    } else if (searchParams.has("q")) {
+      setSearchParams({}, { replace: true });
+    }
+  }, [search]);
+
+  useEffect(() => {
+    fetchOfficers();
+  }, [fetchOfficers]);
+
+  useEffect(() => {
+    if (!showModal) return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeModal();
+    };
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.addEventListener("keydown", onKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [showModal]);
+
+  const filteredOfficers = useMemo(() => {
+    let list = officers;
+
+    if (statusFilter) {
+      list = list.filter((o) => o.status === statusFilter);
+    }
+
+    if (debouncedSearch) {
+      const q = debouncedSearch.toLowerCase();
+      list = list.filter((o) =>
+        [o.firstName, o.lastName, o.email, o.phone || ""]
+          .join(" ")
+          .toLowerCase()
+          .includes(q)
+      );
+    }
+
+    return list;
+  }, [officers, debouncedSearch, statusFilter]);
+
+  const sortedOfficers = useMemo(() => {
+    const list = [...filteredOfficers];
+
+    list.sort((a, b) => {
+      let cmp = 0;
+
+      switch (sortKey) {
+        case "name":
+          cmp = `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`);
+          break;
+        case "email":
+          cmp = a.email.localeCompare(b.email);
+          break;
+        case "phone":
+          cmp = (a.phone || "").localeCompare(b.phone || "");
+          break;
+        case "status":
+          cmp = a.status.localeCompare(b.status);
+          break;
+        case "createdAt":
+          cmp = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+          break;
+      }
+
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+
+    return list;
+  }, [filteredOfficers, sortKey, sortDir]);
+
+  const toggleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir(key === "createdAt" ? "desc" : "asc");
+    }
+  };
+
+  const stats = useMemo(
+    () => ({
+      total: officers.length,
+      active: officers.filter((o) => o.status === "ACTIVE").length,
+      disabled: officers.filter((o) => o.status !== "ACTIVE").length,
+    }),
+    [officers]
+  );
+
   const toggleStatus = async (id: string, currentStatus: string) => {
     try {
       setTogglingId(id);
-
-      const token = sessionStorage.getItem("broker_token");
-
       const newStatus = currentStatus === "ACTIVE" ? "DISABLED" : "ACTIVE";
 
       const res = await fetch(`${API_BASE}/broker/sub-broker/${id}/status`, {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ status: newStatus }),
       });
 
       const json = await res.json();
-
       if (!res.ok || !json.success) {
         toast.error(json.message || "Failed to update status");
         return;
       }
 
-      toast.success("Status updated successfully");
-
-      fetchOfficers(); // refresh list
-    } catch (err) {
+      toast.success(`Sub broker ${newStatus === "ACTIVE" ? "activated" : "disabled"}`);
+      fetchOfficers();
+    } catch {
       toast.error("Something went wrong");
     } finally {
       setTogglingId(null);
@@ -222,157 +306,67 @@ export default function SubBroker() {
 
   const fetchSubBrokerDetails = async (id: string) => {
     try {
-      const token = sessionStorage.getItem("broker_token");
-
       const res = await fetch(`${API_BASE}/broker/sub-broker/${id}`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
+        headers: getAuthHeaders(),
       });
-
       const json = await res.json();
-
       if (!res.ok || !json.success) {
         toast.error(json.message || "Failed to fetch details");
         return;
       }
 
       const data = json.data;
-
-      // ✅ Set form values
       setForm({
         email: data.email || "",
-        password: "", // never prefill password
+        password: "",
         firstName: data.firstName || "",
         lastName: data.lastName || "",
         phone: data.phone || "",
       });
-
       setEditOfficer(data);
       setShowModal(true);
-    } catch (err) {
+    } catch {
       toast.error("Something went wrong");
     }
   };
-
-  /* ================= FETCH ================= */
-
-  const fetchOfficers = async () => {
-    try {
-      setLoading(true);
-
-      const token = sessionStorage.getItem("broker_token");
-
-      const res = await fetch(`${API_BASE}/broker/sub-broker/list`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-      });
-
-      const json = await res.json();
-
-      if (!res.ok || !json.success) {
-        toast.error(json.message || "Failed to fetch sub brokers");
-        return;
-      }
-
-      setOfficers(json.data || []);
-      setTotalPages(1);
-    } catch (err) {
-      toast.error("Something went wrong");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedSearch(search.trim());
-    }, 500);
-
-    return () => clearTimeout(handler);
-  }, [search]);
-
-  useEffect(() => {
-    setPage(1);
-  }, [debouncedSearch]);
-
-  useEffect(() => {
-    fetchOfficers();
-  }, [page, debouncedSearch]);
 
   const validateForm = (): Record<string, string> => {
-    const errors: Record<string, string> = {};
+    const next: Record<string, string> = {};
 
-    // First Name
-    if (!form.firstName.trim()) {
-      errors.firstName = "First name is required";
-    } else if (form.firstName.length < 2) {
-      errors.firstName = "Minimum 2 characters required";
-    }
+    if (!form.firstName.trim()) next.firstName = "First name is required";
+    else if (form.firstName.length < 2) next.firstName = "Minimum 2 characters";
 
-    // Last Name
-    if (!form.lastName.trim()) {
-      errors.lastName = "Last name is required";
-    }
+    if (!form.lastName.trim()) next.lastName = "Last name is required";
 
-    // Email
-    if (!form.email) {
-      errors.email = "Email is required";
-    } else if (!/^\S+@\S+\.\S+$/.test(form.email)) {
-      errors.email = "Invalid email format";
-    }
+    if (!form.email) next.email = "Email is required";
+    else if (!/^\S+@\S+\.\S+$/.test(form.email)) next.email = "Invalid email format";
 
-    // Password
     if (!editOfficer) {
-      if (!form.password) {
-        errors.password = "Password is required";
-      } else if (form.password.length < 6) {
-        errors.password = "Minimum 6 characters required";
-      }
+      if (!form.password) next.password = "Password is required";
+      else if (form.password.length < 6) next.password = "Minimum 6 characters";
     }
 
-    // Phone (US)
     const cleanPhone = form.phone.replace(/\D/g, "");
+    if (!cleanPhone) next.phone = "Phone is required";
+    else if (cleanPhone.length < 10) next.phone = "Enter 10-digit phone number";
 
-    if (!cleanPhone) {
-      errors.phone = "Phone is required";
-    } else if (cleanPhone.length < 10) {
-      errors.phone = "Enter 10-digit phone number";
-    } else if (cleanPhone.length === 10 && !/^[2-9]\d{9}$/.test(cleanPhone)) {
-      errors.phone = "Invalid US phone number";
-    }
-
-    return errors;
+    return next;
   };
 
-  /* ================= CREATE ================= */
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-
     const validationErrors = validateForm();
     setErrors(validationErrors);
-
     if (Object.keys(validationErrors).length > 0) {
       toast.error("Please fix form errors");
       return;
     }
 
     setCreating(true);
-
     try {
-      const token = sessionStorage.getItem("broker_token"); // ✅ get token
-
       const res = await fetch(`${API_BASE}/broker/sub-broker/create`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}), // ✅ attach token
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           email: form.email,
           password: form.password,
@@ -383,583 +377,571 @@ export default function SubBroker() {
       });
 
       const json = await res.json();
-
       if (!res.ok) {
         if (json.message?.toLowerCase().includes("email")) {
-          setErrors((prev) => ({
-            ...prev,
-            email: "Email already exists",
-          }));
+          setErrors((prev) => ({ ...prev, email: "Email already exists" }));
         }
-
         toast.error(json.message || "Failed to create sub broker");
         return;
       }
 
-      toast.success("Sub Broker Created Successfully");
-
-      setForm(initialFormState);
-      setShowModal(false);
+      toast.success("Sub broker created successfully");
+      closeModal();
       fetchOfficers();
-    } catch (err) {
+    } catch {
       toast.error("Something went wrong");
     } finally {
       setCreating(false);
     }
   };
 
-  /* ================= UPDATE ================= */
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
-
     if (!editOfficer) return;
 
     const validationErrors = validateForm();
     setErrors(validationErrors);
-
     if (Object.keys(validationErrors).length > 0) {
       toast.error("Please fix form errors");
       return;
     }
 
     setCreating(true);
-
     try {
-      const token = sessionStorage.getItem("broker_token");
-
-      const res = await fetch(
-        `${API_BASE}/broker/sub-broker/${editOfficer.id}/update`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          body: JSON.stringify({
-            email: form.email,
-            firstName: form.firstName,
-            lastName: form.lastName,
-            phone: form.phone.replace(/\D/g, ""),
-            ...(form.password ? { password: form.password } : {}), // optional
-          }),
-        },
-      );
+      const res = await fetch(`${API_BASE}/broker/sub-broker/${editOfficer.id}/update`, {
+        method: "PATCH",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          email: form.email,
+          firstName: form.firstName,
+          lastName: form.lastName,
+          phone: form.phone.replace(/\D/g, ""),
+          ...(form.password ? { password: form.password } : {}),
+        }),
+      });
 
       const json = await res.json();
-
       if (!res.ok || !json.success) {
         toast.error(json.message || "Failed to update sub broker");
         return;
       }
 
-      toast.success("Sub Broker Updated Successfully");
-
-      setForm(initialFormState);
-      setEditOfficer(null);
-      setShowModal(false);
+      toast.success("Sub broker updated successfully");
+      closeModal();
       fetchOfficers();
-    } catch (err) {
+    } catch {
       toast.error("Something went wrong");
     } finally {
       setCreating(false);
     }
   };
 
+  const openCreateModal = () => {
+    setErrors({});
+    setEditOfficer(null);
+    setForm(initialFormState);
+    setShowPassword(false);
+    setShowModal(true);
+  };
+
+  const closeModal = () => {
+    setShowModal(false);
+    setEditOfficer(null);
+    setForm(initialFormState);
+    setErrors({});
+    setShowPassword(false);
+  };
+
   return (
-    <div className="p-6 bg-gray-50 dark:bg-slate-900 min-h-screen transition-colors">
-      {/* Header + Controls */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8 gap-4">
-        {/* Left: Heading */}
-        <div>
-          <h1
-            className="text-3xl font-bold"
-            style={{
-              color: "var(--primary-color)",
-            }}
-          >
-            Sub Brokers
-          </h1>
+    <>
+      <PageMeta title="Sub Brokers | Broker Dashboard" description="Manage sub brokers" />
 
-          <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">
-            Manage and monitor all your sub brokers, track their activity, and
-            control access from one place.
-          </p>
-        </div>
-
-        {/* Right: Search + Button */}
-        <div className="flex items-center gap-4">
-          <div className="relative w-72">
-            <input
-              placeholder="Search sub brokers..."
-              className="w-full border border-gray-300 dark:border-slate-600
-bg-white dark:bg-slate-800
-text-gray-800 dark:text-slate-200
-focus:border-indigo-500 focus:ring-2
-focus:ring-indigo-200 dark:focus:ring-indigo-500/30
-rounded-xl py-2.5 pl-10 pr-10
-outline-none transition-all text-sm"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-
-            {/* Search Icon */}
-            <svg
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-              width="18"
-              height="18"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              viewBox="0 0 24 24"
-            >
-              <circle cx="11" cy="11" r="8" />
-              <path d="m21 21-4.3-4.3" />
-            </svg>
-
-            {/* Clear Button */}
-            {search && (
-              <button
-                onClick={() => setSearch("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500"
-              >
-                ✕
-              </button>
-            )}
-          </div>
-
-          {/* Create Button */}
-          <button
-            onClick={() => {
-              setErrors({});
-              setEditOfficer(null);
-              setForm(initialFormState);
-              setShowModal(true);
-            }}
-            className="bg-[#2C92D5] hover:bg-[#1d80c2] 
-                 text-white px-5 py-2.5 rounded-xl 
-                 shadow-sm hover:shadow-md 
-                 transition-all duration-200 text-sm"
-          >
-            + Create Sub Broker
-          </button>
-        </div>
-      </div>
-
-      {/* Table */}
-      <div
-        className="bg-white dark:bg-slate-800
-rounded-2xl shadow-sm
-border border-gray-200 dark:border-slate-700
-overflow-hidden transition-colors"
-      >
-        <table className="w-full text-sm">
-          {/* Header */}
-          <thead
-            className="bg-gradient-to-r 
-    from-indigo-50 to-purple-50
-    dark:from-slate-800 dark:to-slate-800
-    border-b border-gray-200 dark:border-slate-700"
-          >
-            <tr className="text-gray-600 dark:text-slate-400 uppercase text-xs tracking-wider">
-              <th className="p-4 text-left">Name</th>
-              <th className="p-4 text-left">Email</th>
-              <th className="p-4 text-left">Phone</th>
-              <th className="p-4 text-left">Status</th>
-              <th className="p-4 text-left">Created</th>
-              <th className="p-4 text-right">Actions</th>
-            </tr>
-          </thead>
-
-          {/* Body */}
-          <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
-            {loading ? (
-              <tr>
-                <td
-                  colSpan={6}
-                  className="p-10 text-center text-gray-400 dark:text-slate-500"
-                >
-                  Loading...
-                </td>
-              </tr>
-            ) : officers.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="p-10">
-                  <div className="flex flex-col items-center justify-center text-center space-y-4">
-                    <div
-                      className="bg-indigo-100 dark:bg-indigo-900/30 
-        text-indigo-600 dark:text-indigo-400 
-        rounded-full p-4"
-                    >
-                      <Users size={32} />
-                    </div>
-
-                    <div>
-                      <p className="text-lg font-semibold text-gray-700 dark:text-slate-200">
-                        No Sub Brokers Found
-                      </p>
-                      <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">
-                        You haven’t added any sub brokers yet. Create one to get
-                        started.
-                      </p>
-                    </div>
-                  </div>
-                </td>
-              </tr>
-            ) : (
-              officers.map((o) => (
-                <tr
-                  key={o.id}
-                  className="hover:bg-indigo-50/40 
-    dark:hover:bg-slate-700/40 
-    transition-all duration-200"
-                >
-                  {/* Name */}
-                  <td className="p-4">
-                    <div className="flex items-center gap-3">
-                      <div
-                        className="h-12 w-12 rounded-full flex items-center justify-center
-          bg-slate-100 dark:bg-slate-700
-          text-slate-600 dark:text-slate-300 font-semibold"
-                      >
-                        {o.firstName?.charAt(0)}
-                        {o.lastName?.charAt(0)}
-                      </div>
-
-                      <div>
-                        <p className="font-semibold text-gray-800 dark:text-slate-200">
-                          {o.firstName} {o.lastName}
-                        </p>
-                      </div>
-                    </div>
-                  </td>
-
-                  {/* Email */}
-                  <td className="p-4 text-gray-600 dark:text-slate-300">
-                    {o.email}
-                  </td>
-
-                  {/* Phone */}
-                  <td className="p-4 text-gray-600 dark:text-slate-300">
-                    {o.phone ? formatPhone(o.phone) : "-"}
-                  </td>
-
-                  {/* Status */}
-                  <td className="p-4">
-                    <span
-                      onClick={() =>
-                        togglingId !== o.id && toggleStatus(o.id, o.status)
-                      }
-                      className={`px-3 py-1 rounded-full text-xs font-medium cursor-pointer
-        ${
-          o.status === "ACTIVE"
-            ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-            : "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400"
-        }`}
-                    >
-                      {o.status}
-                    </span>
-                  </td>
-
-                  {/* Created */}
-                  <td className="p-4 text-gray-500 dark:text-slate-400">
-                    {new Date(o.createdAt).toLocaleDateString()}
-                  </td>
-
-                  {/* Actions */}
-                  <td className="p-4 text-right space-x-2">
-                    {/* <button
-                      onClick={() => setViewOfficer(o)}
-                      className="inline-flex items-center justify-center 
-        h-9 w-9 rounded-lg
-        bg-blue-50 hover:bg-blue-100
-        dark:bg-blue-900/30 dark:hover:bg-blue-900/50
-        text-blue-600 dark:text-blue-400"
-                    >
-                      <Eye size={16} />
-                    </button> */}
-
-                    <button
-                      onClick={() => {
-                        setErrors({});
-                        fetchSubBrokerDetails(o.id);
-                      }}
-                      className="inline-flex items-center justify-center 
-        h-9 w-9 rounded-lg
-        bg-yellow-50 hover:bg-yellow-100
-        dark:bg-yellow-900/30 dark:hover:bg-yellow-900/50
-        text-yellow-600 dark:text-yellow-400"
-                    >
-                      ✎
-                    </button>
-
-                    {/* <button
-                      onClick={() => handleDelete(o.id)}
-                      className="inline-flex items-center justify-center 
-        h-9 w-9 rounded-lg
-        bg-red-50 hover:bg-red-100
-        dark:bg-red-900/30 dark:hover:bg-red-900/50
-        text-red-600 dark:text-red-400"
-                    >
-                      <Trash2 size={16} />
-                    </button> */}
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between mt-6">
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            Page{" "}
-            <span className="font-semibold text-slate-700 dark:text-slate-200">
-              {page}
-            </span>{" "}
-            of{" "}
-            <span className="font-semibold text-slate-700 dark:text-slate-200">
-              {totalPages}
-            </span>
-          </p>
-
-          <div className="flex gap-2">
-            <button
-              disabled={page === 1 || loading}
-              onClick={() => setPage((p) => Math.max(p - 1, 1))}
-              className="px-4 py-2 rounded-lg border
-            border-gray-200 dark:border-slate-600
-            bg-white dark:bg-slate-800
-            text-slate-700 dark:text-slate-200
-            hover:bg-slate-100 dark:hover:bg-slate-700
-            disabled:opacity-50
-            disabled:cursor-not-allowed
-            transition-colors"
-            >
-              Prev
-            </button>
-
-            <button
-              disabled={page === totalPages || loading}
-              onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
-              className="
-            px-4 py-2 rounded-lg border
-            border-gray-200 dark:border-slate-600
-            bg-white dark:bg-slate-800
-            text-slate-700 dark:text-slate-200
-            hover:bg-slate-100 dark:hover:bg-slate-700
-            disabled:opacity-50
-            disabled:cursor-not-allowed
-            transition-colors
-          "
-            >
-              Next
-            </button>
-          </div>
-        </div>
-      )}
-
-      {showModal && (
-        <div className="fixed inset-0 bg-slate-900/60 dark:bg-black/80 backdrop-blur-md flex items-center justify-center z-[273797737392739] p-4 transition-colors">
-          <div
-            className="bg-white dark:bg-slate-800
-rounded-2xl shadow-2xl
-border border-gray-200 dark:border-slate-700
-transition-colors w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col animate-in fade-in zoom-in duration-200"
-          >
-            {/* Header */}
-            <div
-              className="flex justify-between items-center p-6 
-border-b border-gray-200 dark:border-slate-700
-bg-slate-50/60 dark:bg-slate-800"
-            >
-              <div>
-                <h2 className="text-xl font-bold dark:text-white">
-                  {editOfficer ? "Edit Sub Broker" : "Create Sub Broker"}
-                </h2>
-                <p className="text-sm text-slate-500 dark:text-slate-400">
-                  {editOfficer
-                    ? "Update sub broker details."
-                    : "Fill in the details to create a new sub broker."}
-                </p>
+      <div className="space-y-6">
+        {/* Hero */}
+        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-gradient-to-br from-[#13538A] via-[#1a6aad] to-[#2C92D5] p-6 text-white shadow-sm dark:border-gray-800">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-medium backdrop-blur-sm">
+                <Users className="h-3.5 w-3.5" />
+                CRM · Team
               </div>
+              <h1 className="text-2xl font-semibold tracking-tight">Sub Brokers</h1>
+              <p className="mt-1 max-w-2xl text-sm text-white/80">
+                Manage sub brokers, control access, and monitor their activity from one place.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                { label: "Total", value: stats.total, icon: Users },
+                { label: "Active", value: stats.active, icon: UserCheck },
+                { label: "Disabled", value: stats.disabled, icon: UserX },
+              ].map(({ label, value, icon: Icon }) => (
+                <div
+                  key={label}
+                  className="rounded-xl bg-white/10 px-4 py-3 ring-1 ring-white/20 backdrop-blur-sm"
+                >
+                  <div className="flex items-center gap-2 text-white/70">
+                    <Icon className="h-4 w-4" />
+                    <span className="text-xs">{label}</span>
+                  </div>
+                  <p className="mt-1 text-2xl font-semibold">{value}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Toolbar */}
+        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <input
+                placeholder="Search by name, email, or phone..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="h-10 w-full rounded-xl border border-gray-200 bg-gray-50 pl-10 pr-10 text-sm outline-none focus:border-[#13538A]/40 focus:ring-2 focus:ring-[#13538A]/10 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => fetchOfficers()}
+                disabled={loading}
+                className="inline-flex h-10 items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-200"
+              >
+                <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+                Refresh
+              </button>
 
               <button
                 type="button"
-                onClick={() => setShowModal(false)}
-                className="p-2 rounded-full
-                                dark:hover:bg-red-900/30
-                                text-slate-400 dark:text-slate-500
-                                hover:text-red-600 dark:hover:text-red-400
-                                transition-colors"
+                onClick={openCreateModal}
+                className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#13538A] px-4 text-sm font-medium text-white shadow-sm hover:bg-[#1a6aad]"
               >
-                ✕
+                <Plus className="h-4 w-4" />
+                Create Sub Broker
               </button>
             </div>
+          </div>
 
-            {/* Scrollable Form Body */}
-            <form
-              onSubmit={editOfficer ? handleUpdate : handleCreate}
-              className="flex flex-col h-full"
-            >
-              {/* Form Content */}
-              <div className="p-6 space-y-6 overflow-y-auto flex-1">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                  {/* First Name */}
-                  <div className="space-y-1">
-                    <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
-                      First Name
-                    </label>
-                    <input
-                      placeholder="Enter first name"
-                      className={`${inputStyle} ${errors.firstName ? "border-red-500" : ""}`}
-                      value={form.firstName}
-                      onChange={(e) => updateField("firstName", e.target.value)}
-                    />
-                    {errors.firstName && (
-                      <p className="text-xs text-red-500">{errors.firstName}</p>
-                    )}
-                  </div>
-
-                  {/* Last Name */}
-                  <div className="space-y-1">
-                    <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
-                      Last Name
-                    </label>
-                    <input
-                      placeholder="Enter last name"
-                      className={`${inputStyle} ${errors.lastName ? "border-red-500" : ""}`}
-                      value={form.lastName}
-                      onChange={(e) => updateField("lastName", e.target.value)}
-                    />
-                    {errors.lastName && (
-                      <p className="text-xs text-red-500">{errors.lastName}</p>
-                    )}
-                  </div>
-
-                  {/* Email */}
-                  <div className="space-y-1">
-                    <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
-                      Email
-                    </label>
-                    <input
-                      type="email"
-                      placeholder="Enter email"
-                      className={`${inputStyle} ${errors.email ? "border-red-500" : ""}`}
-                      value={form.email}
-                      onChange={(e) => updateField("email", e.target.value)}
-                    />
-                    {errors.email && (
-                      <p className="text-xs text-red-500">{errors.email}</p>
-                    )}
-                  </div>
-
-                  {/* Password (only create) */}
-                  {!editOfficer && (
-                    <div className="space-y-1">
-                      <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
-                        Password
-                      </label>
-
-                      <div className="relative">
-                        <input
-                          type={showPassword.password ? "text" : "password"}
-                          placeholder="Enter password"
-                          className={`${inputStyle} pr-12 ${
-                            errors.password ? "border-red-500" : ""
-                          }`}
-                          value={form.password}
-                          onChange={(e) =>
-                            updateField("password", e.target.value)
-                          }
-                        />
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setShowPassword((prev) => ({
-                              ...prev,
-                              password: !prev.password,
-                            }))
-                          }
-                          className="absolute right-3 top-1/2 -translate-y-1/2
-              text-slate-400 hover:text-indigo-600 transition-colors"
-                        >
-                          {showPassword.password ? (
-                            <EyeOff size={18} />
-                          ) : (
-                            <Eye size={18} />
-                          )}
-                        </button>
-                      </div>
-
-                      {errors.password && (
-                        <p className="text-xs text-red-500">
-                          {errors.password}
-                        </p>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Phone */}
-                  <div className="space-y-1 md:col-span-2">
-                    <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
-                      Phone Number
-                    </label>
-
-                    <input
-                      placeholder="Enter phone number"
-                      className={`${inputStyle} ${errors.phone ? "border-red-500" : ""}`}
-                      value={formatPhone(form.phone)}
-                      onChange={(e) =>
-                        updateField(
-                          "phone",
-                          e.target.value.replace(/\D/g, "").slice(0, 10),
-                        )
-                      }
-                    />
-
-                    {errors.phone && (
-                      <p className="text-xs text-red-500">{errors.phone}</p>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Footer */}
-              <div className="p-6 border-t border-gray-200 dark:border-slate-700 flex justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="px-4 py-2 rounded-lg border 
-      border-gray-300 dark:border-slate-600
-      text-slate-600 dark:text-slate-300
-      hover:bg-gray-100 dark:hover:bg-slate-700"
-                >
-                  Cancel
-                </button>
-
-                <button
-                  type="submit"
-                  disabled={creating}
-                  className="bg-[#2C92D5] hover:bg-[#1d80c2]
-      text-white px-5 py-2 rounded-lg font-semibold
-      transition-all shadow-sm hover:shadow-md"
-                >
-                  {creating
-                    ? editOfficer
-                      ? "Updating..."
-                      : "Creating..."
-                    : editOfficer
-                      ? "Update Sub Broker"
-                      : "Create Sub Broker"}
-                </button>
-              </div>
-            </form>
+          <div className="mt-4 flex items-center gap-2 overflow-x-auto pb-1">
+            <span className="shrink-0 text-xs font-medium text-gray-500">Status:</span>
+            {(["", "ACTIVE", "DISABLED"] as const).map((status) => (
+              <button
+                key={status || "all"}
+                type="button"
+                onClick={() => setStatusFilter(status)}
+                className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition ${
+                  statusFilter === status
+                    ? "bg-[#13538A] text-white"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300"
+                }`}
+              >
+                {status || "All"}
+              </button>
+            ))}
           </div>
         </div>
-      )}
-    </div>
+
+        {/* Table */}
+        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
+          {loading ? (
+            <div className="divide-y divide-gray-100 dark:divide-gray-800">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="flex animate-pulse items-center gap-4 px-6 py-4">
+                  <div className="h-4 w-6 rounded bg-gray-100 dark:bg-gray-800" />
+                  <div className="h-10 w-10 rounded-full bg-gray-100 dark:bg-gray-800" />
+                  <div className="h-4 flex-1 rounded bg-gray-100 dark:bg-gray-800" />
+                  <div className="h-4 w-32 rounded bg-gray-100 dark:bg-gray-800" />
+                  <div className="h-6 w-16 rounded-full bg-gray-100 dark:bg-gray-800" />
+                </div>
+              ))}
+            </div>
+          ) : sortedOfficers.length === 0 ? (
+            <div className="flex flex-col items-center py-20 text-center">
+              <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#13538A]/10 text-[#13538A]">
+                <Users size={24} />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                {search || statusFilter ? "No matching sub brokers" : "No sub brokers yet"}
+              </h3>
+              <p className="mt-1 max-w-md text-sm text-gray-500">
+                {search || statusFilter
+                  ? "Try adjusting your search or status filter."
+                  : "Create your first sub broker to delegate loan pipeline work."}
+              </p>
+              {!search && !statusFilter && (
+                <button
+                  type="button"
+                  onClick={openCreateModal}
+                  className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[#13538A] px-4 py-2 text-sm font-medium text-white hover:bg-[#1a6aad]"
+                >
+                  <Plus className="h-4 w-4" />
+                  Create Sub Broker
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="max-h-[min(560px,calc(100vh-22rem))] overflow-auto">
+              <table className="w-full min-w-[920px] border-collapse text-left">
+                <thead className="sticky top-0 z-10 bg-gray-50 shadow-[0_1px_0_0_rgb(229_231_235)] dark:bg-gray-800 dark:shadow-[0_1px_0_0_rgb(31_41_55)]">
+                  <tr>
+                    <th className="w-12 px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-gray-400">
+                      #
+                    </th>
+                    <th className="px-4 py-3.5">
+                      <SortHeader
+                        label="Name"
+                        active={sortKey === "name"}
+                        direction={sortDir}
+                        onClick={() => toggleSort("name")}
+                      />
+                    </th>
+                    <th className="px-4 py-3.5">
+                      <SortHeader
+                        label="Email"
+                        active={sortKey === "email"}
+                        direction={sortDir}
+                        onClick={() => toggleSort("email")}
+                      />
+                    </th>
+                    <th className="px-4 py-3.5">
+                      <SortHeader
+                        label="Phone"
+                        active={sortKey === "phone"}
+                        direction={sortDir}
+                        onClick={() => toggleSort("phone")}
+                      />
+                    </th>
+                    <th className="px-4 py-3.5">
+                      <SortHeader
+                        label="Status"
+                        active={sortKey === "status"}
+                        direction={sortDir}
+                        onClick={() => toggleSort("status")}
+                      />
+                    </th>
+                    <th className="px-4 py-3.5">
+                      <SortHeader
+                        label="Created"
+                        active={sortKey === "createdAt"}
+                        direction={sortDir}
+                        onClick={() => toggleSort("createdAt")}
+                      />
+                    </th>
+                    <th className="px-4 py-3.5 text-right">
+                      <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+                        Actions
+                      </span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedOfficers.map((o, index) => {
+                    const fullName = `${o.firstName} ${o.lastName}`.trim();
+                    const isActive = o.status === "ACTIVE";
+
+                    return (
+                      <tr
+                        key={o.id}
+                        className={`group border-b border-gray-100 transition last:border-b-0 dark:border-gray-800 ${
+                          isActive
+                            ? "hover:bg-[#13538A]/[0.04] dark:hover:bg-gray-800/60"
+                            : "bg-gray-50/40 hover:bg-gray-100/60 dark:bg-gray-900/30 dark:hover:bg-gray-800/60"
+                        }`}
+                      >
+                        <td className="px-4 py-4 text-xs font-medium text-gray-400">
+                          {index + 1}
+                        </td>
+
+                        <td className="px-4 py-4">
+                          <div className="flex items-center gap-3">
+                            <span
+                              className={`relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-sm font-bold ring-2 ring-white dark:ring-gray-900 ${getAvatarTone(fullName)}`}
+                            >
+                              {getInitials(o.firstName, o.lastName)}
+                              <span
+                                className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white dark:border-gray-900 ${
+                                  isActive ? "bg-emerald-500" : "bg-gray-400"
+                                }`}
+                              />
+                            </span>
+                            <div className="min-w-0">
+                              <p className="truncate font-semibold text-gray-900 dark:text-gray-100">
+                                {fullName}
+                              </p>
+                              <p className="text-xs text-gray-400">Sub Broker</p>
+                            </div>
+                          </div>
+                        </td>
+
+                        <td className="px-4 py-4">
+                          <div className="flex max-w-[220px] items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-500 dark:bg-gray-800">
+                              <Mail className="h-3.5 w-3.5" />
+                            </span>
+                            <span className="truncate" title={o.email}>
+                              {o.email}
+                            </span>
+                          </div>
+                        </td>
+
+                        <td className="px-4 py-4">
+                          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-500 dark:bg-gray-800">
+                              <Phone className="h-3.5 w-3.5" />
+                            </span>
+                            {o.phone ? formatPhone(o.phone) : "—"}
+                          </div>
+                        </td>
+
+                        <td className="px-4 py-4">
+                          <button
+                            type="button"
+                            disabled={togglingId === o.id}
+                            onClick={() => toggleStatus(o.id, o.status)}
+                            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition disabled:opacity-50 ${
+                              isActive
+                                ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/30"
+                                : "bg-gray-100 text-gray-600 ring-1 ring-gray-200 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:ring-gray-700"
+                            }`}
+                            title="Click to toggle status"
+                          >
+                            <span
+                              className={`h-1.5 w-1.5 rounded-full ${
+                                isActive ? "bg-emerald-500" : "bg-gray-400"
+                              }`}
+                            />
+                            {togglingId === o.id ? "Updating..." : isActive ? "Active" : "Disabled"}
+                          </button>
+                        </td>
+
+                        <td className="px-4 py-4">
+                          <div className="flex items-center gap-2 text-sm text-gray-500">
+                            <Calendar className="h-3.5 w-3.5 shrink-0 text-gray-400" />
+                            {formatDate(o.createdAt)}
+                          </div>
+                        </td>
+
+                        <td className="px-4 py-4">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setErrors({});
+                                fetchSubBrokerDetails(o.id);
+                              }}
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-[#13538A] transition hover:border-[#13538A]/30 hover:bg-[#13538A]/10 dark:border-gray-700 dark:bg-gray-900"
+                              title="Edit sub broker"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </button>
+                            <button
+                              type="button"
+                              disabled={togglingId === o.id}
+                              onClick={() => toggleStatus(o.id, o.status)}
+                              className={`inline-flex h-9 w-9 items-center justify-center rounded-lg border transition disabled:opacity-50 ${
+                                isActive
+                                  ? "border-emerald-200 bg-emerald-50 text-emerald-600 hover:bg-emerald-100"
+                                  : "border-gray-200 bg-white text-gray-500 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900"
+                              }`}
+                              title={isActive ? "Disable sub broker" : "Activate sub broker"}
+                            >
+                              <Power className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {!loading && sortedOfficers.length > 0 && (
+            <div className="flex flex-col gap-2 border-t border-gray-100 px-5 py-3 text-xs text-gray-500 sm:flex-row sm:items-center sm:justify-between dark:border-gray-800">
+              <span>
+                Showing <span className="font-semibold text-gray-800 dark:text-gray-200">{sortedOfficers.length}</span> of{" "}
+                <span className="font-semibold text-gray-800 dark:text-gray-200">{officers.length}</span> sub broker(s)
+              </span>
+              <span className="text-gray-400">
+                Sorted by {sortKey.replace("createdAt", "created")} ({sortDir})
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {showModal &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
+            onClick={closeModal}
+            role="dialog"
+            aria-modal="true"
+          >
+            <div
+              className="flex max-h-[min(90vh,640px)] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-900"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex shrink-0 items-start justify-between border-b px-6 py-4 dark:border-gray-800">
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    {editOfficer ? "Edit Sub Broker" : "Create Sub Broker"}
+                  </h2>
+                  <p className="text-sm text-gray-500">
+                    {editOfficer
+                      ? "Update contact details for this sub broker."
+                      : "Add a new sub broker to your organization."}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeModal}
+                  className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-red-500 dark:hover:bg-gray-800"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <form
+                onSubmit={editOfficer ? handleUpdate : handleCreate}
+                className="flex min-h-0 flex-1 flex-col"
+              >
+                <div className="space-y-4 overflow-y-auto p-6">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div>
+                      <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        First Name
+                      </label>
+                      <input
+                        className={`${inputClass} ${errors.firstName ? "border-red-400" : ""}`}
+                        value={form.firstName}
+                        onChange={(e) => updateField("firstName", e.target.value)}
+                        placeholder="First name"
+                      />
+                      {errors.firstName && (
+                        <p className="mt-1 text-xs text-red-500">{errors.firstName}</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Last Name
+                      </label>
+                      <input
+                        className={`${inputClass} ${errors.lastName ? "border-red-400" : ""}`}
+                        value={form.lastName}
+                        onChange={(e) => updateField("lastName", e.target.value)}
+                        placeholder="Last name"
+                      />
+                      {errors.lastName && (
+                        <p className="mt-1 text-xs text-red-500">{errors.lastName}</p>
+                      )}
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Email
+                      </label>
+                      <input
+                        type="email"
+                        className={`${inputClass} ${errors.email ? "border-red-400" : ""}`}
+                        value={form.email}
+                        onChange={(e) => updateField("email", e.target.value)}
+                        placeholder="email@example.com"
+                      />
+                      {errors.email && (
+                        <p className="mt-1 text-xs text-red-500">{errors.email}</p>
+                      )}
+                    </div>
+
+                    {!editOfficer && (
+                      <div className="sm:col-span-2">
+                        <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                          Password
+                        </label>
+                        <div className="relative">
+                          <input
+                            type={showPassword ? "text" : "password"}
+                            className={`${inputClass} pr-11 ${errors.password ? "border-red-400" : ""}`}
+                            value={form.password}
+                            onChange={(e) => updateField("password", e.target.value)}
+                            placeholder="Minimum 6 characters"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword((v) => !v)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#13538A]"
+                          >
+                            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                          </button>
+                        </div>
+                        {errors.password && (
+                          <p className="mt-1 text-xs text-red-500">{errors.password}</p>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="sm:col-span-2">
+                      <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Phone
+                      </label>
+                      <input
+                        className={`${inputClass} ${errors.phone ? "border-red-400" : ""}`}
+                        value={formatPhone(form.phone)}
+                        onChange={(e) =>
+                          updateField("phone", e.target.value.replace(/\D/g, "").slice(0, 10))
+                        }
+                        placeholder="555-123-4567"
+                      />
+                      {errors.phone && (
+                        <p className="mt-1 text-xs text-red-500">{errors.phone}</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex shrink-0 justify-end gap-3 border-t px-6 py-4 dark:border-gray-800">
+                  <button
+                    type="button"
+                    onClick={closeModal}
+                    className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={creating}
+                    className="rounded-xl bg-[#13538A] px-5 py-2 text-sm font-semibold text-white hover:bg-[#1a6aad] disabled:opacity-60"
+                  >
+                    {creating
+                      ? editOfficer
+                        ? "Updating..."
+                        : "Creating..."
+                      : editOfficer
+                        ? "Update Sub Broker"
+                        : "Create Sub Broker"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>,
+          document.body
+        )}
+    </>
   );
 }

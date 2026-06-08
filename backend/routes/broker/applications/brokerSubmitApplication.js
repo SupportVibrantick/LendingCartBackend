@@ -1,6 +1,10 @@
 const fp = require("fastify-plugin");
 const { randomUUID } = require("crypto");
 const { logAudit } = require("../../../services/logger/auditLogger");
+const {
+  notifyBroker,
+  BROKER_NOTIFICATION_EVENTS,
+} = require("../../../services/brokerNotifications");
 
 async function brokerSubmitApplication(fastify) {
   fastify.post(
@@ -132,11 +136,8 @@ async function brokerSubmitApplication(fastify) {
               applicationNumber: `APP-${Date.now()}`,
               brokerOrgId,
 
-              // ✅ IMPORTANT LOGIC
-              // officer → assigned
-              // sub broker → used for filtering
-              // admin → also stored
-              brokerUserId: loggedInUserId,
+              // officer → self-assigned; admin → assign later via pipeline
+              brokerUserId: isOfficer ? loggedInUserId : null,
 
               clientId: client.id,
               loanProductCode: brokerProduct.loanProductCode,
@@ -235,6 +236,20 @@ async function brokerSubmitApplication(fastify) {
             "Conversation creation failed",
           );
         }
+
+        await notifyBroker(prisma, fastify.io, {
+          brokerOrgId,
+          eventType: BROKER_NOTIFICATION_EVENTS.APPLICATION_CREATED,
+          category: "APPLICATION",
+          subject: "New Application Created",
+          body: `New application ${result.loanApplication.applicationNumber} created and awaiting client action`,
+          metadata: {
+            applicationId: result.loanApplication.id,
+            applicationNumber: result.loanApplication.applicationNumber,
+            clientName: result.client.legalName,
+            createdByUserId: loggedInUserId,
+          },
+        });
 
         /* ================= RESPONSE ================= */
 

@@ -1565,8 +1565,10 @@ model SubBrokerSubmission {
 
 enum ConversationType {
   CLIENT_BROKER
+  CLIENT_OFFICER
   BROKER_LENDER
   SUBBROKER_BROKER
+  BROKER_OFFICER
 }
 
 enum MessageType {

@@ -1,6 +1,6 @@
-import { BrowserRouter as Router, Routes, Route } from "react-router";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router";
 import SignIn from "./pages/AuthPages/SignIn";
-import SignUp from "./pages/AuthPages/SignUp";
+// import SignUp from "./pages/AuthPages/SignUp";
 import NotFound from "./pages/OtherPage/NotFound";
 import UserProfiles from "./pages/UserProfiles";
 import Videos from "./pages/UiElements/Videos";
@@ -51,6 +51,11 @@ import LoanCriteria from "./pages/Lenders/LoanCriteria/Main";
 import AddLender from "./pages/Lenders/AddLender/Main";
 import UpdateLender from "./pages/Lenders/UpdateLender/Main";
 import EmailMarketing from "./pages/EmailMarketing/EmailMarketing";
+import AllLoanOfficers from "./pages/Platform/AllLoanOfficers";
+import AllSubBrokers from "./pages/Platform/AllSubBrokers";
+import AllClients from "./pages/Platform/AllClients";
+import AllCommunications from "./pages/Platform/AllCommunications";
+import PlatformReports from "./pages/Platform/PlatformReports";
 
 export default function App() {
   return (
@@ -154,6 +159,13 @@ export default function App() {
               path="/email-marketing"
               element={<EmailMarketing />}
             />
+            <Route path="/super-admin" element={<Navigate to="/" replace />} />
+            <Route index path="/platform-reports" element={<PlatformReports />} />
+            <Route index path="/all-loan-officers" element={<AllLoanOfficers />} />
+            <Route index path="/all-sub-brokers" element={<AllSubBrokers />} />
+            <Route index path="/all-clients" element={<AllClients />} />
+            <Route index path="/all-communications" element={<AllCommunications />} />
+
             <Route index path="/admin-logs" element={<AdminLogs />} />
             <Route index path="/system-settings" element={<SystemSettings />} />
 
@@ -185,7 +197,7 @@ export default function App() {
 
           {/* Auth Layout */}
           <Route path="/signin" element={<SignIn />} />
-          <Route path="/signup" element={<SignUp />} />
+          {/* <Route path="/signup" element={<SignUp />} /> */}
 
           {/* Fallback Route */}
           <Route path="*" element={<NotFound />} />

@@ -1,5 +1,9 @@
 const sendMail = require("../../../services/mail");
 const generateApplicationPDF = require("../../../services/generateApplicationPdf");
+const {
+  notifyBroker,
+  BROKER_NOTIFICATION_EVENTS,
+} = require("../../../services/brokerNotifications");
 
 module.exports = async function sendToLenders(fastify) {
   fastify.post(
@@ -74,6 +78,17 @@ module.exports = async function sendToLenders(fastify) {
             success: false,
             message: "You do not own this application",
           });
+        }
+
+        const roles = req.user.roles || [];
+        if (roles.includes("BROKER_OFFICER")) {
+          const userId = req.user.id || req.user.userId;
+          if (application.brokerUserId !== userId) {
+            return reply.code(403).send({
+              success: false,
+              message: "Access denied - not assigned to you",
+            });
+          }
         }
 
         const submission = await prisma.applicationSubmission.findUnique({
@@ -178,6 +193,7 @@ module.exports = async function sendToLenders(fastify) {
 
             created.push({
               lenderEmail: lp.lender.email,
+              lenderName: lp.lender.name,
               applicationLenderId: appLender.id,
               lenderOrgId: lp.lenderOrgId,
             });
@@ -220,6 +236,27 @@ module.exports = async function sendToLenders(fastify) {
             }
           }
         })();
+
+        if (results.length > 0) {
+          const lenderNames = results
+            .map((item) => item.lenderName)
+            .filter(Boolean);
+
+          await notifyBroker(prisma, fastify.io, {
+            brokerOrgId,
+            eventType: BROKER_NOTIFICATION_EVENTS.APPLICATION_SENT_TO_LENDERS,
+            category: "LENDER",
+            subject: "Application Sent to Lenders",
+            body: `Application ${application.applicationNumber} sent to ${results.length} lender${results.length > 1 ? "s" : ""}`,
+            metadata: {
+              applicationId,
+              applicationNumber: application.applicationNumber,
+              lenderCount: results.length,
+              lenderNames,
+              applicationLenderIds: results.map((item) => item.applicationLenderId),
+            },
+          });
+        }
 
         /* ================= RESPONSE ================= */
 

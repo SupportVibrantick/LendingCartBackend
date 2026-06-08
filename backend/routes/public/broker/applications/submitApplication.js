@@ -1,6 +1,10 @@
 const fp = require("fastify-plugin");
 const axios = require("axios");
 const { randomUUID } = require("crypto");
+const {
+  notifyBroker,
+  BROKER_NOTIFICATION_EVENTS,
+} = require("../../../../services/brokerNotifications");
 
 async function submitApplication(fastify) {
   fastify.post("/submit", async (req, reply) => {
@@ -148,13 +152,27 @@ async function submitApplication(fastify) {
         });
       }
 
-      return submission;
+      return { submission, loanApplication, client, brokerOrgId: brokerProduct.brokerApplication.brokerOrgId };
+    });
+
+    await notifyBroker(fastify.prisma, fastify.io, {
+      brokerOrgId: result.brokerOrgId,
+      eventType: BROKER_NOTIFICATION_EVENTS.APPLICATION_SUBMITTED,
+      category: "APPLICATION",
+      subject: "New Application Submitted",
+      body: `New application ${result.loanApplication.applicationNumber} submitted via public form`,
+      metadata: {
+        applicationId: result.loanApplication.id,
+        applicationNumber: result.loanApplication.applicationNumber,
+        clientName: result.client.legalName,
+        source: "PUBLIC_FORM",
+      },
     });
 
     return reply.code(201).send({
       success: true,
       message: "Application submitted successfully",
-      data: { submissionId: result.id },
+      data: { submissionId: result.submission.id },
     });
   });
 }

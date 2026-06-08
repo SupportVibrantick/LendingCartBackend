@@ -6,6 +6,10 @@ const clientAuthMiddleware = require("../../middleware/clientAuthMiddleware");
 const { loadTemplate } = require("../../utils/loadTemplate");
 const sendMail = require("../../services/mail");
 const { sendEmailUsingKafka } = require("../../services/kafka/email/producer");
+const {
+  notifyBroker,
+  BROKER_NOTIFICATION_EVENTS,
+} = require("../../services/brokerNotifications");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
@@ -231,19 +235,16 @@ async function uploadDocumentsRoute(fastify) {
            CREATE NOTIFICATION
         ============================ */
 
-        await prisma.notification.create({
-          data: {
-            eventType: "CLIENT_UPLOADED_DOCUMENT",
-            category: "DOCUMENT",
-            channel: "IN_APP",
-            status: "SENT",
-            recipientType: "BROKER",
-            recipientOrgId: loan.brokerOrgId,
-            subject: "Client Uploaded Document",
-            body: `New document uploaded for application ${loan.applicationNumber}`,
-            metadata: {
-              loanApplicationId,
-            },
+        const notification = await notifyBroker(prisma, fastify.io, {
+          brokerOrgId: loan.brokerOrgId,
+          eventType: BROKER_NOTIFICATION_EVENTS.CLIENT_UPLOADED_DOCUMENT,
+          category: "DOCUMENT",
+          subject: "Client Uploaded Document",
+          body: `New document uploaded for application ${loan.applicationNumber}`,
+          metadata: {
+            loanApplicationId,
+            applicationId: loanApplicationId,
+            applicationNumber: loan.applicationNumber,
           },
         });
 

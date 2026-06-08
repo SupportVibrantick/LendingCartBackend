@@ -1,9 +1,18 @@
 import React, { useEffect, useState } from "react";
 import toast from "react-hot-toast";
+import {
+  Check,
+  ChevronRight,
+  Layers,
+  Link2,
+  Loader2,
+  Package,
+  Save,
+  Settings2,
+  Sparkles,
+} from "lucide-react";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
-
-/* ================= TYPES ================= */
 
 type Application = { id: string; name: string };
 type LoanProduct = { id: string; code: string; name: string };
@@ -15,7 +24,16 @@ type AppProduct = {
 };
 type Broker = { id: string; name: string };
 
-/* ================= HELPERS ================= */
+const PRODUCT_LABELS: Record<string, string> = {
+  FIX_AND_FLIP_LOAN_1_TO_4_UNITS: "Fix & Flip",
+  DSCR_LOAN_1_TO_4_UNITS: "DSCR",
+  CONSTRUCTION_LOAN_1_TO_4_UNITS: "Construction",
+  BRIDGE_LOAN_1_TO_4_UNITS: "Bridge Loan",
+  SBA_7A: "SBA 7A",
+  SBA_7A_WORKING_CAPITAL: "SBA 7A Working Capital",
+  CMBS: "CMBS",
+  CRE_PERMANENT_LOAN: "CRE Permanent",
+};
 
 function getAuthHeaders() {
   const token = sessionStorage.getItem("admin_token");
@@ -34,30 +52,26 @@ async function safeJson(res: Response) {
   }
 }
 
-/* ================= PAGE ================= */
+function formatProductCode(code: string) {
+  return PRODUCT_LABELS[code] ?? code.replace(/_/g, " ");
+}
+
+const inputClass =
+  "w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 shadow-sm transition focus:border-[#13538A] focus:outline-none focus:ring-2 focus:ring-[#13538A]/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100";
 
 const LoanApplicationConfig: React.FC = () => {
-  /* ================= MASTER ================= */
   const [brokers, setBrokers] = useState<Broker[]>([]);
   const [products, setProducts] = useState<LoanProduct[]>([]);
-
-  /* ================= LEFT FORM ================= */
   const [leftBrokerId, setLeftBrokerId] = useState("");
   const [leftApplications, setLeftApplications] = useState<Application[]>([]);
   const [formAppId, setFormAppId] = useState("");
-  const [selectedProductCodes, setSelectedProductCodes] = useState<string[]>(
-    [],
-  );
-
-  /* ================= RIGHT PANEL ================= */
+  const [selectedProductCodes, setSelectedProductCodes] = useState<string[]>([]);
   const [rightBrokerId, setRightBrokerId] = useState("");
   const [rightApplications, setRightApplications] = useState<Application[]>([]);
   const [rightAppId, setRightAppId] = useState("");
   const [items, setItems] = useState<AppProduct[]>([]);
-
   const [loading, setLoading] = useState(false);
-
-  /* ================= LOAD BROKERS ================= */
+  const [saving, setSaving] = useState(false);
 
   const fetchBrokers = async () => {
     try {
@@ -66,104 +80,80 @@ const LoanApplicationConfig: React.FC = () => {
       });
       const json = await res.json();
       setBrokers(json.data || []);
-    } catch (error) {
+    } catch {
       toast.error("Failed to load brokers");
-    } finally {
-      setLoading(false);
     }
   };
-
-  /* ================= LOAD PRODUCTS ================= */
 
   const loadLoanProducts = async () => {
     try {
-      const res = await fetch(
-        `${API_BASE}/common/loan-products/loan-product-code`,
-        {
-          headers: getAuthHeaders(),
-        },
-      );
+      const res = await fetch(`${API_BASE}/common/loan-products/loan-product-code`, {
+        headers: getAuthHeaders(),
+      });
       const json = await safeJson(res);
       setProducts(json.data || []);
-    } catch (e) {
+    } catch {
       toast.error("Failed to load products");
-    } finally {
-      setLoading(false);
     }
   };
 
-  /* ================= LOAD APPLICATIONS BY BROKER ================= */
-
-  const loadApplicationsByBroker = async (brokerId: string, setter: any) => {
+  const loadApplicationsByBroker = async (brokerId: string, setter: React.Dispatch<React.SetStateAction<Application[]>>) => {
     try {
       const res = await fetch(
         `${API_BASE}/admin/applications?brokerOrgId=${brokerId}`,
-        { headers: getAuthHeaders() },
+        { headers: getAuthHeaders() }
       );
       const json = await safeJson(res);
       setter(json.data || []);
-    } catch (error) {
+    } catch {
       toast.error("Failed to load applications");
-    } finally {
-      setLoading(false);
     }
   };
-
-  /* ================= RIGHT TABLE LOAD ================= */
 
   const loadRightTable = async (brokerId: string, appId: string) => {
     try {
       setLoading(true);
       const res = await fetch(
         `${API_BASE}/admin/applications/${appId}/products?brokerOrgId=${brokerId}`,
-        { headers: getAuthHeaders() },
+        { headers: getAuthHeaders() }
       );
       const json = await safeJson(res);
       setItems(json.data || []);
-    } catch (e: any) {
+    } catch {
       toast.error("Failed to load configured products");
     } finally {
       setLoading(false);
     }
   };
 
-  /* ================= LEFT SAVE ================= */
-
   const handleAddConfig = async () => {
     if (!leftBrokerId || !formAppId || selectedProductCodes.length === 0) {
       toast.error("Please select broker, application and products");
       return;
     }
-
+    setSaving(true);
     try {
-      const res = await fetch(
-        `${API_BASE}/admin/applications/${formAppId}/products`,
-        {
-          method: "POST",
-          headers: getAuthHeaders(),
-          body: JSON.stringify({
-            brokerOrgId: leftBrokerId,
-            loanProductCodes: selectedProductCodes,
-          }),
-        },
-      );
-
+      const res = await fetch(`${API_BASE}/admin/applications/${formAppId}/products`, {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          brokerOrgId: leftBrokerId,
+          loanProductCodes: selectedProductCodes,
+        }),
+      });
       const json = await safeJson(res);
-
       if (!res.ok || json.success !== true) throw new Error(json.message);
-
       toast.success("Products configured successfully");
       setSelectedProductCodes([]);
-
       if (rightBrokerId === leftBrokerId && rightAppId === formAppId) {
         loadRightTable(rightBrokerId, rightAppId);
       }
-    } catch (e: any) {
-      toast.error(e.message || "Save failed");
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Save failed");
+    } finally {
+      setSaving(false);
     }
   };
-
-  /* ================= EFFECTS ================= */
 
   useEffect(() => {
     fetchBrokers();
@@ -171,18 +161,16 @@ const LoanApplicationConfig: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (leftBrokerId) {
-      loadApplicationsByBroker(leftBrokerId, setLeftApplications);
-    } else {
+    if (leftBrokerId) loadApplicationsByBroker(leftBrokerId, setLeftApplications);
+    else {
       setLeftApplications([]);
       setFormAppId("");
     }
   }, [leftBrokerId]);
 
   useEffect(() => {
-    if (rightBrokerId) {
-      loadApplicationsByBroker(rightBrokerId, setRightApplications);
-    } else {
+    if (rightBrokerId) loadApplicationsByBroker(rightBrokerId, setRightApplications);
+    else {
       setRightApplications([]);
       setRightAppId("");
       setItems([]);
@@ -190,111 +178,114 @@ const LoanApplicationConfig: React.FC = () => {
   }, [rightBrokerId]);
 
   useEffect(() => {
-    if (rightBrokerId && rightAppId) {
-      loadRightTable(rightBrokerId, rightAppId);
-    }
+    if (rightBrokerId && rightAppId) loadRightTable(rightBrokerId, rightAppId);
   }, [rightBrokerId, rightAppId]);
 
-  const selectClass =
-    "w-full rounded-lg border px-3 py-2 text-sm bg-white text-slate-900 border-slate-300 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700";
-
-  /* ================= UI ================= */
-
   return (
-    <div className="px-2 py-6 text-gray-900 dark:text-gray-100">
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-[#13538A] dark:text-indigo-600">
-          Loan Application Config
-        </h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400">
-          Map applications with loan products
-        </p>
+    <div className="space-y-6 px-4 py-6 md:px-6">
+      {/* Header */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#13538A] via-[#1a6aad] to-[#2d8de0] p-6 md:p-8 text-white shadow-lg">
+        <div className="absolute -right-8 -top-8 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
+        <div className="relative">
+          <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-medium backdrop-blur-sm">
+            <Link2 size={14} />
+            Product Mapping
+          </div>
+          <h1 className="text-2xl font-bold md:text-3xl">Loan Application Config</h1>
+          <p className="mt-1 max-w-2xl text-sm text-blue-100">
+            Link loan products to broker applications. Configure on the left, review mapped products on the right.
+          </p>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[390px_minmax(0,1fr)] gap-4">
-        {/* ================= LEFT ================= */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-5">
-          <h2 className="text-lg font-semibold mb-4">Configuration Form</h2>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[400px_minmax(0,1fr)]">
+        {/* Left — Configure */}
+        <div className="rounded-2xl border border-slate-200/80 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <div className="border-b border-slate-100 p-5 dark:border-slate-800">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400">
+                <Settings2 size={20} />
+              </div>
+              <div>
+                <h2 className="font-semibold text-slate-900 dark:text-white">Assign Products</h2>
+                <p className="text-xs text-slate-500">Step 1 → 2 → 3 → Save</p>
+              </div>
+            </div>
+          </div>
 
-          <div className="space-y-4">
+          <div className="space-y-5 p-5">
             <div>
-              <label className="block text-sm mb-1">Broker</label>
-              <select
-                className={selectClass}
-                value={leftBrokerId}
-                onChange={(e) => setLeftBrokerId(e.target.value)}
-              >
+              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                1. Broker
+              </label>
+              <select className={inputClass} value={leftBrokerId} onChange={(e) => setLeftBrokerId(e.target.value)}>
                 <option value="">Select Broker</option>
                 {brokers.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.name}
-                  </option>
+                  <option key={b.id} value={b.id}>{b.name}</option>
                 ))}
               </select>
             </div>
 
             {leftBrokerId && (
               <div>
-                <label className="block text-sm mb-1">Application</label>
-                <select
-                  className={selectClass}
-                  value={formAppId}
-                  onChange={(e) => setFormAppId(e.target.value)}
-                >
+                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  2. Application
+                </label>
+                <select className={inputClass} value={formAppId} onChange={(e) => setFormAppId(e.target.value)}>
                   <option value="">Select Application</option>
                   {leftApplications.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.name}
-                    </option>
+                    <option key={a.id} value={a.id}>{a.name}</option>
                   ))}
                 </select>
               </div>
             )}
 
             <div>
-              <label className="block text-sm font-medium mb-2">
-                Select Products
+              <label className="mb-2 flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <span>3. Loan Products</span>
+                {selectedProductCodes.length > 0 && (
+                  <span className="rounded-full bg-[#13538A]/10 px-2 py-0.5 text-[#13538A] normal-case">
+                    {selectedProductCodes.length} selected
+                  </span>
+                )}
               </label>
-
-              <div className="max-h-[260px] overflow-y-auto border border-slate-200 dark:border-slate-700 rounded-xl p-3 space-y-2 bg-white dark:bg-slate-900">
+              <div className="custom-scrollbar max-h-[280px] space-y-1.5 overflow-y-auto rounded-xl border border-slate-200 p-2 dark:border-slate-700">
                 {products.map((p) => {
                   const selected = selectedProductCodes.includes(p.code);
-
                   return (
                     <label
                       key={p.code}
-                      className={`flex items-center justify-between gap-3 p-2 rounded-lg cursor-pointer transition-all text-xs
-          ${
-            selected
-              ? "bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700"
-              : "hover:bg-slate-100 dark:hover:bg-slate-800"
-          }`}
+                      className={`flex cursor-pointer items-center justify-between gap-3 rounded-lg p-2.5 transition ${
+                        selected
+                          ? "border border-[#13538A]/30 bg-[#13538A]/5 dark:bg-indigo-900/20"
+                          : "border border-transparent hover:bg-slate-50 dark:hover:bg-slate-800"
+                      }`}
                     >
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={selected}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedProductCodes((prev) => [
-                                ...prev,
-                                p.code,
-                              ]);
-                            } else {
-                              setSelectedProductCodes((prev) =>
-                                prev.filter((x) => x !== p.code),
-                              );
-                            }
-                          }}
-                          className="w-4 h-4 accent-blue-600 cursor-pointer"
-                        />
-
-                        <span className="text-xs text-slate-700 dark:text-slate-200">
-                          {p.name}
-                        </span>
+                      <div className="flex items-center gap-2.5">
+                        <div
+                          className={`flex h-5 w-5 items-center justify-center rounded border ${
+                            selected
+                              ? "border-[#13538A] bg-[#13538A] text-white"
+                              : "border-slate-300 dark:border-slate-600"
+                          }`}
+                        >
+                          {selected && <Check size={12} />}
+                        </div>
+                        <span className="text-sm text-slate-700 dark:text-slate-200">{p.name}</span>
                       </div>
-
-                      <span className="text-xs text-slate-400">({p.code})</span>
+                      <span className="text-[10px] font-medium text-slate-400">{p.code}</span>
+                      <input
+                        type="checkbox"
+                        className="sr-only"
+                        checked={selected}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedProductCodes((prev) => [...prev, p.code]);
+                          } else {
+                            setSelectedProductCodes((prev) => prev.filter((x) => x !== p.code));
+                          }
+                        }}
+                      />
                     </label>
                   );
                 })}
@@ -303,82 +294,111 @@ const LoanApplicationConfig: React.FC = () => {
 
             <button
               onClick={handleAddConfig}
-              className="w-full bg-[#13538A] hover:bg-[#2e87d4] text-white py-2 rounded-lg text-sm"
+              disabled={saving || !leftBrokerId || !formAppId || selectedProductCodes.length === 0}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#13538A] py-2.5 text-sm font-semibold text-white transition hover:bg-[#1a6aad] disabled:cursor-not-allowed disabled:opacity-50"
             >
+              {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
               Save Configuration
             </button>
           </div>
         </div>
 
-        {/* ================= RIGHT ================= */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-5">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            <div>
-              <label className="block text-sm mb-1">Broker</label>
-              <select
-                className={selectClass}
-                value={rightBrokerId}
-                onChange={(e) => setRightBrokerId(e.target.value)}
-              >
-                <option value="">Select Broker</option>
-                {brokers.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {rightBrokerId && (
+        {/* Right — View */}
+        <div className="rounded-2xl border border-slate-200/80 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <div className="border-b border-slate-100 p-5 dark:border-slate-800">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-100 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400">
+                <Layers size={20} />
+              </div>
               <div>
-                <label className="block text-sm mb-1">Application</label>
-                <select
-                  className={selectClass}
-                  value={rightAppId}
-                  onChange={(e) => setRightAppId(e.target.value)}
-                >
-                  <option value="">Select Application</option>
-                  {rightApplications.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.name}
-                    </option>
+                <h2 className="font-semibold text-slate-900 dark:text-white">Configured Products</h2>
+                <p className="text-xs text-slate-500">Products linked to an application</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-4 p-5">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Broker
+                </label>
+                <select className={inputClass} value={rightBrokerId} onChange={(e) => setRightBrokerId(e.target.value)}>
+                  <option value="">Select Broker</option>
+                  {brokers.map((b) => (
+                    <option key={b.id} value={b.id}>{b.name}</option>
                   ))}
                 </select>
               </div>
+              {rightBrokerId && (
+                <div>
+                  <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Application
+                  </label>
+                  <select className={inputClass} value={rightAppId} onChange={(e) => setRightAppId(e.target.value)}>
+                    <option value="">Select Application</option>
+                    {rightApplications.map((a) => (
+                      <option key={a.id} value={a.id}>{a.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+
+            {!rightAppId ? (
+              <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 py-16 text-center dark:border-slate-700">
+                <Package className="mb-3 text-slate-300" size={40} />
+                <p className="font-medium text-slate-600 dark:text-slate-300">Select broker & application</p>
+                <p className="mt-1 text-sm text-slate-400">View mapped loan products here</p>
+              </div>
+            ) : loading ? (
+              <div className="flex justify-center py-16">
+                <Loader2 className="animate-spin text-[#13538A]" size={28} />
+              </div>
+            ) : items.length === 0 ? (
+              <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-amber-200 bg-amber-50/50 py-16 text-center dark:border-amber-800 dark:bg-amber-900/10">
+                <Sparkles className="mb-3 text-amber-500" size={36} />
+                <p className="font-medium text-amber-800 dark:text-amber-300">No products configured</p>
+                <p className="mt-1 text-sm text-amber-600 dark:text-amber-400">
+                  Assign products from the left panel
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  {items.length} product{items.length !== 1 ? "s" : ""} mapped
+                </p>
+                {items.map((item) => (
+                  <div
+                    key={item.id}
+                    className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 transition hover:border-[#13538A]/30 dark:border-slate-700 dark:bg-slate-800/50"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white shadow-sm dark:bg-slate-900">
+                        <Package size={16} className="text-[#13538A]" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-slate-800 dark:text-slate-100">
+                          {formatProductCode(item.loanProductCode)}
+                        </p>
+                        <p className="text-xs text-slate-400">{item.loanProductCode}</p>
+                      </div>
+                    </div>
+                    <span
+                      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${
+                        item.isActive
+                          ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400"
+                          : "bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-400"
+                      }`}
+                    >
+                      <ChevronRight size={10} />
+                      {item.isActive ? "Active" : "Inactive"}
+                    </span>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
-
-          {!rightAppId && (
-            <div className="text-center text-slate-400 py-20 border-2 border-dashed rounded-xl">
-              Select broker & application to view products
-            </div>
-          )}
-
-          {rightAppId && !loading && items.length === 0 && (
-            <div className="text-center py-20 border-2 border-dashed rounded-xl">
-              <div className="text-blue-500 text-4xl mb-2">➕</div>
-              <div className="font-semibold">No products configured</div>
-              <div className="text-sm text-slate-400">Add from left panel</div>
-            </div>
-          )}
-
-          {rightAppId && loading && (
-            <div className="text-sm text-slate-400">Loading...</div>
-          )}
-
-          {items.map((item) => (
-            <div
-              key={item.id}
-              className="flex justify-between border border-slate-200 dark:border-slate-700 p-3 rounded mb-2"
-            >
-              <div>{item.loanProductCode}</div>
-              <span
-                className={`text-xs px-3 py-1 rounded-full ${item.isActive ? "bg-emerald-100 text-emerald-700" : "bg-gray-200 text-gray-700"}`}
-              >
-                {item.isActive ? "ACTIVE" : "INACTIVE"}
-              </span>
-            </div>
-          ))}
         </div>
       </div>
     </div>

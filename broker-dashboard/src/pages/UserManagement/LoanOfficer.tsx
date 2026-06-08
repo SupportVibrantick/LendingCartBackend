@@ -1,10 +1,33 @@
-import { Trash2, Users, Eye, EyeOff } from "lucide-react";
-import { useEffect, useState } from "react";
+import {
+  ArrowUpDown,
+  Calendar,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronUp,
+  Eye,
+  EyeOff,
+  Mail,
+  Pencil,
+  Phone,
+  Plus,
+  RefreshCw,
+  Search,
+  Trash2,
+  UserCheck,
+  Users,
+  UserX,
+  Activity,
+  X,
+} from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router";
 import toast from "react-hot-toast";
 import Swal from "sweetalert2";
-import Select from "react-select";
+// import Select from "react-select";
+import PageMeta from "../../components/common/PageMeta";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "";
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
 interface LoanOfficer {
   id: string;
@@ -113,12 +136,12 @@ export const PERMISSIONS = [
   },
 ];
 
-const permissionOptions = PERMISSIONS.flatMap((group) =>
-  group.items.map((item) => ({
-    label: `${group.title} - ${item.label}`,
-    value: item.key,
-  })),
-);
+// const permissionOptions = PERMISSIONS.flatMap((group) =>
+//   group.items.map((item) => ({
+//     label: `${group.title} - ${item.label}`,
+//     value: item.key,
+//   })),
+// );
 
 export const US_STATES = [
   { code: "AL", name: "Alabama" },
@@ -194,6 +217,67 @@ const formatZip = (value: string) => {
   return `${digits.slice(0, 5)}-${digits.slice(5)}`;
 };
 
+const AVATAR_TONES = [
+  "bg-blue-100 text-blue-700",
+  "bg-violet-100 text-violet-700",
+  "bg-emerald-100 text-emerald-700",
+  "bg-amber-100 text-amber-700",
+];
+
+function getInitials(first?: string, last?: string) {
+  return `${first?.charAt(0) || ""}${last?.charAt(0) || ""}`.toUpperCase() || "?";
+}
+
+function getAvatarTone(seed: string) {
+  const index = seed.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  return AVATAR_TONES[index % AVATAR_TONES.length];
+}
+
+function formatDate(value?: string) {
+  if (!value) return "—";
+  return new Date(value).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+type SortKey = "name" | "email" | "phone" | "status" | "createdAt";
+type SortDir = "asc" | "desc";
+
+function SortHeader({
+  label,
+  active,
+  direction,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  direction: SortDir;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`group inline-flex w-full items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-gray-500 transition hover:text-[#13538A] ${
+        active ? "text-[#13538A]" : ""
+      }`}
+    >
+      {label}
+      {active ? (
+        direction === "asc" ? (
+          <ChevronUp className="h-3.5 w-3.5" />
+        ) : (
+          <ChevronDown className="h-3.5 w-3.5" />
+        )
+      ) : (
+        <ArrowUpDown className="h-3.5 w-3.5 opacity-0 transition group-hover:opacity-60" />
+      )}
+    </button>
+  );
+}
+
 type FormState = typeof initialFormState;
 
 const basicFields: {
@@ -216,17 +300,20 @@ const inputStyle =
   "w-full px-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 transition-all outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600";
 
 export default function LoanOfficersPage() {
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialQuery = searchParams.get("q") || "";
   const [officers, setOfficers] = useState<LoanOfficer[]>([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
   const [limit] = useState(10);
   const [totalPages, setTotalPages] = useState(1);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(initialQuery);
   const [showModal, setShowModal] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [viewOfficer, setViewOfficer] = useState<LoanOfficer | null>(null);
-  const [debouncedSearch, setDebouncedSearch] = useState(search);
+  const [debouncedSearch, setDebouncedSearch] = useState(initialQuery);
   const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
 
   const [form, setForm] = useState(initialFormState);
@@ -236,6 +323,9 @@ export default function LoanOfficersPage() {
     confirmPassword: false,
   });
   const [editOfficer, setEditOfficer] = useState<LoanOfficer | null>(null);
+  const [statusFilter, setStatusFilter] = useState<"" | "ACTIVE" | "DISABLED">("");
+  const [sortKey, setSortKey] = useState<SortKey>("createdAt");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
 
   const updateField = (key: keyof FormState, value: any) => {
     setForm((prev) => ({
@@ -371,12 +461,111 @@ export default function LoanOfficersPage() {
   }, [search]);
 
   useEffect(() => {
+    const q = search.trim();
+    if (q) {
+      setSearchParams({ q }, { replace: true });
+    } else if (searchParams.has("q")) {
+      setSearchParams({}, { replace: true });
+    }
+  }, [search]);
+
+  useEffect(() => {
     setPage(1);
   }, [debouncedSearch]);
 
   useEffect(() => {
     fetchOfficers();
   }, [page, debouncedSearch]);
+
+  const filteredOfficers = useMemo(() => {
+    if (!statusFilter) return officers;
+    return officers.filter((o) => o.status === statusFilter);
+  }, [officers, statusFilter]);
+
+  const sortedOfficers = useMemo(() => {
+    const list = [...filteredOfficers];
+
+    list.sort((a, b) => {
+      let cmp = 0;
+
+      switch (sortKey) {
+        case "name":
+          cmp = `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`);
+          break;
+        case "email":
+          cmp = a.email.localeCompare(b.email);
+          break;
+        case "phone":
+          cmp = (a.phone || "").localeCompare(b.phone || "");
+          break;
+        case "status":
+          cmp = a.status.localeCompare(b.status);
+          break;
+        case "createdAt":
+          cmp = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+          break;
+      }
+
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+
+    return list;
+  }, [filteredOfficers, sortKey, sortDir]);
+
+  const stats = useMemo(
+    () => ({
+      total: officers.length,
+      active: officers.filter((o) => o.status === "ACTIVE").length,
+      disabled: officers.filter((o) => o.status === "DISABLED").length,
+    }),
+    [officers],
+  );
+
+  const toggleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir(key === "createdAt" ? "desc" : "asc");
+    }
+  };
+
+  const openCreateModal = () => {
+    setErrors({});
+    setEditOfficer(null);
+    setForm(initialFormState);
+    setSelectedPermissions([]);
+    setShowModal(true);
+  };
+
+  const openEditModal = (o: LoanOfficer) => {
+    setErrors({});
+    setEditOfficer(o);
+    setForm({
+      ...initialFormState,
+      email: o.email,
+      confirmEmail: o.email,
+      firstName: o.firstName,
+      lastName: o.lastName,
+      phone: o.phone || "",
+      company: o.profile?.company || "",
+      tollFree: o.profile?.tollFree || "",
+      tollFreeExt: o.profile?.tollFreeExt || "",
+      serviceProvider: o.profile?.serviceProvider || "Internal",
+      address: o.profile?.address || "",
+      suite: o.profile?.suite || "",
+      city: o.profile?.city || "",
+      state: o.profile?.state || "",
+      zipCode: o.profile?.zipCode || "",
+      licenseNumber: o.profile?.licenseNumber || "",
+      preferredComm: o.profile?.preferredComm || "EMAIL",
+      website: o.profile?.website?.replace(/^https?:\/\/(www\.)?/, "") || "",
+      agentType: o.profile?.agentType || "Loan Officer",
+      avatarPreview: o.profile?.avatarUrl ? `${API_BASE}${o.profile.avatarUrl}` : "",
+    });
+    setSelectedPermissions(o.permissions || []);
+    setShowModal(true);
+  };
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -720,13 +909,13 @@ export default function LoanOfficersPage() {
     }
   };
 
-  const getPermissionLabel = (key: string) => {
-    for (const group of PERMISSIONS) {
-      const found = group.items.find((i) => i.key === key);
-      if (found) return found.label;
-    }
-    return key;
-  };
+  // const getPermissionLabel = (key: string) => {
+  //   for (const group of PERMISSIONS) {
+  //     const found = group.items.find((i) => i.key === key);
+  //     if (found) return found.label;
+  //   }
+  //   return key;
+  // };
 
   const InfoItem = ({ label, value }: { label: string; value: any }) => (
     <div className="space-y-1">
@@ -750,430 +939,465 @@ export default function LoanOfficersPage() {
     </div>
   );
 
-  const isDark = document.documentElement.classList.contains("dark");
+  // const isDark = document.documentElement.classList.contains("dark");
 
-  const customSelectStyles = {
-    control: (base: any, state: any) => ({
-      ...base,
-      backgroundColor: isDark ? "#0f172a" : "#ffffff",
-      borderColor: state.isFocused ? "#6366f1" : isDark ? "#334155" : "#cbd5f5",
-      boxShadow: "none",
-      minHeight: "42px",
-      borderRadius: "10px",
-      padding: "2px",
-      ":hover": {
-        borderColor: "#6366f1",
-      },
-    }),
+  // const customSelectStyles = {
+  //   control: (base: any, state: any) => ({
+  //     ...base,
+  //     backgroundColor: isDark ? "#0f172a" : "#ffffff",
+  //     borderColor: state.isFocused ? "#6366f1" : isDark ? "#334155" : "#cbd5f5",
+  //     boxShadow: "none",
+  //     minHeight: "42px",
+  //     borderRadius: "10px",
+  //     padding: "2px",
+  //     ":hover": {
+  //       borderColor: "#6366f1",
+  //     },
+  //   }),
 
-    menu: (base: any) => ({
-      ...base,
-      backgroundColor: isDark ? "#0f172a" : "#ffffff",
-      border: `1px solid ${isDark ? "#334155" : "#e2e8f0"}`,
-      borderRadius: "10px",
-      overflow: "hidden",
-      zIndex: 9999,
-    }),
+  //   menu: (base: any) => ({
+  //     ...base,
+  //     backgroundColor: isDark ? "#0f172a" : "#ffffff",
+  //     border: `1px solid ${isDark ? "#334155" : "#e2e8f0"}`,
+  //     borderRadius: "10px",
+  //     overflow: "hidden",
+  //     zIndex: 9999,
+  //   }),
 
-    option: (base: any, state: any) => ({
-      ...base,
-      backgroundColor: state.isFocused
-        ? isDark
-          ? "#1e293b"
-          : "#f1f5f9"
-        : "transparent",
-      color: isDark ? "#e2e8f0" : "#0f172a",
-      cursor: "pointer",
-    }),
+  //   option: (base: any, state: any) => ({
+  //     ...base,
+  //     backgroundColor: state.isFocused
+  //       ? isDark
+  //         ? "#1e293b"
+  //         : "#f1f5f9"
+  //       : "transparent",
+  //     color: isDark ? "#e2e8f0" : "#0f172a",
+  //     cursor: "pointer",
+  //   }),
 
-    multiValue: (base: any) => ({
-      ...base,
-      backgroundColor: isDark ? "#1e293b" : "#e2e8f0",
-      borderRadius: "6px",
-    }),
+  //   multiValue: (base: any) => ({
+  //     ...base,
+  //     backgroundColor: isDark ? "#1e293b" : "#e2e8f0",
+  //     borderRadius: "6px",
+  //   }),
 
-    multiValueLabel: (base: any) => ({
-      ...base,
-      color: isDark ? "#e2e8f0" : "#0f172a",
-    }),
+  //   multiValueLabel: (base: any) => ({
+  //     ...base,
+  //     color: isDark ? "#e2e8f0" : "#0f172a",
+  //   }),
 
-    multiValueRemove: (base: any) => ({
-      ...base,
-      color: isDark ? "#94a3b8" : "#475569",
-      ":hover": {
-        backgroundColor: isDark ? "#334155" : "#cbd5f5",
-        color: isDark ? "#fff" : "#000",
-      },
-    }),
+  //   multiValueRemove: (base: any) => ({
+  //     ...base,
+  //     color: isDark ? "#94a3b8" : "#475569",
+  //     ":hover": {
+  //       backgroundColor: isDark ? "#334155" : "#cbd5f5",
+  //       color: isDark ? "#fff" : "#000",
+  //     },
+  //   }),
 
-    input: (base: any) => ({
-      ...base,
-      color: isDark ? "#e2e8f0" : "#0f172a",
-    }),
+  //   input: (base: any) => ({
+  //     ...base,
+  //     color: isDark ? "#e2e8f0" : "#0f172a",
+  //   }),
 
-    placeholder: (base: any) => ({
-      ...base,
-      color: isDark ? "#94a3b8" : "#64748b",
-    }),
+  //   placeholder: (base: any) => ({
+  //     ...base,
+  //     color: isDark ? "#94a3b8" : "#64748b",
+  //   }),
 
-    singleValue: (base: any) => ({
-      ...base,
-      color: isDark ? "#e2e8f0" : "#0f172a",
-    }),
-  };
+  //   singleValue: (base: any) => ({
+  //     ...base,
+  //     color: isDark ? "#e2e8f0" : "#0f172a",
+  //   }),
+  // };
 
   return (
-    <div className="p-6 bg-gray-50 dark:bg-slate-900 min-h-screen transition-colors">
-      {/* Header + Controls */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8 gap-4">
-        {/* Left: Heading */}
-        <div>
-          <h1
-            className="text-3xl font-bold"
-            style={{
-              color: "var(--primary-color)",
-            }}
-          >
-            Loan Officers
-          </h1>
-          <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">
-            Manage and monitor all your loan officers in one place 
-          </p>
+    <>
+      <PageMeta title="Loan Officers | Broker Dashboard" description="Manage loan officers" />
+
+      <div className="space-y-6">
+        {/* Hero */}
+        <div className="overflow-hidden rounded-2xl border border-[#13538A]/15 bg-gradient-to-br from-[#13538A] via-[#1a6aad] to-[#2C92D5] p-6 text-white shadow-sm sm:p-8">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-widest text-white/70">
+                CRM · Team
+              </p>
+              <h1 className="mt-1 text-2xl font-bold sm:text-3xl">Loan Officers</h1>
+              <p className="mt-2 max-w-xl text-sm text-white/80">
+                Manage and monitor all your loan officers in one place.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              <div className="rounded-xl bg-white/10 px-4 py-3 backdrop-blur-sm">
+                <p className="text-xs text-white/70">Total (page)</p>
+                <p className="text-2xl font-bold">{stats.total}</p>
+              </div>
+              <div className="rounded-xl bg-white/10 px-4 py-3 backdrop-blur-sm">
+                <p className="flex items-center gap-1 text-xs text-white/70">
+                  <UserCheck className="h-3 w-3" /> Active
+                </p>
+                <p className="text-2xl font-bold">{stats.active}</p>
+              </div>
+              <div className="rounded-xl bg-white/10 px-4 py-3 backdrop-blur-sm">
+                <p className="flex items-center gap-1 text-xs text-white/70">
+                  <UserX className="h-3 w-3" /> Disabled
+                </p>
+                <p className="text-2xl font-bold">{stats.disabled}</p>
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* Right: Search + Button */}
-        <div className="flex items-center gap-4">
-          <div className="relative w-72">
-            <input
-              placeholder="Search loan officers..."
-              className="w-full border border-gray-300 dark:border-slate-600
-bg-white dark:bg-slate-800
-text-gray-800 dark:text-slate-200
-focus:border-indigo-500 focus:ring-2
-focus:ring-indigo-200 dark:focus:ring-indigo-500/30
-rounded-xl py-2.5 pl-10 pr-10
-outline-none transition-all text-sm"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
+        {/* Toolbar */}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-1 flex-wrap items-center gap-3">
+            <div className="relative min-w-[220px] flex-1 sm:max-w-xs">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <input
+                placeholder="Search loan officers..."
+                className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-10 text-sm text-gray-800 outline-none transition focus:border-[#13538A]/40 focus:ring-2 focus:ring-[#13538A]/10 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
 
-            {/* Search Icon */}
-            <svg
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-              width="18"
-              height="18"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              viewBox="0 0 24 24"
+            <div className="flex rounded-xl border border-gray-200 bg-white p-1 dark:border-gray-700 dark:bg-gray-900">
+              {(["", "ACTIVE", "DISABLED"] as const).map((value) => (
+                <button
+                  key={value || "all"}
+                  type="button"
+                  onClick={() => setStatusFilter(value)}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+                    statusFilter === value
+                      ? "bg-[#13538A] text-white shadow-sm"
+                      : "text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800"
+                  }`}
+                >
+                  {value === "" ? "All" : value === "ACTIVE" ? "Active" : "Disabled"}
+                </button>
+              ))}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => fetchOfficers()}
+              disabled={loading}
+              className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
             >
-              <circle cx="11" cy="11" r="8" />
-              <path d="m21 21-4.3-4.3" />
-            </svg>
-
-            {/* Clear Button */}
-            {search && (
-              <button
-                onClick={() => setSearch("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500"
-              >
-                ✕
-              </button>
-            )}
+              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+              Refresh
+            </button>
           </div>
 
-          {/* Create Button */}
           <button
-            onClick={() => {
-              setErrors({});
-              setEditOfficer(null);
-              setForm(initialFormState);
-              setShowModal(true);
-            }}
-            className="bg-[#2C92D5] hover:bg-[#1d80c2] 
-                 text-white px-5 py-2.5 rounded-xl 
-                 shadow-sm hover:shadow-md 
-                 transition-all duration-200 text-sm"
+            type="button"
+            onClick={openCreateModal}
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#13538A] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#1a6aad]"
           >
-            + Create Loan Officer
+            <Plus className="h-4 w-4" />
+            Create Loan Officer
           </button>
         </div>
-      </div>
 
-      {/* Table */}
-      <div
-        className="bg-white dark:bg-slate-800
-rounded-2xl shadow-sm
-border border-gray-200 dark:border-slate-700
-overflow-hidden transition-colors"
-      >
-        <table className="w-full text-sm">
-          {/* Header */}
-          <thead
-            className="bg-gradient-to-r 
-    from-indigo-50 to-purple-50
-    dark:from-slate-800 dark:to-slate-800
-    border-b border-gray-200 dark:border-slate-700"
-          >
-            <tr className="text-gray-600 dark:text-slate-400 uppercase text-xs tracking-wider">
-              <th className="p-4 text-left">Name</th>
-              <th className="p-4 text-left">Email</th>
-              <th className="p-4 text-left">Phone</th>
-              <th className="p-4 text-left">Status</th>
-              <th className="p-4 text-left">Created</th>
-              <th className="p-4 text-right">Actions</th>
-            </tr>
-          </thead>
-
-          {/* Body */}
-          <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
-            {loading ? (
-              <tr>
-                <td
-                  colSpan={6}
-                  className="p-10 text-center text-gray-400 dark:text-slate-500"
+        {/* Table */}
+        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
+          {loading ? (
+            <div className="divide-y divide-gray-100 dark:divide-gray-800">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="flex animate-pulse items-center gap-4 px-6 py-4">
+                  <div className="h-4 w-6 rounded bg-gray-100 dark:bg-gray-800" />
+                  <div className="h-11 w-11 rounded-xl bg-gray-100 dark:bg-gray-800" />
+                  <div className="h-4 flex-1 rounded bg-gray-100 dark:bg-gray-800" />
+                  <div className="h-4 w-32 rounded bg-gray-100 dark:bg-gray-800" />
+                  <div className="h-6 w-16 rounded-full bg-gray-100 dark:bg-gray-800" />
+                </div>
+              ))}
+            </div>
+          ) : sortedOfficers.length === 0 ? (
+            <div className="flex flex-col items-center py-20 text-center">
+              <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#13538A]/10 text-[#13538A]">
+                <Users size={24} />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                {search || statusFilter ? "No matching loan officers" : "No loan officers yet"}
+              </h3>
+              <p className="mt-1 max-w-md text-sm text-gray-500">
+                {search || statusFilter
+                  ? "Try adjusting your search or status filter."
+                  : "Create your first loan officer to start building your team."}
+              </p>
+              {!search && !statusFilter && (
+                <button
+                  type="button"
+                  onClick={openCreateModal}
+                  className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[#13538A] px-4 py-2 text-sm font-medium text-white hover:bg-[#1a6aad]"
                 >
-                  Loading...
-                </td>
-              </tr>
-            ) : officers.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="p-10">
-                  <div className="flex flex-col items-center justify-center text-center space-y-4">
-                    <div
-                      className="bg-indigo-100 dark:bg-indigo-900/30 
-              text-indigo-600 dark:text-indigo-400 
-              rounded-full p-4"
-                    >
-                      <Users size={32} />
-                    </div>
+                  <Plus className="h-4 w-4" />
+                  Create Loan Officer
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="max-h-[min(560px,calc(100vh-22rem))] overflow-auto">
+              <table className="w-full min-w-[980px] border-collapse text-left">
+                <thead className="sticky top-0 z-10 bg-gray-50 shadow-[0_1px_0_0_rgb(229_231_235)] dark:bg-gray-800 dark:shadow-[0_1px_0_0_rgb(31_41_55)]">
+                  <tr>
+                    <th className="w-12 px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-gray-400">
+                      #
+                    </th>
+                    <th className="px-4 py-3.5">
+                      <SortHeader
+                        label="Name"
+                        active={sortKey === "name"}
+                        direction={sortDir}
+                        onClick={() => toggleSort("name")}
+                      />
+                    </th>
+                    <th className="px-4 py-3.5">
+                      <SortHeader
+                        label="Email"
+                        active={sortKey === "email"}
+                        direction={sortDir}
+                        onClick={() => toggleSort("email")}
+                      />
+                    </th>
+                    <th className="px-4 py-3.5">
+                      <SortHeader
+                        label="Phone"
+                        active={sortKey === "phone"}
+                        direction={sortDir}
+                        onClick={() => toggleSort("phone")}
+                      />
+                    </th>
+                    <th className="px-4 py-3.5">
+                      <SortHeader
+                        label="Status"
+                        active={sortKey === "status"}
+                        direction={sortDir}
+                        onClick={() => toggleSort("status")}
+                      />
+                    </th>
+                    <th className="px-4 py-3.5">
+                      <SortHeader
+                        label="Created"
+                        active={sortKey === "createdAt"}
+                        direction={sortDir}
+                        onClick={() => toggleSort("createdAt")}
+                      />
+                    </th>
+                    <th className="px-4 py-3.5 text-right">
+                      <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+                        Actions
+                      </span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedOfficers.map((o, index) => {
+                    const fullName = `${o.firstName} ${o.lastName}`.trim();
+                    const isActive = o.status === "ACTIVE";
 
-                    <div>
-                      <p className="text-lg font-semibold text-gray-700 dark:text-slate-200">
-                        No Loan Officers Found
-                      </p>
-                      <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">
-                        Try adjusting your search or create a new loan officer.
-                      </p>
-                    </div>
-                  </div>
-                </td>
-              </tr>
-            ) : (
-              officers.map((o) => (
-                <tr
-                  key={o.id}
-                  className="hover:bg-indigo-50/40 
-            dark:hover:bg-slate-700/40 
-            transition-all duration-200"
-                >
-                  {/* Name */}
-                  <td className="p-4">
-                    <div className="flex items-center gap-3">
-                      {/* Avatar */}
-                      <div
-                        className="h-12 w-12 rounded-full overflow-hidden
-                bg-slate-100 dark:bg-slate-700
-                border border-gray-200 dark:border-slate-600
-                flex-shrink-0"
+                    return (
+                      <tr
+                        key={o.id}
+                        className={`group border-b border-gray-100 transition last:border-b-0 dark:border-gray-800 ${
+                          isActive
+                            ? "hover:bg-[#13538A]/[0.04] dark:hover:bg-gray-800/60"
+                            : "bg-gray-50/40 hover:bg-gray-100/60 dark:bg-gray-900/30 dark:hover:bg-gray-800/60"
+                        }`}
                       >
-                        {o.profile?.avatarUrl ? (
-                          <img
-                            src={`${API_BASE}${o.profile?.avatarUrl}`}
-                            alt="avatar"
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <div
-                            className="h-full w-full flex items-center justify-center
-                    text-xs font-semibold
-                    text-slate-500 dark:text-slate-300"
-                          >
-                            {o.firstName?.charAt(0)}
-                            {o.lastName?.charAt(0)}
+                        <td className="px-4 py-4 text-xs font-medium text-gray-400">
+                          {(page - 1) * limit + index + 1}
+                        </td>
+
+                        <td className="px-4 py-4">
+                          <div className="flex items-center gap-3">
+                            <span className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl ring-2 ring-white dark:ring-gray-900">
+                              {o.profile?.avatarUrl ? (
+                                <img
+                                  src={`${API_BASE}${o.profile.avatarUrl}`}
+                                  alt={fullName}
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : (
+                                <span
+                                  className={`flex h-full w-full items-center justify-center text-sm font-bold ${getAvatarTone(fullName)}`}
+                                >
+                                  {getInitials(o.firstName, o.lastName)}
+                                </span>
+                              )}
+                              <span
+                                className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white dark:border-gray-900 ${
+                                  isActive ? "bg-emerald-500" : "bg-gray-400"
+                                }`}
+                              />
+                            </span>
+                            <div className="min-w-0">
+                              <p className="truncate font-semibold text-gray-900 dark:text-gray-100">
+                                {fullName}
+                              </p>
+                              <p className="truncate text-xs text-gray-400">
+                                {o.profile?.agentType || "Loan Officer"}
+                              </p>
+                            </div>
                           </div>
-                        )}
-                      </div>
+                        </td>
 
-                      {/* Name + Role */}
-                      <div>
-                        <p className="font-semibold text-gray-800 dark:text-slate-200">
-                          {o.firstName} {o.lastName}
-                        </p>
-                        <p className="text-xs text-gray-500 dark:text-slate-400">
-                          {o.profile?.agentType || "-"}
-                        </p>
-                      </div>
-                    </div>
-                  </td>
+                        <td className="px-4 py-4">
+                          <div className="flex max-w-[220px] items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-500 dark:bg-gray-800">
+                              <Mail className="h-3.5 w-3.5" />
+                            </span>
+                            <span className="truncate" title={o.email}>
+                              {o.email}
+                            </span>
+                          </div>
+                        </td>
 
-                  {/* Email */}
-                  <td className="p-4 text-gray-600 dark:text-slate-300">
-                    {o.email}
-                  </td>
+                        <td className="px-4 py-4">
+                          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-500 dark:bg-gray-800">
+                              <Phone className="h-3.5 w-3.5" />
+                            </span>
+                            {o.phone ? formatPhone(o.phone) : "—"}
+                          </div>
+                        </td>
 
-                  {/* Phone */}
-                  <td className="p-4 text-gray-600 dark:text-slate-300">
-                    {o.phone ? formatPhone(o.phone) : "-"}
-                  </td>
+                        <td className="px-4 py-4">
+                          <button
+                            type="button"
+                            disabled={togglingId === o.id}
+                            onClick={() => toggleStatus(o.id, o.status)}
+                            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition disabled:opacity-50 ${
+                              isActive
+                                ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/30"
+                                : "bg-gray-100 text-gray-600 ring-1 ring-gray-200 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:ring-gray-700"
+                            }`}
+                            title="Click to toggle status"
+                          >
+                            <span
+                              className={`h-1.5 w-1.5 rounded-full ${
+                                isActive ? "bg-emerald-500" : "bg-gray-400"
+                              }`}
+                            />
+                            {togglingId === o.id ? "Updating..." : isActive ? "Active" : "Disabled"}
+                          </button>
+                        </td>
 
-                  {/* Status */}
-                  <td className="p-4">
-                    <span
-                      onClick={() =>
-                        togglingId !== o.id && toggleStatus(o.id, o.status)
-                      }
-                      className={`px-3 py-1 rounded-full text-xs font-medium cursor-pointer transition-all duration-200
-                ${
-                  o.status === "ACTIVE"
-                    ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400"
-                    : "bg-red-100 text-red-600 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400"
-                }
-                ${togglingId === o.id ? "opacity-50 cursor-not-allowed" : ""}
-              `}
-                    >
-                      {togglingId === o.id ? "Updating..." : o.status}
-                    </span>
-                  </td>
+                        <td className="px-4 py-4">
+                          <div className="flex items-center gap-2 text-sm text-gray-500">
+                            <Calendar className="h-3.5 w-3.5 shrink-0 text-gray-400" />
+                            {formatDate(o.createdAt)}
+                          </div>
+                        </td>
 
-                  {/* Created */}
-                  <td className="p-4 text-gray-500 dark:text-slate-400">
-                    {new Date(o.createdAt).toLocaleDateString()}
-                  </td>
+                        <td className="px-4 py-4">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                navigate(`/loan-officer-activity?officer=${o.id}`)
+                              }
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-sky-600 transition hover:border-sky-200 hover:bg-sky-50 dark:border-gray-700 dark:bg-gray-900"
+                              title="View activity"
+                            >
+                              <Activity className="h-4 w-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setViewOfficer(o)}
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-[#13538A] transition hover:border-[#13538A]/30 hover:bg-[#13538A]/10 dark:border-gray-700 dark:bg-gray-900"
+                              title="View profile"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => openEditModal(o)}
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-amber-600 transition hover:border-amber-200 hover:bg-amber-50 dark:border-gray-700 dark:bg-gray-900"
+                              title="Edit loan officer"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDelete(o.id)}
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-red-600 transition hover:border-red-200 hover:bg-red-50 dark:border-gray-700 dark:bg-gray-900"
+                              title="Delete loan officer"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
 
-                  {/* Actions */}
-                  <td className="p-4 text-right space-x-2">
-                    {/* View */}
-                    <button
-                      onClick={() => setViewOfficer(o)}
-                      className="inline-flex items-center justify-center 
-                h-9 w-9 rounded-lg
-                bg-blue-50 hover:bg-blue-100
-                dark:bg-blue-900/30 dark:hover:bg-blue-900/50
-                text-blue-600 dark:text-blue-400
-                transition-all duration-200"
-                    >
-                      <Eye size={16} />
-                    </button>
-
-                    <button
-                      onClick={() => {
-                        setErrors({});
-                        setEditOfficer(o);
-
-                        setForm({
-                          ...initialFormState,
-                          email: o.email,
-                          confirmEmail: o.email,
-                          firstName: o.firstName,
-                          lastName: o.lastName,
-                          phone: o.phone || "",
-                          company: o.profile?.company || "",
-                          tollFree: o.profile?.tollFree || "",
-                          tollFreeExt: o.profile?.tollFreeExt || "",
-                          serviceProvider:
-                            o.profile?.serviceProvider || "Internal",
-                          address: o.profile?.address || "",
-                          suite: o.profile?.suite || "",
-                          city: o.profile?.city || "",
-                          state: o.profile?.state || "",
-                          zipCode: o.profile?.zipCode || "",
-                          licenseNumber: o.profile?.licenseNumber || "",
-                          preferredComm: o.profile?.preferredComm || "EMAIL",
-                          website:
-                            o.profile?.website?.replace(
-                              /^https?:\/\/(www\.)?/,
-                              "",
-                            ) || "",
-                          agentType: o.profile?.agentType || "Loan Officer",
-                          avatarPreview: o.profile?.avatarUrl
-                            ? `${API_BASE}${o.profile.avatarUrl}`
-                            : "",
-                        });
-
-                        setSelectedPermissions(o.permissions || []);
-
-                        setShowModal(true);
-                      }}
-                      className="inline-flex items-center justify-center 
-  h-9 w-9 rounded-lg
-  bg-yellow-50 hover:bg-yellow-100
-  dark:bg-yellow-900/30 dark:hover:bg-yellow-900/50
-  text-yellow-600 dark:text-yellow-400
-  transition-all duration-200"
-                    >
-                      ✎
-                    </button>
-
-                    {/* Delete */}
-                    <button
-                      onClick={() => handleDelete(o.id)}
-                      className="inline-flex items-center justify-center 
-                h-9 w-9 rounded-lg
-                bg-red-50 hover:bg-red-100
-                dark:bg-red-900/30 dark:hover:bg-red-900/50
-                text-red-600 dark:text-red-400
-                transition-all duration-200"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between mt-6">
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            Page{" "}
-            <span className="font-semibold text-slate-700 dark:text-slate-200">
-              {page}
-            </span>{" "}
-            of{" "}
-            <span className="font-semibold text-slate-700 dark:text-slate-200">
-              {totalPages}
-            </span>
-          </p>
-
-          <div className="flex gap-2">
-            <button
-              disabled={page === 1 || loading}
-              onClick={() => setPage((p) => Math.max(p - 1, 1))}
-              className="px-4 py-2 rounded-lg border
-            border-gray-200 dark:border-slate-600
-            bg-white dark:bg-slate-800
-            text-slate-700 dark:text-slate-200
-            hover:bg-slate-100 dark:hover:bg-slate-700
-            disabled:opacity-50
-            disabled:cursor-not-allowed
-            transition-colors"
-            >
-              Prev
-            </button>
-
-            <button
-              disabled={page === totalPages || loading}
-              onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
-              className="
-            px-4 py-2 rounded-lg border
-            border-gray-200 dark:border-slate-600
-            bg-white dark:bg-slate-800
-            text-slate-700 dark:text-slate-200
-            hover:bg-slate-100 dark:hover:bg-slate-700
-            disabled:opacity-50
-            disabled:cursor-not-allowed
-            transition-colors
-          "
-            >
-              Next
-            </button>
-          </div>
+          {!loading && sortedOfficers.length > 0 && (
+            <div className="flex flex-col gap-3 border-t border-gray-100 px-5 py-3 dark:border-gray-800 sm:flex-row sm:items-center sm:justify-between">
+              <span className="text-xs text-gray-500">
+                Showing{" "}
+                <span className="font-semibold text-gray-800 dark:text-gray-200">
+                  {sortedOfficers.length}
+                </span>{" "}
+                on page{" "}
+                <span className="font-semibold text-gray-800 dark:text-gray-200">{page}</span>
+                {statusFilter ? ` · filtered by ${statusFilter.toLowerCase()}` : ""}
+              </span>
+              <span className="text-xs text-gray-400">
+                Sorted by {sortKey.replace("createdAt", "created")} ({sortDir})
+              </span>
+            </div>
+          )}
         </div>
-      )}
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-4 py-3 dark:border-gray-800 dark:bg-gray-900">
+            <p className="text-sm text-gray-500">
+              Page{" "}
+              <span className="font-semibold text-gray-800 dark:text-gray-200">{page}</span> of{" "}
+              <span className="font-semibold text-gray-800 dark:text-gray-200">{totalPages}</span>
+            </p>
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                disabled={page === 1 || loading}
+                onClick={() => setPage((p) => Math.max(p - 1, 1))}
+                className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Prev
+              </button>
+              <button
+                type="button"
+                disabled={page === totalPages || loading}
+                onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
+                className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
+              >
+                Next
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
 
       {showModal && (
         <div className="fixed inset-0 bg-slate-900/60 dark:bg-black/80 backdrop-blur-md flex items-center justify-center z-[273797737392739] p-4 transition-colors">
@@ -1194,7 +1418,7 @@ bg-slate-50/60 dark:bg-slate-800"
                   {editOfficer ? "Edit Loan Officer" : "Create Loan Officer"}
                 </h2>
                 <p className="text-sm text-slate-500 dark:text-slate-400">
-                  Fill in the details to register a new officer in the system.
+                  Fill in the details to register a new officer in the system. 
                 </p>
               </div>
 
@@ -1705,7 +1929,7 @@ bg-slate-50/60 dark:bg-slate-800"
               </section>
 
               {/* Permissions */}
-              <section>
+              {/* <section>
                 <div className="flex items-center gap-2 mb-4">
                   <div className="h-8 w-1 bg-purple-500 rounded-full"></div>
                   <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
@@ -1727,7 +1951,7 @@ bg-slate-50/60 dark:bg-slate-800"
                   classNamePrefix="react-select"
                   styles={customSelectStyles}
                 />
-              </section>
+              </section> */}
 
               {/* Footer Controls */}
               <div
@@ -1970,7 +2194,7 @@ flex justify-between items-center"
               />
 
               {/* Permissions */}
-              <div className="md:col-span-2 space-y-2">
+              {/* <div className="md:col-span-2 space-y-2">
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                   Permissions
                 </p>
@@ -1994,11 +2218,11 @@ flex justify-between items-center"
                     </span>
                   )}
                 </div>
-              </div>
+              </div> */}
             </div>
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

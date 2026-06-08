@@ -21,6 +21,8 @@ module.exports = async function listBrokerLogs(fastify) {
               ]
             },
             action: { type: "string" },
+            officerId: { type: "string" },
+            loanOfficersOnly: { type: "boolean", default: false },
             fromDate: { type: "string", format: "date-time" },
             toDate: { type: "string", format: "date-time" }
           }
@@ -60,6 +62,8 @@ module.exports = async function listBrokerLogs(fastify) {
           limit = 10,
           category,
           action,
+          officerId,
+          loanOfficersOnly,
           fromDate,
           toDate
         } = req.query;
@@ -92,6 +96,19 @@ module.exports = async function listBrokerLogs(fastify) {
           if (toDate) where.createdAt.lte = new Date(toDate);
         }
 
+        if (officerId) {
+          where.actorUserId = officerId;
+        } else if (
+          loanOfficersOnly === true ||
+          loanOfficersOnly === "true"
+        ) {
+          where.actorUser = {
+            roles: {
+              some: { role: { name: "BROKER_OFFICER" } },
+            },
+          };
+        }
+
         /* =====================================
            4️⃣ FETCH LOGS + COUNT
         ====================================== */
@@ -108,7 +125,12 @@ module.exports = async function listBrokerLogs(fastify) {
                   id: true,
                   email: true,
                   firstName: true,
-                  lastName: true
+                  lastName: true,
+                  roles: {
+                    select: {
+                      role: { select: { name: true } },
+                    },
+                  },
                 }
               }
             }
@@ -130,7 +152,8 @@ module.exports = async function listBrokerLogs(fastify) {
             ? {
                 id: log.actorUser.id,
                 email: log.actorUser.email,
-                name: `${log.actorUser.firstName ?? ""} ${log.actorUser.lastName ?? ""}`.trim()
+                name: `${log.actorUser.firstName ?? ""} ${log.actorUser.lastName ?? ""}`.trim(),
+                roles: log.actorUser.roles?.map((r) => r.role?.name).filter(Boolean) || [],
               }
             : null,
           ipAddress: log.ipAddress,

@@ -2,6 +2,13 @@
  * Get single conversation details (FINAL - SAFE + ENHANCED)
  */
 
+const { assertConversationTypeAccess, isClientUser } = require("../../../../services/messagingAccess");
+const {
+  maskBrokerParticipantsForClient,
+  resolvePrincipalBrokerDisplay,
+} = require("../../../../services/brokerOfficerConversation");
+const { resolveClientDisplayName } = require("../../../../services/resolveClientDisplayName");
+
 module.exports = async function getConversationById(fastify) {
   fastify.get(
     "/conversation/:conversationId",
@@ -72,6 +79,17 @@ module.exports = async function getConversationById(fastify) {
           return reply.code(404).send({
             success: false,
             message: "Conversation not found",
+          });
+        }
+
+        const typeAccessError = assertConversationTypeAccess(
+          req,
+          conversation.type,
+        );
+        if (typeAccessError) {
+          return reply.code(typeAccessError.code).send({
+            success: false,
+            message: typeAccessError.message,
           });
         }
 
@@ -171,14 +189,15 @@ module.exports = async function getConversationById(fastify) {
           if (conversation.type === "CLIENT_BROKER") {
             const loan = await prisma.loanApplication.findUnique({
               where: { id: conversation.loanApplicationId },
-              select: {
-                client: {
-                  select: { legalName: true },
-                },
-              },
+              select: { clientId: true },
             });
 
-            title = `Client - ${loan?.client?.legalName || "Unknown"}`;
+            const clientName = await resolveClientDisplayName(prisma, {
+              clientId: loan?.clientId,
+              loanApplicationId: conversation.loanApplicationId,
+            });
+
+            title = `Client - ${clientName}`;
           }
 
           if (
@@ -258,6 +277,26 @@ module.exports = async function getConversationById(fastify) {
                 : `Sub Broker • ${subBrokerName}`;
           }
 
+          if (conversation.type === "BROKER_OFFICER") {
+            const loan = await prisma.loanApplication.findUnique({
+              where: { id: conversation.loanApplicationId },
+              select: {
+                brokerUser: {
+                  select: {
+                    firstName: true,
+                    lastName: true,
+                  },
+                },
+              },
+            });
+
+            const officerName =
+              `${loan?.brokerUser?.firstName || ""} ${
+                loan?.brokerUser?.lastName || ""
+              }`.trim() || "Loan Officer";
+            title = `Loan Officer • ${officerName}`;
+          }
+
           enrichedParticipants = conversation.participants.map((p) => {
             let name = "Unknown";
 
@@ -286,6 +325,30 @@ module.exports = async function getConversationById(fastify) {
         } catch (err) {
           console.error("Name enrichment failed:", err.message);
           enrichedParticipants = conversation.participants;
+        }
+
+        if (isClientUser(req) && conversation.type === "CLIENT_BROKER") {
+          const loan = await prisma.loanApplication.findUnique({
+            where: { id: conversation.loanApplicationId },
+            select: { brokerOrgId: true },
+          });
+
+          const principalBroker = await resolvePrincipalBrokerDisplay(
+            prisma,
+            loan?.brokerOrgId,
+          );
+
+          enrichedParticipants = maskBrokerParticipantsForClient(
+            enrichedParticipants,
+            principalBroker,
+          );
+        }
+
+        if (isClientUser(req) && conversation.type === "CLIENT_OFFICER") {
+          enrichedParticipants = enrichedParticipants.filter(
+            (p) =>
+              p.participantType === "CLIENT" || p.participantType === "BROKER",
+          );
         }
 
         /* ================= RESPONSE ================= */

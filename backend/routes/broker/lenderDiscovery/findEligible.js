@@ -102,6 +102,17 @@ module.exports = async function findEligibleLenders(fastify) {
           });
         }
 
+        const roles = req.user.roles || [];
+        if (roles.includes("BROKER_OFFICER")) {
+          const userId = req.user.id || req.user.userId;
+          if (application.brokerUserId !== userId) {
+            return reply.code(403).send({
+              success: false,
+              message: "Access denied - not assigned to you",
+            });
+          }
+        }
+
         if (application.status === "DRAFT") {
           return reply.code(400).send({
             success: false,

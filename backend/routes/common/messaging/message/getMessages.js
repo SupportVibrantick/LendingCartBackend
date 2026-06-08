@@ -2,6 +2,13 @@
  * Get messages of a conversation
  */
 
+const {
+  assertConversationTypeAccess,
+  isClientUser,
+} = require("../../../../services/messagingAccess");
+const { resolvePrincipalBrokerDisplay } = require("../../../../services/brokerOfficerConversation");
+const { resolveClientDisplayName } = require("../../../../services/resolveClientDisplayName");
+
 module.exports = async function getMessages(fastify) {
   fastify.get(
     "/conversation/:conversationId/messages",
@@ -58,6 +65,7 @@ module.exports = async function getMessages(fastify) {
           where: { id: conversationId },
           select: {
             id: true,
+            type: true,
             loanApplicationId: true,
             applicationLenderId: true,
           },
@@ -67,6 +75,17 @@ module.exports = async function getMessages(fastify) {
           return reply.code(404).send({
             success: false,
             message: "Conversation not found",
+          });
+        }
+
+        const typeAccessError = assertConversationTypeAccess(
+          req,
+          conversation.type,
+        );
+        if (typeAccessError) {
+          return reply.code(typeAccessError.code).send({
+            success: false,
+            message: typeAccessError.message,
           });
         }
 
@@ -209,6 +228,37 @@ module.exports = async function getMessages(fastify) {
           where: { conversationId },
         });
 
+        let clientBrokerDisplayName = null;
+        let resolvedClientDisplayName = null;
+
+        if (isClientUser(req) && conversation.type === "CLIENT_BROKER") {
+          const loan = await prisma.loanApplication.findUnique({
+            where: { id: conversation.loanApplicationId },
+            select: { brokerOrgId: true },
+          });
+
+          const principalBroker = await resolvePrincipalBrokerDisplay(
+            prisma,
+            loan?.brokerOrgId,
+          );
+
+          clientBrokerDisplayName = principalBroker.name;
+        }
+
+        if (conversation.loanApplicationId) {
+          const loan = await prisma.loanApplication.findUnique({
+            where: { id: conversation.loanApplicationId },
+            select: { clientId: true },
+          });
+
+          if (loan?.clientId) {
+            resolvedClientDisplayName = await resolveClientDisplayName(prisma, {
+              clientId: loan.clientId,
+              loanApplicationId: conversation.loanApplicationId,
+            });
+          }
+        }
+
         /* ================= FORMAT RESPONSE ================= */
 
         const formatted = messages.map((msg) => ({
@@ -235,30 +285,42 @@ module.exports = async function getMessages(fastify) {
           senderClientUserId: msg.senderClientUserId,
 
           senderName: (() => {
-            // Broker
-            if (msg.senderType === "BROKER" && msg.senderUserId) {
-              const broker = brokerMap.get(msg.senderUserId);
+            // Broker — clients always see principal broker / org name
+            if (msg.senderType === "BROKER") {
+              if (clientBrokerDisplayName) {
+                return clientBrokerDisplayName;
+              }
 
-              return (
-                broker?.organization?.name ||
-                `${broker?.firstName || ""} ${broker?.lastName || ""}`.trim() ||
-                "Broker"
-              );
+              if (msg.senderUserId) {
+                const broker = brokerMap.get(msg.senderUserId);
+
+                return (
+                  broker?.organization?.name ||
+                  `${broker?.firstName || ""} ${broker?.lastName || ""}`.trim() ||
+                  "Broker"
+                );
+              }
             }
 
             // Client
-            if (msg.senderType === "CLIENT" && msg.senderClientUserId) {
-              const client = clientMap.get(msg.senderClientUserId);
+            if (msg.senderType === "CLIENT") {
+              if (resolvedClientDisplayName) {
+                return resolvedClientDisplayName;
+              }
 
-              const primaryContact = client?.client?.contacts?.[0];
+              if (msg.senderClientUserId) {
+                const client = clientMap.get(msg.senderClientUserId);
 
-              return (
-                `${primaryContact?.firstName || ""} ${
-                  primaryContact?.lastName || ""
-                }`.trim() ||
-                client?.client?.legalName ||
-                "Client"
-              );
+                const primaryContact = client?.client?.contacts?.[0];
+
+                return (
+                  `${primaryContact?.firstName || ""} ${
+                    primaryContact?.lastName || ""
+                  }`.trim() ||
+                  client?.client?.legalName ||
+                  "Client"
+                );
+              }
             }
 
             return msg.senderName || null;

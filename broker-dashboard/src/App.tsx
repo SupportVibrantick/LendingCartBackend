@@ -46,6 +46,7 @@ import MyLenders from "./pages/LenderInteraction/MyLenders";
 import AddSection from "./pages/ApplicationBuilder/AddSection";
 import SubmitApplications from "./pages/submitedApplications/SubmitApplication";
 import LoanOfficer from "./pages/UserManagement/LoanOfficer";
+import LoanOfficerActivityPage from "./pages/UserManagement/LoanOfficerActivity";
 import ImpersonateLogin from "./pages/ImpersonateLogin";
 import LoanApplication from "./pages/LoanApplication/LoanApplication";
 import ContactPage from "./pages/Contacts/ContactPage";
@@ -64,6 +65,17 @@ import LoanPipeline from "./pages/subBroker/LoanPipeline/LoanPipeline";
 import SubBrokerLoanPreview from "./pages/subBroker/LoanPipeline/SubBrokerLoanPreview";
 import SubBrokerProtected from "./components/auth/SubBrokerProtected";
 import SubBrokerProfile from "./pages/subBroker/Auth/Profile";
+import LoanOfficerLayout from "./layout/LoanOfficerLayout";
+import LoanOfficerLogin from "./pages/loanOfficer/Auth/Login";
+import LoanOfficerProtected from "./components/auth/LoanOfficerProtected";
+import LoanOfficerSubmitApplications from "./pages/loanOfficer/LoanPipeline/SubmitApplication";
+import LoanOfficerLoanPreview from "./pages/loanOfficer/LoanPipeline/LoanPreview";
+import LoanOfficerProfile from "./pages/loanOfficer/Auth/Profile";
+import LoanOfficerDashboard from "./pages/loanOfficer/Dashboard/LoanOfficerDashboard";
+import LoanOfficerMessagesPage from "./pages/loanOfficer/Messages/LoanOfficerMessagesPage";
+import LoanOfficerApplication from "./pages/loanOfficer/LoanApplication/LoanApplication";
+import LoanOfficerContacts from "./pages/loanOfficer/Contacts/ContactPage";
+import MessagesPage from "./pages/Messages/MessagesPage";
 
 // type RequirePermissionProps = {
 //   children: ReactNode;
@@ -187,12 +199,23 @@ export default function App() {
             />
 
             <Route
-              path="/loan-officer"
+              path="/loan-officers"
               element={
                 isSubBrokerUser() ? (
                   <Navigate to="/" replace />
                 ) : (
                   <LoanOfficer />
+                )
+              }
+            />
+
+            <Route
+              path="/loan-officer-activity"
+              element={
+                isSubBrokerUser() ? (
+                  <Navigate to="/" replace />
+                ) : (
+                  <LoanOfficerActivityPage />
                 )
               }
             />
@@ -220,6 +243,8 @@ export default function App() {
                 // </RequirePermission>
               }
             />
+
+            <Route path="/messages" element={<MessagesPage />} />
 
             <Route
               index
@@ -323,6 +348,31 @@ export default function App() {
               path="profile"
               element={<SubBrokerProfile />}
             />
+          </Route>
+
+          {/* LOAN OFFICER PORTAL */}
+
+          <Route path="/loan-officer/login" element={<LoanOfficerLogin />} />
+
+          <Route
+            path="/loan-officer"
+            element={
+              <LoanOfficerProtected>
+                <LoanOfficerLayout />
+              </LoanOfficerProtected>
+            }
+          >
+            <Route index element={<Navigate to="dashboard" replace />} />
+            <Route path="dashboard" element={<LoanOfficerDashboard />} />
+            <Route path="loan-pipeline" element={<LoanOfficerSubmitApplications />} />
+            <Route
+              path="loan-pipeline-preview"
+              element={<LoanOfficerLoanPreview />}
+            />
+            <Route path="loan-application" element={<LoanOfficerApplication />} />
+            <Route path="contacts" element={<LoanOfficerContacts />} />
+            <Route path="messages" element={<LoanOfficerMessagesPage />} />
+            <Route path="profile" element={<LoanOfficerProfile />} />
           </Route>
 
           {/* <Route path="/customer" element={<CustomerLogin />} /> */}

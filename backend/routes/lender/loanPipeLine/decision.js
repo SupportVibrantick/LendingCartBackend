@@ -3,6 +3,10 @@ const sendMail = require("../../../services/mail");
 const {
   sendEmailUsingKafka,
 } = require("../../../services/kafka/email/producer");
+const {
+  notifyBroker,
+  BROKER_NOTIFICATION_EVENTS,
+} = require("../../../services/brokerNotifications");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
@@ -86,6 +90,9 @@ async function lenderDecisionRoutes(fastify) {
             lenderOrgId,
           },
           include: {
+            lender: {
+              select: { name: true },
+            },
             loanApplication: {
               include: {
                 client: true,
@@ -348,6 +355,39 @@ async function lenderDecisionRoutes(fastify) {
             });
           }
         }
+
+        const lenderName = record.lender?.name || "Lender";
+        const applicationNumber = record.loanApplication.applicationNumber;
+        const brokerOrgId = record.loanApplication.brokerOrgId;
+
+        const decisionEventMap = {
+          APPROVED: BROKER_NOTIFICATION_EVENTS.LENDER_DECISION_APPROVED,
+          DECLINED: BROKER_NOTIFICATION_EVENTS.LENDER_DECISION_DECLINED,
+          CONDITIONAL: BROKER_NOTIFICATION_EVENTS.LENDER_DECISION_CONDITIONAL,
+        };
+
+        const decisionBodyMap = {
+          APPROVED: `${lenderName} approved application ${applicationNumber}`,
+          DECLINED: `${lenderName} declined application ${applicationNumber}`,
+          CONDITIONAL: `${lenderName} requested additional documents for application ${applicationNumber}`,
+        };
+
+        await notifyBroker(prisma, fastify.io, {
+          brokerOrgId,
+          eventType: decisionEventMap[decision],
+          category: "LENDER",
+          subject: `Lender Decision: ${decision}`,
+          body: decisionBodyMap[decision],
+          metadata: {
+            applicationId: record.loanApplication.id,
+            applicationNumber,
+            applicationLenderId,
+            lenderName,
+            decision,
+            approvedAmount: decision === "APPROVED" ? approvedAmount : null,
+            interestRate: decision === "APPROVED" ? interestRate : null,
+          },
+        });
 
         return reply.send({
           success: true,

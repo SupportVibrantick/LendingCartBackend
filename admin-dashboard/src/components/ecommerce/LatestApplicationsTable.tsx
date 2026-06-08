@@ -54,6 +54,31 @@ export default function LatestApplicationsTable({ applications }: Props) {
       year: "numeric",
     });
 
+  const formatProduct = (product?: string | null) =>
+    (product || "—").replace(/_/g, " ");
+
+  const formatAmount = (amount?: number | string | null) => {
+    if (amount == null || amount === "") return "—";
+    const value = Number(amount);
+    if (Number.isNaN(value) || value <= 0) return "—";
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      maximumFractionDigits: 0,
+    }).format(value);
+  };
+
+  const formatLenders = (app: any) => {
+    const count = app.lenderCount ?? 0;
+    const names = app.lenderNames as string[] | undefined;
+
+    if (count > 0 && names?.length) {
+      return names.length === 1 ? names[0] : `${count} lenders`;
+    }
+
+    return count > 0 ? String(count) : "—";
+  };
+
   useEffect(() => {
     setCurrentPage(1);
   }, [search]);
@@ -141,19 +166,26 @@ export default function LatestApplicationsTable({ applications }: Props) {
                   </td>
 
                   <td className="px-6 py-4 text-xs text-slate-600 dark:text-slate-300">
-                    {app.clientName}
+                    {app.clientName || "—"}
                   </td>
 
                   <td className="px-6 py-4 text-xs text-slate-600 dark:text-slate-300">
-                    {app.product.replace("_", " ")}
+                    {formatProduct(app.product)}
                   </td>
 
-                  <td className="px-6 text-xs py-4 text-slate-600 dark:text-slate-300">
-                    {app.lenderCount}
+                  <td
+                    className="px-6 py-4 text-xs text-slate-600 dark:text-slate-300"
+                    title={
+                      app.lenderNames?.length
+                        ? app.lenderNames.join(", ")
+                        : undefined
+                    }
+                  >
+                    {formatLenders(app)}
                   </td>
 
                   <td className="px-6 py-4 text-xs text-slate-600 dark:text-slate-300">
-                    {app.amount ? `₹${app.amount}` : "-"}
+                    {formatAmount(app.amount)}
                   </td>
 
                   <td className="px-6 py-4 text-xs text-slate-500">
@@ -166,7 +198,7 @@ export default function LatestApplicationsTable({ applications }: Props) {
                         app.status,
                       )}`}
                     >
-                      {app.status.replace("_", " ")}
+                      {formatProduct(app.status)}
                     </span>
                   </td>
                 </tr>

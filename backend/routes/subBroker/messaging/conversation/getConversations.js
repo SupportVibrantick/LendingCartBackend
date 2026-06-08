@@ -3,6 +3,11 @@
  * FIXED VERSION
  */
 
+const {
+  resolveViewerRole,
+  enrichConversationList,
+} = require("../../../../services/conversationPresentation");
+
 module.exports = async function getConversations(fastify) {
   fastify.get(
     "/loan/:loanId/conversations",
@@ -234,7 +239,10 @@ module.exports = async function getConversations(fastify) {
 
             total: formatted.length,
 
-            conversations: formatted,
+            conversations: enrichConversationList(
+              formatted,
+              resolveViewerRole(req),
+            ),
           },
         });
       } catch (error) {

@@ -10,26 +10,41 @@ export default function UserDropdown() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    function applyUser(user: {
+      firstName?: string;
+      lastName?: string;
+      name?: string;
+      email?: string;
+    }) {
+      if (user?.firstName || user?.lastName) {
+        setDisplayName(`${user.firstName ?? ""} ${user.lastName ?? ""}`.trim());
+      } else if (user?.name) {
+        setDisplayName(user.name);
+      }
+      if (user?.email) setDisplayEmail(user.email);
+    }
+
     try {
       const raw = sessionStorage.getItem("admin_user");
       if (raw) {
-        const user = JSON.parse(raw);
-        if (user?.firstName || user?.lastName) {
-          setDisplayName(`${user.firstName ?? ""} ${user.lastName ?? ""}`.trim());
-        } else if (user?.name) {
-          setDisplayName(user.name);
-        }
-        if (user?.email) setDisplayEmail(user.email);
+        applyUser(JSON.parse(raw));
       } else {
-        // fallback: try separate keys
         const tokenName = sessionStorage.getItem("admin_user_name");
         const tokenEmail = sessionStorage.getItem("admin_user_email");
         if (tokenName) setDisplayName(tokenName);
         if (tokenEmail) setDisplayEmail(tokenEmail);
       }
-    } catch (e) {
-      // ignore parse errors and keep defaults
+    } catch {
+      /* ignore */
     }
+
+    const onProfileUpdated = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail) applyUser(detail);
+    };
+
+    window.addEventListener("admin-profile-updated", onProfileUpdated);
+    return () => window.removeEventListener("admin-profile-updated", onProfileUpdated);
   }, []);
 
   function toggleDropdown() {
@@ -48,6 +63,8 @@ export default function UserDropdown() {
       sessionStorage.removeItem("admin_user");
       sessionStorage.removeItem("admin_user_name");
       sessionStorage.removeItem("admin_user_email");
+      sessionStorage.removeItem("admin_permissions");
+      sessionStorage.removeItem("admin_full_access");
       // optional: clear everything in session storage
       // sessionStorage.clear();
     } catch (e) {

@@ -33,7 +33,7 @@ type Broker = {
   email: string;
   phone: string;
 
-    adminId?: string;
+  adminId?: string;
   adminFirstName?: string;
   adminLastName?: string;
   adminEmail?: string;
@@ -269,45 +269,42 @@ export default function BrokersPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-const openEditModal = async (b: Broker) => {
-  try {
-    const token = sessionStorage.getItem("admin_token");
+  const openEditModal = async (b: Broker) => {
+    try {
+      const token = sessionStorage.getItem("admin_token");
 
-    const res = await fetch(
-      `${API_BASE}/admin/brokers/read/${b.id}`,
-      {
+      const res = await fetch(`${API_BASE}/admin/brokers/read/${b.id}`, {
         headers: {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-      }
-    );
+      });
 
-    const json = await res.json();
+      const json = await res.json();
 
-    const brokerData = json?.data;
+      const brokerData = json?.data;
 
- const admin = brokerData?.admins?.[0];
+      const admin = brokerData?.admins?.[0];
 
-setEditingBroker({
-  id: brokerData.id,
-  name: brokerData.name || "",
-  email: brokerData.email || "",
-  phone: brokerData.phone || "",
-  status: brokerData.status,
+      setEditingBroker({
+        id: brokerData.id,
+        name: brokerData.name || "",
+        email: brokerData.email || "",
+        phone: brokerData.phone || "",
+        status: brokerData.status,
 
-  adminId: admin?.id,
-  adminFirstName: admin?.firstName || "",
-  adminLastName: admin?.lastName || "",
-  adminEmail: admin?.email || "",
-  adminStatus: admin?.status || "",
+        adminId: admin?.id,
+        adminFirstName: admin?.firstName || "",
+        adminLastName: admin?.lastName || "",
+        adminEmail: admin?.email || "",
+        adminStatus: admin?.status || "",
 
-  createdAt: brokerData.createdAt,
-});
-  } catch (err) {
-    console.error(err);
-  }
-};
+        createdAt: brokerData.createdAt,
+      });
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const handleEditSave = async (updated: Broker) => {
     // optimistic
@@ -324,22 +321,21 @@ setEditingBroker({
             "Content-Type": "application/json",
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
-        body: JSON.stringify({
-  name: updated.name,
-  email: updated.email,
-  phone: updated.phone,
-    status: updated.status,
+          body: JSON.stringify({
+            name: updated.name,
+            email: updated.email,
+            phone: updated.phone,
+            status: updated.status,
 
-admin: {
-  id: updated.adminId,
-  firstName: updated.adminFirstName,
-  lastName: updated.adminLastName,
-  email: updated.adminEmail,
-  password:
-    updated.adminPassword?.trim() || undefined,
-  status: updated.adminStatus,
-},
-})
+            admin: {
+              id: updated.adminId,
+              firstName: updated.adminFirstName,
+              lastName: updated.adminLastName,
+              email: updated.adminEmail,
+              password: updated.adminPassword?.trim() || undefined,
+              status: updated.adminStatus,
+            },
+          }),
         },
       );
 
@@ -508,12 +504,12 @@ admin: {
     }
   }
 
-  const openAdminsFor = async (broker: Broker) => {
-    setShowAdminsFor(broker);
-    setEditingAdminId(null);
-    setAdminEditForm({});
-    await fetchAdmins(broker.id);
-  };
+  // const openAdminsFor = async (broker: Broker) => {
+  //   setShowAdminsFor(broker);
+  //   setEditingAdminId(null);
+  //   setAdminEditForm({});
+  //   await fetchAdmins(broker.id);
+  // };
 
   const closeAdmins = () => {
     setShowAdminsFor(null);
@@ -927,7 +923,7 @@ admin: {
                   <div className="flex-1 min-w-0 pr-16">
                     <h3
                       className="text-base font-bold text-slate-900 dark:text-white truncate group-hover:text-blue-600 transition-colors cursor-pointer"
-                      onClick={() => openAdminsFor(l)}
+                      // onClick={() => openAdminsFor(l)}
                     >
                       {l.name}
                     </h3>
@@ -1048,7 +1044,8 @@ admin: {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <label className="block">
                       <span className="text-sm text-gray-700 dark:text-slate-200">
-                        Organization Name <span className="text-red-500">*</span>
+                        Organization Name{" "}
+                        <span className="text-red-500">*</span>
                       </span>
                       <input
                         value={form.organizationName}
@@ -1063,7 +1060,8 @@ admin: {
 
                     <label className="block">
                       <span className="text-sm text-gray-700 dark:text-slate-200">
-                        Organization Email <span className="text-red-500">*</span>
+                        Organization Email{" "}
+                        <span className="text-red-500">*</span>
                       </span>
                       <input
                         value={form.organizationEmail}
@@ -1081,7 +1079,8 @@ admin: {
 
                     <label className="block md:col-span-1">
                       <span className="text-sm text-gray-700 dark:text-slate-200">
-                        Organization Phone <span className="text-red-500">*</span>
+                        Organization Phone{" "}
+                        <span className="text-red-500">*</span>
                       </span>
                       <input
                         value={form.organizationPhone}

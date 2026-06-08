@@ -30,13 +30,14 @@ type AssignedProduct = {
   maxLoanAmount?: string;
   minTermMonths?: number;
   maxTermMonths?: number;
-maxLtvPercent?: string;
-maxArvPercent?: string;
-maxLtcPercent?: string;
+  maxLtvPercent?: string;
+  maxArvPercent?: string;
+  maxLtcPercent?: string;
   minCreditScore?: number;
   minExperience?: string;
   interestRateRange?: string;
   businessTypes?: string[];
+  propertyTypes?: any[];
   statesSupported?: string[];
   equipmentTypes?: string[];
 };
@@ -103,23 +104,23 @@ const AssignedProducts: React.FC = () => {
 
           minTermMonths: a.minTermMonths,
           maxTermMonths: a.maxTermMonths,
-maxLtvPercent: a.maxLtvPercent,
-maxArvPercent: a.maxArvPercent,
-maxLtcPercent: a.maxLtcPercent,
+          maxLtvPercent: a.maxLtvPercent,
+          maxArvPercent: a.maxArvPercent,
+          maxLtcPercent: a.maxLtcPercent,
 
           minCreditScore: a.minCreditScore,
           minExperience: a.minExperience,
 
           interestRateRange: a.interestRateRange,
 
-          // ✅ FIXED
-          businessTypes: (a.businessTypes || []).map((b: any) => b.name),
+          businessTypes: Array.isArray(a.businessTypes) ? a.businessTypes : [],
+
+          propertyTypes: Array.isArray(a.propertyTypes) ? a.propertyTypes : [],
+
+          equipmentTypes: normalizeArray(a.equipmentTypes),
 
           // ✅ FIXED
           statesSupported: normalizeArray(a.statesSupported),
-
-          // ✅ NEW (IMPORTANT)
-          equipmentTypes: normalizeArray(a.equipmentTypes),
         })),
       );
     } catch (err) {
@@ -162,7 +163,13 @@ maxLtcPercent: a.maxLtcPercent,
       setDetail({
         ...found,
 
-        businessTypes: (found.businessTypes || []).map((b: any) => b.name),
+        businessTypes: Array.isArray(found.businessTypes)
+          ? found.businessTypes
+          : [],
+
+        propertyTypes: Array.isArray(found.propertyTypes)
+          ? found.propertyTypes
+          : [],
 
         statesSupported: normalizeArray(found.statesSupported),
 
@@ -232,7 +239,7 @@ maxLtcPercent: a.maxLtcPercent,
             {/* TITLE */}
             <div>
               <h2 className="text-md font-semibold text-slate-900 dark:text-white tracking-tight">
-                Assigned Lender Products 
+                Assigned Lender Products
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 Manage lender ↔ product mappings efficiently
@@ -372,9 +379,7 @@ maxLtcPercent: a.maxLtcPercent,
                     </td>
                     <td className="py-3 pr-4 dark:text-white text-xs">
                       {PRODUCT_LABELS[a.productCode] ??
-  a.productCode
-    ?.replace(/_/g, " ")
-    .toUpperCase()}
+                        a.productCode?.replace(/_/g, " ").toUpperCase()}
                     </td>
                     <td className="py-3 pr-4 dark:text-slate-100 text-xs">
                       {a.minLoanAmount} – {a.maxLoanAmount}
@@ -589,10 +594,12 @@ maxLtcPercent: a.maxLtcPercent,
                     <Section title="Loan Product">
                       <FieldCard
                         label="Code"
-                        value={PRODUCT_LABELS[detail.loanProduct?.code] ??
-  detail.loanProduct?.code
-    ?.replace(/_/g, " ")
-    .toUpperCase()}
+                        value={
+                          PRODUCT_LABELS[detail.loanProduct?.code] ??
+                          detail.loanProduct?.code
+                            ?.replace(/_/g, " ")
+                            .toUpperCase()
+                        }
                       />
                       <FieldCard
                         label="Name"
@@ -626,21 +633,21 @@ maxLtcPercent: a.maxLtcPercent,
                         label="Max Term (Months)"
                         value={detail.maxTermMonths}
                       />
-             
+
                       <FieldCard
-  label="Max LTV (%)"
-  value={detail.maxLtvPercent}
-/>
+                        label="Max LTV (%)"
+                        value={detail.maxLtvPercent}
+                      />
 
-<FieldCard
-  label="Max ARV (%)"
-  value={detail.maxArvPercent}
-/>
+                      <FieldCard
+                        label="Max ARV (%)"
+                        value={detail.maxArvPercent}
+                      />
 
-<FieldCard
-  label="Max LTC (%)"
-  value={detail.maxLtcPercent}
-/>
+                      <FieldCard
+                        label="Max LTC (%)"
+                        value={detail.maxLtcPercent}
+                      />
                       <FieldCard
                         label="Min Credit Score"
                         value={detail.minCreditScore}
@@ -662,20 +669,67 @@ maxLtcPercent: a.maxLtcPercent,
                       </h4>
                       <div className="flex flex-wrap gap-2">
                         {detail.businessTypes?.length ? (
-                          detail.businessTypes.map((b: string) => (
-                            <span
-                              key={b}
-                              className="px-3 py-1 text-xs rounded-full
-                                   bg-blue-100 text-blue-700
-                                   dark:bg-blue-500/15 dark:text-blue-400"
+                          detail.businessTypes.map((item: any, idx: number) => (
+                            <div
+                              key={idx}
+                              className="border rounded-lg p-3 bg-blue-50"
                             >
-                              {b}
-                            </span>
+                              <div className="font-medium text-blue-700">
+                                {item.name}
+                              </div>
+
+                              {item.subTypes?.length > 0 && (
+                                <div className="flex flex-wrap gap-2 mt-2">
+                                  {item.subTypes.map((sub: string) => (
+                                    <span
+                                      key={sub}
+                                      className="px-2 py-1 text-xs rounded-full bg-white"
+                                    >
+                                      {sub}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
                           ))
                         ) : (
-                          <span className="text-slate-500 dark:text-slate-400">
-                            -
-                          </span>
+                          <span>-</span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div>
+                      <h4 className="font-semibold text-slate-900 dark:text-white mb-3">
+                        Property Types
+                      </h4>
+
+                      <div className="space-y-3">
+                        {detail.propertyTypes?.length ? (
+                          detail.propertyTypes.map((item: any, idx: number) => (
+                            <div
+                              key={idx}
+                              className="border rounded-lg p-3 bg-green-50"
+                            >
+                              <div className="font-medium text-green-700">
+                                {item.type}
+                              </div>
+
+                              {item.subTypes?.length > 0 && (
+                                <div className="flex flex-wrap gap-2 mt-2">
+                                  {item.subTypes.map((sub: string) => (
+                                    <span
+                                      key={sub}
+                                      className="px-2 py-1 text-xs rounded-full bg-white"
+                                    >
+                                      {sub}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          ))
+                        ) : (
+                          <span className="text-slate-500">-</span>
                         )}
                       </div>
                     </div>

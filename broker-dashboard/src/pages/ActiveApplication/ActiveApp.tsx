@@ -466,8 +466,8 @@ export default function ActiveApplication() {
           <div
             className="mb-4 flex h-14 w-14 items-center justify-center
                     rounded-full bg-amber-100 text-amber-600
-                    dark:bg-amber-500/20 dark:text-amber-400"
-          >
+                    dark:bg-amber-500/20 dark:text-amber-400" 
+          > 
             <svg
               xmlns="http://www.w3.org/2000/svg"
               className="h-7 w-7"

@@ -3,6 +3,27 @@
  * (Client + all Lender chats)
  */
 
+const {
+  buildBrokerSideEntry,
+  buildClientSideOfficerEntry,
+  resolvePrincipalBrokerDisplay,
+  formatBrokerOfficerInboxEntry,
+  filterLoanOfficerClientThreads,
+  filterBrokerAdminClientThreads,
+} = require("../../../../services/brokerOfficerConversation");
+const { resolveClientDisplayName } = require("../../../../services/resolveClientDisplayName");
+const {
+  getConversationListFilters,
+  shouldShowBrokerOfficerPlaceholder,
+  isClientUser,
+  isLenderUser,
+  hasRole,
+} = require("../../../../services/messagingAccess");
+const {
+  resolveViewerRole,
+  enrichConversationList,
+} = require("../../../../services/conversationPresentation");
+
 module.exports = async function getConversations(fastify) {
   fastify.get(
     "/loan/:loanId/conversations",
@@ -45,7 +66,16 @@ module.exports = async function getConversations(fastify) {
           select: {
             id: true,
             brokerOrgId: true,
+            brokerUserId: true,
             clientId: true,
+            brokerUser: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                profileImage: true,
+              },
+            },
           },
         });
 
@@ -105,25 +135,17 @@ module.exports = async function getConversations(fastify) {
            3️⃣ FETCH CONVERSATIONS
         ===================================================== */
 
-        const conversations = await prisma.conversation.findMany({
+        const userId = req.user?.id || req.user?.userId || req.user?.clientId;
+        const userEmail = req.user?.email || req.user?.clientEmail;
+
+        let conversations = await prisma.conversation.findMany({
           where: {
             loanApplicationId: loanId,
-            ...(req.user.orgType === "LENDER"
-              ? {
-                  applicationLenderId: lenderAccess.id,
-                  type: "BROKER_LENDER",
-                }
-              : {}),
-
-            ...(req.user.role === "SUB_BROKER"
-              ? {
-                  participants: {
-                    some: {
-                      participantId: req.user.userId,
-                    },
-                  },
-                }
-              : {}),
+            ...getConversationListFilters(req, {
+              userId,
+              userEmail,
+              lenderAccessId: lenderAccess?.id,
+            }),
           },
           include: {
             participants: true,
@@ -136,6 +158,20 @@ module.exports = async function getConversations(fastify) {
             lastMessageAt: "desc",
           },
         });
+
+        if (hasRole(req.user, "BROKER_OFFICER")) {
+          conversations = filterLoanOfficerClientThreads(conversations);
+        } else if (
+          req.user.orgType === "BROKER" &&
+          !hasRole(req.user, "SUB_BROKER")
+        ) {
+          conversations = filterBrokerAdminClientThreads(conversations);
+        }
+
+        const principalBroker = await resolvePrincipalBrokerDisplay(
+          prisma,
+          loan.brokerOrgId,
+        );
 
         /* =====================================================
            4️⃣ ENRICH DATA (CLIENT / LENDER NAME)
@@ -166,31 +202,27 @@ module.exports = async function getConversations(fastify) {
         const formatted = await Promise.all(
           conversations.map(async (conv) => {
             let title = "Conversation";
+            let participant = null;
 
             // CLIENT CHAT
             if (conv.type === "CLIENT_BROKER") {
-              const client = await prisma.client.findUnique({
-                where: { id: loan.clientId },
-                include: {
-                  contacts: {
-                    where: {
-                      isPrimary: true,
-                    },
-                    take: 1,
-                  },
-                },
+              const clientName = await resolveClientDisplayName(prisma, {
+                clientId: loan.clientId,
+                loanApplicationId: loanId,
               });
 
-              const primaryContact = client?.contacts?.[0];
-
-              const clientName =
-                `${primaryContact?.firstName || ""} ${
-                  primaryContact?.lastName || ""
-                }`.trim() ||
-                client?.legalName ||
-                "Unknown";
-
               title = `Client - ${clientName}`;
+
+              return {
+                id: conv.id,
+                type: conv.type,
+                chatCategory: conv.chatCategory || null,
+                title,
+                clientName,
+                lastMessage: conv.messages[0]?.text || null,
+                lastMessageAt: conv.lastMessageAt,
+                unread: false,
+              };
             }
 
             // LENDER CHAT
@@ -204,7 +236,44 @@ module.exports = async function getConversations(fastify) {
                 },
               });
 
-              title = `Lender - ${appLender?.lender?.name || "Unknown"}`;
+              const lenderName = appLender?.lender?.name || "Unknown";
+              title = `Lender - ${lenderName}`;
+
+              if (isLenderUser(req)) {
+                const principalBroker = await resolvePrincipalBrokerDisplay(
+                  prisma,
+                  loan.brokerOrgId,
+                );
+
+                return {
+                  id: conv.id,
+                  type: conv.type,
+                  chatCategory: conv.chatCategory || null,
+                  title,
+                  lenderName,
+                  brokerName: principalBroker.name,
+                  participant: {
+                    id: principalBroker.id,
+                    role: "BROKER_ADMIN",
+                    name: principalBroker.name,
+                    profileImage: principalBroker.profileImage,
+                  },
+                  lastMessage: conv.messages[0]?.text || null,
+                  lastMessageAt: conv.lastMessageAt,
+                  unread: false,
+                };
+              }
+
+              return {
+                id: conv.id,
+                type: conv.type,
+                chatCategory: conv.chatCategory || null,
+                title,
+                lenderName,
+                lastMessage: conv.messages[0]?.text || null,
+                lastMessageAt: conv.lastMessageAt,
+                unread: false,
+              };
             }
 
             // SUB BROKER CHAT
@@ -228,6 +297,36 @@ module.exports = async function getConversations(fastify) {
                   : `Sub Broker • ${subBrokerName}`;
             }
 
+            if (conv.type === "BROKER_OFFICER") {
+              const brokerOfficerMeta = formatBrokerOfficerInboxEntry({
+                loan,
+                isLoanOfficerViewer: hasRole(req.user, "BROKER_OFFICER"),
+                principalBroker,
+              });
+              title = brokerOfficerMeta.title;
+              participant = brokerOfficerMeta.participant;
+            }
+
+            if (conv.type === "CLIENT_OFFICER") {
+              const clientName = await resolveClientDisplayName(prisma, {
+                clientId: loan.clientId,
+                loanApplicationId: loanId,
+              });
+
+              title = `Client • ${clientName}`;
+
+              return {
+                id: conv.id,
+                type: conv.type,
+                chatCategory: conv.chatCategory || null,
+                title,
+                clientName,
+                lastMessage: conv.messages[0]?.text || null,
+                lastMessageAt: conv.lastMessageAt,
+                unread: false,
+              };
+            }
+
             return {
               id: conv.id,
 
@@ -235,12 +334,78 @@ module.exports = async function getConversations(fastify) {
 
               chatCategory: conv.chatCategory || null,
               title,
+              participant,
               lastMessage: conv.messages[0]?.text || null,
               lastMessageAt: conv.lastMessageAt,
               unread: false, // (we’ll handle later)
             };
           }),
         );
+
+        if (loan.brokerUser && shouldShowBrokerOfficerPlaceholder(req)) {
+          const officerConversation = conversations.find(
+            (conv) => conv.type === "BROKER_OFFICER",
+          );
+
+          if (!officerConversation) {
+            formatted.unshift(
+              buildBrokerSideEntry(null, loan.brokerUser),
+            );
+          }
+        }
+
+        if (isClientUser(req)) {
+          const principalBroker = await resolvePrincipalBrokerDisplay(
+            prisma,
+            loan.brokerOrgId,
+          );
+
+          const clientConversations = [];
+
+          const brokerConversation = formatted.find(
+            (item) => item.type === "CLIENT_BROKER",
+          );
+
+          if (brokerConversation) {
+            clientConversations.push({
+              ...brokerConversation,
+              brokerName: principalBroker.name,
+              participant: {
+                id: principalBroker.id,
+                role: "BROKER_ADMIN",
+                name: principalBroker.name,
+                profileImage: principalBroker.profileImage,
+              },
+            });
+          }
+
+          if (loan.brokerUser) {
+            const officerConversation = formatted.find(
+              (item) => item.type === "CLIENT_OFFICER",
+            );
+
+            clientConversations.push(
+              buildClientSideOfficerEntry(
+                officerConversation || null,
+                loan.brokerUser,
+              ),
+            );
+          }
+
+          return reply.send({
+            success: true,
+            data: {
+              loanId,
+              total: clientConversations.length,
+              conversations: enrichConversationList(
+                clientConversations,
+                resolveViewerRole(req),
+              ),
+            },
+          });
+        }
+
+        const viewerRole = resolveViewerRole(req);
 
         /* =====================================================
            5️⃣ RESPONSE
@@ -251,7 +416,7 @@ module.exports = async function getConversations(fastify) {
           data: {
             loanId,
             total: formatted.length,
-            conversations: formatted,
+            conversations: enrichConversationList(formatted, viewerRole),
           },
         });
       } catch (error) {

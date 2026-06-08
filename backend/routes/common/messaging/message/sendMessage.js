@@ -2,6 +2,14 @@
  * Send message in a conversation
  */
 
+const { logAudit } = require("../../../../services/logger/auditLogger");
+const {
+  assertCanSendMessage,
+  resolveAuditDashboard,
+  emitRealtimeMessage,
+} = require("../../../../services/messagingAccess");
+const { resolveClientDisplayName } = require("../../../../services/resolveClientDisplayName");
+
 module.exports = async function sendMessage(fastify) {
   fastify.post(
     "/conversation/:conversationId/message",
@@ -86,6 +94,7 @@ module.exports = async function sendMessage(fastify) {
           where: { id: conversationId },
           select: {
             id: true,
+            type: true,
             loanApplicationId: true,
             applicationLenderId: true,
           },
@@ -95,6 +104,14 @@ module.exports = async function sendMessage(fastify) {
           return reply.code(404).send({
             success: false,
             message: "Conversation not found",
+          });
+        }
+
+        const typeAccessError = assertCanSendMessage(req, conversation.type);
+        if (typeAccessError) {
+          return reply.code(typeAccessError.code).send({
+            success: false,
+            message: typeAccessError.message,
           });
         }
 
@@ -194,29 +211,13 @@ module.exports = async function sendMessage(fastify) {
 if (senderType === "CLIENT") {
   const clientUser = await prisma.clientPortalUser.findUnique({
     where: { id: senderClientUserId },
-    include: {
-      client: {
-        include: {
-          contacts: {
-            where: {
-              isPrimary: true,
-            },
-            take: 1,
-          },
-        },
-      },
-    },
+    select: { clientId: true },
   });
 
-  const primaryContact =
-    clientUser?.client?.contacts?.[0];
-
-  senderName =
-    `${primaryContact?.firstName || ""} ${
-      primaryContact?.lastName || ""
-    }`.trim() ||
-    clientUser?.client?.legalName ||
-    "Client";
+  senderName = await resolveClientDisplayName(prisma, {
+    clientId: clientUser?.clientId,
+    loanApplicationId: conversation.loanApplicationId,
+  });
 }
 
 if (
@@ -269,29 +270,28 @@ if (
 
         /* ================= REALTIME EMIT ================= */
 
-        if (fastify.io) {
-          const realtimePayload = {
-            id: message.id,
-            conversationId: message.conversationId,
+        await emitRealtimeMessage(fastify.io, prisma, message, conversationId);
+
+        await logAudit({
+          prisma,
+          req,
+          dashboard: resolveAuditDashboard(req),
+          category: "SYSTEM",
+          entityType: "Message",
+          entityId: message.id,
+          action: "MESSAGE_SENT",
+          newValue: {
+            conversationId,
+            conversationType: conversation.type,
+            loanApplicationId: conversation.loanApplicationId,
             senderType: message.senderType,
-            senderUserId: message.senderUserId,
-            senderClientUserId: message.senderClientUserId,
-            senderName: message.senderName,
-            type: message.type,
-            text: message.text,
-            fileUrl: message.fileUrl,
-            fileName: message.fileName,
-            fileSize: message.fileSize,
-            mimeType: message.mimeType,
-            createdAt: message.createdAt,
-          };
-
-          fastify.io
-            .to(`conversation_${conversationId}`)
-            .emit("newMessage", realtimePayload);
-
-          console.log("📡 Realtime emitted:", `conversation_${conversationId}`);
-        }
+            messageType: message.type,
+            preview:
+              message.type === "TEXT"
+                ? message.text?.slice(0, 120) || null
+                : message.fileName || "File",
+          },
+        });
 
         /* ================= RESPONSE ================= */
 

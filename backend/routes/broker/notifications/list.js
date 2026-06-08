@@ -37,7 +37,7 @@ async function listBrokerNotifications(fastify) {
         }
 
         const orgId = req.user.organizationId;
-        const userId = req.user.id;
+        const userId = req.user.id || req.user.userId;
 
         if (!orgId && !userId) {
           return reply.code(400).send({

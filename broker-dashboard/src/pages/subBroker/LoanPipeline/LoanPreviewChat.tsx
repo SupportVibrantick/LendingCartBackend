@@ -1,8 +1,15 @@
 import type { ChangeEvent, KeyboardEvent } from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import EmojiPicker, { type EmojiClickData } from "emoji-picker-react";
 import toast from "react-hot-toast";
-import { io, Socket } from "socket.io-client";
+import { isTemporaryConversationId, getOrgIdsFromToken } from "../../../lib/chatSocket";
+import { useChatSocket } from "../../../lib/useChatSocket";
+import {
+  getConversationBadge,
+  getConversationDisplayName,
+  // isPlaceholderConversation,
+  type ChatConversationListItem,
+} from "../../../lib/chatConversation";
 import {
   FiMessageCircle,
   FiMoreVertical,
@@ -18,22 +25,14 @@ import { Search } from "lucide-react";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
-type Conversation = {
-  id: string;
-
-  title?: string;
-
-  type?: string;
-
+type Conversation = ChatConversationListItem & {
   chatCategory?: "PRINCIPAL_BROKER" | "LOAN_OFFICER";
-
-  lastMessage?: string;
-
-  lastMessageAt?: string;
-
-  unread?: boolean;
-
-  unreadCount?: number;
+  participant?: {
+    id?: string;
+    role?: string;
+    name?: string;
+    profileImage?: string | null;
+  };
 };
 
 type ChatMessage = {
@@ -53,8 +52,6 @@ type ChatMessage = {
 type LoanPreviewChatProps = {
   applicationId?: string | null;
 };
-
-const getToken = () => sessionStorage.getItem("sub_broker_token");
 
 const formatTime = (value?: string) => {
   if (!value) return "Now";
@@ -112,7 +109,7 @@ const getAvatarTone = (value?: string) => {
 };
 
 const LoanPreviewChat = ({ applicationId }: LoanPreviewChatProps) => {
-  const socketRef = useRef<Socket | null>(null);
+  const activeConversationRef = useRef<string | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const emojiPickerRef = useRef<HTMLDivElement | null>(null);
@@ -126,9 +123,56 @@ const LoanPreviewChat = ({ applicationId }: LoanPreviewChatProps) => {
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const [typingUser, setTypingUser] = useState<string | null>(null);
+  // const [typingUser, setTypingUser] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+
+  const getToken = useCallback(
+    () => sessionStorage.getItem("sub_broker_token"),
+    [],
+  );
+  const getBrokerOrgId = useCallback(() => {
+    try {
+      const user = JSON.parse(sessionStorage.getItem("sub_broker_user") || "{}");
+      if (user.organizationId) return user.organizationId;
+    } catch {
+      /* ignore */
+    }
+    return getOrgIdsFromToken(getToken()).brokerOrgId;
+  }, [getToken]);
+
+  const handleRealtimeMessage = useCallback((msg: ChatMessage) => {
+    setConversations((prev) =>
+      prev.map((item) =>
+        item.id === msg.conversationId
+          ? {
+              ...item,
+              lastMessage: msg.text || msg.fileName || "File",
+              lastMessageAt: msg.createdAt,
+              unread: activeConversationRef.current !== msg.conversationId,
+              unreadCount:
+                activeConversationRef.current !== msg.conversationId
+                  ? (item.unreadCount || 0) + 1
+                  : 0,
+            }
+          : item,
+      ),
+    );
+
+    setMessages((prev) => {
+      if (msg.conversationId !== activeConversationRef.current) return prev;
+      if (prev.some((item) => item.id === msg.id)) return prev;
+      return [...prev, msg];
+    });
+  }, []);
+
+  useChatSocket({
+    getToken,
+    getBrokerOrgId,
+    conversationId: selectedConversation?.id,
+    onMessage: handleRealtimeMessage,
+    onError: (message) => toast.error(message),
+  });
 
   const filteredConversations = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
@@ -296,23 +340,13 @@ const LoanPreviewChat = ({ applicationId }: LoanPreviewChatProps) => {
     } catch (err) {
       console.error("Failed to mark conversation as read", err);
     }
-
-    const socket = socketRef.current;
-    if (!socket || !socket.connected) return;
-
-    socket.emit("joinConversation", {
-      conversationId: String(conversationId),
-    });
-    socket.emit("markAsRead", { conversationId });
   };
 
   const handleSelectConversation = async (conversation: Conversation) => {
     try {
       let finalConversation = conversation;
 
-      const isTemporary =
-        conversation.id.startsWith("broker-") ||
-        conversation.id.startsWith("officer-");
+      const isTemporary = isTemporaryConversationId(conversation.id);
 
       if (isTemporary) {
         const created = await ensureConversation(
@@ -473,96 +507,8 @@ const LoanPreviewChat = ({ applicationId }: LoanPreviewChatProps) => {
   };
 
   useEffect(() => {
-    const token = getToken();
-
-    if (!token) {
-      console.log("No sub broker token found");
-      return;
-    }
-
-    const socket = io(API_BASE, {
-      transports: ["websocket"],
-      auth: {
-        token,
-      },
-      extraHeaders: {
-        Authorization: `Bearer ${token}`,
-      },
-      withCredentials: true,
-      reconnection: true,
-      reconnectionAttempts: 5,
-    });
-
-    socket.on("connect", () => {
-      console.log("Socket connected:", socket.id);
-    });
-
-    socket.on("connect_error", (err) => {
-      console.error("Socket connection error:", err.message);
-    });
-
-    socketRef.current = socket;
-
-    return () => {
-      socket.disconnect();
-      socketRef.current = null;
-    };
-  }, []);
-
-  useEffect(() => {
-    const socket = socketRef.current;
-    if (!socket) return;
-
-    const handleNewMessage = (msg: ChatMessage) => {
-      setConversations((prev) =>
-        prev.map((item) =>
-          item.id === msg.conversationId
-            ? {
-                ...item,
-                lastMessage: msg.text || msg.fileName || "File",
-                lastMessageAt: msg.createdAt,
-                unread: selectedConversation?.id !== msg.conversationId,
-                unreadCount:
-                  selectedConversation?.id !== msg.conversationId
-                    ? (item.unreadCount || 0) + 1
-                    : 0,
-              }
-            : item,
-        ),
-      );
-
-      setMessages((prev) => {
-        if (msg.conversationId !== selectedConversation?.id) return prev;
-        if (prev.some((item) => item.id === msg.id)) return prev;
-        const exists = prev.some((item) => item.id === msg.id);
-
-        if (exists) return prev;
-
-        return [...prev, msg];
-      });
-    };
-
-    socket.on("newMessage", handleNewMessage);
-    return () => {
-      socket.off("newMessage", handleNewMessage);
-    };
+    activeConversationRef.current = selectedConversation?.id || null;
   }, [selectedConversation?.id]);
-
-  useEffect(() => {
-    const socket = socketRef.current;
-    if (!socket) return;
-
-    const handleTyping = ({ userId }: { userId?: string }) =>
-      setTypingUser(userId || null);
-    const handleStopTyping = () => setTypingUser(null);
-
-    socket.on("typing", handleTyping);
-    socket.on("stopTyping", handleStopTyping);
-    return () => {
-      socket.off("typing", handleTyping);
-      socket.off("stopTyping", handleStopTyping);
-    };
-  }, []);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -680,7 +626,9 @@ lg:border-b-0 lg:border-r"
             <div className="px-3 py-3">
               {filteredConversations.map((chat) => {
                 const isActive = selectedConversation?.id === chat.id;
-                const avatarTone = getAvatarTone(chat.title);
+                const displayName = getConversationDisplayName(chat);
+                const badge = getConversationBadge(chat);
+                const avatarTone = getAvatarTone(displayName);
 
                 return (
                   <button
@@ -697,7 +645,7 @@ lg:border-b-0 lg:border-r"
                       <div
                         className={`flex h-11 w-11 items-center justify-center rounded-full text-xs font-semibold ${avatarTone}`}
                       >
-                        {getInitials(chat.title)}
+                        {getInitials(displayName)}
                       </div>
                       <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-[#fbfbfa] bg-lime-500" />
                     </div>
@@ -705,10 +653,18 @@ lg:border-b-0 lg:border-r"
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-2">
                         <p className="truncate text-xs font-semibold text-slate-900 dark:text-slate-300">
-                          {chat.title || "Conversation"}
+                          {displayName}
                         </p>
                         <span className="text-[10px] text-slate-400">
                           {formatTime(chat.lastMessageAt)}
+                        </span>
+                      </div>
+
+                      <div className="mt-1 flex items-center gap-1">
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-[9px] font-medium ${badge.className}`}
+                        >
+                          {badge.label}
                         </span>
                       </div>
 
@@ -752,20 +708,29 @@ lg:border-b-0 lg:border-r"
               <div className="flex min-w-0 items-center gap-3">
                 <div className="relative shrink-0">
                   <div
-                    className={`flex h-11 w-11 items-center justify-center rounded-full text-xs font-semibold ${getAvatarTone(selectedConversation?.title)}`}
+                    className={`flex h-11 w-11 items-center justify-center rounded-full text-xs font-semibold ${getAvatarTone(getConversationDisplayName(selectedConversation))}`}
                   >
-                    {getInitials(selectedConversation?.title)}
+                    {getInitials(getConversationDisplayName(selectedConversation))}
                   </div>
                   <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-[#fbfbfa] bg-lime-500" />
                 </div>
 
                 <div className="min-w-0">
                   <p className="truncate text-lg font-semibold text-slate-900 dark:text-slate-300">
-                    {selectedConversation?.title || "Conversation"}
+                    {getConversationDisplayName(selectedConversation)}
                   </p>
-                  <p className="text-xs text-slate-400">
-                    {typingUser ? "Typing..." : "Online"}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    {/* <p className="text-xs text-slate-400">
+                      {typingUser ? "Typing..." : "Online"}
+                    </p> */}
+                    {selectedConversation && (
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${getConversationBadge(selectedConversation).className}`}
+                      >
+                        {getConversationBadge(selectedConversation).label}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
 

@@ -398,7 +398,9 @@ const LoanPreview = () => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const navigate = useNavigate();
 
-  const [activeTab, setActiveTab] = useState<TabKey>("view-details");
+  const [activeTab, setActiveTab] = useState<TabKey>(
+    (Location.state as { activeTab?: TabKey })?.activeTab || "view-details",
+  );
   const [submissionDetail, setSubmissionDetail] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [filterLoading, setFilterLoading] = useState(false);
@@ -3136,7 +3138,14 @@ dark:bg-red-900/20 dark:text-red-400"
       // case "submitted-lenders":
       //   return renderSubmittedLenders();
       case "chat":
-        return <LoanPreviewChat applicationId={applicationId} />;
+        return (
+          <LoanPreviewChat
+            applicationId={applicationId}
+            initialConversationId={
+              (Location.state as { conversationId?: string })?.conversationId
+            }
+          />
+        );
       case "fee-agreement":
         return (
           <FeeAgreement

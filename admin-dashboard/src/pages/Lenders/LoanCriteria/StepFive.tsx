@@ -9,19 +9,19 @@ const fields = [
 
   { label: "Max LTV (%)", key: "maxLtv" },
   { label: "Max ARV (%)", key: "maxArv" },
-{
-  label: "Max LTC (%)",
-  key: "maxLtc",
-  products: [
-    "MEZZ_FINANCE_PREF_EQUITY",
-    "MEZZ_FINANCE",
-    "MEZZANINE_FINANCE",
-    "FIX_AND_FLIP",
-    "CONSTRUCTION_LOAN",
-    "CONSTRUCTION_LOAN_1_TO_4_UNITS",
-    "FIX_AND_FLIP_LOAN_1_TO_4_UNITS",
-  ],
-},
+  {
+    label: "Max LTC (%)",
+    key: "maxLtc",
+    products: [
+      "MEZZ_FINANCE_PREF_EQUITY",
+      "MEZZ_FINANCE",
+      "MEZZANINE_FINANCE",
+      "FIX_AND_FLIP",
+      "CONSTRUCTION_LOAN",
+      "CONSTRUCTION_LOAN_1_TO_4_UNITS",
+      "FIX_AND_FLIP_LOAN_1_TO_4_UNITS",
+    ],
+  },
 
   { label: "Min FICO Score", key: "fico" },
 
@@ -138,7 +138,10 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
       ...prev,
       [productId]: {
         ...prev?.[productId],
-        states: updatedStates.length === 0 ? "Please select at least one state where lending is available" : "",
+        states:
+          updatedStates.length === 0
+            ? "Please select at least one state where lending is available"
+            : "",
       },
     }));
   };
@@ -221,15 +224,11 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
       }
     }
 
-if (
-  key === "maxLtv" ||
-  key === "maxArv" ||
-  key === "maxLtc"
-) {
-  if (numVal > 100) {
-    return "Value cannot exceed 100%";
-  }
-}
+    if (key === "maxLtv" || key === "maxArv" || key === "maxLtc") {
+      if (numVal > 100) {
+        return "Value cannot exceed 100%";
+      }
+    }
 
     // ✅ FICO VALIDATION
     if (key === "fico") {
@@ -263,7 +262,8 @@ if (
           ...prev,
           [p.id]: {
             ...prev?.[p.id],
-            states: "Please select at least one state where lending is available",
+            states:
+              "Please select at least one state where lending is available",
           },
         }));
       }
@@ -287,9 +287,15 @@ if (
         const isOpen = openIndex === index;
 
         const showLtc = [
-  "FIX_AND_FLIP",
-  "GROUND_UP_CONSTRUCTION",
-].includes(product.code);
+          "MEZZ_FINANCE_PREF_EQUITY",
+          "MEZZ_FINANCE",
+          "MEZZANINE_FINANCE",
+          "FIX_AND_FLIP",
+          "CONSTRUCTION_LOAN",
+          "CONSTRUCTION_LOAN_1_TO_4_UNITS",
+          "FIX_AND_FLIP_LOAN_1_TO_4_UNITS",
+        ].includes(product.code);
+
         return (
           <div
             key={product.id}
@@ -319,55 +325,59 @@ if (
             {isOpen && (
               <div className="p-4 bg-gray-50 border-t">
                 <div className="grid grid-cols-2 gap-4">
-                 {fields
-  .filter((field) => {
-    if (field.key === "maxLtc") return showLtc;
-    return true;
-  })
-  .map((field) => (
-                    <div key={field.key}>
-                      <label className="text-xs text-gray-600 mb-1 block">
-                        {field.label} <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="number"
-                        value={value?.[product.id]?.[field.key] || ""}
-                        onChange={(e) => {
-                          const val = e.target.value;
+                  {fields
+                    .filter((field) => {
+                      if (field.key === "maxLtc") return showLtc;
+                      return true;
+                    })
+                    .map((field) => (
+                      <div key={field.key}>
+                        <label className="text-xs text-gray-600 mb-1 block">
+                          {field.label} <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="number"
+                          value={value?.[product.id]?.[field.key] || ""}
+                          onChange={(e) => {
+                            const val = e.target.value;
 
-                          // create updated object manually
-                          // const updatedProduct = {
-                          //   ...value?.[product.id],
-                          //   [field.key]: val,
-                          // };
+                            // create updated object manually
+                            // const updatedProduct = {
+                            //   ...value?.[product.id],
+                            //   [field.key]: val,
+                            // };
 
-                          // pass updated data to validation
-                          const err = validateField(product.id, field.key, val);
+                            // pass updated data to validation
+                            const err = validateField(
+                              product.id,
+                              field.key,
+                              val,
+                            );
 
-                          handleChange(product.id, field.key, val);
+                            handleChange(product.id, field.key, val);
 
-                          setErrors((prev: any) => ({
-                            ...prev,
-                            [product.id]: {
-                              ...prev?.[product.id],
-                              [field.key]: err,
-                            },
-                          }));
-                        }}
-                        className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2
+                            setErrors((prev: any) => ({
+                              ...prev,
+                              [product.id]: {
+                                ...prev?.[product.id],
+                                [field.key]: err,
+                              },
+                            }));
+                          }}
+                          className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2
   ${
     errors?.[product.id]?.[field.key]
       ? "border-red-500 focus:ring-red-500"
       : "border-gray-300 focus:ring-blue-500"
   }`}
-                      />
-                      {errors?.[product.id]?.[field.key] && (
-                        <p className="text-xs text-red-500 mt-1">
-                          {errors[product.id][field.key]}
-                        </p>
-                      )}
-                    </div>
-                  ))}
+                        />
+                        {errors?.[product.id]?.[field.key] && (
+                          <p className="text-xs text-red-500 mt-1">
+                            {errors[product.id][field.key]}
+                          </p>
+                        )}
+                      </div>
+                    ))}
                 </div>
                 {/* STATES SECTION */}
                 <div className="mt-6">

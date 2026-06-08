@@ -13,10 +13,11 @@ const { seedDocumentTypes } = require("./admin/documentTypes.seed");
 // Broker seeds
 const { seedBrokerOrg } = require("./broker/brokerOrg.seed");
 const { seedBrokerUser } = require("./broker/broker.seed");
+const { seedLoanOfficers } = require("./broker/loanOfficers.seed");
+const { seedSubBrokers } = require("./broker/subBrokers.seed");
 const { seedApplicationBuilder } = require("./broker/applicationBuilder.seed");
-const {
-  seedApplicationSubmission,
-} = require("./broker/applicationSubmission.seed");
+// const { seedLoanApplication } = require("./broker/loanApplication.seed");
+// const { ensureConversationTypes } = require("./broker/ensureConversationTypes");
 
 // Lender seeds
 const { seedLenderOrg } = require("./lender/lenderOrg.seed");
@@ -38,6 +39,8 @@ async function main() {
   // ================== Broker ==================
   await seedBrokerOrg();
   await seedBrokerUser();
+  await seedLoanOfficers();
+  await seedSubBrokers();
   await seedLoanProducts();
 
   // ================== Lender ==================
@@ -49,8 +52,10 @@ async function main() {
   await seedDocumentTypes();
   // await seedEligibleApplication();
 
-  // Application builder
+  // Application builder + demo loan application
   await seedApplicationBuilder();
+  // await ensureConversationTypes();
+  // await seedLoanApplication();
 
   console.log("\n✅ Database seed completed successfully.");
 }

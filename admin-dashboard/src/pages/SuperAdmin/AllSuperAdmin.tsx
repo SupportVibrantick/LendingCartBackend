@@ -1,21 +1,24 @@
-// src/pages/AdminUsers/AllSuperadmin.tsx
 import { ShieldCheck } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { MdModeEdit } from "react-icons/md";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
-// Adjust this if your backend prefix is different
 const ADMIN_BASE = `${API_BASE}/admin/admin-user`;
+
+type PermissionItem = { key: string; label: string; description?: string };
+type PermissionGroup = { label: string; permissions: PermissionItem[] };
 
 type AdminUser = {
   id: string;
   firstName: string;
   lastName: string;
   email: string;
-  organizationId?: string | null; // can still DISPLAY from backend, but we won't SEND anything
-  status?: string; // e.g. "ACTIVE" | "INACTIVE"
+  organizationId?: string | null;
+  status?: string;
   createdAt?: string;
+  accessLevel?: "FULL" | "CUSTOM";
+  permissions?: string[];
 };
 
 type AdminUserForm = {
@@ -23,56 +26,52 @@ type AdminUserForm = {
   lastName: string;
   email: string;
   password: string;
+  accessLevel: "FULL" | "CUSTOM";
+  permissions: string[];
 };
 
-// same helper as BrokersPage / LoanProducts
 function getAuthHeaders(): Record<string, string> {
-  try {
-    const token = sessionStorage.getItem("admin_token");
-    if (token) {
-      return {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      };
-    }
-  } catch {
-    /* ignore */
-  }
-  return { "Content-Type": "application/json" };
+  const token = sessionStorage.getItem("admin_token");
+  return {
+    "Content-Type": "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
 }
 
-// tiny helper for status pill
 function statusClass(status?: string) {
-  switch ((status || "").toUpperCase()) {
-    case "ACTIVE":
-      return "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/40";
-    case "INACTIVE":
-      return "bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-500/10 dark:text-yellow-300 dark:border-yellow-500/40";
-    default:
-      return "bg-gray-100 text-gray-800 border-gray-200 dark:bg-slate-600/30 dark:text-slate-100 dark:border-slate-500";
+  const s = (status || "").toUpperCase();
+  if (s === "ACTIVE") {
+    return "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300";
   }
+  return "bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-500/10 dark:text-yellow-300";
+}
+
+function formatPermission(key: string) {
+  return key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 const AllSuperadmin: React.FC = () => {
   const [admins, setAdmins] = useState<AdminUser[]>([]);
+  const [permissionGroups, setPermissionGroups] = useState<PermissionGroup[]>([]);
   const [loadingList, setLoadingList] = useState(false);
+  const [loadingPermissions, setLoadingPermissions] = useState(false);
   const [saving, setSaving] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
-
   const [editingAdminId, setEditingAdminId] = useState<string | null>(null);
+
   const [form, setForm] = useState<AdminUserForm>({
     firstName: "",
     lastName: "",
     email: "",
     password: "",
+    accessLevel: "CUSTOM",
+    permissions: [],
   });
 
-  // ===== Helpers =====
   const formatDate = (value?: string) => {
     if (!value) return "-";
     const d = new Date(value);
-    if (Number.isNaN(d.getTime())) return "-";
-    return d.toLocaleDateString();
+    return Number.isNaN(d.getTime()) ? "-" : d.toLocaleDateString();
   };
 
   const resetForm = () => {
@@ -82,52 +81,50 @@ const AllSuperadmin: React.FC = () => {
       lastName: "",
       email: "",
       password: "",
+      accessLevel: "CUSTOM",
+      permissions: [],
     });
   };
 
-  // ===== API Calls =====
+  const fetchPermissionGroups = async () => {
+    try {
+      setLoadingPermissions(true);
+      const res = await fetch(`${ADMIN_BASE}/permissions`, {
+        headers: getAuthHeaders(),
+      });
+      const json = await res.json();
+      if (res.ok && json.success !== false) {
+        setPermissionGroups(json.data || []);
+      }
+    } catch (err) {
+      console.error("Failed to load permissions", err);
+    } finally {
+      setLoadingPermissions(false);
+    }
+  };
+
   const fetchAdmins = async () => {
     try {
       setLoadingList(true);
-
-      const res = await fetch(`${ADMIN_BASE}/read`, {
-        method: "GET",
-        headers: getAuthHeaders(),
-      });
-
-      if (!res.ok) {
-        console.error("Failed to load admins:", res.status);
-        return;
-      }
-
+      const res = await fetch(`${ADMIN_BASE}/read`, { headers: getAuthHeaders() });
+      if (!res.ok) return;
       const json = await res.json();
-
-      if (json.success === false) {
-        console.error("Failed to load admins:", json.message);
-        return;
-      }
-
-      const items = (json.data || json.users || []) as any[];
-
-      const mapped: AdminUser[] = items.map((u) => ({
-        id: String(u.id),
-        firstName: u.firstName ?? "",
-        lastName: u.lastName ?? "",
-        email: u.email ?? "",
-        organizationId:
-          u.organizationId !== undefined && u.organizationId !== null
-            ? String(u.organizationId)
-            : null,
-        status: u.status ?? "ACTIVE",
-        createdAt: u.createdAt ?? undefined,
-      }));
-
-      setAdmins(mapped);
+      const items = (json.data || json.users || []) as AdminUser[];
+      setAdmins(items);
     } catch (err) {
       console.error("Failed to load admins", err);
     } finally {
       setLoadingList(false);
     }
+  };
+
+  const togglePermission = (key: string) => {
+    setForm((prev) => ({
+      ...prev,
+      permissions: prev.permissions.includes(key)
+        ? prev.permissions.filter((p) => p !== key)
+        : [...prev.permissions, key],
+    }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -143,11 +140,15 @@ const AllSuperadmin: React.FC = () => {
       return;
     }
 
+    if (form.accessLevel === "CUSTOM" && form.permissions.length === 0) {
+      toast.error("Select at least one permission for custom access.");
+      return;
+    }
+
     try {
       setSaving(true);
 
       if (editingAdminId) {
-        // UPDATE existing admin (no password or organizationId change here)
         const res = await fetch(`${ADMIN_BASE}/update/${editingAdminId}`, {
           method: "PUT",
           headers: getAuthHeaders(),
@@ -155,25 +156,17 @@ const AllSuperadmin: React.FC = () => {
             firstName: form.firstName,
             lastName: form.lastName,
             email: form.email,
+            accessLevel: form.accessLevel,
+            permissions: form.accessLevel === "FULL" ? [] : form.permissions,
           }),
         });
-
-        if (!res.ok) {
-          console.error("Failed to update admin:", res.status);
-          const json = await res.json().catch(() => ({}));
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok || json.success === false) {
           toast.error(json.message || "Failed to update admin");
           return;
         }
-
-        const json = await res.json();
-        if (json.success === false) {
-          console.error("Failed to update admin:", json.message);
-          toast.error(json.message || "Failed to update admin");
-          return;
-        }
+        toast.success("Admin updated successfully");
       } else {
-        // CREATE new admin
-        // IMPORTANT: we are NOT sending organizationId from frontend
         const res = await fetch(`${ADMIN_BASE}/create`, {
           method: "POST",
           headers: getAuthHeaders(),
@@ -182,28 +175,23 @@ const AllSuperadmin: React.FC = () => {
             lastName: form.lastName,
             email: form.email,
             password: form.password,
+            accessLevel: form.accessLevel,
+            permissions: form.accessLevel === "FULL" ? [] : form.permissions,
           }),
         });
-
-        if (!res.ok) {
-          console.error("Failed to create admin:", res.status);
-          const json = await res.json().catch(() => ({}));
-          toast.error(json.message || "Failed to create admin");
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok || json.success === false) {
+          toast.error(json.message || json.errors?.fieldErrors?.permissions?.[0] || "Failed to create admin");
           return;
         }
-
-        const json = await res.json();
-        if (json.success === false) {
-          console.error("Failed to create admin:", json.message);
-          toast.error(json.message || "Failed to create admin");
-          return;
-        }
+        toast.success("Admin created successfully");
       }
 
       await fetchAdmins();
       resetForm();
     } catch (err) {
       console.error("Error saving admin", err);
+      toast.error("Something went wrong");
     } finally {
       setSaving(false);
     }
@@ -211,11 +199,14 @@ const AllSuperadmin: React.FC = () => {
 
   const handleEdit = (admin: AdminUser) => {
     setEditingAdminId(admin.id);
+    const isFull = admin.accessLevel === "FULL" || admin.permissions?.includes("*");
     setForm({
       firstName: admin.firstName,
       lastName: admin.lastName,
       email: admin.email,
-      password: "", // not editable here
+      password: "",
+      accessLevel: isFull ? "FULL" : "CUSTOM",
+      permissions: isFull ? [] : admin.permissions || [],
     });
   };
 
@@ -223,313 +214,323 @@ const AllSuperadmin: React.FC = () => {
     try {
       if (!admin.id) return;
       setTogglingId(admin.id);
+      const isActive = (admin.status || "").toUpperCase() === "ACTIVE";
 
-      const res = await fetch(`${ADMIN_BASE}/status/${admin.id}/status`, {
+      const res = await fetch(`${ADMIN_BASE}/status/${admin.id}`, {
         method: "PATCH",
         headers: getAuthHeaders(),
-        body: JSON.stringify({
-          status:
-            (admin.status || "").toUpperCase() === "ACTIVE"
-              ? "INACTIVE"
-              : "ACTIVE",
-        }),
+        body: JSON.stringify({ status: isActive ? "INACTIVE" : "ACTIVE" }),
       });
-
-      if (!res.ok) {
-        console.error("Failed to update admin status:", res.status);
-        const json = await res.json().catch(() => ({}));
-        toast.error(json.message || "Failed to update admin status");
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json.success === false) {
+        toast.error(json.message || "Failed to update status");
         return;
       }
-
-      const json = await res.json();
-      if (json.success === false) {
-        console.error("Failed to update admin status:", json.message);
-        toast.error(json.message || "Failed to update admin status");
-        return;
-      }
-
+      toast.success("Status updated");
       await fetchAdmins();
     } catch (err) {
-      console.error("Failed to toggle admin status", err);
+      console.error("Failed to toggle status", err);
     } finally {
       setTogglingId(null);
     }
   };
 
-  // ===== Effects =====
   useEffect(() => {
     fetchAdmins();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    fetchPermissionGroups();
   }, []);
 
-  // ===== UI =====
   return (
-    <div className="px-6 py-6 text-gray-900 dark:text-gray-100">
-      {/* Heading */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-2xl font-semibold text-[#13538A] dark:text-indigo-600">
-            Super Admin Users
-          </h1>
-          <p className="text-sm text-gray-500 mt-1 dark:text-slate-400">
-            Manage platform super admins and their basic details.
-          </p>
-        </div>
+    <div className="px-4 py-6 md:px-6 text-gray-900 dark:text-gray-100">
+      <div className="mb-6">
+        <h1 className="text-xl font-semibold text-[#13538A] dark:text-indigo-400">
+          Super Admin Users
+        </h1>
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          Create admins and assign what they can access on the platform.
+        </p>
       </div>
 
-      {/* 2-column layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-[320px_minmax(0,1fr)] gap-6">
-        {/* LEFT CARD – Create / Edit admin */}
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 dark:bg-slate-900 dark:border-slate-700">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[380px_minmax(0,1fr)]">
+        {/* Form */}
+        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+          <h2 className="mb-1 font-semibold text-slate-900 dark:text-white">
             {editingAdminId ? "Edit Admin User" : "Add Admin User"}
           </h2>
-          <p className="text-sm text-gray-500 mb-4 dark:text-slate-400">
-            Create and manage admin accounts for your lending platform.
+          <p className="mb-4 text-xs text-slate-500">
+            {editingAdminId ? "Update details and permissions" : "Create a new platform admin"}
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* First Name */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-slate-200 mb-1">
-                First Name
-              </label>
+              <label className="mb-1 block text-sm font-medium">First Name *</label>
               <input
                 type="text"
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900
-                           dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800"
                 value={form.firstName}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, firstName: e.target.value }))
-                }
-                placeholder="First name"
+                onChange={(e) => setForm((f) => ({ ...f, firstName: e.target.value }))}
                 disabled={saving}
               />
             </div>
 
-            {/* Last Name */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-slate-200 mb-1">
-                Last Name
-              </label>
+              <label className="mb-1 block text-sm font-medium">Last Name *</label>
               <input
                 type="text"
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900
-                           dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800"
                 value={form.lastName}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, lastName: e.target.value }))
-                }
-                placeholder="Last name"
+                onChange={(e) => setForm((f) => ({ ...f, lastName: e.target.value }))}
                 disabled={saving}
               />
             </div>
 
-            {/* Email */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-slate-200 mb-1">
-                Email
-              </label>
+              <label className="mb-1 block text-sm font-medium">Email *</label>
               <input
                 type="email"
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900
-                           dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800"
                 value={form.email}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, email: e.target.value }))
-                }
-                placeholder="admin@example.com"
+                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
                 disabled={saving}
               />
             </div>
 
-            {/* Password (only for create) */}
+            {!editingAdminId && (
+              <div>
+                <label className="mb-1 block text-sm font-medium">Password *</label>
+                <input
+                  type="password"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800"
+                  value={form.password}
+                  onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+                  disabled={saving}
+                />
+              </div>
+            )}
+
+            {/* Access level */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-slate-200 mb-1">
-                {editingAdminId ? "Password (not editable here)" : "Password"}
-              </label>
-              <input
-                type="password"
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900
-                           dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
-                value={form.password}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, password: e.target.value }))
-                }
-                placeholder={editingAdminId ? "********" : "Enter password"}
-                disabled={saving || !!editingAdminId}
-              />
-              {editingAdminId && (
-                <p className="mt-1 text-xs text-gray-500 dark:text-slate-400">
-                  Password cannot be changed from this screen.
-                </p>
-              )}
+              <label className="mb-2 block text-sm font-medium">Access Level *</label>
+              <div className="space-y-2">
+                <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 dark:border-slate-700">
+                  <input
+                    type="radio"
+                    name="accessLevel"
+                    checked={form.accessLevel === "FULL"}
+                    onChange={() => setForm((f) => ({ ...f, accessLevel: "FULL", permissions: [] }))}
+                  />
+                  <span className="text-sm">Full Access — all permissions</span>
+                </label>
+                <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 dark:border-slate-700">
+                  <input
+                    type="radio"
+                    name="accessLevel"
+                    checked={form.accessLevel === "CUSTOM"}
+                    onChange={() => setForm((f) => ({ ...f, accessLevel: "CUSTOM" }))}
+                  />
+                  <span className="text-sm">Custom — select permissions below</span>
+                </label>
+              </div>
             </div>
 
-            <div className="flex items-center justify-between gap-3 pt-1">
+            {/* Permissions */}
+            {form.accessLevel === "CUSTOM" && (
+              <div>
+                <div className="mb-2 flex items-center justify-between">
+                  <label className="text-sm font-medium">
+                    Permissions * ({form.permissions.length} selected)
+                  </label>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      className="text-xs text-[#13538A] hover:underline"
+                      onClick={() =>
+                        setForm((f) => ({
+                          ...f,
+                          permissions: permissionGroups.flatMap((g) =>
+                            g.permissions.map((p) => p.key)
+                          ),
+                        }))
+                      }
+                    >
+                      Select all
+                    </button>
+                    <button
+                      type="button"
+                      className="text-xs text-slate-500 hover:underline"
+                      onClick={() => setForm((f) => ({ ...f, permissions: [] }))}
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
+
+                {loadingPermissions ? (
+                  <p className="text-xs text-slate-400">Loading permissions...</p>
+                ) : (
+                  <div className="custom-scrollbar max-h-52 space-y-3 overflow-y-auto rounded-lg border border-slate-200 p-3 dark:border-slate-700">
+                    {permissionGroups.map((group) => (
+                      <div key={group.label}>
+                        <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          {group.label}
+                        </p>
+                        <div className="space-y-1">
+                          {group.permissions.map((perm) => (
+                            <label
+                              key={perm.key}
+                              className="flex cursor-pointer items-start gap-2 rounded px-1 py-0.5 hover:bg-slate-50 dark:hover:bg-slate-800"
+                            >
+                              <input
+                                type="checkbox"
+                                className="mt-0.5 rounded accent-[#13538A]"
+                                checked={form.permissions.includes(perm.key)}
+                                onChange={() => togglePermission(perm.key)}
+                              />
+                              <span className="text-xs text-slate-700 dark:text-slate-300">
+                                {perm.label}
+                              </span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="flex items-center gap-3 pt-1">
               <button
                 type="submit"
                 disabled={saving}
-                className="inline-flex items-center justify-center rounded-md bg-[#13538A] px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-[#1874c5] disabled:opacity-60 disabled:cursor-not-allowed
-                           "
+                className="rounded-lg bg-[#13538A] px-4 py-2 text-sm font-medium text-white hover:bg-[#1a6aad] disabled:opacity-60"
               >
-                {saving
-                  ? editingAdminId
-                    ? "Saving..."
-                    : "Creating..."
-                  : editingAdminId
-                    ? "Save Changes"
-                    : "Create Admin"}
+                {saving ? "Saving..." : editingAdminId ? "Save Changes" : "Create Admin"}
               </button>
-
               {editingAdminId && (
                 <button
                   type="button"
                   onClick={resetForm}
-                  disabled={saving}
-                  className="text-xs text-gray-500 hover:text-gray-700 underline dark:text-slate-400 dark:hover:text-slate-200"
+                  className="text-xs text-slate-500 underline"
                 >
-                  Cancel edit
+                  Cancel
                 </button>
               )}
             </div>
           </form>
         </div>
 
-        {/* RIGHT CARD – Admins table */}
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 dark:bg-slate-900 dark:border-slate-700">
-          <div className="flex items-center justify-between mb-4">
+        {/* Table */}
+        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+          <div className="mb-4 flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                All Admin Users
-              </h2>
-              <p className="text-sm text-gray-500 dark:text-slate-400">
-                Super admins configured for the platform.
-              </p>
+              <h2 className="font-semibold text-slate-900 dark:text-white">All Admin Users</h2>
+              <p className="text-xs text-slate-500">{admins.length} admin(s)</p>
             </div>
-
             <button
               type="button"
               onClick={fetchAdmins}
               disabled={loadingList}
-              className="rounded-full border border-gray-200 px-4 py-1.5 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed
-                         dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+              className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs dark:border-slate-700"
             >
-              {loadingList ? "Refreshing..." : "Refresh"}
+              {loadingList ? "Loading..." : "Refresh"}
             </button>
           </div>
 
-          <div className="overflow-auto">
+          <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-100 text-xs text-gray-500 uppercase tracking-wide dark:border-slate-700 dark:text-slate-400">
-                  <th className="py-2 pr-4 text-left">Name</th>
-                  <th className="py-2 pr-4 text-left">Email</th>
-                  <th className="py-2 pr-4 text-left">Org ID</th>
-                  <th className="py-2 pr-4 text-left">Status</th>
-                  <th className="py-2 pr-4 text-left">Created</th>
-                  <th className="py-2 pr-4 text-right">Actions</th>
+                <tr className="border-b border-slate-100 text-left text-xs uppercase text-slate-500 dark:border-slate-800">
+                  <th className="py-2 pr-3">Name</th>
+                  <th className="py-2 pr-3">Email</th>
+                  <th className="py-2 pr-3">Access</th>
+                  <th className="py-2 pr-3">Status</th>
+                  <th className="py-2 pr-3">Created</th>
+                  <th className="py-2 text-right">Actions</th>
                 </tr>
               </thead>
-
               <tbody>
                 {loadingList ? (
                   <tr>
-                    <td colSpan={6} className="py-14">
-                      <div className="flex flex-col items-center justify-center text-center space-y-4">
-                        {/* Spinner */}
-                        <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-
-                        {/* Message */}
-                        <p className="text-sm font-medium text-slate-600 dark:text-slate-300">
-                          Loading admin users...
-                        </p>
-                      </div>
+                    <td colSpan={6} className="py-12 text-center text-slate-400">
+                      Loading...
                     </td>
                   </tr>
                 ) : admins.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="py-12">
-                      <div className="flex flex-col items-center justify-center text-center">
-                        {/* Icon Circle */}
-                        <div
-                          className="w-14 h-14 flex items-center justify-center
-          rounded-full
-          bg-blue-100 dark:bg-blue-900/30
-          text-blue-600 dark:text-blue-400
-          mb-4"
-                        >
-                          <ShieldCheck size={26} />
-                        </div>
-
-                        {/* Title */}
-                        <h3 className="text-base font-semibold text-slate-800 dark:text-white">
+                      <div className="flex flex-col items-center text-center">
+                        <ShieldCheck className="mb-3 text-slate-300" size={32} />
+                        <p className="font-medium text-slate-600 dark:text-slate-300">
                           No Admin Users Found
-                        </h3>
-
-                        {/* Subtitle */}
-                        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400 max-w-sm">
-                          There are currently no admin accounts available in the
-                          system.
+                        </p>
+                        <p className="mt-1 text-xs text-slate-400">
+                          Create an admin using the form on the left.
                         </p>
                       </div>
                     </td>
                   </tr>
                 ) : (
-                  admins.map((a) => (
-                    <tr
-                      key={a.id}
-                      className="border-b border-gray-100 last:border-0 hover:bg-gray-50/40 dark:border-slate-800 dark:hover:bg-slate-800/60"
-                    >
-                      <td className="py-3 pr-4 text-gray-900 whitespace-nowrap dark:text-gray-100">
-                        {a.firstName} {a.lastName}
-                      </td>
-                      <td className="py-3 pr-4 text-gray-900 whitespace-nowrap dark:text-gray-100">
-                        {a.email}
-                      </td>
-                      <td className="py-3 pr-4 text-gray-600 whitespace-nowrap dark:text-slate-300">
-                        {a.organizationId ?? "-"}
-                      </td>
+                  admins.map((a) => {
+                    const isFull = a.accessLevel === "FULL" || a.permissions?.includes("*");
+                    const permPreview = isFull
+                      ? "Full Access"
+                      : `${a.permissions?.length ?? 0} permissions`;
 
-                      {/* Clickable status pill */}
-                      <td className="py-3 pr-4 whitespace-nowrap">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (!togglingId) {
-                              handleToggleStatus(a);
+                    return (
+                      <tr
+                        key={a.id}
+                        className="border-b border-slate-50 last:border-0 dark:border-slate-800"
+                      >
+                        <td className="py-3 pr-3 whitespace-nowrap">
+                          {a.firstName} {a.lastName}
+                        </td>
+                        <td className="py-3 pr-3 whitespace-nowrap">{a.email}</td>
+                        <td className="py-3 pr-3">
+                          <span
+                            className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
+                              isFull
+                                ? "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300"
+                                : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+                            }`}
+                            title={
+                              isFull
+                                ? "Full access"
+                                : a.permissions?.map(formatPermission).join(", ")
                             }
-                          }}
-                          disabled={togglingId === a.id}
-                          className={`inline-flex items-center px-3 py-1 rounded-full border text-xs cursor-pointer
-                                      ${statusClass(a.status)}
-                                      disabled:opacity-60 disabled:cursor-not-allowed`}
-                        >
-                          {togglingId === a.id
-                            ? "Updating..."
-                            : (a.status || "UNKNOWN").toUpperCase()}
-                        </button>
-                      </td>
-
-                      <td className="py-3 pr-4 text-gray-600 whitespace-nowrap dark:text-slate-300">
-                        {formatDate(a.createdAt)}
-                      </td>
-
-                      <td className="py-3 pr-4 text-right whitespace-nowrap">
-                        <div className="flex items-center justify-end gap-2">
+                          >
+                            {permPreview}
+                          </span>
+                        </td>
+                        <td className="py-3 pr-3">
+                          <button
+                            type="button"
+                            onClick={() => !togglingId && handleToggleStatus(a)}
+                            disabled={togglingId === a.id}
+                            className={`rounded-full border px-2.5 py-0.5 text-xs ${statusClass(a.status)}`}
+                          >
+                            {togglingId === a.id
+                              ? "..."
+                              : (a.status || "UNKNOWN").toUpperCase() === "DISABLED"
+                                ? "INACTIVE"
+                                : (a.status || "UNKNOWN").toUpperCase()}
+                          </button>
+                        </td>
+                        <td className="py-3 pr-3 whitespace-nowrap text-slate-500">
+                          {formatDate(a.createdAt)}
+                        </td>
+                        <td className="py-3 text-right">
                           <button
                             type="button"
                             onClick={() => handleEdit(a)}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100
-                                       dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 dark:border-slate-700"
                           >
                             <MdModeEdit />
                           </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
