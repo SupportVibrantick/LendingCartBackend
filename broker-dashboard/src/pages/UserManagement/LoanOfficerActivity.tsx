@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router";
+import { Link, useLocation, useNavigate } from "react-router";
 import {
   Activity,
   ChevronLeft,
@@ -73,16 +73,23 @@ function actionTone(action: string) {
   return "bg-slate-100 text-slate-700";
 }
 
+function readOfficerIdFromLocation(location: ReturnType<typeof useLocation>) {
+  const stateId = (location.state as { officerId?: string } | null)?.officerId;
+  const queryId = new URLSearchParams(location.search).get("officer");
+  return stateId || queryId || "";
+}
+
 export default function LoanOfficerActivityPage() {
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const initialOfficerId = searchParams.get("officer") || "";
+  const location = useLocation();
 
   const [officers, setOfficers] = useState<OfficerSummary[]>([]);
   const [activity, setActivity] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedOfficerId, setSelectedOfficerId] = useState(initialOfficerId);
+  const [selectedOfficerId, setSelectedOfficerId] = useState(() =>
+    readOfficerIdFromLocation(location),
+  );
   const [page, setPage] = useState(1);
   const [limit] = useState(20);
   const [totalPages, setTotalPages] = useState(1);
@@ -129,12 +136,12 @@ export default function LoanOfficerActivityPage() {
   }, [selectedOfficerId]);
 
   useEffect(() => {
-    if (selectedOfficerId) {
-      setSearchParams({ officer: selectedOfficerId }, { replace: true });
-    } else if (searchParams.has("officer")) {
-      setSearchParams({}, { replace: true });
+    const hasQuery = new URLSearchParams(location.search).has("officer");
+    const hasState = !!(location.state as { officerId?: string } | null)?.officerId;
+    if (hasQuery || hasState) {
+      navigate("/loan-officer-activity", { replace: true, state: null });
     }
-  }, [selectedOfficerId]);
+  }, [location.search, location.state, navigate]);
 
   const selectedOfficer = useMemo(
     () => officers.find((o) => o.id === selectedOfficerId) || null,
@@ -305,7 +312,7 @@ export default function LoanOfficerActivityPage() {
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      navigate(`/loan-officer-activity?officer=${officer.id}`);
+                      setSelectedOfficerId(officer.id);
                     }}
                     className="text-xs font-medium text-[#13538A] hover:underline"
                   >

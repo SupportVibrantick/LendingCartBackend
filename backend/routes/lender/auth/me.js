@@ -1,4 +1,8 @@
 // backend/routes/lender/auth/me.js
+const {
+  readExtendedLenderProfileFields,
+} = require("../../../services/lenderProfileExtendedFields");
+
 /**
  * @param {import("fastify").FastifyInstance} fastify
  */
@@ -40,6 +44,9 @@ async function lenderMeRoutes(fastify) {
         }
 
         const lenderProfile = user.organization?.lenderProfile || null;
+        const extendedProfileFields = lenderProfile
+          ? await readExtendedLenderProfileFields(user.organizationId)
+          : null;
 
         return reply.send({
           ok: true,
@@ -58,6 +65,8 @@ async function lenderMeRoutes(fastify) {
             organization: {
               id: user.organization.id,
               name: user.organization.name,
+              email: user.organization.email,
+              phone: user.organization.phone,
               type: user.organization.type,
               status: user.organization.status,
             },
@@ -71,6 +80,13 @@ async function lenderMeRoutes(fastify) {
                   statesSupported: lenderProfile.statesSupported,
                   industries: lenderProfile.industries,
                   fundingSpeedDays: lenderProfile.fundingSpeedDays,
+                  lendingCriteria: extendedProfileFields?.lendingCriteria ?? null,
+                  lendingGuidelines:
+                    extendedProfileFields?.lendingGuidelines ?? null,
+                  creditRequirements:
+                    extendedProfileFields?.creditRequirements ?? null,
+                  propertyRequirements:
+                    extendedProfileFields?.propertyRequirements ?? null,
                   profileStatus: lenderProfile.profileStatus,
                   isVisible: lenderProfile.isVisible,
                   updatedAt: lenderProfile.updatedAt,

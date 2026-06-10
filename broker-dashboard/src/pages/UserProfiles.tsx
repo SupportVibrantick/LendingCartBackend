@@ -8,6 +8,9 @@ import {
   Mail,
   ShieldCheck,
   Briefcase,
+  LockKeyhole,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -20,6 +23,14 @@ export default function UserProfileCard() {
   const [profileImage, setProfileImage] = useState<File | null>(null);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  const [showPasswordSection, setShowPasswordSection] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
 
   async function loadUser() {
     try {
@@ -57,6 +68,78 @@ export default function UserProfileCard() {
   const roleLabel = user.roles?.[0]?.replace(/_/g, " ");
   const isChanged =
     firstName !== user.firstName || lastName !== user.lastName || profileImage;
+
+  const validateNewPassword = (password: string) => {
+    if (password.length < 8) return "Password must be at least 8 characters";
+    if (!/[A-Z]/.test(password))
+      return "Password must contain at least one uppercase letter";
+    if (!/[a-z]/.test(password))
+      return "Password must contain at least one lowercase letter";
+    if (!/[0-9]/.test(password))
+      return "Password must contain at least one number";
+    if (!/[^A-Za-z0-9]/.test(password))
+      return "Password must contain at least one special character";
+    return null;
+  };
+
+  const resetPasswordForm = () => {
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setShowCurrentPassword(false);
+    setShowNewPassword(false);
+  };
+
+  const handleChangePassword = async () => {
+    if (!currentPassword.trim()) {
+      toast.error("Current password is required");
+      return;
+    }
+
+    const passwordError = validateNewPassword(newPassword);
+    if (passwordError) {
+      toast.error(passwordError);
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      toast.error("Passwords do not match");
+      return;
+    }
+
+    setChangingPassword(true);
+    const toastId = toast.loading("Updating password...");
+
+    try {
+      const res = await fetch(`${API_BASE}/broker/auth/change-password`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sessionStorage.getItem("broker_token")}`,
+        },
+        body: JSON.stringify({
+          currentPassword,
+          newPassword,
+        }),
+      });
+
+      const json = await res.json();
+
+      if (!res.ok || json.success === false) {
+        throw new Error(json.message || "Unable to change password");
+      }
+
+      resetPasswordForm();
+      setShowPasswordSection(false);
+      toast.success(json.message || "Password changed successfully", {
+        id: toastId,
+      });
+    } catch (err: any) {
+      toast.error(err.message || "Unable to change password", { id: toastId });
+    } finally {
+      setChangingPassword(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!firstName.trim()) {
@@ -213,6 +296,73 @@ export default function UserProfileCard() {
 
             <div>
               <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 mb-3">
+                SECURITY
+              </p>
+
+              <div className="p-5 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl">
+                <div className="flex items-start justify-between gap-4 flex-wrap">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white flex items-center gap-2">
+                      <LockKeyhole size={16} /> Password
+                    </p>
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      Update your account password. Use at least 8 characters with
+                      upper, lower, number, and special character.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowPasswordSection((prev) => !prev);
+                      resetPasswordForm();
+                    }}
+                    className="px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-xl hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-300 dark:hover:bg-blue-900/50"
+                  >
+                    {showPasswordSection ? "Cancel" : "Change Password"}
+                  </button>
+                </div>
+
+                {showPasswordSection && (
+                  <div className="grid md:grid-cols-2 gap-4 mt-5 pt-5 border-t border-gray-100 dark:border-gray-800">
+                    <PasswordField
+                      label="Current password"
+                      value={currentPassword}
+                      show={showCurrentPassword}
+                      onToggle={() => setShowCurrentPassword((prev) => !prev)}
+                      onChange={setCurrentPassword}
+                    />
+                    <PasswordField
+                      label="New password"
+                      value={newPassword}
+                      show={showNewPassword}
+                      onToggle={() => setShowNewPassword((prev) => !prev)}
+                      onChange={setNewPassword}
+                    />
+                    <PasswordField
+                      label="Confirm new password"
+                      value={confirmPassword}
+                      show={showNewPassword}
+                      onToggle={() => setShowNewPassword((prev) => !prev)}
+                      onChange={setConfirmPassword}
+                    />
+                    <div className="md:col-span-2 flex justify-end">
+                      <button
+                        type="button"
+                        onClick={handleChangePassword}
+                        disabled={changingPassword}
+                        className="px-5 py-2.5 text-sm font-medium text-white bg-blue-600 rounded-xl hover:bg-blue-700 disabled:opacity-50"
+                      >
+                        {changingPassword ? "Saving..." : "Update Password"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div>
+              <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 mb-3">
                 CONTACT INFO
               </p>
 
@@ -290,6 +440,41 @@ function ProfileField({ label, value, editing, onChange, icon }: any) {
           {value || "—"}
         </div>
       )}
+    </div>
+  );
+}
+
+function PasswordField({
+  label,
+  value,
+  show,
+  onToggle,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  show: boolean;
+  onToggle: () => void;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <label className="text-xs text-gray-500 dark:text-gray-400">{label}</label>
+      <div className="relative">
+        <input
+          type={show ? "text" : "password"}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2 pr-11 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+        />
+        <button
+          type="button"
+          onClick={onToggle}
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+        >
+          {show ? <EyeOff size={16} /> : <Eye size={16} />}
+        </button>
+      </div>
     </div>
   );
 }

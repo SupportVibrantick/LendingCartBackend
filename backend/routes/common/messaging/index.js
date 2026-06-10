@@ -29,6 +29,11 @@ module.exports = async function messagingRoutes(fastify) {
   );
 
   await fastify.register(
+    require("./conversation/createLenderConversation"),
+    { prefix: "/" }
+  );
+
+  await fastify.register(
     require("./conversation/createBrokerOfficerConversation"),
     { prefix: "/" }
   );

@@ -50,12 +50,20 @@ export const BADGE_CLASS_BY_TONE: Record<ChatBadgeTone, string> = {
 
 function inferBadgeTone(chat: ChatConversationListItem): ChatBadgeTone {
   if (chat.badgeTone) return chat.badgeTone;
-  if (chat.type === "BROKER_LENDER") return "amber";
+  if (chat.type === "BROKER_LENDER") {
+    return chat.chatCategory === "LOAN_OFFICER" ? "violet" : "amber";
+  }
   return "slate";
 }
 
 function inferBadgeLabel(chat: ChatConversationListItem): string {
-  return chat.badgeLabel || (chat.type === "BROKER_LENDER" ? "Broker" : "Chat");
+  if (chat.badgeLabel) return chat.badgeLabel;
+  if (chat.type === "BROKER_LENDER") {
+    if (chat.chatCategory === "LOAN_OFFICER") return "Loan Officer";
+    if (chat.chatCategory === "PRINCIPAL_BROKER") return "Principal Broker";
+    return "Broker";
+  }
+  return "Chat";
 }
 
 export function getConversationDisplayName(
@@ -63,16 +71,28 @@ export function getConversationDisplayName(
 ): string {
   if (!chat) return "Broker";
   if (chat.displayName) return chat.displayName;
+  if (chat.participant?.name) return chat.participant.name;
   if (chat.brokerName) return chat.brokerName;
   if (chat.brokerLabel) return chat.brokerLabel;
 
-const broker = (chat.participants || []).find(
-  (p) =>
-    p.role === "BROKER" ||
-    p.participantType === "BROKER",
-);
+  const broker = (chat.participants || []).find(
+    (p) => p.role === "BROKER" || p.participantType === "BROKER",
+  );
 
-  return broker?.name || chat.title?.replace(/^Lender\s-\s*/i, "") || "Broker";
+  if (chat.chatCategory === "LOAN_OFFICER") {
+    return (
+      broker?.name ||
+      chat.title?.replace(/^Loan Officer\s•\s*/i, "") ||
+      "Loan Officer"
+    );
+  }
+
+  return (
+    broker?.name ||
+    chat.title?.replace(/^Principal Broker\s•\s*/i, "") ||
+    chat.title?.replace(/^Lender\s-\s*/i, "") ||
+    "Principal Broker"
+  );
 }
 
 export function getConversationBadge(chat: ChatConversationListItem) {

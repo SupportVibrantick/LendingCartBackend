@@ -89,20 +89,30 @@ function enrichConversationItem(item, viewerRole) {
         "Broker";
 
       if (viewerRole === "LENDER") {
+        const isLoanOfficerChannel = item.chatCategory === "LOAN_OFFICER";
+        const contactName = isLoanOfficerChannel
+          ? item.participant?.name ||
+            item.officerName ||
+            stripKnownPrefix(item.title, /^Loan Officer\s•\s*(.+)$/i) ||
+            "Loan Officer"
+          : brokerName;
+
         return {
           ...base,
-          displayName: brokerName,
-          badgeLabel: "Broker",
-          badgeTone: "amber",
-          brokerName,
+          displayName: contactName,
+          badgeLabel: isLoanOfficerChannel ? "Loan Officer" : "Principal Broker",
+          badgeTone: isLoanOfficerChannel ? "violet" : "amber",
+          brokerName: isLoanOfficerChannel ? undefined : brokerName,
         };
       }
+
+      const isLoanOfficerChannel = item.chatCategory === "LOAN_OFFICER";
 
       return {
         ...base,
         displayName: lenderName,
-        badgeLabel: "Lender",
-        badgeTone: "indigo",
+        badgeLabel: isLoanOfficerChannel ? "Loan Officer Channel" : "Lender",
+        badgeTone: isLoanOfficerChannel ? "violet" : "indigo",
         lenderName,
       };
     }
@@ -123,6 +133,15 @@ function enrichConversationItem(item, viewerRole) {
           displayName: contactName,
           badgeLabel: isLoanOfficerChannel ? "Loan Officer" : "Principal Broker",
           badgeTone: isLoanOfficerChannel ? "violet" : "amber",
+        };
+      }
+
+      if (viewerRole === "LOAN_OFFICER") {
+        return {
+          ...base,
+          displayName: contactName,
+          badgeLabel: "Sub Broker",
+          badgeTone: "sky",
         };
       }
 

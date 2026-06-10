@@ -222,10 +222,13 @@ app.setErrorHandler((error, request, reply) => {
 app.register(indexRoutes, { prefix: "/" });
 
 const campaignScheduler = require("./scheduler/campaign.scheduler");
+const subscriptionScheduler = require("./scheduler/subscription.scheduler");
 
 app.ready().then(() => {
   campaignScheduler(app);
+  subscriptionScheduler(app);
   console.log("🚀 Campaign Scheduler Started");
+  console.log("📋 Subscription Billing Scheduler Started");
 });
 
 // app.ready(() => {

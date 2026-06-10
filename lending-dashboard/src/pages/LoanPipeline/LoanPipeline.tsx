@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { createPortal } from "react-dom";
 import {
@@ -15,8 +15,26 @@ import {
   Download,
   EllipsisVertical,
   X,
+  RefreshCw,
+  Building2,
+  MessageCircle,
+  SearchX,
+  Clock3,
 } from "lucide-react";
 import { useNavigate } from "react-router";
+import {
+  buildBorrowerDisplayName,
+  DECISION_FILTERS,
+  formatApplicationStatus,
+  formatCompactAmount,
+  formatEntityTypeLabel,
+  formatLoanProduct,
+  formatShortDate,
+  getApplicationStatusColor,
+  getBorrowerInitials,
+  getPaginationWindow,
+  type DecisionFilterValue,
+} from "../../lib/loanPipelineUtils";
 
 /* ================= TYPES ================= */
 type TableRow = {
@@ -39,48 +57,8 @@ type TableRow = {
 
 /* ================= HELPERS ================= */
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
-
-const formatApplicationStatus = (status: string) => {
-  if (!status) return "-";
-
-  // Remove LENDER_ prefix
-  const cleaned = status.replace("LENDER_", "");
-
-  return cleaned
-    .toLowerCase()
-    .replace(/_/g, " ")
-    .replace(/\b\w/g, (c) => c.toUpperCase());
-};
-
-const getApplicationStatusColor = (status: string) => {
-  switch (status) {
-    case "APPROVED":
-      return "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400";
-
-    case "LENDER_APPROVED":
-      return "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400";
-
-      case "DECLINED":
-case "LENDER_DECLINED":
-  return "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400";
-
-    case "PENDING":
-      return "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400";
-
-    case "IN_REVIEW":
-      return "bg-indigo-100 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-400";
-
-    case "SENT":
-      return "bg-blue-100 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400";
-
-    case "CONDITIONAL":
-    case "LENDER_CONDITIONAL":
-      return "bg-yellow-100 text-yellow-700 dark:bg-yellow-500/10 dark:text-yellow-400";
-
-    default:
-      return "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300";
-  }
-};
+const TABLE_COLUMNS = 9;
+const ROWS_PER_PAGE = 10;
 
 function getAuthHeaders(): HeadersInit {
   const token = sessionStorage.getItem("lender_token");
@@ -90,59 +68,18 @@ function getAuthHeaders(): HeadersInit {
   };
 }
 
-const formatCompactAmount = (amount?: number) => {
-  if (!amount || amount === 0) return "$0";
-
-  if (amount >= 1_000_000_000) {
-    return `$${(amount / 1_000_000_000).toFixed(
-      amount % 1_000_000_000 === 0 ? 0 : 1,
-    )}B`;
-  }
-
-  if (amount >= 1_000_000) {
-    return `$${(amount / 1_000_000).toFixed(
-      amount % 1_000_000 === 0 ? 0 : 1,
-    )}M`;
-  }
-
-  if (amount >= 1_000) {
-    return `$${(amount / 1_000).toFixed(amount % 1_000 === 0 ? 0 : 1)}K`;
-  }
-
-  return `$${amount}`;
-};
-
-const buildBorrowerDisplayName = (item: any) => {
-  const fullName = [
-    item.borrowerFirstName,
-    item.borrowerLastName,
-  ]
-    .map((value: string) => (value || "").trim())
-    .filter(Boolean)
-    .join(" ")
-    .trim();
-
-  if (fullName) {
-    return fullName;
-  }
-
-  if (
-    item.borrowerName &&
-    item.borrowerName !== "Individual Applicant"
-  ) {
-    return item.borrowerName;
-  }
-
-  return item.client?.legalName || "N/A";
-};
+const normalizeStatus = (status?: string) => status?.toUpperCase().trim();
 
 /* ================= COMPONENT ================= */
 export default function LoanPipeline() {
   const navigate = useNavigate();
   const [rows, setRows] = useState<TableRow[]>([]);
   const [loading, setLoading] = useState(false);
+  const [statsLoading, setStatsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [decisionFilter, setDecisionFilter] =
+    useState<DecisionFilterValue>("");
   const [decisionModal, setDecisionModal] = useState<{
     type: "APPROVED" | "DECLINED" | null;
     applicationId: string | null;
@@ -190,33 +127,21 @@ const [debouncedSearch, setDebouncedSearch] = useState("");
   });
 
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
 
-  // Find Lenders Modal State
-const [currentPage, setCurrentPage] = useState(1);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: ROWS_PER_PAGE,
+    total: 0,
+    totalPages: 1,
+  });
 
-const [pagination, setPagination] = useState({
-  page: 1,
-  limit: 10,
-  total: 0,
- totalPages: 1,
-});
-
-const [stats, setStats] = useState({
-  totalVolume: 0,
-  newApplications: 0,
-  approvedApplications: 0,
-});
-
-  //     const getDecisionColor = (status: string) => {
-  //   switch (status) {
-  //     case "APPROVED":
-  //       return "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400";
-  //     case "DECLINED":
-  //       return "bg-rose-100 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400";
-  //     default:
-  //       return "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300";
-  //   }
-  // };
+  const [stats, setStats] = useState({
+    totalVolume: 0,
+    newApplications: 0,
+    approvedApplications: 0,
+    totalApplications: 0,
+  });
 
   const handleDownload = async (url: string, filename: string) => {
     try {
@@ -284,39 +209,56 @@ const totalVolume = stats.totalVolume;
     }
   };
 
-  const loadStats = async () => {
-  try {
-    const res = await fetch(
-      `${API_BASE}/lender/loan-pipeline/stats`,
-      {
+  const loadStats = useCallback(async () => {
+    try {
+      setStatsLoading(true);
+      const res = await fetch(`${API_BASE}/lender/loan-pipeline/stats`, {
         headers: getAuthHeaders(),
-      },
-    );
+      });
 
-    const json = await res.json();
+      const json = await res.json();
 
-    if (!res.ok || !json.success) {
-      throw new Error(json.message || "Failed to load stats");
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Failed to load stats");
+      }
+
+      setStats({
+        totalVolume: json.data.totalVolume || 0,
+        newApplications: json.data.newApplications || 0,
+        approvedApplications: json.data.approvedApplications || 0,
+        totalApplications: json.data.totalApplications || 0,
+      });
+    } catch (err: any) {
+      toast.error(err.message || "Failed to load stats");
+    } finally {
+      setStatsLoading(false);
     }
+  }, []);
 
-    setStats({
-      totalVolume: json.data.totalVolume || 0,
-      newApplications: json.data.newApplications || 0,
-      approvedApplications:
-        json.data.approvedApplications || 0,
-    });
-  } catch (err: any) {
-    toast.error(err.message || "Failed to load stats");
-  }
-};
-
-  const loadSubmissions = async () => {
+  const loadSubmissions = useCallback(async () => {
     try {
       setLoading(true);
 
-      const res = await fetch(`${API_BASE}/lender/loan-pipeline?page=${currentPage}&limit=10&search=${encodeURIComponent(debouncedSearch)}`, {
-        headers: getAuthHeaders(), // lender_token use hoga
+      const params = new URLSearchParams({
+        page: String(currentPage),
+        limit: String(ROWS_PER_PAGE),
+        search: debouncedSearch,
       });
+
+      if (
+        decisionFilter &&
+        decisionFilter !== "PENDING" &&
+        ["CONDITIONAL", "APPROVED", "DECLINED"].includes(decisionFilter)
+      ) {
+        params.set("decision", decisionFilter);
+      }
+
+      const res = await fetch(
+        `${API_BASE}/lender/loan-pipeline?${params.toString()}`,
+        {
+          headers: getAuthHeaders(),
+        },
+      );
 
       const json = await res.json();
 
@@ -325,13 +267,13 @@ const totalVolume = stats.totalVolume;
       }
 
       setPagination({
-  page: json.page,
-  limit: json.limit,
-  total: json.total,
-totalPages: json.totalPages,
-});
+        page: json.page,
+        limit: json.limit,
+        total: json.total,
+        totalPages: json.totalPages,
+      });
 
-      const mappedRows: TableRow[] = json.data.map((item: any) => ({
+      let mappedRows: TableRow[] = json.data.map((item: any) => ({
         applicationLenderId: item.applicationLenderId,
         applicationNumber: item.applicationNumber,
         borrowerFirstName: item.borrowerFirstName || "",
@@ -344,11 +286,21 @@ totalPages: json.totalPages,
         lenderStatus: item.lenderPipelineStatus || item.lenderStatus,
         applicationStatus: item.applicationStatus,
         sentAt: item.sentAt,
-        brokerName: item.broker?.name || "-",
-        lenderDecision: item.lenderDecision, // MAP THIS
+        brokerName: item.broker?.name || "—",
+        lenderDecision: item.lenderDecision,
         pendingDocumentsCount: item.pendingDocumentsCount ?? 0,
         loiGenerated: item.loiGenerated,
       }));
+
+      if (decisionFilter === "PENDING") {
+        mappedRows = mappedRows.filter(
+          (row) =>
+            !row.lenderDecision ||
+            ["SENT", "IN_REVIEW", "PENDING"].includes(
+              normalizeStatus(row.lenderStatus) || "",
+            ),
+        );
+      }
 
       setRows(mappedRows);
     } catch (err: any) {
@@ -356,7 +308,7 @@ totalPages: json.totalPages,
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentPage, debouncedSearch, decisionFilter]);
 
   const handleGenerateLOI = async (applicationId: string) => {
     try {
@@ -383,6 +335,7 @@ totalPages: json.totalPages,
       });
       // reload pipeline
       loadSubmissions();
+      loadStats();
     } catch (err: any) {
       toast.error(err.message || "Something went wrong");
     } finally {
@@ -393,9 +346,7 @@ totalPages: json.totalPages,
 useEffect(() => {
   loadSubmissions();
   loadStats();
-}, [currentPage, debouncedSearch]);
-
-  const normalizeStatus = (status?: string) => status?.toUpperCase().trim();
+}, [loadSubmissions, loadStats]);
 
   const canTakeDecision = (status?: string) => {
     const s = normalizeStatus(status);
@@ -409,10 +360,27 @@ useEffect(() => {
     );
   };
 
-  // Reset page when search changes
+  const openApplicationPreview = (row: TableRow) => {
+    navigate("/loan-preview", {
+      state: {
+        applicationLenderId: row.applicationLenderId,
+        isLoi: row.loiGenerated,
+      },
+    });
+  };
+
+  const pageNumbers = useMemo(
+    () => getPaginationWindow(currentPage, pagination.totalPages),
+    [currentPage, pagination.totalPages],
+  );
+
+  const isEmpty = !loading && pagination.total === 0;
+  const isSearchEmpty = !loading && pagination.total > 0 && rows.length === 0;
+
+  // Reset page when search or filter changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm]);
+  }, [searchTerm, decisionFilter]);
 
   useEffect(() => {
     if (currentPage > pagination.totalPages && pagination.totalPages > 0) {
@@ -502,6 +470,7 @@ useEffect(() => {
 
       // Refresh table
       loadSubmissions();
+      loadStats();
     } catch (err: any) {
       toast.error(err.message || "Something went wrong");
     }
@@ -552,316 +521,324 @@ useEffect(() => {
   };
 
   useEffect(() => {
-  const timer = setTimeout(() => {
-    setDebouncedSearch(searchTerm);
-  }, 500);
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchTerm.trim());
+    }, 400);
 
-  return () => clearTimeout(timer);
-}, [searchTerm]);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
-const PRODUCT_LABELS: Record<string, string> = {
-  FIX_AND_FLIP_LOAN_1_TO_4_UNITS: "FIX & FLIP",
-  DSCR_LOAN_1_TO_4_UNITS: "DSCR",
-  CONSTRUCTION_LOAN_1_TO_4_UNITS: "CONSTRUCTION",
-  BRIDGE_LOAN_1_TO_4_UNITS: "BRIDGE LOAN",
-  SBA_504_REAL_ESTATE_AND_EQUIPMENT: "SBA 504",
-  USDA_BI: "USDA B&I",
-  AGENCY_LOAN_MULTIFAMILY: "AGENCY MULTIFAMILY",
-  CRE_PERMANENT_LOAN: "CRE PERMANENT",
-  RENTAL_PORTFOLIO: "RENTAL PORTFOLIO",
-  PURCHASE_ORDER_FINANCE: "PURCHASE ORDER FINANCE",
-  ACCOUNTS_PAYABLE_FINANCE: "AP SUPPLY CHAIN",
-  ACCOUNTS_RECEIVABLE: "ACCOUNTS RECEIVABLE",
-  INVOICE_FACTORING: "AR FACTORING",
-};
+  const refreshPipeline = () => {
+    loadSubmissions();
+    loadStats();
+  };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#0b1120] p-2 text-slate-900 dark:text-slate-100 selection:bg-blue-100 dark:selection:bg-blue-900/30">
-      {/* Header Area */}
-      <header className="max-w-7xl mx-auto mb-10">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+    <div className="min-h-screen bg-slate-50 p-4 text-slate-900 dark:bg-[#0b1120] dark:text-slate-100 md:p-6">
+      <header className="mx-auto mb-8 max-w-7xl">
+        <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-start">
           <div className="space-y-1">
-            <h2 className="text-2xl font-bold tracking-tight text-[#18B6B4] dark:text-[#6ee7e5]">
+            <h1 className="text-2xl font-bold tracking-tight text-[#18B6B4] dark:text-[#6ee7e5]">
               Loan Pipeline
-            </h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">
-              You have{" "}
-              <span className="text-[#18B6B4] dark:text-[#6ee7e5] font-medium">
-                {pagination.total} active
-              </span>{" "}
-              applications today.
+            </h1>
+            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+              {statsLoading ? (
+                "Loading pipeline overview..."
+              ) : (
+                <>
+                  <span className="font-semibold text-slate-700 dark:text-slate-200">
+                    {stats.totalApplications}
+                  </span>{" "}
+                  total applications ·{" "}
+                  <span className="font-semibold text-[#18B6B4] dark:text-[#6ee7e5]">
+                    {pagination.total}
+                  </span>{" "}
+                  matching current view
+                </>
+              )}
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <div className="relative group">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-[#18B6B4] transition-colors" />
-
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 transition-colors group-focus-within:text-[#18B6B4]" />
               <input
-                placeholder="Search by name or company..."
+                value={searchTerm}
+                placeholder="Search application # or borrower..."
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 pr-4 py-2.5 w-full md:w-80 rounded-xl text-sm
-                  bg-white dark:bg-slate-900
-                  border border-slate-200 dark:border-slate-800
-                  focus:ring-2 focus:ring-[#18B6B4]/20
-                  focus:border-[#18B6B4]
-                  text-slate-800 dark:text-slate-100
-                  placeholder:text-slate-400
-                  transition-all outline-none"
+                className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-10 text-sm text-slate-800 outline-none transition-all placeholder:text-slate-400 focus:border-[#18B6B4] focus:ring-2 focus:ring-[#18B6B4]/20 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 sm:w-80"
               />
+              {searchTerm && (
+                <button
+                  type="button"
+                  onClick={() => setSearchTerm("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800"
+                >
+                  <X size={14} />
+                </button>
+              )}
             </div>
             <button
-              onClick={loadSubmissions}
-              className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-blue-500 transition-all active:scale-95"
+              type="button"
+              onClick={refreshPipeline}
+              disabled={loading || statsLoading}
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition-all hover:border-[#18B6B4] active:scale-95 disabled:opacity-60 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
             >
-              <Loader2
-                className={`w-5 h-5 text-slate-600 dark:text-slate-400 ${loading ? "animate-spin text-blue-500" : ""}`}
+              <RefreshCw
+                size={16}
+                className={loading || statsLoading ? "animate-spin" : ""}
               />
+              Refresh
             </button>
           </div>
         </div>
 
-        {/* Quick Status Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
-          {/* TOTAL VOLUME */}
-          <div
-            className="
-    bg-white dark:bg-slate-900
-    border border-slate-200 dark:border-slate-800
-    rounded-2xl p-6
-    transition-all duration-200
-    flex items-center justify-between
-  "
-          >
-            <div>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                Total Volume
-              </p>
-              <h3 className="text-xl font-semibold text-slate-900 dark:text-white mt-1">
-                {formatCompactAmount(totalVolume)}
-              </h3>
+        <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {[
+            {
+              label: "Total Volume",
+              value: formatCompactAmount(totalVolume),
+              icon: DollarSign,
+              tone: "bg-indigo-600",
+            },
+            {
+              label: "Needs Review",
+              value: newCount,
+              icon: Clock3,
+              tone: "bg-blue-600",
+            },
+            {
+              label: "Approved",
+              value: approvedCount,
+              icon: CheckCircle,
+              tone: "bg-emerald-600",
+            },
+            {
+              label: "In Pipeline",
+              value: stats.totalApplications,
+              icon: FileText,
+              tone: "bg-[#18B6B4]",
+            },
+          ].map((card) => (
+            <div
+              key={card.label}
+              className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900"
+            >
+              <div>
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  {card.label}
+                </p>
+                <h3 className="mt-1 text-2xl font-semibold text-slate-900 dark:text-white">
+                  {statsLoading ? (
+                    <span className="inline-block h-7 w-16 animate-pulse rounded bg-slate-100 dark:bg-slate-800" />
+                  ) : (
+                    card.value
+                  )}
+                </h3>
+              </div>
+              <div
+                className={`flex h-10 w-10 items-center justify-center rounded-xl text-white ${card.tone}`}
+              >
+                <card.icon className="h-5 w-5" />
+              </div>
             </div>
-
-            <div className="h-8 w-8 flex items-center justify-center rounded-full bg-indigo-600 text-white">
-              <DollarSign className="w-5 h-5" />
-            </div>
-          </div>
-
-          {/* NEW APPLICATIONS */}
-          <div
-            className="
-              bg-white dark:bg-slate-900
-              border border-slate-200 dark:border-slate-800
-              rounded-2xl p-6
-              transition-all duration-200
-              flex items-center justify-between
-            "
-          >
-            <div>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                New Applications
-              </p>
-              <h3 className="text-xl font-semibold text-slate-900 dark:text-white mt-1">
-                {newCount}
-              </h3>
-            </div>
-
-            <div className="h-8 w-8 flex items-center justify-center rounded-full bg-blue-600 text-white">
-              <FileText className="w-5 h-5" />
-            </div>
-          </div>
-
-          {/* APPROVED */}
-          <div
-            className="
-              bg-white dark:bg-slate-900
-              border border-slate-200 dark:border-slate-800
-              rounded-2xl p-6
-              transition-all duration-200
-              flex items-center justify-between
-            "
-          >
-            <div>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                Approved
-              </p>
-              <h3 className="text-xl font-semibold text-slate-900 dark:text-white mt-1">
-                {approvedCount}
-              </h3>
-            </div>
-
-            <div className="h-8 w-8 flex items-center justify-center rounded-full bg-emerald-600 text-white">
-              <CheckCircle className="w-5 h-5" />
-            </div>
-          </div>
+          ))}
         </div>
       </header>
 
-      {/* Main Table Container */}
-      <div className="max-w-7xl mx-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
-        <div className="w-full bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 relative">
-          <div className="w-full overflow-x-auto loan-table-scroll">
-            <table className="min-w-[1100px] w-full border-separate border-spacing-0">
-              <thead>
-                <tr className="bg-slate-50/50 dark:bg-slate-800/40">
-                  {[
-                    { label: "Application Id" },
-                    { label: "Borrower" },
-                    { label: "Loan Type" },
-                    { label: "Amount" },
-                    // { label: "Brokern" },
-                    { label: "Application Status" },
-                    { label: "Lender Decision" },
-                    { label: "Received At" },
-                    { label: "Actions" },
-                  ].map((h) => (
-                    <th
-                      key={h.label}
-                      className={`px-6 py-4 text-[11px] font-semibold uppercase tracking-wide whitespace-nowrap text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800 ${
-                        h.label === "Loan Type" ||
-                        h.label === "Application Status"
-                          ? "text-center"
-                          : "text-left"
-                      }`}
-                    >
-                      {h.label}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
+      <div className="mx-auto max-w-[100%] overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 xl:max-w-7xl">
+        <div className="flex flex-col gap-4 border-b border-slate-200 px-5 py-4 dark:border-slate-800 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h2 className="text-base font-semibold text-slate-900 dark:text-white">
+              Applications
+            </h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Click a row to open the application preview.
+            </p>
+          </div>
 
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {loading ? (
-                  /* Professional Skeleton Loader */
-                  Array.from({ length: 5 }).map((_, i) => (
-                    <tr key={i}>
-                      <td colSpan={7} className="px-6 py-5">
-                        <div className="flex items-center gap-3 animate-pulse">
-                          <div className="h-10 w-10 rounded-lg bg-slate-100 dark:bg-slate-800" />
-                          <div className="space-y-2">
-                            <div className="h-3 w-32 bg-slate-100 dark:bg-slate-800 rounded" />
-                            <div className="h-2 w-20 bg-slate-50 dark:bg-slate-900 rounded" />
+          <div className="flex flex-wrap gap-2">
+            {DECISION_FILTERS.map((filter) => {
+              const active = decisionFilter === filter.value;
+              return (
+                <button
+                  key={filter.value || "all"}
+                  type="button"
+                  onClick={() => setDecisionFilter(filter.value)}
+                  className={`rounded-full px-3 py-1.5 text-xs font-medium transition-all ${
+                    active
+                      ? "bg-[#18B6B4] text-white shadow-sm"
+                      : "border border-slate-200 bg-slate-50 text-slate-600 hover:border-[#18B6B4]/40 hover:text-[#18B6B4] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                  }`}
+                >
+                  {filter.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="w-full overflow-hidden">
+          <table className="w-full border-separate border-spacing-0">
+            <thead>
+              <tr className="bg-slate-50/80 dark:bg-slate-800/40">
+                {[
+                  "Application",
+                  "Borrower",
+                  "Broker",
+                  "Loan Type",
+                  "Amount",
+                  "Status",
+                  "Decision",
+                  "Received",
+                  "",
+                ].map((label) => (
+                  <th
+                    key={label || "actions"}
+                    className="whitespace-nowrap border-b border-slate-200 px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:text-slate-400 last:w-[1%] last:whitespace-nowrap"
+                  >
+                    {label}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              {loading ? (
+                Array.from({ length: 6 }).map((_, index) => (
+                  <tr key={index}>
+                    {Array.from({ length: TABLE_COLUMNS }).map((__, cellIndex) => (
+                      <td key={cellIndex} className="whitespace-nowrap px-3 py-3">
+                        <div className="h-4 animate-pulse rounded bg-slate-100 dark:bg-slate-800" />
+                      </td>
+                    ))}
+                  </tr>
+                ))
+              ) : rows.length > 0 ? (
+                rows.map((row) => {
+                  const isActionAllowed = canTakeDecision(row.applicationStatus);
+
+                  return (
+                    <tr
+                      key={row.applicationLenderId}
+                      onClick={() => openApplicationPreview(row)}
+                      className="cursor-pointer transition-colors hover:bg-[#18B6B4]/5 dark:hover:bg-[#18B6B4]/10"
+                    >
+                      <td className="whitespace-nowrap px-3 py-3 align-middle">
+                        <span
+                          className="font-mono text-xs font-medium text-slate-700 dark:text-slate-200"
+                          title={row.applicationNumber}
+                        >
+                          {row.applicationNumber}
+                        </span>
+                      </td>
+
+                      <td className="whitespace-nowrap px-3 py-3">
+                        <div className="flex items-center gap-2">
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#18B6B4]/10 text-[10px] font-semibold text-[#134E4A] dark:bg-[#18B6B4]/20 dark:text-[#6ee7e5]">
+                            {getBorrowerInitials(row.borrowerName)}
                           </div>
+                          <span
+                            className="text-sm font-semibold text-slate-900 dark:text-slate-100"
+                            title={`${row.borrowerName} (${formatEntityTypeLabel(row.entityType)})`}
+                          >
+                            {row.borrowerName}
+                          </span>
                         </div>
                       </td>
-                    </tr>
-                  ))
-                ) : pagination.total > 0 ? (
-rows.map((row) => {
-                    const isActionAllowed = canTakeDecision(
-                      row.applicationStatus,
-                    );
 
-                    return (
-                      <tr
-                        key={row.applicationLenderId}
-                        className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors"
+                      <td className="whitespace-nowrap px-3 py-3">
+                        <div className="flex items-center gap-1.5 text-sm text-slate-600 dark:text-slate-300">
+                          <Building2 size={14} className="shrink-0 text-slate-400" />
+                          <span title={row.brokerName}>{row.brokerName}</span>
+                        </div>
+                      </td>
+
+                      <td className="whitespace-nowrap px-3 py-3">
+                        <span className="inline-flex whitespace-nowrap rounded-lg bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                          {formatLoanProduct(row.loanType)}
+                        </span>
+                      </td>
+
+                      <td className="whitespace-nowrap px-3 py-3">
+                        <span className="font-mono text-sm font-medium text-slate-800 dark:text-slate-200">
+                          {formatCompactAmount(row.amount)}
+                        </span>
+                      </td>
+
+                      <td className="whitespace-nowrap px-3 py-3">
+                        <span
+                          className={`inline-flex whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium ${getApplicationStatusColor(row.applicationStatus)}`}
+                        >
+                          {formatApplicationStatus(row.applicationStatus)}
+                        </span>
+                      </td>
+
+                      <td className="whitespace-nowrap px-3 py-3">
+                        <span
+                          className={`inline-flex whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium ${getApplicationStatusColor(row.lenderDecision || row.lenderStatus)}`}
+                        >
+                          {formatApplicationStatus(
+                            row.lenderDecision || row.lenderStatus,
+                          )}
+                        </span>
+                      </td>
+
+                      <td className="whitespace-nowrap px-3 py-3 text-sm text-slate-500">
+                        {formatShortDate(row.sentAt)}
+                      </td>
+
+                      <td
+                        className="whitespace-nowrap px-3 py-3"
+                        onClick={(event) => event.stopPropagation()}
                       >
-                        {/* Application Number */}
-                        <td className="px-6 py-4 font-mono text-xs align-middle break-words">
-                          <span>{row.applicationNumber}</span>
-                        </td>
-                        {/* Borrower */}
-                        <td className="px-6 py-4">
-                          <div className="flex flex-col">
-                            <span className="font-semibold text-slate-900 dark:text-slate-100 text-sm">
-                              {row.borrowerName.slice(0, 10) + "..."}
-                            </span>
-                            {/* <span className="text-[10px] text-slate-500">
-                              {row.entityType.slice(0, 10) + "..."}
-                            </span> */}
-                          </div>
-                        </td>
-
-                        {/* Loan Type */}
-                        <td className="px-5 py-4">
-                          <span className="text-[12px] text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/50 px-2 py-1 rounded">
-                              {PRODUCT_LABELS[row.loanType] ??
-  row.loanType
-    ?.replace(/_/g, " ")
-    .toUpperCase()}
-                          </span>
-                        </td>
-
-                        {/* Amount */}
-                        <td className="px-4 py-4">
-                          <span className="font-mono text-sm text-slate-800 dark:text-slate-200">
-                            {row.amount > 0
-                              ? `${formatCompactAmount(row.amount)}`
-                              : "-"}
-                          </span>
-                        </td>
-
-                        {/* Broker */}
-                        {/* <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">
-                          {row.brokerName.slice(0, 6) + "..."}
-                        </td> */}
-
-                        {/* Application Status */}
-                        <td className="px-4 py-4">
-                          <span
-                            className={`
-                                                      inline-flex items-center whitespace-nowrap
-                                                      px-3 py-1 rounded-full
-                                                      text-xs uppercase tracking-wide
-                                                      ${getApplicationStatusColor(row.applicationStatus)}
-                                                  `}
+                        <div className="relative flex items-center justify-end gap-1">
+                          <button
+                            type="button"
+                            title="View application"
+                            onClick={() => openApplicationPreview(row)}
+                            className="inline-flex shrink-0 items-center justify-center rounded-lg border border-slate-200 p-1.5 text-[#18B6B4] transition hover:bg-[#18B6B4]/10 dark:border-slate-700"
                           >
-                            {formatApplicationStatus(row.applicationStatus)}
-                          </span>
-                        </td>
+                            <Eye size={15} />
+                          </button>
 
-                        {/* Lender Decision */}
-                        <td className="px-4 py-4">
-                          <span
-                            className={`
-                                                      inline-flex items-center whitespace-nowrap
-                                                      px-3 py-1 rounded-full
-                                                      text-xs uppercase tracking-wide
-                                                      ${getApplicationStatusColor(row.lenderDecision)}
-                                                  `}
+                          <button
+                            type="button"
+                            title="Open chat"
+                            onClick={() =>
+                              navigate("/loan-preview", {
+                                state: {
+                                  applicationLenderId: row.applicationLenderId,
+                                  initialTab: "chat",
+                                },
+                              })
+                            }
+                            className="inline-flex shrink-0 items-center justify-center rounded-lg border border-slate-200 p-1.5 text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
                           >
-                            {formatApplicationStatus(
-                              row.lenderDecision === "CONDITIONAL"
-                                ? "Docs Requested"
-                                : row.lenderDecision,
-                            )}
-                          </span>
-                        </td>
+                            <MessageCircle size={15} />
+                          </button>
 
-                        {/* Sent Date */}
-                        <td className="px-4 py-4 text-sm text-slate-500">
-                          {new Date(row.sentAt).toLocaleDateString()}
-                        </td>
-
-                        {/* Actions */}
-                        <td className="px-6 py-4">
-                          <div className="relative flex justify-center">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-
-                                const rect =
-                                  e.currentTarget.getBoundingClientRect();
-
-                                setDropdownPos({
-                                  top: rect.bottom + window.scrollY + 6,
-                                  left: rect.right - 192,
-                                });
-
-                                setActiveDropdown(
-                                  activeDropdown === row.applicationLenderId
-                                    ? null
-                                    : row.applicationLenderId,
-                                );
-                              }}
-                              className="group flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-blue-600 hover:text-white transition-all duration-200 border border-slate-200 dark:border-slate-700 font-medium text-xs"
-                            >
-                              <EllipsisVertical
-                                size={14}
-                                className={`transition-transform duration-200 ${activeDropdown === row.applicationLenderId ? "rotate-180" : ""}`}
-                              />
-                            </button>
+                          <button
+                            type="button"
+                            title="More actions"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              const rect =
+                                event.currentTarget.getBoundingClientRect();
+                              setDropdownPos({
+                                top: rect.bottom + window.scrollY + 6,
+                                left: rect.right - 208,
+                              });
+                              setActiveDropdown(
+                                activeDropdown === row.applicationLenderId
+                                  ? null
+                                  : row.applicationLenderId,
+                              );
+                            }}
+                            className="inline-flex shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 p-1.5 text-slate-600 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                          >
+                            <EllipsisVertical size={15} />
+                          </button>
 
                             {activeDropdown === row.applicationLenderId &&
                               dropdownPos &&
@@ -884,19 +861,11 @@ rows.map((row) => {
                                   >
                                     {/* App Preview */}
                                     <button
-                                      onClick={() =>
-                                        navigate("/loan-preview", {
-                                          state: {
-                                            applicationLenderId:
-                                              row.applicationLenderId,
-                                            isLoi: row.loiGenerated,
-                                          },
-                                        })
-                                      }
-                                      className="flex items-center gap-3 w-full px-4 py-2.5 text-sm 
-text-blue-600 bg-blue-50/50 dark:bg-blue-900/10 
-hover:bg-blue-100 dark:hover:bg-blue-900/20 
-transition rounded-lg mx-1"
+                                      onClick={() => {
+                                        openApplicationPreview(row);
+                                        setActiveDropdown(null);
+                                      }}
+                                      className="mx-1 flex w-full items-center gap-3 rounded-lg px-4 py-2.5 text-sm text-blue-600 transition hover:bg-blue-100 dark:hover:bg-blue-900/20"
                                     >
                                       <Eye size={16} />
                                       App Preview
@@ -1046,119 +1015,107 @@ transition rounded-lg mx-1"
                     );
                   })
                 ) : (
-                  /* Professional Empty State */
                   <tr>
                     <td
-                      colSpan={7}
-                      className="px-6 py-24 text-center align-middle"
+                      colSpan={TABLE_COLUMNS}
+                      className="px-6 py-20 text-center align-middle"
                     >
-                      <div className="flex flex-col items-center max-w-xs mx-auto">
-                        {/* Icon */}
-                        <div
-                          className={`
-                                                        w-14 h-14 
-                                                        rounded-2xl 
-                                                        flex items-center justify-center 
-                                                        mb-5
-                                                        border
-                                                        ${
-                                                          rows.length === 0
-                                                            ? "bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/20"
-                                                            : "bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700"
-                                                        }
-                                                    `}
-                        >
-                          {rows.length === 0 ? (
-                            <span className="text-red-500 dark:text-red-400 text-2xl font-bold">
-                              ✕
-                            </span>
+                      <div className="mx-auto flex max-w-sm flex-col items-center">
+                        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800">
+                          {isEmpty ? (
+                            <FileText className="h-6 w-6 text-slate-400" />
                           ) : (
-                            <Search className="w-6 h-6 text-slate-400 dark:text-slate-500" />
+                            <SearchX className="h-6 w-6 text-slate-400" />
                           )}
                         </div>
-
-                        {/* Title */}
-                        <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">
-                          {rows.length === 0
-                            ? "Currently you have no loan applications"
-                            : "No applications found"}
+                        <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                          {isEmpty
+                            ? "No applications in your pipeline yet"
+                            : isSearchEmpty
+                              ? "No matches for this filter"
+                              : "No applications found"}
                         </h3>
-
-                        {/* Subtext */}
-                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
-                          {rows.length === 0
-                            ? "Once applications are submitted, they will appear here."
-                            : "Try adjusting your search terms and try again."}
+                        <p className="mt-2 text-xs leading-6 text-slate-500 dark:text-slate-400">
+                          {isEmpty
+                            ? "When brokers send deals to your organization, they will appear here."
+                            : "Try another search term or clear the active filter."}
                         </p>
+                        {(searchTerm || decisionFilter) && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSearchTerm("");
+                              setDecisionFilter("");
+                            }}
+                            className="mt-4 rounded-lg border border-slate-200 px-4 py-2 text-xs font-medium text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                          >
+                            Clear filters
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
                 )}
               </tbody>
             </table>
-            {/* ================= PAGINATION ================= */}
+          </div>
+
           {pagination.totalPages > 1 && (
-              <div className="flex flex-col md:flex-row items-center justify-between gap-4 px-6 py-4 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-                {/* Showing Info */}
-                <p className="text-sm text-slate-500 dark:text-slate-400">
-                  Showing{" "}
-                  <span className="font-semibold text-slate-700 dark:text-slate-200">
-{(currentPage - 1) * pagination.limit + 1}
-                  </span>{" "}
-                  to{" "}
-                  <span className="font-semibold text-slate-700 dark:text-slate-200">
-{Math.min(currentPage * pagination.limit, pagination.total)}
-                  </span>{" "}
-                  of{" "}
-                  <span className="font-semibold text-slate-700 dark:text-slate-200">
-{pagination.total}
-                  </span>{" "}
-                  results
-                </p>
+            <div className="flex flex-col items-center justify-between gap-4 border-t border-slate-200 bg-white px-6 py-4 dark:border-slate-800 dark:bg-slate-900 md:flex-row">
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                Showing{" "}
+                <span className="font-semibold text-slate-700 dark:text-slate-200">
+                  {(currentPage - 1) * pagination.limit + 1}
+                </span>{" "}
+                to{" "}
+                <span className="font-semibold text-slate-700 dark:text-slate-200">
+                  {Math.min(currentPage * pagination.limit, pagination.total)}
+                </span>{" "}
+                of{" "}
+                <span className="font-semibold text-slate-700 dark:text-slate-200">
+                  {pagination.total}
+                </span>
+              </p>
 
-                {/* Controls */}
-                <div className="flex items-center gap-2">
-                  {/* Previous */}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage((page) => page - 1)}
+                  className="rounded-lg border border-slate-200 p-2 transition hover:bg-slate-100 disabled:opacity-40 dark:border-slate-700 dark:hover:bg-slate-800"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+
+                {pageNumbers.map((page) => (
                   <button
-                    disabled={currentPage === 1}
-                    onClick={() => setCurrentPage((p) => p - 1)}
-                    className="p-2 rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-40 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                    key={page}
+                    type="button"
+                    onClick={() => setCurrentPage(page)}
+                    className={`rounded-lg px-3 py-1 text-sm transition ${
+                      currentPage === page
+                        ? "bg-[#18B6B4] text-white"
+                        : "border border-slate-200 hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
+                    }`}
                   >
-                    <ChevronLeft size={16} />
+                    {page}
                   </button>
+                ))}
 
-                  {/* Page Numbers */}
-                  {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map(
-                    (page) => (
-                      <button
-                        key={page}
-                        onClick={() => setCurrentPage(page)}
-                        className={`px-3 py-1 text-sm rounded-lg transition
-                                            ${
-                                              currentPage === page
-                                                ? "bg-[#18B6B4] text-white"
-                                                : "border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800"
-                                            }
-                                    `}
-                      >
-                        {page}
-                      </button>
-                    ),
-                  )}
-
-                  {/* Next */}
-                  <button
-                    disabled={currentPage === pagination.totalPages}
-                    onClick={() => setCurrentPage((p) => p + 1)}
-                    className="p-2 rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-40 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
-                  >
-                    <ChevronRight size={16} />
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  disabled={currentPage === pagination.totalPages}
+                  onClick={() => setCurrentPage((page) => page + 1)}
+                  className="rounded-lg border border-slate-200 p-2 transition hover:bg-slate-100 disabled:opacity-40 dark:border-slate-700 dark:hover:bg-slate-800"
+                >
+                  <ChevronRight size={16} />
+                </button>
               </div>
-            )}
+            </div>
+          )}
+        </div>
 
-            {decisionModal.type &&
+        {decisionModal.type &&
               createPortal(
                 <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
                   <div className="w-full max-w-lg bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800">
@@ -1723,6 +1680,7 @@ transition rounded-lg mx-1"
                               });
 
                               loadSubmissions();
+                              loadStats();
                             } catch (err: any) {
                               toast.error(err.message);
                             }
@@ -1738,9 +1696,6 @@ transition rounded-lg mx-1"
                 </div>,
                 document.body,
               )}
-          </div>
-        </div>
-      </div>
     </div>
   );
 }

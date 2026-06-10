@@ -39,6 +39,9 @@ model Organization {
   loiTemplates             LenderLoiTemplate[]
   feeAgreements            FeeAgreement[]            @relation("OrgToFeeAgreement")
   campaigns                Campaign[]                @relation("OrgCampaigns")
+  organizationSubscriptions OrganizationSubscription[]
+  subscriptionInvoices     SubscriptionInvoice[]
+  loanAiUsers              LoanAiUser[]
   // soft-delete fields (additive, non-breaking)
   isDeleted                Boolean?                  @default(false) @map("is_deleted")
   deletedAt                DateTime?                 @map("deleted_at") @db.Timestamptz(6)
@@ -87,12 +90,44 @@ model UserAccount {
   createdConversations Conversation[]
 
   assignedSubBrokerApplications SubBrokerApplication[] @relation("SubBrokerAssignedBy")
+  passwordResetTokens           PasswordResetToken[]
 
   // soft-delete fields (additive, non-breaking)
   isDeleted Boolean?  @default(false) @map("is_deleted")
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
 
   @@map("user_accounts")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  token     String    @unique
+  expiresAt DateTime  @db.Timestamptz(6)
+  usedAt    DateTime? @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @db.Timestamptz(6)
+
+  user UserAccount @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@map("password_reset_tokens")
+}
+
+model LoanAiUser {
+  id                   String    @id @default(uuid()) @db.Uuid
+  email                String    @unique
+  passwordHash         String
+  firstName            String?
+  lastName             String?
+  brokerOrganizationId String?   @unique @db.Uuid
+  lastLoginAt          DateTime? @db.Timestamptz(6)
+  createdAt            DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt            DateTime  @updatedAt @db.Timestamptz(6)
+
+  brokerOrganization Organization? @relation(fields: [brokerOrganizationId], references: [id])
+
+  @@map("loan_ai_users")
 }
 
 model BrokerUserProfile {
@@ -428,6 +463,101 @@ model DocumentType {
   lenderDocumentRequests  LenderDocumentRequest[]
 
   @@map("document_types")
+}
+
+model SubscriptionPackage {
+  id           String   @id @default(uuid()) @db.Uuid
+  name         String
+  code         String   @unique
+  priceMonthly Decimal  @db.Decimal(10, 2)
+  priceYearly  Decimal? @db.Decimal(10, 2)
+  description  String?
+  features     String?
+  usageLimits  Json?
+  sortOrder    Int      @default(0)
+  isActive     Boolean  @default(true)
+  isPopular    Boolean  @default(false)
+  createdAt    DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @db.Timestamptz(6)
+
+  organizationSubscriptions OrganizationSubscription[]
+
+  @@map("subscription_packages")
+}
+
+model OrganizationSubscription {
+  id                    String                         @id @default(uuid()) @db.Uuid
+  organizationId        String                         @db.Uuid
+  packageId             String                         @db.Uuid
+  billingCycle          SubscriptionBillingCycle       @default(MONTHLY)
+  status                OrganizationSubscriptionStatus @default(ACTIVE)
+  currentPeriodStart    DateTime                       @db.Timestamptz(6)
+  currentPeriodEnd      DateTime                       @db.Timestamptz(6)
+  trialEndsAt               DateTime?                      @db.Timestamptz(6)
+  trialEndingReminderSentAt DateTime?                      @db.Timestamptz(6)
+  cancelledAt               DateTime?                      @db.Timestamptz(6)
+  cancelAtPeriodEnd     Boolean                        @default(false)
+  stripeCustomerId      String?
+  stripeSubscriptionId  String?
+  assignedByAdminId     String?                        @db.Uuid
+  notes                 String?
+  createdAt             DateTime                       @default(now()) @db.Timestamptz(6)
+  updatedAt             DateTime                       @updatedAt @db.Timestamptz(6)
+
+  organization Organization         @relation(fields: [organizationId], references: [id])
+  package      SubscriptionPackage  @relation(fields: [packageId], references: [id])
+  usageRecords SubscriptionUsage[]
+  invoices     SubscriptionInvoice[]
+
+  @@index([organizationId])
+  @@index([packageId])
+  @@index([status])
+  @@map("organization_subscriptions")
+}
+
+model SubscriptionUsage {
+  id                         String                  @id @default(uuid()) @db.Uuid
+  organizationSubscriptionId String                  @db.Uuid
+  metric                     SubscriptionUsageMetric
+  limitValue                 Int?
+  usedValue                  Int                     @default(0)
+  periodStart                DateTime                @db.Timestamptz(6)
+  periodEnd                  DateTime                @db.Timestamptz(6)
+  updatedAt                  DateTime                @updatedAt @db.Timestamptz(6)
+
+  organizationSubscription OrganizationSubscription @relation(fields: [organizationSubscriptionId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationSubscriptionId, metric, periodStart])
+  @@index([organizationSubscriptionId])
+  @@map("subscription_usage")
+}
+
+model SubscriptionInvoice {
+  id                         String                    @id @default(uuid()) @db.Uuid
+  organizationSubscriptionId String                    @db.Uuid
+  organizationId             String                    @db.Uuid
+  invoiceNumber              String                    @unique
+  amount                     Decimal                   @db.Decimal(10, 2)
+  currency                   String                    @default("USD")
+  billingCycle               SubscriptionBillingCycle
+  status                     SubscriptionInvoiceStatus @default(PENDING)
+  periodStart                DateTime                  @db.Timestamptz(6)
+  periodEnd                  DateTime                  @db.Timestamptz(6)
+  dueDate                    DateTime                  @db.Timestamptz(6)
+  paidAt                     DateTime?                 @db.Timestamptz(6)
+  stripeInvoiceId            String?
+  externalPaymentRef         String?
+  notes                      String?
+  createdAt                  DateTime                  @default(now()) @db.Timestamptz(6)
+  updatedAt                  DateTime                  @updatedAt @db.Timestamptz(6)
+
+  organizationSubscription OrganizationSubscription @relation(fields: [organizationSubscriptionId], references: [id])
+  organization             Organization             @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId])
+  @@index([organizationSubscriptionId])
+  @@index([status])
+  @@map("subscription_invoices")
 }
 
 model ProductDocumentRequirement {
@@ -1650,6 +1780,34 @@ enum OrganizationType {
 enum OrganizationStatus {
   ACTIVE
   INACTIVE
+}
+
+enum SubscriptionBillingCycle {
+  MONTHLY
+  YEARLY
+}
+
+enum OrganizationSubscriptionStatus {
+  TRIAL
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+  EXPIRED
+}
+
+enum SubscriptionInvoiceStatus {
+  DRAFT
+  PENDING
+  PAID
+  FAILED
+  VOID
+}
+
+enum SubscriptionUsageMetric {
+  LOAN_APPLICATIONS
+  ACTIVE_USERS
+  LOAN_OFFICERS
+  LENDER_CONNECTIONS
 }
 
 enum UserStatus {

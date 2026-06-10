@@ -152,6 +152,7 @@ module.exports = async function sendToLenders(fastify) {
                 loanApplicationId: applicationId,
                 applicationLenderId: appLender.id,
                 type: "BROKER_LENDER",
+                chatCategory: "PRINCIPAL_BROKER",
               },
             });
 

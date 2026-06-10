@@ -3,7 +3,9 @@ const lenderRoutes = require("../routes/lender");
 const brokerRoutes = require("../routes/broker");
 const commonDocumentTypes = require("../routes/common/documentTypes");
 const commonLoanProducts = require("./common/loanProducts");
+const commonSubscriptions = require("./common/subscriptions");
 const landingPagesLeads = require("./public/LandingPagesLeads");
+const loanAiRoutes = require("./public/loanAi");
 const publicBrokerApplications = require("./public/broker/applications");
 const clientPortalRoutes = require("../routes/clientPortal");
 const messagingRoutes = require("../routes/common/messaging");
@@ -21,6 +23,10 @@ async function indexRoutes(fastify, options) {
 
   fastify.register(landingPagesLeads, {
     prefix: "/public/landing-leads",
+  });
+
+  fastify.register(loanAiRoutes, {
+    prefix: "/public/loan-ai",
   });
 
   fastify.register(publicBrokerApplications, {
@@ -42,6 +48,10 @@ async function indexRoutes(fastify, options) {
 
   fastify.register(commonLoanProducts, {
     prefix: "/common/loan-products",
+  });
+
+  fastify.register(commonSubscriptions, {
+    prefix: "/common/subscriptions",
   });
 
   fastify.register(messagingRoutes, {

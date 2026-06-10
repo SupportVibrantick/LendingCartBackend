@@ -1,16 +1,61 @@
-const DashboardPreview = () => {
+import { Link } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
+import { getExploreDashboardCta } from "../lib/authCta";
+
+function ExploreDashboardButton({ cta, hasSubscription, loading }) {
+  const baseClass =
+    "px-7 py-3 rounded-xl font-semibold shadow-lg hover:scale-105 transition inline-block";
+
+  const subscribedClass = `${baseClass} bg-linear-to-r from-emerald-500 to-teal-500 hover:shadow-emerald-500/30 text-white`;
+  const defaultClass = `${baseClass} bg-linear-to-r from-blue-500 to-indigo-500 hover:shadow-blue-500/30 text-white`;
+
+  if (loading) {
+    return (
+      <div className="inline-block h-12 w-48 rounded-xl bg-white/10 animate-pulse" />
+    );
+  }
+
+  const className = hasSubscription ? subscribedClass : defaultClass;
+
+  if (cta.external) {
+    return (
+      <a
+        href={cta.href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={className}
+      >
+        {cta.label}
+      </a>
+    );
+  }
+
   return (
-    <section className="relative w-full overflow-hidden bg-[#0b0f2a] text-white py-28 px-6">
-      {/* Background Glow */}
+    <Link to={cta.to} className={className}>
+      {cta.label}
+    </Link>
+  );
+}
+
+const DashboardPreview = () => {
+  const { isAuthenticated, user, loading } = useAuth();
+
+  const auth = {
+    isAuthenticated,
+    hasBrokerSubscription: Boolean(user?.hasBrokerSubscription),
+  };
+
+  const cta = getExploreDashboardCta(auth);
+
+  return (
+    <section id="how-it-works" className="relative w-full overflow-hidden bg-[#0b0f2a] text-white py-28 px-6 scroll-mt-24">
       <div className="absolute inset-0">
         <div className="absolute -top-30 left-1/2 -translate-x-1/2 w-150 h-150 bg-indigo-500/20 blur-[120px] rounded-full"></div>
         <div className="absolute -bottom-25 -right-25 w-125 h-125 bg-blue-500/20 blur-[100px] rounded-full"></div>
       </div>
 
       <div className="relative flex flex-col items-center">
-        {/* Laptop Preview */}
         <div className="relative w-full max-w-3xl group transition duration-500">
-          {/* Screen */}
           <div className="absolute top-[7%] left-[13.5%] w-[72.5%] h-[78%] overflow-hidden rounded-md z-0">
             <img
               src="/DashBoardImage.png"
@@ -19,20 +64,16 @@ const DashboardPreview = () => {
             />
           </div>
 
-          {/* Laptop Image */}
           <img
             src="/HeroImage.avif"
             alt="laptop"
             className="w-full relative z-10 drop-shadow-[0_20px_80px_rgba(0,0,0,0.8)] group-hover:scale-[1.02] transition duration-500"
           />
 
-          {/* Glass reflection overlay */}
           <div className="absolute inset-0 bg-linear-to-tr from-white/5 to-transparent pointer-events-none rounded-xl"></div>
         </div>
 
-        {/* Content */}
         <div className="mt-20 text-center max-w-3xl">
-          {/* Heading */}
           <h2 className="text-3xl md:text-5xl font-bold mb-6">
             Built for{" "}
             <span className="bg-linear-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
@@ -40,19 +81,20 @@ const DashboardPreview = () => {
             </span>
           </h2>
 
-          {/* Description */}
           <p className="text-gray-300 text-lg leading-relaxed">
-            You’re not a lender — so why use software designed for one? Loan AI
-            helps mortgage brokers manage their entire workflow from a single
-            dashboard. Accept applications, match with lenders, and close deals
-            faster with intelligent automation.
+            {auth.hasBrokerSubscription
+              ? "Your broker dashboard is ready. Manage applications, match lenders, and close deals from one place."
+              : auth.isAuthenticated
+                ? "You're signed in. Subscribe to a plan below to unlock your broker dashboard."
+                : "You're not a lender — so why use software designed for one? Loan AI helps mortgage brokers manage their entire workflow from a single dashboard. Accept applications, match with lenders, and close deals faster with intelligent automation."}
           </p>
 
-          {/* Optional CTA */}
           <div className="mt-8">
-            <button className="bg-linear-to-r from-blue-500 to-indigo-500 px-7 py-3 rounded-xl font-semibold shadow-lg hover:scale-105 hover:shadow-blue-500/30 transition">
-              Explore Dashboard
-            </button>
+            <ExploreDashboardButton
+              cta={cta}
+              hasSubscription={auth.hasBrokerSubscription}
+              loading={loading}
+            />
           </div>
         </div>
       </div>

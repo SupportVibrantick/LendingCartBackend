@@ -16,4 +16,7 @@ module.exports = async function (fastify) {
     prefix: "/crm",
   });
 
+  fastify.register(require("./LoanAiBookDemo"), {
+    prefix: "/loan-ai-book-demo",
+  });
 };

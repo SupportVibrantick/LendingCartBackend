@@ -1,6 +1,13 @@
 const path = require("path");
 const fs = require("fs");
 const { pipeline } = require("stream/promises");
+const {
+  ensureLenderProfileFields,
+} = require("../../../prisma/ensureLenderProfileFields");
+const {
+  pickExtendedFields,
+  writeExtendedLenderProfileFields,
+} = require("../../../services/lenderProfileExtendedFields");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
@@ -48,6 +55,14 @@ async function lenderUpdateProfileRoutes(fastify) {
         let statesSupported;
         let industries;
         let fundingSpeedDays;
+        let lendingCriteria;
+        let lendingGuidelines;
+        let creditRequirements;
+        let propertyRequirements;
+        let organizationEmail;
+        let organizationPhone;
+
+        await ensureLenderProfileFields();
 
         for await (const part of parts) {
           // ===============================
@@ -96,6 +111,30 @@ async function lenderUpdateProfileRoutes(fastify) {
 
               case "fundingSpeedDays":
                 fundingSpeedDays = Number(part.value);
+                break;
+
+              case "lendingCriteria":
+                lendingCriteria = part.value;
+                break;
+
+              case "lendingGuidelines":
+                lendingGuidelines = part.value;
+                break;
+
+              case "creditRequirements":
+                creditRequirements = part.value;
+                break;
+
+              case "propertyRequirements":
+                propertyRequirements = part.value;
+                break;
+
+              case "organizationEmail":
+                organizationEmail = part.value;
+                break;
+
+              case "organizationPhone":
+                organizationPhone = part.value;
                 break;
             }
           }
@@ -152,7 +191,13 @@ async function lenderUpdateProfileRoutes(fastify) {
           !maxFunding &&
           !statesSupported &&
           !industries &&
-          !fundingSpeedDays
+          !fundingSpeedDays &&
+          lendingCriteria === undefined &&
+          lendingGuidelines === undefined &&
+          creditRequirements === undefined &&
+          propertyRequirements === undefined &&
+          organizationEmail === undefined &&
+          organizationPhone === undefined
         ) {
           return reply.code(400).send({
             success: false,
@@ -175,15 +220,32 @@ async function lenderUpdateProfileRoutes(fastify) {
         // ===============================
         // PREPARE PROFILE DATA
         // ===============================
+        const extendedProfileFields = pickExtendedFields({
+          lendingCriteria,
+          lendingGuidelines,
+          creditRequirements,
+          propertyRequirements,
+        });
+
         const profileData = {
-          ...(summary && { summary }),
+          ...(summary !== undefined && summary !== null && { summary }),
           ...(loanTypes && { loanTypes }),
           ...(minFunding && { minFunding }),
           ...(maxFunding && { maxFunding }),
-          ...(statesSupported && { statesSupported }),
-          ...(industries && { industries }),
+          ...(statesSupported !== undefined && { statesSupported }),
+          ...(industries !== undefined && { industries }),
           ...(fundingSpeedDays && { fundingSpeedDays }),
         };
+
+        if (organizationEmail || organizationPhone) {
+          await prisma.organization.update({
+            where: { id: req.user.organizationId },
+            data: {
+              ...(organizationEmail && { email: organizationEmail }),
+              ...(organizationPhone && { phone: organizationPhone }),
+            },
+          });
+        }
 
         // ===============================
         // PROFILE COMPLETION LOGIC
@@ -219,6 +281,13 @@ async function lenderUpdateProfileRoutes(fastify) {
           },
         });
 
+        if (Object.keys(extendedProfileFields).length > 0) {
+          await writeExtendedLenderProfileFields(
+            req.user.organizationId,
+            extendedProfileFields,
+          );
+        }
+
         return reply.send({
           success: true,
           message: "Profile updated successfully",
@@ -229,7 +298,10 @@ async function lenderUpdateProfileRoutes(fastify) {
               lastName: user.lastName,
               profileImage: user.profileImage,
             },
-            lenderProfile,
+            lenderProfile: {
+              ...lenderProfile,
+              ...extendedProfileFields,
+            },
           },
         });
       } catch (err) {
@@ -237,7 +309,7 @@ async function lenderUpdateProfileRoutes(fastify) {
 
         return reply.code(500).send({
           success: false,
-          message: "Failed to update profile",
+          message: err.message || "Failed to update profile",
         });
       }
     }

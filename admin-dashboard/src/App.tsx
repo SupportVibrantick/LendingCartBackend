@@ -28,6 +28,10 @@ import BrokersLenders from "./pages/Brokers/BrokersLenders";
 import AdminLogs from "./pages/AdminLogs/AdminLogs";
 import AllLoanProducts from "./pages/LoanProducts/AllLoanProducts";
 import AllDocuments from "./pages/Documents/AllDocuments";
+import AllSubscriptions from "./pages/Subscriptions/AllSubscriptions";
+import SubscriptionSubscribers from "./pages/Subscriptions/SubscriptionSubscribers";
+import SubscriberDetail from "./pages/Subscriptions/SubscriberDetail";
+import SubscriptionInvoices from "./pages/Subscriptions/SubscriptionInvoices";
 import AllSuperadmin from "./pages/SuperAdmin/AllSuperAdmin";
 import LenderProductAssign from "./pages/LoanProducts/LenderAssignProduct";
 import LenderAllAssignProducts from "./pages/LoanProducts/LenderAllAssignProducts";
@@ -149,6 +153,10 @@ export default function App() {
             <Route index path="/loan-pipeline" element={<LoanPipeline />} />
 
             <Route index path="/all-documents" element={<AllDocuments />} />
+            <Route index path="/all-subscriptions" element={<AllSubscriptions />} />
+            <Route index path="/subscription-subscribers" element={<SubscriptionSubscribers />} />
+            <Route index path="/subscription-subscribers/detail" element={<SubscriberDetail />} />
+            <Route index path="/subscription-invoices" element={<SubscriptionInvoices />} />
             <Route
               index
               path="/all-landing-pages-leads"

@@ -23,6 +23,9 @@ module.exports = async function (fastify) {
       case "ADMIN_MANUAL":
         model = prisma.adminManualLead;
         break;
+      case "LOAN_AI_BOOK_DEMO":
+        model = prisma.loanAiBookDemoLead;
+        break;
       default:
         return reply.code(400).send({
           success: false,

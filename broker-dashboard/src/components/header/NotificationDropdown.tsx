@@ -40,6 +40,10 @@ type NotificationMetadata = {
   decision?: string;
   lenderCount?: number;
   source?: string;
+  planName?: string;
+  trialEndsAt?: string;
+  planPrice?: string;
+  subscriptionId?: string;
 };
 
 type BrokerNotification = {
@@ -152,6 +156,12 @@ function getNotificationStyle(eventType?: string) {
         label: "Conditional",
         tone: "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
       };
+    case "TRIAL_ENDING_SOON":
+      return {
+        icon: FiAlertCircle,
+        label: "Trial",
+        tone: "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
+      };
     default:
       return {
         icon: FiBell,
@@ -171,6 +181,7 @@ function getNotificationMetaLabel(notification: BrokerNotification) {
     meta.senderName ||
     meta.clientName ||
     meta.documentType ||
+    meta.planName ||
     notification.category ||
     "System"
   );

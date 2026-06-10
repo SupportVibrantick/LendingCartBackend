@@ -43,11 +43,17 @@ export const BADGE_CLASS_BY_TONE: Record<ChatBadgeTone, string> = {
   slate: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
 };
 
+function isLenderLoanOfficerChannel(chat: ChatConversationListItem) {
+  return chat.type === "BROKER_LENDER" && chat.chatCategory === "LOAN_OFFICER";
+}
+
 function inferBadgeTone(chat: ChatConversationListItem): ChatBadgeTone {
   if (chat.type === "CLIENT_BROKER" || chat.type === "CLIENT_OFFICER") {
     return chat.type === "CLIENT_OFFICER" ? "violet" : "emerald";
   }
-  if (chat.type === "BROKER_LENDER") return "indigo";
+  if (chat.type === "BROKER_LENDER") {
+    return isLenderLoanOfficerChannel(chat) ? "violet" : "indigo";
+  }
   if (chat.type === "BROKER_OFFICER") return "violet";
   if (chat.chatCategory === "LOAN_OFFICER") return "violet";
   if (chat.chatCategory === "PRINCIPAL_BROKER") return "amber";
@@ -55,6 +61,10 @@ function inferBadgeTone(chat: ChatConversationListItem): ChatBadgeTone {
 }
 
 function inferBadgeLabel(chat: ChatConversationListItem): string {
+  if (isLenderLoanOfficerChannel(chat)) return "Loan Officer Channel";
+  if (chat.type === "BROKER_LENDER" && chat.chatCategory === "PRINCIPAL_BROKER") {
+    return "Lender";
+  }
   if (chat.badgeLabel) return chat.badgeLabel;
   if (chat.type === "CLIENT_BROKER" || chat.type === "CLIENT_OFFICER") {
     return "Client";
@@ -93,7 +103,11 @@ export function getConversationDisplayName(
 }
 
 export function getConversationBadge(chat: ChatConversationListItem) {
-  const tone = chat.badgeTone || inferBadgeTone(chat);
+  const tone =
+    chat.type === "BROKER_LENDER" && chat.chatCategory
+      ? inferBadgeTone(chat)
+      : chat.badgeTone || inferBadgeTone(chat);
+
   return {
     label: inferBadgeLabel(chat),
     className: BADGE_CLASS_BY_TONE[tone],

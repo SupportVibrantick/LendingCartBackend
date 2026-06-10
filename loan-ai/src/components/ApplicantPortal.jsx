@@ -103,7 +103,6 @@ const ApplicantPortal = () => {
               ))}
             </div>
           ))}
-
         </div>
       </div>
     </section>

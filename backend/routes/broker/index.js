@@ -22,6 +22,7 @@ module.exports = async function brokerRoutes(fastify, opts) {
   fastify.register(async function brokerProtected(instance) {
     // Verify JWT + broker org
     instance.register(require("../../plugins/verifyBroker"));
+    instance.register(require("../../plugins/verifyBrokerSubscription"));
 
     instance.addHook("preHandler", async (req, reply) => {
       // Allow Swagger
@@ -71,7 +72,7 @@ module.exports = async function brokerRoutes(fastify, opts) {
       prefix: "/website-builder",
     });
 
-    fastify.register(require("./lenderDiscovery"), {
+    instance.register(require("./lenderDiscovery"), {
       prefix: "/lender-discovery",
     });
 
@@ -96,10 +97,10 @@ module.exports = async function brokerRoutes(fastify, opts) {
     instance.register(require("./loanOfficerActivity"), {
       prefix: "/loan-officer-activity",
     });
-    fastify.register(require("./loanPipeline"), { prefix: "/loan-pipeline" });
-    fastify.register(require("./logs"), { prefix: "/logs" });
-    fastify.register(require("./stats"), { prefix: "/stats" });
-    fastify.register(require("./notifications"), {
+    instance.register(require("./loanPipeline"), { prefix: "/loan-pipeline" });
+    instance.register(require("./logs"), { prefix: "/logs" });
+    instance.register(require("./stats"), { prefix: "/stats" });
+    instance.register(require("./notifications"), {
       prefix: "/notifications",
     });
     // Later extensions

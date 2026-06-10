@@ -42,6 +42,29 @@ const TYPE_LABELS: Record<string, string> = {
   BROKER_OFFICER: "Broker ↔ Loan Officer",
 };
 
+const TYPE_FILTER_OPTIONS = [
+  { value: "CLIENT_BROKER", label: "Client ↔ Broker" },
+  { value: "CLIENT_OFFICER", label: "Client ↔ Officer" },
+  { value: "BROKER_LENDER", label: "Broker ↔ Lender" },
+  { value: "SUBBROKER_BROKER", label: "Sub-Broker ↔ Broker" },
+  { value: "BROKER_OFFICER", label: "Broker ↔ Officer" },
+] as const;
+
+const PLACEHOLDER_CLIENT_NAMES = new Set([
+  "Applicant",
+  "Individual Applicant",
+  "Unknown",
+  "Client",
+  "Customer",
+  "N/A",
+]);
+
+function formatClientDisplayName(name?: string | null) {
+  const trimmed = name?.trim();
+  if (!trimmed || PLACEHOLDER_CLIENT_NAMES.has(trimmed)) return null;
+  return trimmed;
+}
+
 const TYPE_STYLES: Record<string, { badge: string; dot: string }> = {
   CLIENT_BROKER: {
     badge: "bg-blue-50 text-blue-700 ring-blue-100 dark:bg-blue-500/10 dark:text-blue-300 dark:ring-blue-500/20",
@@ -345,7 +368,7 @@ export default function AllCommunications() {
                 >
                   All
                 </button>
-                {Object.entries(TYPE_LABELS).map(([value, label]) => (
+                {TYPE_FILTER_OPTIONS.map(({ value, label }) => (
                   <button
                     key={value}
                     type="button"
@@ -356,7 +379,7 @@ export default function AllCommunications() {
                         : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-300 dark:ring-slate-700"
                     }`}
                   >
-                    {label.split(" ↔ ")[0]}
+                    {label}
                   </button>
                 ))}
               </div>
@@ -394,7 +417,10 @@ export default function AllCommunications() {
                       badge: "bg-slate-100 text-slate-600 ring-slate-200",
                       dot: "bg-slate-400",
                     };
-                    const displayName = row.clientName || row.brokerName || "Conversation";
+                    const displayName =
+                      formatClientDisplayName(row.clientName) ||
+                      row.brokerName ||
+                      "Conversation";
 
                     return (
                       <button
@@ -425,7 +451,8 @@ export default function AllCommunications() {
                                 {row.applicationNumber || "Application"}
                               </p>
                               <p className="truncate text-xs text-slate-500">
-                                {row.clientName || "—"} · {row.brokerName || "—"}
+                                {formatClientDisplayName(row.clientName) || "Client"} ·{" "}
+                                {row.brokerName || "—"}
                               </p>
                             </div>
                             <span className="shrink-0 text-[10px] text-slate-400">
@@ -480,16 +507,23 @@ export default function AllCommunications() {
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex items-start gap-3">
                       <div
-                        className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${getAvatarTone(selected.clientName || selected.brokerName)}`}
+                        className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${getAvatarTone(
+                          formatClientDisplayName(selected.clientName) ||
+                            selected.brokerName,
+                        )}`}
                       >
-                        {getInitials(selected.clientName || selected.brokerName)}
+                        {getInitials(
+                          formatClientDisplayName(selected.clientName) ||
+                            selected.brokerName,
+                        )}
                       </div>
                       <div>
                         <p className="text-base font-semibold text-slate-900 dark:text-white">
                           {selected.applicationNumber}
                         </p>
                         <p className="text-sm text-slate-500">
-                          {selected.clientName || "Client"} · {selected.brokerName || "Broker"}
+                          {formatClientDisplayName(selected.clientName) || "Client"} ·{" "}
+                          {selected.brokerName || "Broker"}
                         </p>
                         <div className="mt-2 flex flex-wrap items-center gap-2">
                           <span

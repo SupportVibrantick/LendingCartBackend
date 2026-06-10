@@ -1307,7 +1307,9 @@ export default function LoanOfficersPage() {
                             <button
                               type="button"
                               onClick={() =>
-                                navigate(`/loan-officer-activity?officer=${o.id}`)
+                                navigate("/loan-officer-activity", {
+                                  state: { officerId: o.id },
+                                })
                               }
                               className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-sky-600 transition hover:border-sky-200 hover:bg-sky-50 dark:border-gray-700 dark:bg-gray-900"
                               title="View activity"

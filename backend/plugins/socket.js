@@ -61,6 +61,12 @@ async function socketPlugin(fastify) {
       console.log(`📡 [LENDER ROOM JOIN] Socket ${socket.id} → ${room}`);
     });
 
+    socket.on("joinPlatformRoom", (platformOrgId) => {
+      const room = `platform_${platformOrgId}`;
+      socket.join(room);
+      console.log(`📡 [PLATFORM ROOM JOIN] Socket ${socket.id} → ${room}`);
+    });
+
     chatSocket(socket, io, fastify.prisma);
 
     socket.on("disconnect", (reason) => {

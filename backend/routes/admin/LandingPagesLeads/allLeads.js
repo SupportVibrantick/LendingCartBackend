@@ -90,16 +90,42 @@ module.exports = async function (fastify) {
       tasks.push(Promise.resolve([]), Promise.resolve(0));
     }
 
+    // Loan AI Book Demo
+    if (!source || source === "loan-ai-book-demo") {
+      tasks.push(
+        prisma.loanAiBookDemoLead.findMany({
+          where: baseWhere,
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            phone: true,
+            company: true,
+            message: true,
+            status: true,
+            source: true,
+            createdAt: true,
+          },
+        }),
+        prisma.loanAiBookDemoLead.count({ where: baseWhere })
+      );
+    } else {
+      tasks.push(Promise.resolve([]), Promise.resolve(0));
+    }
+
     const [
       clmLeads, clmCount,
       landingLeads, landingCount,
       adminLeads, adminCount,
+      bookDemoLeads, bookDemoCount,
     ] = await Promise.all(tasks);
 
     const merged = [
       ...clmLeads.map(l => ({ ...l, leadType: "COMMERCIAL_LENDING_MASTERY" })),
       ...landingLeads.map(l => ({ ...l, leadType: "CLM_LANDING_PAGE" })),
       ...adminLeads.map(l => ({ ...l, leadType: "ADMIN_MANUAL" })),
+      ...bookDemoLeads.map(l => ({ ...l, leadType: "LOAN_AI_BOOK_DEMO" })),
     ];
 
     merged.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
@@ -111,7 +137,7 @@ module.exports = async function (fastify) {
       meta: {
         page: Number(page),
         limit: take,
-        total: clmCount + landingCount + adminCount,
+        total: clmCount + landingCount + adminCount + bookDemoCount,
       },
       data: paginated,
     });

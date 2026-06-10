@@ -2,7 +2,15 @@
  * Get single conversation details (FINAL - SAFE + ENHANCED)
  */
 
-const { assertConversationTypeAccess, isClientUser } = require("../../../../services/messagingAccess");
+const {
+  assertConversationTypeAccess,
+  findLenderApplicationAccess,
+  ensureLenderParticipant,
+  getOrganizationId,
+  getUserId,
+  isClientUser,
+  isLenderUser,
+} = require("../../../../services/messagingAccess");
 const {
   maskBrokerParticipantsForClient,
   resolvePrincipalBrokerDisplay,
@@ -125,34 +133,37 @@ module.exports = async function getConversationById(fastify) {
 
         let hasFallbackAccess = false;
 
-        if (
-          !isParticipant &&
-          req.user?.orgType === "LENDER" &&
-          req.user?.organizationId &&
-          conversation.applicationLenderId
-        ) {
-          const lenderAccess = await prisma.applicationLender.findFirst({
-            where: {
-              id: conversation.applicationLenderId,
-              lenderOrgId: req.user.organizationId,
-            },
-            select: { id: true },
-          });
+        if (!isParticipant && isLenderUser(req)) {
+          const lenderAccess = await findLenderApplicationAccess(
+            prisma,
+            conversation,
+            getOrganizationId(req.user),
+          );
 
           hasFallbackAccess = Boolean(lenderAccess);
+
+          if (hasFallbackAccess) {
+            await ensureLenderParticipant(
+              prisma,
+              conversationId,
+              getUserId(req.user),
+            );
+          }
         }
+
+        const brokerOrgId = getOrganizationId(req.user);
 
         if (
           !isParticipant &&
           !hasFallbackAccess &&
           req.user?.orgType === "BROKER" &&
-          req.user?.organizationId &&
+          brokerOrgId &&
           conversation.loanApplicationId
         ) {
           const brokerAccess = await prisma.loanApplication.findFirst({
             where: {
               id: conversation.loanApplicationId,
-              brokerOrgId: req.user.organizationId,
+              brokerOrgId,
             },
             select: { id: true },
           });

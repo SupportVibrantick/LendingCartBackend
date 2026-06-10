@@ -7,6 +7,7 @@ import { useChatSocket } from "../../lib/useChatSocket";
 import {
   getConversationBadge,
   getConversationDisplayName,
+  isPlaceholderConversation,
   type ChatConversationListItem,
 } from "../../lib/chatConversation";
 import {
@@ -38,6 +39,13 @@ type Conversation = ChatConversationListItem & {
   participants?: ConversationParticipant[];
   brokerLabel?: string;
   participantSummary?: string;
+  chatCategory?: "PRINCIPAL_BROKER" | "LOAN_OFFICER" | string | null;
+  participant?: {
+    id?: string;
+    role?: string;
+    name?: string;
+    profileImage?: string | null;
+  };
 };
 
 type ChatMessage = {
@@ -99,9 +107,6 @@ const getInitials = (value?: string) => {
       .join("") || "C"
   );
 };
-
-const getBrokerLabel = (conversation?: Conversation | null) =>
-  getConversationDisplayName(conversation);
 
 const getParticipantSummary = (conversation?: Conversation | null) => {
   if (!conversation) return "Conversation";
@@ -207,42 +212,25 @@ const Chat = ({ applicationId }: LoanPreviewChatProps) => {
 
   const filteredConversations = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
+    if (!query) return conversations;
 
     return conversations.filter((chat) => {
-      // only show chats having BROKER participant
-      const hasBroker = (chat.participants || []).some(
-        (participant) => participant.participantType === "BROKER",
-      );
-
-      if (!hasBroker) return false;
-
-      // ✅ no search => show all broker chats
-      if (!query) return true;
-
-      const title = getBrokerLabel(chat).toLowerCase();
+      const title = getConversationDisplayName(chat).toLowerCase();
       const lastMessage = chat.lastMessage?.toLowerCase() || "";
-      const type = chat.type?.toLowerCase() || "";
+      const badge = getConversationBadge(chat).label.toLowerCase();
       const participantSummary = getParticipantSummary(chat).toLowerCase();
 
       return (
         title.includes(query) ||
         lastMessage.includes(query) ||
-        type.includes(query) ||
+        badge.includes(query) ||
         participantSummary.includes(query)
       );
     });
   }, [conversations, searchTerm]);
 
   const onlineConversations = useMemo(
-    () =>
-      conversations
-        .filter((chat) =>
-          (chat.participants || []).some(
-            (item: ConversationParticipant) =>
-              item.participantType === "BROKER",
-          ),
-        )
-        .slice(0, 6),
+    () => conversations.slice(0, 6),
     [conversations],
   );
 
@@ -312,22 +300,17 @@ const Chat = ({ applicationId }: LoanPreviewChatProps) => {
         throw new Error(json.message || "Failed to load chats");
       }
 
-      const nextConversations: Conversation[] = (
-        json?.data?.conversations || []
-      ).filter((item: Conversation) => item.type === "BROKER_LENDER");
+      const nextConversations: Conversation[] = json?.data?.conversations || [];
 
       setConversations(nextConversations);
 
       setSelectedConversation((prev) => {
-        if (prev) {
-          return (
-            nextConversations.find(
-              (item: Conversation) => item.id === prev.id,
-            ) || nextConversations[0]
-          );
-        }
+        if (!prev) return null;
 
-        return nextConversations[0] || null;
+        return (
+          nextConversations.find((item: Conversation) => item.id === prev.id) ||
+          null
+        );
       });
     } catch (err: any) {
       toast.error(err.message || "Failed to load chats");
@@ -336,19 +319,68 @@ const Chat = ({ applicationId }: LoanPreviewChatProps) => {
     }
   };
 
-  const handleSelectConversation = async (conversation: Conversation) => {
-    setSelectedConversation(conversation);
+  const ensureConversation = async (conversation: Conversation) => {
+    if (!applicationId || !conversation.chatCategory) return null;
 
-    setConversations((prev) =>
-      prev.map((item) =>
-        item.id === conversation.id
-          ? {
-              ...item,
-              unread: false,
-            }
-          : item,
-      ),
-    );
+    const token = getToken();
+    const res = await fetch(`${API_BASE}/messaging/lender/conversation`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token && { Authorization: `Bearer ${token}` }),
+      },
+      body: JSON.stringify({
+        loanApplicationId: applicationId,
+        chatCategory: conversation.chatCategory,
+      }),
+    });
+
+    const json = await res.json();
+    if (!res.ok || !json.success) {
+      throw new Error(json.message || "Failed to create conversation");
+    }
+
+    return json.data;
+  };
+
+  const handleSelectConversation = async (conversation: Conversation) => {
+    try {
+      let finalConversation = conversation;
+
+      if (isPlaceholderConversation(conversation)) {
+        const created = await ensureConversation(conversation);
+        if (!created?.id) {
+          throw new Error("Failed to open conversation");
+        }
+
+        finalConversation = {
+          ...conversation,
+          id: created.id,
+          isPlaceholder: false,
+        };
+
+        setConversations((prev) =>
+          prev.map((item) =>
+            item.id === conversation.id
+              ? { ...item, id: created.id, isPlaceholder: false }
+              : item,
+          ),
+        );
+      }
+
+      setSelectedConversation(finalConversation);
+      setMessages([]);
+
+      setConversations((prev) =>
+        prev.map((item) =>
+          item.id === finalConversation.id
+            ? { ...item, unread: false, unreadCount: 0 }
+            : item,
+        ),
+      );
+    } catch (err: any) {
+      toast.error(err.message || "Failed to open conversation");
+    }
   };
 
   const handleEmojiClick = (emojiData: EmojiClickData) => {
@@ -481,15 +513,40 @@ const Chat = ({ applicationId }: LoanPreviewChatProps) => {
     if (!selectedConversation?.id) return;
 
     const initConversation = async () => {
-      await fetchMessages(selectedConversation.id);
+      let conversationId = selectedConversation.id;
+      let placeholderKey = selectedConversation.id;
+
+      if (
+        isPlaceholderConversation(selectedConversation) &&
+        selectedConversation.chatCategory
+      ) {
+        try {
+          const created = await ensureConversation(selectedConversation);
+          if (created?.id) {
+            conversationId = created.id;
+            setSelectedConversation((prev) =>
+              prev ? { ...prev, id: created.id, isPlaceholder: false } : prev,
+            );
+            setConversations((prev) =>
+              prev.map((item) =>
+                item.id === placeholderKey
+                  ? { ...item, id: created.id, isPlaceholder: false }
+                  : item,
+              ),
+            );
+          }
+        } catch (err: any) {
+          toast.error(err.message || "Failed to open conversation");
+          return;
+        }
+      }
+
+      await fetchMessages(conversationId);
 
       setConversations((prev) =>
         prev.map((item) =>
-          item.id === selectedConversation.id
-            ? {
-                ...item,
-                unread: false,
-              }
+          item.id === conversationId || item.id === placeholderKey
+            ? { ...item, unread: false, unreadCount: 0 }
             : item,
         ),
       );
@@ -566,7 +623,7 @@ const Chat = ({ applicationId }: LoanPreviewChatProps) => {
                   <div
                     className={`flex h-11 w-11 items-center justify-center rounded-full text-xs font-semibold ${getAvatarTone(chat.title)}`}
                   >
-                    {getInitials(getBrokerLabel(chat))}
+                    {getInitials(getConversationDisplayName(chat))}
                   </div>
                   <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-[#fbfbfa] bg-lime-500" />
                 </div>
@@ -609,9 +666,9 @@ const Chat = ({ applicationId }: LoanPreviewChatProps) => {
             <div className="px-3 py-3">
               {filteredConversations.map((chat) => {
                 const isActive = selectedConversation?.id === chat.id;
-                const brokerName = getBrokerLabel(chat);
+                const displayName = getConversationDisplayName(chat);
                 const badge = getConversationBadge(chat);
-                const avatarTone = getAvatarTone(brokerName);
+                const avatarTone = getAvatarTone(displayName);
 
                 return (
                   <button
@@ -628,7 +685,7 @@ const Chat = ({ applicationId }: LoanPreviewChatProps) => {
                       <div
                         className={`flex h-11 w-11 items-center justify-center rounded-full text-xs font-semibold ${avatarTone}`}
                       >
-                        {getInitials(brokerName)}
+                        {getInitials(displayName)}
                       </div>
                       <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-[#fbfbfa] bg-lime-500" />
                     </div>
@@ -636,7 +693,7 @@ const Chat = ({ applicationId }: LoanPreviewChatProps) => {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-2">
                         <p className="truncate text-sm font-semibold text-slate-900">
-                          {brokerName}
+                          {displayName}
                         </p>
                         <span className="text-[10px] text-slate-400">
                           {formatTime(chat.lastMessageAt)}
@@ -691,16 +748,16 @@ const Chat = ({ applicationId }: LoanPreviewChatProps) => {
               <div className="flex min-w-0 items-center gap-3">
                 <div className="relative shrink-0">
                   <div
-                    className={`flex h-11 w-11 items-center justify-center rounded-full text-xs font-semibold ${getAvatarTone(getBrokerLabel(selectedConversation))}`}
+                    className={`flex h-11 w-11 items-center justify-center rounded-full text-xs font-semibold ${getAvatarTone(getConversationDisplayName(selectedConversation))}`}
                   >
-                    {getInitials(getBrokerLabel(selectedConversation))}
+                    {getInitials(getConversationDisplayName(selectedConversation))}
                   </div>
                   <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-[#fbfbfa] bg-lime-500" />
                 </div>
 
                 <div className="min-w-0">
                   <p className="truncate text-lg font-semibold text-slate-900">
-                    {getBrokerLabel(selectedConversation)}
+                    {getConversationDisplayName(selectedConversation)}
                   </p>
                   <div className="flex items-center gap-2">
                     <p className="text-xs text-slate-400">
@@ -758,6 +815,7 @@ const Chat = ({ applicationId }: LoanPreviewChatProps) => {
                 <div className="space-y-5">
                   {messages.map((msg, index) => {
                     const isOwnMessage =
+                      msg.senderType === "LENDER" ||
                       msg.senderUserId === lenderUserId ||
                       msg.senderClientUserId === lenderUserId;
 
@@ -789,19 +847,24 @@ const Chat = ({ applicationId }: LoanPreviewChatProps) => {
                               className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold ${getAvatarTone(
                                 isOwnMessage
                                   ? "Lender"
-                                  : getBrokerLabel(selectedConversation),
+                                  : getConversationDisplayName(selectedConversation),
                               )}`}
                             >
                               {getInitials(
                                 isOwnMessage
                                   ? "Lender"
-                                  : getBrokerLabel(selectedConversation),
+                                  : getConversationDisplayName(selectedConversation),
                               )}
                             </div>
 
                             <div>
-                              <div className="mb-1 px-1 text-[10px] text-slate-400">
-                                {formatTime(msg.createdAt)}
+                              <div className="mb-1 flex items-center gap-2 px-1 text-[10px] text-slate-400">
+                                {!isOwnMessage && (
+                                  <span className="font-semibold text-slate-500">
+                                    {msg.senderName || msg.senderType || "User"}
+                                  </span>
+                                )}
+                                <span>{formatTime(msg.createdAt)}</span>
                               </div>
 
                               <div

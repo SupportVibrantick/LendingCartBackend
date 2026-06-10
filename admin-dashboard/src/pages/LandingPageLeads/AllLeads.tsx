@@ -19,12 +19,36 @@ type Lead = {
   lastName?: string;
   email: string;
   phone?: string;
+  company?: string;
+  message?: string;
   status: "NEW" | "CONTACTED" | "QUALIFIED" | "NOT_INTERESTED" | "CONVERTED";
   source: string;
   createdAt?: string;
 
   leadType: string;
 };
+
+const LEAD_DELETE_PREFIX: Record<string, string> = {
+  COMMERCIAL_LENDING_MASTERY: "commercial-lending-mastery",
+  CLM_LANDING_PAGE: "clm-landing-page",
+  ADMIN_MANUAL: "crm",
+  LOAN_AI_BOOK_DEMO: "loan-ai-book-demo",
+};
+
+function formatSourceLabel(source: string) {
+  switch (source) {
+    case "loan-ai-book-demo":
+      return "Loan AI Book Demo";
+    case "commerciallendingmastery":
+      return "Commercial Lending Mastery";
+    case "clmlandingpage":
+      return "CLM Landing Page";
+    case "Admin":
+      return "Admin";
+    default:
+      return source;
+  }
+}
 
 const STATUS_OPTIONS: Lead["status"][] = [
   "NEW",
@@ -67,7 +91,7 @@ export default function AllLeads() {
   const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
   const [source, setSource] = useState<
-    "" | "commerciallendingmastery" | "clm-landing-page"
+    "" | "commerciallendingmastery" | "clmlandingpage" | "loan-ai-book-demo"
   >("");
 
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -164,7 +188,7 @@ export default function AllLeads() {
   const filtered = useMemo(() => {
     const q = query.toLowerCase();
     return leads.filter((l) =>
-      `${l.firstName} ${l.lastName} ${l.email} ${l.phone} ${l.status}`
+      `${l.firstName} ${l.lastName} ${l.email} ${l.phone} ${l.company || ""} ${l.message || ""} ${l.status}`
         .toLowerCase()
         .includes(q),
     );
@@ -212,7 +236,7 @@ export default function AllLeads() {
     }
   }
 
-  async function deleteLead(id: string) {
+  async function deleteLead(id: string, leadType: string) {
     const result = await Swal.fire({
       title: "Are you sure?",
       text: "You won't be able to recover this lead!",
@@ -227,9 +251,12 @@ export default function AllLeads() {
 
     setRowLoadingId(id);
 
-    const url = source
-      ? `${API_BASE}/admin/landing-page-leads/${source}/${id}`
-      : `${API_BASE}/admin/landing-page-leads/${id}`;
+    const prefix =
+      source ||
+      LEAD_DELETE_PREFIX[leadType] ||
+      "loan-ai-book-demo";
+
+    const url = `${API_BASE}/admin/landing-page-leads/${prefix}/${id}`;
 
     try {
       const res = await fetch(url, {
@@ -430,6 +457,7 @@ export default function AllLeads() {
                 Commercial Lending Mastery
               </option>
               <option value="clmlandingpage">CLM Landing Page</option>
+              <option value="loan-ai-book-demo">Loan AI Book Demo</option>
             </select>
 
             {/* Dropdown Arrow */}
@@ -534,6 +562,8 @@ export default function AllLeads() {
                   <th className="py-2 text-left">Name</th>
                   <th className="py-2 text-left">Email</th>
                   <th className="py-2 text-left">Phone</th>
+                  <th className="py-2 text-left">Company</th>
+                  <th className="py-2 text-left">Message</th>
                   <th className="py-2 text-left">Source</th>
                   <th className="py-2 text-left">Status</th>
                   <th className="py-2 text-left">Created</th>
@@ -552,8 +582,12 @@ export default function AllLeads() {
                     </td>
                     <td className="py-3">{l.email}</td>
                     <td className="py-3">{l.phone || "-"}</td>
-                    <td className="py-3 capitalize text-slate-600 dark:text-slate-400">
-                      {l.source}
+                    <td className="py-3">{l.company || "-"}</td>
+                    <td className="py-3 max-w-[200px] truncate" title={l.message || ""}>
+                      {l.message || "-"}
+                    </td>
+                    <td className="py-3 text-slate-600 dark:text-slate-400">
+                      {formatSourceLabel(l.source)}
                     </td>
                     <td className="py-3">
                       <select
@@ -583,7 +617,7 @@ export default function AllLeads() {
                     <td className="py-3 text-right">
                       <button
                         disabled={rowLoadingId === l.id}
-                        onClick={() => deleteLead(l.id)}
+                        onClick={() => deleteLead(l.id, l.leadType)}
                         className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-red-200 dark:border-red-500/30 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10"
                       >
                         <MdDelete />

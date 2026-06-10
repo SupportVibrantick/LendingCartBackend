@@ -23,6 +23,7 @@ const {
   resolveViewerRole,
   enrichConversationList,
 } = require("../../../../services/conversationPresentation");
+const { buildLenderLoanInbox } = require("../../../../services/lenderBrokerConversation");
 
 module.exports = async function getConversations(fastify) {
   fastify.get(
@@ -112,11 +113,11 @@ module.exports = async function getConversations(fastify) {
 
         let lenderAccess = null;
 
-        if (req.user.orgType === "LENDER") {
+        if (isLenderUser(req)) {
           lenderAccess = await prisma.applicationLender.findFirst({
             where: {
               loanApplicationId: loanId,
-              lenderOrgId: req.user.organizationId,
+              lenderOrgId: req.user.organizationId || req.user.orgId,
             },
             select: {
               id: true,
@@ -352,6 +353,27 @@ module.exports = async function getConversations(fastify) {
               buildBrokerSideEntry(null, loan.brokerUser),
             );
           }
+        }
+
+        if (isLenderUser(req) && lenderAccess) {
+          const lenderInbox = await buildLenderLoanInbox(prisma, {
+            loanId,
+            lenderAccessId: lenderAccess.id,
+            lenderOrgId: req.user.organizationId || req.user.orgId,
+            brokerOrgId: loan.brokerOrgId,
+          });
+
+          return reply.send({
+            success: true,
+            data: {
+              loanId,
+              total: lenderInbox.length,
+              conversations: enrichConversationList(
+                lenderInbox,
+                resolveViewerRole(req),
+              ),
+            },
+          });
         }
 
         if (isClientUser(req)) {

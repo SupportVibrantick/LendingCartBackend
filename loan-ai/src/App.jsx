@@ -1,4 +1,5 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { useEffect } from "react";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 
 import Navbar from "./components/Navbar";
 import Hero from "./components/Hero";
@@ -13,13 +14,26 @@ import Footer from "./components/Footer";
 import SectionWrapper from "./components/SectionWrapper";
 
 import BookDemoPage from "./components/BookDemo";
+import LoginPage from "./components/Login";
+import SignUpPage from "./components/SignUp";
+import SubscribePage from "./components/Subscribe";
+import { Toaster } from "react-hot-toast";
+import { AuthProvider } from "./context/AuthContext";
 
 function HomePage() {
+  const location = useLocation();
+
+  useEffect(() => {
+    if (location.hash === "#pricing") {
+      document.getElementById("pricing")?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [location.hash]);
+
   return (
     <>
       <Navbar />
 
-      <div className="pt-18">
+      <div className="pt-16">
         <Hero />
 
         <SectionWrapper>
@@ -62,15 +76,18 @@ function HomePage() {
 
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        {/* Home Page */}
-        <Route path="/" element={<HomePage />} />
-
-        {/* Book Demo Page */}
-        <Route path="/book-demo" element={<BookDemoPage />} />
-      </Routes>
-    </BrowserRouter>
+    <AuthProvider>
+      <BrowserRouter>
+        <Toaster position="top-right" />
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/book-demo" element={<BookDemoPage />} />
+          <Route path="/subscribe" element={<SubscribePage />} />
+          <Route path="/signup" element={<SignUpPage />} />
+          <Route path="/login" element={<LoginPage />} />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   );
 }
 

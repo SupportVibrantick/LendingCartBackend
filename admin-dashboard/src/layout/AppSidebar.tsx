@@ -31,7 +31,7 @@ import { RiExternalLinkLine } from "react-icons/ri";
 import ContactsOutlinedIcon from "@mui/icons-material/ContactsOutlined";
 import { 
   // Mail, 
-  // MessageSquare,
+  MessageSquare,
    BarChart3,
     TrendingUp,
      UserCog,
@@ -116,16 +116,24 @@ const navItems: NavItem[] = [
   //   name: "Loan Pipeline",
   //   path: "/loan-pipeline",
   // },
-  // {
-  //   icon: <MessageSquare />,
-  //   name: "Communications",
-  //   path: "/all-communications",
-  // },
-
+  {
+    icon: <MessageSquare />,
+    name: "Communications",
+    path: "/all-communications",
+  },
   {
     icon: <GrDocumentText />,
     name: "Document Type",
     path: "/all-documents",
+  },
+  {
+    icon: <CurrencyExchangeOutlinedIcon />,
+    name: "Subscriptions",
+    subItems: [
+      { name: "Packages", path: "/all-subscriptions" },
+      { name: "Subscribers", path: "/subscription-subscribers" },
+      { name: "Invoices", path: "/subscription-invoices" },
+    ],
   },
   {
     icon: <AdminPanelSettingsOutlinedIcon />,

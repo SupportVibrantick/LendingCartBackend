@@ -7,6 +7,7 @@ const loanProductsRoutes = require("./loanProducts");
 const lenderProducts = require("./lenderProducts");
 const adminUserRoutes = require("./adminUsers");
 const documentTypes = require("./documentTypes");
+const subscriptions = require("./subscriptions");
 const landingPagesLeads = require("./LandingPagesLeads");
 const applicationRoutes = require("./applications");
 const loanPipelineRoutes = require("./loanPipeLine");
@@ -47,6 +48,7 @@ module.exports = async function adminRoutes(fastify, opts) {
     instance.register(lenderProducts, { prefix: "/lender-products" });
     instance.register(adminUserRoutes, { prefix: "/admin-user" });
     instance.register(documentTypes, { prefix: "/document-types" });
+    instance.register(subscriptions, { prefix: "/subscriptions" });
     instance.register(impersonateRoutes, { prefix: "/impersonate" });
     instance.register(applicationRoutes, {
       prefix: "/applications",
@@ -76,6 +78,9 @@ module.exports = async function adminRoutes(fastify, opts) {
   prefix: "/email",
 });
 
+    instance.register(require("./notifications"), {
+      prefix: "/notifications",
+    });
 
   });
 };

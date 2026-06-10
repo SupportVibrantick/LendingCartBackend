@@ -14,6 +14,10 @@ module.exports = async function (fastify) {
       adminTotal,
       adminNew,
       adminConverted,
+
+      bookDemoTotal,
+      bookDemoNew,
+      bookDemoConverted,
     ] = await Promise.all([
       // Commercial Lending Mastery
       prisma.commercialLendingMasteryLead.count(),
@@ -29,16 +33,21 @@ module.exports = async function (fastify) {
       prisma.adminManualLead.count(),
       prisma.adminManualLead.count({ where: { status: "NEW" } }),
       prisma.adminManualLead.count({ where: { status: "CONVERTED" } }),
+
+      // Loan AI Book Demo
+      prisma.loanAiBookDemoLead.count(),
+      prisma.loanAiBookDemoLead.count({ where: { status: "NEW" } }),
+      prisma.loanAiBookDemoLead.count({ where: { status: "CONVERTED" } }),
     ]);
 
     const totalLeads =
-      clmTotal + landingTotal + adminTotal;
+      clmTotal + landingTotal + adminTotal + bookDemoTotal;
 
     const newLeads =
-      clmNew + landingNew + adminNew;
+      clmNew + landingNew + adminNew + bookDemoNew;
 
     const convertedLeads =
-      clmConverted + landingConverted + adminConverted;
+      clmConverted + landingConverted + adminConverted + bookDemoConverted;
 
     return reply.send({
       success: true,
@@ -61,6 +70,11 @@ module.exports = async function (fastify) {
             total: adminTotal,
             new: adminNew,
             converted: adminConverted,
+          },
+          loanAiBookDemo: {
+            total: bookDemoTotal,
+            new: bookDemoNew,
+            converted: bookDemoConverted,
           },
         },
       },

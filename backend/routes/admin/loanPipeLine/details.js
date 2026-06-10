@@ -1,3 +1,30 @@
+const {
+  resolveClientDisplayNameFromData,
+} = require("../../../services/resolveClientDisplayName");
+
+function submissionFieldValue(fields, ...keys) {
+  for (const field of fields || []) {
+    const key = field.builderField?.fieldKey || field.fieldKey;
+    if (!keys.includes(key)) continue;
+
+    const raw = field.value;
+    if (raw == null || raw === "") continue;
+
+    if (typeof raw === "string") return raw.trim();
+    if (typeof raw === "number") return String(raw);
+    if (typeof raw === "object" && raw !== null) {
+      if (typeof raw.value === "string" || typeof raw.value === "number") {
+        return String(raw.value).trim();
+      }
+      return String(raw).trim();
+    }
+
+    return String(raw).trim();
+  }
+
+  return null;
+}
+
 async function getAdminApplicationDetails(fastify) {
   fastify.get("/:applicationId", async (req, reply) => {
     try {
@@ -7,7 +34,13 @@ async function getAdminApplicationDetails(fastify) {
       const application = await prisma.loanApplication.findUnique({
         where: { id: applicationId },
         include: {
-          client: true,
+          client: {
+            include: {
+              contacts: {
+                orderBy: [{ isPrimary: "desc" }, { id: "asc" }],
+              },
+            },
+          },
           brokerOrg: true,
           submissions: {
             include: {
@@ -20,6 +53,9 @@ async function getAdminApplicationDetails(fastify) {
           applicationLenders: {
             include: {
               lender: true,
+              lenderProduct: {
+                select: { loanProductCode: true },
+              },
               lenderReviews: {
                 include: {
                   conditions: true,
@@ -45,33 +81,80 @@ async function getAdminApplicationDetails(fastify) {
       let minTermMonths = null;
       let maxTermMonths = null;
 
+      let purpose = application.purpose || null;
+      let entityType = application.client?.entityType || null;
+
       if (application.submissions?.length) {
         const fields = application.submissions[0].fields || [];
 
-        const getField = (key) =>
-          fields.find((f) => f.fieldKey === key)?.value;
+        const amountRaw = submissionFieldValue(
+          fields,
+          "amountRequested",
+          "loanAmount",
+          "requestedAmount",
+          "loan_amount",
+        );
+        amountRequested = amountRaw
+          ? Number(String(amountRaw).replace(/[,$]/g, "")) || null
+          : null;
 
-        // Prefer dynamic value first
-        amountRequested = Number(getField("amountRequested")) ||
-          null;
+        minTermMonths = Number(submissionFieldValue(fields, "minTermMonths")) || null;
+        maxTermMonths = Number(submissionFieldValue(fields, "maxTermMonths")) || null;
 
-        minTermMonths = Number(getField("minTermMonths")) || null;
-        maxTermMonths = Number(getField("maxTermMonths")) || null;
-
-        // If term years exists convert to months
-        const termYears = Number(getField("requested_term_years"));
+        const termYears = Number(submissionFieldValue(fields, "requested_term_years"));
         if (!maxTermMonths && termYears) {
           maxTermMonths = termYears * 12;
         }
+
+        purpose =
+          purpose ||
+          submissionFieldValue(fields, "purpose", "loanPurpose", "useOfFunds");
+
+        entityType =
+          entityType ||
+          submissionFieldValue(
+            fields,
+            "entityType",
+            "borrowerEntityType",
+            "businessEntityType",
+          );
       }
+
+      const borrowerName = resolveClientDisplayNameFromData(
+        application.client,
+        application.submissions,
+      );
+
+      const termMonthsRequested =
+        minTermMonths && maxTermMonths
+          ? `${minTermMonths}–${maxTermMonths}`
+          : maxTermMonths
+            ? String(maxTermMonths)
+            : minTermMonths
+              ? String(minTermMonths)
+              : null;
+
+      const lenders = (application.applicationLenders || []).map((al) => ({
+        lenderOrgId: al.lenderOrgId,
+        lenderName: al.lender?.name,
+        lenderProduct: al.lenderProduct?.loanProductCode,
+        lenderStatus: al.status,
+        sentAt: al.sentAt,
+        decision: al.lenderReviews?.[0]?.decision || null,
+      }));
 
       return reply.send({
         success: true,
         data: {
           ...application,
+          borrowerName,
+          entityType,
+          purpose,
           amountRequested,
           minTermMonths,
           maxTermMonths,
+          termMonthsRequested,
+          lenders,
         },
       });
     } catch (error) {

@@ -2,6 +2,11 @@
  * Mark conversation as read
  */
 
+const {
+  assertCanAccessConversation,
+  getUserId,
+} = require("../../../../services/messagingAccess");
+
 module.exports = async function markAsRead(fastify) {
   fastify.patch(
     "/conversation/:conversationId/read",
@@ -33,13 +38,8 @@ module.exports = async function markAsRead(fastify) {
           });
         }
 
-        // 🔥 FIX: normalize user
-        const userId =
-          req.user?.id || req.user?.userId || req.user?.clientId;
-
+        const userId = getUserId(req.user);
         const userEmail = req.user?.email;
-
-        console.log("👤 MarkRead User:", { userId, userEmail });
 
         if (!userId && !userEmail) {
           return reply.code(401).send({
@@ -48,39 +48,50 @@ module.exports = async function markAsRead(fastify) {
           });
         }
 
-        /* ================= VERIFY PARTICIPANT ================= */
+        const access = await assertCanAccessConversation(
+          prisma,
+          req.user,
+          conversationId,
+        );
+
+        if (!access.allowed) {
+          return reply.code(access.error?.code || 403).send({
+            success: false,
+            message: access.error?.message || "Access denied",
+          });
+        }
 
         const normalize = (str) => str?.trim().toLowerCase();
 
-        const participant =
-          await prisma.conversationParticipant.findFirst({
+        let participant =
+          access.participant ||
+          (await prisma.conversationParticipant.findFirst({
             where: {
               conversationId,
               OR: [
-                { participantId: userId },
-                {
-                  participantEmail: userEmail
-                    ? normalize(userEmail)
-                    : undefined,
-                },
-              ],
+                userId ? { participantId: userId } : undefined,
+                userEmail
+                  ? { participantEmail: normalize(userEmail) }
+                  : undefined,
+              ].filter(Boolean),
+            },
+          }));
+
+        if (!participant && userId) {
+          participant = await prisma.conversationParticipant.findFirst({
+            where: {
+              conversationId,
+              participantId: userId,
             },
           });
+        }
 
         if (!participant) {
-          console.error("❌ MarkRead access denied:", {
-            conversationId,
-            userId,
-            userEmail,
-          });
-
           return reply.code(403).send({
             success: false,
             message: "Access denied",
           });
         }
-
-        /* ================= UPDATE lastReadAt ================= */
 
         await prisma.conversationParticipant.update({
           where: {

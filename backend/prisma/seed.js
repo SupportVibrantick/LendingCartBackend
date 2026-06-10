@@ -9,6 +9,8 @@ const { seedRolePermissions } = require("./admin/rolePermission.seed");
 const { seedPlatformOrg } = require("./admin/platformOrg.seed");
 const { seedAdminUser } = require("./admin/admin.seed");
 const { seedDocumentTypes } = require("./admin/documentTypes.seed");
+const { seedSubscriptionPackages } = require("./admin/subscriptionPackages.seed");
+const { applySubscriptionBillingMigration } = require("./applySubscriptionBillingMigration");
 
 // Broker seeds
 const { seedBrokerOrg } = require("./broker/brokerOrg.seed");
@@ -50,6 +52,10 @@ async function main() {
 
   
   await seedDocumentTypes();
+
+  console.log("Ensuring subscription billing tables...");
+  await applySubscriptionBillingMigration(prisma);
+  await seedSubscriptionPackages();
   // await seedEligibleApplication();
 
   // Application builder + demo loan application

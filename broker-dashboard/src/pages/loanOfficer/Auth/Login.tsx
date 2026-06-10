@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { ArrowRight, Eye, EyeOff, LockKeyhole, Mail } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { LO_API_BASE, LO_TOKEN_KEY, LO_USER_KEY } from "../../../lib/loanOfficerApi";
 
@@ -84,6 +84,19 @@ export default function Login() {
       <div className="relative hidden flex-1 items-center justify-center lg:flex">
         <div className="max-w-xl px-10">
           <motion.div initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7 }}>
+            <div className="mb-8 flex items-center gap-3">
+              <img
+                src="/loanAutomation.jpeg"
+                alt="Loan Automation"
+                className="h-12 w-12 rounded-full ring-2 ring-[#13538A]/15"
+              />
+              <div>
+                <p className="text-base font-bold text-[#13538A]">Loan Automation</p>
+                <p className="text-[10px] font-medium uppercase tracking-wider text-gray-400">
+                  Officer Portal
+                </p>
+              </div>
+            </div>
             <p className="mb-5 inline-flex rounded-full border border-cyan-200 bg-cyan-100 px-4 py-2 text-sm font-medium text-cyan-700">
               Loan Officer Portal
             </p>
@@ -105,8 +118,18 @@ export default function Login() {
         <motion.div initial={{ opacity: 0, y: 35 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7 }} className="w-full max-w-md">
           <div className="rounded-[14px] border border-white bg-white/80 p-8 backdrop-blur-2xl">
             <div className="mb-8 flex justify-center">
-              <div className="flex h-14 w-14 items-center justify-center rounded-3xl bg-gradient-to-br from-cyan-500 to-blue-600">
-                <LockKeyhole className="text-white" size={24} />
+              <div className="flex items-center gap-3">
+                <img
+                  src="/loanAutomation.jpeg"
+                  alt="Loan Automation"
+                  className="h-14 w-14 rounded-full ring-2 ring-[#13538A]/15"
+                />
+                <div className="text-left">
+                  <p className="text-lg font-bold text-[#13538A]">Loan Automation</p>
+                  <p className="text-[10px] font-medium uppercase tracking-wider text-gray-400">
+                    Officer Portal
+                  </p>
+                </div>
               </div>
             </div>
             <div className="text-center">
@@ -132,6 +155,14 @@ export default function Login() {
                   </button>
                 </div>
                 {errors.password && <p className="mt-2 text-xs font-medium text-red-500">{errors.password}</p>}
+              </div>
+              <div className="flex justify-end">
+                <Link
+                  to="/reset-password?portal=loan-officer"
+                  className="text-sm font-medium text-cyan-600 transition hover:text-cyan-500"
+                >
+                  Forgot password?
+                </Link>
               </div>
               <motion.button whileTap={{ scale: 0.98 }} whileHover={{ scale: 1.01 }} type="submit" disabled={loading} className="group flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 px-5 py-4 text-sm font-semibold text-white transition-all hover:shadow-cyan-400/50 disabled:cursor-not-allowed disabled:opacity-70">
                 {loading ? (

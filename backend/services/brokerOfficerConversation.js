@@ -3,13 +3,43 @@
  */
 
 async function findBrokerAdmin(prisma, brokerOrgId) {
-  return prisma.userAccount.findFirst({
+  if (!brokerOrgId) return null;
+
+  const brokerAdmin = await prisma.userAccount.findFirst({
     where: {
       organizationId: brokerOrgId,
+      status: "ACTIVE",
       roles: {
         some: {
           role: {
             name: "BROKER_ADMIN",
+          },
+        },
+      },
+    },
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      profileImage: true,
+    },
+    orderBy: {
+      createdAt: "asc",
+    },
+  });
+
+  if (brokerAdmin) return brokerAdmin;
+
+  return prisma.userAccount.findFirst({
+    where: {
+      organizationId: brokerOrgId,
+      status: "ACTIVE",
+      roles: {
+        some: {
+          role: {
+            name: {
+              in: ["BROKER_ADMIN", "BROKER_OFFICER"],
+            },
           },
         },
       },

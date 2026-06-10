@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { ArrowRight, Eye, EyeOff, LockKeyhole, Mail } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
@@ -290,12 +290,12 @@ export default function Login() {
                   Remember me
                 </label>
 
-                <button
-                  type="button"
+                <Link
+                  to="/reset-password?portal=sub-broker"
                   className="text-sm font-medium text-cyan-600 transition hover:text-cyan-500"
                 >
                   Forgot Password?
-                </button>
+                </Link>
               </div>
 
               {/* BUTTON */}

@@ -4,9 +4,12 @@ const {
   brokerRegisterSchema,
 } = require("../../../schemas/broker/auth/register.schema");
 
-const { commonLogs } = require(
-  "../../../services/logger/contextLogger"
-);
+const { commonLogs } = require("../../../services/logger/contextLogger");
+const { sendBrokerWelcomeEmail } = require("../../../services/brokerWelcomeEmail");
+const {
+  notifyPlatform,
+  PLATFORM_NOTIFICATION_EVENTS,
+} = require("../../../services/platformNotifications");
 
 /**
  * Broker self-register (creates BROKER org + admin user)
@@ -126,9 +129,45 @@ async function brokerRegisterRoutes(fastify) {
           userId: brokerAdmin.id,
         });
 
+        try {
+          await sendBrokerWelcomeEmail({
+            adminFirstName: firstName,
+            adminLastName: lastName,
+            adminEmail: email,
+            organizationName,
+            organizationEmail,
+            organizationPhone: String(organizationPhone),
+          });
+        } catch (mailErr) {
+          commonLogs.error("Broker registered but welcome email failed", mailErr);
+        }
+
+        try {
+          await notifyPlatform(prisma, fastify.io, {
+            eventType: PLATFORM_NOTIFICATION_EVENTS.BROKER_REGISTERED,
+            category: "ORGANIZATION",
+            subject: "New broker self-registered",
+            body: `${organizationName} registered via broker signup (${email}).`,
+            metadata: {
+              organizationId: brokerOrg.id,
+              organizationName,
+              adminEmail: email,
+              source: "BROKER_SELF_REGISTER",
+            },
+          });
+        } catch (notifErr) {
+          commonLogs.warn("Broker register platform notification failed", {
+            error: notifErr.message,
+          });
+        }
+
         return reply.status(201).send({
           success: true,
           message: "Broker registered successfully",
+          data: {
+            organizationId: brokerOrg.id,
+            userId: brokerAdmin.id,
+          },
         });
       } catch (err) {
         commonLogs.error("Broker register failed", err);

@@ -6,8 +6,8 @@ export default function SignIn() {
   return (
     <>
       <PageMeta
-        title="Lending Cart"
-        description=""
+        title="Sign In | Broker Dashboard"
+        description="Sign in to your LendingCart broker dashboard"
       />
       <AuthLayout>
         <SignInForm />

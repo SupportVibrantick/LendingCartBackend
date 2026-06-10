@@ -107,6 +107,10 @@ include: {
           const existing = await prisma.conversation.findFirst({
             where: {
               applicationLenderId,
+              OR: [
+                { chatCategory: "PRINCIPAL_BROKER" },
+                { chatCategory: null },
+              ],
             },
           });
 
@@ -128,7 +132,9 @@ include: {
             loanApplicationId,
             applicationLenderId:
               type === "BROKER_LENDER" ? applicationLenderId : null,
-            type
+            type,
+            chatCategory:
+              type === "BROKER_LENDER" ? "PRINCIPAL_BROKER" : null,
           },
         });
 

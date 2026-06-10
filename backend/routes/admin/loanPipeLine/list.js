@@ -1,3 +1,57 @@
+const {
+  resolveClientDisplayNameFromData,
+} = require("../../../services/resolveClientDisplayName");
+
+function submissionFieldValue(fields, ...keys) {
+  for (const field of fields || []) {
+    const key = field.builderField?.fieldKey || field.fieldKey;
+    if (!keys.includes(key)) continue;
+
+    const raw = field.value;
+    if (raw == null || raw === "") continue;
+
+    if (typeof raw === "string") return raw.trim();
+    if (typeof raw === "number") return String(raw);
+    if (typeof raw === "object" && raw !== null) {
+      if (typeof raw.value === "string" || typeof raw.value === "number") {
+        return String(raw.value).trim();
+      }
+      return String(raw).trim();
+    }
+
+    return String(raw).trim();
+  }
+
+  return null;
+}
+
+function resolveAmountFromFields(fields) {
+  const raw = submissionFieldValue(
+    fields,
+    "amountRequested",
+    "loanAmount",
+    "requestedAmount",
+    "loan_amount",
+  );
+
+  if (!raw) return null;
+  const amount = Number(String(raw).replace(/[,$]/g, ""));
+  return Number.isNaN(amount) ? null : amount;
+}
+
+function resolveEntityType(app, fields) {
+  return (
+    app.client?.entityType ||
+    submissionFieldValue(
+      fields,
+      "entityType",
+      "borrowerEntityType",
+      "businessEntityType",
+    ) ||
+    "-"
+  );
+}
+
 /**
  * @param {import("fastify").FastifyInstance} fastify
  */
@@ -29,6 +83,15 @@ async function listAllApplications(fastify) {
                 id: true,
                 legalName: true,
                 entityType: true,
+                contacts: {
+                  select: {
+                    firstName: true,
+                    lastName: true,
+                    email: true,
+                    isPrimary: true,
+                  },
+                  orderBy: [{ isPrimary: "desc" }, { id: "asc" }],
+                },
               },
             },
             brokerOrg: {
@@ -61,17 +124,8 @@ async function listAllApplications(fastify) {
         });
 
         const formatted = applications.map((app) => {
-          let amountRequested = null;
-
-          if (app.submissions?.length) {
-            const fields = app.submissions[0].fields || [];
-
-            const getField = (key) =>
-              fields.find((f) => f.fieldKey === key)?.value;
-
-            amountRequested = Number(getField("amountRequested")) ||
-              null;
-          }
+          const fields = app.submissions?.[0]?.fields || [];
+          const amountRequested = resolveAmountFromFields(fields);
 
           return {
             applicationId: app.id,
@@ -80,6 +134,12 @@ async function listAllApplications(fastify) {
             amountRequested,
             status: app.status,
             createdAt: app.createdAt,
+            borrowerName: resolveClientDisplayNameFromData(app.client, app.submissions),
+            entityType: resolveEntityType(app, fields),
+            purpose:
+              submissionFieldValue(fields, "purpose", "loanPurpose", "useOfFunds") ||
+              app.purpose ||
+              null,
 
             client: app.client,
             broker: app.brokerOrg,

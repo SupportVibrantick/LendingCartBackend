@@ -64,6 +64,16 @@ async function seedPermissions() {
 
     // Settings
     "MANAGE_SETTINGS",
+
+    // Subscriptions
+    "VIEW_SUBSCRIPTIONS",
+    "CREATE_SUBSCRIPTION",
+    "UPDATE_SUBSCRIPTION",
+    "DELETE_SUBSCRIPTION",
+    "VIEW_SUBSCRIBERS",
+    "MANAGE_SUBSCRIBERS",
+    "VIEW_SUBSCRIPTION_INVOICES",
+    "MANAGE_SUBSCRIPTION_INVOICES",
   ];
 
   for (const key of permissions) {

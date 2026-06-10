@@ -190,6 +190,27 @@ layer(base);
   }
 }
 
+@utility sidebar-scrollbar {
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    @apply rounded-full bg-white/5;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    @apply rounded-full bg-white/25;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    @apply bg-white/40;
+  }
+
+  scrollbar-width: thin;
+  scrollbar-color: rgb(255 255 255 / 0.25) transparent;
+}
+
 @utility menu-item {
   @apply relative flex items-center w-full gap-3 px-3 py-2 font-medium rounded-lg text-theme-sm;
 }

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Your trial ends tomorrow</title>
+
+    <style>
+      body,html { margin:0; padding:0; width:100%; background:#f3f6f9; -webkit-font-smoothing:antialiased; }
+      body { font-family: "Inter", "Segoe UI", Roboto, Arial, sans-serif; color:#243142; }
+      a { color: #0b66d0; text-decoration:none; }
+      .wrap { width:100%; padding:28px 12px; box-sizing:border-box; }
+      .card { max-width:680px; margin:0 auto; background:#ffffff; border-radius:12px; box-shadow:0 8px 30px rgba(20,30,40,0.06); overflow:hidden; }
+      .header { background:linear-gradient(180deg,#ffffff, #f8fbff); padding:28px 36px 18px 36px; text-align:center; border-bottom:1px solid #eef4fb; }
+      .logo { display:block; margin:0 auto 12px auto; max-width:200px; height:auto; }
+      .title { font-size:22px; color:#0b66d0; margin:6px 0 0 0; font-weight:700; }
+      .body { padding:28px 40px; }
+      .greeting { font-size:16px; margin:0 0 12px 0; }
+      .lead { font-size:15px; margin:0 0 18px 0; color:#394954; line-height:1.6; }
+      .panel {
+        background:#fff8f0;
+        border-left:4px solid #f59e0b;
+        padding:14px 18px;
+        border-radius:8px;
+        margin:18px 0;
+      }
+      .panel p { margin:6px 0; font-size:15px; color:#22303a; }
+      .cta-wrap { text-align:center; margin-top:22px; }
+      .btn {
+        display:inline-block;
+        background:#0b66d0;
+        color:#fff !important;
+        padding:12px 20px;
+        border-radius:8px;
+        font-weight:600;
+        box-shadow:0 6px 18px rgba(11,102,208,0.18);
+      }
+      .note { margin-top:18px; font-size:13px; color:#60707b; line-height:1.5; }
+      .footer { background:#fbfdff; padding:18px 36px; border-top:1px solid #eef4fb; text-align:center; color:#7c8a95; font-size:13px; }
+      @media (max-width:520px) {
+        .body { padding:20px; }
+        .header { padding:20px; }
+        .title { font-size:20px; }
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="wrap">
+      <div class="card" role="article" aria-label="Trial ending reminder">
+        <div class="header">
+          <img class="logo" src="{{apiBase}}/public/images/ACOM_LOGO.png" alt="LendingCart logo" />
+          <div class="title">Your trial ends tomorrow</div>
+        </div>
+
+        <div class="body">
+          <p class="greeting">Hi <strong>{{name}}</strong>,</p>
+
+          <p class="lead">
+            This is a friendly reminder that the free trial for <strong>{{organizationName}}</strong> on LendingCart is ending soon.
+          </p>
+
+          <div class="panel" role="region" aria-label="Trial details">
+            <p><strong>Plan:</strong> {{planName}}</p>
+            <p><strong>Trial ends:</strong> {{trialEndsAt}}</p>
+            <p><strong>After trial:</strong> {{planPrice}} ({{billingCycle}} billing)</p>
+          </div>
+
+          <p class="lead">
+            When your trial ends, your subscription will become active and your first invoice will be generated. Please ensure your billing details are up to date to avoid any interruption to your broker dashboard access.
+          </p>
+
+          <div class="cta-wrap">
+            <a href="{{loginUrl}}" class="btn" target="_blank" rel="noopener">Go to Dashboard</a>
+          </div>
+
+          <p class="note">
+            If you have questions about your plan or need to make changes before billing begins, please contact our support team at
+            <a href="mailto:support@lendingcart.in">support@lendingcart.in</a>.
+          </p>
+        </div>
+
+        <div class="footer">
+          <div>&copy; {{currentYear}} LendingCart. All rights reserved.</div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

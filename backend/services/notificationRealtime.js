@@ -31,4 +31,21 @@ function emitBrokerNotification(io, brokerOrgId, notification) {
   }
 }
 
-module.exports = { emitBrokerNotification };
+function emitPlatformNotification(io, platformOrgId, notification) {
+  if (!io || !platformOrgId || !notification) return;
+
+  const payload = {
+    id: notification.id,
+    eventType: notification.eventType,
+    category: notification.category,
+    subject: notification.subject,
+    body: notification.body,
+    metadata: notification.metadata || {},
+    createdAt: notification.createdAt,
+    isRead: false,
+  };
+
+  io.to(`platform_${platformOrgId}`).emit("NOTIFICATION", payload);
+}
+
+module.exports = { emitBrokerNotification, emitPlatformNotification };

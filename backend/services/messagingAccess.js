@@ -19,6 +19,53 @@ function getUserId(user) {
   return user?.id || user?.userId || user?.clientId || null;
 }
 
+function getOrganizationId(user) {
+  return user?.organizationId || user?.orgId || null;
+}
+
+async function findLenderApplicationAccess(prisma, conversation, lenderOrgId) {
+  if (!lenderOrgId) return null;
+
+  if (conversation.applicationLenderId) {
+    const byApplicationLender = await prisma.applicationLender.findFirst({
+      where: {
+        id: conversation.applicationLenderId,
+        lenderOrgId,
+      },
+      select: { id: true },
+    });
+
+    if (byApplicationLender) return byApplicationLender;
+  }
+
+  if (conversation.loanApplicationId) {
+    return prisma.applicationLender.findFirst({
+      where: {
+        loanApplicationId: conversation.loanApplicationId,
+        lenderOrgId,
+      },
+      select: { id: true },
+    });
+  }
+
+  return null;
+}
+
+async function ensureLenderParticipant(prisma, conversationId, userId) {
+  if (!conversationId || !userId) return;
+
+  await prisma.conversationParticipant.createMany({
+    data: [
+      {
+        conversationId,
+        participantType: "LENDER",
+        participantId: userId,
+      },
+    ],
+    skipDuplicates: true,
+  });
+}
+
 function normalizeAuthUser(decoded) {
   const userId =
     decoded?.userId ?? decoded?.id ?? decoded?.user?.id ?? null;
@@ -39,6 +86,13 @@ function normalizeAuthUser(decoded) {
   if (!orgType && role === "CLIENT") orgType = "CLIENT";
   if (!orgType && hasRole({ roles }, "SUB_BROKER")) orgType = "BROKER";
   if (!orgType && hasRole({ roles }, "BROKER_OFFICER")) orgType = "BROKER";
+  if (
+    !orgType &&
+    (hasRole({ roles }, "LENDER_ADMIN") ||
+      hasRole({ roles }, "LENDER_UNDERWRITER"))
+  ) {
+    orgType = "LENDER";
+  }
 
   return {
     userId,
@@ -91,6 +145,7 @@ async function assertCanAccessConversation(prisma, user, conversationId) {
     select: {
       id: true,
       type: true,
+      chatCategory: true,
       loanApplicationId: true,
       applicationLenderId: true,
     },
@@ -101,6 +156,14 @@ async function assertCanAccessConversation(prisma, user, conversationId) {
       allowed: false,
       error: { code: 404, message: "Conversation not found" },
     };
+  }
+
+  const loanOfficerScopeError = assertLoanOfficerConversationScope(
+    req,
+    conversation,
+  );
+  if (loanOfficerScopeError) {
+    return { allowed: false, error: loanOfficerScopeError };
   }
 
   const typeAccessError = assertConversationTypeAccess(req, conversation.type);
@@ -121,36 +184,30 @@ async function assertCanAccessConversation(prisma, user, conversationId) {
   });
 
   if (participant) {
-    return { allowed: true, conversation };
+    return { allowed: true, conversation, participant };
   }
 
-  if (
-    isLenderUser(req) &&
-    user.organizationId &&
-    conversation.applicationLenderId
-  ) {
-    const lenderAccess = await prisma.applicationLender.findFirst({
-      where: {
-        id: conversation.applicationLenderId,
-        lenderOrgId: user.organizationId,
-      },
-      select: { id: true },
-    });
+  if (isLenderUser(req)) {
+    const lenderOrgId = getOrganizationId(user);
+    const lenderAccess = await findLenderApplicationAccess(
+      prisma,
+      conversation,
+      lenderOrgId,
+    );
 
     if (lenderAccess) {
+      await ensureLenderParticipant(prisma, conversationId, userId);
       return { allowed: true, conversation };
     }
   }
 
-  if (
-    isBrokerSideUser(req) &&
-    user.organizationId &&
-    conversation.loanApplicationId
-  ) {
+  const brokerOrgId = getOrganizationId(user);
+
+  if (isBrokerSideUser(req) && brokerOrgId && conversation.loanApplicationId) {
     const brokerAccess = await prisma.loanApplication.findFirst({
       where: {
         id: conversation.loanApplicationId,
-        brokerOrgId: user.organizationId,
+        brokerOrgId,
       },
       select: { id: true },
     });
@@ -233,7 +290,11 @@ function isClientUser(req) {
 }
 
 function isLenderUser(req) {
-  return req.user?.orgType === "LENDER";
+  return (
+    req.user?.orgType === "LENDER" ||
+    hasRole(req.user, "LENDER_ADMIN") ||
+    hasRole(req.user, "LENDER_UNDERWRITER")
+  );
 }
 
 function isBrokerSideUser(req) {
@@ -243,6 +304,58 @@ function isBrokerSideUser(req) {
     hasRole(req.user, "BROKER_OFFICER") ||
     hasRole(req.user, "BROKER_ADMIN")
   );
+}
+
+function isLoanOfficerUser(req) {
+  return hasRole(req.user, "BROKER_OFFICER");
+}
+
+/**
+ * Loan officers only see their own channels — never principal-broker lanes
+ * (duplicate lender rows) or broker-admin ↔ sub-broker threads.
+ */
+function getLoanOfficerConversationListFilters() {
+  return {
+    OR: [
+      { type: { in: ["CLIENT_OFFICER", "BROKER_OFFICER"] } },
+      {
+        type: { in: ["BROKER_LENDER", "SUBBROKER_BROKER"] },
+        chatCategory: "LOAN_OFFICER",
+      },
+    ],
+  };
+}
+
+function assertLoanOfficerConversationScope(req, conversation) {
+  if (!isLoanOfficerUser(req)) return null;
+
+  if (conversation.chatCategory === "PRINCIPAL_BROKER") {
+    return {
+      code: 403,
+      message: "Loan officers cannot access principal broker channels",
+    };
+  }
+
+  if (conversation.type === "CLIENT_BROKER") {
+    return {
+      code: 403,
+      message: "Loan officers use the dedicated client officer channel",
+    };
+  }
+
+  const categorizedTypes = ["BROKER_LENDER", "SUBBROKER_BROKER"];
+  if (
+    categorizedTypes.includes(conversation.type) &&
+    conversation.chatCategory &&
+    conversation.chatCategory !== "LOAN_OFFICER"
+  ) {
+    return {
+      code: 403,
+      message: "Access denied to this conversation channel",
+    };
+  }
+
+  return null;
 }
 
 function getConversationListFilters(req, { userId, userEmail, lenderAccessId }) {
@@ -281,6 +394,10 @@ function getConversationListFilters(req, { userId, userEmail, lenderAccessId }) 
         },
       },
     };
+  }
+
+  if (isLoanOfficerUser(req)) {
+    return getLoanOfficerConversationListFilters();
   }
 
   return {};
@@ -339,6 +456,9 @@ module.exports = {
   normalizeEmail,
   hasRole,
   getUserId,
+  getOrganizationId,
+  findLenderApplicationAccess,
+  ensureLenderParticipant,
   normalizeAuthUser,
   resolveMessageSenderType,
   assertCanAccessConversation,
@@ -346,6 +466,9 @@ module.exports = {
   isClientUser,
   isLenderUser,
   isBrokerSideUser,
+  isLoanOfficerUser,
+  getLoanOfficerConversationListFilters,
+  assertLoanOfficerConversationScope,
   getConversationListFilters,
   assertConversationTypeAccess,
   assertCanSendMessage,

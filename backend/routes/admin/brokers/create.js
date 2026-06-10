@@ -8,6 +8,10 @@ const bcrypt = require("bcrypt");
 const { loadTemplate } = require("../../../utils/loadTemplate");
 const sendMail = require("../../../services/mail");
 const { sendEmailUsingKafka } = require("../../../services/kafka/email/producer.js");
+const {
+  notifyPlatform,
+  PLATFORM_NOTIFICATION_EVENTS,
+} = require("../../../services/platformNotifications.js");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
@@ -190,6 +194,23 @@ async function createBrokerRoutes(fastify) {
           }
         } catch (mailErr) {
           adminLogs.error("Broker created but all email attempts failed", mailErr);
+        }
+
+        try {
+          await notifyPlatform(prisma, fastify.io, {
+            platformOrgId: request.user?.organizationId || request.user?.orgId,
+            eventType: PLATFORM_NOTIFICATION_EVENTS.BROKER_REGISTERED,
+            category: "ORGANIZATION",
+            subject: "New broker registered",
+            body: `Broker organization "${organizationName}" was created.`,
+            metadata: {
+              organizationId: newOrganization.id,
+              organizationName,
+              adminEmail,
+            },
+          });
+        } catch (notifyErr) {
+          adminLogs.error("Broker creation notification failed", notifyErr);
         }
 
         return reply.status(201).send({

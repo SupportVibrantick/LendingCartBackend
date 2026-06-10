@@ -7,6 +7,10 @@ const bcrypt = require("bcrypt");
 const { loadTemplate } = require("../../../utils/loadTemplate");
 const sendMail = require("../../../services/mail");
 const { sendEmailUsingKafka } = require("../../../services/kafka/email/producer.js");
+const {
+  notifyPlatform,
+  PLATFORM_NOTIFICATION_EVENTS,
+} = require("../../../services/platformNotifications.js");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
@@ -276,6 +280,23 @@ async function createLenderRoutes(fastify) {
           }
         } catch (mailErr) {
           adminLogs.error("Email sending failed after lender creation", mailErr);
+        }
+
+        try {
+          await notifyPlatform(prisma, fastify.io, {
+            platformOrgId: request.user?.organizationId || request.user?.orgId,
+            eventType: PLATFORM_NOTIFICATION_EVENTS.LENDER_REGISTERED,
+            category: "ORGANIZATION",
+            subject: "New lender registered",
+            body: `Lender organization "${organizationName}" was created.`,
+            metadata: {
+              organizationId: newLenderOrg.id,
+              organizationName,
+              adminEmail,
+            },
+          });
+        } catch (notifyErr) {
+          adminLogs.error("Lender creation notification failed", notifyErr);
         }
 
         // ---------------------------

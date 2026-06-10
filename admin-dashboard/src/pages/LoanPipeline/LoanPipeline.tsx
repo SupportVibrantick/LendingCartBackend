@@ -12,7 +12,19 @@ import {
   TrendingUp,
   RefreshCw,
   SearchX,
+  FileText,
+  ExternalLink,
 } from "lucide-react";
+import { ADMIN_API_BASE } from "../../lib/adminApi";
+import {
+  formatEntityTypeLabel,
+  parseFieldValue,
+  resolveBorrowerName,
+  resolveEntityType,
+  resolveLoanAmount,
+  resolvePurpose,
+  resolveTermLabel,
+} from "../../lib/loanPipelineUtils";
 
 /* ================= TYPES ================= */
 type LenderItem = {
@@ -38,8 +50,6 @@ type TableRow = {
   createdAt: string;
 };
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
-
 const LOAN_TYPE_LABELS: Record<string, string> = {
   FIX_AND_FLIP_LOAN_1_TO_4_UNITS: "Fix & Flip",
   DSCR_LOAN: "DSCR",
@@ -60,14 +70,6 @@ const STATUS_FILTERS = [
 const TABLE_COLUMNS = 8;
 
 /* ================= HELPERS ================= */
-const parseValue = (val: string): any => {
-  try {
-    return JSON.parse(val);
-  } catch {
-    return val;
-  }
-};
-
 function formatLoanType(code?: string) {
   if (!code) return "—";
   if (LOAN_TYPE_LABELS[code]) return LOAN_TYPE_LABELS[code];
@@ -137,7 +139,10 @@ function getAuthHeaders(): HeadersInit {
 }
 
 function getInitials(name: string) {
-  return name
+  const cleaned = name?.trim();
+  if (!cleaned || cleaned === "N/A" || cleaned === "Client") return "?";
+
+  return cleaned
     .split(" ")
     .filter(Boolean)
     .slice(0, 2)
@@ -196,7 +201,7 @@ export default function LoanPipeline() {
       setDetailLoading(true);
       setViewSubmissionId(applicationId);
 
-      const res = await fetch(`${API_BASE}/admin/loan-pipeline/${applicationId}`, {
+      const res = await fetch(`${ADMIN_API_BASE}/admin/loan-pipeline/${applicationId}`, {
         headers: getAuthHeaders(),
       });
 
@@ -219,7 +224,7 @@ export default function LoanPipeline() {
     try {
       setLoading(true);
 
-      const res = await fetch(`${API_BASE}/admin/loan-pipeline`, {
+      const res = await fetch(`${ADMIN_API_BASE}/admin/loan-pipeline`, {
         headers: getAuthHeaders(),
       });
 
@@ -235,10 +240,10 @@ export default function LoanPipeline() {
         return {
           applicationId: item.applicationId,
           applicationNumber: item.applicationNumber,
-          borrowerName: item.client?.legalName || "N/A",
-          entityType: item.client?.entityType || "-",
+          borrowerName: resolveBorrowerName(item),
+          entityType: resolveEntityType(item),
           loanType: item.loanProductCode,
-          amount: item.amountRequested ? Number(item.amountRequested) : null,
+          amount: resolveLoanAmount(item),
           applicationStatus: item.status,
           brokerName: item.broker?.name || "-",
           lenderStatus: lender?.lenderStatus || "-",
@@ -705,26 +710,135 @@ export default function LoanPipeline() {
                 ) : submissionDetail ? (
                   <div className="space-y-8 p-6">
                     <div className="grid gap-6 md:grid-cols-3">
-                      <InfoCard label="Application Id" value={submissionDetail.applicationNumber} />
-                      <InfoCard label="Status" value={formatStatusLabel(submissionDetail.status)} />
+                      <InfoCard
+                        label="Application #"
+                        value={submissionDetail.applicationNumber}
+                      />
+                      <InfoCard
+                        label="Status"
+                        value={formatStatusLabel(submissionDetail.status)}
+                      />
                       <InfoCard
                         label="Loan Product"
                         value={formatLoanType(submissionDetail.loanProductCode)}
                       />
-                      <InfoCard label="Borrower" value={submissionDetail.client?.legalName} />
-                      <InfoCard label="Entity Type" value={submissionDetail.client?.entityType} />
-                      <InfoCard label="Broker" value={submissionDetail.brokerOrg?.name} />
+                      <InfoCard
+                        label="Borrower"
+                        value={resolveBorrowerName(submissionDetail)}
+                      />
+                      <InfoCard
+                        label="Entity Type"
+                        value={formatEntityTypeLabel(
+                          submissionDetail.entityType ||
+                            resolveEntityType(submissionDetail),
+                        )}
+                      />
+                      <InfoCard
+                        label="Broker"
+                        value={submissionDetail.brokerOrg?.name || "-"}
+                      />
                       <InfoCard
                         label="Amount"
                         value={
-                          submissionDetail.amountRequested
-                            ? formatCompactAmount(Number(submissionDetail.amountRequested))
+                          resolveLoanAmount(submissionDetail) != null
+                            ? formatCompactAmount(resolveLoanAmount(submissionDetail)!)
                             : "-"
                         }
                       />
-                      <InfoCard label="Term (Months)" value={submissionDetail.termMonthsRequested} />
-                      <InfoCard label="Purpose" value={submissionDetail.purpose} />
+                      <InfoCard
+                        label="Term (Months)"
+                        value={resolveTermLabel(submissionDetail) || "-"}
+                      />
+                      <InfoCard
+                        label="Purpose"
+                        value={resolvePurpose(submissionDetail) || "-"}
+                      />
                     </div>
+
+                    {(submissionDetail.lenders?.length > 0 ||
+                      submissionDetail.applicationLenders?.length > 0) && (
+                      <div>
+                        <h3 className="mb-4 font-semibold text-slate-700 dark:text-slate-300">
+                          Assigned Lenders
+                        </h3>
+                        <div className="grid gap-3 md:grid-cols-2">
+                          {(submissionDetail.lenders ||
+                            submissionDetail.applicationLenders?.map((al: any) => ({
+                              lenderOrgId: al.lenderOrgId,
+                              lenderName: al.lender?.name,
+                              lenderProduct: al.lenderProduct?.loanProductCode,
+                              lenderStatus: al.status,
+                              sentAt: al.sentAt,
+                              decision: al.lenderReviews?.[0]?.decision,
+                            })) ||
+                            []
+                          ).map((lender: LenderItem & { decision?: string }) => (
+                            <div
+                              key={lender.lenderOrgId}
+                              className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800"
+                            >
+                              <p className="font-semibold text-slate-900 dark:text-slate-100">
+                                {lender.lenderName || "Lender"}
+                              </p>
+                              <p className="mt-1 text-xs text-slate-500">
+                                {formatLoanType(lender.lenderProduct)}
+                              </p>
+                              <div className="mt-3 flex flex-wrap items-center gap-2">
+                                <span
+                                  className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase ${getApplicationStatusColor(lender.lenderStatus)}`}
+                                >
+                                  {formatStatusLabel(lender.lenderStatus)}
+                                </span>
+                                {lender.decision && (
+                                  <span className="text-[10px] text-slate-500">
+                                    Decision: {formatStatusLabel(lender.decision)}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {submissionDetail.documentUploads?.length > 0 && (
+                      <div>
+                        <h3 className="mb-4 font-semibold text-slate-700 dark:text-slate-300">
+                          Documents
+                        </h3>
+                        <div className="space-y-2">
+                          {submissionDetail.documentUploads.map((doc: any) => (
+                            <div
+                              key={doc.id}
+                              className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-800"
+                            >
+                              <div className="flex min-w-0 items-center gap-3">
+                                <FileText className="h-4 w-4 shrink-0 text-slate-400" />
+                                <div className="min-w-0">
+                                  <p className="truncate text-sm font-medium text-slate-800 dark:text-slate-100">
+                                    {doc.fileName}
+                                  </p>
+                                  <p className="text-xs text-slate-500">
+                                    {formatShortDate(doc.uploadedAt)}
+                                  </p>
+                                </div>
+                              </div>
+                              {doc.fileUrl && (
+                                <a
+                                  href={doc.fileUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-[#13538A] hover:underline"
+                                >
+                                  View
+                                  <ExternalLink className="h-3 w-3" />
+                                </a>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
                     <div>
                       <h3 className="mb-4 font-semibold text-slate-700 dark:text-slate-300">
@@ -732,38 +846,55 @@ export default function LoanPipeline() {
                       </h3>
                       {(() => {
                         const fields = submissionDetail.submissions?.[0]?.fields || [];
-                        const normalFields = fields.filter(
-                          (f: any) => f.fieldKey !== "borrowerSignature",
-                        );
-                        const signatureField = fields.find(
-                          (f: any) => f.fieldKey === "borrowerSignature",
-                        );
+                        const hiddenKeys = new Set([
+                          "borrowerSignature",
+                          "signature",
+                          "applicantSignature",
+                        ]);
+                        const normalFields = fields.filter((f: any) => {
+                          const key = f.builderField?.fieldKey || f.fieldKey;
+                          return key && !hiddenKeys.has(key);
+                        });
+                        const signatureField = fields.find((f: any) => {
+                          const key = f.builderField?.fieldKey || f.fieldKey;
+                          return hiddenKeys.has(key);
+                        });
 
                         return (
                           <>
-                            <div className="grid gap-4 md:grid-cols-2">
-                              {normalFields.map((field: any) => (
-                                <div
-                                  key={field.id}
-                                  className="rounded-lg bg-slate-50 p-3 dark:bg-slate-800"
-                                >
-                                  <p className="mb-1 text-xs text-slate-500">
-                                    {formatFieldKey(field.fieldKey)}
-                                  </p>
-                                  <p className="break-words text-sm font-medium">
-                                    {String(parseValue(field.value))}
-                                  </p>
-                                </div>
-                              ))}
-                            </div>
-                            {signatureField && (
+                            {normalFields.length > 0 ? (
+                              <div className="grid gap-4 md:grid-cols-2">
+                                {normalFields.map((field: any) => {
+                                  const fieldKey =
+                                    field.builderField?.fieldKey || field.fieldKey;
+                                  return (
+                                    <div
+                                      key={field.id}
+                                      className="rounded-lg bg-slate-50 p-3 dark:bg-slate-800"
+                                    >
+                                      <p className="mb-1 text-xs text-slate-500">
+                                        {formatFieldKey(fieldKey)}
+                                      </p>
+                                      <p className="break-words text-sm font-medium">
+                                        {parseFieldValue(field.value)}
+                                      </p>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            ) : (
+                              <p className="text-sm text-slate-500">
+                                No submission fields available.
+                              </p>
+                            )}
+                            {signatureField?.value && (
                               <div className="mt-10 flex flex-col items-center">
                                 <p className="mb-3 text-sm font-semibold text-slate-600 dark:text-slate-300">
                                   Borrower Signature
                                 </p>
                                 <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
                                   <img
-                                    src={signatureField.value}
+                                    src={String(signatureField.value)}
                                     alt="Signature"
                                     className="h-28 object-contain"
                                   />
