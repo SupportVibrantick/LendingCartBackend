@@ -16,6 +16,20 @@ jobs:
       #############################################
       # NETWORK DEBUGGING (KEEP COMMENTED)
       #############################################
+      # 
+
+      - name: Test SSH Login
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY_LENDINGCART }}
+          port: ${{ secrets.SSH_PORT }}
+          script: |
+            echo "SSH Connection Successful"
+            whoami
+            hostname
+            pwd
 
       - name: Test Connectivity
         run: |
