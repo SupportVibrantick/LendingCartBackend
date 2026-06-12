@@ -17,22 +17,22 @@ jobs:
       # NETWORK DEBUGGING (KEEP COMMENTED)
       #############################################
 
-      # - name: Test Connectivity
-      #   run: |
-      #       ping -c 4 ${{ secrets.SSH_HOST }} || true
+      - name: Test Connectivity
+        run: |
+            ping -c 4 ${{ secrets.SSH_HOST }} || true
 
-      # - name: Install Tools
-      #   run: |
-      #       sudo apt-get update
-      #       sudo apt-get install -y netcat-openbsd traceroute
+      - name: Install Tools
+        run: |
+            sudo apt-get update
+            sudo apt-get install -y netcat-openbsd traceroute
 
-      # - name: Traceroute
-      #   run: |
-      #       traceroute -n ${{ secrets.SSH_HOST }} || true
+      - name: Traceroute
+        run: |
+            traceroute -n ${{ secrets.SSH_HOST }} || true
 
-      # - name: Test SSH Port
-      #   run: |
-      #       nc -vz -w 10 ${{ secrets.SSH_HOST }} ${{ secrets.SSH_PORT }}
+      - name: Test SSH Port
+        run: |
+            nc -vz -w 10 ${{ secrets.SSH_HOST }} ${{ secrets.SSH_PORT }}
 
       #############################################
       # Upload Backend
@@ -45,7 +45,7 @@ jobs:
           key: ${{ secrets.SSH_KEY_LENDINGCART }}
           port: ${{ secrets.SSH_PORT }}
           source: "backend"
-          target: "/root/LendingCart"
+          target: ${{ secrets.PROJECT_PATH }}
 
       #############################################
       # Upload Admin Dashboard
@@ -58,7 +58,7 @@ jobs:
           key: ${{ secrets.SSH_KEY_LENDINGCART }}
           port: ${{ secrets.SSH_PORT }}
           source: "admin-dashboard"
-          target: "/root/LendingCart"
+          target: ${{ secrets.PROJECT_PATH }}
 
       #############################################
       # Upload Broker Dashboard
@@ -71,7 +71,7 @@ jobs:
           key: ${{ secrets.SSH_KEY_LENDINGCART }}
           port: ${{ secrets.SSH_PORT }}
           source: "broker-dashboard"
-          target: "/root/LendingCart"
+          target: ${{ secrets.PROJECT_PATH }}
 
       #############################################
       # Upload Lending Dashboard
@@ -84,7 +84,7 @@ jobs:
           key: ${{ secrets.SSH_KEY_LENDINGCART }}
           port: ${{ secrets.SSH_PORT }}
           source: "lending-dashboard"
-          target: "/root/LendingCart"
+          target: ${{ secrets.PROJECT_PATH }}
 
       #############################################
       # Upload Loan AI
@@ -97,7 +97,7 @@ jobs:
           key: ${{ secrets.SSH_KEY_LENDINGCART }}
           port: ${{ secrets.SSH_PORT }}
           source: "loan-ai"
-          target: "/root/LendingCart"
+          target: ${{ secrets.PROJECT_PATH }}
 
       #############################################
       # Upload Loan Application Embed
@@ -110,7 +110,7 @@ jobs:
           key: ${{ secrets.SSH_KEY_LENDINGCART }}
           port: ${{ secrets.SSH_PORT }}
           source: "loan-application-embeded"
-          target: "/root/LendingCart"
+          target: ${{ secrets.PROJECT_PATH }}
 
       #############################################
       # SSH Deployment Script
