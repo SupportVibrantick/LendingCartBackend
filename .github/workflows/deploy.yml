@@ -18,35 +18,35 @@ jobs:
       #############################################
       # 
 
-      - name: Test SSH Login
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY_LENDINGCART }}
-          port: ${{ secrets.SSH_PORT }}
-          script: |
-            echo "SSH Connection Successful"
-            whoami
-            hostname
-            pwd
+      # - name: Test SSH Login
+      #   uses: appleboy/ssh-action@v1.0.3
+      #   with:
+      #     host: ${{ secrets.SSH_HOST }}
+      #     username: ${{ secrets.SSH_USER }}
+      #     key: ${{ secrets.SSH_KEY_LENDINGCART }}
+      #     port: ${{ secrets.SSH_PORT }}
+      #     script: |
+      #       echo "SSH Connection Successful"
+      #       whoami
+      #       hostname
+      #       pwd
 
-      - name: Test Connectivity
-        run: |
-            ping -c 4 ${{ secrets.SSH_HOST }} || true
+      # - name: Test Connectivity
+      #   run: |
+      #       ping -c 4 ${{ secrets.SSH_HOST }} || true
 
-      - name: Install Tools
-        run: |
-            sudo apt-get update
-            sudo apt-get install -y netcat-openbsd traceroute
+      # - name: Install Tools
+      #   run: |
+      #       sudo apt-get update
+      #       sudo apt-get install -y netcat-openbsd traceroute
 
-      - name: Traceroute
-        run: |
-            traceroute -n ${{ secrets.SSH_HOST }} || true
+      # - name: Traceroute
+      #   run: |
+      #       traceroute -n ${{ secrets.SSH_HOST }} || true
 
-      - name: Test SSH Port
-        run: |
-            nc -vz -w 10 ${{ secrets.SSH_HOST }} ${{ secrets.SSH_PORT }}
+      # - name: Test SSH Port
+      #   run: |
+      #       nc -vz -w 10 ${{ secrets.SSH_HOST }} ${{ secrets.SSH_PORT }}
 
       #############################################
       # Upload Backend
@@ -142,7 +142,7 @@ jobs:
             #################################################
             # Backend (Node.js + Fastify + Prisma)
             #################################################
-            cd /root/LendingCart/backend || exit 1
+            cd /root/LendingCartBackend/backend || exit 1
 
             echo "📦 Installing backend dependencies..."
             npm ci
@@ -151,7 +151,7 @@ jobs:
             npx prisma generate
 
             echo "🗄️ Applying Prisma migrations..."
-            npx prisma migrate deploy
+            npx prisma migrate dev --name "auto-deploy"
 
             echo "🔁 Restarting PM2 backend..."
             if pm2 list | grep -q "lendingcart-backend"; then
@@ -177,7 +177,7 @@ jobs:
             #################################################
             # Admin Dashboard (React + Vite)
             #################################################
-            cd /root/LendingCart/admin-dashboard || exit 1
+            cd /root/LendingCartBackend/admin-dashboard || exit 1
 
             echo "📦 Installing admin dashboard dependencies..."
             npm ci
@@ -193,7 +193,7 @@ jobs:
             #################################################
             # Broker Dashboard (React + Vite) 
             #################################################
-            cd /root/LendingCart/broker-dashboard || exit 1
+            cd /root/LendingCartBackend/broker-dashboard || exit 1
 
             echo "📦 Installing broker dashboard dependencies..."
             npm ci
@@ -209,7 +209,7 @@ jobs:
             #################################################
             # Lending Dashboard (React + Vite)
             #################################################
-            cd /root/LendingCart/lending-dashboard || exit 1
+            cd /root/LendingCartBackend/lending-dashboard || exit 1
 
             echo "📦 Installing lending dashboard dependencies..."
             npm ci
@@ -225,7 +225,7 @@ jobs:
             #################################################
             # Loan AI (React + Vite)
             #################################################
-            cd /root/LendingCart/loan-ai || exit 1
+            cd /root/LendingCartBackend/loan-ai || exit 1
 
             echo "📦 Installing loan-ai dependencies..."
             npm ci
@@ -241,7 +241,7 @@ jobs:
             #################################################
             # Loan Application Embed (React + Vite)
             #################################################
-            cd /root/LendingCart/loan-application-embeded || exit 1
+            cd /root/LendingCartBackend/loan-application-embeded || exit 1
 
             echo "📦 Installing loan application embed dependencies..."
             npm ci
