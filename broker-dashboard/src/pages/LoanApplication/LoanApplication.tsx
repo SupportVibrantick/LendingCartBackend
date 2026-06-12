@@ -657,11 +657,11 @@ const LoanApplication = () => {
     }
 
     // ZIP Code
-if (key.toLowerCase() === "zip") {
-  if (trimmed && !ZIP_REGEX.test(trimmed)) {
-    return "Enter a valid US ZIP Code (12345 or 12345-6789)";
-  }
-}
+    if (key.toLowerCase() === "zip") {
+      if (trimmed && !ZIP_REGEX.test(trimmed)) {
+        return "Enter a valid US ZIP Code (12345 or 12345-6789)";
+      }
+    }
 
     // Amount fields validation
     const amountKeys = [
@@ -716,7 +716,13 @@ if (key.toLowerCase() === "zip") {
 
     const checkObject = (obj: Record<string, any>, prefix: string) => {
       Object.entries(obj).forEach(([key, value]) => {
-        if (key === "mailingAddress" || key === "id") return;
+        if (
+          key === "mailingAddress" ||
+          key === "id" ||
+          key === "dba" ||
+          key === "hoaDues"
+        )
+          return;
 
         const error = validateFieldValue(key, value, true);
 
@@ -1112,13 +1118,13 @@ if (key.toLowerCase() === "zip") {
         throw new Error(result.message || "Submission failed");
       }
 
-      toast.success("Application Submitted Successfully"); 
-      navigate("/submit-applications"); 
-    } catch (error: any) { 
-      toast.error(error.message || "Something went wrong"); 
-    } finally { 
-      setSubmitting(false); 
-    } 
+      toast.success("Application Submitted Successfully");
+      navigate("/submit-applications");
+    } catch (error: any) {
+      toast.error(error.message || "Something went wrong");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   useEffect(() => {
@@ -1328,7 +1334,7 @@ if (key.toLowerCase() === "zip") {
         return (
           <textarea
             rows={4}
-            placeholder={field.placeholder || ""} 
+            placeholder={field.placeholder || ""}
             required={field.required}
             value={dynamicFormData[field.fieldId] || ""}
             onChange={(e) =>
@@ -2557,14 +2563,14 @@ focus:border-blue-500 outline-none text-sm ${
                     type="text"
                     inputMode="numeric"
                     value={formData.loanRequest.zip}
-                      onChange={(e) => {
-    let value = e.target.value
-      .replace(/[^\d-]/g, "")
-      .slice(0, 10);
+                    onChange={(e) => {
+                      let value = e.target.value
+                        .replace(/[^\d-]/g, "")
+                        .slice(0, 10);
 
-    updateLoanRequest("zip", value);
-  }}
-  placeholder="12345 or 12345-6789"
+                      updateLoanRequest("zip", value);
+                    }}
+                    placeholder="12345 or 12345-6789"
                     className={`mt-1 w-full px-4 py-1 rounded-md border 
     dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200
     ${
@@ -3902,8 +3908,7 @@ focus:border-blue-500 outline-none text-sm ${
                   {/* HOA Dues */}
                   <div>
                     <label className="block text-sm font-medium text-slate-600 mb-2 dark:text-slate-300">
-                      HOA Dues (If Applicable){" "}
-                      <span className="text-red-500"> *</span>
+                      HOA Dues (If Applicable)
                     </label>
                     <input
                       type="text"

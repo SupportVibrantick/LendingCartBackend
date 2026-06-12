@@ -1,246 +1,246 @@
 name: Deploy LendingCart Project
 
 on:
-    push:
-        branches: [main]
-    workflow_dispatch:
+  push:
+    branches: [main]
+  workflow_dispatch:
 
 jobs:
-    deploy:
-        runs-on: ubuntu-latest
+  deploy:
+    runs-on: ubuntu-latest
 
-        steps:
-            - name: Checkout Repository
-              uses: actions/checkout@v3
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
 
-            #############################################
-            # NETWORK DEBUGGING (KEEP COMMENTED)
-            #############################################
+      #############################################
+      # NETWORK DEBUGGING (KEEP COMMENTED)
+      #############################################
 
-            # - name: Test Connectivity
-            #   run: |
-            #       ping -c 4 ${{ secrets.SSH_HOST }} || true
+      # - name: Test Connectivity
+      #   run: |
+      #       ping -c 4 ${{ secrets.SSH_HOST }} || true
 
-            # - name: Install Tools
-            #   run: |
-            #       sudo apt-get update
-            #       sudo apt-get install -y netcat-openbsd traceroute
+      # - name: Install Tools
+      #   run: |
+      #       sudo apt-get update
+      #       sudo apt-get install -y netcat-openbsd traceroute
 
-            # - name: Traceroute
-            #   run: |
-            #       traceroute -n ${{ secrets.SSH_HOST }} || true
+      # - name: Traceroute
+      #   run: |
+      #       traceroute -n ${{ secrets.SSH_HOST }} || true
 
-            # - name: Test SSH Port
-            #   run: |
-            #       nc -vz -w 10 ${{ secrets.SSH_HOST }} ${{ secrets.SSH_PORT }}
+      # - name: Test SSH Port
+      #   run: |
+      #       nc -vz -w 10 ${{ secrets.SSH_HOST }} ${{ secrets.SSH_PORT }}
 
-            #############################################
-            # Upload Backend
-            #############################################
-            - name: Upload Backend to VPS
-              uses: appleboy/scp-action@v0.1.4
-              with:
-                  host: ${{ secrets.SSH_HOST }}
-                  username: ${{ secrets.SSH_USER }}
-                  key: ${{ secrets.SSH_KEY_LENDINGCART }}
-                  port: ${0
-                  source: "backend"
-                  target: "/root/lendingcart"
+      #############################################
+      # Upload Backend
+      #############################################
+      - name: Upload Backend to VPS
+        uses: appleboy/scp-action@v0.1.4
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY_LENDINGCART }}
+          port: ${{ secrets.SSH_PORT }}
+          source: "backend"
+          target: "/root/LendingCart"
 
-            #############################################
-            # Upload Admin Dashboard
-            #############################################
-            - name: Upload Admin Dashboard to VPS
-              uses: appleboy/scp-action@v0.1.4
-              with:
-                  host: ${{ secrets.SSH_HOST }}
-                  username: ${{ secrets.SSH_USER }}
-                  key: ${{ secrets.SSH_KEY_LENDINGCART }}
-                  port: ${{ secrets.SSH_PORT }}
-                  source: "admin-dashboard"
-                  target: "/root/lendingcart"
+      #############################################
+      # Upload Admin Dashboard
+      #############################################
+      - name: Upload Admin Dashboard to VPS
+        uses: appleboy/scp-action@v0.1.4
+        with:
+          host: ${{ secrets.SSH_HOST }} 
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY_LENDINGCART }}
+          port: ${{ secrets.SSH_PORT }}
+          source: "admin-dashboard"
+          target: "/root/LendingCart"
 
-            #############################################
-            # Upload Broker Dashboard
-            #############################################
-            - name: Upload Broker Dashboard to VPS
-              uses: appleboy/scp-action@v0.1.4
-              with:
-                  host: ${{ secrets.SSH_HOST }}
-                  username: ${{ secrets.SSH_USER }}
-                  key: ${{ secrets.SSH_KEY_LENDINGCART }}
-                  port: ${{ secrets.SSH_PORT }}
-                  source: "broker-dashboard"
-                  target: "/root/lendingcart"
+      #############################################
+      # Upload Broker Dashboard
+      #############################################
+      - name: Upload Broker Dashboard to VPS
+        uses: appleboy/scp-action@v0.1.4
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY_LENDINGCART }}
+          port: ${{ secrets.SSH_PORT }}
+          source: "broker-dashboard"
+          target: "/root/LendingCart"
 
-            #############################################
-            # Upload Lending Dashboard
-            #############################################
-            - name: Upload Lending Dashboard to VPS
-              uses: appleboy/scp-action@v0.1.4
-              with:
-                  host: ${{ secrets.SSH_HOST }}
-                  username: ${{ secrets.SSH_USER }}
-                  key: ${{ secrets.SSH_KEY_LENDINGCART }}
-                  port: ${{ secrets.SSH_PORT }}
-                  source: "lending-dashboard"
-                  target: "/root/lendingcart"
+      #############################################
+      # Upload Lending Dashboard
+      #############################################
+      - name: Upload Lending Dashboard to VPS
+        uses: appleboy/scp-action@v0.1.4
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY_LENDINGCART }}
+          port: ${{ secrets.SSH_PORT }}
+          source: "lending-dashboard"
+          target: "/root/LendingCart"
 
-            #############################################
-            # Upload Loan AI
-            #############################################
-            - name: Upload Loan AI to VPS
-              uses: appleboy/scp-action@v0.1.4
-              with:
-                  host: ${{ secrets.SSH_HOST }}
-                  username: ${{ secrets.SSH_USER }}
-                  key: ${{ secrets.SSH_KEY_LENDINGCART }}
-                  port: ${{ secrets.SSH_PORT }}
-                  source: "loan-ai"
-                  target: "/root/lendingcart"
+      #############################################
+      # Upload Loan AI
+      #############################################
+      - name: Upload Loan AI to VPS
+        uses: appleboy/scp-action@v0.1.4
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY_LENDINGCART }}
+          port: ${{ secrets.SSH_PORT }}
+          source: "loan-ai"
+          target: "/root/LendingCart"
 
-            #############################################
-            # Upload Loan Application Embed
-            #############################################
-            - name: Upload Loan Application Embed to VPS
-              uses: appleboy/scp-action@v0.1.4
-              with:
-                  host: ${{ secrets.SSH_HOST }}
-                  username: ${{ secrets.SSH_USER }}
-                  key: ${{ secrets.SSH_KEY_LENDINGCART }}
-                  port: ${{ secrets.SSH_PORT }}
-                  source: "loan-application-embeded"
-                  target: "/root/lendingcart"
+      #############################################
+      # Upload Loan Application Embed
+      #############################################
+      - name: Upload Loan Application Embed to VPS
+        uses: appleboy/scp-action@v0.1.4
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY_LENDINGCART }}
+          port: ${{ secrets.SSH_PORT }}
+          source: "loan-application-embeded"
+          target: "/root/LendingCart"
 
-            #############################################
-            # SSH Deployment Script
-            #############################################
-            - name: Deploy on VPS
-              uses: appleboy/ssh-action@v1.0.3
-              with:
-                  host: ${{ secrets.SSH_HOST }}
-                  username: ${{ secrets.SSH_USER }}
-                  key: ${{ secrets.SSH_KEY_LENDINGCART }}
-                  port: ${{ secrets.SSH_PORT }}
-                  script: |
-                      echo "🚀 Starting LendingCart deployment..."
+      #############################################
+      # SSH Deployment Script
+      #############################################
+      - name: Deploy on VPS
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY_LENDINGCART }}
+          port: ${{ secrets.SSH_PORT }}
+          script: |
+            echo "🚀 Starting LendingCart deployment..."
 
-                      #################################################
-                      # Backend (Node.js + Fastify + Prisma)
-                      #################################################
-                      cd /root/lendingcart/backend || exit 1
+            #################################################
+            # Backend (Node.js + Fastify + Prisma)
+            #################################################
+            cd /root/LendingCart/backend || exit 1
 
-                      echo "📦 Installing backend dependencies..."
-                      npm ci
+            echo "📦 Installing backend dependencies..."
+            npm ci
 
-                      echo "🔧 Generating Prisma client..."
-                      npx prisma generate
+            echo "🔧 Generating Prisma client..."
+            npx prisma generate
 
-                      echo "🗄️ Applying Prisma migrations..."
-                      npx prisma migrate deploy
+            echo "🗄️ Applying Prisma migrations..."
+            npx prisma migrate deploy
 
-                      echo "🔁 Restarting PM2 backend..."
-                      if pm2 list | grep -q "lendingcart-backend"; then
-                        echo "Restarting PM2 process..."
-                        pm2 restart Lendingcart-backend
-                      else
-                        echo "🚀 Starting new PM2 process..."
-                        pm2 start bin/www --name lendingcart-backend
-                      fi
+            echo "🔁 Restarting PM2 backend..."
+            if pm2 list | grep -q "lendingcart-backend"; then
+              echo "Restarting PM2 process..."
+              pm2 restart lendingcart-backend
+            else
+              echo "🚀 Starting new PM2 process..."
+              pm2 start bin/www --name lendingcart-backend
+            fi
 
-                      #################################################
-                      # Kafka Email Consumer (optional — uncomment in app.js first)
-                      #################################################
-                      # echo "📨 Starting or restarting Kafka email consumer..."
-                      # if pm2 list | grep -q "lendingcart-email-consumer"; then
-                      #   pm2 restart lendingcart-email-consumer
-                      # else
-                      #   pm2 start services/kafka/email/consumer.js --name lendingcart-email-consumer
-                      # fi
+            #################################################
+            # Kafka Email Consumer (optional — uncomment in app.js first)
+            #################################################
+            # echo "📨 Starting or restarting Kafka email consumer..."
+            # if pm2 list | grep -q "lendingcart-email-consumer"; then
+            #   pm2 restart lendingcart-email-consumer
+            # else
+            #   pm2 start services/kafka/email/consumer.js --name lendingcart-email-consumer
+            # fi
 
-                      pm2 save
+            pm2 save
 
-                      #################################################
-                      # Admin Dashboard (React + Vite)
-                      #################################################
-                      cd /root/lendingcart/admin-dashboard || exit 1
+            #################################################
+            # Admin Dashboard (React + Vite)
+            #################################################
+            cd /root/LendingCart/admin-dashboard || exit 1
 
-                      echo "📦 Installing admin dashboard dependencies..."
-                      npm ci
+            echo "📦 Installing admin dashboard dependencies..."
+            npm ci
 
-                      echo "🏗️ Building admin dashboard..."
-                      npm run build
+            echo "🏗️ Building admin dashboard..."
+            npm run build
 
-                      echo "🚚 Deploying admin dashboard to Nginx..."
-                      mkdir -p /var/www/admin
-                      rm -rf /var/www/admin/*
-                      cp -r dist/* /var/www/admin/
+            echo "🚚 Deploying admin dashboard to Nginx..."
+            mkdir -p /var/www/admin
+            rm -rf /var/www/admin/*
+            cp -r dist/* /var/www/admin/
 
-                      #################################################
-                      # Broker Dashboard (React + Vite)
-                      #################################################
-                      cd /root/lendingcart/broker-dashboard || exit 1
+            #################################################
+            # Broker Dashboard (React + Vite) 
+            #################################################
+            cd /root/LendingCart/broker-dashboard || exit 1
 
-                      echo "📦 Installing broker dashboard dependencies..."
-                      npm ci
+            echo "📦 Installing broker dashboard dependencies..."
+            npm ci
 
-                      echo "🏗️ Building broker dashboard..."
-                      npm run build
+            echo "🏗️ Building broker dashboard..."
+            npm run build
 
-                      echo "🚚 Deploying broker dashboard to Nginx..."
-                      mkdir -p /var/www/broker
-                      rm -rf /var/www/broker/*
-                      cp -r dist/* /var/www/broker/
+            echo "🚚 Deploying broker dashboard to Nginx..."
+            mkdir -p /var/www/broker
+            rm -rf /var/www/broker/*
+            cp -r dist/* /var/www/broker/
 
-                      #################################################
-                      # Lending Dashboard (React + Vite)
-                      #################################################
-                      cd /root/lendingcart/lending-dashboard || exit 1
+            #################################################
+            # Lending Dashboard (React + Vite)
+            #################################################
+            cd /root/LendingCart/lending-dashboard || exit 1
 
-                      echo "📦 Installing lending dashboard dependencies..."
-                      npm ci
+            echo "📦 Installing lending dashboard dependencies..."
+            npm ci
 
-                      echo "🏗️ Building lending dashboard..."
-                      npm run build
+            echo "🏗️ Building lending dashboard..."
+            npm run build
 
-                      echo "🚚 Deploying lending dashboard to Nginx..."
-                      mkdir -p /var/www/lending
-                      rm -rf /var/www/lending/*
-                      cp -r dist/* /var/www/lending/
+            echo "🚚 Deploying lending dashboard to Nginx..."
+            mkdir -p /var/www/lending
+            rm -rf /var/www/lending/*
+            cp -r dist/* /var/www/lending/
 
-                      #################################################
-                      # Loan AI (React + Vite)
-                      #################################################
-                      cd /root/lendingcart/loan-ai || exit 1
+            #################################################
+            # Loan AI (React + Vite)
+            #################################################
+            cd /root/LendingCart/loan-ai || exit 1
 
-                      echo "📦 Installing loan-ai dependencies..."
-                      npm ci
+            echo "📦 Installing loan-ai dependencies..."
+            npm ci
 
-                      echo "🏗️ Building loan-ai..."
-                      npm run build
+            echo "🏗️ Building loan-ai..."
+            npm run build
 
-                      echo "🚚 Deploying loan-ai to Nginx..."
-                      mkdir -p /var/www/loan-ai
-                      rm -rf /var/www/loan-ai/*
-                      cp -r dist/* /var/www/loan-ai/
+            echo "🚚 Deploying loan-ai to Nginx..."
+            mkdir -p /var/www/loan-ai
+            rm -rf /var/www/loan-ai/*
+            cp -r dist/* /var/www/loan-ai/
 
-                      #################################################
-                      # Loan Application Embed (React + Vite)
-                      #################################################
-                      cd /root/lendingcart/loan-application-embeded || exit 1
+            #################################################
+            # Loan Application Embed (React + Vite)
+            #################################################
+            cd /root/LendingCart/loan-application-embeded || exit 1
 
-                      echo "📦 Installing loan application embed dependencies..."
-                      npm ci
+            echo "📦 Installing loan application embed dependencies..."
+            npm ci
 
-                      echo "🏗️ Building loan application embed..."
-                      npm run build
+            echo "🏗️ Building loan application embed..."
+            npm run build
 
-                      echo "🚚 Deploying loan application embed to Nginx..."
-                      mkdir -p /var/www/embed
-                      rm -rf /var/www/embed/*
-                      cp -r dist/* /var/www/embed/
+            echo "🚚 Deploying loan application embed to Nginx..."
+            mkdir -p /var/www/embed
+            rm -rf /var/www/embed/*
+            cp -r dist/* /var/www/embed/
 
-                      echo "🔄 Restarting Nginx..."
-                      systemctl restart nginx
+            echo "🔄 Restarting Nginx..."
+            systemctl restart nginx
 
-                      echo "🎉 LendingCart deployment finished successfully!"
+            echo "🎉 LendingCart deployment finished successfully!"

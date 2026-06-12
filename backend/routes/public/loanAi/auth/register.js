@@ -1,6 +1,8 @@
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
-const { loanAiRegisterSchema } = require("../../../../schemas/public/loanAi/auth.schema");
+const {
+  loanAiRegisterSchema,
+} = require("../../../../schemas/public/loanAi/auth.schema");
 const { commonLogs } = require("../../../../services/logger/contextLogger");
 
 function signLoanAiToken(user) {
@@ -36,7 +38,8 @@ async function loanAiRegisterRoutes(fastify) {
         if (!parsed.success) {
           return reply.status(400).send({
             success: false,
-            message: parsed.error.issues[0]?.message || "Invalid registration data",
+            message:
+              parsed.error.issues[0]?.message || "Invalid registration data",
           });
         }
 
@@ -60,7 +63,8 @@ async function loanAiRegisterRoutes(fastify) {
         if (brokerExists) {
           return reply.status(409).send({
             success: false,
-            message: "This email is already used for a broker account. Sign in to the broker dashboard instead.",
+            message:
+              "This email is already used for a broker account. Sign in to the broker dashboard instead.",
           });
         }
 

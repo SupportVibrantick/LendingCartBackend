@@ -10,9 +10,9 @@ import { MdOutlineDocumentScanner } from "react-icons/md";
 import { FaUsersBetweenLines, FaUserGroup } from "react-icons/fa6";
 import { PiSecurityCameraFill } from "react-icons/pi";
 import {
-   TrendingUp,
+  TrendingUp,
   //  MessageSquare
- } from "lucide-react";
+} from "lucide-react";
 import { MdSettings } from "react-icons/md";
 import { CgProfile } from "react-icons/cg";
 
@@ -80,7 +80,7 @@ const AppSidebar: React.FC = () => {
             {
               icon: <MdOutlineDocumentScanner />,
               name: "New Loan Application",
-              path: "/active-application",
+              path: "/loan-application",
             },
           ]
         : []),
@@ -158,7 +158,7 @@ const AppSidebar: React.FC = () => {
         path: "/profile",
       },
     ],
-    [isSubBroker]
+    [isSubBroker],
   );
 
   const isActive = useCallback(
@@ -167,7 +167,7 @@ const AppSidebar: React.FC = () => {
       if (path === "/") return location.pathname === "/";
       return location.pathname.startsWith(path);
     },
-    [location.pathname]
+    [location.pathname],
   );
 
   const toggleMenu = (key: string) => {
@@ -190,7 +190,7 @@ const AppSidebar: React.FC = () => {
   useEffect(() => {
     const findActiveMenus = (
       items: NavItem[],
-      parentKey = ""
+      parentKey = "",
     ): Record<string, boolean> => {
       const result: Record<string, boolean> = {};
 
@@ -215,13 +215,15 @@ const AppSidebar: React.FC = () => {
     items: NavItem[],
     menuType: "main" = "main",
     level = 0,
-    parentKey = ""
+    parentKey = "",
   ) => (
     <ul
       className={`flex flex-col gap-0.5 ${level > 0 ? "ml-3 mt-1 border-l-2 border-gray-100 pl-3 dark:border-gray-800" : ""}`}
     >
       {items.map((nav, index) => {
-        const key = parentKey ? `${parentKey}-${index}` : `${menuType}-${index}`;
+        const key = parentKey
+          ? `${parentKey}-${index}`
+          : `${menuType}-${index}`;
         const isOpen = openMenus[key];
         const childActive = nav.subItems ? hasActiveChild(nav.subItems) : false;
         const linkActive = nav.path ? isActive(nav.path) : false;
@@ -234,7 +236,9 @@ const AppSidebar: React.FC = () => {
                   type="button"
                   onClick={() => toggleMenu(key)}
                   className={`menu-item group ${
-                    childActive || isOpen ? "menu-item-active" : "menu-item-inactive"
+                    childActive || isOpen
+                      ? "menu-item-active"
+                      : "menu-item-inactive"
                   }`}
                 >
                   {nav.icon && (
@@ -285,7 +289,9 @@ const AppSidebar: React.FC = () => {
                   {nav.icon ? (
                     <span
                       className={`menu-item-icon-size ${
-                        linkActive ? "menu-item-icon-active" : "menu-item-icon-inactive"
+                        linkActive
+                          ? "menu-item-icon-active"
+                          : "menu-item-icon-inactive"
                       }`}
                     >
                       {nav.icon}

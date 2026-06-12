@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
 import { Dropdown } from "../ui/dropdown/Dropdown";
-import {  useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 export default function UserDropdown() {
   const [isOpen, setIsOpen] = useState(false);
@@ -44,7 +44,8 @@ export default function UserDropdown() {
     };
 
     window.addEventListener("admin-profile-updated", onProfileUpdated);
-    return () => window.removeEventListener("admin-profile-updated", onProfileUpdated);
+    return () =>
+      window.removeEventListener("admin-profile-updated", onProfileUpdated);
   }, []);
 
   function toggleDropdown() {
@@ -87,7 +88,9 @@ export default function UserDropdown() {
           <img src="/profile.png" alt="User" />
         </span>
 
-        <span className="block mr-1 font-medium text-theme-sm">{displayName}</span>
+        <span className="block mr-1 font-medium text-theme-sm">
+          {displayName}
+        </span>
         <svg
           className={`stroke-gray-500 dark:stroke-gray-400 transition-transform duration-200 ${
             isOpen ? "rotate-180" : ""
@@ -150,7 +153,7 @@ export default function UserDropdown() {
               Edit profile
             </DropdownItem>
           </li>
-          <li>
+          {/* <li>
             <DropdownItem
               onItemClick={closeDropdown}
               tag="a"
@@ -175,8 +178,8 @@ export default function UserDropdown() {
               </svg>
               Account settings
             </DropdownItem>
-          </li>
-          <li>
+          </li> */}
+          {/* <li>
             <DropdownItem
               onItemClick={closeDropdown}
               tag="a"
@@ -201,7 +204,7 @@ export default function UserDropdown() {
               </svg>
               Support
             </DropdownItem>
-          </li>
+          </li> */}
         </ul>
 
         <button

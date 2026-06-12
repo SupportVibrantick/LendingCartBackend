@@ -39,7 +39,7 @@ import ConfigWebsite from "./pages/website-builder/ConfigWebsite";
 import CreateApplication from "./pages/ApplicationBuilder/CreateApplication";
 import Application from "./pages/ApplicationBuilder/Application";
 import LoanApplicationConfig from "./pages/ApplicationBuilder/LoanApplicationConfig";
-import ActiveApplication from "./pages/ActiveApplication/ActiveApp";
+// import ActiveApplication from "./pages/ActiveApplication/ActiveApp";
 import FindLenders from "./pages/LenderInteraction/FindLenders";
 import InvitedLenders from "./pages/LenderInteraction/InvitedLenders";
 import MyLenders from "./pages/LenderInteraction/MyLenders";
@@ -186,11 +186,11 @@ export default function App() {
               element={<LoanApplicationConfig />}
             />
 
-            <Route
+            {/* <Route
               index
               path="/active-application"
               element={<ActiveApplication />}
-            />
+            /> */}
 
             <Route
               path="/sub-brokers"
@@ -346,10 +346,7 @@ export default function App() {
               path="loan-pipeline-preview"
               element={<SubBrokerLoanPreview />}
             />
-            <Route
-              path="profile"
-              element={<SubBrokerProfile />}
-            />
+            <Route path="profile" element={<SubBrokerProfile />} />
           </Route>
 
           {/* LOAN OFFICER PORTAL */}
@@ -366,12 +363,18 @@ export default function App() {
           >
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<LoanOfficerDashboard />} />
-            <Route path="loan-pipeline" element={<LoanOfficerSubmitApplications />} />
+            <Route
+              path="loan-pipeline"
+              element={<LoanOfficerSubmitApplications />}
+            />
             <Route
               path="loan-pipeline-preview"
               element={<LoanOfficerLoanPreview />}
             />
-            <Route path="loan-application" element={<LoanOfficerApplication />} />
+            <Route
+              path="loan-application"
+              element={<LoanOfficerApplication />}
+            />
             <Route path="contacts" element={<LoanOfficerContacts />} />
             <Route path="messages" element={<LoanOfficerMessagesPage />} />
             <Route path="profile" element={<LoanOfficerProfile />} />

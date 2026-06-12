@@ -716,7 +716,12 @@ if (key.toLowerCase() === "zip") {
 
     const checkObject = (obj: Record<string, any>, prefix: string) => {
       Object.entries(obj).forEach(([key, value]) => {
-        if (key === "mailingAddress" || key === "id") return;
+        if (
+          key === "mailingAddress" ||
+           key === "id" ||
+            key === "dba" ||
+      key === "hoaDues"
+          ) return;
 
         const error = validateFieldValue(key, value, true);
 
@@ -3902,8 +3907,7 @@ focus:border-blue-500 outline-none text-sm ${
                   {/* HOA Dues */}
                   <div>
                     <label className="block text-sm font-medium text-slate-600 mb-2 dark:text-slate-300">
-                      HOA Dues (If Applicable){" "}
-                      <span className="text-red-500"> *</span>
+                      HOA Dues (If Applicable)
                     </label>
                     <input
                       type="text"

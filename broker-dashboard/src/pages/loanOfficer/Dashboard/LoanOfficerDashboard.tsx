@@ -103,10 +103,22 @@ export default function LoanOfficerDashboard() {
   }, []);
 
   const statCards = [
-    { label: "Total Applications", value: stats.totalApplications, color: "text-[#13538A]" },
-    { label: "Total Volume", value: formatCompactAmount(stats.totalVolume), color: "text-indigo-600" },
+    {
+      label: "Total Applications",
+      value: stats.totalApplications,
+      color: "text-[#13538A]",
+    },
+    {
+      label: "Total Volume",
+      value: formatCompactAmount(stats.totalVolume),
+      color: "text-indigo-600",
+    },
     { label: "In Review", value: stats.inReview, color: "text-amber-600" },
-    { label: "Client Pending", value: stats.clientPending, color: "text-rose-600" },
+    {
+      label: "Client Pending",
+      value: stats.clientPending,
+      color: "text-rose-600",
+    },
     { label: "Approved", value: stats.approved, color: "text-emerald-600" },
     { label: "Draft", value: stats.draft, color: "text-gray-600" },
   ];
@@ -202,7 +214,9 @@ export default function LoanOfficerDashboard() {
                   <Icon size={20} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="font-semibold text-gray-900 dark:text-white">{action.label}</p>
+                  <p className="font-semibold text-gray-900 dark:text-white">
+                    {action.label}
+                  </p>
                   <p className="mt-0.5 text-xs text-gray-500">{action.desc}</p>
                 </div>
                 <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-gray-300 transition group-hover:text-[#13538A]" />
@@ -214,7 +228,9 @@ export default function LoanOfficerDashboard() {
 
       <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
         <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-800">
-          <h2 className="font-semibold text-gray-900 dark:text-white">Recent Applications</h2>
+          <h2 className="font-semibold text-gray-900 dark:text-white">
+            Recent Applications
+          </h2>
           <Link
             to="/loan-officer/loan-pipeline"
             className="text-sm font-medium text-[#13538A] hover:underline"
@@ -226,13 +242,18 @@ export default function LoanOfficerDashboard() {
         {loading ? (
           <div className="divide-y divide-gray-100 dark:divide-gray-800">
             {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="h-14 animate-pulse bg-gray-50 dark:bg-gray-800/50" />
+              <div
+                key={i}
+                className="h-14 animate-pulse bg-gray-50 dark:bg-gray-800/50"
+              />
             ))}
           </div>
         ) : recent.length === 0 ? (
           <div className="px-6 py-12 text-center">
             <BriefcaseBusiness className="mx-auto mb-3 h-10 w-10 text-gray-300" />
-            <p className="font-medium text-gray-700 dark:text-gray-200">No applications yet</p>
+            <p className="font-medium text-gray-700 dark:text-gray-200">
+              No applications yet
+            </p>
             <button
               type="button"
               onClick={() => navigate("/loan-officer/loan-application")}
@@ -267,7 +288,9 @@ export default function LoanOfficerDashboard() {
                     <td className="px-5 py-3 font-medium text-gray-900 dark:text-white">
                       {row.borrower}
                     </td>
-                    <td className="px-5 py-3 text-gray-600">{row.applicationNumber || "—"}</td>
+                    <td className="px-5 py-3 text-gray-600">
+                      {row.applicationNumber || "—"}
+                    </td>
                     <td className="px-5 py-3 font-mono text-gray-700">
                       {formatCompactAmount(Number(row.amount) || 0)}
                     </td>
