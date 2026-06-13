@@ -16,7 +16,7 @@ jobs:
       #############################################
       # NETWORK DEBUGGING (KEEP COMMENTED)
       #############################################
-      # 
+      #
 
       # - name: Test SSH Login
       #   uses: appleboy/ssh-action@v1.0.3
@@ -33,103 +33,22 @@ jobs:
 
       # - name: Test Connectivity
       #   run: |
-      #       ping -c 4 ${{ secrets.SSH_HOST }} || true
+      #     ping -c 4 ${{ secrets.SSH_HOST }} || true
 
       # - name: Install Tools
       #   run: |
-      #       sudo apt-get update
-      #       sudo apt-get install -y netcat-openbsd traceroute
+      #     sudo apt-get update
+      #     sudo apt-get install -y netcat-openbsd traceroute
 
       # - name: Traceroute
       #   run: |
-      #       traceroute -n ${{ secrets.SSH_HOST }} || true
+      #     traceroute -n ${{ secrets.SSH_HOST }} || true
 
       # - name: Test SSH Port
       #   run: |
-      #       nc -vz -w 10 ${{ secrets.SSH_HOST }} ${{ secrets.SSH_PORT }}
+      #     nc -vz -w 10 ${{ secrets.SSH_HOST }} ${{ secrets.SSH_PORT }}
       #
 
-      #############################################
-      # Upload Backend
-      #############################################
-      - name: Upload Backend to VPS
-        uses: appleboy/scp-action@v0.1.4
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY_LENDINGCART }}
-          port: ${{ secrets.SSH_PORT }}
-          source: "backend"
-          target: ${{ secrets.PROJECT_PATH }}
-
-      #############################################
-      # Upload Admin Dashboard
-      #############################################
-      - name: Upload Admin Dashboard to VPS
-        uses: appleboy/scp-action@v0.1.4
-        with:
-          host: ${{ secrets.SSH_HOST }} 
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY_LENDINGCART }}
-          port: ${{ secrets.SSH_PORT }}
-          source: "admin-dashboard"
-          target: ${{ secrets.PROJECT_PATH }}
-
-      #############################################
-      # Upload Broker Dashboard
-      #############################################
-      - name: Upload Broker Dashboard to VPS
-        uses: appleboy/scp-action@v0.1.4
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY_LENDINGCART }}
-          port: ${{ secrets.SSH_PORT }}
-          source: "broker-dashboard"
-          target: ${{ secrets.PROJECT_PATH }}
-
-      #############################################
-      # Upload Lending Dashboard
-      #############################################
-      - name: Upload Lending Dashboard to VPS
-        uses: appleboy/scp-action@v0.1.4
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY_LENDINGCART }}
-          port: ${{ secrets.SSH_PORT }}
-          source: "lending-dashboard"
-          target: ${{ secrets.PROJECT_PATH }}
-
-      #############################################
-      # Upload Loan AI
-      #############################################
-      - name: Upload Loan AI to VPS
-        uses: appleboy/scp-action@v0.1.4
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY_LENDINGCART }}
-          port: ${{ secrets.SSH_PORT }}
-          source: "loan-ai"
-          target: ${{ secrets.PROJECT_PATH }}
-
-      #############################################
-      # Upload Loan Application Embed
-      #############################################
-      - name: Upload Loan Application Embed to VPS
-        uses: appleboy/scp-action@v0.1.4
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY_LENDINGCART }}
-          port: ${{ secrets.SSH_PORT }}
-          source: "loan-application-embeded"
-          target: ${{ secrets.PROJECT_PATH }}
-
-      #############################################
-      # SSH Deployment Script
-      #############################################
       - name: Deploy on VPS
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -138,12 +57,19 @@ jobs:
           key: ${{ secrets.SSH_KEY_LENDINGCART }}
           port: ${{ secrets.SSH_PORT }}
           script: |
-            echo "🚀 Starting LendingCart deployment..."
+            echo "Starting LendingCart deployment..."
+
+            cd /root/LendingCartBackend || exit 1
+
+            echo "📥 Pulling latest code..."
+            git fetch origin
+            git reset --hard origin/main
 
             #################################################
-            # Backend (Node.js + Fastify + Prisma)
+            # Backend
             #################################################
-            cd /root/LendingCartBackend/backend || exit 1
+
+            cd backend || exit 1
 
             echo "📦 Installing backend dependencies..."
             npm ci
@@ -151,34 +77,23 @@ jobs:
             echo "🔧 Generating Prisma client..."
             npx prisma generate
 
-            echo "🗄️ Applying Prisma migrations..."
-            npx prisma migrate dev --name "auto-deploy"
+            echo "🗄️ Running production migrations..."
+            npx prisma migrate deploy
 
-            echo "🔁 Restarting PM2 backend..."
+            echo "🔁 Restarting backend..."
             if pm2 list | grep -q "lendingcart-backend"; then
-              echo "Restarting PM2 process..."
               pm2 restart lendingcart-backend
             else
-              echo "🚀 Starting new PM2 process..."
               pm2 start bin/www --name lendingcart-backend
             fi
-
-            #################################################
-            # Kafka Email Consumer (optional — uncomment in app.js first)
-            #################################################
-            # echo "📨 Starting or restarting Kafka email consumer..."
-            # if pm2 list | grep -q "lendingcart-email-consumer"; then
-            #   pm2 restart lendingcart-email-consumer
-            # else
-            #   pm2 start services/kafka/email/consumer.js --name lendingcart-email-consumer
-            # fi
 
             pm2 save
 
             #################################################
-            # Admin Dashboard (React + Vite)
+            # Admin Dashboard
             #################################################
-            cd /root/LendingCartBackend/admin-dashboard || exit 1
+
+            cd ../admin-dashboard || exit 1
 
             echo "📦 Installing admin dashboard dependencies..."
             npm ci
@@ -186,15 +101,15 @@ jobs:
             echo "🏗️ Building admin dashboard..."
             npm run build
 
-            echo "🚚 Deploying admin dashboard to Nginx..."
             mkdir -p /var/www/admin
             rm -rf /var/www/admin/*
             cp -r dist/* /var/www/admin/
 
             #################################################
-            # Broker Dashboard (React + Vite) 
+            # Broker Dashboard
             #################################################
-            cd /root/LendingCartBackend/broker-dashboard || exit 1
+
+            cd ../broker-dashboard || exit 1
 
             echo "📦 Installing broker dashboard dependencies..."
             npm ci
@@ -202,15 +117,15 @@ jobs:
             echo "🏗️ Building broker dashboard..."
             npm run build
 
-            echo "🚚 Deploying broker dashboard to Nginx..."
             mkdir -p /var/www/broker
             rm -rf /var/www/broker/*
             cp -r dist/* /var/www/broker/
 
             #################################################
-            # Lending Dashboard (React + Vite)
+            # Lending Dashboard
             #################################################
-            cd /root/LendingCartBackend/lending-dashboard || exit 1
+
+            cd ../lending-dashboard || exit 1
 
             echo "📦 Installing lending dashboard dependencies..."
             npm ci
@@ -218,15 +133,15 @@ jobs:
             echo "🏗️ Building lending dashboard..."
             npm run build
 
-            echo "🚚 Deploying lending dashboard to Nginx..."
             mkdir -p /var/www/lending
             rm -rf /var/www/lending/*
             cp -r dist/* /var/www/lending/
 
             #################################################
-            # Loan AI (React + Vite)
+            # Loan AI
             #################################################
-            cd /root/LendingCartBackend/loan-ai || exit 1
+
+            cd ../loan-ai || exit 1
 
             echo "📦 Installing loan-ai dependencies..."
             npm ci
@@ -234,28 +149,30 @@ jobs:
             echo "🏗️ Building loan-ai..."
             npm run build
 
-            echo "🚚 Deploying loan-ai to Nginx..."
             mkdir -p /var/www/loan-ai
             rm -rf /var/www/loan-ai/*
             cp -r dist/* /var/www/loan-ai/
 
             #################################################
-            # Loan Application Embed (React + Vite)
+            # Loan Application Embedded
             #################################################
-            cd /root/LendingCartBackend/loan-application-embeded || exit 1
 
-            echo "📦 Installing loan application embed dependencies..."
+            cd ../loan-application-embeded || exit 1
+
+            echo "📦 Installing loan application embedded dependencies..."
             npm ci
 
-            echo "🏗️ Building loan application embed..."
+            echo "🏗️ Building loan application embedded..."
             npm run build
 
-            echo "🚚 Deploying loan application embed to Nginx..."
             mkdir -p /var/www/embed
             rm -rf /var/www/embed/*
             cp -r dist/* /var/www/embed/
 
-            echo "🔄 Restarting Nginx..."
+            #################################################
+            # Nginx
+            #################################################
+
             systemctl restart nginx
 
-            echo "🎉 LendingCart deployment finished successfully!"
+            echo "🎉Deployment completed successfully!"
