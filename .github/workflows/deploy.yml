@@ -25,42 +25,6 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      #############################################
-      # NETWORK DEBUGGING (KEEP COMMENTED)
-      #############################################
-      #
-
-      # - name: Test SSH Login
-      #   uses: appleboy/ssh-action@v1.0.3
-      #   with:
-      #     host: ${{ secrets.SSH_HOST }}
-      #     username: ${{ secrets.SSH_USER }}
-      #     key: ${{ secrets.SSH_KEY_LENDINGCART }}
-      #     port: ${{ secrets.SSH_PORT }}
-      #     script: |
-      #       echo "SSH Connection Successful"
-      #       whoami
-      #       hostname
-      #       pwd
-
-      # - name: Test Connectivity
-      #   run: |
-      #     ping -c 4 ${{ secrets.SSH_HOST }} || true
-
-      # - name: Install Tools
-      #   run: |
-      #     sudo apt-get update
-      #     sudo apt-get install -y netcat-openbsd traceroute
-
-      # - name: Traceroute
-      #   run: |
-      #     traceroute -n ${{ secrets.SSH_HOST }} || true
-
-      # - name: Test SSH Port
-      #   run: |
-      #     nc -vz -w 10 ${{ secrets.SSH_HOST }} ${{ secrets.SSH_PORT }}
-      #
-
       - name: Deploy on VPS
         uses: appleboy/ssh-action@v1.0.3
         env:
@@ -216,4 +180,4 @@ jobs:
 
             systemctl restart nginx
 
-            echo "🎉Deployment completed successfully!"
+            echo "🎉 Deployment completed successfully!"
