@@ -4,6 +4,7 @@ import { fetchSubscriberDetail, type SubscriberDetail } from "./subscriptionApi"
 export type BrokerDetail = {
   id: string;
   name: string;
+  organizationName?: string;
   email?: string | null;
   phone?: string | null;
   status?: string;
@@ -21,6 +22,18 @@ export type BrokerDetail = {
     role?: string | null;
     roles?: string[];
   }>;
+  primaryAdmin?: {
+    id: string;
+    email: string;
+    firstName?: string | null;
+    lastName?: string | null;
+    phone?: string | null;
+    status?: string;
+    createdAt?: string;
+    updatedAt?: string;
+    role?: string | null;
+    roles?: string[];
+  } | null;
   affiliateLinks?: Array<{
     id: string;
     code?: string;
@@ -42,20 +55,79 @@ export type BrokerDetail = {
       createdAt?: string;
     };
   }>;
-  whiteLabel?: Array<{
-    id: string;
-    brandName?: string | null;
-    primaryColor?: string | null;
-    secondaryColor?: string | null;
-    fullWhiteLabel?: boolean;
-    showBrokerBrandOnApproval?: boolean;
-  }> | null;
+  whiteLabel?:
+    | {
+        id?: string;
+        brandName?: string | null;
+        platformSubdomain?: string | null;
+        customDomain?: string | null;
+        domainVerified?: boolean;
+        sslStatus?: string | null;
+        primaryColor?: string | null;
+        secondaryColor?: string | null;
+        fontFamily?: string | null;
+        logoUrl?: string | null;
+        faviconUrl?: string | null;
+        supportEmail?: string | null;
+        footerText?: string | null;
+        fullWhiteLabel?: boolean;
+        showBrokerBrandOnApproval?: boolean;
+      }
+    | Array<{
+        id?: string;
+        brandName?: string | null;
+        platformSubdomain?: string | null;
+        customDomain?: string | null;
+        domainVerified?: boolean;
+        sslStatus?: string | null;
+        primaryColor?: string | null;
+        secondaryColor?: string | null;
+        fontFamily?: string | null;
+        logoUrl?: string | null;
+        faviconUrl?: string | null;
+        supportEmail?: string | null;
+        footerText?: string | null;
+        fullWhiteLabel?: boolean;
+        showBrokerBrandOnApproval?: boolean;
+      }>
+    | null;
   counts?: {
     admins?: number;
     affiliateLinks?: number;
     lenderAccess?: number;
   };
 };
+
+export function resolveBrokerOrganizationName(broker: Pick<BrokerDetail, "name" | "organizationName">) {
+  return broker.organizationName?.trim() || broker.name?.trim() || "";
+}
+
+export function resolveBrokerPrimaryAdmin(broker: BrokerDetail) {
+  if (broker.primaryAdmin) return broker.primaryAdmin;
+  return (
+    broker.admins?.find(
+      (admin) =>
+        admin.role === "BROKER_ADMIN" || admin.roles?.includes("BROKER_ADMIN"),
+    ) ||
+    broker.admins?.[broker.admins.length - 1] ||
+    null
+  );
+}
+
+export function resolveBrokerWhiteLabel(broker: BrokerDetail) {
+  const settings = broker.whiteLabel;
+  if (!settings) return null;
+  if (Array.isArray(settings)) return settings[0] ?? null;
+  if (typeof settings === "object" && Object.keys(settings).length > 0) {
+    return settings;
+  }
+  return null;
+}
+
+export function formatBrokerRole(role?: string | null) {
+  if (!role) return "—";
+  return role.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
+}
 
 export type BrokerTeamMember = {
   id: string;

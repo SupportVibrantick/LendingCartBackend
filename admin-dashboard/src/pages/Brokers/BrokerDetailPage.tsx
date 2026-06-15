@@ -71,6 +71,9 @@ import {
   fetchBrokerClients,
   fetchBrokerContacts,
   fetchBrokerDetail,
+  resolveBrokerOrganizationName,
+  resolveBrokerPrimaryAdmin,
+  resolveBrokerWhiteLabel,
   fetchBrokerLenders,
   fetchBrokerLoanOfficers,
   fetchBrokerSubBrokers,
@@ -1239,10 +1242,10 @@ export default function BrokerDetailPage() {
 
   const openEditBroker = () => {
     if (!broker) return;
-    const admin = broker.admins?.[0];
+    const admin = resolveBrokerPrimaryAdmin(broker);
     setEditingBroker({
       id: broker.id,
-      name: broker.name || "",
+      name: resolveBrokerOrganizationName(broker),
       email: broker.email || "",
       phone: broker.phone || "",
       status: broker.status,
@@ -1337,8 +1340,16 @@ export default function BrokerDetailPage() {
     );
   }
 
+  const primaryAdmin = resolveBrokerPrimaryAdmin(broker);
+
   const renderOverview = () => {
     const activeSubscription = subscription?.subscription;
+    const whiteLabel = resolveBrokerWhiteLabel(broker);
+    const affiliateLinks = broker.affiliateLinks || [];
+    const subscriptionPrice =
+      activeSubscription?.billingCycle === "YEARLY"
+        ? activeSubscription.package.priceYearly
+        : activeSubscription?.package.priceMonthly;
 
     return (
     <div className="space-y-5">
@@ -1394,7 +1405,7 @@ export default function BrokerDetailPage() {
 
         <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
           <OverviewSubsection label="Organization" accent="bg-[#13538A]" />
-          <DetailCell label="Organization name" value={broker.name} />
+          <DetailCell label="Organization name" value={resolveBrokerOrganizationName(broker)} />
           <DetailCell
             label="Organization email"
             value={broker.email}
@@ -1409,14 +1420,69 @@ export default function BrokerDetailPage() {
           <DetailCell label="Created" value={formatDate(broker.createdAt)} />
           <DetailCell label="Last updated" value={formatDate(broker.updatedAt)} />
 
-          <OverviewSubsection label="Subscription" accent="bg-violet-500" />
+          <OverviewSubsection label="Primary Administrator" accent="bg-emerald-500" />
           <DetailCell
-            label="Current plan"
-            value={activeSubscription?.package?.name}
+            label="Admin name"
+            value={personName(primaryAdmin?.firstName, primaryAdmin?.lastName, primaryAdmin?.email)}
+            icon={<User size={12} className="shrink-0 text-slate-400" />}
           />
+          <DetailCell
+            label="Admin email"
+            value={primaryAdmin?.email}
+            icon={<Mail size={12} className="shrink-0 text-slate-400" />}
+          />
+          <DetailCell
+            label="Admin phone"
+            value={
+              primaryAdmin?.phone ? formatContactPhoneValue(primaryAdmin.phone) : undefined
+            }
+            icon={<Phone size={12} className="shrink-0 text-slate-400" />}
+          />
+          <DetailCell label="Admin status" value={primaryAdmin?.status} />
+          <DetailCell label="Member since" value={formatDate(primaryAdmin?.createdAt)} />
+
+          <OverviewSubsection label="Platform Summary" accent="bg-amber-500" />
+          <DetailCell label="Team members" value={broker.counts?.admins ?? broker.admins?.length ?? 0} />
+          <DetailCell label="Contacts" value={contactTotal} />
+          <DetailCell label="Loan officers" value={loTotal} />
+          <DetailCell label="Sub brokers" value={sbTotal} />
+          <DetailCell label="Clients" value={clientTotal} />
+          <DetailCell label="Connected lenders" value={broker.counts?.lenderAccess ?? lenderTotal} />
+          <DetailCell label="Applications" value={appTotal} />
+          <DetailCell
+            label="Application volume"
+            value={
+              appTotalAmount > 0
+                ? new Intl.NumberFormat("en-US", {
+                    style: "currency",
+                    currency: "USD",
+                    maximumFractionDigits: 0,
+                  }).format(appTotalAmount)
+                : "—"
+            }
+          />
+          <DetailCell label="Affiliate links" value={broker.counts?.affiliateLinks ?? affiliateLinks.length} />
+
+          <OverviewSubsection label="Subscription" accent="bg-violet-500" />
+          <DetailCell label="Current plan" value={activeSubscription?.package?.name} />
           <DetailCell label="Plan code" value={activeSubscription?.package?.code} />
           <DetailCell label="Subscription status" value={activeSubscription?.status} />
           <DetailCell label="Billing cycle" value={activeSubscription?.billingCycle} />
+          <DetailCell
+            label="Plan price"
+            value={
+              subscriptionPrice != null
+                ? `${formatPrice(subscriptionPrice)} / ${
+                    activeSubscription?.billingCycle === "YEARLY" ? "year" : "month"
+                  }`
+                : undefined
+            }
+            icon={<Wallet size={12} className="shrink-0 text-slate-400" />}
+          />
+          <DetailCell
+            label="Current period starts"
+            value={formatDate(activeSubscription?.currentPeriodStart)}
+          />
           <DetailCell
             label="Current period ends"
             value={formatDate(activeSubscription?.currentPeriodEnd)}
@@ -1429,9 +1495,81 @@ export default function BrokerDetailPage() {
                 : "—"
             }
           />
-
+          <DetailCell
+            label="Cancel at period end"
+            value={
+              activeSubscription
+                ? activeSubscription.cancelAtPeriodEnd
+                  ? "Yes"
+                  : "No"
+                : undefined
+            }
+          />
         </div>
       </OverviewSection>
+
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+        <OverviewSection
+          title="White Label"
+          icon={<Building2 size={14} className="text-[#13538A]" />}
+        >
+          {!whiteLabel ? (
+            <p className="text-xs text-slate-500">White-label branding is not configured.</p>
+          ) : (
+            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+              <DetailCell label="Brand name" value={whiteLabel.brandName} />
+              <DetailCell label="Platform subdomain" value={whiteLabel.platformSubdomain} />
+              <DetailCell label="Custom domain" value={whiteLabel.customDomain} />
+              <DetailCell
+                label="Domain verified"
+                value={whiteLabel.domainVerified ? "Yes" : "No"}
+              />
+              <DetailCell label="SSL status" value={whiteLabel.sslStatus} />
+              <DetailCell label="Primary color" value={whiteLabel.primaryColor} />
+              <DetailCell label="Secondary color" value={whiteLabel.secondaryColor} />
+              <DetailCell label="Support email" value={whiteLabel.supportEmail} />
+              <DetailCell
+                label="Full white label"
+                value={whiteLabel.fullWhiteLabel ? "Enabled" : "Disabled"}
+              />
+              <DetailCell
+                label="Show brand on approval"
+                value={whiteLabel.showBrokerBrandOnApproval ? "Yes" : "No"}
+              />
+            </div>
+          )}
+        </OverviewSection>
+
+        <OverviewSection
+          title="Affiliate Links"
+          icon={<ExternalLink size={14} className="text-[#13538A]" />}
+        >
+          {affiliateLinks.length === 0 ? (
+            <p className="text-xs text-slate-500">No affiliate links created for this broker.</p>
+          ) : (
+            <div className="space-y-2">
+              {affiliateLinks.map((link: any) => (
+                <div
+                  key={link.id}
+                  className="flex flex-col gap-1 rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2.5 dark:border-slate-800 dark:bg-slate-800/40 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div>
+                    <p className="text-[11px] font-semibold text-slate-800 dark:text-slate-100">
+                      {link.code}
+                    </p>
+                    <p className="text-[10px] text-slate-500">
+                      {link.targetType?.replace(/_/g, " ") || "—"}
+                    </p>
+                  </div>
+                  <span className={statusBadge(link.isActive ? "ACTIVE" : "INACTIVE")}>
+                    {link.isActive ? "Active" : "Inactive"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </OverviewSection>
+      </div>
     </div>
     );
   };
@@ -2470,7 +2608,10 @@ export default function BrokerDetailPage() {
 
   return (
     <>
-      <PageMeta title={`${broker.name} | Broker Details`} description="Broker organization details" />
+      <PageMeta
+        title={`${resolveBrokerOrganizationName(broker)} | Broker Details`}
+        description="Broker organization details"
+      />
 
       <div className="px-4 sm:px-6 py-6 bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 min-h-screen">
         <Link
@@ -2491,11 +2632,18 @@ export default function BrokerDetailPage() {
                 Broker Organization
               </p>
               <h1 className="text-xl font-bold text-[#13538A] dark:text-indigo-400">
-                {broker.name}
+                {resolveBrokerOrganizationName(broker)}
               </h1>
               <p className="text-xs text-slate-500 mt-0.5">
-                {broker.email || "—"} · {broker.phone || "—"}
+                {broker.email || "—"} ·{" "}
+                {broker.phone ? formatContactPhoneValue(broker.phone) : "—"}
               </p>
+              {primaryAdmin ? (
+                <p className="text-[10px] text-slate-400 mt-1">
+                  Primary admin: {personName(primaryAdmin.firstName, primaryAdmin.lastName)} ·{" "}
+                  {primaryAdmin.email || "—"}
+                </p>
+              ) : null}
               <div className="mt-3">
                 <span className={statusBadge(broker.status)}>{broker.status}</span>
               </div>

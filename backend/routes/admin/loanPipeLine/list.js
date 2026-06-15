@@ -190,7 +190,7 @@ async function listAllApplications(fastify) {
 
         return reply.status(500).send({
           success: false,
-          message: "Server error",
+          message: error.message || "Server error",
         });
       }
     },

@@ -1,8 +1,12 @@
 const prisma = require("../client");
+const {
+  PLATFORM_ORG_NAME,
+  PLATFORM_ORG_EMAIL,
+  PLATFORM_ORG_PHONE,
+} = require("../seedConfig");
 
 async function seedPlatformOrg() {
-  const orgName =
-    process.env.SEED_PLATFORM_ORG_NAME || "LendingCart Platform";
+  const orgName = PLATFORM_ORG_NAME;
 
   const existingOrg = await prisma.organization.findFirst({
     where: {
@@ -23,12 +27,8 @@ async function seedPlatformOrg() {
       name: orgName,
       type: "PLATFORM",
       status: "ACTIVE",
-      email:
-        process.env.SEED_PLATFORM_ORG_EMAIL ||
-        "platform@lendingcart.local",
-      phone:
-        process.env.SEED_PLATFORM_ORG_PHONE ||
-        "+10000000000",
+      email: PLATFORM_ORG_EMAIL,
+      phone: PLATFORM_ORG_PHONE,
     },
   });
 

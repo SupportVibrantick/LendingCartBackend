@@ -1,8 +1,8 @@
 const prisma = require("../client");
+const { BROKER_ORG_NAME, BROKER_ORG_EMAIL, BROKER_ORG_PHONE } = require("../seedConfig");
 
 async function seedBrokerOrg() {
-  const brokerName =
-    process.env.SEED_BROKER_ORG_NAME || "Demo Broker";
+  const brokerName = BROKER_ORG_NAME;
 
   let organization = await prisma.organization.findFirst({
     where: {
@@ -23,12 +23,8 @@ async function seedBrokerOrg() {
       name: brokerName,
       type: "BROKER",
       status: "ACTIVE",
-      email:
-        process.env.SEED_BROKER_ORG_EMAIL ||
-        "broker@lendingcart.local",
-      phone:
-        process.env.SEED_BROKER_ORG_PHONE ||
-        "+10000000001",
+      email: BROKER_ORG_EMAIL,
+      phone: BROKER_ORG_PHONE,
     },
   });
 
