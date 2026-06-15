@@ -1,22 +1,23 @@
 // prisma/broker/applicationBuilder.seed.js
 
 const prisma = require("../client");
+const { BROKER_ORG_NAME } = require("../seedConfig");
 
 async function seedApplicationBuilder() {
   console.log("🚀 Seeding Application Builder...");
 
-  const brokerOrgName =
-    process.env.SEED_BROKER_ORG_NAME || "LendingCart Broker";
+  const brokerOrgName = BROKER_ORG_NAME;
 
-const brokerOrg = await prisma.organization.findFirst({
-  where: {
-    type: "BROKER",
-  },
-});
+  const brokerOrg = await prisma.organization.findFirst({
+    where: {
+      type: "BROKER",
+      name: brokerOrgName,
+    },
+  });
 
-if (!brokerOrg) {
-  throw new Error("Broker organization not found");
-}
+  if (!brokerOrg) {
+    throw new Error(`Broker organization not found: ${brokerOrgName}`);
+  }
 
   /*
    * ==========================================

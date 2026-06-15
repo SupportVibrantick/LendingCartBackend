@@ -1,8 +1,6 @@
 const bcrypt = require("bcryptjs");
 const prisma = require("../client");
-
-const DEFAULT_PASSWORD =
-  process.env.SEED_LOAN_OFFICER_PASSWORD || "LoanOfficer@123";
+const { BROKER_ORG_NAME, LOAN_OFFICER_PASSWORD } = require("../seedConfig");
 
 const LOAN_OFFICERS = [
   {
@@ -17,7 +15,7 @@ const LOAN_OFFICERS = [
       "VIEW_REPORTS",
     ],
     profile: {
-      company: "Demo Broker",
+      company: BROKER_ORG_NAME,
       tollFree: "800-555-0101",
       tollFreeExt: "101",
       serviceProvider: "Twilio",
@@ -39,7 +37,7 @@ const LOAN_OFFICERS = [
     phone: "+1-555-0102",
     permissions: ["VIEW_APPLICATIONS", "VIEW_CONTACTS"],
     profile: {
-      company: "Demo Broker",
+      company: BROKER_ORG_NAME,
       tollFree: "800-555-0102",
       address: "456 Oak Avenue",
       city: "Dallas",
@@ -81,8 +79,7 @@ async function assignPermissions(userId, permissionKeys) {
 }
 
 async function seedLoanOfficers() {
-  const brokerOrgName =
-    process.env.SEED_BROKER_ORG_NAME || "Demo Broker";
+  const brokerOrgName = BROKER_ORG_NAME;
 
   const organization = await prisma.organization.findFirst({
     where: { name: brokerOrgName },
@@ -100,7 +97,7 @@ async function seedLoanOfficers() {
     throw new Error("BROKER_OFFICER role not found");
   }
 
-  const passwordHash = await bcrypt.hash(DEFAULT_PASSWORD, 10);
+  const passwordHash = await bcrypt.hash(LOAN_OFFICER_PASSWORD, 10);
   const seededUsers = [];
 
   for (const officer of LOAN_OFFICERS) {

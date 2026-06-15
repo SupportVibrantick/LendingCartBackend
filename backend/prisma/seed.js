@@ -18,7 +18,9 @@ const { seedBrokerUser } = require("./broker/broker.seed");
 const { seedLoanOfficers } = require("./broker/loanOfficers.seed");
 const { seedSubBrokers } = require("./broker/subBrokers.seed");
 const { seedApplicationBuilder } = require("./broker/applicationBuilder.seed");
+// Optional demo data (run manually if needed):
 // const { seedLoanApplication } = require("./broker/loanApplication.seed");
+// const { seedEligibleApplication } = require("./broker/application.seed");
 // const { ensureConversationTypes } = require("./broker/ensureConversationTypes");
 
 // Lender seeds
@@ -56,12 +58,10 @@ async function main() {
   console.log("Ensuring subscription billing tables...");
   await applySubscriptionBillingMigration(prisma);
   await seedSubscriptionPackages();
-  // await seedEligibleApplication();
-
-  // Application builder + demo loan application
   await seedApplicationBuilder();
+  // await seedLoanApplication();      // demo loan pipeline row + submission fields
+  // await seedEligibleApplication();  // minimal submitted application only
   // await ensureConversationTypes();
-  // await seedLoanApplication();
 
   console.log("\n✅ Database seed completed successfully.");
 }

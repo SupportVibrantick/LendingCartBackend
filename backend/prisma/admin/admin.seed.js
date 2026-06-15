@@ -1,15 +1,15 @@
 const bcrypt = require("bcryptjs");
 const prisma = require("../client");
+const {
+  ADMIN_EMAIL,
+  ADMIN_PASSWORD,
+  PLATFORM_ORG_NAME,
+} = require("../seedConfig");
 
 async function seedAdminUser() {
-const adminEmail =
-  process.env.SEED_ADMIN_EMAIL || "admin@lendingcart.com";
-
-const adminPassword =
-  process.env.SEED_ADMIN_PASSWORD || "admin@123";
-
-  const organizationName =
-    process.env.SEED_PLATFORM_ORG_NAME || "LendingCart Platform";
+  const adminEmail = ADMIN_EMAIL;
+  const adminPassword = ADMIN_PASSWORD;
+  const organizationName = PLATFORM_ORG_NAME;
 
   const organization = await prisma.organization.findFirst({
     where: {

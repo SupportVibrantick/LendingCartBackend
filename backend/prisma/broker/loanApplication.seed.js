@@ -1,5 +1,6 @@
 const { randomUUID } = require("crypto");
 const prisma = require("../client");
+const { BROKER_ORG_NAME, BROKER_EMAIL } = require("../seedConfig");
 
 const SEED_APPLICATION_NUMBER =
   process.env.SEED_LOAN_APP_NUMBER || "APP-SEED-FIX-FLIP-001";
@@ -82,11 +83,8 @@ async function resolveBuilderFieldMap(applicationProductId) {
 async function seedLoanApplication() {
   console.log("🚀 Seeding Loan Application...");
 
-  const brokerOrgName =
-    process.env.SEED_BROKER_ORG_NAME || "Demo Broker";
-
-  const brokerEmail =
-    process.env.SEED_BROKER_EMAIL || "broker@lendingcart.com";
+  const brokerOrgName = BROKER_ORG_NAME;
+  const brokerEmail = BROKER_EMAIL;
 
   const loanOfficerEmail =
     process.env.SEED_LO_OFFICER_1_EMAIL || "sarah.mitchell@demo-broker.com";

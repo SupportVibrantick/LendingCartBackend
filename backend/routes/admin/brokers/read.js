@@ -2,6 +2,38 @@
 
 const { adminLogs } = require("../../../services/logger/contextLogger.js");
 
+function formatBrokerAdmin(user) {
+  const roles = user.roles.map((entry) => entry.role.name);
+  return {
+    id: user.id,
+    email: user.email,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    phone: user.phone,
+    status: user.status,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+    roles,
+    role: roles[0] || null,
+  };
+}
+
+function pickPrimaryBrokerAdmin(users) {
+  if (!users?.length) return null;
+
+  const brokerAdmins = users.filter((user) =>
+    user.roles.some((entry) => entry.role.name === "BROKER_ADMIN"),
+  );
+
+  if (brokerAdmins.length) {
+    return brokerAdmins.sort(
+      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+    )[0];
+  }
+
+  return users[users.length - 1];
+}
+
 async function readBrokerRoutes(fastify) {
   // ----------------------------- //
   // GET / → List brokers
@@ -69,6 +101,7 @@ async function readBrokerRoutes(fastify) {
         const cleaned = brokers.map((b) => ({
           id: b.id,
           name: b.name,
+          organizationName: b.name,
           email: b.email,
           phone: b.phone,
           status: b.status,
@@ -259,27 +292,21 @@ async function readBrokerRoutes(fastify) {
           });
         }
 
+        const primaryAdminUser = pickPrimaryBrokerAdmin(broker.users);
+        const admins = broker.users.map(formatBrokerAdmin);
+
         const cleaned = {
           id: broker.id,
           name: broker.name,
+          organizationName: broker.name,
           email: broker.email,
           phone: broker.phone,
           status: broker.status,
           createdAt: broker.createdAt,
           updatedAt: broker.updatedAt,
 
-          admins: broker.users.map((user) => ({
-            id: user.id,
-            email: user.email,
-            firstName: user.firstName,
-            lastName: user.lastName,
-            phone: user.phone,
-            status: user.status,
-            createdAt: user.createdAt,
-            updatedAt: user.updatedAt,
-            roles: user.roles.map((entry) => entry.role.name),
-            role: user.roles[0]?.role?.name || null,
-          })),
+          admins,
+          primaryAdmin: primaryAdminUser ? formatBrokerAdmin(primaryAdminUser) : null,
           affiliateLinks: broker.affiliateLinks,
           lenderAccess: broker.brokerLenderAccessAsBroker,
           whiteLabel: broker.brokerWhiteLabelSettings,
