@@ -103,6 +103,9 @@ module.exports = async function listBrokerUsers(fastify) {
                   },
                 },
               },
+              _count: {
+                select: { brokerLoanApplications: true },
+              },
             },
           }),
           prisma.userAccount.count({ where }),
@@ -121,6 +124,7 @@ module.exports = async function listBrokerUsers(fastify) {
           status: u.status,
           lastLoginAt: u.lastLoginAt,
           createdAt: u.createdAt,
+          assignedDeals: u._count.brokerLoanApplications,
 
           roles: u.roles.map((r) => r.role.name),
 

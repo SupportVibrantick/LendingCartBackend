@@ -133,20 +133,92 @@ export function resolveEntityType(item: {
   client?: { entityType?: string };
   submissions?: { fields?: SubmissionField[] }[];
 }): string {
+  const fields = getSubmissionFields(item);
+  const submissionEntityType = getSubmissionFieldValue(
+    fields,
+    "entityType",
+    "borrowerEntityType",
+    "businessEntityType",
+  );
+
+  if (submissionEntityType && submissionEntityType !== "-") {
+    return submissionEntityType;
+  }
+
   if (item.entityType && item.entityType !== "-") return item.entityType;
 
   const clientType = item.client?.entityType;
   if (clientType) return clientType;
 
-  const fields = getSubmissionFields(item);
+  return "-";
+}
+
+function isGenericIndividualEntityType(value?: string | null) {
+  if (!value) return true;
+  const normalized = String(value).trim().toUpperCase().replace(/\s+/g, "_");
   return (
-    getSubmissionFieldValue(
-      fields,
-      "entityType",
-      "borrowerEntityType",
-      "businessEntityType",
-    ) || "-"
+    normalized === "INDIVIDUAL" ||
+    normalized === "SOLE_PROPRIETOR" ||
+    normalized === "SOLE_PROPRIETORSHIP"
   );
+}
+
+export function resolveEntityLabel(item: {
+  entityLabel?: string | null;
+  client?: {
+    legalName?: string;
+    entityType?: string;
+    contacts?: {
+      firstName?: string;
+      lastName?: string;
+      email?: string;
+      isPrimary?: boolean;
+    }[];
+  };
+  submissions?: { fields?: SubmissionField[] }[];
+}): string | null {
+  if (item.entityLabel?.trim()) return item.entityLabel.trim();
+
+  const fields = getSubmissionFields(item);
+  const entityLegalName = getSubmissionFieldValue(
+    fields,
+    "entityLegalName",
+    "businessName",
+    "businessLegalName",
+    "companyName",
+    "dba",
+    "doingBusinessAs",
+  );
+
+  if (!isPlaceholderName(entityLegalName)) return entityLegalName;
+
+  const displayName = resolveBorrowerName(item);
+  const clientLegalName = item.client?.legalName?.trim();
+  if (
+    clientLegalName &&
+    !isPlaceholderName(clientLegalName) &&
+    clientLegalName !== displayName
+  ) {
+    return clientLegalName;
+  }
+
+  const submissionEntityType = getSubmissionFieldValue(
+    fields,
+    "entityType",
+    "borrowerEntityType",
+    "businessEntityType",
+  );
+
+  if (submissionEntityType && !isGenericIndividualEntityType(submissionEntityType)) {
+    return formatEntityTypeLabel(submissionEntityType);
+  }
+
+  const clientEntityType = item.client?.entityType;
+  if (clientEntityType && !isGenericIndividualEntityType(clientEntityType)) {
+    return formatEntityTypeLabel(clientEntityType);
+  }
+
+  return null;
 }
 
 export function resolveLoanAmount(item: {

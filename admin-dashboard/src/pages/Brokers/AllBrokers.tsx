@@ -1,10 +1,12 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { MdModeEdit } from "react-icons/md";
 import { TiPlus } from "react-icons/ti";
-import EditBrokerModal from "./EditBrokerModal"; // adjust path if needed
 import Swal from "sweetalert2";
 import { Eye, EyeOff } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import {
+  BROKER_DETAIL_PATH,
+  setActiveBrokerId,
+} from "../../lib/brokerDetailNavigation";
 
 Swal.mixin({
   customClass: {
@@ -20,11 +22,10 @@ import {
   ChevronLeft,
   ChevronRight,
   Mail,
-  // UserPlus,
+  Phone,
   Users,
   UserCheck,
   Activity,
-  // Filter,
 } from "lucide-react";
 
 type Broker = {
@@ -75,10 +76,20 @@ function statusClass(status?: string) {
   }
 }
 
+function formatCardDate(value?: string | null) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
 export default function BrokersPage() {
   const [brokers, setBrokers] = useState<Broker[]>([]);
   const [loading, setLoading] = useState(false);
-  const [rowLoadingId, setRowLoadingId] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
 
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -93,8 +104,6 @@ export default function BrokersPage() {
   });
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-
-  const [editingBroker, setEditingBroker] = useState<Broker | null>(null);
 
   const [query, setQuery] = useState("");
   const [pageSize, setPageSize] = useState<number>(10);
@@ -269,202 +278,6 @@ export default function BrokersPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  const openEditModal = async (b: Broker) => {
-    try {
-      const token = sessionStorage.getItem("admin_token");
-
-      const res = await fetch(`${API_BASE}/admin/brokers/read/${b.id}`, {
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-      });
-
-      const json = await res.json();
-
-      const brokerData = json?.data;
-
-      const admin = brokerData?.admins?.[0];
-
-      setEditingBroker({
-        id: brokerData.id,
-        name: brokerData.name || "",
-        email: brokerData.email || "",
-        phone: brokerData.phone || "",
-        status: brokerData.status,
-
-        adminId: admin?.id,
-        adminFirstName: admin?.firstName || "",
-        adminLastName: admin?.lastName || "",
-        adminEmail: admin?.email || "",
-        adminStatus: admin?.status || "",
-
-        createdAt: brokerData.createdAt,
-      });
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const handleEditSave = async (updated: Broker) => {
-    // optimistic
-    setBrokers((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
-    setEditingBroker(null);
-
-    try {
-      const token = sessionStorage.getItem("admin_token");
-      const res = await fetch(
-        `${API_BASE}/admin/brokers/update/${updated.id}`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          body: JSON.stringify({
-            name: updated.name,
-            email: updated.email,
-            phone: updated.phone,
-            status: updated.status,
-
-            admin: {
-              id: updated.adminId,
-              firstName: updated.adminFirstName,
-              lastName: updated.adminLastName,
-              email: updated.adminEmail,
-              password: updated.adminPassword?.trim() || undefined,
-              status: updated.adminStatus,
-            },
-          }),
-        },
-      );
-
-      const json = await res.json().catch(() => ({}) as any);
-
-      if (res.ok && json?.data?.organization) {
-        const org = json.data.organization;
-        setBrokers((prev) =>
-          prev.map((b) =>
-            b.id === updated.id
-              ? {
-                  ...b,
-                  name: org.name ?? b.name,
-                  email: org.email ?? b.email,
-                  phone: org.phone ?? b.phone,
-                  status: org.status ?? b.status,
-                  createdAt: org.createdAt ?? b.createdAt,
-                }
-              : b,
-          ),
-        );
-      } else if (!res.ok) {
-        console.error("Broker update error:", json);
-      }
-    } catch (err) {
-      console.error("Failed to persist broker update:", err);
-    }
-  };
-
-  const changeStatusFor = async (broker: Broker) => {
-    if (!broker?.id) return;
-
-    const cur = (broker.status || "INACTIVE").toUpperCase();
-    const next = cur === "ACTIVE" ? "INACTIVE" : "ACTIVE";
-
-    const result = await Swal.fire({
-      title: "Change Status?",
-      text: `Do you want to mark this Broker as ${next}?`,
-      icon: "question",
-      showCancelButton: true,
-      confirmButtonColor: "#2563eb",
-      cancelButtonColor: "#6b7280",
-      confirmButtonText: "Yes, change it",
-    });
-    if (!result.isConfirmed) return;
-
-    const prevStatus = broker.status;
-
-    // optimistic update in UI
-    setBrokers((prev) =>
-      prev.map((b) => (b.id === broker.id ? { ...b, status: next } : b)),
-    );
-    setRowLoadingId(broker.id);
-
-    const token = sessionStorage.getItem("admin_token");
-    const headers: HeadersInit = {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    };
-
-    try {
-      const toActive = next === "ACTIVE";
-      const statusUrl = `${API_BASE}/admin/brokers/status/${
-        toActive ? "activate" : "deactivate"
-      }/${broker.id}`;
-
-      let res = await fetch(statusUrl, {
-        method: "PATCH",
-        headers,
-        body: JSON.stringify({}),
-      });
-
-      if (res.status === 404 || res.status === 405) {
-        const updateUrl = `${API_BASE}/admin/brokers/update/${broker.id}`;
-        res = await fetch(updateUrl, {
-          method: "PATCH",
-          headers,
-          body: JSON.stringify({ status: next }),
-        });
-      }
-
-      if (!res.ok) {
-        throw new Error(`Status update failed: ${res.status}`);
-      }
-
-      Swal.fire({
-        icon: "success",
-        title: "Updated!",
-        text: `Broker is now ${next}`,
-        timer: 1300,
-        showConfirmButton: false,
-      });
-
-      const json = await res.json().catch(() => ({}) as any);
-
-      if (json?.data) {
-        if (json.data.status) {
-          const serverStatus = json.data.status;
-          setBrokers((prev) =>
-            prev.map((b) =>
-              b.id === broker.id ? { ...b, status: serverStatus } : b,
-            ),
-          );
-        } else if (json.data.organization?.status) {
-          const orgStatus = json.data.organization.status;
-          setBrokers((prev) =>
-            prev.map((b) =>
-              b.id === broker.id ? { ...b, status: orgStatus } : b,
-            ),
-          );
-        }
-      }
-    } catch (err: any) {
-      console.error("changeStatusFor error:", err);
-      setBrokers((prev) =>
-        prev.map((b) =>
-          b.id === broker.id ? { ...b, status: prevStatus } : b,
-        ),
-      );
-      Swal.fire({
-        icon: "error",
-        title: "Error",
-        text: err?.message || "Failed to update status. Try again.",
-      });
-    } finally {
-      setRowLoadingId(null);
-    }
-  };
-
   async function fetchAdmins(brokerId: string) {
     setLoadingAdmins(true);
     setAdmins([]);
@@ -633,7 +446,7 @@ export default function BrokersPage() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-[#13538A] dark:text-indigo-600">
-              All Brokers
+              All Brokers 
             </h1>
             <p className="text-slate-500 dark:text-slate-400 mt-2 text-sm">
               Manage broker organizations and their admins.
@@ -817,16 +630,22 @@ export default function BrokersPage() {
 
         {/* ================= CONTENT GRID ================= */}
         {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(220px,260px))]">
             {[1, 2, 3, 4, 5, 6].map((i) => (
               <div
                 key={i}
-                className="h-72 rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 animate-pulse overflow-hidden"
+                className="h-52 w-full max-w-[260px] overflow-hidden rounded-2xl border border-slate-200 bg-white animate-pulse dark:border-slate-800 dark:bg-slate-900"
               >
-                <div className="h-2/3 bg-slate-100 dark:bg-slate-800/50"></div>
-                <div className="p-6 space-y-3">
-                  <div className="h-4 w-1/2 bg-slate-200 dark:bg-slate-700 rounded"></div>
-                  <div className="h-4 w-full bg-slate-200 dark:bg-slate-700 rounded"></div>
+                <div className="h-1 bg-slate-200 dark:bg-slate-700" />
+                <div className="space-y-4 p-5">
+                  <div className="flex gap-3">
+                    <div className="h-12 w-12 rounded-xl bg-slate-200 dark:bg-slate-700" />
+                    <div className="flex-1 space-y-2 pt-1">
+                      <div className="h-4 w-2/3 rounded bg-slate-200 dark:bg-slate-700" />
+                      <div className="h-3 w-1/3 rounded bg-slate-200 dark:bg-slate-700" />
+                    </div>
+                  </div>
+                  <div className="h-20 rounded-xl bg-slate-100 dark:bg-slate-800/50" />
                 </div>
               </div>
             ))}
@@ -875,107 +694,99 @@ export default function BrokersPage() {
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+          <div className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(220px,260px))]">
             {paginated.map((l) => (
               <div
                 key={l.id}
-                className="group relative bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5 transition-all duration-300 hover:shadow-md"
+                role="button"
+                tabIndex={0}
+                onClick={() => {
+                  setActiveBrokerId(l.id);
+                  navigate(BROKER_DETAIL_PATH);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setActiveBrokerId(l.id);
+                    navigate(BROKER_DETAIL_PATH);
+                  }
+                }}
+                className="group flex w-full max-w-[260px] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white transition-colors duration-200 hover:border-[#13538A]/35 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-indigo-500/40 cursor-pointer"
               >
-                {/* STATUS */}
-                <div className="absolute top-4 right-4">
-                  <button
-                    onClick={() => !rowLoadingId && changeStatusFor(l)}
-                    disabled={!!rowLoadingId}
-                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border uppercase tracking-wider ${statusClass(
-                      l.status,
-                    )}`}
-                  >
-                    {l.status === "ACTIVE" && (
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                    )}
-                    {l.status}
-                  </button>
-                </div>
+                <div className="h-1 bg-gradient-to-r from-[#13538A] via-[#18B6B4] to-emerald-400 opacity-80 group-hover:opacity-100" />
 
-                <div className="flex gap-4">
-                  {/* Image */}
-                  <div className="relative flex-shrink-0">
-                    <div className="h-14 w-14 rounded-xl overflow-hidden bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center border border-emerald-100 dark:border-emerald-500/20">
-                      {l.profileImage ? (
-                        <img
-                          src={`${API_BASE}/public${l.profileImage}`}
-                          className="h-full w-full object-cover"
-                          onError={(e: any) =>
-                            (e.currentTarget.src = "/circle_logo.png")
-                          }
-                          alt={l.name}
-                        />
-                      ) : (
-                        <Building2
-                          size={24}
-                          className="text-emerald-600 dark:text-emerald-400"
-                        />
-                      )}
+                <div className="flex flex-1 flex-col p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="relative flex-shrink-0">
+                      <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-lg border border-emerald-100 bg-gradient-to-br from-emerald-50 to-teal-50 dark:border-emerald-500/20 dark:from-emerald-500/10 dark:to-teal-500/10">
+                        {l.profileImage ? (
+                          <img
+                            src={`${API_BASE}/public${l.profileImage}`}
+                            className="h-full w-full object-cover"
+                            onError={(e: any) => {
+                              e.currentTarget.src = "/circle_logo.png";
+                            }}
+                            alt={l.name}
+                          />
+                        ) : (
+                          <Building2
+                            size={18}
+                            className="text-emerald-600 dark:text-emerald-400"
+                          />
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-1.5">
+                        <h3
+                          className="line-clamp-2 text-[13px] font-bold leading-snug text-slate-900 transition-colors group-hover:text-[#13538A] dark:text-white dark:group-hover:text-indigo-300"
+                          title={l.name}
+                        >
+                          {l.name}
+                        </h3>
+                        <span
+                          className={`pointer-events-none inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide ${statusClass(
+                            l.status,
+                          )}`}
+                        >
+                          {l.status === "ACTIVE" && (
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                          )}
+                          {l.status || "UNKNOWN"}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-[10px] font-medium uppercase tracking-wide text-slate-400">
+                        Broker organization
+                      </p>
                     </div>
                   </div>
 
-                  {/* Info */}
-                  <div className="flex-1 min-w-0 pr-16">
-                    <h3
-                      className="text-base font-bold text-slate-900 dark:text-white truncate group-hover:text-blue-600 transition-colors cursor-pointer"
-                      // onClick={() => openAdminsFor(l)}
-                    >
-                      {l.name}
-                    </h3>
-                    {/* <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
-                      {l.brokerName
-                        ? `Broker: ${l.brokerName}`
-                        : "No Broker Assigned"}
-                    </p> */}
-
-                    <div className="mt-3 space-y-1.5">
-                      <div className="flex items-center gap-2 text-slate-500">
-                        <Mail size={14} className="flex-shrink-0" />
-                        <span className="text-[12px] truncate">{l.email}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-slate-500">
-                        <span className="text-[12px] truncate">{l.phone}</span>
-                      </div>
+                  <div className="mt-3 space-y-2 rounded-lg border border-slate-100 bg-slate-50/80 p-2.5 dark:border-slate-800 dark:bg-slate-800/40">
+                    <div className="flex items-start gap-2.5 text-slate-600 dark:text-slate-300">
+                      <Mail size={13} className="mt-0.5 shrink-0 text-slate-400" />
+                      <span
+                        className="min-w-0 break-all text-[11px] leading-relaxed"
+                        title={l.email}
+                      >
+                        {l.email || "—"}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2.5 text-slate-600 dark:text-slate-300">
+                      <Phone size={13} className="shrink-0 text-slate-400" />
+                      <span className="text-[11px]">{l.phone || "—"}</span>
                     </div>
                   </div>
                 </div>
 
-                {/* Actions Footer */}
-                <div className="mt-5 pt-4 border-t border-slate-100 dark:border-slate-800/50 flex items-center justify-between gap-2">
-                  <span className="text-[10px] uppercase font-bold text-slate-400">
-                    Created:{" "}
-                    {l.createdAt
-                      ? new Date(l.createdAt).toLocaleDateString()
-                      : "-"}
+                <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50/60 px-4 py-2.5 dark:border-slate-800 dark:bg-slate-800/30">
+                  <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                    Created {formatCardDate(l.createdAt)}
                   </span>
-
-                  <div className="flex items-center gap-1">
-                    <button
-                      disabled={!!rowLoadingId}
-                      onClick={() => openEditModal(l)}
-                      className="p-2 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors"
-                      title="Edit Lender"
-                    >
-                      <MdModeEdit size={16} />
-                    </button>
-                    {/* <button
-                      disabled={!!rowLoadingId}
-                      onClick={() => han(l)}
-                      className="p-2 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
-                      title="Delete Lender"
-                    >
-                      {rowLoadingId === l.id ? (
-                        <RefreshCcw size={16} className="animate-spin" />
-                      ) : (
-                        <MdDelete size={16} />
-                      )}
-                    </button> */}
-                  </div>
+                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#13538A] opacity-0 transition-opacity group-hover:opacity-100 dark:text-indigo-400">
+                    View details
+                    <ChevronRight size={12} />
+                  </span>
                 </div>
               </div>
             ))}
@@ -1216,16 +1027,6 @@ export default function BrokersPage() {
               </form>
             </div>
           </div>
-        )}
-
-        {/* Edit Broker Modal */}
-        {editingBroker && (
-          <EditBrokerModal
-            isOpen={Boolean(editingBroker)}
-            broker={editingBroker}
-            onClose={() => setEditingBroker(null)}
-            onSave={handleEditSave}
-          />
         )}
 
         {/* Admins Modal */}

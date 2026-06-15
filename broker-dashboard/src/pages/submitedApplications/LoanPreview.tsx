@@ -1,4 +1,4 @@
-import {
+﻿import {
   ArrowLeft,
   Download,
   Eye,
@@ -25,6 +25,8 @@ import Swal from "sweetalert2";
 import { FaRegCreditCard } from "react-icons/fa6";
 import LoanPreviewChat from "./LoanPreviewChat";
 import FeeAgreement from "./FeeAgreement";
+import LoanApplication from "../LoanApplication/LoanApplication";
+import { mapSubmissionToLoanApplication } from "../../lib/mapSubmissionToLoanApplication";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
@@ -191,32 +193,6 @@ const formatFieldKey = (key: string | null | undefined) => {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 };
 
-const stringifyFieldValue = (value: unknown) => {
-  if (value === undefined || value === null) return "";
-  if (typeof value === "string") return value;
-  if (typeof value === "boolean") return value ? "true" : "false";
-
-  try {
-    return JSON.stringify(value);
-  } catch {
-    return String(value);
-  }
-};
-
-const buildEditableFieldValues = (submissionFields: SubmissionField[]) => {
-  return submissionFields.reduce(
-    (acc: Record<string, string>, field: SubmissionField) => {
-      if (!field.fieldKey || field.fieldKey === "borrowerSignature") {
-        return acc;
-      }
-
-      acc[field.fieldKey] = stringifyFieldValue(parseValue(field.value));
-      return acc;
-    },
-    {},
-  );
-};
-
 const Metric = ({
   label,
   value,
@@ -280,113 +256,26 @@ const formatCompactAmount = (value: number) => {
 
 const FieldItem = ({ field }: { field: SubmissionField }) => {
   const parsedValue = parseValue(field.value);
+  const displayValue =
+    parsedValue !== undefined && parsedValue !== null
+      ? typeof parsedValue === "boolean"
+        ? parsedValue
+          ? "Yes"
+          : "No"
+        : String(parsedValue)
+      : "-";
 
   return (
     <div className="space-y-1">
-      <label className="text-xs font-semibold uppercase text-slate-500">
+      <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
         {formatFieldKey(field.fieldKey)}
       </label>
-      <div className="break-words rounded-lg border bg-slate-50 px-3 py-2 text-sm font-medium dark:border-slate-800 dark:bg-slate-900">
-        {parsedValue !== undefined && parsedValue !== null
-          ? typeof parsedValue === "boolean"
-            ? parsedValue
-              ? "Yes"
-              : "No"
-            : String(parsedValue)
-          : "-"}
+      <div
+        aria-readonly="true"
+        className="break-words rounded-lg border border-dashed border-slate-300 bg-slate-100 px-3 py-2.5 text-sm text-slate-700 cursor-default select-none dark:border-slate-600 dark:bg-slate-800/70 dark:text-slate-300"
+      >
+        {displayValue}
       </div>
-    </div>
-  );
-};
-
-const EditableFieldItem = ({
-  field,
-  value,
-  onChange,
-  errors,
-}: {
-  field: SubmissionField;
-  value: string;
-  onChange: (fieldKey: string, nextValue: string) => void;
-  errors: Record<string, string>;
-}) => {
-  const fieldKey = field.fieldKey;
-  const parsedValue = parseValue(field.value);
-  const isBoolean = typeof parsedValue === "boolean";
-
-  const shouldUseTextarea =
-    !isBoolean &&
-    (value.length > 80 ||
-      /address|notes|description|message/i.test(fieldKey || ""));
-
-  return (
-    <div className="space-y-1">
-      {/* LABEL */}
-      <label className="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">
-        {formatFieldKey(field.fieldKey)}
-      </label>
-
-      {/* BOOLEAN SELECT */}
-      {isBoolean ? (
-        <select
-          value={value}
-          onChange={(e) => {
-            if (!fieldKey) return;
-            onChange(fieldKey, e.target.value);
-          }}
-          className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm font-medium 
-          text-slate-800 outline-none transition
-          focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200
-          dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:focus:ring-cyan-800"
-        >
-          <option value="true">Yes</option>
-          <option value="false">No</option>
-        </select>
-      ) : shouldUseTextarea ? (
-        /* TEXTAREA */
-        <textarea
-          value={String(value).replace(/_/g, " ")}
-          onChange={(e) => {
-            if (!fieldKey) return;
-            onChange(fieldKey, e.target.value);
-          }}
-          rows={3}
-          className="w-full resize-y rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm font-medium 
-          text-slate-800 outline-none transition
-          focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200
-          dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:focus:ring-cyan-800"
-        />
-      ) : (
-        /* INPUT */
-        <input
-          type="text"
-          value={String(value).replace(/_/g, " ")}
-          onChange={(e) => {
-            if (!fieldKey) return;
-
-            let val = e.target.value;
-
-            if (/amount|price|cost|rate|score|value|footage/i.test(fieldKey)) {
-              val = val.replace(/[^0-9.]/g, "");
-            }
-
-            onChange(fieldKey, val);
-          }}
-          className={`w-full rounded-lg border px-3 py-2 text-sm outline-none transition
-          ${
-            errors[fieldKey || ""]
-              ? "border-red-500 bg-red-50 focus:ring-2 focus:ring-red-200 dark:bg-red-900/20 dark:focus:ring-red-800"
-              : "border-slate-300 bg-slate-50 text-slate-800 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:focus:ring-cyan-800"
-          }`}
-        />
-      )}
-
-      {/* ERROR */}
-      {fieldKey && errors[fieldKey] && (
-        <p className="mt-1 text-xs text-red-500 dark:text-red-400">
-          {errors[fieldKey]}
-        </p>
-      )}
     </div>
   );
 };
@@ -395,7 +284,6 @@ const LoanPreview = () => {
   const Location = useLocation();
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const lendersSectionRef = useRef<HTMLDivElement | null>(null);
-  const [errors, setErrors] = useState<Record<string, string>>({});
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState<TabKey>(
@@ -446,10 +334,6 @@ const LoanPreview = () => {
   const [lenderLimit, setLenderLimit] = useState(6);
   // const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
   // const [previewFile, setPreviewFile] = useState<UploadedPreview | null>(null);
-  const [editableFieldValues, setEditableFieldValues] = useState<
-    Record<string, string>
-  >({});
-  const [updateSubmitting, setUpdateSubmitting] = useState(false);
   const [debouncedLenderSearch, setDebouncedLenderSearch] = useState("");
   const [lenderFilter, setLenderFilter] = useState<
     "all" | "eligible" | "rejected" | "sent"
@@ -463,6 +347,7 @@ const LoanPreview = () => {
   // const [search, setSearch] = useState("");
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [sending, setSending] = useState(false);
+  const [autoForwardSaving, setAutoForwardSaving] = useState(false);
   // const [currentPage, setCurrentPage] = useState(1);
 
   // const [search, setSearch] = useState("");
@@ -471,6 +356,8 @@ const LoanPreview = () => {
 
   const selectableDocuments =
     documentsData?.documents?.filter((d: any) => d.status !== "SKIPPED") || [];
+
+  const autoForwardEnabled = Boolean(documentsData?.autoForwardDocumentsToLender);
 
   const isAllSelected =
     selectableDocuments.length > 0 &&
@@ -487,27 +374,11 @@ const LoanPreview = () => {
     setSelectedRows(selectableIds);
   };
 
-  const HIDDEN_METRIC_FIELDS = [
-    "ltvPercentage",
-    "ltcPercentage",
-    "arvPercentage",
-    "dscr",
-    "netWorth",
-    "afterRepairValue",
-    "loanProductCode",
-  ];
-
   const scrollToLenders = () => {
     lendersSectionRef.current?.scrollIntoView({
       behavior: "smooth",
       block: "start",
     });
-  };
-
-  const shouldHideMetricField = (field: any) => {
-    const key = (field?.fieldKey || field?.key || "").toLowerCase();
-
-    return HIDDEN_METRIC_FIELDS.some((hidden) => hidden.toLowerCase() === key);
   };
 
   const handleSelectRow = (id: string) => {
@@ -633,43 +504,64 @@ const LoanPreview = () => {
     }
   };
 
+  const handleToggleAutoForward = async () => {
+    if (!submissionId) return;
+
+    const nextValue = !autoForwardEnabled;
+
+    try {
+      setAutoForwardSaving(true);
+      const token = sessionStorage.getItem("broker_token");
+
+      const res = await fetch(
+        `${API_BASE}/broker/loan-pipeline/submissions/${submissionId}/documents/auto-forward`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+          body: JSON.stringify({
+            autoForwardDocumentsToLender: nextValue,
+          }),
+        },
+      );
+
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Failed to update document forwarding");
+      }
+
+      setDocumentsData((prev: any) =>
+        prev
+          ? {
+              ...prev,
+              autoForwardDocumentsToLender: nextValue,
+            }
+          : prev,
+      );
+
+      if (nextValue) {
+        setSelectedRows([]);
+        setSelectedLenders([]);
+      }
+
+      toast.success(
+        nextValue
+          ? "Auto-forward enabled â€” uploads go directly to lenders"
+          : "Broker review enabled â€” you will send documents manually",
+      );
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update setting");
+    } finally {
+      setAutoForwardSaving(false);
+    }
+  };
+
   const fields = submissionDetail?.fields || [];
   const applicationId = submissionDetail?.applicationId;
   const submissionId = Location.state?.submissionId;
-
-  const validateFields = () => {
-    const newErrors: Record<string, string> = {};
-
-    Object.keys(editableFieldValues).forEach((key) => {
-      const value = editableFieldValues[key]?.trim();
-
-      //  Required validation
-      if (!value) {
-        newErrors[key] = "This field is required";
-        return;
-      }
-
-      // Number fields
-      if (
-        /amount|price|cost|rate|score|value|footage/i.test(key) &&
-        isNaN(Number(value))
-      ) {
-        newErrors[key] = "Only numbers allowed";
-        return;
-      }
-
-      // Phone validation (US)
-      if (/phone/i.test(key)) {
-        const phoneRegex = /^\d{3}-\d{3}-\d{4}$/;
-        if (!phoneRegex.test(value)) {
-          newErrors[key] = "Format: 222-222-2222";
-        }
-      }
-    });
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -679,15 +571,6 @@ const LoanPreview = () => {
 
     return () => clearTimeout(timer);
   }, [lenderSearchQ]);
-
-  const formatPhoneNumber = (value: string) => {
-    const digits = value.replace(/\D/g, "").slice(0, 10);
-
-    if (digits.length <= 3) return digits;
-    if (digits.length <= 6) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
-
-    return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
-  };
 
   const fetchSubmissionDetails = async (id: string) => {
     try {
@@ -699,7 +582,6 @@ const LoanPreview = () => {
       if (!res.ok || !json.success)
         throw new Error(json.message || "Failed to fetch submission");
       setSubmissionDetail(json.data);
-      setEditableFieldValues(buildEditableFieldValues(json.data?.fields || []));
     } catch (err: any) {
       toast.error(err.message || "Failed to fetch submission details");
     } finally {
@@ -1069,8 +951,9 @@ const LoanPreview = () => {
     setPreviewFiles([]);
     setSelectedRequestDocs([]);
     setRequestMessage("");
-    setEditableFieldValues({});
-    setActiveTab("update-application");
+    setActiveTab(
+      (Location.state as { activeTab?: TabKey })?.activeTab || "view-details",
+    );
 
     if (submissionId) {
       fetchSubmissionDetails(submissionId);
@@ -1233,15 +1116,15 @@ const LoanPreview = () => {
     : null;
 
   const tabs = [
-    // {
-    //   key: "view-details" as const,
-    //   label: "View Details",
-    //   icon: Eye,
-    //   color: "text-blue-600",
-    // },
+    {
+      key: "view-details" as const,
+      label: "View Details",
+      icon: Eye,
+      color: "text-blue-600",
+    },
     {
       key: "update-application" as const,
-      label: "View Details",
+      label: "Update Application",
       icon: Pencil,
       color: "text-cyan-600",
     },
@@ -1288,113 +1171,6 @@ const LoanPreview = () => {
       color: "text-indigo-600",
     },
   ];
-
-  const handleEditableFieldChange = (fieldKey: string, nextValue: string) => {
-    let value = nextValue;
-
-    // Phone formatting
-    if (/phone/i.test(fieldKey)) {
-      value = formatPhoneNumber(nextValue);
-    }
-
-    setEditableFieldValues((prev) => {
-      if (prev[fieldKey] === value) return prev;
-      return { ...prev, [fieldKey]: value };
-    });
-
-    // error remove on typing
-    setErrors((prev) => {
-      const copy = { ...prev };
-      delete copy[fieldKey];
-      return copy;
-    });
-  };
-
-  // useEffect(() => {
-  //   const timer = setTimeout(() => {
-  //     setDebouncedLenderSearch(search);
-  //   }, 400);
-
-  //   return () => clearTimeout(timer);
-  // }, [search]);
-
-  // useEffect(() => {
-  // setCurrentPage(1);
-  // }, [debouncedLenderSearch]);
-
-  const handleUpdateApplication = async () => {
-    if (!validateFields()) {
-      toast.error("Please fix validation errors");
-      return;
-    }
-
-    if (!applicationId) {
-      toast.error("Application ID not found");
-      return;
-    }
-
-    const payloadFields = Object.keys(editableFieldValues).map((key) => ({
-      fieldKey: key,
-      value: editableFieldValues[key],
-    }));
-
-    // Confirmation Alert
-    const result = await Swal.fire({
-      title: "Are you sure?",
-      text: "Do you want to update this application?",
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonText: "Yes, update it!",
-      cancelButtonText: "Cancel",
-      confirmButtonColor: "#22c55e",
-      cancelButtonColor: "#ef4444",
-    });
-
-    if (!result.isConfirmed) return;
-
-    try {
-      setUpdateSubmitting(true);
-
-      const res = await fetch(
-        `${API_BASE}/broker/applications/${applicationId}/edit`,
-        {
-          method: "PUT",
-          headers: getAuthHeaders(),
-          body: JSON.stringify({ fields: payloadFields }),
-        },
-      );
-
-      const json = await res.json();
-
-      if (!res.ok || !json.success) {
-        throw new Error(json.message || "Failed to update application");
-      }
-
-      // Success Alert
-      await Swal.fire({
-        title: "Updated!",
-        text: "Application updated successfully.",
-        icon: "success",
-        confirmButtonColor: "#22c55e",
-      });
-
-      navigate("/submit-applications");
-
-      if (submissionId) {
-        await fetchSubmissionDetails(submissionId);
-      }
-    } catch (err: any) {
-      // Error Alert
-      Swal.fire({
-        title: "Error!",
-        text: err.message || "Failed to update application",
-        icon: "error",
-        confirmButtonColor: "#ef4444",
-      });
-    } finally {
-      setUpdateSubmitting(false);
-    }
-  };
 
   const currentFile = previewFiles[activeIndex];
 
@@ -1541,6 +1317,17 @@ const LoanPreview = () => {
           </div>
         </div>
 
+        <div className="mb-4 flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-300">
+          <Eye className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
+          <p>
+            Read-only preview. To edit application details, open the{" "}
+            <span className="font-semibold text-cyan-700 dark:text-cyan-400">
+              Update Application
+            </span>{" "}
+            tab.
+          </p>
+        </div>
+
         <div className="space-y-10 rounded-xl border p-6 dark:border-slate-800">
           {groupedFields.primaryBorrower.length > 0 && (
             <div>
@@ -1562,13 +1349,7 @@ const LoanPreview = () => {
               </h3>
               <div className="grid gap-6 md:grid-cols-2">
                 {groupedFields.coBorrowers[index].map((field: any) => (
-                  <EditableFieldItem
-                    key={field.fieldKey}
-                    field={field}
-                    value={editableFieldValues[field.fieldKey || ""] ?? ""}
-                    onChange={handleEditableFieldChange}
-                    errors={errors}
-                  />
+                  <FieldItem key={field.fieldKey} field={field} />
                 ))}
               </div>
             </div>
@@ -1678,310 +1459,48 @@ const LoanPreview = () => {
     </div>
   );
 
-  const renderUpdateApplication = () => (
-    <div className="space-y-6">
-      <div
-        className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm 
-dark:border-slate-800 dark:bg-slate-900"
-      >
-        <div className="mb-6 flex flex-col gap-3 text-sm font-medium md:flex-row md:flex-wrap md:items-center md:justify-between">
-          {/* Application No */}
-          <div>
-            <span className="font-semibold">Application No:</span>{" "}
-            <span className="text-slate-700 dark:text-slate-300">
-              {submissionDetail?.applicationNumber || "-"}
-            </span>
-          </div>
+  const loanApplicationInitial = useMemo(() => {
+    if (!submissionDetail?.fields?.length) return null;
+    return mapSubmissionToLoanApplication(submissionDetail.fields);
+  }, [submissionDetail]);
 
-          {/* Client Name */}
-          <div>
-            <span className="font-semibold">Borrower Name:</span>{" "}
-            <span className="text-slate-700 dark:text-slate-300">
-              {borrowerName}
-            </span>
-          </div>
-
-          {/* Product Code */}
-          <div>
-            <span className="font-semibold">Product Code:</span>{" "}
-            <span className="text-slate-700 dark:text-slate-300">
-              {productCode}
-            </span>
-          </div>
-
-          {/* Status */}
-          <div className="flex items-center gap-2">
-            <span className="font-semibold">Status:</span>
-            <span
-              className={`rounded-full px-3 py-1 text-xs font-semibold tracking-wide ${getStatusChip(submissionDetail?.status)}`}
-            >
-              {submissionDetail?.status === "DECLINED"
-                ? "REJECTED"
-                : (submissionDetail?.status || "-")
-                    .replace(/_/g, " ")
-                    .toLowerCase()
-                    .replace(/\b\w/g, (c: string) => c.toUpperCase())}
-            </span>
-          </div>
+  const renderUpdateApplicationForm = () => {
+    if (loading || !submissionDetail) {
+      return (
+        <div className="py-20 text-center text-slate-500">
+          Loading application...
         </div>
+      );
+    }
 
-        <div
-          className="mb-6 rounded-[28px] border border-slate-200 
-bg-slate-50 p-6 shadow-sm 
-dark:border-slate-800 dark:bg-slate-900"
-        >
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-            <Metric
-              label="Loan Amount"
-              value={`$${loanAmount.toLocaleString()}`}
-              variant="panel"
-            />
-            <Metric
-              label="LTV %"
-              value={ltv ? `${ltv.toFixed(2)}%` : "-"}
-              variant="panel"
-            />
-            <Metric
-              label="LTC %"
-              value={ltc ? `${ltc.toFixed(2)}%` : "-"}
-              variant="panel"
-            />
-            <Metric
-              label="ARV %"
-              value={arv ? `${arv.toFixed(2)}%` : "-"}
-              variant="panel"
-            />
-            <Metric
-              label="DSCR"
-              value={dscr ? dscr.toFixed(2) : "-"}
-              variant="panel"
-            />
-            <Metric
-              label="Net Worth"
-              value={`$${netWorth.toLocaleString()}`}
-              variant="panel"
-            />
-          </div>
+    if (!loanApplicationInitial || !applicationId) {
+      return (
+        <div className="py-20 text-center text-slate-500">
+          Unable to load application data for editing.
         </div>
+      );
+    }
 
-        <div className="mb-6 flex items-start justify-between gap-4 rounded-2xl border border-cyan-100 bg-cyan-50/70 px-5 py-4 text-sm text-cyan-900 dark:border-cyan-900/40 dark:bg-cyan-950/20 dark:text-cyan-100">
-          <div>
-            <h3 className="font-bold text-lg">Update Application</h3>
-          </div>
-          <button
-            onClick={handleUpdateApplication}
-            disabled={updateSubmitting}
-            className="inline-flex min-w-[170px] items-center justify-center rounded-xl bg-cyan-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {updateSubmitting ? (
-              <span className="inline-flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Updating...
-              </span>
-            ) : (
-              "Update Application"
-            )}
-          </button>
-        </div>
+    return (
+      <LoanApplication
+        key={`${submissionDetail.submissionId}-${submissionDetail.submittedAt}`}
+        mode="update"
+        embedded
+        editApplicationId={applicationId}
+        initialFormData={loanApplicationInitial.formData}
+        initialSelectedProduct={loanApplicationInitial.selectedProduct}
+        initialSelectedCategory={loanApplicationInitial.selectedCategory}
+        initialDynamicFormData={loanApplicationInitial.dynamicFormData}
+        onUpdateSuccess={() => {
+          if (submissionId) {
+            fetchSubmissionDetails(submissionId);
+          }
+          setActiveTab("view-details");
+        }}
+      />
+    );
+  };
 
-        <div
-          className="space-y-10 rounded-xl border border-slate-200 p-6 
-bg-white dark:border-slate-800 dark:bg-slate-900"
-        >
-          {groupedFields.primaryBorrower.length > 0 && (
-            <div>
-              <h3
-                className="mb-4 border-b border-slate-200 pb-2 text-md font-bold 
-text-slate-800 dark:border-slate-700 dark:text-slate-200"
-              >
-                Primary Borrower
-              </h3>
-              <div className="grid gap-6 md:grid-cols-2">
-                {groupedFields.primaryBorrower
-                  .filter((field: any) => !shouldHideMetricField(field))
-                  .map((field: any) => (
-                    <EditableFieldItem
-                      key={field.fieldKey}
-                      field={field}
-                      value={editableFieldValues[field.fieldKey || ""] ?? ""}
-                      onChange={handleEditableFieldChange}
-                      errors={errors}
-                    />
-                  ))}
-              </div>
-            </div>
-          )}
-
-          {Object.keys(groupedFields.coBorrowers).map((index) => (
-            <div key={index}>
-              <h3 className="mb-4 border-b pb-2 text-md font-bold">
-                Co Borrower {index}
-              </h3>
-              <div className="grid gap-6 md:grid-cols-2">
-                {groupedFields.coBorrowers[index]
-                  .filter((field: any) => !shouldHideMetricField(field))
-                  .map((field: any) => (
-                    <EditableFieldItem
-                      key={field.fieldKey}
-                      field={field}
-                      value={editableFieldValues[field.fieldKey || ""] ?? ""}
-                      onChange={handleEditableFieldChange}
-                      errors={errors}
-                    />
-                  ))}
-              </div>
-            </div>
-          ))}
-
-          {/* {groupedFields.others.length > 0 && (
-            <div>
-              <h3 className="mb-4 border-b pb-2 text-md font-bold dark:border-slate-800">
-                Loan Details
-              </h3>
-              <div className="grid gap-6 md:grid-cols-2">
-                {groupedFields.others.map((field: any) => (
-                  <EditableFieldItem
-                    key={field.fieldKey}
-                    field={field}
-                    value={editableFieldValues[field.fieldKey || ""] ?? ""}
-                    onChange={handleEditableFieldChange}
-                    errors={errors}
-                  />
-                ))}
-              </div>
-            </div>
-          )} */}
-
-          {/* Entity */}
-          {groupedFields.entity.length > 0 && (
-            <div>
-              <h3 className="mb-4 border-b pb-2 text-md font-bold dark:border-slate-800">
-                Entity Information
-              </h3>
-              <div className="grid gap-6 md:grid-cols-2">
-                {groupedFields.entity
-                  .filter((field) => !shouldHideMetricField(field))
-                  .map((field) => (
-                    <EditableFieldItem
-                      key={field.fieldKey}
-                      field={field}
-                      value={editableFieldValues[field.fieldKey || ""] ?? ""}
-                      onChange={handleEditableFieldChange}
-                      errors={errors}
-                    />
-                  ))}
-              </div>
-            </div>
-          )}
-
-          {/* Property */}
-          {groupedFields.property.length > 0 && (
-            <div>
-              <h3 className="mb-4 border-b pb-2 text-md font-bold dark:border-slate-800">
-                Property Details
-              </h3>
-              <div className="grid gap-6 md:grid-cols-2">
-                {groupedFields.property
-                  .filter((field) => !shouldHideMetricField(field))
-                  .map((field) => (
-                    <EditableFieldItem
-                      key={field.fieldKey}
-                      field={field}
-                      value={editableFieldValues[field.fieldKey || ""] ?? ""}
-                      onChange={handleEditableFieldChange}
-                      errors={errors}
-                    />
-                  ))}
-              </div>
-            </div>
-          )}
-
-          {/* Financial */}
-          {groupedFields.financial.length > 0 && (
-            <div>
-              <h3 className="mb-4 border-b pb-2 text-md font-bold dark:border-slate-800">
-                Financial Details
-              </h3>
-              <div className="grid gap-6 md:grid-cols-2">
-                {groupedFields.financial
-                  .filter((field) => !shouldHideMetricField(field))
-                  .map((field) => (
-                    <EditableFieldItem
-                      key={field.fieldKey}
-                      field={field}
-                      value={editableFieldValues[field.fieldKey || ""] ?? ""}
-                      onChange={handleEditableFieldChange}
-                      errors={errors}
-                    />
-                  ))}
-              </div>
-            </div>
-          )}
-
-          {/* Loan */}
-          {groupedFields.loan.length > 0 && (
-            <div>
-              <h3 className="mb-4 border-b pb-2 text-md font-bold dark:border-slate-800">
-                Loan Details
-              </h3>
-              <div className="grid gap-6 md:grid-cols-2">
-                {groupedFields.loan
-                  .filter((field) => !shouldHideMetricField(field))
-                  .map((field) => (
-                    <EditableFieldItem
-                      key={field.fieldKey}
-                      field={field}
-                      value={editableFieldValues[field.fieldKey || ""] ?? ""}
-                      onChange={handleEditableFieldChange}
-                      errors={errors}
-                    />
-                  ))}
-              </div>
-            </div>
-          )}
-
-          {/* Others */}
-          {groupedFields.others.length > 0 && (
-            <div>
-              <h3 className="mb-4 border-b pb-2 text-md font-bold dark:border-slate-800">
-                Other Details
-              </h3>
-              <div className="grid gap-6 md:grid-cols-2">
-                {groupedFields.others
-                  .filter((field) => !shouldHideMetricField(field))
-                  .map((field) => (
-                    <EditableFieldItem
-                      key={field.fieldKey}
-                      field={field}
-                      value={editableFieldValues[field.fieldKey || ""] ?? ""}
-                      onChange={handleEditableFieldChange}
-                      errors={errors}
-                    />
-                  ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {groupedFields.signatureField && (
-          <div className="mt-8 space-y-4 text-center">
-            <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-              Digital Signature
-            </h3>
-            <div className="flex justify-center">
-              <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800/70">
-                <img
-                  src={parseValue(groupedFields.signatureField.value)}
-                  alt="Digital Signature"
-                  className="h-40 object-contain"
-                />
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
 
   const renderRequestDocument = () => (
     <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950">
@@ -2509,7 +2028,7 @@ dark:bg-red-900/20 dark:text-red-400"
                         >
                           {lender.rejectionReasons.map(
                             (r: string, i: number) => (
-                              <div key={i}>• {r}</div>
+                              <div key={i}>â€¢ {r}</div>
                             ),
                           )}
                         </div>
@@ -2669,12 +2188,43 @@ dark:bg-red-900/20 dark:text-red-400"
             Requested Documents
           </h2>
           <p className="text-sm text-slate-500">
-            Upload and manage submission documents
+            {autoForwardEnabled
+              ? "Uploaded documents are sent directly to lenders"
+              : "Upload and manage submission documents"}
           </p>
         </div>
 
-        <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
-          {selectedRows.length > 0 && (
+        <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto md:items-center">
+          <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-2.5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+                Document forwarding
+              </p>
+              <p className="text-[11px] text-slate-500">
+                {autoForwardEnabled
+                  ? "Auto-forward to lenders"
+                  : "Broker review before send"}
+              </p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={autoForwardEnabled}
+              disabled={autoForwardSaving}
+              onClick={handleToggleAutoForward}
+              className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition ${
+                autoForwardEnabled ? "bg-emerald-500" : "bg-slate-300"
+              } ${autoForwardSaving ? "opacity-60 cursor-not-allowed" : "cursor-pointer"}`}
+            >
+              <span
+                className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${
+                  autoForwardEnabled ? "translate-x-6" : "translate-x-1"
+                }`}
+              />
+            </button>
+          </div>
+
+          {!autoForwardEnabled && selectedRows.length > 0 && (
             <div className="w-full md:w-72 z-999">
               <Select
                 isMulti
@@ -2756,7 +2306,15 @@ dark:bg-red-900/20 dark:text-red-400"
         </div>
       </div>
 
-      {selectedRows.length > 0 && (
+      {autoForwardEnabled && (
+        <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-200">
+          Auto-forward is on. When the client or you upload a document, it is
+          sent to the lender(s) that requested it. Turn off the toggle to review
+          and send documents manually.
+        </div>
+      )}
+
+      {!autoForwardEnabled && selectedRows.length > 0 && (
         <div className="mb-4 flex items-center justify-between rounded-2xl border border-blue-200 bg-gradient-to-r from-blue-50 to-cyan-50 px-5 py-3 shadow-sm dark:border-blue-900/40 dark:from-slate-900 dark:to-slate-800">
           {/* LEFT TEXT */}
           <p className="text-sm font-medium text-blue-700 dark:text-cyan-300">
@@ -3082,7 +2640,7 @@ dark:bg-red-900/20 dark:text-red-400"
                 onClick={() => setPage((p) => p - 1)}
                 className="px-3 py-1.5 rounded-lg border text-sm hover:bg-slate-100 disabled:opacity-40"
               >
-                ← Prev
+                â† Prev
               </button>
 
               <button
@@ -3090,7 +2648,7 @@ dark:bg-red-900/20 dark:text-red-400"
                 onClick={() => setPage((p) => p + 1)}
                 className="px-3 py-1.5 rounded-lg border text-sm hover:bg-slate-100 disabled:opacity-40"
               >
-                Next →
+                Next â†’
               </button>
             </div>
           </div>
@@ -3116,7 +2674,7 @@ dark:bg-red-900/20 dark:text-red-400"
 
           {/* DESCRIPTION */}
           <p className="mt-2 max-w-sm text-sm text-slate-500 dark:text-slate-400">
-            You haven’t requested documents yet.
+            You havenâ€™t requested documents yet.
           </p>
         </div>
       )}
@@ -3125,8 +2683,10 @@ dark:bg-red-900/20 dark:text-red-400"
 
   const renderTabContent = () => {
     switch (activeTab) {
+      case "view-details":
+        return renderViewDetails();
       case "update-application":
-        return renderUpdateApplication();
+        return renderUpdateApplicationForm();
       case "find-lenders":
         return renderFindLenders();
       case "request-document":
@@ -3479,7 +3039,7 @@ const productCode = submissionDetail?.loanProduct?.name || "-";
                   onClick={() => setActiveIndex((p) => p - 1)}
                   className="absolute left-4 bg-white p-2 rounded-full shadow"
                 >
-                  ←
+                  â†
                 </button>
               )}
 
@@ -3489,7 +3049,7 @@ const productCode = submissionDetail?.loanProduct?.name || "-";
                   onClick={() => setActiveIndex((p) => p + 1)}
                   className="absolute right-4 bg-white p-2 rounded-full shadow"
                 >
-                  →
+                  â†’
                 </button>
               )}
 
@@ -3572,7 +3132,7 @@ const productCode = submissionDetail?.loanProduct?.name || "-";
                     />
                   ) : file.fileMimeType?.includes("pdf") ? (
                     <div className="flex flex-col items-center justify-center text-[10px] text-red-600 font-semibold">
-                      📄 PDF
+                      ðŸ“„ PDF
                     </div>
                   ) : (
                     <div className="text-xs text-slate-400">FILE</div>

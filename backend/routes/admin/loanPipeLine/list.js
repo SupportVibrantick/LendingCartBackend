@@ -1,6 +1,10 @@
 const {
   resolveClientDisplayNameFromData,
 } = require("../../../services/resolveClientDisplayName");
+const {
+  buildApplicationSearchWhere,
+  loanApplicationListInclude,
+} = require("../../../services/loanApplicationSearch");
 
 function submissionFieldValue(fields, ...keys) {
   for (const field of fields || []) {
@@ -52,6 +56,63 @@ function resolveEntityType(app, fields) {
   );
 }
 
+function formatApplicationRow(app) {
+  const fields = app.submissions?.[0]?.fields || [];
+  const amountRequested =
+    app.amountRequested != null
+      ? Number(app.amountRequested)
+      : resolveAmountFromFields(fields);
+
+  return {
+    applicationId: app.id,
+    applicationNumber: app.applicationNumber,
+    loanProductCode: app.loanProductCode,
+    amountRequested,
+    status: app.status,
+    createdAt: app.createdAt,
+    borrowerName: resolveClientDisplayNameFromData(app.client, app.submissions),
+    entityType: resolveEntityType(app, fields),
+    purpose:
+      submissionFieldValue(fields, "purpose", "loanPurpose", "useOfFunds") ||
+      app.purpose ||
+      null,
+    client: app.client,
+    broker: app.brokerOrg,
+    lenders: (app.applicationLenders || []).map((al) => ({
+      lenderOrgId: al.lenderOrgId,
+      lenderName: al.lender?.name,
+      lenderProduct: al.lenderProduct?.loanProductCode,
+      lenderStatus: al.status,
+      sentAt: al.sentAt,
+    })),
+  };
+}
+
+const applicationListInclude = {
+  ...loanApplicationListInclude,
+  brokerOrg: {
+    select: {
+      id: true,
+      name: true,
+    },
+  },
+  applicationLenders: {
+    include: {
+      lender: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+      lenderProduct: {
+        select: {
+          loanProductCode: true,
+        },
+      },
+    },
+  },
+};
+
 /**
  * @param {import("fastify").FastifyInstance} fastify
  */
@@ -68,96 +129,61 @@ async function listAllApplications(fastify) {
       const prisma = fastify.prisma;
 
       try {
-        const applications = await prisma.loanApplication.findMany({
-          where: {
-            status: {
-              not: "DRAFT",
-            },
-          },
-          orderBy: {
-            createdAt: "desc",
-          },
-          include: {
-            client: {
-              select: {
-                id: true,
-                legalName: true,
-                entityType: true,
-                contacts: {
-                  select: {
-                    firstName: true,
-                    lastName: true,
-                    email: true,
-                    isPrimary: true,
-                  },
-                  orderBy: [{ isPrimary: "desc" }, { id: "asc" }],
-                },
-              },
-            },
-            brokerOrg: {
-              select: {
-                id: true,
-                name: true,
-              },
-            },
-            submissions: {
-              include: {
-                fields: true,
-              },
-            },
-            applicationLenders: {
-              include: {
-                lender: {
-                  select: {
-                    id: true,
-                    name: true,
-                  },
-                },
-                lenderProduct: {
-                  select: {
-                    loanProductCode: true,
-                  },
-                },
-              },
-            },
-          },
-        });
+        const brokerOrgId = req.query?.brokerOrgId?.trim();
+        const search = req.query?.search?.trim();
+        const hasPagination = req.query?.page != null && req.query?.page !== "";
+        const page = hasPagination ? Math.max(parseInt(req.query.page || "1", 10), 1) : 1;
+        const limit = hasPagination
+          ? Math.min(Math.max(parseInt(req.query?.limit || "20", 10), 1), 100)
+          : undefined;
+        const skip = hasPagination && limit ? (page - 1) * limit : undefined;
 
-        const formatted = applications.map((app) => {
-          const fields = app.submissions?.[0]?.fields || [];
-          const amountRequested = resolveAmountFromFields(fields);
+        const where = {
+          ...(brokerOrgId ? { brokerOrgId } : { status: { not: "DRAFT" } }),
+        };
 
-          return {
-            applicationId: app.id,
-            applicationNumber: app.applicationNumber,
-            loanProductCode: app.loanProductCode,
-            amountRequested,
-            status: app.status,
-            createdAt: app.createdAt,
-            borrowerName: resolveClientDisplayNameFromData(app.client, app.submissions),
-            entityType: resolveEntityType(app, fields),
-            purpose:
-              submissionFieldValue(fields, "purpose", "loanPurpose", "useOfFunds") ||
-              app.purpose ||
-              null,
+        if (search) {
+          where.OR = buildApplicationSearchWhere(search, { includeBorrower: true });
+        }
 
-            client: app.client,
-            broker: app.brokerOrg,
+        const findArgs = {
+          where,
+          orderBy: { createdAt: "desc" },
+          include: applicationListInclude,
+          ...(hasPagination && limit != null ? { skip, take: limit } : {}),
+        };
 
-            lenders: app.applicationLenders.map((al) => ({
-              lenderOrgId: al.lenderOrgId,
-              lenderName: al.lender?.name,
-              lenderProduct: al.lenderProduct?.loanProductCode,
-              lenderStatus: al.status,
-              sentAt: al.sentAt,
-            })),
-          };
-        });
+        const [applications, total, amountAgg] = await prisma.$transaction([
+          prisma.loanApplication.findMany(findArgs),
+          prisma.loanApplication.count({ where }),
+          prisma.loanApplication.aggregate({
+            where,
+            _sum: { amountRequested: true },
+          }),
+        ]);
+
+        const formatted = applications.map(formatApplicationRow);
 
         return reply.send({
           success: true,
-          total: formatted.length,
+          total,
           data: formatted,
+          ...(hasPagination
+            ? {
+                meta: {
+                  page,
+                  limit,
+                  total,
+                  totalPages: Math.max(Math.ceil(total / (limit || 1)), 1),
+                },
+                summary: {
+                  totalAmount:
+                    amountAgg._sum.amountRequested != null
+                      ? Number(amountAgg._sum.amountRequested)
+                      : 0,
+                },
+              }
+            : {}),
         });
       } catch (error) {
         fastify.log.error(error);
@@ -167,7 +193,7 @@ async function listAllApplications(fastify) {
           message: "Server error",
         });
       }
-    }
+    },
   );
 }
 

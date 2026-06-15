@@ -1,6 +1,4 @@
-const {
-  resolveClientDisplayNameFromData,
-} = require("../../../services/resolveClientDisplayName");
+const { formatAdminClientRow } = require("../../../services/formatAdminClientRow");
 
 async function listClients(fastify) {
   fastify.get(
@@ -41,6 +39,9 @@ async function listClients(fastify) {
         ];
       }
 
+      const brokerOrgId = q.brokerOrgId?.trim();
+      const applicationsCountWhere = brokerOrgId ? { brokerOrgId } : undefined;
+
       const [rows, total] = await prisma.$transaction([
         prisma.client.findMany({
           where,
@@ -68,7 +69,7 @@ async function listClients(fastify) {
             },
             loanApplications: {
               orderBy: { createdAt: "desc" },
-              take: 1,
+              take: 5,
               select: {
                 submissions: {
                   orderBy: { createdAt: "desc" },
@@ -82,7 +83,14 @@ async function listClients(fastify) {
                 },
               },
             },
-            _count: { select: { loanApplications: true, portalUsers: true } },
+            _count: {
+              select: {
+                loanApplications: applicationsCountWhere
+                  ? { where: applicationsCountWhere }
+                  : true,
+                portalUsers: true,
+              },
+            },
           },
         }),
         prisma.client.count({ where }),
@@ -90,30 +98,7 @@ async function listClients(fastify) {
 
       return reply.send({
         success: true,
-        data: rows.map((row) => {
-          const submissions = row.loanApplications[0]?.submissions || [];
-          const displayName = resolveClientDisplayNameFromData(
-            { legalName: row.legalName, contacts: row.contacts },
-            submissions,
-          );
-          const primaryContact =
-            row.contacts.find((contact) => contact.isPrimary) || row.contacts[0] || null;
-
-          return {
-            id: row.id,
-            legalName: row.legalName,
-            displayName,
-            entityType: row.entityType,
-            industry: row.industry,
-            isActive: row.isActive,
-            createdAt: row.createdAt,
-            brokerOrgId: row.primaryBrokerOrgId,
-            brokerName: row.primaryBroker?.name || null,
-            primaryContact,
-            applicationsCount: row._count.loanApplications,
-            portalUsersCount: row._count.portalUsers,
-          };
-        }),
+        data: rows.map(formatAdminClientRow),
         meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
       });
     },

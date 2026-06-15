@@ -204,13 +204,21 @@ async function readBrokerRoutes(fastify) {
           where: { id },
           include: {
             users: {
+              where: { isDeleted: false },
               select: {
                 id: true,
                 email: true,
                 firstName: true,
                 lastName: true,
+                phone: true,
                 status: true,
                 createdAt: true,
+                updatedAt: true,
+                roles: {
+                  select: {
+                    role: { select: { name: true } },
+                  },
+                },
               },
               orderBy: { createdAt: "desc" },
             },
@@ -260,7 +268,18 @@ async function readBrokerRoutes(fastify) {
           createdAt: broker.createdAt,
           updatedAt: broker.updatedAt,
 
-          admins: broker.users,
+          admins: broker.users.map((user) => ({
+            id: user.id,
+            email: user.email,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            phone: user.phone,
+            status: user.status,
+            createdAt: user.createdAt,
+            updatedAt: user.updatedAt,
+            roles: user.roles.map((entry) => entry.role.name),
+            role: user.roles[0]?.role?.name || null,
+          })),
           affiliateLinks: broker.affiliateLinks,
           lenderAccess: broker.brokerLenderAccessAsBroker,
           whiteLabel: broker.brokerWhiteLabelSettings,

@@ -1,4 +1,8 @@
 const fp = require("fastify-plugin");
+const {
+  buildSubmissionFieldsPayload,
+  loadProductFieldIdMap,
+} = require("../../../../services/staticSubmissionFields");
 const axios = require("axios");
 const { randomUUID } = require("crypto");
 const {
@@ -138,12 +142,16 @@ async function submitApplication(fastify) {
       });
 
       // 5️⃣ Create Submission Fields
-      const submissionFields = fields.map((f) => ({
+      const fieldIdByKey = await loadProductFieldIdMap(
+        tx,
+        applicationProductId,
+      );
+
+      const normalizedFields = buildSubmissionFieldsPayload(fields, fieldIdByKey);
+
+      const submissionFields = normalizedFields.map((f) => ({
         submissionId: submission.id,
-        fieldId: f.fieldId || null,
-        fieldKey: f.fieldKey || null,
-        value: f.value ?? null,
-        source: f.fieldId ? "DYNAMIC" : "STATIC",
+        ...f,
       }));
 
       if (submissionFields.length > 0) {

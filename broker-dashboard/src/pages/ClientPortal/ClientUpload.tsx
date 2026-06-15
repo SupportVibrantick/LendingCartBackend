@@ -20,6 +20,14 @@ import {
   FiEye,
 } from "react-icons/fi";
 import Chat from "./Chat";
+import {
+  buildSubmissionFieldMap,
+  formatFieldDisplayValue,
+  formatFieldLabel,
+  getAdditionalFields,
+  getCoBorrowerGroups,
+  parseNumericValue,
+} from "../../lib/submissionFieldUtils";
 
 /* ================= TYPES ================= */
 const SigCanvas = SignatureCanvas as unknown as React.FC<any>;
@@ -100,6 +108,7 @@ export default function ClientUpload() {
   const [selectedApplication, setSelectedApplication] = useState<any>(null);
   const [applicationDetailsLoading, setApplicationDetailsLoading] =
     useState(false);
+  const [fieldMap, setFieldMap] = useState<Record<string, any>>({});
 
   // const [status, setStatus] = useState("");
   // const [email, setEmail] = useState("");
@@ -437,64 +446,19 @@ if (borrowerSignature) {
 }
       setSelectedApplication(data);
 
-      // IMPORTANT: convert API fields → your UI format
-const submissionFields =
-  data?.submissions?.[0]?.fields?.map((f: any) => ({
-    key: f.fieldKey,
-    value: f.value,
-  })) || [];
+      const map = buildSubmissionFieldMap(data);
+      setFieldMap(map);
 
-const extraFields = [
-  { key: "borrowerName", value: data.borrowerName },
-  { key: "borrowerEmail", value: data.borrowerEmail },
-  { key: "borrowerPhone", value: data.borrowerPhone },
+      setApplicationData({
+        ...data,
+        borrower: {
+          name: data.borrowerName,
+          email: data.borrowerEmail,
+          phone: data.borrowerPhone,
+        },
+      });
 
-  { key: "borrowerFirstName", value: data.borrowerFirstName },
-  { key: "borrowerLastName", value: data.borrowerLastName },
-
-  { key: "borrowerCity", value: data.borrowerCity },
-  { key: "borrowerState", value: data.borrowerState },
-  { key: "borrowerCountry", value: data.borrowerCountry },
-
-  { key: "propertyAddress", value: data.propertyAddress },
-
-  { key: "companyName", value: data.companyName },
-
-  { key: "email", value: data.borrowerEmail },
-  { key: "phone", value: data.borrowerPhone },
-
-  { key: "loanProductCode", value: data.loanProductCode },
-  { key: "amountRequested", value: data.amountRequested },
-
-  { key: "interestRate", value: data.interestRate },
-  { key: "loanTerm", value: data.loanTerm },
-
-  { key: "creditScore", value: data.creditScore },
-  { key: "ltvPercentage", value: data.ltvPercentage },
-  { key: "ltcPercentage", value: data.ltcPercentage },
-  { key: "arvPercentage", value: data.arvPercentage },
-  { key: "dscr", value: data.dscr },
-
-  { key: "totalAssets", value: data.totalAssets },
-  { key: "totalLiabilities", value: data.totalLiabilities },
-  { key: "netWorth", value: data.netWorth },
-
-  { key: "borrowerSignature", value: data.borrowerSignature },
-];
-
-const fields = [...submissionFields, ...extraFields];
-
-setApplicationData({
-  ...data,
-  borrower: {
-    name: data.borrowerName,
-    email: data.borrowerEmail,
-    phone: data.borrowerPhone,
-  },
-  fullApplication: fields,
-});
-
-      setActiveTab("application"); // reuse existing UI
+      setActiveTab("application");
     } catch (err) {
       console.error(err);
       toast.error("Failed to fetch application details");
@@ -504,13 +468,15 @@ setApplicationData({
   };
 
   const formatCurrency = (val: any) => {
-    if (!val) return "-";
-    return `$${Number(val).toLocaleString()}`;
+    const numeric = parseNumericValue(val);
+    if (numeric === null) return "-";
+    return `$${numeric.toLocaleString("en-US")}`;
   };
 
   const formatPercent = (val: any) => {
-    if (!val && val !== 0) return "-";
-    return `${Number(val).toFixed(2)}%`;
+    const numeric = parseNumericValue(val);
+    if (numeric === null) return "-";
+    return `${numeric.toFixed(2)}%`;
   };
 
   const totalFiles = Object.values(files).flat().length + uploadedFilesCount;
@@ -519,11 +485,23 @@ setApplicationData({
     totalFiles === 0 ? 0 : Math.round((uploadedFilesCount / totalFiles) * 100);
 
   const getValue = (key: string) => {
-    return (
-      applicationData?.fullApplication?.find((item: any) => item.key === key)
-        ?.value || "-"
-    );
+    if (key === "borrowerName") {
+      return (
+        fieldMap.borrowerName ||
+        `${fieldMap.borrowerFirstName || ""} ${fieldMap.borrowerLastName || ""}`.trim()
+      );
+    }
+
+    const value = fieldMap[key];
+    if (value === undefined || value === null || value === "") return "";
+    return value;
   };
+
+  const getDisplayValue = (key: string) =>
+    formatFieldDisplayValue(key, getValue(key));
+
+  const coBorrowerGroups = getCoBorrowerGroups(fieldMap);
+  const additionalFields = getAdditionalFields(fieldMap);
 
   const handleEndSignature = () => {
     if (!sigRef.current || sigRef.current.isEmpty()) return;
@@ -1318,18 +1296,22 @@ setApplicationData({
                     </h3>
 
                     <div className="grid md:grid-cols-2 gap-4">
-                    <Input
-  label="Borrower Name"
-  value={`${getValue("borrowerFirstName")} ${getValue("borrowerLastName")}`}
-/>
-                     <Input
-  label="City"
-  value={getValue("borrowerCity")}
-/>
-                    <Input
-  label="State"
-  value={getValue("borrowerState")}
-/>
+                      <Input
+                        label="Borrower Name"
+                        value={getDisplayValue("borrowerName")}
+                      />
+                      <Input
+                        label="City"
+                        value={getDisplayValue("borrowerCity")}
+                      />
+                      <Input
+                        label="State"
+                        value={getDisplayValue("borrowerState")}
+                      />
+                      <Input
+                        label="Country"
+                        value={getDisplayValue("borrowerCountry")}
+                      />
                     </div>
                   </div>
 
@@ -1342,228 +1324,253 @@ setApplicationData({
                     <div className="grid md:grid-cols-2 gap-4">
                       <Input
                         label="Company Name"
-                        value={getValue("companyName")}
+                        value={getDisplayValue("companyName")}
                       />
-                      <Input label="Email" value={getValue("email")} />
-                      <Input label="Phone" value={getValue("phone")} />
+                      <Input label="Email" value={getDisplayValue("email")} />
+                      <Input label="Phone" value={getDisplayValue("phone")} />
                       <Input
                         label="Credit Score"
-                        value={getValue("creditScore")}
+                        value={getDisplayValue("creditScore")}
                       />
-<Input
-  label="Country"
-  value={getValue("borrowerCountry")}
-/>
                       <Input
-                        label="Loan Product Code"
-                          value={
-    PRODUCT_LABELS[getValue("loanProductCode")] ||
-    getValue("loanProductCode")
-  }
+                        label="Loan Product"
+                        value={
+                          PRODUCT_LABELS[getValue("loanProductCode")] ||
+                          getDisplayValue("loanProductCode")
+                        }
                       />
                       <Input
                         label="Loan Amount Requested"
-                        value={getValue("amountRequested")}
+                        value={getDisplayValue("amountRequested")}
                       />
                       <Input
                         label="Interest Rate"
-                        value={getValue("interestRate")}
+                        value={getDisplayValue("interestRate")}
                       />
-                      <Input label="Loan Term" value={getValue("loanTerm")} />
+                      <Input
+                        label="Loan Term (Months)"
+                        value={getDisplayValue("loanTerm")}
+                      />
+                      <Input
+                        label="Purpose"
+                        value={getDisplayValue("purpose")}
+                      />
                     </div>
                   </div>
 
                   <div className="mt-8">
-  <h3 className="text-lg font-semibold mb-4">
-    Personal Information
-  </h3>
+                    <h3 className="text-lg font-semibold mb-4">
+                      Personal Information
+                    </h3>
 
-  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-    <Input label="Date of Birth" value={getValue("dob")} />
-    <Input label="SSN" value={getValue("ssn")} />
-    <Input label="Employer" value={getValue("employer")} />
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <Input
+                        label="Date of Birth"
+                        value={getDisplayValue("dob")}
+                      />
+                      <Input label="SSN" value={getDisplayValue("ssn")} />
+                      <Input
+                        label="Employer"
+                        value={getDisplayValue("employer")}
+                      />
+                      <Input
+                        label="Address"
+                        value={getDisplayValue("address")}
+                      />
+                      <Input
+                        label="Mailing Address"
+                        value={getDisplayValue("mailingAddress")}
+                      />
+                    </div>
+                  </div>
 
-    <Input label="Address" value={getValue("address")} />
-    <Input
-      label="Mailing Address"
-      value={getValue("mailingAddress")}
-    />
-  </div>
-</div>
+                  <div className="mt-8">
+                    <h3 className="text-lg font-semibold mb-4">
+                      Property Information
+                    </h3>
 
-<div className="mt-8">
-  <h3 className="text-lg font-semibold mb-4">
-    Property Information
-  </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <Input
+                        label="Property Type"
+                        value={getDisplayValue("propertyType")}
+                      />
+                      <Input
+                        label="Sub Property Type"
+                        value={getDisplayValue("subPropertyType")}
+                      />
+                      <Input
+                        label="Recourse"
+                        value={getDisplayValue("recourse")}
+                      />
+                      <Input
+                        label="Property Address"
+                        value={getDisplayValue("propertyAddress")}
+                      />
+                      <Input
+                        label="Property City"
+                        value={getDisplayValue("propertyCity")}
+                      />
+                      <Input
+                        label="Property State"
+                        value={getDisplayValue("propertyState")}
+                      />
+                      <Input
+                        label="Property Zip"
+                        value={getDisplayValue("propertyZip")}
+                      />
+                      <Input
+                        label="Property Country"
+                        value={getDisplayValue("propertyCountry")}
+                      />
+                      <Input
+                        label="Property in Flood Zone"
+                        value={getDisplayValue("floodZone")}
+                      />
+                    </div>
+                  </div>
 
-  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-    <Input label="Purpose" value={getValue("purpose")} />
+                  <div className="mt-8">
+                    <h3 className="text-lg font-semibold mb-4">
+                      Entity Information
+                    </h3>
 
-    <Input
-      label="Property Type"
-      value={getValue("propertyType")}
-    />
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <Input
+                        label="Entity Legal Name"
+                        value={getDisplayValue("entityLegalName")}
+                      />
+                      <Input
+                        label="Entity Type"
+                        value={getDisplayValue("entityType")}
+                      />
+                      <Input label="DBA" value={getDisplayValue("dba")} />
+                      <Input
+                        label="Formation Date"
+                        value={getDisplayValue("formationDate")}
+                      />
+                      <Input
+                        label="Years In Business"
+                        value={getDisplayValue("yearsInBusiness")}
+                      />
+                    </div>
+                  </div>
 
-    <Input
-      label="Sub Property Type"
-      value={getValue("subPropertyType")}
-    />
+                  <div className="mt-8">
+                    <h3 className="text-lg font-semibold mb-4">
+                      Financial Information
+                    </h3>
 
-    <Input
-      label="Recourse"
-      value={getValue("recourse")}
-    />
-
-    <Input
-      label="Property Address"
-      value={getValue("propertyAddress")}
-    />
-
-    <Input
-      label="Property City"
-      value={getValue("propertyCity")}
-    />
-
-    <Input
-      label="Property State"
-      value={getValue("propertyState")}
-    />
-
-    <Input
-      label="Property Zip"
-      value={getValue("propertyZip")}
-    />
-
-    <Input
-      label="Property Country"
-      value={getValue("propertyCountry")}
-    />
-  </div>
-</div>
-
-<div className="mt-8">
-  <h3 className="text-lg font-semibold mb-4">
-    Entity Information
-  </h3>
-
-  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-    <Input
-      label="Entity Legal Name"
-      value={getValue("entityLegalName")}
-    />
-
-    <Input
-      label="Entity Type"
-      value={getValue("entityType")}
-    />
-
-    <Input label="DBA" value={getValue("dba")} />
-
-    <Input
-      label="Formation Date"
-      value={getValue("formationDate")}
-    />
-
-    <Input
-      label="Years In Business"
-      value={getValue("yearsInBusiness")}
-    />
-  </div>
-</div>
-
-<div className="mt-8">
-  <h3 className="text-lg font-semibold mb-4">
-    Financial Information
-  </h3>
-
-  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-    <Input
-      label="Current Market Value"
-      value={formatCurrency(
-        getValue("currentMarketValue")
-      )}
-    />
-
-    <Input
-      label="After Repair Value"
-      value={formatCurrency(
-        getValue("afterRepairValue")
-      )}
-    />
-
-    <Input
-      label="Purchase Price"
-      value={formatCurrency(
-        getValue("purchasePrice")
-      )}
-    />
-
-    <Input
-      label="Purchase Date"
-      value={getValue("purchaseDate")}
-    />
-
-    <Input
-      label="Monthly Rent"
-      value={getValue("monthlyRent")}
-    />
-
-    <Input
-      label="Gross Revenue Actual"
-      value={getValue("grossRevenueActual")}
-    />
-
-    <Input
-      label="Gross Revenue Proforma"
-      value={getValue("grossRevenueProforma")}
-    />
-
-    <Input
-      label="NOI Actual"
-      value={getValue("noiActual")}
-    />
-
-    <Input
-      label="NOI Proforma"
-      value={getValue("noiProforma")}
-    />
-
-    <Input
-      label="Annual Taxes"
-      value={getValue("annualTaxes")}
-    />
-
-    <Input
-      label="Insurance Premium"
-      value={getValue("insurancePremium")}
-    />
-
-    <Input
-      label="HOA Dues"
-      value={getValue("hoaDues")}
-    />
-
-    <Input
-      label="Monthly Rental Income"
-      value={getValue("monthlyRentalIncome")}
-    />
-
-    <Input
-      label="DSCR Ratio"
-      value={getValue("dscrRatio")}
-    />
-
-                          <Input
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <Input
+                        label="Current Market Value"
+                        value={getDisplayValue("currentMarketValue")}
+                      />
+                      <Input
+                        label="After Repair Value"
+                        value={getDisplayValue("afterRepairValue")}
+                      />
+                      <Input
+                        label="Purchase Price"
+                        value={getDisplayValue("purchasePrice")}
+                      />
+                      <Input
+                        label="Purchase Date"
+                        value={getDisplayValue("purchaseDate")}
+                      />
+                      <Input
+                        label="Rehab Budget"
+                        value={getDisplayValue("rehabBudget")}
+                      />
+                      <Input
+                        label="Estimated Repair Months"
+                        value={getDisplayValue("estimatedRepairMonths")}
+                      />
+                      <Input
+                        label="Exit Strategy"
+                        value={getDisplayValue("exitStrategy")}
+                      />
+                      <Input
+                        label="Monthly Rent"
+                        value={getDisplayValue("monthlyRent")}
+                      />
+                      <Input
+                        label="Gross Revenue Actual"
+                        value={getDisplayValue("grossRevenueActual")}
+                      />
+                      <Input
+                        label="Gross Revenue Proforma"
+                        value={getDisplayValue("grossRevenueProforma")}
+                      />
+                      <Input
+                        label="NOI Actual"
+                        value={getDisplayValue("noiActual")}
+                      />
+                      <Input
+                        label="NOI Proforma"
+                        value={getDisplayValue("noiProforma")}
+                      />
+                      <Input
+                        label="Annual Taxes"
+                        value={getDisplayValue("annualTaxes")}
+                      />
+                      <Input
+                        label="Insurance Premium"
+                        value={getDisplayValue("insurancePremium")}
+                      />
+                      <Input
+                        label="HOA Dues"
+                        value={getDisplayValue("hoaDues")}
+                      />
+                      <Input
                         label="Total Assets"
-                        value={getValue("totalAssets")}
+                        value={getDisplayValue("totalAssets")}
                       />
                       <Input
                         label="Total Liabilities"
-                        value={getValue("totalLiabilities")}
+                        value={getDisplayValue("totalLiabilities")}
                       />
-                      <Input label="Net Worth" value={getValue("netWorth")} />
-  </div>
-</div>
+                      <Input
+                        label="Net Worth"
+                        value={getDisplayValue("netWorth")}
+                      />
+                    </div>
+                  </div>
+
+                  {Object.entries(coBorrowerGroups)
+                    .sort(([a], [b]) => Number(a) - Number(b))
+                    .map(([index, fields]) => (
+                      <div className="mt-8" key={`co-borrower-${index}`}>
+                        <h3 className="text-lg font-semibold mb-4">
+                          Co-Borrower {Number(index) + 1}
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          {Object.entries(fields).map(([fieldKey, value]) => (
+                            <Input
+                              key={fieldKey}
+                              label={formatFieldLabel(fieldKey)}
+                              value={formatFieldDisplayValue(fieldKey, value)}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+
+                  {additionalFields.length > 0 && (
+                    <div className="mt-8">
+                      <h3 className="text-lg font-semibold mb-4">
+                        Additional Details
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {additionalFields.map(([fieldKey, value]) => (
+                          <Input
+                            key={fieldKey}
+                            label={formatFieldLabel(fieldKey)}
+                            value={formatFieldDisplayValue(fieldKey, value)}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {/* SIGNATURE */}
                   <div className="mt-6">
@@ -1712,8 +1719,8 @@ setApplicationData({
 const Input = ({ label, value }: { label: string; value: any }) => (
   <div>
     <p className="text-xs text-gray-400 mb-1">{label}</p>
-    <div className="bg-gray-100 px-3 py-2 rounded-md text-sm text-gray-800">
-      {value || "-"}
+    <div className="bg-gray-100 px-3 py-2 rounded-md text-sm text-gray-800 break-words">
+      {value === undefined || value === null || value === "" ? "-" : value}
     </div>
   </div>
 );

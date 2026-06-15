@@ -1,10 +1,10 @@
 export const ADMIN_API_BASE =
   import.meta.env.VITE_API_BASE?.replace(/\/$/, "") || "http://localhost:4000";
 
-export function getAdminAuthHeaders(): Record<string, string> {
+export function getAdminAuthHeaders(json = false): Record<string, string> {
   const token = sessionStorage.getItem("admin_token");
   return {
-    "Content-Type": "application/json",
+    ...(json ? { "Content-Type": "application/json" } : {}),
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
 }
@@ -13,12 +13,36 @@ export async function adminFetch<T = unknown>(
   path: string,
   options: RequestInit = {},
 ): Promise<T> {
+  const hasBody = options.body !== undefined && options.body !== null;
   const res = await fetch(`${ADMIN_API_BASE}${path}`, {
     ...options,
     headers: {
-      ...getAdminAuthHeaders(),
+      ...getAdminAuthHeaders(hasBody),
       ...(options.headers || {}),
     },
+  });
+
+  const json = await res.json().catch(() => ({}));
+
+  if (!res.ok || json.success === false) {
+    throw new Error(json.message || `Request failed (${res.status})`);
+  }
+
+  return json as T;
+}
+
+export async function adminFetchMultipart<T = unknown>(
+  path: string,
+  formData: FormData,
+  method: "POST" | "PATCH" = "POST",
+): Promise<T> {
+  const token = sessionStorage.getItem("admin_token");
+  const res = await fetch(`${ADMIN_API_BASE}${path}`, {
+    method,
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: formData,
   });
 
   const json = await res.json().catch(() => ({}));

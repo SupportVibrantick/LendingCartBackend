@@ -34,8 +34,6 @@ import {
   MessageSquare,
    BarChart3,
     TrendingUp,
-     UserCog,
-      Users
      } from "lucide-react";
 
 type NavItem = {
@@ -96,21 +94,6 @@ const navItems: NavItem[] = [
     path: "/all-lenders-Organization",
   },
 
-  {
-    icon: <UserCog />,
-    name: "Loan Officers",
-    path: "/all-loan-officers",
-  },
-  {
-    icon: <Users />,
-    name: "Sub-Brokers",
-    path: "/all-sub-brokers",
-  },
-  {
-    icon: <ContactsOutlinedIcon />,
-    name: "Clients",
-    path: "/all-clients",
-  },
   // {
   //   icon: <BarChart3 />,
   //   name: "Loan Pipeline",

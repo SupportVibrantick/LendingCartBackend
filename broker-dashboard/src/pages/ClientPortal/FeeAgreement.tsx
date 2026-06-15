@@ -5,6 +5,8 @@ import { FileText } from "lucide-react";
 import { useRef } from "react";
 import toast from "react-hot-toast";
 import SignatureCanvas from "react-signature-canvas";
+import FeeAgreementDocument from "../../components/FeeAgreementDocument";
+import { canClientSignFeeAgreement } from "../../lib/feeAgreementDisplayUtils";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
@@ -49,6 +51,13 @@ export default function FeeAgreement({
 
   const handleSignAgreement = async () => {
     try {
+      if (!canClientSignFeeAgreement(data)) {
+        toast.error(
+          "Fee terms are not finalized yet. Please wait for your broker to update broker fee, upfront fee, and exclusivity period.",
+        );
+        return;
+      }
+
       if (!sigRef.current || sigRef.current.isEmpty()) {
         toast.error("Please provide signature");
         return;
@@ -70,7 +79,14 @@ export default function FeeAgreement({
         },
       );
 
-      if (!res.ok) throw new Error("Failed to sign");
+      const json = await res.json().catch(() => ({}));
+
+      if (!res.ok || !json.ok) {
+        throw new Error(
+          json.message ||
+            "Failed to sign agreement. Fee terms may not be finalized yet.",
+        );
+      }
 
       toast.success("Agreement signed successfully");
 
@@ -190,6 +206,8 @@ export default function FeeAgreement({
     );
   }
 
+  const feeTermsReady = canClientSignFeeAgreement(data);
+
   return (
     <div className="bg-white rounded-2xl border shadow-sm overflow-hidden">
       {/* HEADER */}
@@ -229,163 +247,7 @@ export default function FeeAgreement({
       </div>
 
       {/* CONTENT */}
-      <div
-        ref={pdfRef}
-        className="p-6 space-y-6 text-sm text-gray-700 leading-relaxed"
-      >
-        <div className="text-center space-y-2">
-          {/* LOGO */}
-             <div className="flex justify-center">
-            <img
-              src="/loanAutomation.jpeg"
-              alt="Loan Automation Logo"
-              className="object-contain  rounded-full h-24 w-24"
-            />
-          </div>
-
-          {/* TITLE */}
-          <h1 className="text-xl font-bold">FINDER & FINANCIAL AGREEMENT</h1>
-
-          <p className="text-xs text-gray-500">
-            Date: {new Date(data.createdAt).toLocaleDateString()}
-          </p>
-        </div>
-
-        {/* INTRO */}
-        <div>
-          <p>
-            This Finder & Financial Agreement is made and entered into on{" "}
-            <b>{new Date(data.createdAt).toLocaleDateString()}</b> by and
-            between{" "}
-            <b>
-              {data.clientName} ({data.clientEntityName})
-            </b>
-            , whose address is <b>{data.clientAddress || "—"}</b> ("Issuer"),
-            and{" "}
-            <b>
-              {data.brokerName || "—"} ({data.brokerCompany || "—"})
-            </b>
-            , whose address is <b>{data.brokerAddress || "—"}</b> ("Finder").
-          </p>
-        </div>
-
-        {/* SUBJECT */}
-        <div>
-          <p>
-            <b>Subject Property / Business Address:</b>{" "}
-            {data.subjectAddress || "—"}
-          </p>
-        </div>
-
-        {/* SECTION 1 */}
-        <div>
-          <h2 className="font-semibold text-base mb-2">1. THE AGREEMENT</h2>
-          <ul className="list-disc pl-5 space-y-1">
-            <li>
-              Issuer agrees to engage in financial transactions including loan,
-              equity investment, lease, credit facility, or similar.
-            </li>
-            <li>Finder acts solely as an intermediary.</li>
-            <li>All fees payable at closing.</li>
-            <li>
-              Issuer shall not directly approach lenders introduced by Finder
-              for 36 months.
-            </li>
-            <li>
-              Agreement remains valid for {data.exclusivityMonths || 12} months.
-            </li>
-          </ul>
-        </div>
-
-        {/* SECTION 2 */}
-        <div>
-          <h2 className="font-semibold text-base mb-2">2. THE FEE</h2>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
-            <div className="p-4 border rounded-xl bg-indigo-50">
-              <p className="text-xs text-gray-500">Broker Fee</p>
-              <p className="font-semibold text-indigo-700">
-                {data.brokerPoints || 0} %
-              </p>
-            </div>
-
-            <div className="p-4 border rounded-xl bg-cyan-50">
-              <p className="text-xs text-gray-500">Upfront Fee</p>
-              <p className="font-semibold text-cyan-700">
-                ₹{Number(data.upfrontFee || 0).toLocaleString()}
-              </p>
-            </div>
-
-            <div className="p-4 border rounded-xl bg-purple-50">
-              <p className="text-xs text-gray-500">Exclusivity Period</p>
-              <p className="font-semibold text-purple-700">
-                {data.exclusivityMonths || 0} Months
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* SECTION 3 */}
-        <div>
-          <h2 className="font-semibold text-base mb-2">3. GOVERNING LAW</h2>
-          <p>
-            This agreement shall be governed by the laws of the State of{" "}
-            <b>{data.brokerState || "—"}</b>. Any dispute shall be resolved in
-            Supreme Court, <b>{data.brokerCounty || "—"}</b> County, State of{" "}
-            <b>{data.brokerState || "—"}</b>.
-          </p>
-        </div>
-
-        {/* SECTION 4 */}
-        <div>
-          <h2 className="font-semibold text-base mb-2">4. EXCLUSIVITY</h2>
-          <p>
-            Finder will act as exclusive advisor for{" "}
-            <b>{data.exclusivityMonths || 0} months</b> for the above
-            transactions.
-          </p>
-        </div>
-
-        {/* BROKER DETAILS */}
-        <div className="border-t pt-4">
-          <h3 className="font-semibold mb-2">Broker / Finder Details</h3>
-          <p>
-            <b>Name:</b> {data.brokerName || "—"}
-          </p>
-          <p>
-            <b>Company:</b> {data.brokerCompany || "—"}
-          </p>
-          <p>
-            <b>Email:</b> {data.brokerEmail || "—"}
-          </p>
-          <p>
-            <b>Phone:</b> {data.brokerPhone || "—"}
-          </p>
-          {/* <p>
-            <b>Address:</b> {data.brokerAddress || "—"}
-          </p> */}
-        </div>
-
-        {/* CLIENT DETAILS */}
-        <div className="border-t pt-4">
-          <h3 className="font-semibold mb-2">Borrower / Client Details</h3>
-          <p>
-            <b>Name:</b> {data.clientName}
-          </p>
-          <p>
-            <b>Entity:</b> {data.clientEntityName}
-          </p>
-          <p>
-            <b>Email:</b> {data.clientEmail}
-          </p>
-          <p>
-            <b>Phone:</b> {data.clientPhone || "—"}
-          </p>
-          <p>
-            <b>Address:</b> {data.clientAddress || "—"}
-          </p>
-        </div>
-
+      <FeeAgreementDocument data={data} pdfRef={pdfRef} currencySymbol="₹">
         {/* SIGNATURE */}
         <div className="border-t pt-6">
           <h3 className="font-semibold mb-3">Signature</h3>
@@ -400,14 +262,17 @@ export default function FeeAgreement({
                 ✔ Signed Successfully
               </p>
             </div>
+          ) : !feeTermsReady ? (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              Signing is unavailable until your broker sets the broker fee,
+              upfront fee, and exclusivity period on this agreement.
+            </div>
           ) : (
             <>
-              {/* SIGN PAD */}
               <div className="bg-white border-2 border-dashed rounded-xl p-3">
                 <div className="w-full h-40">
                   <SignatureCanvas
                     ref={sigRef as any}
-                    // penColor="black"
                     canvasProps={{
                       className: "w-full h-full",
                     }}
@@ -415,7 +280,6 @@ export default function FeeAgreement({
                 </div>
               </div>
 
-              {/* ACTIONS */}
               <div className="flex justify-between mt-3">
                 <button
                   onClick={() => sigRef.current?.clear()}
@@ -427,7 +291,7 @@ export default function FeeAgreement({
                 <button
                   onClick={handleSignAgreement}
                   disabled={signing}
-                  className="text-xs px-4 py-1 rounded-md bg-green-600 text-white"
+                  className="text-xs px-4 py-1 rounded-md bg-green-600 text-white disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {signing ? "Signing..." : "Sign Agreement"}
                 </button>
@@ -442,7 +306,7 @@ export default function FeeAgreement({
               : "Pending"}
           </p>
         </div>
-      </div>
+      </FeeAgreementDocument>
 
       {isModalOpen && (
         <div className="fixed inset-0 z-999999 flex items-center justify-center bg-black/40 backdrop-blur-sm">

@@ -108,7 +108,9 @@ const clientLastName =
   const brokerLastName = loan.brokerUser?.lastName || "";
 
   const brokerFullName =
-    `${brokerFirstName} ${brokerLastName}`.trim() || "N/A";
+    `${brokerFirstName} ${brokerLastName}`.trim() ||
+    loan.brokerOrg?.name ||
+    null;
 
   const brokerProfile = loan.brokerUser?.brokerProfile;
 
@@ -122,7 +124,7 @@ const brokerAddress =
   ]
     .filter(Boolean)
     .join(", ") ||
-  "N/A";
+  null;
 
   // ===============================
   // ✅ SUBJECT PROPERTY

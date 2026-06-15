@@ -12,15 +12,18 @@ import {
   Power,
   RefreshCw,
   Search,
+  Trash2,
+  MoreVertical,
   UserCheck,
   Users,
   UserX,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { createPortal } from "react-dom";
 import toast from "react-hot-toast";
+import Swal from "sweetalert2";
 import PageMeta from "../../components/common/PageMeta";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
@@ -33,6 +36,7 @@ interface SubBrokerUser {
   phone: string | null;
   status: string;
   createdAt: string;
+  updatedAt?: string;
   createdById: string | null;
 }
 
@@ -53,10 +57,10 @@ const AVATAR_TONES = [
   "bg-amber-100 text-amber-700",
 ];
 
-function getAuthHeaders(): Record<string, string> {
+function getAuthHeaders(options?: { json?: boolean }): Record<string, string> {
   const token = sessionStorage.getItem("broker_token");
   return {
-    "Content-Type": "application/json",
+    ...(options?.json ? { "Content-Type": "application/json" } : {}),
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
 }
@@ -89,6 +93,33 @@ function formatDate(value?: string) {
 type SortKey = "name" | "email" | "phone" | "status" | "createdAt";
 type SortDir = "asc" | "desc";
 
+const ACTION_MENU_WIDTH = 168;
+const ACTION_MENU_HEIGHT = 196;
+
+function computeActionMenuPosition(rect: DOMRect) {
+  const padding = 8;
+  const spaceBelow = window.innerHeight - rect.bottom;
+  const spaceAbove = rect.top;
+  const openUpward =
+    spaceBelow < ACTION_MENU_HEIGHT + padding && spaceAbove > spaceBelow;
+
+  let top = openUpward ? rect.top - ACTION_MENU_HEIGHT - 6 : rect.bottom + 6;
+  top = Math.max(
+    padding,
+    Math.min(top, window.innerHeight - ACTION_MENU_HEIGHT - padding),
+  );
+
+  const left = Math.max(
+    padding,
+    Math.min(
+      rect.right - ACTION_MENU_WIDTH,
+      window.innerWidth - ACTION_MENU_WIDTH - padding,
+    ),
+  );
+
+  return { top, left };
+}
+
 function SortHeader({
   label,
   active,
@@ -106,7 +137,7 @@ function SortHeader({
     <button
       type="button"
       onClick={onClick}
-      className={`group inline-flex w-full items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-gray-500 transition hover:text-[#13538A] ${
+      className={`group inline-flex w-full items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-gray-500 transition hover:text-[#13538A] ${
         align === "right" ? "justify-end" : "justify-start"
       } ${active ? "text-[#13538A]" : ""}`}
     >
@@ -142,6 +173,12 @@ export default function SubBroker() {
   const [creating, setCreating] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [editOfficer, setEditOfficer] = useState<SubBrokerUser | null>(null);
+  const [viewSubBroker, setViewSubBroker] = useState<SubBrokerUser | null>(null);
+  const [viewLoading, setViewLoading] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+  const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
+  const menuRef = useRef<HTMLDivElement | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("createdAt");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
 
@@ -192,6 +229,61 @@ export default function SubBroker() {
   useEffect(() => {
     fetchOfficers();
   }, [fetchOfficers]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (
+        menuRef.current?.contains(target) ||
+        (target instanceof Element && target.closest("[data-menu-id]"))
+      ) {
+        return;
+      }
+      setActiveMenuId(null);
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setActiveMenuId(null);
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!activeMenuId) return;
+
+    const reposition = () => {
+      const btn = document.querySelector(
+        `[data-menu-id="${activeMenuId}"]`,
+      ) as HTMLElement | null;
+      if (!btn) return;
+
+      const rect = btn.getBoundingClientRect();
+      setMenuPos(computeActionMenuPosition(rect));
+    };
+
+    reposition();
+    window.addEventListener("scroll", reposition, true);
+    window.addEventListener("resize", reposition);
+
+    return () => {
+      window.removeEventListener("scroll", reposition, true);
+      window.removeEventListener("resize", reposition);
+    };
+  }, [activeMenuId]);
+
+  const openRowMenu = (id: string, event: React.MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    setMenuPos(computeActionMenuPosition(event.currentTarget.getBoundingClientRect()));
+    setActiveMenuId((current) => (current === id ? null : id));
+  };
+
+  const closeRowMenu = () => setActiveMenuId(null);
 
   useEffect(() => {
     if (!showModal) return;
@@ -260,6 +352,11 @@ export default function SubBroker() {
     return list;
   }, [filteredOfficers, sortKey, sortDir]);
 
+  const activeMenuUser = useMemo(
+    () => sortedOfficers.find((o) => o.id === activeMenuId) ?? null,
+    [sortedOfficers, activeMenuId],
+  );
+
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) {
       setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -285,7 +382,7 @@ export default function SubBroker() {
 
       const res = await fetch(`${API_BASE}/broker/sub-broker/${id}/status`, {
         method: "PATCH",
-        headers: getAuthHeaders(),
+        headers: getAuthHeaders({ json: true }),
         body: JSON.stringify({ status: newStatus }),
       });
 
@@ -296,6 +393,7 @@ export default function SubBroker() {
       }
 
       toast.success(`Sub broker ${newStatus === "ACTIVE" ? "activated" : "disabled"}`);
+      closeRowMenu();
       fetchOfficers();
     } catch {
       toast.error("Something went wrong");
@@ -304,31 +402,122 @@ export default function SubBroker() {
     }
   };
 
-  const fetchSubBrokerDetails = async (id: string) => {
+  const fetchSubBrokerDetails = async (
+    id: string,
+    mode: "view" | "edit",
+  ): Promise<SubBrokerUser | null> => {
     try {
+      if (mode === "view") setViewLoading(true);
+
       const res = await fetch(`${API_BASE}/broker/sub-broker/${id}`, {
         headers: getAuthHeaders(),
       });
       const json = await res.json();
+
       if (!res.ok || !json.success) {
-        toast.error(json.message || "Failed to fetch details");
+        toast.error(json.message || "Failed to fetch sub broker details");
+        return null;
+      }
+
+      return json.data as SubBrokerUser;
+    } catch {
+      toast.error("Something went wrong");
+      return null;
+    } finally {
+      if (mode === "view") setViewLoading(false);
+    }
+  };
+
+  const openViewSubBroker = async (id: string) => {
+    const data = await fetchSubBrokerDetails(id, "view");
+    if (data) setViewSubBroker(data);
+  };
+
+  const openEditSubBroker = async (id: string) => {
+    const data = await fetchSubBrokerDetails(id, "edit");
+    if (!data) return;
+
+    setForm({
+      email: data.email || "",
+      password: "",
+      firstName: data.firstName || "",
+      lastName: data.lastName || "",
+      phone: data.phone || "",
+    });
+    setEditOfficer(data);
+    setShowModal(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    const isDark = document.documentElement.classList.contains("dark");
+
+    const result = await Swal.fire({
+      title: "Delete sub broker?",
+      text: "This sub broker will be removed and will no longer be able to sign in.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#dc2626",
+      cancelButtonColor: "#6b7280",
+      confirmButtonText: "Yes, delete",
+      cancelButtonText: "Cancel",
+      background: isDark ? "#1e293b" : "#ffffff",
+      color: isDark ? "#e2e8f0" : "#1e293b",
+      customClass: {
+        popup: "rounded-2xl",
+        container: "swal-high-zindex",
+      },
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+      setDeletingId(id);
+      const res = await fetch(`${API_BASE}/broker/sub-broker/${id}`, {
+        method: "DELETE",
+        headers: getAuthHeaders(),
+      });
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        toast.error(json.message || "Failed to delete sub broker");
         return;
       }
 
-      const data = json.data;
-      setForm({
-        email: data.email || "",
-        password: "",
-        firstName: data.firstName || "",
-        lastName: data.lastName || "",
-        phone: data.phone || "",
+      if (viewSubBroker?.id === id) setViewSubBroker(null);
+      closeRowMenu();
+
+      await Swal.fire({
+        title: "Deleted",
+        text: "Sub broker has been deleted successfully.",
+        icon: "success",
+        timer: 1500,
+        showConfirmButton: false,
+        background: isDark ? "#1e293b" : "#ffffff",
+        color: isDark ? "#e2e8f0" : "#1e293b",
+        customClass: {
+          popup: "rounded-2xl",
+          container: "swal-high-zindex",
+        },
       });
-      setEditOfficer(data);
-      setShowModal(true);
+
+      fetchOfficers();
     } catch {
       toast.error("Something went wrong");
+    } finally {
+      setDeletingId(null);
     }
   };
+
+  const InfoItem = ({ label, value }: { label: string; value?: string | null }) => (
+    <div className="space-y-1">
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+        {label}
+      </p>
+      <div className="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-800 dark:border-slate-600 dark:bg-slate-900/50 dark:text-slate-200">
+        {value || "—"}
+      </div>
+    </div>
+  );
 
   const validateForm = (): Record<string, string> => {
     const next: Record<string, string> = {};
@@ -366,7 +555,7 @@ export default function SubBroker() {
     try {
       const res = await fetch(`${API_BASE}/broker/sub-broker/create`, {
         method: "POST",
-        headers: getAuthHeaders(),
+        headers: getAuthHeaders({ json: true }),
         body: JSON.stringify({
           email: form.email,
           password: form.password,
@@ -410,7 +599,7 @@ export default function SubBroker() {
     try {
       const res = await fetch(`${API_BASE}/broker/sub-broker/${editOfficer.id}/update`, {
         method: "PATCH",
-        headers: getAuthHeaders(),
+        headers: getAuthHeaders({ json: true }),
         body: JSON.stringify({
           email: form.email,
           firstName: form.firstName,
@@ -456,22 +645,22 @@ export default function SubBroker() {
     <>
       <PageMeta title="Sub Brokers | Broker Dashboard" description="Manage sub brokers" />
 
-      <div className="space-y-6">
+      <div className="space-y-4 pb-6">
         {/* Hero */}
-        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-gradient-to-br from-[#13538A] via-[#1a6aad] to-[#2C92D5] p-6 text-white shadow-sm dark:border-gray-800">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-gradient-to-br from-[#13538A] via-[#1a6aad] to-[#2C92D5] p-4 text-white shadow-sm dark:border-gray-800 sm:p-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-medium backdrop-blur-sm">
-                <Users className="h-3.5 w-3.5" />
+              <div className="mb-1.5 inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-0.5 text-[10px] font-medium backdrop-blur-sm">
+                <Users className="h-3 w-3" />
                 CRM · Team
               </div>
-              <h1 className="text-2xl font-semibold tracking-tight">Sub Brokers</h1>
-              <p className="mt-1 max-w-2xl text-sm text-white/80">
+              <h1 className="text-xl font-semibold tracking-tight">Sub Brokers</h1>
+              <p className="mt-1 max-w-2xl text-xs text-white/80">
                 Manage sub brokers, control access, and monitor their activity from one place.
               </p>
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-3 gap-2">
               {[
                 { label: "Total", value: stats.total, icon: Users },
                 { label: "Active", value: stats.active, icon: UserCheck },
@@ -479,13 +668,13 @@ export default function SubBroker() {
               ].map(({ label, value, icon: Icon }) => (
                 <div
                   key={label}
-                  className="rounded-xl bg-white/10 px-4 py-3 ring-1 ring-white/20 backdrop-blur-sm"
+                  className="rounded-lg bg-white/10 px-3 py-2 ring-1 ring-white/20 backdrop-blur-sm"
                 >
-                  <div className="flex items-center gap-2 text-white/70">
-                    <Icon className="h-4 w-4" />
-                    <span className="text-xs">{label}</span>
+                  <div className="flex items-center gap-1.5 text-white/70">
+                    <Icon className="h-3 w-3" />
+                    <span className="text-[10px]">{label}</span>
                   </div>
-                  <p className="mt-1 text-2xl font-semibold">{value}</p>
+                  <p className="mt-0.5 text-lg font-semibold">{value}</p>
                 </div>
               ))}
             </div>
@@ -493,15 +682,15 @@ export default function SubBroker() {
         </div>
 
         {/* Toolbar */}
-        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="rounded-2xl border border-gray-200 bg-white p-3 shadow-sm dark:border-gray-800 dark:bg-gray-900 sm:p-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
               <input
                 placeholder="Search by name, email, or phone..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="h-10 w-full rounded-xl border border-gray-200 bg-gray-50 pl-10 pr-10 text-sm outline-none focus:border-[#13538A]/40 focus:ring-2 focus:ring-[#13538A]/10 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
+                className="h-9 w-full rounded-xl border border-gray-200 bg-gray-50 pl-9 pr-9 text-xs outline-none focus:border-[#13538A]/40 focus:ring-2 focus:ring-[#13538A]/10 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
               />
               {search && (
                 <button
@@ -519,31 +708,31 @@ export default function SubBroker() {
                 type="button"
                 onClick={() => fetchOfficers()}
                 disabled={loading}
-                className="inline-flex h-10 items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-200"
+                className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-200"
               >
-                <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+                <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
                 Refresh
               </button>
 
               <button
                 type="button"
                 onClick={openCreateModal}
-                className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#13538A] px-4 text-sm font-medium text-white shadow-sm hover:bg-[#1a6aad]"
+                className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-[#13538A] px-3 text-xs font-medium text-white shadow-sm hover:bg-[#1a6aad]"
               >
-                <Plus className="h-4 w-4" />
+                <Plus className="h-3.5 w-3.5" />
                 Create Sub Broker
               </button>
             </div>
           </div>
 
-          <div className="mt-4 flex items-center gap-2 overflow-x-auto pb-1">
-            <span className="shrink-0 text-xs font-medium text-gray-500">Status:</span>
+          <div className="mt-3 flex items-center gap-2 overflow-x-auto pb-0.5">
+            <span className="shrink-0 text-[10px] font-medium text-gray-500">Status:</span>
             {(["", "ACTIVE", "DISABLED"] as const).map((status) => (
               <button
                 key={status || "all"}
                 type="button"
                 onClick={() => setStatusFilter(status)}
-                className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition ${
+                className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-medium transition ${
                   statusFilter === status
                     ? "bg-[#13538A] text-white"
                     : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300"
@@ -556,7 +745,7 @@ export default function SubBroker() {
         </div>
 
         {/* Table */}
-        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
+        <div className="rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
           {loading ? (
             <div className="divide-y divide-gray-100 dark:divide-gray-800">
               {Array.from({ length: 5 }).map((_, i) => (
@@ -594,14 +783,23 @@ export default function SubBroker() {
               )}
             </div>
           ) : (
-            <div className="max-h-[min(560px,calc(100vh-22rem))] overflow-auto">
-              <table className="w-full min-w-[920px] border-collapse text-left">
-                <thead className="sticky top-0 z-10 bg-gray-50 shadow-[0_1px_0_0_rgb(229_231_235)] dark:bg-gray-800 dark:shadow-[0_1px_0_0_rgb(31_41_55)]">
+            <div className="max-h-[calc(100vh-15rem)] overflow-y-auto overflow-x-hidden">
+              <table className="w-full table-fixed border-collapse text-left text-xs">
+                <colgroup>
+                  <col className="w-12" />
+                  <col className="w-[24%]" />
+                  <col className="w-[30%]" />
+                  <col className="w-[14%]" />
+                  <col className="w-[12%]" />
+                  <col className="w-[12%]" />
+                  <col className="w-14" />
+                </colgroup>
+                <thead className="sticky top-0 z-10 border-b border-gray-200 bg-gray-50/95 backdrop-blur dark:border-gray-700 dark:bg-gray-800/95">
                   <tr>
-                    <th className="w-12 px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-gray-400">
+                    <th className="px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
                       #
                     </th>
-                    <th className="px-4 py-3.5">
+                    <th className="px-4 py-2">
                       <SortHeader
                         label="Name"
                         active={sortKey === "name"}
@@ -609,7 +807,7 @@ export default function SubBroker() {
                         onClick={() => toggleSort("name")}
                       />
                     </th>
-                    <th className="px-4 py-3.5">
+                    <th className="px-4 py-2">
                       <SortHeader
                         label="Email"
                         active={sortKey === "email"}
@@ -617,7 +815,7 @@ export default function SubBroker() {
                         onClick={() => toggleSort("email")}
                       />
                     </th>
-                    <th className="px-4 py-3.5">
+                    <th className="px-4 py-2">
                       <SortHeader
                         label="Phone"
                         active={sortKey === "phone"}
@@ -625,7 +823,7 @@ export default function SubBroker() {
                         onClick={() => toggleSort("phone")}
                       />
                     </th>
-                    <th className="px-4 py-3.5">
+                    <th className="px-4 py-2">
                       <SortHeader
                         label="Status"
                         active={sortKey === "status"}
@@ -633,7 +831,7 @@ export default function SubBroker() {
                         onClick={() => toggleSort("status")}
                       />
                     </th>
-                    <th className="px-4 py-3.5">
+                    <th className="px-4 py-2">
                       <SortHeader
                         label="Created"
                         active={sortKey === "createdAt"}
@@ -641,14 +839,14 @@ export default function SubBroker() {
                         onClick={() => toggleSort("createdAt")}
                       />
                     </th>
-                    <th className="px-4 py-3.5 text-right">
-                      <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+                    <th className="px-4 py-2 text-right">
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                         Actions
                       </span>
                     </th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                   {sortedOfficers.map((o, index) => {
                     const fullName = `${o.firstName} ${o.lastName}`.trim();
                     const isActive = o.status === "ACTIVE";
@@ -656,63 +854,68 @@ export default function SubBroker() {
                     return (
                       <tr
                         key={o.id}
-                        className={`group border-b border-gray-100 transition last:border-b-0 dark:border-gray-800 ${
+                        className={`group transition-colors ${
                           isActive
-                            ? "hover:bg-[#13538A]/[0.04] dark:hover:bg-gray-800/60"
-                            : "bg-gray-50/40 hover:bg-gray-100/60 dark:bg-gray-900/30 dark:hover:bg-gray-800/60"
+                            ? "hover:bg-[#13538A]/[0.03] dark:hover:bg-gray-800/40"
+                            : "bg-gray-50/50 hover:bg-gray-100/70 dark:bg-gray-900/20 dark:hover:bg-gray-800/40"
                         }`}
                       >
-                        <td className="px-4 py-4 text-xs font-medium text-gray-400">
+                        <td className="px-4 py-2.5 text-[11px] font-medium tabular-nums text-gray-400">
                           {index + 1}
                         </td>
 
-                        <td className="px-4 py-4">
-                          <div className="flex items-center gap-3">
+                        <td className="px-4 py-2.5">
+                          <div className="flex min-w-0 items-center gap-2.5">
                             <span
-                              className={`relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-sm font-bold ring-2 ring-white dark:ring-gray-900 ${getAvatarTone(fullName)}`}
+                              className={`relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[11px] font-bold ring-1 ring-gray-200/80 dark:ring-gray-700 ${getAvatarTone(fullName)}`}
                             >
                               {getInitials(o.firstName, o.lastName)}
                               <span
-                                className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white dark:border-gray-900 ${
+                                className={`absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border border-white dark:border-gray-900 ${
                                   isActive ? "bg-emerald-500" : "bg-gray-400"
                                 }`}
                               />
                             </span>
                             <div className="min-w-0">
-                              <p className="truncate font-semibold text-gray-900 dark:text-gray-100">
+                              <p className="truncate text-xs font-semibold text-gray-900 dark:text-gray-100">
                                 {fullName}
                               </p>
-                              <p className="text-xs text-gray-400">Sub Broker</p>
+                              <p className="truncate text-[10px] text-gray-400">Sub Broker</p>
                             </div>
                           </div>
                         </td>
 
-                        <td className="px-4 py-4">
-                          <div className="flex max-w-[220px] items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
-                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-500 dark:bg-gray-800">
-                              <Mail className="h-3.5 w-3.5" />
-                            </span>
-                            <span className="truncate" title={o.email}>
-                              {o.email}
-                            </span>
-                          </div>
+                        <td className="px-4 py-2.5">
+                          <a
+                            href={`mailto:${o.email}`}
+                            className="flex min-w-0 items-center gap-1.5 text-xs text-gray-600 transition hover:text-[#13538A] dark:text-gray-300 dark:hover:text-cyan-400"
+                            title={o.email}
+                          >
+                            <Mail className="h-3 w-3 shrink-0 text-gray-400" />
+                            <span className="truncate">{o.email}</span>
+                          </a>
                         </td>
 
-                        <td className="px-4 py-4">
-                          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
-                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-500 dark:bg-gray-800">
-                              <Phone className="h-3.5 w-3.5" />
-                            </span>
-                            {o.phone ? formatPhone(o.phone) : "—"}
-                          </div>
+                        <td className="px-4 py-2.5">
+                          {o.phone ? (
+                            <a
+                              href={`tel:${o.phone}`}
+                              className="inline-flex items-center gap-1.5 text-xs text-gray-600 transition hover:text-[#13538A] dark:text-gray-300 dark:hover:text-cyan-400"
+                            >
+                              <Phone className="h-3 w-3 shrink-0 text-gray-400" />
+                              {formatPhone(o.phone)}
+                            </a>
+                          ) : (
+                            <span className="text-xs text-gray-400">—</span>
+                          )}
                         </td>
 
-                        <td className="px-4 py-4">
+                        <td className="px-4 py-2.5">
                           <button
                             type="button"
                             disabled={togglingId === o.id}
                             onClick={() => toggleStatus(o.id, o.status)}
-                            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition disabled:opacity-50 ${
+                            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide transition disabled:opacity-50 ${
                               isActive
                                 ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/30"
                                 : "bg-gray-100 text-gray-600 ring-1 ring-gray-200 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:ring-gray-700"
@@ -724,44 +927,32 @@ export default function SubBroker() {
                                 isActive ? "bg-emerald-500" : "bg-gray-400"
                               }`}
                             />
-                            {togglingId === o.id ? "Updating..." : isActive ? "Active" : "Disabled"}
+                            {togglingId === o.id ? "..." : isActive ? "Active" : "Disabled"}
                           </button>
                         </td>
 
-                        <td className="px-4 py-4">
-                          <div className="flex items-center gap-2 text-sm text-gray-500">
-                            <Calendar className="h-3.5 w-3.5 shrink-0 text-gray-400" />
-                            {formatDate(o.createdAt)}
+                        <td className="px-4 py-2.5">
+                          <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+                            <Calendar className="h-3 w-3 shrink-0 opacity-70" />
+                            <span className="whitespace-nowrap">{formatDate(o.createdAt)}</span>
                           </div>
                         </td>
 
-                        <td className="px-4 py-4">
-                          <div className="flex items-center justify-end gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setErrors({});
-                                fetchSubBrokerDetails(o.id);
-                              }}
-                              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-[#13538A] transition hover:border-[#13538A]/30 hover:bg-[#13538A]/10 dark:border-gray-700 dark:bg-gray-900"
-                              title="Edit sub broker"
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </button>
-                            <button
-                              type="button"
-                              disabled={togglingId === o.id}
-                              onClick={() => toggleStatus(o.id, o.status)}
-                              className={`inline-flex h-9 w-9 items-center justify-center rounded-lg border transition disabled:opacity-50 ${
-                                isActive
-                                  ? "border-emerald-200 bg-emerald-50 text-emerald-600 hover:bg-emerald-100"
-                                  : "border-gray-200 bg-white text-gray-500 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900"
-                              }`}
-                              title={isActive ? "Disable sub broker" : "Activate sub broker"}
-                            >
-                              <Power className="h-4 w-4" />
-                            </button>
-                          </div>
+                        <td className="px-2 py-2.5 text-right">
+                          <button
+                            type="button"
+                            data-menu-id={o.id}
+                            onClick={(event) => openRowMenu(o.id, event)}
+                            className={`inline-flex h-7 w-7 items-center justify-center rounded-md border border-transparent text-gray-500 transition hover:border-gray-200 hover:bg-gray-100 hover:text-gray-800 dark:text-gray-400 dark:hover:border-gray-700 dark:hover:bg-gray-800 dark:hover:text-white ${
+                              activeMenuId === o.id
+                                ? "border-gray-200 bg-gray-100 text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                                : ""
+                            }`}
+                            title="Actions"
+                            aria-label="Open actions menu"
+                          >
+                            <MoreVertical className="h-3.5 w-3.5" />
+                          </button>
                         </td>
                       </tr>
                     );
@@ -772,10 +963,26 @@ export default function SubBroker() {
           )}
 
           {!loading && sortedOfficers.length > 0 && (
-            <div className="flex flex-col gap-2 border-t border-gray-100 px-5 py-3 text-xs text-gray-500 sm:flex-row sm:items-center sm:justify-between dark:border-gray-800">
+            <div className="flex flex-col gap-1.5 border-t border-gray-100 bg-gray-50/50 px-4 py-2.5 text-[10px] text-gray-500 dark:border-gray-800 dark:bg-gray-900/50 sm:flex-row sm:items-center sm:justify-between">
               <span>
-                Showing <span className="font-semibold text-gray-800 dark:text-gray-200">{sortedOfficers.length}</span> of{" "}
-                <span className="font-semibold text-gray-800 dark:text-gray-200">{officers.length}</span> sub broker(s)
+                Showing{" "}
+                <span className="font-semibold text-gray-800 dark:text-gray-200">
+                  {sortedOfficers.length}
+                </span>{" "}
+                of{" "}
+                <span className="font-semibold text-gray-800 dark:text-gray-200">
+                  {officers.length}
+                </span>{" "}
+                sub broker(s)
+                {statusFilter ? (
+                  <>
+                    {" "}
+                    · filtered by{" "}
+                    <span className="font-medium text-[#13538A] dark:text-cyan-400">
+                      {statusFilter.toLowerCase()}
+                    </span>
+                  </>
+                ) : null}
               </span>
               <span className="text-gray-400">
                 Sorted by {sortKey.replace("createdAt", "created")} ({sortDir})
@@ -784,6 +991,76 @@ export default function SubBroker() {
           )}
         </div>
       </div>
+
+      {activeMenuUser &&
+        activeMenuId &&
+        createPortal(
+          <div
+            ref={menuRef}
+            style={{ position: "fixed", top: menuPos.top, left: menuPos.left }}
+            className="z-[9999] w-[168px] max-h-[min(196px,calc(100vh-16px))] overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-900"
+          >
+            <div className="border-b border-gray-100 px-3 py-2 dark:border-gray-800">
+              <p className="truncate text-[11px] font-semibold text-gray-900 dark:text-white">
+                {activeMenuUser.firstName} {activeMenuUser.lastName}
+              </p>
+              <p className="truncate text-[10px] text-gray-500">{activeMenuUser.email}</p>
+            </div>
+
+            <div className="py-0.5">
+              <button
+                type="button"
+                disabled={viewLoading}
+                onClick={() => {
+                  closeRowMenu();
+                  openViewSubBroker(activeMenuUser.id);
+                }}
+                className="flex w-full items-center gap-2 px-3 py-2 text-xs text-gray-700 transition hover:bg-gray-50 disabled:opacity-50 dark:text-gray-200 dark:hover:bg-gray-800"
+              >
+                <Eye className="h-3.5 w-3.5 text-[#13538A]" />
+                View details
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  closeRowMenu();
+                  setErrors({});
+                  openEditSubBroker(activeMenuUser.id);
+                }}
+                className="flex w-full items-center gap-2 px-3 py-2 text-xs text-gray-700 transition hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-800"
+              >
+                <Pencil className="h-3.5 w-3.5 text-amber-600" />
+                Edit
+              </button>
+              <button
+                type="button"
+                disabled={togglingId === activeMenuUser.id}
+                onClick={() => toggleStatus(activeMenuUser.id, activeMenuUser.status)}
+                className="flex w-full items-center gap-2 px-3 py-2 text-xs text-gray-700 transition hover:bg-gray-50 disabled:opacity-50 dark:text-gray-200 dark:hover:bg-gray-800"
+              >
+                <Power
+                  className={`h-3.5 w-3.5 ${
+                    activeMenuUser.status === "ACTIVE" ? "text-emerald-600" : "text-gray-500"
+                  }`}
+                />
+                {activeMenuUser.status === "ACTIVE" ? "Disable" : "Enable"}
+              </button>
+            </div>
+
+            <div className="border-t border-gray-100 py-0.5 dark:border-gray-800">
+              <button
+                type="button"
+                disabled={deletingId === activeMenuUser.id}
+                onClick={() => handleDelete(activeMenuUser.id)}
+                className="flex w-full items-center gap-2 px-3 py-2 text-xs text-red-600 transition hover:bg-red-50 disabled:opacity-50 dark:text-red-400 dark:hover:bg-red-500/10"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                Delete
+              </button>
+            </div>
+          </div>,
+          document.body,
+        )}
 
       {showModal &&
         createPortal(
@@ -941,6 +1218,98 @@ export default function SubBroker() {
             </div>
           </div>,
           document.body
+        )}
+
+      {viewSubBroker &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
+            onClick={() => setViewSubBroker(null)}
+            role="dialog"
+            aria-modal="true"
+          >
+            <div
+              className="flex max-h-[min(90vh,640px)] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-900"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex shrink-0 items-start justify-between border-b px-6 py-4 dark:border-gray-800">
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    Sub Broker Profile
+                  </h2>
+                  <p className="text-sm text-gray-500">Read-only view of sub broker details.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setViewSubBroker(null)}
+                  className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-red-500 dark:hover:bg-gray-800"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="space-y-6 overflow-y-auto p-6">
+                <div className="flex flex-col items-center text-center">
+                  <span
+                    className={`flex h-16 w-16 items-center justify-center rounded-2xl text-lg font-bold ${getAvatarTone(
+                      `${viewSubBroker.firstName} ${viewSubBroker.lastName}`,
+                    )}`}
+                  >
+                    {getInitials(viewSubBroker.firstName, viewSubBroker.lastName)}
+                  </span>
+                  <h3 className="mt-4 text-xl font-semibold text-gray-900 dark:text-white">
+                    {viewSubBroker.firstName} {viewSubBroker.lastName}
+                  </h3>
+                  <p className="text-sm text-gray-500">{viewSubBroker.email}</p>
+                  <span
+                    className={`mt-2 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${
+                      viewSubBroker.status === "ACTIVE"
+                        ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300"
+                        : "bg-gray-100 text-gray-600 ring-1 ring-gray-200 dark:bg-gray-800 dark:text-gray-300"
+                    }`}
+                  >
+                    {viewSubBroker.status === "ACTIVE" ? "Active" : "Disabled"}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <InfoItem label="Email" value={viewSubBroker.email} />
+                  <InfoItem
+                    label="Phone"
+                    value={viewSubBroker.phone ? formatPhone(viewSubBroker.phone) : "—"}
+                  />
+                  <InfoItem label="Status" value={viewSubBroker.status} />
+                  <InfoItem label="Created" value={formatDate(viewSubBroker.createdAt)} />
+                  {viewSubBroker.updatedAt && (
+                    <InfoItem label="Last Updated" value={formatDate(viewSubBroker.updatedAt)} />
+                  )}
+                </div>
+              </div>
+
+              <div className="flex shrink-0 justify-end gap-3 border-t px-6 py-4 dark:border-gray-800">
+                <button
+                  type="button"
+                  onClick={() => setViewSubBroker(null)}
+                  className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300"
+                >
+                  Close
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const id = viewSubBroker.id;
+                    setViewSubBroker(null);
+                    setErrors({});
+                    openEditSubBroker(id);
+                  }}
+                  className="rounded-xl bg-[#13538A] px-5 py-2 text-sm font-semibold text-white hover:bg-[#1a6aad]"
+                >
+                  Edit Sub Broker
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body,
         )}
     </>
   );

@@ -1,4 +1,5 @@
 module.exports = async function viewSubmission(fastify) {
+  const { mapSubmissionFieldResponse } = require("../../../../services/staticSubmissionFields");
   fastify.get("/submissions/:submissionId", async (req, reply) => {
     const { submissionId } = req.params;
 
@@ -143,15 +144,7 @@ module.exports = async function viewSubmission(fastify) {
         submittedAt: submission.createdAt,
 
         /* ================= FIELDS ================= */
-        fields: submission.fields.map((f) => ({
-          fieldId: f.fieldId,
-          fieldKey: f.builderField?.fieldKey ?? f.fieldKey,
-          label: f.builderField?.label ?? "Deleted Field",
-          type: f.builderField?.fieldType ?? null,
-          options: f.builderField?.options ?? null,
-          value: f.value,
-          source: f.source,
-        })),
+        fields: submission.fields.map((f) => mapSubmissionFieldResponse(f)),
 
         /* ================= LENDER REVIEWS ================= */
         lenders: submission.application.applicationLenders

@@ -11,21 +11,28 @@ import {
   Pencil,
   Phone,
   Plus,
+  Power,
   RefreshCw,
   Search,
   Trash2,
+  MoreVertical,
   UserCheck,
   Users,
   UserX,
   Activity,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
+import { createPortal } from "react-dom";
 import toast from "react-hot-toast";
 import Swal from "sweetalert2";
 // import Select from "react-select";
 import PageMeta from "../../components/common/PageMeta";
+import ViewLoanOfficerModal from "./ViewLoanOfficerModal";
+import { US_STATES, formatPhone } from "./loanOfficerShared";
+
+export { PERMISSIONS, US_STATES } from "./loanOfficerShared";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
@@ -84,127 +91,6 @@ const initialFormState = {
   avatarPreview: "",
 };
 
-export const PERMISSIONS = [
-  {
-    title: "Loan Management",
-    items: [
-      { label: "View Loan Pipeline", key: "VIEW_PIPELINE" },
-      { label: "View Applications", key: "VIEW_APPLICATIONS" },
-      { label: "Create Applications", key: "CREATE_APPLICATION" },
-    ],
-  },
-  {
-    title: "Team Management",
-    items: [{ label: "Manage Loan Officers", key: "MANAGE_LOAN_OFFICERS" }],
-  },
-  {
-    title: "Clients",
-    items: [
-      { label: "View Clients", key: "VIEW_CLIENTS" },
-      { label: "Manage Clients", key: "MANAGE_CLIENTS" },
-    ],
-  },
-  {
-    title: "Lenders",
-    items: [{ label: "View Lenders", key: "VIEW_LENDERS" }],
-  },
-  {
-    title: "Templates & Website",
-    items: [
-      { label: "View Templates", key: "VIEW_TEMPLATES" },
-      { label: "Manage Templates", key: "MANAGE_TEMPLATES" },
-      { label: "Website Builder Access", key: "VIEW_WEBSITE_BUILDER" },
-    ],
-  },
-  {
-    title: "Settings",
-    items: [
-      { label: "View Settings", key: "VIEW_SETTINGS" },
-      { label: "Manage Settings", key: "MANAGE_SETTINGS" },
-    ],
-  },
-  {
-    title: "Reports & Logs",
-    items: [
-      { label: "View Logs", key: "VIEW_LOGS" },
-      { label: "View Dashboard Stats", key: "VIEW_STATS" },
-    ],
-  },
-  {
-    title: "Notifications",
-    items: [{ label: "View Notifications", key: "VIEW_NOTIFICATIONS" }],
-  },
-];
-
-// const permissionOptions = PERMISSIONS.flatMap((group) =>
-//   group.items.map((item) => ({
-//     label: `${group.title} - ${item.label}`,
-//     value: item.key,
-//   })),
-// );
-
-export const US_STATES = [
-  { code: "AL", name: "Alabama" },
-  { code: "AK", name: "Alaska" },
-  { code: "AZ", name: "Arizona" },
-  { code: "AR", name: "Arkansas" },
-  { code: "CA", name: "California" },
-  { code: "CO", name: "Colorado" },
-  { code: "CT", name: "Connecticut" },
-  { code: "DE", name: "Delaware" },
-  { code: "FL", name: "Florida" },
-  { code: "GA", name: "Georgia" },
-  { code: "HI", name: "Hawaii" },
-  { code: "ID", name: "Idaho" },
-  { code: "IL", name: "Illinois" },
-  { code: "IN", name: "Indiana" },
-  { code: "IA", name: "Iowa" },
-  { code: "KS", name: "Kansas" },
-  { code: "KY", name: "Kentucky" },
-  { code: "LA", name: "Louisiana" },
-  { code: "ME", name: "Maine" },
-  { code: "MD", name: "Maryland" },
-  { code: "MA", name: "Massachusetts" },
-  { code: "MI", name: "Michigan" },
-  { code: "MN", name: "Minnesota" },
-  { code: "MS", name: "Mississippi" },
-  { code: "MO", name: "Missouri" },
-  { code: "MT", name: "Montana" },
-  { code: "NE", name: "Nebraska" },
-  { code: "NV", name: "Nevada" },
-  { code: "NH", name: "New Hampshire" },
-  { code: "NJ", name: "New Jersey" },
-  { code: "NM", name: "New Mexico" },
-  { code: "NY", name: "New York" },
-  { code: "NC", name: "North Carolina" },
-  { code: "ND", name: "North Dakota" },
-  { code: "OH", name: "Ohio" },
-  { code: "OK", name: "Oklahoma" },
-  { code: "OR", name: "Oregon" },
-  { code: "PA", name: "Pennsylvania" },
-  { code: "RI", name: "Rhode Island" },
-  { code: "SC", name: "South Carolina" },
-  { code: "SD", name: "South Dakota" },
-  { code: "TN", name: "Tennessee" },
-  { code: "TX", name: "Texas" },
-  { code: "UT", name: "Utah" },
-  { code: "VT", name: "Vermont" },
-  { code: "VA", name: "Virginia" },
-  { code: "WA", name: "Washington" },
-  { code: "WV", name: "West Virginia" },
-  { code: "WI", name: "Wisconsin" },
-  { code: "WY", name: "Wyoming" },
-];
-
-const formatPhone = (value: string) => {
-  const digits = value.replace(/\D/g, "").slice(0, 10);
-
-  if (digits.length < 4) return digits;
-  if (digits.length < 7) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
-
-  return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
-};
-
 const cleanNumber = (value: string) => {
   return value.replace(/\D/g, "");
 };
@@ -245,24 +131,53 @@ function formatDate(value?: string) {
 type SortKey = "name" | "email" | "phone" | "status" | "createdAt";
 type SortDir = "asc" | "desc";
 
+const ACTION_MENU_WIDTH = 168;
+const ACTION_MENU_HEIGHT = 232;
+
+function computeActionMenuPosition(rect: DOMRect) {
+  const padding = 8;
+  const spaceBelow = window.innerHeight - rect.bottom;
+  const spaceAbove = rect.top;
+  const openUpward =
+    spaceBelow < ACTION_MENU_HEIGHT + padding && spaceAbove > spaceBelow;
+
+  let top = openUpward ? rect.top - ACTION_MENU_HEIGHT - 6 : rect.bottom + 6;
+  top = Math.max(
+    padding,
+    Math.min(top, window.innerHeight - ACTION_MENU_HEIGHT - padding),
+  );
+
+  const left = Math.max(
+    padding,
+    Math.min(
+      rect.right - ACTION_MENU_WIDTH,
+      window.innerWidth - ACTION_MENU_WIDTH - padding,
+    ),
+  );
+
+  return { top, left };
+}
+
 function SortHeader({
   label,
   active,
   direction,
   onClick,
+  align = "left",
 }: {
   label: string;
   active: boolean;
   direction: SortDir;
   onClick: () => void;
+  align?: "left" | "right";
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`group inline-flex w-full items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-gray-500 transition hover:text-[#13538A] ${
-        active ? "text-[#13538A]" : ""
-      }`}
+      className={`group inline-flex w-full items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-gray-500 transition hover:text-[#13538A] ${
+        align === "right" ? "justify-end" : "justify-start"
+      } ${active ? "text-[#13538A]" : ""}`}
     >
       {label}
       {active ? (
@@ -326,6 +241,9 @@ export default function LoanOfficersPage() {
   const [statusFilter, setStatusFilter] = useState<"" | "ACTIVE" | "DISABLED">("");
   const [sortKey, setSortKey] = useState<SortKey>("createdAt");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+  const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
+  const menuRef = useRef<HTMLDivElement | null>(null);
 
   const updateField = (key: keyof FormState, value: any) => {
     setForm((prev) => ({
@@ -392,6 +310,7 @@ export default function LoanOfficersPage() {
       }
 
       toast.success("Status updated");
+      closeRowMenu();
       fetchOfficers();
     } catch (err) {
       toast.error("Something went wrong");
@@ -477,6 +396,58 @@ export default function LoanOfficersPage() {
     fetchOfficers();
   }, [page, debouncedSearch]);
 
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (
+        menuRef.current?.contains(target) ||
+        (target instanceof Element && target.closest("[data-menu-id]"))
+      ) {
+        return;
+      }
+      setActiveMenuId(null);
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setActiveMenuId(null);
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!activeMenuId) return;
+
+    const reposition = () => {
+      const btn = document.querySelector(
+        `[data-menu-id="${activeMenuId}"]`,
+      ) as HTMLElement | null;
+      if (!btn) return;
+      setMenuPos(computeActionMenuPosition(btn.getBoundingClientRect()));
+    };
+
+    reposition();
+    window.addEventListener("scroll", reposition, true);
+    window.addEventListener("resize", reposition);
+    return () => {
+      window.removeEventListener("scroll", reposition, true);
+      window.removeEventListener("resize", reposition);
+    };
+  }, [activeMenuId]);
+
+  const openRowMenu = (id: string, event: React.MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    setMenuPos(computeActionMenuPosition(event.currentTarget.getBoundingClientRect()));
+    setActiveMenuId((current) => (current === id ? null : id));
+  };
+
+  const closeRowMenu = () => setActiveMenuId(null);
+
   const filteredOfficers = useMemo(() => {
     if (!statusFilter) return officers;
     return officers.filter((o) => o.status === statusFilter);
@@ -511,6 +482,11 @@ export default function LoanOfficersPage() {
 
     return list;
   }, [filteredOfficers, sortKey, sortDir]);
+
+  const activeMenuUser = useMemo(
+    () => sortedOfficers.find((o) => o.id === activeMenuId) ?? null,
+    [sortedOfficers, activeMenuId],
+  );
 
   const stats = useMemo(
     () => ({
@@ -878,6 +854,7 @@ export default function LoanOfficersPage() {
 
     if (!result.isConfirmed) return;
 
+    closeRowMenu();
     const token = sessionStorage.getItem("broker_token");
     try {
       await fetch(`${API_BASE}/broker/users/${id}`, {
@@ -916,28 +893,6 @@ export default function LoanOfficersPage() {
   //   }
   //   return key;
   // };
-
-  const InfoItem = ({ label, value }: { label: string; value: any }) => (
-    <div className="space-y-1">
-      <p
-        className="text-xs font-semibold uppercase tracking-wide
-      text-slate-500 dark:text-slate-400"
-      >
-        {label}
-      </p>
-
-      <div
-        className="
-      w-full px-4 py-2.5 rounded-lg border
-      border-slate-200 dark:border-slate-600
-      bg-slate-100 dark:bg-slate-700
-      text-slate-800 dark:text-slate-200 cursor-not-allowed
-    "
-      >
-        {value || "-"}
-      </div>
-    </div>
-  );
 
   // const isDark = document.documentElement.classList.contains("dark");
 
@@ -1015,49 +970,50 @@ export default function LoanOfficersPage() {
     <>
       <PageMeta title="Loan Officers | Broker Dashboard" description="Manage loan officers" />
 
-      <div className="space-y-6">
+      <div className="space-y-4 pb-6">
         {/* Hero */}
-        <div className="overflow-hidden rounded-2xl border border-[#13538A]/15 bg-gradient-to-br from-[#13538A] via-[#1a6aad] to-[#2C92D5] p-6 text-white shadow-sm sm:p-8">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-gradient-to-br from-[#13538A] via-[#1a6aad] to-[#2C92D5] p-4 text-white shadow-sm dark:border-gray-800 sm:p-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-widest text-white/70">
+              <div className="mb-1.5 inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-0.5 text-[10px] font-medium backdrop-blur-sm">
+                <Users className="h-3 w-3" />
                 CRM · Team
-              </p>
-              <h1 className="mt-1 text-2xl font-bold sm:text-3xl">Loan Officers</h1>
-              <p className="mt-2 max-w-xl text-sm text-white/80">
+              </div>
+              <h1 className="text-xl font-semibold tracking-tight">Loan Officers</h1>
+              <p className="mt-1 max-w-2xl text-xs text-white/80">
                 Manage and monitor all your loan officers in one place.
               </p>
             </div>
 
-            <div className="flex flex-wrap gap-3">
-              <div className="rounded-xl bg-white/10 px-4 py-3 backdrop-blur-sm">
-                <p className="text-xs text-white/70">Total (page)</p>
-                <p className="text-2xl font-bold">{stats.total}</p>
+            <div className="grid grid-cols-3 gap-2">
+              <div className="rounded-lg bg-white/10 px-3 py-2 ring-1 ring-white/20 backdrop-blur-sm">
+                <p className="text-[10px] text-white/70">Total (page)</p>
+                <p className="mt-0.5 text-lg font-semibold">{stats.total}</p>
               </div>
-              <div className="rounded-xl bg-white/10 px-4 py-3 backdrop-blur-sm">
-                <p className="flex items-center gap-1 text-xs text-white/70">
+              <div className="rounded-lg bg-white/10 px-3 py-2 ring-1 ring-white/20 backdrop-blur-sm">
+                <p className="flex items-center gap-1 text-[10px] text-white/70">
                   <UserCheck className="h-3 w-3" /> Active
                 </p>
-                <p className="text-2xl font-bold">{stats.active}</p>
+                <p className="mt-0.5 text-lg font-semibold">{stats.active}</p>
               </div>
-              <div className="rounded-xl bg-white/10 px-4 py-3 backdrop-blur-sm">
-                <p className="flex items-center gap-1 text-xs text-white/70">
+              <div className="rounded-lg bg-white/10 px-3 py-2 ring-1 ring-white/20 backdrop-blur-sm">
+                <p className="flex items-center gap-1 text-[10px] text-white/70">
                   <UserX className="h-3 w-3" /> Disabled
                 </p>
-                <p className="text-2xl font-bold">{stats.disabled}</p>
+                <p className="mt-0.5 text-lg font-semibold">{stats.disabled}</p>
               </div>
             </div>
           </div>
         </div>
 
         {/* Toolbar */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex flex-1 flex-wrap items-center gap-3">
-            <div className="relative min-w-[220px] flex-1 sm:max-w-xs">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+        <div className="rounded-2xl border border-gray-200 bg-white p-3 shadow-sm dark:border-gray-800 dark:bg-gray-900 sm:p-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
               <input
                 placeholder="Search loan officers..."
-                className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-10 text-sm text-gray-800 outline-none transition focus:border-[#13538A]/40 focus:ring-2 focus:ring-[#13538A]/10 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+                className="h-9 w-full rounded-xl border border-gray-200 bg-gray-50 pl-9 pr-9 text-xs outline-none focus:border-[#13538A]/40 focus:ring-2 focus:ring-[#13538A]/10 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
@@ -1065,53 +1021,56 @@ export default function LoanOfficersPage() {
                 <button
                   type="button"
                   onClick={() => setSearch("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500"
                 >
-                  <X className="h-4 w-4" />
+                  <X className="h-3.5 w-3.5" />
                 </button>
               )}
             </div>
 
-            <div className="flex rounded-xl border border-gray-200 bg-white p-1 dark:border-gray-700 dark:bg-gray-900">
-              {(["", "ACTIVE", "DISABLED"] as const).map((value) => (
-                <button
-                  key={value || "all"}
-                  type="button"
-                  onClick={() => setStatusFilter(value)}
-                  className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
-                    statusFilter === value
-                      ? "bg-[#13538A] text-white shadow-sm"
-                      : "text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800"
-                  }`}
-                >
-                  {value === "" ? "All" : value === "ACTIVE" ? "Active" : "Disabled"}
-                </button>
-              ))}
-            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => fetchOfficers()}
+                disabled={loading}
+                className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-200"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+                Refresh
+              </button>
 
-            <button
-              type="button"
-              onClick={() => fetchOfficers()}
-              disabled={loading}
-              className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
-            >
-              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-              Refresh
-            </button>
+              <button
+                type="button"
+                onClick={openCreateModal}
+                className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-[#13538A] px-3 text-xs font-medium text-white shadow-sm hover:bg-[#1a6aad]"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Create Loan Officer
+              </button>
+            </div>
           </div>
 
-          <button
-            type="button"
-            onClick={openCreateModal}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#13538A] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#1a6aad]"
-          >
-            <Plus className="h-4 w-4" />
-            Create Loan Officer
-          </button>
+          <div className="mt-3 flex items-center gap-2 overflow-x-auto pb-0.5">
+            <span className="shrink-0 text-[10px] font-medium text-gray-500">Status:</span>
+            {(["", "ACTIVE", "DISABLED"] as const).map((value) => (
+              <button
+                key={value || "all"}
+                type="button"
+                onClick={() => setStatusFilter(value)}
+                className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-medium transition ${
+                  statusFilter === value
+                    ? "bg-[#13538A] text-white"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300"
+                }`}
+              >
+                {value === "" ? "All" : value === "ACTIVE" ? "Active" : "Disabled"}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Table */}
-        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
+        <div className="rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
           {loading ? (
             <div className="divide-y divide-gray-100 dark:divide-gray-800">
               {Array.from({ length: 5 }).map((_, i) => (
@@ -1149,14 +1108,23 @@ export default function LoanOfficersPage() {
               )}
             </div>
           ) : (
-            <div className="max-h-[min(560px,calc(100vh-22rem))] overflow-auto">
-              <table className="w-full min-w-[980px] border-collapse text-left">
-                <thead className="sticky top-0 z-10 bg-gray-50 shadow-[0_1px_0_0_rgb(229_231_235)] dark:bg-gray-800 dark:shadow-[0_1px_0_0_rgb(31_41_55)]">
+            <div className="max-h-[calc(100vh-15rem)] overflow-y-auto overflow-x-hidden">
+              <table className="w-full table-fixed border-collapse text-left text-xs">
+                <colgroup>
+                  <col className="w-12" />
+                  <col className="w-[24%]" />
+                  <col className="w-[30%]" />
+                  <col className="w-[14%]" />
+                  <col className="w-[12%]" />
+                  <col className="w-[12%]" />
+                  <col className="w-14" />
+                </colgroup>
+                <thead className="sticky top-0 z-10 border-b border-gray-200 bg-gray-50/95 backdrop-blur dark:border-gray-700 dark:bg-gray-800/95">
                   <tr>
-                    <th className="w-12 px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-gray-400">
+                    <th className="px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
                       #
                     </th>
-                    <th className="px-4 py-3.5">
+                    <th className="px-4 py-2">
                       <SortHeader
                         label="Name"
                         active={sortKey === "name"}
@@ -1164,7 +1132,7 @@ export default function LoanOfficersPage() {
                         onClick={() => toggleSort("name")}
                       />
                     </th>
-                    <th className="px-4 py-3.5">
+                    <th className="px-4 py-2">
                       <SortHeader
                         label="Email"
                         active={sortKey === "email"}
@@ -1172,7 +1140,7 @@ export default function LoanOfficersPage() {
                         onClick={() => toggleSort("email")}
                       />
                     </th>
-                    <th className="px-4 py-3.5">
+                    <th className="px-4 py-2">
                       <SortHeader
                         label="Phone"
                         active={sortKey === "phone"}
@@ -1180,7 +1148,7 @@ export default function LoanOfficersPage() {
                         onClick={() => toggleSort("phone")}
                       />
                     </th>
-                    <th className="px-4 py-3.5">
+                    <th className="px-4 py-2">
                       <SortHeader
                         label="Status"
                         active={sortKey === "status"}
@@ -1188,7 +1156,7 @@ export default function LoanOfficersPage() {
                         onClick={() => toggleSort("status")}
                       />
                     </th>
-                    <th className="px-4 py-3.5">
+                    <th className="px-4 py-2">
                       <SortHeader
                         label="Created"
                         active={sortKey === "createdAt"}
@@ -1196,14 +1164,14 @@ export default function LoanOfficersPage() {
                         onClick={() => toggleSort("createdAt")}
                       />
                     </th>
-                    <th className="px-4 py-3.5 text-right">
-                      <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+                    <th className="px-4 py-2 text-right">
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                         Actions
                       </span>
                     </th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                   {sortedOfficers.map((o, index) => {
                     const fullName = `${o.firstName} ${o.lastName}`.trim();
                     const isActive = o.status === "ACTIVE";
@@ -1211,19 +1179,19 @@ export default function LoanOfficersPage() {
                     return (
                       <tr
                         key={o.id}
-                        className={`group border-b border-gray-100 transition last:border-b-0 dark:border-gray-800 ${
+                        className={`group transition-colors ${
                           isActive
-                            ? "hover:bg-[#13538A]/[0.04] dark:hover:bg-gray-800/60"
-                            : "bg-gray-50/40 hover:bg-gray-100/60 dark:bg-gray-900/30 dark:hover:bg-gray-800/60"
+                            ? "hover:bg-[#13538A]/[0.03] dark:hover:bg-gray-800/40"
+                            : "bg-gray-50/50 hover:bg-gray-100/70 dark:bg-gray-900/20 dark:hover:bg-gray-800/40"
                         }`}
                       >
-                        <td className="px-4 py-4 text-xs font-medium text-gray-400">
+                        <td className="px-4 py-2.5 text-[11px] font-medium tabular-nums text-gray-400">
                           {(page - 1) * limit + index + 1}
                         </td>
 
-                        <td className="px-4 py-4">
-                          <div className="flex items-center gap-3">
-                            <span className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl ring-2 ring-white dark:ring-gray-900">
+                        <td className="px-4 py-2.5">
+                          <div className="flex min-w-0 items-center gap-2.5">
+                            <span className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg ring-1 ring-gray-200/80 dark:ring-gray-700">
                               {o.profile?.avatarUrl ? (
                                 <img
                                   src={`${API_BASE}${o.profile.avatarUrl}`}
@@ -1232,54 +1200,59 @@ export default function LoanOfficersPage() {
                                 />
                               ) : (
                                 <span
-                                  className={`flex h-full w-full items-center justify-center text-sm font-bold ${getAvatarTone(fullName)}`}
+                                  className={`flex h-full w-full items-center justify-center text-[11px] font-bold ${getAvatarTone(fullName)}`}
                                 >
                                   {getInitials(o.firstName, o.lastName)}
                                 </span>
                               )}
                               <span
-                                className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white dark:border-gray-900 ${
+                                className={`absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border border-white dark:border-gray-900 ${
                                   isActive ? "bg-emerald-500" : "bg-gray-400"
                                 }`}
                               />
                             </span>
                             <div className="min-w-0">
-                              <p className="truncate font-semibold text-gray-900 dark:text-gray-100">
+                              <p className="truncate text-xs font-semibold text-gray-900 dark:text-gray-100">
                                 {fullName}
                               </p>
-                              <p className="truncate text-xs text-gray-400">
+                              <p className="truncate text-[10px] text-gray-400">
                                 {o.profile?.agentType || "Loan Officer"}
                               </p>
                             </div>
                           </div>
                         </td>
 
-                        <td className="px-4 py-4">
-                          <div className="flex max-w-[220px] items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
-                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-500 dark:bg-gray-800">
-                              <Mail className="h-3.5 w-3.5" />
-                            </span>
-                            <span className="truncate" title={o.email}>
-                              {o.email}
-                            </span>
-                          </div>
+                        <td className="px-4 py-2.5">
+                          <a
+                            href={`mailto:${o.email}`}
+                            className="flex min-w-0 items-center gap-1.5 text-xs text-gray-600 transition hover:text-[#13538A] dark:text-gray-300 dark:hover:text-cyan-400"
+                            title={o.email}
+                          >
+                            <Mail className="h-3 w-3 shrink-0 text-gray-400" />
+                            <span className="truncate">{o.email}</span>
+                          </a>
                         </td>
 
-                        <td className="px-4 py-4">
-                          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
-                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-500 dark:bg-gray-800">
-                              <Phone className="h-3.5 w-3.5" />
-                            </span>
-                            {o.phone ? formatPhone(o.phone) : "—"}
-                          </div>
+                        <td className="px-4 py-2.5">
+                          {o.phone ? (
+                            <a
+                              href={`tel:${o.phone}`}
+                              className="inline-flex items-center gap-1.5 text-xs text-gray-600 transition hover:text-[#13538A] dark:text-gray-300 dark:hover:text-cyan-400"
+                            >
+                              <Phone className="h-3 w-3 shrink-0 text-gray-400" />
+                              {formatPhone(o.phone)}
+                            </a>
+                          ) : (
+                            <span className="text-xs text-gray-400">—</span>
+                          )}
                         </td>
 
-                        <td className="px-4 py-4">
+                        <td className="px-4 py-2.5">
                           <button
                             type="button"
                             disabled={togglingId === o.id}
                             onClick={() => toggleStatus(o.id, o.status)}
-                            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition disabled:opacity-50 ${
+                            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide transition disabled:opacity-50 ${
                               isActive
                                 ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/30"
                                 : "bg-gray-100 text-gray-600 ring-1 ring-gray-200 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:ring-gray-700"
@@ -1291,56 +1264,32 @@ export default function LoanOfficersPage() {
                                 isActive ? "bg-emerald-500" : "bg-gray-400"
                               }`}
                             />
-                            {togglingId === o.id ? "Updating..." : isActive ? "Active" : "Disabled"}
+                            {togglingId === o.id ? "..." : isActive ? "Active" : "Disabled"}
                           </button>
                         </td>
 
-                        <td className="px-4 py-4">
-                          <div className="flex items-center gap-2 text-sm text-gray-500">
-                            <Calendar className="h-3.5 w-3.5 shrink-0 text-gray-400" />
-                            {formatDate(o.createdAt)}
+                        <td className="px-4 py-2.5">
+                          <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+                            <Calendar className="h-3 w-3 shrink-0 opacity-70" />
+                            <span className="whitespace-nowrap">{formatDate(o.createdAt)}</span>
                           </div>
                         </td>
 
-                        <td className="px-4 py-4">
-                          <div className="flex items-center justify-end gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                navigate("/loan-officer-activity", {
-                                  state: { officerId: o.id },
-                                })
-                              }
-                              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-sky-600 transition hover:border-sky-200 hover:bg-sky-50 dark:border-gray-700 dark:bg-gray-900"
-                              title="View activity"
-                            >
-                              <Activity className="h-4 w-4" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setViewOfficer(o)}
-                              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-[#13538A] transition hover:border-[#13538A]/30 hover:bg-[#13538A]/10 dark:border-gray-700 dark:bg-gray-900"
-                              title="View profile"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => openEditModal(o)}
-                              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-amber-600 transition hover:border-amber-200 hover:bg-amber-50 dark:border-gray-700 dark:bg-gray-900"
-                              title="Edit loan officer"
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDelete(o.id)}
-                              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-red-600 transition hover:border-red-200 hover:bg-red-50 dark:border-gray-700 dark:bg-gray-900"
-                              title="Delete loan officer"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </div>
+                        <td className="px-2 py-2.5 text-right">
+                          <button
+                            type="button"
+                            data-menu-id={o.id}
+                            onClick={(event) => openRowMenu(o.id, event)}
+                            className={`inline-flex h-7 w-7 items-center justify-center rounded-md border border-transparent text-gray-500 transition hover:border-gray-200 hover:bg-gray-100 hover:text-gray-800 dark:text-gray-400 dark:hover:border-gray-700 dark:hover:bg-gray-800 dark:hover:text-white ${
+                              activeMenuId === o.id
+                                ? "border-gray-200 bg-gray-100 text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                                : ""
+                            }`}
+                            title="Actions"
+                            aria-label="Open actions menu"
+                          >
+                            <MoreVertical className="h-3.5 w-3.5" />
+                          </button>
                         </td>
                       </tr>
                     );
@@ -1351,17 +1300,25 @@ export default function LoanOfficersPage() {
           )}
 
           {!loading && sortedOfficers.length > 0 && (
-            <div className="flex flex-col gap-3 border-t border-gray-100 px-5 py-3 dark:border-gray-800 sm:flex-row sm:items-center sm:justify-between">
-              <span className="text-xs text-gray-500">
+            <div className="flex flex-col gap-1.5 border-t border-gray-100 bg-gray-50/50 px-4 py-2.5 text-[10px] text-gray-500 dark:border-gray-800 dark:bg-gray-900/50 sm:flex-row sm:items-center sm:justify-between">
+              <span>
                 Showing{" "}
                 <span className="font-semibold text-gray-800 dark:text-gray-200">
                   {sortedOfficers.length}
                 </span>{" "}
                 on page{" "}
                 <span className="font-semibold text-gray-800 dark:text-gray-200">{page}</span>
-                {statusFilter ? ` · filtered by ${statusFilter.toLowerCase()}` : ""}
+                {statusFilter ? (
+                  <>
+                    {" "}
+                    · filtered by{" "}
+                    <span className="font-medium text-[#13538A] dark:text-cyan-400">
+                      {statusFilter.toLowerCase()}
+                    </span>
+                  </>
+                ) : null}
               </span>
-              <span className="text-xs text-gray-400">
+              <span className="text-gray-400">
                 Sorted by {sortKey.replace("createdAt", "created")} ({sortDir})
               </span>
             </div>
@@ -1400,6 +1357,86 @@ export default function LoanOfficersPage() {
           </div>
         )}
       </div>
+
+      {activeMenuUser &&
+        activeMenuId &&
+        createPortal(
+          <div
+            ref={menuRef}
+            style={{ position: "fixed", top: menuPos.top, left: menuPos.left }}
+            className="z-[9999] w-[168px] max-h-[min(232px,calc(100vh-16px))] overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-900"
+          >
+            <div className="border-b border-gray-100 px-3 py-2 dark:border-gray-800">
+              <p className="truncate text-[11px] font-semibold text-gray-900 dark:text-white">
+                {activeMenuUser.firstName} {activeMenuUser.lastName}
+              </p>
+              <p className="truncate text-[10px] text-gray-500">{activeMenuUser.email}</p>
+            </div>
+
+            <div className="py-0.5">
+              <button
+                type="button"
+                onClick={() => {
+                  closeRowMenu();
+                  navigate("/loan-officer-activity", {
+                    state: { officerId: activeMenuUser.id },
+                  });
+                }}
+                className="flex w-full items-center gap-2 px-3 py-2 text-xs text-gray-700 transition hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-800"
+              >
+                <Activity className="h-3.5 w-3.5 text-sky-600" />
+                Activity
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  closeRowMenu();
+                  setViewOfficer(activeMenuUser);
+                }}
+                className="flex w-full items-center gap-2 px-3 py-2 text-xs text-gray-700 transition hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-800"
+              >
+                <Eye className="h-3.5 w-3.5 text-[#13538A]" />
+                View details
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  closeRowMenu();
+                  openEditModal(activeMenuUser);
+                }}
+                className="flex w-full items-center gap-2 px-3 py-2 text-xs text-gray-700 transition hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-800"
+              >
+                <Pencil className="h-3.5 w-3.5 text-amber-600" />
+                Edit
+              </button>
+              <button
+                type="button"
+                disabled={togglingId === activeMenuUser.id}
+                onClick={() => toggleStatus(activeMenuUser.id, activeMenuUser.status)}
+                className="flex w-full items-center gap-2 px-3 py-2 text-xs text-gray-700 transition hover:bg-gray-50 disabled:opacity-50 dark:text-gray-200 dark:hover:bg-gray-800"
+              >
+                <Power
+                  className={`h-3.5 w-3.5 ${
+                    activeMenuUser.status === "ACTIVE" ? "text-emerald-600" : "text-gray-500"
+                  }`}
+                />
+                {activeMenuUser.status === "ACTIVE" ? "Disable" : "Enable"}
+              </button>
+            </div>
+
+            <div className="border-t border-gray-100 py-0.5 dark:border-gray-800">
+              <button
+                type="button"
+                onClick={() => handleDelete(activeMenuUser.id)}
+                className="flex w-full items-center gap-2 px-3 py-2 text-xs text-red-600 transition hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                Delete
+              </button>
+            </div>
+          </div>,
+          document.body,
+        )}
 
       {showModal && (
         <div className="fixed inset-0 bg-slate-900/60 dark:bg-black/80 backdrop-blur-md flex items-center justify-center z-[273797737392739] p-4 transition-colors">
@@ -2059,171 +2096,11 @@ rounded-lg transition-colors"
       )}
 
       {viewOfficer && (
-        <div
-          className="fixed inset-0 
-    bg-black/60 dark:bg-black/80
-    backdrop-blur-sm 
-    flex items-center justify-center 
-    z-[777787878788] p-4 transition-colors"
-        >
-          <div
-            className="bg-white dark:bg-slate-800
-      rounded-2xl shadow-2xl
-      border border-gray-200 dark:border-slate-700
-      w-full max-w-3xl max-h-[90vh]
-      overflow-y-auto 
-      transition-colors"
-          >
-            {/* Header (Sticky & Solid Background) */}
-            <div
-              className="sticky top-0 z-30
-bg-white dark:bg-slate-800
-border-b border-gray-200 dark:border-slate-700
-px-6 py-4
-flex justify-between items-center"
-            >
-              <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-200">
-                Loan Officer Profile
-              </h2>
-
-              <button
-                onClick={() => setViewOfficer(null)}
-                className="h-9 w-9 flex items-center justify-center rounded-full
-    text-slate-400 dark:text-slate-500
-    hover:bg-red-50 dark:hover:bg-red-900/30
-    hover:text-red-600 dark:hover:text-red-400
-    transition-all"
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* Avatar Section - Centered */}
-            <div className="flex flex-col items-center text-center mb-10 mt-4">
-              <div
-                className="h-28 w-28 rounded-full overflow-hidden
-    bg-slate-100 dark:bg-slate-700
-    border border-gray-200 dark:border-slate-600
-    shadow-sm"
-              >
-                {viewOfficer.profile?.avatarUrl ? (
-                  <img
-                    src={`${API_BASE}${viewOfficer.profile.avatarUrl}`}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <div
-                    className="h-full flex items-center justify-center
-        text-slate-400 dark:text-slate-300"
-                  >
-                    No Image
-                  </div>
-                )}
-              </div>
-
-              <h3 className="mt-4 text-xl font-semibold text-slate-800 dark:text-slate-200">
-                {viewOfficer.firstName} {viewOfficer.lastName}
-              </h3>
-
-              <p className="text-slate-500 dark:text-slate-400">
-                {viewOfficer.email}
-              </p>
-
-              <span
-                className={`mt-2 px-3 py-1 text-xs font-medium rounded-full
-    ${
-      viewOfficer.status === "ACTIVE"
-        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400"
-        : "bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400"
-    }`}
-              >
-                {viewOfficer.status}
-              </span>
-            </div>
-
-            {/* Grid Info */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm p-4">
-              <InfoItem
-                label="Phone"
-                value={viewOfficer.phone ? formatPhone(viewOfficer.phone) : "-"}
-              />
-              <InfoItem label="Email" value={viewOfficer.email} />
-              <InfoItem label="Company" value={viewOfficer.profile?.company} />
-              <InfoItem
-                label="Toll Free"
-                value={viewOfficer.profile?.tollFree}
-              />
-              <InfoItem label="Ext" value={viewOfficer.profile?.tollFreeExt} />
-              <InfoItem
-                label="Service Provider"
-                value={viewOfficer.profile?.serviceProvider}
-              />
-              <InfoItem
-                label="License Number"
-                value={viewOfficer.profile?.licenseNumber}
-              />
-              <InfoItem
-                label="Agent Type"
-                value={viewOfficer.profile?.agentType}
-              />
-              <InfoItem
-                label="Preferred Comm"
-                value={viewOfficer.profile?.preferredComm}
-              />
-              <InfoItem label="Website" value={viewOfficer.profile?.website} />
-
-              <InfoItem
-                label="Address"
-                value={`${viewOfficer.profile?.address || ""} 
-            ${viewOfficer.profile?.suite || ""}, 
-            ${viewOfficer.profile?.city || ""}, 
-            ${viewOfficer.profile?.state || ""} 
-            ${viewOfficer.profile?.zipCode || ""}`}
-              />
-
-              <InfoItem
-                label="Created At"
-                value={new Date(viewOfficer.createdAt).toLocaleString()}
-              />
-
-              <InfoItem
-                label="Last Login"
-                value={
-                  viewOfficer.lastLoginAt
-                    ? new Date(viewOfficer.lastLoginAt).toLocaleString()
-                    : "Never"
-                }
-              />
-
-              {/* Permissions */}
-              {/* <div className="md:col-span-2 space-y-2">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                  Permissions
-                </p>
-
-                <div className="flex flex-wrap gap-2">
-                  {viewOfficer.permissions &&
-                  viewOfficer.permissions.length > 0 ? (
-                    viewOfficer.permissions.map((perm) => (
-                      <span
-                        key={perm}
-                        className="px-3 py-1 rounded-full text-xs font-medium
-          bg-indigo-100 text-indigo-700
-          dark:bg-indigo-900/30 dark:text-indigo-400"
-                      >
-                        {getPermissionLabel(perm)}
-                      </span>
-                    ))
-                  ) : (
-                    <span className="text-slate-400 italic">
-                      No permissions assigned
-                    </span>
-                  )}
-                </div>
-              </div> */}
-            </div>
-          </div>
-        </div>
+        <ViewLoanOfficerModal
+          officerId={viewOfficer.id}
+          fallback={viewOfficer}
+          onClose={() => setViewOfficer(null)}
+        />
       )}
     </>
   );

@@ -1,4 +1,8 @@
 const fp = require("fastify-plugin");
+const {
+  buildSubmissionFieldsPayload,
+  loadProductFieldIdMap,
+} = require("../../../services/staticSubmissionFields");
 const { randomUUID } = require("crypto");
 const { logAudit } = require("../../../services/logger/auditLogger");
 const {
@@ -157,12 +161,19 @@ async function brokerSubmitApplication(fastify) {
 
           /* ---------- FIELDS ---------- */
 
-          const submissionFields = fields.map((f) => ({
+          const fieldIdByKey = await loadProductFieldIdMap(
+            tx,
+            applicationProductId,
+          );
+
+          const normalizedFields = buildSubmissionFieldsPayload(
+            fields,
+            fieldIdByKey,
+          );
+
+          const submissionFields = normalizedFields.map((f) => ({
             submissionId: submission.id,
-            fieldId: f.fieldId || null,
-            fieldKey: f.fieldKey || null,
-            value: f.value ?? null,
-            source: f.fieldId ? "DYNAMIC" : "STATIC",
+            ...f,
           }));
 
           if (submissionFields.length > 0) {

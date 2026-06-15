@@ -14,11 +14,13 @@ import {
   RefreshCw,
   Search,
   Trash2,
+  MoreVertical,
   Users,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
+import { createPortal } from "react-dom";
 import toast from "react-hot-toast";
 import Swal from "sweetalert2";
 import PageMeta from "../../components/common/PageMeta";
@@ -53,6 +55,68 @@ type ApiResponse = {
 
 type SortKey = "name" | "email" | "company" | "phone" | "createdAt";
 type SortDir = "asc" | "desc";
+
+const ACTION_MENU_WIDTH = 168;
+const ACTION_MENU_HEIGHT = 168;
+
+function computeActionMenuPosition(rect: DOMRect) {
+  const padding = 8;
+  const spaceBelow = window.innerHeight - rect.bottom;
+  const spaceAbove = rect.top;
+  const openUpward =
+    spaceBelow < ACTION_MENU_HEIGHT + padding && spaceAbove > spaceBelow;
+
+  let top = openUpward ? rect.top - ACTION_MENU_HEIGHT - 6 : rect.bottom + 6;
+  top = Math.max(
+    padding,
+    Math.min(top, window.innerHeight - ACTION_MENU_HEIGHT - padding),
+  );
+
+  const left = Math.max(
+    padding,
+    Math.min(
+      rect.right - ACTION_MENU_WIDTH,
+      window.innerWidth - ACTION_MENU_WIDTH - padding,
+    ),
+  );
+
+  return { top, left };
+}
+
+function SortHeader({
+  label,
+  active,
+  direction,
+  onClick,
+  align = "left",
+}: {
+  label: string;
+  active: boolean;
+  direction: SortDir;
+  onClick: () => void;
+  align?: "left" | "right";
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`group inline-flex w-full items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-gray-500 transition hover:text-[#13538A] ${
+        align === "right" ? "justify-end" : "justify-start"
+      } ${active ? "text-[#13538A]" : ""}`}
+    >
+      {label}
+      {active ? (
+        direction === "asc" ? (
+          <ChevronUp className="h-3.5 w-3.5" />
+        ) : (
+          <ChevronDown className="h-3.5 w-3.5" />
+        )
+      ) : (
+        <ArrowUpDown className="h-3.5 w-3.5 opacity-0 transition group-hover:opacity-60" />
+      )}
+    </button>
+  );
+}
 
 const AVATAR_TONES = [
   "bg-blue-100 text-blue-700",
@@ -89,39 +153,6 @@ function formatContactType(value?: string) {
   return value.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-function SortHeader({
-  label,
-  active,
-  direction,
-  onClick,
-}: {
-  label: string;
-  active: boolean;
-  direction: SortDir;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`group inline-flex w-full items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-gray-500 transition hover:text-[#13538A] ${
-        active ? "text-[#13538A]" : ""
-      }`}
-    >
-      {label}
-      {active ? (
-        direction === "asc" ? (
-          <ChevronUp className="h-3.5 w-3.5" />
-        ) : (
-          <ChevronDown className="h-3.5 w-3.5" />
-        )
-      ) : (
-        <ArrowUpDown className="h-3.5 w-3.5 opacity-0 transition group-hover:opacity-60" />
-      )}
-    </button>
-  );
-}
-
 export default function ContactPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const initialQuery = searchParams.get("q") || "";
@@ -138,6 +169,9 @@ export default function ContactPage() {
   const [totalCount, setTotalCount] = useState(0);
   const [sortKey, setSortKey] = useState<SortKey>("createdAt");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+  const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
+  const menuRef = useRef<HTMLDivElement | null>(null);
 
   const fetchContacts = useCallback(async () => {
     try {
@@ -194,6 +228,58 @@ export default function ContactPage() {
     fetchContacts();
   }, [fetchContacts]);
 
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (
+        menuRef.current?.contains(target) ||
+        (target instanceof Element && target.closest("[data-menu-id]"))
+      ) {
+        return;
+      }
+      setActiveMenuId(null);
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setActiveMenuId(null);
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!activeMenuId) return;
+
+    const reposition = () => {
+      const btn = document.querySelector(
+        `[data-menu-id="${activeMenuId}"]`,
+      ) as HTMLElement | null;
+      if (!btn) return;
+      setMenuPos(computeActionMenuPosition(btn.getBoundingClientRect()));
+    };
+
+    reposition();
+    window.addEventListener("scroll", reposition, true);
+    window.addEventListener("resize", reposition);
+    return () => {
+      window.removeEventListener("scroll", reposition, true);
+      window.removeEventListener("resize", reposition);
+    };
+  }, [activeMenuId]);
+
+  const openRowMenu = (id: string, event: React.MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    setMenuPos(computeActionMenuPosition(event.currentTarget.getBoundingClientRect()));
+    setActiveMenuId((current) => (current === id ? null : id));
+  };
+
+  const closeRowMenu = () => setActiveMenuId(null);
+
   const sortedContacts = useMemo(() => {
     const list = [...contacts];
 
@@ -223,6 +309,11 @@ export default function ContactPage() {
 
     return list;
   }, [contacts, sortKey, sortDir]);
+
+  const activeMenuContact = useMemo(
+    () => sortedContacts.find((c) => c.id === activeMenuId) ?? null,
+    [sortedContacts, activeMenuId],
+  );
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -268,6 +359,7 @@ export default function ContactPage() {
 
     if (!result.isConfirmed) return;
 
+    closeRowMenu();
     try {
       const res = await fetch(`${API_BASE}/broker/contacts/${id}`, {
         method: "DELETE",
@@ -292,79 +384,82 @@ export default function ContactPage() {
     <>
       <PageMeta title="Contacts | Broker Dashboard" description="Manage CRM contacts" />
 
-      <div className="space-y-6">
+      <div className="space-y-4 pb-6">
         {/* Hero */}
-        <div className="overflow-hidden rounded-2xl border border-[#13538A]/15 bg-gradient-to-br from-[#13538A] via-[#1a6aad] to-[#2C92D5] p-6 text-white shadow-sm sm:p-8">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-gradient-to-br from-[#13538A] via-[#1a6aad] to-[#2C92D5] p-4 text-white shadow-sm dark:border-gray-800 sm:p-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-widest text-white/70">
+              <div className="mb-1.5 inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-0.5 text-[10px] font-medium backdrop-blur-sm">
+                <Users className="h-3 w-3" />
                 CRM · Directory
-              </p>
-              <h1 className="mt-1 text-2xl font-bold sm:text-3xl">Contacts</h1>
-              <p className="mt-2 max-w-xl text-sm text-white/80">
+              </div>
+              <h1 className="text-xl font-semibold tracking-tight">Contacts</h1>
+              <p className="mt-1 max-w-2xl text-xs text-white/80">
                 Manage lenders, brokers, partners, and everyone in your loan network.
               </p>
             </div>
 
-            <div className="flex flex-wrap gap-3">
-              <div className="rounded-xl bg-white/10 px-4 py-3 backdrop-blur-sm">
-                <p className="text-xs text-white/70">Total contacts</p>
-                <p className="text-2xl font-bold">{totalCount}</p>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="rounded-lg bg-white/10 px-3 py-2 ring-1 ring-white/20 backdrop-blur-sm">
+                <p className="text-[10px] text-white/70">Total contacts</p>
+                <p className="mt-0.5 text-lg font-semibold">{totalCount}</p>
               </div>
-              <div className="rounded-xl bg-white/10 px-4 py-3 backdrop-blur-sm">
-                <p className="text-xs text-white/70">On this page</p>
-                <p className="text-2xl font-bold">{contacts.length}</p>
+              <div className="rounded-lg bg-white/10 px-3 py-2 ring-1 ring-white/20 backdrop-blur-sm">
+                <p className="text-[10px] text-white/70">On this page</p>
+                <p className="mt-0.5 text-lg font-semibold">{contacts.length}</p>
               </div>
             </div>
           </div>
         </div>
 
         {/* Toolbar */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex flex-1 flex-wrap items-center gap-3">
-            <div className="relative min-w-[220px] flex-1 sm:max-w-xs">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+        <div className="rounded-2xl border border-gray-200 bg-white p-3 shadow-sm dark:border-gray-800 dark:bg-gray-900 sm:p-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
               <input
                 type="text"
                 placeholder="Search contacts..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-10 text-sm text-gray-800 outline-none transition focus:border-[#13538A]/40 focus:ring-2 focus:ring-[#13538A]/10 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+                className="h-9 w-full rounded-xl border border-gray-200 bg-gray-50 pl-9 pr-9 text-xs outline-none focus:border-[#13538A]/40 focus:ring-2 focus:ring-[#13538A]/10 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
               />
               {search && (
                 <button
                   type="button"
                   onClick={() => setSearch("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500"
                 >
-                  <X className="h-4 w-4" />
+                  <X className="h-3.5 w-3.5" />
                 </button>
               )}
             </div>
 
-            <button
-              type="button"
-              onClick={() => fetchContacts()}
-              disabled={loading}
-              className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
-            >
-              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-              Refresh
-            </button>
-          </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => fetchContacts()}
+                disabled={loading}
+                className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-200"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+                Refresh
+              </button>
 
-          <button
-            type="button"
-            onClick={openCreateModal}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#13538A] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#1a6aad]"
-          >
-            <Plus className="h-4 w-4" />
-            Create Contact
-          </button>
+              <button
+                type="button"
+                onClick={openCreateModal}
+                className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-[#13538A] px-3 text-xs font-medium text-white shadow-sm hover:bg-[#1a6aad]"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Create Contact
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Table */}
-        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
+        <div className="rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
           {loading ? (
             <div className="divide-y divide-gray-100 dark:divide-gray-800">
               {Array.from({ length: 5 }).map((_, i) => (
@@ -402,14 +497,23 @@ export default function ContactPage() {
               )}
             </div>
           ) : (
-            <div className="max-h-[min(560px,calc(100vh-22rem))] overflow-auto">
-              <table className="w-full min-w-[980px] border-collapse text-left">
-                <thead className="sticky top-0 z-10 bg-gray-50 shadow-[0_1px_0_0_rgb(229_231_235)] dark:bg-gray-800 dark:shadow-[0_1px_0_0_rgb(31_41_55)]">
+            <div className="max-h-[calc(100vh-15rem)] overflow-y-auto overflow-x-hidden">
+              <table className="w-full table-fixed border-collapse text-left text-xs">
+                <colgroup>
+                  <col className="w-12" />
+                  <col className="w-[22%]" />
+                  <col className="w-[24%]" />
+                  <col className="w-[18%]" />
+                  <col className="w-[14%]" />
+                  <col className="w-[12%]" />
+                  <col className="w-14" />
+                </colgroup>
+                <thead className="sticky top-0 z-10 border-b border-gray-200 bg-gray-50/95 backdrop-blur dark:border-gray-700 dark:bg-gray-800/95">
                   <tr>
-                    <th className="w-12 px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-gray-400">
+                    <th className="px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
                       #
                     </th>
-                    <th className="px-4 py-3.5">
+                    <th className="px-4 py-2">
                       <SortHeader
                         label="Name"
                         active={sortKey === "name"}
@@ -417,7 +521,7 @@ export default function ContactPage() {
                         onClick={() => toggleSort("name")}
                       />
                     </th>
-                    <th className="px-4 py-3.5">
+                    <th className="px-4 py-2">
                       <SortHeader
                         label="Email"
                         active={sortKey === "email"}
@@ -425,7 +529,7 @@ export default function ContactPage() {
                         onClick={() => toggleSort("email")}
                       />
                     </th>
-                    <th className="px-4 py-3.5">
+                    <th className="px-4 py-2">
                       <SortHeader
                         label="Company"
                         active={sortKey === "company"}
@@ -433,7 +537,7 @@ export default function ContactPage() {
                         onClick={() => toggleSort("company")}
                       />
                     </th>
-                    <th className="px-4 py-3.5">
+                    <th className="px-4 py-2">
                       <SortHeader
                         label="Phone"
                         active={sortKey === "phone"}
@@ -441,7 +545,7 @@ export default function ContactPage() {
                         onClick={() => toggleSort("phone")}
                       />
                     </th>
-                    <th className="px-4 py-3.5">
+                    <th className="px-4 py-2">
                       <SortHeader
                         label="Created"
                         active={sortKey === "createdAt"}
@@ -449,14 +553,14 @@ export default function ContactPage() {
                         onClick={() => toggleSort("createdAt")}
                       />
                     </th>
-                    <th className="px-4 py-3.5 text-right">
-                      <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+                    <th className="px-4 py-2 text-right">
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                         Actions
                       </span>
                     </th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                   {sortedContacts.map((contact, index) => {
                     const fullName = `${contact.firstName} ${contact.lastName}`.trim();
                     const location = [contact.city, contact.state].filter(Boolean).join(", ");
@@ -464,24 +568,24 @@ export default function ContactPage() {
                     return (
                       <tr
                         key={contact.id}
-                        className="group border-b border-gray-100 transition last:border-b-0 hover:bg-[#13538A]/[0.04] dark:border-gray-800 dark:hover:bg-gray-800/60"
+                        className="group transition-colors hover:bg-[#13538A]/[0.03] dark:hover:bg-gray-800/40"
                       >
-                        <td className="px-4 py-4 text-xs font-medium text-gray-400">
+                        <td className="px-4 py-2.5 text-[11px] font-medium tabular-nums text-gray-400">
                           {(page - 1) * limit + index + 1}
                         </td>
 
-                        <td className="px-4 py-4">
-                          <div className="flex items-center gap-3">
+                        <td className="px-4 py-2.5">
+                          <div className="flex min-w-0 items-center gap-2.5">
                             <span
-                              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-sm font-bold ring-2 ring-white dark:ring-gray-900 ${getAvatarTone(fullName)}`}
+                              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[11px] font-bold ring-1 ring-gray-200/80 dark:ring-gray-700 ${getAvatarTone(fullName)}`}
                             >
                               {getInitials(contact.firstName, contact.lastName)}
                             </span>
                             <div className="min-w-0">
-                              <p className="truncate font-semibold text-gray-900 dark:text-gray-100">
+                              <p className="truncate text-xs font-semibold text-gray-900 dark:text-gray-100">
                                 {fullName}
                               </p>
-                              <p className="truncate text-xs text-gray-400">
+                              <p className="truncate text-[10px] text-gray-400">
                                 {formatContactType(contact.contactType)}
                                 {location ? ` · ${location}` : ""}
                               </p>
@@ -489,71 +593,63 @@ export default function ContactPage() {
                           </div>
                         </td>
 
-                        <td className="px-4 py-4">
-                          <div className="flex max-w-[220px] items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
-                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-500 dark:bg-gray-800">
-                              <Mail className="h-3.5 w-3.5" />
-                            </span>
-                            <span className="truncate" title={contact.email}>
-                              {contact.email}
-                            </span>
+                        <td className="px-4 py-2.5">
+                          <a
+                            href={`mailto:${contact.email}`}
+                            className="flex min-w-0 items-center gap-1.5 text-xs text-gray-600 transition hover:text-[#13538A] dark:text-gray-300 dark:hover:text-cyan-400"
+                            title={contact.email}
+                          >
+                            <Mail className="h-3 w-3 shrink-0 text-gray-400" />
+                            <span className="truncate">{contact.email}</span>
+                          </a>
+                        </td>
+
+                        <td className="px-4 py-2.5">
+                          <div
+                            className="flex min-w-0 items-center gap-1.5 text-xs text-gray-600 dark:text-gray-300"
+                            title={contact.companyName}
+                          >
+                            <Building2 className="h-3 w-3 shrink-0 text-gray-400" />
+                            <span className="truncate">{contact.companyName || "—"}</span>
                           </div>
                         </td>
 
-                        <td className="px-4 py-4">
-                          <div className="flex max-w-[180px] items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
-                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-500 dark:bg-gray-800">
-                              <Building2 className="h-3.5 w-3.5" />
-                            </span>
-                            <span className="truncate" title={contact.companyName}>
-                              {contact.companyName || "—"}
-                            </span>
-                          </div>
-                        </td>
-
-                        <td className="px-4 py-4">
-                          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
-                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-500 dark:bg-gray-800">
-                              <Phone className="h-3.5 w-3.5" />
-                            </span>
-                            {contact.phone || "—"}
-                          </div>
-                        </td>
-
-                        <td className="px-4 py-4">
-                          <div className="flex items-center gap-2 text-sm text-gray-500">
-                            <Calendar className="h-3.5 w-3.5 shrink-0 text-gray-400" />
-                            {formatDate(contact.createdAt)}
-                          </div>
-                        </td>
-
-                        <td className="px-4 py-4">
-                          <div className="flex items-center justify-end gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => setViewContact(contact)}
-                              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-[#13538A] transition hover:border-[#13538A]/30 hover:bg-[#13538A]/10 dark:border-gray-700 dark:bg-gray-900"
-                              title="View contact"
+                        <td className="px-4 py-2.5">
+                          {contact.phone ? (
+                            <a
+                              href={`tel:${contact.phone}`}
+                              className="inline-flex items-center gap-1.5 text-xs text-gray-600 transition hover:text-[#13538A] dark:text-gray-300 dark:hover:text-cyan-400"
                             >
-                              <Eye className="h-4 w-4" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => openEditModal(contact)}
-                              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-amber-600 transition hover:border-amber-200 hover:bg-amber-50 dark:border-gray-700 dark:bg-gray-900"
-                              title="Edit contact"
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDelete(contact.id, fullName)}
-                              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-red-600 transition hover:border-red-200 hover:bg-red-50 dark:border-gray-700 dark:bg-gray-900"
-                              title="Delete contact"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
+                              <Phone className="h-3 w-3 shrink-0 text-gray-400" />
+                              {contact.phone}
+                            </a>
+                          ) : (
+                            <span className="text-xs text-gray-400">—</span>
+                          )}
+                        </td>
+
+                        <td className="px-4 py-2.5">
+                          <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+                            <Calendar className="h-3 w-3 shrink-0 opacity-70" />
+                            <span className="whitespace-nowrap">{formatDate(contact.createdAt)}</span>
                           </div>
+                        </td>
+
+                        <td className="px-2 py-2.5 text-right">
+                          <button
+                            type="button"
+                            data-menu-id={contact.id}
+                            onClick={(event) => openRowMenu(contact.id, event)}
+                            className={`inline-flex h-7 w-7 items-center justify-center rounded-md border border-transparent text-gray-500 transition hover:border-gray-200 hover:bg-gray-100 hover:text-gray-800 dark:text-gray-400 dark:hover:border-gray-700 dark:hover:bg-gray-800 dark:hover:text-white ${
+                              activeMenuId === contact.id
+                                ? "border-gray-200 bg-gray-100 text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                                : ""
+                            }`}
+                            title="Actions"
+                            aria-label="Open actions menu"
+                          >
+                            <MoreVertical className="h-3.5 w-3.5" />
+                          </button>
                         </td>
                       </tr>
                     );
@@ -564,8 +660,8 @@ export default function ContactPage() {
           )}
 
           {!loading && sortedContacts.length > 0 && (
-            <div className="flex flex-col gap-3 border-t border-gray-100 px-5 py-3 dark:border-gray-800 sm:flex-row sm:items-center sm:justify-between">
-              <span className="text-xs text-gray-500">
+            <div className="flex flex-col gap-1.5 border-t border-gray-100 bg-gray-50/50 px-4 py-2.5 text-[10px] text-gray-500 dark:border-gray-800 dark:bg-gray-900/50 sm:flex-row sm:items-center sm:justify-between">
+              <span>
                 Showing{" "}
                 <span className="font-semibold text-gray-800 dark:text-gray-200">
                   {sortedContacts.length}
@@ -576,7 +672,7 @@ export default function ContactPage() {
                 </span>{" "}
                 contact(s)
               </span>
-              <span className="text-xs text-gray-400">
+              <span className="text-gray-400">
                 Sorted by {sortKey.replace("createdAt", "created")} ({sortDir})
               </span>
             </div>
@@ -615,6 +711,65 @@ export default function ContactPage() {
           </div>
         )}
       </div>
+
+      {activeMenuContact &&
+        activeMenuId &&
+        createPortal(
+          <div
+            ref={menuRef}
+            style={{ position: "fixed", top: menuPos.top, left: menuPos.left }}
+            className="z-[9999] w-[168px] max-h-[min(168px,calc(100vh-16px))] overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-900"
+          >
+            <div className="border-b border-gray-100 px-3 py-2 dark:border-gray-800">
+              <p className="truncate text-[11px] font-semibold text-gray-900 dark:text-white">
+                {activeMenuContact.firstName} {activeMenuContact.lastName}
+              </p>
+              <p className="truncate text-[10px] text-gray-500">{activeMenuContact.email}</p>
+            </div>
+
+            <div className="py-0.5">
+              <button
+                type="button"
+                onClick={() => {
+                  closeRowMenu();
+                  setViewContact(activeMenuContact);
+                }}
+                className="flex w-full items-center gap-2 px-3 py-2 text-xs text-gray-700 transition hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-800"
+              >
+                <Eye className="h-3.5 w-3.5 text-[#13538A]" />
+                View details
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  closeRowMenu();
+                  openEditModal(activeMenuContact);
+                }}
+                className="flex w-full items-center gap-2 px-3 py-2 text-xs text-gray-700 transition hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-800"
+              >
+                <Pencil className="h-3.5 w-3.5 text-amber-600" />
+                Edit
+              </button>
+            </div>
+
+            <div className="border-t border-gray-100 py-0.5 dark:border-gray-800">
+              <button
+                type="button"
+                onClick={() =>
+                  handleDelete(
+                    activeMenuContact.id,
+                    `${activeMenuContact.firstName} ${activeMenuContact.lastName}`.trim(),
+                  )
+                }
+                className="flex w-full items-center gap-2 px-3 py-2 text-xs text-red-600 transition hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                Delete
+              </button>
+            </div>
+          </div>,
+          document.body,
+        )}
 
       {open && (
         <CreateContactModal contact={editContact} onClose={closeModal} />

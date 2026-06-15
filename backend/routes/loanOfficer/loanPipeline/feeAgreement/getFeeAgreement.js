@@ -1,4 +1,5 @@
 module.exports = async function (fastify) {
+  const { normalizeFeeAgreement } = require("../../../../services/feeAgreementEnrichment");
   fastify.get(
     "/:loanId/fee-agreement",
     {
@@ -204,92 +205,50 @@ module.exports = async function (fastify) {
         /* ===============================
            FINAL RESPONSE DATA
         =============================== */
-        const responseData = {
-          ...agreement,
-
-          borrowerName,
-
-          assignedLoanOfficer,
-
-          assignedSubBrokers,
-
-          lenders:
-            agreement.loanApplication?.applicationLenders
-              ?.filter((l) => l.sentAt)
-              ?.map((l) => ({
-                applicationLenderId: l.id,
-
-                lenderOrgId: l.lenderOrgId,
-
-                lenderName:
-                  l.lender?.name ?? null,
-
-                profileImage:
-                  l.lender?.users?.[0]
-                    ?.profileImage || null,
-
-                lenderStatus: l.status,
-
-                sentAt: l.sentAt,
-
-                lastUpdatedAt:
-                  l.lastUpdatedAt,
-
-                reviews:
-                  l.lenderReviews.map((r) => ({
+        const responseData = normalizeFeeAgreement(
+          {
+            ...agreement,
+            borrowerName,
+            assignedLoanOfficer,
+            assignedSubBrokers,
+            lenders:
+              agreement.loanApplication?.applicationLenders
+                ?.filter((l) => l.sentAt)
+                ?.map((l) => ({
+                  applicationLenderId: l.id,
+                  lenderOrgId: l.lenderOrgId,
+                  lenderName: l.lender?.name ?? null,
+                  profileImage: l.lender?.users?.[0]?.profileImage || null,
+                  lenderStatus: l.status,
+                  sentAt: l.sentAt,
+                  lastUpdatedAt: l.lastUpdatedAt,
+                  reviews: l.lenderReviews.map((r) => ({
                     reviewId: r.id,
-
-                    reviewStatus:
-                      r.reviewStatus,
-
-                    approvedAmount:
-                      r.approvedAmount,
-
-                    interestRate:
-                      r.interestRate,
-
+                    reviewStatus: r.reviewStatus,
+                    approvedAmount: r.approvedAmount,
+                    interestRate: r.interestRate,
                     notes: r.notes,
-
-                    reviewedAt:
-                      r.createdAt,
-
-                    reviewedBy:
-                      r.reviewedByUser
-                        ? {
-                            userId:
-                              r.reviewedByUser
-                                .id,
-
-                            name: `${r.reviewedByUser.firstName ?? ""} ${
-                              r.reviewedByUser.lastName ??
-                              ""
-                            }`.trim(),
-
-                            email:
-                              r.reviewedByUser
-                                .email,
-                          }
-                        : null,
-
-                    conditions:
-                      r.conditions.map(
-                        (c) => ({
-                          conditionId:
-                            c.id,
-
-                          description:
-                            c.description,
-
-                          status:
-                            c.status,
-
-                          satisfiedAt:
-                            c.satisfiedAt,
-                        }),
-                      ),
+                    reviewedAt: r.createdAt,
+                    reviewedBy: r.reviewedByUser
+                      ? {
+                          userId: r.reviewedByUser.id,
+                          name: `${r.reviewedByUser.firstName ?? ""} ${
+                            r.reviewedByUser.lastName ?? ""
+                          }`.trim(),
+                          email: r.reviewedByUser.email,
+                        }
+                      : null,
+                    conditions: r.conditions.map((c) => ({
+                      conditionId: c.id,
+                      description: c.description,
+                      status: c.status,
+                      satisfiedAt: c.satisfiedAt,
+                    })),
                   })),
-              })) || [],
-        };
+                })) || [],
+          },
+          agreement.loanApplication,
+        );
 
         /* ===============================
            ROLE ACCESS

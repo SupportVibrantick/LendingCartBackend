@@ -5,7 +5,7 @@ import {
   ArrowRight,
   BriefcaseBusiness,
   FilePlus,
-  MessageSquare,
+  // MessageSquare,
   RefreshCw,
   Users,
 } from "lucide-react";
@@ -138,13 +138,13 @@ export default function LoanOfficerDashboard() {
       to: "/loan-officer/loan-pipeline",
       color: "bg-[#1a6aad]",
     },
-    {
-      label: "Messages",
-      desc: "Client & lender conversations",
-      icon: MessageSquare,
-      to: "/loan-officer/messages",
-      color: "bg-[#2C92D5]",
-    },
+    // {
+    //   label: "Messages",
+    //   desc: "Client & lender conversations",
+    //   icon: MessageSquare,
+    //   to: "/loan-officer/messages",
+    //   color: "bg-[#2C92D5]",
+    // },
     {
       label: "My Contacts",
       desc: "Manage your directory",

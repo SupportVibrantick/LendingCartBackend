@@ -13,6 +13,8 @@ async function subBrokerRoutes(fastify) {
 
   fastify.register(require("./getSubBrokerById"), {});
 
+  fastify.register(require("./deleteSubBroker"), {});
+
   fastify.register(require("./assignApplication"));
 }
 

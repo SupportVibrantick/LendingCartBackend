@@ -96,6 +96,7 @@ module.exports = async function getSubBrokerByIdRoutes(fastify) {
             phone: true,
             status: true,
             createdAt: true,
+            updatedAt: true,
             createdById: true,
           },
         });

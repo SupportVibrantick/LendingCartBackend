@@ -22,6 +22,8 @@ import AddUser from "./pages/ManageUser/AddUser";
 import AllUsers from "./pages/ManageUser/AllUser";
 import ToastProvider from "./Utils/ToastProvider/ToastProvider";
 import BrokersPage from "./pages/Brokers/AllBrokers";
+import BrokerDetailPage from "./pages/Brokers/BrokerDetailPage";
+import BrokerDetailRedirect from "./pages/Brokers/BrokerDetailRedirect";
 import RequireAuth from "./components/auth/RequireAuth";
 import AllLendersPage from "./pages/Lenders/AllLenders";
 import BrokersLenders from "./pages/Brokers/BrokersLenders";
@@ -55,9 +57,9 @@ import LoanCriteria from "./pages/Lenders/LoanCriteria/Main";
 import AddLender from "./pages/Lenders/AddLender/Main";
 import UpdateLender from "./pages/Lenders/UpdateLender/Main";
 import EmailMarketing from "./pages/EmailMarketing/EmailMarketing";
-import AllLoanOfficers from "./pages/Platform/AllLoanOfficers";
-import AllSubBrokers from "./pages/Platform/AllSubBrokers";
-import AllClients from "./pages/Platform/AllClients";
+// import AllLoanOfficers from "./pages/Platform/AllLoanOfficers";
+// import AllSubBrokers from "./pages/Platform/AllSubBrokers";
+// import AllClients from "./pages/Platform/AllClients";
 import AllCommunications from "./pages/Platform/AllCommunications";
 import PlatformReports from "./pages/Platform/PlatformReports";
 
@@ -86,6 +88,8 @@ export default function App() {
               path="/all-brokers-database"
               element={<BrokersPage />}
             />
+            <Route path="/broker-detail" element={<BrokerDetailPage />} />
+            <Route path="/brokers/:brokerId" element={<BrokerDetailRedirect />} />
             <Route
               index
               path="/all-brokers-lenders"
@@ -169,9 +173,9 @@ export default function App() {
             />
             <Route path="/super-admin" element={<Navigate to="/" replace />} />
             <Route index path="/platform-reports" element={<PlatformReports />} />
-            <Route index path="/all-loan-officers" element={<AllLoanOfficers />} />
+            {/* <Route index path="/all-loan-officers" element={<AllLoanOfficers />} />
             <Route index path="/all-sub-brokers" element={<AllSubBrokers />} />
-            <Route index path="/all-clients" element={<AllClients />} />
+            <Route index path="/all-clients" element={<AllClients />} /> */}
             <Route index path="/all-communications" element={<AllCommunications />} />
 
             <Route index path="/admin-logs" element={<AdminLogs />} />
