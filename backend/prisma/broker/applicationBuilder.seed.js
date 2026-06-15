@@ -25,26 +25,52 @@ async function seedApplicationBuilder() {
    * ==========================================
    */
 
-  let application = await prisma.brokerApplication.findFirst({
-    where: {
-      brokerOrgId: brokerOrg.id,
-      code: "main-loan-application",
-    },
+  const APPLICATION_CODE = "main-loan-application";
+
+  let application = await prisma.brokerApplication.findUnique({
+    where: { code: APPLICATION_CODE },
   });
 
   if (!application) {
-    application = await prisma.brokerApplication.create({
-      data: {
+    application = await prisma.brokerApplication.findFirst({
+      where: {
         brokerOrgId: brokerOrg.id,
-        name: "Main Loan Application",
-        code: "main-loan-application",
-        isActive: true,
+        code: APPLICATION_CODE,
       },
     });
+  }
 
-    console.log(`✅ Application created: ${application.name}`);
+  if (!application) {
+    try {
+      application = await prisma.brokerApplication.create({
+        data: {
+          brokerOrgId: brokerOrg.id,
+          name: "Main Loan Application",
+          code: APPLICATION_CODE,
+          isActive: true,
+        },
+      });
+
+      console.log(`✅ Application created: ${application.name}`);
+    } catch (error) {
+      if (error?.code === "P2002") {
+        application = await prisma.brokerApplication.findUnique({
+          where: { code: APPLICATION_CODE },
+        });
+        if (!application) throw error;
+        console.log(`ℹ️ Application already exists: ${application.name}`);
+      } else {
+        throw error;
+      }
+    }
   } else {
-    console.log(`ℹ️ Application already exists: ${application.name}`);
+    if (application.brokerOrgId !== brokerOrg.id) {
+      console.log(
+        `ℹ️ Application "${application.name}" already exists (code: ${APPLICATION_CODE}) for another broker org; reusing for builder seed.`,
+      );
+    } else {
+      console.log(`ℹ️ Application already exists: ${application.name}`);
+    }
   }
 
   /*

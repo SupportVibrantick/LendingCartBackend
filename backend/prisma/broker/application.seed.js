@@ -17,7 +17,7 @@ async function seedEligibleApplication() {
       loanProductCode: "FIX_AND_FLIP_LOAN_1_TO_4_UNITS",
       amountRequested: 1000000,
       status: "SUBMITTED",
-    },
+    },    
   });
 
   const fields = [
