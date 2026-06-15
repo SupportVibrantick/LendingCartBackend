@@ -78,6 +78,9 @@ jobs:
               npx prisma db push
             fi
 
+            echo "🔧 Applying schema patches..."
+            npm run db:patch
+
             if [ "${RUN_SEED}" = "true" ]; then
               echo "🌱 Running database seed..."
               npm run db:seed

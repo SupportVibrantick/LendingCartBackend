@@ -10,7 +10,7 @@ const { seedPlatformOrg } = require("./admin/platformOrg.seed");
 const { seedAdminUser } = require("./admin/admin.seed");
 const { seedDocumentTypes } = require("./admin/documentTypes.seed");
 const { seedSubscriptionPackages } = require("./admin/subscriptionPackages.seed");
-const { applySubscriptionBillingMigration } = require("./applySubscriptionBillingMigration");
+const { applySchemaPatches } = require("./applySchemaPatches");
 
 // Broker seeds
 const { seedBrokerOrg } = require("./broker/brokerOrg.seed");
@@ -32,6 +32,8 @@ const { seedLoanProducts } = require("./admin/loanProduct.seed");
 
 async function main() {
   console.log("🚀 Starting database seed...\n");
+
+  await applySchemaPatches(prisma);
 
   // ================== Admin ==================
   await seedRoles();
@@ -55,8 +57,6 @@ async function main() {
   
   await seedDocumentTypes();
 
-  console.log("Ensuring subscription billing tables...");
-  await applySubscriptionBillingMigration(prisma);
   await seedSubscriptionPackages();
   await seedApplicationBuilder();
   // await seedLoanApplication();      // demo loan pipeline row + submission fields
