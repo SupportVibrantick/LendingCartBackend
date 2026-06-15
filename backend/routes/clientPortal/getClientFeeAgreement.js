@@ -1,4 +1,5 @@
 const jwt = require("jsonwebtoken");
+const { normalizeFeeAgreement } = require("../../services/feeAgreementEnrichment");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
@@ -65,6 +66,33 @@ module.exports = async function getClientFeeAgreement(fastify) {
             id: applicationId,
             clientId,
           },
+          include: {
+            brokerOrg: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                phone: true,
+              },
+            },
+            brokerUser: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                phone: true,
+              },
+            },
+            client: {
+              include: {
+                contacts: {
+                  where: { isPrimary: true },
+                  take: 1,
+                },
+              },
+            },
+          },
         });
 
         if (!application) {
@@ -95,7 +123,7 @@ module.exports = async function getClientFeeAgreement(fastify) {
         =============================== */
         return reply.send({
           ok: true,
-          data: feeAgreement, // ✅ FULL OBJECT (no trimming)
+          data: normalizeFeeAgreement(feeAgreement, application),
         });
 
       } catch (error) {

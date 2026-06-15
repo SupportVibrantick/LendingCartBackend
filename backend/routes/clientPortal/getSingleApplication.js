@@ -52,6 +52,7 @@ async function getClientApplicationDetailsRoute(fastify) {
         },
         include: {
           submissions: {
+            orderBy: { createdAt: "desc" },
             include: {
               fields: true,
             },
@@ -200,13 +201,21 @@ const borrowerSignature =
           amountRequested,
           loanProductCode,
 
-  borrowerName,
-  borrowerEmail,
-  borrowerPhone,
-  propertyAddress,
-  borrowerSignature,
+          borrowerName,
+          borrowerEmail,
+          borrowerPhone,
+          propertyAddress,
+          borrowerSignature,
 
-          // 🔥 FULL OBJECT (NO TRIM)
+          latestSubmission: latestSubmission
+            ? {
+                id: latestSubmission.id,
+                status: latestSubmission.status,
+                createdAt: latestSubmission.createdAt,
+                fields: latestSubmission.fields || [],
+              }
+            : null,
+
           feeAgreement: feeAgreement || null,
 
           _debug: {

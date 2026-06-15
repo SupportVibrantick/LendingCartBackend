@@ -115,6 +115,16 @@ module.exports = async function signFeeAgreement(fastify) {
           });
         }
 
+        const { canClientSignFeeAgreement } = require("../../services/feeAgreementEnrichment");
+
+        if (!canClientSignFeeAgreement(agreement)) {
+          return reply.code(400).send({
+            ok: false,
+            message:
+              "Fee terms are not finalized yet. Your broker must set broker fee, upfront fee, and exclusivity period before you can sign.",
+          });
+        }
+
         /* ===============================
            UPDATE
         =============================== */

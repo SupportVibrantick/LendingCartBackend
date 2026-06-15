@@ -1,4 +1,55 @@
 const bcrypt = require("bcrypt");
+const {
+  sendSubBrokerCredentialsEmail,
+} = require("../../../services/subBrokerCredentialsEmail");
+
+function buildFreedDeletedEmail(user) {
+  const at = user.email.lastIndexOf("@");
+  if (at === -1) {
+    return `${user.id.replace(/-/g, "")}.deleted@removed.local`;
+  }
+
+  const local = user.email.slice(0, at);
+  const domain = user.email.slice(at + 1);
+  return `${local}+deleted.${user.id.slice(0, 8)}.${Date.now()}@${domain}`;
+}
+
+async function sendSubBrokerWelcomeEmail(fastify, prisma, {
+  brokerOrgId,
+  firstName,
+  email,
+  password,
+  subBrokerId,
+}) {
+  try {
+    const organization = await prisma.organization.findUnique({
+      where: { id: brokerOrgId },
+      select: { name: true },
+    });
+
+    await sendSubBrokerCredentialsEmail({
+      firstName,
+      email,
+      password,
+      organizationName: organization?.name,
+    });
+
+    fastify.log.info(
+      { to: email, subBrokerId },
+      "Sub broker welcome email sent",
+    );
+  } catch (mailErr) {
+    fastify.log.error(
+      {
+        error: mailErr.message,
+        stack: mailErr.stack,
+        to: email,
+        subBrokerId,
+      },
+      "Sub broker created but welcome email failed",
+    );
+  }
+}
 
 async function createSubBrokerRoutes(fastify) {
   fastify.post(
@@ -79,23 +130,22 @@ async function createSubBrokerRoutes(fastify) {
               mode: "insensitive",
             },
           },
+          include: {
+            roles: {
+              include: { role: true },
+            },
+          },
         });
 
-        if (existingUser) {
+        if (existingUser && !existingUser.isDeleted) {
           return reply.code(400).send({
             success: false,
             message: "Email already exists",
           });
         }
 
-        /* ===============================
-           HASH PASSWORD
-        =============================== */
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        /* ===============================
-           GET SUB BROKER ROLE
-        =============================== */
         const role = await prisma.role.findFirst({
           where: { name: "SUB_BROKER" },
         });
@@ -107,30 +157,94 @@ async function createSubBrokerRoutes(fastify) {
           });
         }
 
-        /* ===============================
-           CREATE USER
-        =============================== */
-        const user = await prisma.userAccount.create({
-          data: {
-            email,
-            passwordHash: hashedPassword,
-            firstName,
-            lastName,
-            phone,
-            organizationId: brokerOrgId,
-            createdById: userId,
+        let user;
 
-            roles: {
-              create: {
-                roleId: role.id,
+        if (existingUser?.isDeleted) {
+          const isSameOrgSubBroker =
+            existingUser.organizationId === brokerOrgId &&
+            existingUser.roles.some((entry) => entry.role.name === "SUB_BROKER");
+
+          if (isSameOrgSubBroker) {
+            user = await prisma.userAccount.update({
+              where: { id: existingUser.id },
+              data: {
+                email,
+                passwordHash: hashedPassword,
+                firstName,
+                lastName,
+                phone,
+                organizationId: brokerOrgId,
+                createdById: userId,
+                isDeleted: false,
+                deletedAt: null,
+                status: "ACTIVE",
+              },
+              include: {
+                roles: {
+                  include: { role: true },
+                },
+              },
+            });
+          } else {
+            await prisma.userAccount.update({
+              where: { id: existingUser.id },
+              data: {
+                email: buildFreedDeletedEmail(existingUser),
+              },
+            });
+
+            user = await prisma.userAccount.create({
+              data: {
+                email,
+                passwordHash: hashedPassword,
+                firstName,
+                lastName,
+                phone,
+                organizationId: brokerOrgId,
+                createdById: userId,
+                roles: {
+                  create: {
+                    roleId: role.id,
+                  },
+                },
+              },
+              include: {
+                roles: {
+                  include: { role: true },
+                },
+              },
+            });
+          }
+        } else {
+          user = await prisma.userAccount.create({
+            data: {
+              email,
+              passwordHash: hashedPassword,
+              firstName,
+              lastName,
+              phone,
+              organizationId: brokerOrgId,
+              createdById: userId,
+              roles: {
+                create: {
+                  roleId: role.id,
+                },
               },
             },
-          },
-          include: {
-            roles: {
-              include: { role: true },
+            include: {
+              roles: {
+                include: { role: true },
+              },
             },
-          },
+          });
+        }
+
+        await sendSubBrokerWelcomeEmail(fastify, prisma, {
+          brokerOrgId,
+          firstName,
+          email,
+          password,
+          subBrokerId: user.id,
         });
 
         /* ===============================

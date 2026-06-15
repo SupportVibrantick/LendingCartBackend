@@ -63,6 +63,11 @@ async function loginRoute(fastify) {
         });
       }
 
+      await prisma.userAccount.update({
+        where: { id: user.id },
+        data: { lastLoginAt: new Date() },
+      });
+
       const permissions = user.userPermissions.map((p) => p.permission.key);
 
       const token = jwt.sign(

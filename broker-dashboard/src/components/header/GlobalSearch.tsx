@@ -14,7 +14,6 @@ import {
   Building2,
   FileText,
   Loader2,
-  MessageSquare,
   Search,
   UserCircle,
   UserCog,
@@ -27,7 +26,6 @@ import {
   type GlobalSearchClient,
   type GlobalSearchContact,
   type GlobalSearchLender,
-  type GlobalSearchMessage,
   type GlobalSearchPerson,
   type GlobalSearchViewAllSection,
 } from "../../lib/globalSearch";
@@ -37,8 +35,7 @@ type SearchResultItem =
   | GlobalSearchClient
   | GlobalSearchContact
   | GlobalSearchLender
-  | GlobalSearchApplication
-  | GlobalSearchMessage;
+  | GlobalSearchApplication;
 
 type SearchItem =
   | SearchResultItem
@@ -75,13 +72,12 @@ function useGlobalSearchContext() {
 }
 
 const SECTION_ORDER: GlobalSearchViewAllSection[] = [
-  "subBrokers",
-  "loanOfficers",
+  "applications",
   "clients",
   "contacts",
+  "subBrokers",
+  "loanOfficers",
   "lenders",
-  "applications",
-  "messages",
 ];
 
 const SECTION_LABELS: Record<GlobalSearchViewAllSection, string> = {
@@ -91,7 +87,6 @@ const SECTION_LABELS: Record<GlobalSearchViewAllSection, string> = {
   contacts: "Contacts",
   lenders: "Lenders",
   applications: "Pipeline",
-  messages: "Messages",
 };
 
 const VIEW_ALL_LABELS: Record<GlobalSearchViewAllSection, string> = {
@@ -101,7 +96,6 @@ const VIEW_ALL_LABELS: Record<GlobalSearchViewAllSection, string> = {
   contacts: "View all contacts",
   lenders: "View all lenders",
   applications: "View all pipeline results",
-  messages: "View all messages",
 };
 
 function getItemSection(item: SearchResultItem): GlobalSearchViewAllSection {
@@ -110,8 +104,7 @@ function getItemSection(item: SearchResultItem): GlobalSearchViewAllSection {
   if (item.kind === "client") return "clients";
   if (item.kind === "contact") return "contacts";
   if (item.kind === "lender") return "lenders";
-  if (item.kind === "application") return "applications";
-  return "messages";
+  return "applications";
 }
 
 function buildItems(
@@ -125,7 +118,6 @@ function buildItems(
     contacts: results.contacts,
     lenders: results.lenders,
     applications: results.applications,
-    messages: results.messages,
   };
 
   const items: SearchItem[] = [];
@@ -160,7 +152,6 @@ export function GlobalSearchProvider({ children }: { children: React.ReactNode }
       contacts: [],
       lenders: [],
       applications: [],
-      messages: [],
     }),
   );
   const [activeIndex, setActiveIndex] = useState(-1);
@@ -183,7 +174,6 @@ export function GlobalSearchProvider({ children }: { children: React.ReactNode }
         contacts: [],
         lenders: [],
         applications: [],
-        messages: [],
       });
       setLoading(false);
       setActiveIndex(-1);
@@ -231,9 +221,6 @@ export function GlobalSearchProvider({ children }: { children: React.ReactNode }
         case "lenders":
           navigate(`/find-lenders?q=${encoded}`);
           break;
-        case "messages":
-          navigate(`/messages?q=${encoded}`);
-          break;
       }
     },
     [navigate],
@@ -266,8 +253,6 @@ export function GlobalSearchProvider({ children }: { children: React.ReactNode }
         );
       } else if (item.kind === "application") {
         navigate("/loan-preview", { state: { submissionId: item.submissionId } });
-      } else if (item.kind === "message") {
-        navigate(`/messages?conversation=${item.id}&q=${encoded}`);
       }
 
       setIsOpen(false);
@@ -303,7 +288,7 @@ export function GlobalSearchProvider({ children }: { children: React.ReactNode }
           return;
         }
         if (debouncedQuery) {
-          navigateToSection("clients", debouncedQuery);
+          navigateToSection("applications", debouncedQuery);
           setIsOpen(false);
           setQuery("");
           setDebouncedQuery("");
@@ -384,8 +369,6 @@ function ResultIcon({ kind }: { kind: SearchItem["kind"] }) {
       return <Building2 size={15} className="shrink-0 text-[#13538A]" />;
     case "application":
       return <FileText size={15} className="shrink-0 text-slate-600" />;
-    case "message":
-      return <MessageSquare size={15} className="shrink-0 text-violet-600" />;
     default:
       return <Search size={15} className="shrink-0 text-gray-400" />;
   }
@@ -412,7 +395,7 @@ function SearchResultsDropdown() {
         <div className="px-4 py-6 text-center text-sm text-gray-500">
           No results for &ldquo;{query.trim()}&rdquo;
           <p className="mt-1 text-xs text-gray-400">
-            Try a client name, contact, lender, or team member
+            Try a borrower name, app number, contact, or team member
           </p>
         </div>
       )}
@@ -530,7 +513,7 @@ export function GlobalSearchField({
         ref={inputRef}
         type="search"
         value={query}
-        placeholder="Search clients, contacts, lenders, team..."
+        placeholder="Search pipeline, contacts, lenders, team..."
         onChange={(e) => {
           setQuery(e.target.value);
           setIsOpen(true);

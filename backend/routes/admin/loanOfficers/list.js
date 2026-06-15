@@ -55,6 +55,25 @@ async function listLoanOfficers(fastify) {
         prisma.userAccount.count({ where }),
       ]);
 
+      const officerIds = rows.map((row) => row.id);
+      let lastActivityMap = new Map();
+
+      if (officerIds.length > 0 && q.brokerOrgId) {
+        const lastLogRows = await prisma.auditLog.groupBy({
+          by: ["actorUserId"],
+          where: {
+            actorOrgId: q.brokerOrgId,
+            dashboard: "BROKER",
+            actorUserId: { in: officerIds },
+          },
+          _max: { createdAt: true },
+        });
+
+        lastActivityMap = new Map(
+          lastLogRows.map((row) => [row.actorUserId, row._max.createdAt]),
+        );
+      }
+
       return reply.send({
         success: true,
         data: rows.map((row) => ({
@@ -70,6 +89,7 @@ async function listLoanOfficers(fastify) {
           brokerName: row.organization?.name || null,
           brokerStatus: row.organization?.status || null,
           assignedDeals: row._count.brokerLoanApplications,
+          lastActivityAt: lastActivityMap.get(row.id) || null,
         })),
         meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
       });

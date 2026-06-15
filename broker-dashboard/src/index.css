@@ -852,7 +852,7 @@ span.flatpickr-weekday,
 }
 
 .menu-item-active {
-  @apply bg-blue-50 text-[#13538A] dark:bg-[#13538A]/15 dark:text-blue-300;
+  @apply bg-[#13538A]/10 text-[#13538A] dark:bg-[#13538A]/20 dark:text-cyan-300;
   box-shadow: inset 3px 0 0 0 #13538A;
 }
 

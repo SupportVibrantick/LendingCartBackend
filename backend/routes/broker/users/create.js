@@ -3,6 +3,9 @@ const path = require("path");
 const fs = require("fs");
 const { pipeline } = require("stream/promises");
 const { logAudit } = require("../../../services/logger/auditLogger");
+const {
+  sendLoanOfficerCredentialsEmail,
+} = require("../../../services/loanOfficerCredentialsEmail");
 
 module.exports = async function createBrokerUser(fastify) {
   fastify.post(
@@ -249,6 +252,37 @@ module.exports = async function createBrokerUser(fastify) {
             lastName
           }
         });
+
+        if (newUser.status === "ACTIVE") {
+          try {
+            const organization = await prisma.organization.findUnique({
+              where: { id: brokerOrgId },
+              select: { name: true },
+            });
+
+            await sendLoanOfficerCredentialsEmail({
+              firstName,
+              email,
+              password,
+              organizationName: organization?.name,
+            });
+
+            fastify.log.info(
+              { to: email, loanOfficerId: newUser.id },
+              "Loan officer welcome email sent",
+            );
+          } catch (mailErr) {
+            fastify.log.error(
+              {
+                error: mailErr.message,
+                stack: mailErr.stack,
+                to: email,
+                loanOfficerId: newUser.id,
+              },
+              "Loan officer created but welcome email failed",
+            );
+          }
+        }
 
         /* ================= SUCCESS ================= */
 

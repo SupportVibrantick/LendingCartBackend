@@ -48,6 +48,67 @@ function nameFromEmail(email) {
   return isPlaceholderName(formatted) ? null : formatted;
 }
 
+function formatEntityTypeLabel(value) {
+  if (!value) return null;
+  return String(value)
+    .replace(/_/g, " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function isGenericIndividualEntityType(value) {
+  if (!value) return true;
+  const normalized = String(value).trim().toUpperCase().replace(/\s+/g, "_");
+  return (
+    normalized === "INDIVIDUAL" ||
+    normalized === "SOLE_PROPRIETOR" ||
+    normalized === "SOLE_PROPRIETORSHIP"
+  );
+}
+
+function resolveClientEntityLabelFromData(client, submissions = []) {
+  const entityLegalName = getSubmissionFieldValues(submissions, [
+    "entityLegalName",
+    "businessName",
+    "businessLegalName",
+    "companyName",
+    "dba",
+    "doingBusinessAs",
+  ]);
+
+  if (!isPlaceholderName(entityLegalName)) {
+    return entityLegalName;
+  }
+
+  const displayName = resolveClientDisplayNameFromData(client, submissions);
+  const clientLegalName = client?.legalName?.trim();
+
+  if (
+    clientLegalName &&
+    !isPlaceholderName(clientLegalName) &&
+    clientLegalName !== displayName
+  ) {
+    return clientLegalName;
+  }
+
+  const submissionEntityType = getSubmissionFieldValues(submissions, [
+    "entityType",
+    "borrowerEntityType",
+    "businessEntityType",
+  ]);
+
+  if (submissionEntityType && !isGenericIndividualEntityType(submissionEntityType)) {
+    return formatEntityTypeLabel(submissionEntityType);
+  }
+
+  const clientEntityType = client?.entityType;
+  if (clientEntityType && !isGenericIndividualEntityType(clientEntityType)) {
+    return formatEntityTypeLabel(clientEntityType);
+  }
+
+  return null;
+}
+
 function resolveClientDisplayNameFromData(client, submissions = []) {
   const primaryContact =
     client?.contacts?.find((contact) => contact.isPrimary) || client?.contacts?.[0];
@@ -110,6 +171,112 @@ function resolveClientDisplayNameFromData(client, submissions = []) {
   }
 
   return "Client";
+}
+
+function resolveClientEntityTypeFromData(client, submissions = []) {
+  const submissionEntityType = getSubmissionFieldValues(submissions, [
+    "entityType",
+    "borrowerEntityType",
+    "businessEntityType",
+  ]);
+
+  if (submissionEntityType) {
+    return submissionEntityType;
+  }
+
+  if (client?.entityType && !isGenericIndividualEntityType(client.entityType)) {
+    return client.entityType;
+  }
+
+  return client?.entityType || null;
+}
+
+function resolveClientIndustryFromData(client, submissions = []) {
+  if (client?.industry?.trim()) {
+    return client.industry.trim();
+  }
+
+  const directIndustry = getSubmissionFieldValues(submissions, [
+    "industry",
+    "business_industry",
+    "businessIndustry",
+    "businessType",
+    "business_type",
+    "naics",
+    "naicsCode",
+  ]);
+
+  if (directIndustry) {
+    return directIndustry;
+  }
+
+  const propertyType = getSubmissionFieldValues(submissions, ["propertyType"]);
+  const subPropertyType = getSubmissionFieldValues(submissions, ["subPropertyType"]);
+
+  if (propertyType && subPropertyType) {
+    return `${formatEntityTypeLabel(propertyType)} · ${formatEntityTypeLabel(subPropertyType)}`;
+  }
+
+  if (propertyType) {
+    return formatEntityTypeLabel(propertyType);
+  }
+
+  if (subPropertyType) {
+    return formatEntityTypeLabel(subPropertyType);
+  }
+
+  return null;
+}
+
+function resolveClientPhoneFromData(client, submissions = []) {
+  const primaryContact =
+    client?.contacts?.find((contact) => contact.isPrimary) || client?.contacts?.[0];
+
+  if (primaryContact?.phone?.trim()) {
+    return primaryContact.phone.trim();
+  }
+
+  for (const contact of client?.contacts || []) {
+    if (contact.phone?.trim()) {
+      return contact.phone.trim();
+    }
+  }
+
+  return getSubmissionFieldValues(submissions, [
+    "phone",
+    "mobile",
+    "borrowerPhone",
+    "phone_number",
+    "phoneNumber",
+    "cellPhone",
+    "cell_phone",
+    "borrower_phone",
+  ]);
+}
+
+function resolveClientPrimaryContactFromData(client, submissions = []) {
+  const primaryContact =
+    client?.contacts?.find((contact) => contact.isPrimary) || client?.contacts?.[0] || null;
+  const phone = resolveClientPhoneFromData(client, submissions);
+
+  if (primaryContact) {
+    return {
+      ...primaryContact,
+      phone: phone || primaryContact.phone || null,
+    };
+  }
+
+  if (!phone) {
+    return null;
+  }
+
+  return {
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone,
+    isPrimary: true,
+  };
 }
 
 async function resolveClientDisplayName(
@@ -178,6 +345,11 @@ async function resolveClientDisplayName(
 module.exports = {
   resolveClientDisplayName,
   resolveClientDisplayNameFromData,
+  resolveClientEntityLabelFromData,
+  resolveClientEntityTypeFromData,
+  resolveClientIndustryFromData,
+  resolveClientPhoneFromData,
+  resolveClientPrimaryContactFromData,
   isPlaceholderName,
   nameFromEmail,
 };

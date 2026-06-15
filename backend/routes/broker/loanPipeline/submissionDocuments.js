@@ -1,6 +1,10 @@
 /**
  * @param {import("fastify").FastifyInstance} fastify
  */
+const {
+  getAutoForwardDocumentsToLender,
+} = require("../../../services/documentAutoForwardSetting");
+
 module.exports = async function submissionDocuments(fastify) {
   fastify.get("/submissions/:submissionId/documents", async (req, reply) => {
     try {
@@ -206,6 +210,12 @@ subBrokerSubmissionId:
         (doc) => doc.status === "PENDING",
       ).length;
 
+      const autoForwardDocumentsToLender =
+        await getAutoForwardDocumentsToLender(
+          fastify.prisma,
+          loanApplicationId,
+        );
+
       /* ===============================
          RESPONSE
       =============================== */
@@ -214,6 +224,7 @@ subBrokerSubmissionId:
         data: {
           submissionId: submission.id,
           loanApplicationId,
+          autoForwardDocumentsToLender,
           documentsRequested: pendingCount > 0,
           pendingDocumentsCount: pendingCount,
 

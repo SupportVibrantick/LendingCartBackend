@@ -690,6 +690,7 @@ model LoanApplication {
   createdAt              DateTime                         @default(now()) @db.Timestamptz(6)
   updatedAt              DateTime                         @updatedAt @db.Timestamptz(6)
   submittedAt            DateTime?                        @db.Timestamptz(6)
+  autoForwardDocumentsToLender Boolean                  @default(false) @map("auto_forward_documents_to_lender")
   collaterals            ApplicationCollateral[]
   documentRequirements   ApplicationDocumentRequirement[]
   documentUploads        ApplicationDocumentUpload[]

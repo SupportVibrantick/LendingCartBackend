@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { Building2, Pencil, X } from "lucide-react";
 
 export type Broker = {
   id: string;
@@ -24,45 +25,58 @@ type Props = {
   onSave: (updated: Broker) => void;
 };
 
-export default function EditBrokerModal({
-  isOpen,
-  broker,
-  onClose,
-  onSave,
-}: Props) {
-const [form, setForm] = useState({
-  name: "",
-  email: "",
-  phone: "",
+const inputClass =
+  "w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-800 outline-none transition-colors focus:border-[#13538A] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100";
 
-  adminId: "",
-  adminStatus: "",
+function Field({
+  label,
+  required,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <label className="block">
+      <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+        {label}
+        {required ? <span className="text-red-500"> *</span> : null}
+      </span>
+      {children}
+    </label>
+  );
+}
 
-  adminFirstName: "",
-  adminLastName: "",
-  adminEmail: "",
-  adminPassword: "",
-});
+export default function EditBrokerModal({ isOpen, broker, onClose, onSave }: Props) {
+  const [form, setForm] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    adminId: "",
+    adminStatus: "",
+    adminFirstName: "",
+    adminLastName: "",
+    adminEmail: "",
+    adminPassword: "",
+  });
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (broker) {
-setForm({
-  name: broker.name || "",
-  email: broker.email || "",
-  phone: broker.phone || "",
-
-  adminId: broker.adminId || "",
-  adminStatus: broker.adminStatus || "",
-
-  adminFirstName: broker.adminFirstName || "",
-  adminLastName: broker.adminLastName || "",
-  adminEmail: broker.adminEmail || "",
-  adminPassword: "",
-});
-
+      setForm({
+        name: broker.name || "",
+        email: broker.email || "",
+        phone: broker.phone || "",
+        adminId: broker.adminId || "",
+        adminStatus: broker.adminStatus || "",
+        adminFirstName: broker.adminFirstName || "",
+        adminLastName: broker.adminLastName || "",
+        adminEmail: broker.adminEmail || "",
+        adminPassword: "",
+      });
       setError(null);
     }
   }, [broker]);
@@ -73,44 +87,39 @@ setForm({
     e?.preventDefault();
     setError(null);
 
-if (
-  !form.name.trim() ||
-  !form.email.trim() ||
-  !form.phone.trim() ||
-  !form.adminFirstName.trim() ||
-  !form.adminLastName.trim() ||
-  !form.adminEmail.trim()
-) {
-  setError(
-    "Organization Name, Organization Email, Organization Phone, Admin First Name, Admin Last Name and Admin Email are required."
-  );
-  return;
-}
+    if (
+      !form.name.trim() ||
+      !form.email.trim() ||
+      !form.phone.trim() ||
+      !form.adminFirstName.trim() ||
+      !form.adminLastName.trim() ||
+      !form.adminEmail.trim()
+    ) {
+      setError(
+        "Organization name, email, phone, and admin name/email are required.",
+      );
+      return;
+    }
 
     setSaving(true);
 
     try {
-const updated: Broker = {
-  id: broker!.id,
-
-  name: form.name.trim(),
-  email: form.email.trim(),
-  phone: form.phone.trim(),
-
-  adminId: form.adminId,
-  adminStatus: form.adminStatus,
-
-  adminFirstName: form.adminFirstName.trim(),
-  adminLastName: form.adminLastName.trim(),
-  adminEmail: form.adminEmail.trim(),
-  adminPassword: form.adminPassword.trim(),
-
-  status: broker?.status,
-  createdAt: broker!.createdAt,
-};
+      const updated: Broker = {
+        id: broker!.id,
+        name: form.name.trim(),
+        email: form.email.trim(),
+        phone: form.phone.trim(),
+        adminId: form.adminId,
+        adminStatus: form.adminStatus,
+        adminFirstName: form.adminFirstName.trim(),
+        adminLastName: form.adminLastName.trim(),
+        adminEmail: form.adminEmail.trim(),
+        adminPassword: form.adminPassword.trim(),
+        status: broker?.status,
+        createdAt: broker!.createdAt,
+      };
 
       await new Promise((r) => setTimeout(r, 300));
-
       onSave(updated);
     } catch (err: any) {
       console.error(err);
@@ -121,177 +130,121 @@ const updated: Broker = {
   };
 
   return (
-    <div className="fixed inset-0 z-500000 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="bg-white rounded-xl p-6 w-full max-w-2xl shadow-lg">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold">Edit Broker</h2>
+    <div className="fixed inset-0 z-[99999999] flex items-center justify-center bg-black/40 p-4">
+      <div className="flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
+        <div className="h-1 bg-gradient-to-r from-[#13538A] via-[#18B6B4] to-emerald-400 opacity-80" />
 
+        <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3 dark:border-slate-800">
+          <div className="flex items-center gap-2">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#13538A]/10 text-[#13538A]">
+              <Pencil size={13} />
+            </div>
+            <div>
+              <h2 className="text-sm font-bold text-slate-900 dark:text-white">Edit Broker</h2>
+              <p className="text-[10px] text-slate-500">Organization and primary admin details</p>
+            </div>
+          </div>
           <button
+            type="button"
             onClick={onClose}
-            className="text-gray-500 hover:text-gray-800"
+            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800"
           >
-            Close
+            <X size={16} />
           </button>
         </div>
 
-        <form onSubmit={handleSave} className="space-y-5">
-          {/* ================= ORGANIZATION DETAILS ================= */}
-          <div>
-            <h3 className="font-semibold text-gray-800 mb-3">
-              Organization Details
-            </h3>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <label className="block">
-                <span className="text-sm text-gray-700">
-                   Organization Name <span className="text-red-500">*</span>
-                </span>
-
+        <form onSubmit={handleSave} className="overflow-y-auto px-4 py-3 space-y-4">
+          <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-3 dark:border-slate-800 dark:bg-slate-800/30">
+            <div className="mb-2.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+              <Building2 size={12} className="text-[#13538A]" />
+              Organization
+            </div>
+            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+              <Field label="Name" required>
                 <input
                   value={form.name}
-                  onChange={(e) =>
-                    setForm({ ...form, name: e.target.value })
-                  }
-                  className="w-full px-3 py-2 mt-1 border rounded-md"
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  className={inputClass}
                   autoFocus
                 />
-              </label>
-
-              <label className="block">
-                <span className="text-sm text-gray-700">
-                  Organization Email <span className="text-red-500">*</span>
-                </span>
-
+              </Field>
+              <Field label="Email" required>
                 <input
                   type="email"
                   value={form.email}
-                  onChange={(e) =>
-                    setForm({ ...form, email: e.target.value })
-                  }
-                  className="w-full px-3 py-2 mt-1 border rounded-md"
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  className={inputClass}
                 />
-              </label>
-
-              <label className="block">
-                <span className="text-sm text-gray-700">
-                  Organization Phone <span className="text-red-500">*</span>
-                </span>
-
+              </Field>
+              <Field label="Phone" required>
                 <input
                   value={form.phone}
-                  onChange={(e) =>
-                    setForm({ ...form, phone: e.target.value })
-                  }
-                  className="w-full px-3 py-2 mt-1 border rounded-md"
+                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                  className={`${inputClass} sm:col-span-2`}
                 />
-              </label>
+              </Field>
             </div>
           </div>
 
-          {/* ================= ADMIN DETAILS ================= */}
-          <div className="border-t pt-4">
-            <h3 className="font-semibold text-gray-800 mb-3">
-              Admin Details
-            </h3>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <label className="block">
-                <span className="text-sm text-gray-700">
-                  Admin First Name <span className="text-red-500">*</span>
-                </span>
-
+          <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-3 dark:border-slate-800 dark:bg-slate-800/30">
+            <p className="mb-2.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+              Primary admin
+            </p>
+            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+              <Field label="First name" required>
                 <input
                   value={form.adminFirstName}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      adminFirstName: e.target.value,
-                    })
-                  }
-                  className="w-full px-3 py-2 mt-1 border rounded-md"
+                  onChange={(e) => setForm({ ...form, adminFirstName: e.target.value })}
+                  className={inputClass}
                 />
-              </label>
-
-              <label className="block">
-                <span className="text-sm text-gray-700">
-                  Admin Last Name <span className="text-red-500">*</span>
-                </span>
-
+              </Field>
+              <Field label="Last name" required>
                 <input
                   value={form.adminLastName}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      adminLastName: e.target.value,
-                    })
-                  }
-                  className="w-full px-3 py-2 mt-1 border rounded-md"
+                  onChange={(e) => setForm({ ...form, adminLastName: e.target.value })}
+                  className={inputClass}
                 />
-              </label>
-
-              <label className="block">
-                <span className="text-sm text-gray-700">
-                  Admin Email <span className="text-red-500">*</span>
-                </span>
-
+              </Field>
+              <Field label="Email" required>
                 <input
                   type="email"
                   value={form.adminEmail}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      adminEmail: e.target.value,
-                    })
-                  }
-                  className="w-full px-3 py-2 mt-1 border rounded-md"
+                  onChange={(e) => setForm({ ...form, adminEmail: e.target.value })}
+                  className={inputClass}
                 />
-              </label>
-
-              <label className="block">
-                <span className="text-sm text-gray-700">
-                  Admin Password (Optional)
-                </span>
-
+              </Field>
+              <Field label="Password (optional)">
                 <input
                   type="password"
                   value={form.adminPassword}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      adminPassword: e.target.value,
-                    })
-                  }
-                  className="w-full px-3 py-2 mt-1 border rounded-md"
-                  placeholder="Leave blank to keep existing password"
+                  onChange={(e) => setForm({ ...form, adminPassword: e.target.value })}
+                  className={inputClass}
+                  placeholder="Keep blank to retain"
                 />
-              </label>
+              </Field>
             </div>
           </div>
 
-          {/* Error */}
           {error && (
-            <div className="text-sm text-red-600">
+            <p className="rounded-lg border border-red-100 bg-red-50 px-2.5 py-2 text-[11px] text-red-600 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-400">
               {error}
-            </div>
+            </p>
           )}
 
-          {/* Actions */}
-          <div className="flex justify-end gap-3 pt-3">
+          <div className="flex items-center justify-end gap-2 border-t border-slate-100 pt-3 dark:border-slate-800">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md"
+              className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"
             >
               Cancel
             </button>
-
             <button
               type="submit"
               disabled={saving}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-70"
+              className="rounded-lg bg-[#13538A] px-3.5 py-1.5 text-[11px] font-semibold text-white hover:bg-[#0f426d] disabled:opacity-60"
             >
-              {saving ? "Saving..." : "Save Changes"}
+              {saving ? "Saving..." : "Save changes"}
             </button>
           </div>
         </form>

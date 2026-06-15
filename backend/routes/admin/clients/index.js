@@ -1,5 +1,6 @@
 async function clientRoutes(fastify) {
   fastify.register(require("./list"));
+  fastify.register(require("./getById"));
   fastify.register(require("./status"));
 }
 

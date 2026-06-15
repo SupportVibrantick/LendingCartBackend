@@ -11,6 +11,7 @@ export const ROUTE_PERMISSIONS: Record<string, PermissionKey | PermissionKey[] |
   "/": "VIEW_DASHBOARD",
   "/platform-reports": "VIEW_REPORTS",
   "/all-brokers-database": "VIEW_ORGANIZATIONS",
+  "/broker-detail": "VIEW_ORGANIZATIONS",
   "/all-brokers-lenders": "VIEW_ORGANIZATIONS",
   "/all-loan-products": "VIEW_LOAN_PRODUCTS",
   "/lender-assigned-products": "UPDATE_LOAN_PRODUCT",
@@ -53,6 +54,7 @@ export const ROUTE_PERMISSIONS: Record<string, PermissionKey | PermissionKey[] |
 
 const DYNAMIC_ROUTE_RULES: { pattern: RegExp; permission: PermissionKey | PermissionKey[] | null }[] = [
   { pattern: /^\/update-lender\/.+/, permission: "UPDATE_LENDER" },
+  { pattern: /^\/brokers\/.+/, permission: "VIEW_ORGANIZATIONS" },
 ];
 
 export function getRequiredPermission(pathname: string): PermissionKey | PermissionKey[] | null {

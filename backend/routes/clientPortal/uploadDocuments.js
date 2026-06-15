@@ -10,6 +10,12 @@ const {
   notifyBroker,
   BROKER_NOTIFICATION_EVENTS,
 } = require("../../services/brokerNotifications");
+const {
+  autoForwardDocumentUpload,
+} = require("../../services/autoForwardDocumentUpload");
+const {
+  getAutoForwardDocumentsToLender,
+} = require("../../services/documentAutoForwardSetting");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
@@ -88,6 +94,24 @@ async function uploadDocumentsRoute(fastify) {
           });
         }
 
+        const loan = await prisma.loanApplication.findUnique({
+          where: { id: loanApplicationId },
+          include: {
+            brokerOrg: {
+              include: {
+                users: true,
+              },
+            },
+          },
+        });
+
+        if (!loan) {
+          return reply.code(404).send({
+            success: false,
+            message: "Loan application not found",
+          });
+        }
+
         /* ============================
            FILE TYPE VALIDATION
         ============================ */
@@ -160,31 +184,44 @@ async function uploadDocumentsRoute(fastify) {
           data: { status: "PARTIAL" },
         });
 
+        let autoForwardResult = null;
+        const autoForwardEnabled = await getAutoForwardDocumentsToLender(
+          prisma,
+          loanApplicationId,
+        );
+
+        if (autoForwardEnabled) {
+          try {
+            autoForwardResult = await autoForwardDocumentUpload(prisma, {
+              loanApplicationId,
+              documentRequirementId,
+              documentUploadId: upload.id,
+            });
+          } catch (forwardErr) {
+            fastify.log.error(
+              {
+                error: forwardErr.message,
+                loanApplicationId,
+                documentRequirementId,
+                documentUploadId: upload.id,
+              },
+              "Auto-forward client document failed",
+            );
+          }
+        }
+
         /* ============================
            FETCH BROKER EMAIL
         ============================ */
 
-        const loan = await prisma.loanApplication.findUnique({
-          where: { id: loanApplicationId },
-          include: {
-            brokerOrg: {
-              include: {
-                users: true,
-              },
-            },
-          },
-        });
-
-        const brokerUser =
-          loan?.brokerOrg?.users?.find((u) => u.email);
-
+        const brokerUser = loan.brokerOrg?.users?.find((u) => u.email);
         const brokerEmail = brokerUser?.email;
 
         /* ============================
            SEND EMAIL TO BROKER
         ============================ */
 
-        if (brokerEmail) {
+        if (brokerEmail && !autoForwardEnabled) {
           const html = loadTemplate("clientPortal/documentUpload", {
             clientName: "Client",
             applicationNumber: loan.applicationNumber,
@@ -239,12 +276,17 @@ async function uploadDocumentsRoute(fastify) {
           brokerOrgId: loan.brokerOrgId,
           eventType: BROKER_NOTIFICATION_EVENTS.CLIENT_UPLOADED_DOCUMENT,
           category: "DOCUMENT",
-          subject: "Client Uploaded Document",
-          body: `New document uploaded for application ${loan.applicationNumber}`,
+          subject: autoForwardEnabled
+            ? "Client document auto-forwarded to lender"
+            : "Client Uploaded Document",
+          body: autoForwardEnabled
+            ? `Document uploaded and forwarded for application ${loan.applicationNumber}`
+            : `New document uploaded for application ${loan.applicationNumber}`,
           metadata: {
             loanApplicationId,
             applicationId: loanApplicationId,
             applicationNumber: loan.applicationNumber,
+            autoForwarded: Boolean(autoForwardResult?.forwarded),
           },
         });
 
@@ -254,8 +296,13 @@ async function uploadDocumentsRoute(fastify) {
 
         return reply.send({
           success: true,
-          message: "Document uploaded successfully",
-          data: upload,
+          message: autoForwardEnabled
+            ? "Document uploaded and forwarded to lender"
+            : "Document uploaded successfully",
+          data: {
+            ...upload,
+            autoForwarded: Boolean(autoForwardResult?.forwarded),
+          },
         });
 
       } catch (error) {

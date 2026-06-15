@@ -23,6 +23,7 @@ type ClientRow = {
   id: string;
   legalName?: string;
   displayName?: string;
+  entityLabel?: string | null;
   entityType?: string;
   industry?: string;
   brokerName?: string;
@@ -54,14 +55,6 @@ const AVATAR_TONES = [
   "bg-blue-100 text-blue-700",
   "bg-emerald-100 text-emerald-700",
 ];
-
-const ENTITY_STYLES: Record<string, string> = {
-  INDIVIDUAL: "bg-sky-50 text-sky-700 ring-sky-100 dark:bg-sky-500/10 dark:text-sky-300",
-  LLC: "bg-violet-50 text-violet-700 ring-violet-100 dark:bg-violet-500/10 dark:text-violet-300",
-  CORPORATION: "bg-indigo-50 text-indigo-700 ring-indigo-100 dark:bg-indigo-500/10 dark:text-indigo-300",
-  PARTNERSHIP: "bg-amber-50 text-amber-700 ring-amber-100 dark:bg-amber-500/10 dark:text-amber-300",
-  TRUST: "bg-emerald-50 text-emerald-700 ring-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-300",
-};
 
 function getInitials(name?: string, email?: string) {
   if (name && !PLACEHOLDER_NAMES.has(name)) {
@@ -110,14 +103,6 @@ function resolveClientDisplayName(row: ClientRow) {
   }
 
   return "Client";
-}
-
-function formatEntityType(value?: string) {
-  if (!value) return "—";
-  return value
-    .replace(/_/g, " ")
-    .toLowerCase()
-    .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
 function TableSkeleton() {
@@ -359,9 +344,6 @@ export default function AllClients() {
                       const email = row.primaryContact?.email;
                       const isActive = row.isActive === true;
                       const busy = rowLoadingId === row.id;
-                      const entityStyle =
-                        ENTITY_STYLES[row.entityType || ""] ||
-                        "bg-slate-100 text-slate-700 ring-slate-200 dark:bg-slate-800 dark:text-slate-300";
 
                       return (
                         <tr
@@ -410,10 +392,8 @@ export default function AllClients() {
 
                           <td className="px-5 py-4">
                             <div className="space-y-1">
-                              <span
-                                className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ${entityStyle}`}
-                              >
-                                {formatEntityType(row.entityType)}
+                              <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                                {row.entityLabel || "—"}
                               </span>
                               {row.industry && (
                                 <p className="text-[11px] text-slate-400">{row.industry}</p>

@@ -1,5 +1,6 @@
 const {
   resolveClientDisplayNameFromData,
+  resolveClientEntityLabelFromData,
 } = require("../../../services/resolveClientDisplayName");
 
 function submissionFieldValue(fields, ...keys) {
@@ -111,16 +112,19 @@ async function getAdminApplicationDetails(fastify) {
           submissionFieldValue(fields, "purpose", "loanPurpose", "useOfFunds");
 
         entityType =
-          entityType ||
           submissionFieldValue(
             fields,
             "entityType",
             "borrowerEntityType",
             "businessEntityType",
-          );
+          ) || entityType;
       }
 
       const borrowerName = resolveClientDisplayNameFromData(
+        application.client,
+        application.submissions,
+      );
+      const entityLabel = resolveClientEntityLabelFromData(
         application.client,
         application.submissions,
       );
@@ -148,6 +152,7 @@ async function getAdminApplicationDetails(fastify) {
         data: {
           ...application,
           borrowerName,
+          entityLabel,
           entityType,
           purpose,
           amountRequested,

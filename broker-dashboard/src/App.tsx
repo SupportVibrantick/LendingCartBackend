@@ -76,7 +76,6 @@ import LoanOfficerDashboard from "./pages/loanOfficer/Dashboard/LoanOfficerDashb
 import LoanOfficerMessagesPage from "./pages/loanOfficer/Messages/LoanOfficerMessagesPage";
 import LoanOfficerApplication from "./pages/loanOfficer/LoanApplication/LoanApplication";
 import LoanOfficerContacts from "./pages/loanOfficer/Contacts/ContactPage";
-import MessagesPage from "./pages/Messages/MessagesPage";
 
 // type RequirePermissionProps = {
 //   children: ReactNode;
@@ -245,7 +244,7 @@ export default function App() {
               }
             />
 
-            <Route path="/messages" element={<MessagesPage />} />
+            {/* <Route path="/messages" element={<MessagesPage />} /> */}
 
             <Route
               index

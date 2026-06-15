@@ -1347,8 +1347,7 @@ export default function LoanApplicationsPage() {
 
       {/* Table */}
       <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
-        <div className="overflow-x-auto applications-table-top">
-          <table className="min-w-[999px] w-full border-collapse text-left">
+          <table className="w-full border-collapse text-left">
             <thead className="sticky top-0 z-10 bg-gray-50 shadow-[0_1px_0_0_rgb(229_231_235)] dark:bg-gray-800 dark:shadow-[0_1px_0_0_rgb(31_41_55)]">
               <tr>
                 {[
@@ -1423,7 +1422,7 @@ export default function LoanApplicationsPage() {
 </td> */}
 
                       {/* Location */}
-                      <td className="px-6 py-3 min-w-[200px]">
+                      <td className="px-6 py-3 min-w-0">
                         <div className="flex items-start gap-1">
                           {/* Fixed Icon Wrapper */}
                           <div className="w-5 h-5 flex items-center justify-center shrink-0 mt-[2px]">
@@ -1765,7 +1764,6 @@ whitespace-nowrap
                 </div>
               )}
             </div>
-          </div>
         </div>
 
         {viewSubmissionId &&

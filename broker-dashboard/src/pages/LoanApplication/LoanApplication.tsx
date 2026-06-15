@@ -6,7 +6,7 @@ import { useNavigate } from "react-router";
 import { IoArrowBack } from "react-icons/io5";
 import { Building2, HomeIcon, Landmark, Settings } from "lucide-react";
 
-interface Borrower {
+export interface Borrower {
   name: string;
   entityName: string;
   phone: string;
@@ -21,7 +21,7 @@ interface Borrower {
   mailingAddress: string;
 }
 
-interface CoBorrower extends Borrower {
+export interface CoBorrower extends Borrower {
   id: number;
 
   // Financial
@@ -33,7 +33,7 @@ interface CoBorrower extends Borrower {
   totalLiabilities: string;
 }
 
-interface FormDataType {
+export interface FormDataType {
   borrower: Borrower;
   coBorrowers: CoBorrower[];
   loanRequest: {
@@ -76,7 +76,7 @@ interface FormDataType {
   };
 }
 
-type LoanCategory =
+export type LoanCategory =
   | "RESIDENTIAL_1_4"
   | "CRE_MULTIFAMILY"
   | "SBA_USDA"
@@ -351,23 +351,49 @@ const STATIC_FIELD_KEYS = [
   "yearsInBusiness",
 ];
 
-const LoanApplication = () => {
+export type LoanApplicationMode = "create" | "update";
+
+export type LoanApplicationProps = {
+  mode?: LoanApplicationMode;
+  embedded?: boolean;
+  editApplicationId?: string;
+  initialFormData?: FormDataType;
+  initialSelectedProduct?: string;
+  initialSelectedCategory?: LoanCategory;
+  initialDynamicFormData?: Record<string, any>;
+  onUpdateSuccess?: (submissionId?: string) => void;
+};
+
+const LoanApplication = ({
+  mode = "create",
+  embedded = false,
+  editApplicationId,
+  initialFormData,
+  initialSelectedProduct = "",
+  initialSelectedCategory = "",
+  initialDynamicFormData,
+  onUpdateSuccess,
+}: LoanApplicationProps = {}) => {
   const coBorrowerRefs = useRef<Record<number, HTMLDivElement | null>>({});
   const [lastAddedId, setLastAddedId] = useState<number | null>(null);
-  const [selectedProduct, setSelectedProduct] = useState<string>("");
+  const [selectedProduct, setSelectedProduct] = useState<string>(
+    initialSelectedProduct,
+  );
   const [dynamicSections, setDynamicSections] = useState<any[]>([]);
   const [activeSectionIndex, setActiveSectionIndex] = useState<number | null>(
     null,
   );
   const [dynamicFormData, setDynamicFormData] = useState<Record<string, any>>(
-    {},
+    initialDynamicFormData || {},
   );
   const [applicationId, setApplicationId] = useState<string>("");
   const [productsMeta, setProductsMeta] = useState<any[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const [selectedCategory, setSelectedCategory] = useState<LoanCategory>("");
+  const [selectedCategory, setSelectedCategory] = useState<LoanCategory>(
+    initialSelectedCategory,
+  );
   const navigate = useNavigate();
 
   const baseSteps = [
@@ -458,61 +484,63 @@ const LoanApplication = () => {
   ];
 
   const [currentStep, setCurrentStep] = useState(0);
-  const [formData, setFormData] = useState<FormDataType>({
-    borrower: {
-      name: "",
-      entityName: "",
-      phone: "",
-      email: "",
-      employer: "",
-      dob: "",
-      ssn: "",
-      creditScore: "",
-      address: "",
-      city: "",
-      state: "",
-      mailingAddress: "",
-    },
-    coBorrowers: [],
-    loanRequest: {
-      purpose: "",
-      amount: "",
-      interestRate: "",
-      currentMarketValue: "",
-      purchasePrice: "",
-      purchaseDate: "",
-      totalAssets: "",
-      totalLiabilities: "",
-      afterRepairValue: "",
+  const [formData, setFormData] = useState<FormDataType>(
+    initialFormData || {
+      borrower: {
+        name: "",
+        entityName: "",
+        phone: "",
+        email: "",
+        employer: "",
+        dob: "",
+        ssn: "",
+        creditScore: "",
+        address: "",
+        city: "",
+        state: "",
+        mailingAddress: "",
+      },
+      coBorrowers: [],
+      loanRequest: {
+        purpose: "",
+        amount: "",
+        interestRate: "",
+        currentMarketValue: "",
+        purchasePrice: "",
+        purchaseDate: "",
+        totalAssets: "",
+        totalLiabilities: "",
+        afterRepairValue: "",
 
-      propertyType: "",
-      subPropertyType: "",
-      recourse: "",
-      businessAddress: "",
-      city: "",
-      state: "",
-      zip: "",
+        propertyType: "",
+        subPropertyType: "",
+        recourse: "",
+        businessAddress: "",
+        city: "",
+        state: "",
+        zip: "",
+      },
+      loanTermIncome: {
+        loanTerm: "",
+        monthlyRent: "",
+        grossRevenueActual: "",
+        grossRevenueProforma: "",
+        noiActual: "",
+        noiProforma: "",
+        annualTaxes: "",
+        floodZone: "",
+        insurancePremium: "",
+        hoaDues: "",
+      },
+      entity: {
+        legalName: "",
+        entityType: "",
+        dba: "",
+        formationDate: "",
+        yearsInBusiness: "",
+      },
     },
-    loanTermIncome: {
-      loanTerm: "",
-      monthlyRent: "",
-      grossRevenueActual: "",
-      grossRevenueProforma: "",
-      noiActual: "",
-      noiProforma: "",
-      annualTaxes: "",
-      floodZone: "",
-      insurancePremium: "",
-      hoaDues: "",
-    },
-    entity: {
-      legalName: "",
-      entityType: "",
-      dba: "",
-      formationDate: "",
-      yearsInBusiness: "",
-    },
-  });
+  );
 
   const [loanProducts, setLoanProducts] = useState<string[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(false);
@@ -912,16 +940,37 @@ const LoanApplication = () => {
 
       setSubmitting(true);
 
-      const fieldsMap = new Map<string, any>();
+      const allProductFields = [
+        ...(activeProduct?.unsectionedFields || []),
+        ...(activeProduct?.sections || []).flatMap(
+          (section: any) => section.fields || [],
+        ),
+      ];
 
-      const addField = (key: string, value: any) => {
+      const fieldIdByKey = new Map<string, string>(
+        allProductFields
+          .filter((field: any) => field.fieldKey && field.fieldId)
+          .map((field: any) => [field.fieldKey, field.fieldId]),
+      );
+
+      const fieldsMap = new Map<
+        string,
+        { value: any; fieldId?: string }
+      >();
+
+      const addField = (key: string, value: any, fieldId?: string) => {
         if (value === undefined || value === null || value === "") return;
 
         if (typeof value === "string") {
           value = value.trim();
         }
 
-        fieldsMap.set(key, value);
+        const resolvedFieldId = fieldId ?? fieldIdByKey.get(key);
+
+        fieldsMap.set(key, {
+          value,
+          ...(resolvedFieldId ? { fieldId: resolvedFieldId } : {}),
+        });
       };
 
       /* ================= BORROWER ================= */
@@ -1002,6 +1051,7 @@ const LoanApplication = () => {
       );
       addField("noiProforma", formData.loanTermIncome.noiProforma);
       addField("annualTaxes", formData.loanTermIncome.annualTaxes);
+      addField("floodZone", formData.loanTermIncome.floodZone);
       addField("insurancePremium", formData.loanTermIncome.insurancePremium);
       addField("hoaDues", formData.loanTermIncome.hoaDues);
 
@@ -1058,12 +1108,7 @@ const LoanApplication = () => {
 
       /* ================= DYNAMIC FIELDS ================= */
 
-      const allDynamicFields = [
-        ...(activeProduct?.unsectionedFields || []),
-        ...(activeProduct?.sections || []).flatMap(
-          (section: any) => section.fields || [],
-        ),
-      ];
+      const allDynamicFields = allProductFields;
 
       Object.entries(dynamicFormData).forEach(([fieldId, value]) => {
         if (!value || value instanceof File) return;
@@ -1074,7 +1119,7 @@ const LoanApplication = () => {
 
         const key = fieldMeta?.fieldKey || fieldMeta?.label || fieldId;
 
-        addField(key, value);
+        addField(key, value, fieldId);
       });
 
       /* ================= CALCULATED ================= */
@@ -1093,15 +1138,45 @@ const LoanApplication = () => {
       const payload = {
         applicationId,
         applicationProductId: activeProduct.productId,
-        fields: Array.from(fieldsMap.entries()).map(([fieldKey, value]) => ({
-          fieldKey,
-          value,
-        })),
+        fields: Array.from(fieldsMap.entries()).map(
+          ([fieldKey, { value, fieldId }]) => ({
+            fieldKey,
+            value,
+            ...(fieldId ? { fieldId } : {}),
+          }),
+        ),
       };
 
-      console.log("Submitting Payload:", payload);
-
       const token = sessionStorage.getItem("broker_token");
+
+      if (mode === "update" && editApplicationId) {
+        const response = await fetch(
+          `${API_BASE}/broker/applications/${editApplicationId}/edit`,
+          {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ fields: payload.fields }),
+          },
+        );
+
+        const result = await response.json();
+
+        if (!response.ok || result.success !== true) {
+          throw new Error(result.message || "Update failed");
+        }
+
+        toast.success("Application Updated Successfully");
+        onUpdateSuccess?.(result.data?.submissionId);
+        if (!embedded) {
+          navigate("/submit-applications");
+        }
+        return;
+      }
+
+      console.log("Submitting Payload:", payload);
 
       const response = await fetch(`${API_BASE}/broker/applications/submit`, {
         method: "POST",
@@ -1522,8 +1597,17 @@ const LoanApplication = () => {
 
     setLoanProducts(filteredProducts.map((p: any) => p.loanProductCode));
 
+    if (mode === "update" && initialSelectedProduct) {
+      setSelectedProduct((prev) =>
+        allowedProducts.includes(initialSelectedProduct)
+          ? initialSelectedProduct
+          : prev,
+      );
+      return;
+    }
+
     setSelectedProduct("");
-  }, [selectedCategory, productsMeta]);
+  }, [selectedCategory, productsMeta, mode, initialSelectedProduct]);
 
   const updateBorrower = (field: string, value: string) => {
     setFormData((prev) => ({
@@ -1797,36 +1881,56 @@ const LoanApplication = () => {
 
   return (
     <>
-      <div className="min-h-screen bg-slate-50 px-6 py-8 dark:bg-slate-900">
+      <div
+        className={
+          embedded
+            ? "bg-transparent"
+            : "min-h-screen bg-slate-50 px-6 py-8 dark:bg-slate-900"
+        }
+      >
         {/* ===== FIXED HEADER SECTION ===== */}
-        <div className="w-full sticky top-[1px] z-30 bg-slate-50 dark:bg-slate-900 pb-4">
+        <div
+          className={
+            embedded
+              ? "w-full pb-4"
+              : "w-full sticky top-[1px] z-30 bg-slate-50 dark:bg-slate-900 pb-4"
+          }
+        >
           {/* HEADER */}
           <div className="mb-6">
             {/* BACK BUTTON */}
-            <button
-              type="button"
-              onClick={() => navigate(-1)}
-              className="
+            {!embedded && (
+              <button
+                type="button"
+                onClick={() => navigate(-1)}
+                className="
       mb-4 flex items-center gap-2
       text-sm font-medium text-slate-600
       hover:text-[#2C92D5]
       transition
     "
-            >
-              <IoArrowBack size={18} />
-              Back to Submit Applications
-            </button>
+              >
+                <IoArrowBack size={18} />
+                Back to Submit Applications
+              </button>
+            )}
 
             {/* TITLE */}
-            <div className="pt-1">
-              <h2 className="text-2xl font-bold text-[#2C92D5]">
-                New Loan Application
-              </h2>
+            {!embedded && (
+              <div className="pt-1">
+                <h2 className="text-2xl font-bold text-[#2C92D5]">
+                  {mode === "update"
+                    ? "Update Loan Application"
+                    : "New Loan Application"}
+                </h2>
 
-              <p className="text-sm text-slate-500">
-                Complete comprehensive loan application
-              </p>
-            </div>
+                <p className="text-sm text-slate-500">
+                  {mode === "update"
+                    ? "Review and update the submitted application details"
+                    : "Complete comprehensive loan application"}
+                </p>
+              </div>
+            )}
           </div>
           {/* STEPPER */}
           <div className="flex flex-wrap gap-2 mb-4 pt-4">
@@ -1894,9 +1998,11 @@ rounded-2xl p-6 shadow-sm
                       <button
                         key={category}
                         type="button"
+                        disabled={mode === "update"}
                         onClick={() => setSelectedCategory(category)}
                         className={`flex-shrink-0 flex flex-col items-center justify-center gap-2 
         w-full h-[110px] rounded-2xl border transition-all text-center
+        disabled:cursor-not-allowed disabled:opacity-60
         
         ${
           selectedCategory === category
@@ -1931,6 +2037,7 @@ rounded-2xl p-6 shadow-sm
                   </label>
                   <select
                     value={selectedProduct}
+                    disabled={mode === "update"}
                     onChange={(e) => {
                       setSelectedProduct(e.target.value);
                       updateLoanRequest("purpose", "");
@@ -1942,7 +2049,7 @@ border-slate-300 dark:border-slate-600
 bg-white dark:bg-slate-900
 text-slate-800 dark:text-slate-200
 focus:ring-2 focus:ring-blue-500/20
-focus:border-blue-500 outline-none text-sm ${
+focus:border-blue-500 outline-none text-sm disabled:cursor-not-allowed disabled:opacity-60 disabled:bg-slate-100 dark:disabled:bg-slate-800 ${
                       errors["selectedProduct"]
                         ? "border-red-500 bg-red-50"
                         : "border-slate-300"
@@ -4033,8 +4140,12 @@ focus:border-blue-500 outline-none text-sm ${
             >
               {currentStep === allSteps.length - 1
                 ? submitting
-                  ? "Submitting..."
-                  : "Submit"
+                  ? mode === "update"
+                    ? "Updating..."
+                    : "Submitting..."
+                  : mode === "update"
+                    ? "Update Application"
+                    : "Submit"
                 : "Save & Next"}
             </button>
           </div>

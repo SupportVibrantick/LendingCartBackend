@@ -1,5 +1,3 @@
-import { fetchInbox, type InboxConversation } from "./useConversationHistory";
-
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
 function getAuthHeaders(): Record<string, string> {
@@ -47,21 +45,13 @@ export type GlobalSearchApplication = {
   subtitle: string;
 };
 
-export type GlobalSearchMessage = {
-  kind: "message";
-  id: string;
-  label: string;
-  subtitle: string;
-};
-
 export type GlobalSearchViewAllSection =
   | "subBrokers"
   | "loanOfficers"
   | "clients"
   | "contacts"
   | "lenders"
-  | "applications"
-  | "messages";
+  | "applications";
 
 export type GlobalSearchResults = {
   subBrokers: GlobalSearchPerson[];
@@ -70,7 +60,6 @@ export type GlobalSearchResults = {
   contacts: GlobalSearchContact[];
   lenders: GlobalSearchLender[];
   applications: GlobalSearchApplication[];
-  messages: GlobalSearchMessage[];
 };
 
 export async function runGlobalSearch(
@@ -82,10 +71,9 @@ export async function runGlobalSearch(
     return emptyResults();
   }
 
-  const [priority, applications, messages] = await Promise.all([
+  const [priority, applications] = await Promise.all([
     fetchPrioritySearch(trimmed, limit),
     fetchApplications(trimmed, limit),
-    fetchMessages(trimmed, limit),
   ]);
 
   return {
@@ -110,7 +98,6 @@ export async function runGlobalSearch(
       kind: "lender" as const,
     })),
     applications,
-    messages,
   };
 }
 
@@ -122,7 +109,6 @@ function emptyResults(): GlobalSearchResults {
     contacts: [],
     lenders: [],
     applications: [],
-    messages: [],
   };
 }
 
@@ -134,12 +120,17 @@ async function fetchPrioritySearch(query: string, limit: number) {
 
     const res = await fetch(url.toString(), { headers: getAuthHeaders() });
     const json = await res.json();
-    if (!res.ok || !json.success) return emptyResults();
+    if (!res.ok || !json.success) {
+      return {
+        subBrokers: [],
+        loanOfficers: [],
+        clients: [],
+        contacts: [],
+        lenders: [],
+      };
+    }
 
-    return json.data as Omit<
-      GlobalSearchResults,
-      "applications" | "messages"
-    > & {
+    return json.data as {
       subBrokers: Omit<GlobalSearchPerson, "kind">[];
       loanOfficers: Omit<GlobalSearchPerson, "kind">[];
       clients: Omit<GlobalSearchClient, "kind">[];
@@ -180,23 +171,6 @@ async function fetchApplications(
       subtitle: [item.applicationNumber, item.loanInfo, item.location]
         .filter(Boolean)
         .join(" · "),
-    }));
-  } catch {
-    return [];
-  }
-}
-
-async function fetchMessages(
-  query: string,
-  limit: number,
-): Promise<GlobalSearchMessage[]> {
-  try {
-    const data = await fetchInbox({ page: 1, limit, search: query });
-    return (data.conversations || []).map((conv: InboxConversation) => ({
-      kind: "message" as const,
-      id: conv.id,
-      label: conv.title || "Conversation",
-      subtitle: conv.applicationNumber || conv.clientLegalName || conv.type || "",
     }));
   } catch {
     return [];
