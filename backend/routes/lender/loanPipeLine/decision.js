@@ -7,6 +7,10 @@ const {
   notifyBroker,
   BROKER_NOTIFICATION_EVENTS,
 } = require("../../../services/brokerNotifications");
+const {
+  notifyClient,
+  CLIENT_NOTIFICATION_EVENTS,
+} = require("../../../services/clientNotifications");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
@@ -313,6 +317,16 @@ async function lenderDecisionRoutes(fastify) {
           }
 
           /* ===============================
+             APPROVED FLOW
+          =============================== */
+          if (decision === "APPROVED") {
+            await tx.loanApplication.update({
+              where: { id: record.loanApplication.id },
+              data: { status: "LENDER_APPROVED" },
+            });
+          }
+
+          /* ===============================
              DECLINED FLOW
           =============================== */
           if (decision === "DECLINED") {
@@ -388,6 +402,36 @@ async function lenderDecisionRoutes(fastify) {
             interestRate: decision === "APPROVED" ? interestRate : null,
           },
         });
+
+        const clientId = record.loanApplication.clientId;
+        if (clientId) {
+          const clientEventMap = {
+            APPROVED: CLIENT_NOTIFICATION_EVENTS.LENDER_APPROVED,
+            DECLINED: CLIENT_NOTIFICATION_EVENTS.LENDER_DECLINED,
+            CONDITIONAL: CLIENT_NOTIFICATION_EVENTS.LENDER_CONDITIONAL,
+          };
+
+          const clientBodyMap = {
+            APPROVED: `Your application ${applicationNumber} has been approved by ${lenderName}.`,
+            DECLINED: `Your application ${applicationNumber} was declined by ${lenderName}.`,
+            CONDITIONAL: `${lenderName} requested additional documents for application ${applicationNumber}.`,
+          };
+
+          await notifyClient(prisma, fastify.io, {
+            clientId,
+            eventType: clientEventMap[decision],
+            category: "APPLICATION",
+            subject: clientBodyMap[decision],
+            body: clientBodyMap[decision],
+            metadata: {
+              applicationId: record.loanApplication.id,
+              applicationNumber,
+              applicationLenderId,
+              lenderName,
+              decision,
+            },
+          });
+        }
 
         return reply.send({
           success: true,

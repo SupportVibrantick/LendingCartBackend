@@ -13,6 +13,39 @@ const {
   PLATFORM_NOTIFICATION_EVENTS,
 } = require("../../../services/platformNotifications.js");
 
+function normalizeWebsiteUrl(input) {
+  if (!input?.trim()) return null;
+
+  let url = input.trim();
+  if (!/^https?:\/\//i.test(url)) {
+    url = `https://www.${url.replace(/^www\./i, "")}`;
+  }
+
+  try {
+    const parsed = new URL(url);
+    parsed.pathname = parsed.pathname.replace(/\/$/, "");
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}
+
+function buildBrokerProfileData(fields) {
+  return {
+    company: fields.company || null,
+    licenseNumber: fields.licenseNumber || null,
+    address: fields.address || null,
+    city: fields.city || null,
+    state: fields.state || null,
+    zipCode: fields.zipCode || null,
+    website: normalizeWebsiteUrl(fields.website),
+  };
+}
+
+function hasBrokerProfileData(profileData) {
+  return Object.values(profileData).some((value) => value);
+}
+
 /**
  * @param {import("fastify").FastifyInstance} fastify
  */
@@ -35,9 +68,12 @@ async function createBrokerRoutes(fastify) {
         if (!validation.success) {
           adminLogs.error("Invalid broker creation payload", validation.error);
 
+          const firstIssue = validation.error.issues[0];
+
           return reply.status(400).send({
             success: false,
-            message: "Invalid input data for creating broker.",
+            message:
+              firstIssue?.message || "Invalid input data for creating broker.",
             details:
               process.env.NODE_ENV === "development"
                 ? validation.error.issues
@@ -53,16 +89,37 @@ async function createBrokerRoutes(fastify) {
           adminLastName,
           adminEmail,
           adminPassword,
+          adminPhone,
+          company,
+          licenseNumber,
+          address,
+          city,
+          state,
+          zipCode,
+          website,
         } = validation.data;
 
-        // Duplicate org check
+        const profileData = buildBrokerProfileData({
+          company,
+          licenseNumber,
+          address,
+          city,
+          state,
+          zipCode,
+          website,
+        });
+
+        const duplicateOrgConditions = [{ name: organizationName }];
+        if (organizationEmail) {
+          duplicateOrgConditions.push({ email: organizationEmail });
+        }
+        if (organizationPhone) {
+          duplicateOrgConditions.push({ phone: organizationPhone });
+        }
+
         const existingOrg = await prisma.organization.findFirst({
           where: {
-            OR: [
-              { name: organizationName },
-              { email: organizationEmail },
-              { phone: organizationPhone },
-            ],
+            OR: duplicateOrgConditions,
           },
         });
 
@@ -75,7 +132,9 @@ async function createBrokerRoutes(fastify) {
 
         // Duplicate admin email
         const existingUser = await prisma.userAccount.findFirst({
-          where: { email: adminEmail },
+          where: {
+            email: { equals: adminEmail, mode: "insensitive" },
+          },
         });
 
         if (existingUser) {
@@ -110,9 +169,19 @@ async function createBrokerRoutes(fastify) {
               passwordHash,
               firstName: adminFirstName,
               lastName: adminLastName,
+              phone: adminPhone || null,
               status: "ACTIVE",
             },
           });
+
+          if (hasBrokerProfileData(profileData)) {
+            await tx.brokerUserProfile.create({
+              data: {
+                userId: newAdmin.id,
+                ...profileData,
+              },
+            });
+          }
 
           // Assign role
           const role = await tx.role.findFirst({

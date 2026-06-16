@@ -26,6 +26,7 @@ async function brokerMeRoutes(fastify) {
             roles: {
               include: { role: true },
             },
+            brokerProfile: true,
           },
         });
 
@@ -36,6 +37,10 @@ async function brokerMeRoutes(fastify) {
           });
         }
 
+        const applicationCount = await prisma.loanApplication.count({
+          where: { brokerOrgId: organizationId },
+        });
+
         return reply.send({
           ok: true,
           data: {
@@ -45,9 +50,28 @@ async function brokerMeRoutes(fastify) {
               firstName: user.firstName,
               lastName: user.lastName,
               name: `${user.firstName || ""} ${user.lastName || ""}`.trim(),
+              phone: user.phone,
               profileImage: user.profileImage || null,
               status: user.status,
               roles: user.roles.map((r) => r.role.name),
+              applicationCount,
+              brokerProfile: user.brokerProfile
+                ? {
+                    company: user.brokerProfile.company,
+                    tollFree: user.brokerProfile.tollFree,
+                    tollFreeExt: user.brokerProfile.tollFreeExt,
+                    serviceProvider: user.brokerProfile.serviceProvider,
+                    address: user.brokerProfile.address,
+                    suite: user.brokerProfile.suite,
+                    city: user.brokerProfile.city,
+                    state: user.brokerProfile.state,
+                    zipCode: user.brokerProfile.zipCode,
+                    agentType: user.brokerProfile.agentType,
+                    licenseNumber: user.brokerProfile.licenseNumber,
+                    preferredComm: user.brokerProfile.preferredComm,
+                    website: user.brokerProfile.website,
+                  }
+                : null,
             },
 
             organization: {
@@ -65,7 +89,7 @@ async function brokerMeRoutes(fastify) {
           message: "Failed to fetch broker profile",
         });
       }
-    }
+    },
   );
 }
 

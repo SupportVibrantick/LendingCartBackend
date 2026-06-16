@@ -14,6 +14,9 @@ const {
   autoForwardDocumentUpload,
 } = require("../../services/autoForwardDocumentUpload");
 const {
+  notifyLendersForForwardedDocument,
+} = require("../../services/lenderNotifications");
+const {
   getAutoForwardDocumentsToLender,
 } = require("../../services/documentAutoForwardSetting");
 
@@ -197,6 +200,23 @@ async function uploadDocumentsRoute(fastify) {
               documentRequirementId,
               documentUploadId: upload.id,
             });
+
+            if (autoForwardResult?.forwarded) {
+              const requirement = await prisma.applicationDocumentRequirement.findUnique({
+                where: { id: documentRequirementId },
+                select: {
+                  documentType: { select: { name: true } },
+                },
+              });
+
+              await notifyLendersForForwardedDocument(prisma, fastify.io, {
+                applicationLenderIds: autoForwardResult.applicationLenderIds || [],
+                loanApplicationId,
+                applicationNumber: loan.applicationNumber,
+                documentTypeName: requirement?.documentType?.name || file.filename,
+                source: "Client",
+              });
+            }
           } catch (forwardErr) {
             fastify.log.error(
               {

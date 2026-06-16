@@ -97,6 +97,15 @@ const parseValue = (val: string): any => {
   }
 };
 
+const formatSubmissionStatus = (status?: string) => {
+  if (!status) return "-";
+  if (status === "DECLINED") return "Rejected";
+  return status
+    .replace(/_/g, " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (c: string) => c.toUpperCase());
+};
+
 const getStatusChip = (status?: string) => {
   switch (status) {
     case "DRAFT":
@@ -111,10 +120,12 @@ const getStatusChip = (status?: string) => {
     case "IN_REVIEW":
       return "bg-indigo-100 text-indigo-700 ring-1 ring-indigo-200";
 
+    case "APPROVED":
     case "AUTO_APPROVED":
     case "LENDER_APPROVED":
       return "bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200";
 
+    case "DECLINED":
     case "AUTO_DECLINED":
     case "LENDER_DECLINED":
       return "bg-red-100 text-red-700 ring-1 ring-red-200";
@@ -962,6 +973,15 @@ const LoanPreview = () => {
 
   useEffect(() => {
     if (
+      submissionDetail?.canEdit === false &&
+      activeTab === "update-application"
+    ) {
+      setActiveTab("view-details");
+    }
+  }, [submissionDetail?.canEdit, activeTab]);
+
+  useEffect(() => {
+    if (
       activeTab === "request-document" &&
       applicationId &&
       requestDocsLoadedFor !== applicationId
@@ -1122,12 +1142,16 @@ const LoanPreview = () => {
       icon: Eye,
       color: "text-blue-600",
     },
-    {
-      key: "update-application" as const,
-      label: "Update Application",
-      icon: Pencil,
-      color: "text-cyan-600",
-    },
+    ...(submissionDetail?.canEdit !== false
+      ? [
+          {
+            key: "update-application" as const,
+            label: "Update Application",
+            icon: Pencil,
+            color: "text-cyan-600",
+          },
+        ]
+      : []),
     {
       key: "find-lenders" as const,
       label: "Lender Hub",
@@ -1276,9 +1300,7 @@ const LoanPreview = () => {
             <span
               className={`rounded-full px-3 py-1 text-xs font-semibold tracking-wide ${getStatusChip(submissionDetail?.status)}`}
             >
-              {submissionDetail?.status === "DECLINED"
-                ? "REJECTED"
-                : submissionDetail?.status || "-"}
+              {formatSubmissionStatus(submissionDetail?.status)}
             </span>
           </div>
         </div>
@@ -1473,6 +1495,20 @@ const LoanPreview = () => {
       );
     }
 
+    if (submissionDetail.canEdit === false) {
+      return (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-6 py-10 text-center dark:border-amber-900/40 dark:bg-amber-950/20">
+          <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">
+            Application cannot be edited
+          </p>
+          <p className="mt-2 text-sm text-amber-700 dark:text-amber-400">
+            {submissionDetail.editBlockedReason ||
+              "This application is no longer available for updates."}
+          </p>
+        </div>
+      );
+    }
+
     if (!loanApplicationInitial || !applicationId) {
       return (
         <div className="py-20 text-center text-slate-500">
@@ -1491,9 +1527,16 @@ const LoanPreview = () => {
         initialSelectedProduct={loanApplicationInitial.selectedProduct}
         initialSelectedCategory={loanApplicationInitial.selectedCategory}
         initialDynamicFormData={loanApplicationInitial.dynamicFormData}
-        onUpdateSuccess={() => {
-          if (submissionId) {
-            fetchSubmissionDetails(submissionId);
+        onUpdateSuccess={(newSubmissionId) => {
+          const idToLoad = newSubmissionId || submissionId;
+          if (newSubmissionId && newSubmissionId !== submissionId) {
+            navigate("/loan-preview", {
+              state: { submissionId: newSubmissionId },
+              replace: true,
+            });
+          }
+          if (idToLoad) {
+            fetchSubmissionDetails(idToLoad);
           }
           setActiveTab("view-details");
         }}
@@ -2883,12 +2926,7 @@ const productCode = submissionDetail?.loanProduct?.name || "-";
                   submissionDetail?.status,
                 )}`}
               >
-                {submissionDetail?.status === "DECLINED"
-                  ? "REJECTED"
-                  : (submissionDetail?.status || "-")
-                      .replace(/_/g, " ")
-                      .toLowerCase()
-                      .replace(/\b\w/g, (c: string) => c.toUpperCase())}
+                {formatSubmissionStatus(submissionDetail?.status)}
               </span>
             </div>
           </div>

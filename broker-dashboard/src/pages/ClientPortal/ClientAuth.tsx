@@ -7,6 +7,8 @@ import { Eye, EyeOff } from "lucide-react";
 const API_BASE =
   import.meta.env.VITE_API_BASE || "https://api-lendingcart.vibrantick.org";
 
+const LOAN_AUTOMATION_LOGO = "/loanAutomation.jpeg";
+
 export default function ClientAuth() {
   const { token } = useParams();
 
@@ -140,8 +142,22 @@ export default function ClientAuth() {
         !token || isLogin === true ? handleLogin() : handleSetPassword();
       }}
     >
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-white p-4">
-        <div className="w-full max-w-md bg-white shadow-xl rounded-2xl p-6">
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
+        <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6">
+          <div className="mb-6 flex flex-col items-center text-center">
+            <div className="mb-3 h-16 w-16 overflow-hidden rounded-2xl border border-slate-200">
+              <img
+                src={LOAN_AUTOMATION_LOGO}
+                alt="Loan Automation"
+                className="h-full w-full object-cover"
+              />
+            </div>
+            <p className="text-base font-bold text-slate-900">Loan Automation</p>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-blue-700">
+              Client Portal
+            </p>
+          </div>
+
           {/* TITLE */}
           <h2 className="text-xl font-semibold text-gray-800 text-center mb-2">
             {!token || isLogin === true

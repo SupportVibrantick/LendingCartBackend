@@ -1,5 +1,10 @@
 module.exports = async function viewSubmission(fastify) {
   const { mapSubmissionFieldResponse } = require("../../../../services/staticSubmissionFields");
+  const {
+    resolveBrokerPipelineDisplayStatus,
+    canBrokerEditSubmittedApplication,
+  } = require("../../../../utils/resolveApplicationStatus");
+
   fastify.get("/submissions/:submissionId", async (req, reply) => {
     const { submissionId } = req.params;
 
@@ -19,6 +24,7 @@ module.exports = async function viewSubmission(fastify) {
             select: {
               applicationNumber: true,
               loanProductCode: true,
+              status: true,
 
               // ❌ DO NOT TRUST THIS (kept only if needed later)
               amountRequested: true,
@@ -116,6 +122,11 @@ module.exports = async function viewSubmission(fastify) {
 
     const amountRequested = amountField?.value ?? null;
 
+    const application = submission.application;
+    const applicationStatus = application?.status ?? null;
+    const displayStatus = resolveBrokerPipelineDisplayStatus(application);
+    const editCheck = canBrokerEditSubmittedApplication(application);
+
     /* ===============================
        RESPONSE
     =============================== */
@@ -140,7 +151,11 @@ module.exports = async function viewSubmission(fastify) {
         creditScore,
 
         applicationProductId: submission.applicationProductId,
-        status: submission.status,
+        status: displayStatus,
+        applicationStatus,
+        submissionStatus: submission.status,
+        canEdit: editCheck.allowed,
+        editBlockedReason: editCheck.allowed ? null : editCheck.reason,
         submittedAt: submission.createdAt,
 
         /* ================= FIELDS ================= */

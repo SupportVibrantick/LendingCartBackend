@@ -2,6 +2,15 @@ const fs = require("fs");
 const path = require("path");
 const { pipeline } = require("stream/promises");
 const crypto = require("crypto");
+const {
+  autoForwardDocumentUpload,
+} = require("../../../services/autoForwardDocumentUpload");
+const {
+  notifyLendersForForwardedDocument,
+} = require("../../../services/lenderNotifications");
+const {
+  getAutoForwardDocumentsToLender,
+} = require("../../../services/documentAutoForwardSetting");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
@@ -158,9 +167,8 @@ module.exports = async function uploadSubmissionDocument(fastify) {
         /* ===============================
            TRANSACTION (SAVE + STATUS)
         =============================== */
-        await fastify.prisma.$transaction(async (tx) => {
-          //  CREATE UPLOAD (IMPORTANT CHANGE HERE)
-          await tx.applicationDocumentUpload.create({
+        const createdUpload = await fastify.prisma.$transaction(async (tx) => {
+          const upload = await tx.applicationDocumentUpload.create({
             data: {
               loanApplicationId: submission.application.id,
               documentRequirementId: requirementId,
@@ -170,37 +178,88 @@ module.exports = async function uploadSubmissionDocument(fastify) {
               fileUrl,
               fileMimeType: file.mimetype,
 
-              // 🔥 KEY FIELD (VERY IMPORTANT)
               isSubmittedToLender: false,
             },
           });
 
-          // 🔥 COUNT TOTAL FILES
           const totalUploads = await tx.applicationDocumentUpload.count({
             where: { documentRequirementId: requirementId },
           });
 
-          // 🔥 DETERMINE STATUS
           let newStatus = "PARTIAL";
 
           if (requirement.minFiles && totalUploads >= requirement.minFiles) {
             newStatus = "COMPLETE";
           }
 
-          // 🔥 UPDATE REQUIREMENT STATUS
           await tx.applicationDocumentRequirement.update({
             where: { id: requirementId },
             data: { status: newStatus },
           });
+
+          return upload;
         });
+
+        let autoForwarded = false;
+        const autoForwardEnabled = await getAutoForwardDocumentsToLender(
+          fastify.prisma,
+          submission.application.id,
+        );
+
+        if (autoForwardEnabled) {
+          try {
+            const forwardResult = await autoForwardDocumentUpload(
+              fastify.prisma,
+              {
+                loanApplicationId: submission.application.id,
+                documentRequirementId: requirementId,
+                documentUploadId: createdUpload.id,
+              },
+            );
+            autoForwarded = Boolean(forwardResult.forwarded);
+
+            if (forwardResult.forwarded) {
+              const requirementWithType =
+                await fastify.prisma.applicationDocumentRequirement.findUnique({
+                  where: { id: requirementId },
+                  select: {
+                    documentType: { select: { name: true } },
+                  },
+                });
+
+              await notifyLendersForForwardedDocument(fastify.prisma, fastify.io, {
+                applicationLenderIds: forwardResult.applicationLenderIds || [],
+                loanApplicationId: submission.application.id,
+                applicationNumber: submission.application.applicationNumber,
+                documentTypeName:
+                  requirementWithType?.documentType?.name ||
+                  createdUpload.fileName,
+                source: "Loan Officer",
+              });
+            }
+          } catch (forwardErr) {
+            fastify.log.error(
+              {
+                error: forwardErr.message,
+                loanApplicationId: submission.application.id,
+                documentRequirementId: requirementId,
+                documentUploadId: createdUpload.id,
+              },
+              "Auto-forward loan officer document failed",
+            );
+          }
+        }
 
         /* ===============================
            RESPONSE
         =============================== */
         return reply.send({
           success: true,
-          message: "Document uploaded successfully",
+          message: autoForwarded
+            ? "Document uploaded and forwarded to lender"
+            : "Document uploaded successfully",
           fileUrl,
+          autoForwarded,
         });
       } catch (error) {
         fastify.log.error({

@@ -39,11 +39,17 @@ function decodeJwtPayload(token: string): Record<string, unknown> | null {
 export function getOrgIdsFromToken(token: string | null): {
   brokerOrgId: string | null;
   lenderOrgId: string | null;
+  clientId: string | null;
 } {
-  if (!token) return { brokerOrgId: null, lenderOrgId: null };
+  if (!token) return { brokerOrgId: null, lenderOrgId: null, clientId: null };
 
   const payload = decodeJwtPayload(token);
-  if (!payload) return { brokerOrgId: null, lenderOrgId: null };
+  if (!payload) return { brokerOrgId: null, lenderOrgId: null, clientId: null };
+
+  const clientId = (payload.clientId as string | undefined) || null;
+  if (clientId) {
+    return { brokerOrgId: null, lenderOrgId: null, clientId };
+  }
 
   const orgId =
     (payload.organizationId as string | undefined) ||
@@ -60,7 +66,7 @@ export function getOrgIdsFromToken(token: string | null): {
       : [];
 
   if (orgType === "LENDER" && orgId) {
-    return { brokerOrgId: null, lenderOrgId: orgId };
+    return { brokerOrgId: null, lenderOrgId: orgId, clientId: null };
   }
 
   const brokerRoles = [
@@ -77,14 +83,14 @@ export function getOrgIdsFromToken(token: string | null): {
       userType === "LOAN_OFFICER" ||
       roles.some((role) => brokerRoles.includes(String(role))))
   ) {
-    return { brokerOrgId: orgId, lenderOrgId: null };
+    return { brokerOrgId: orgId, lenderOrgId: null, clientId: null };
   }
 
   if (orgId) {
-    return { brokerOrgId: orgId, lenderOrgId: null };
+    return { brokerOrgId: orgId, lenderOrgId: null, clientId: null };
   }
 
-  return { brokerOrgId: null, lenderOrgId: null };
+  return { brokerOrgId: null, lenderOrgId: null, clientId: null };
 }
 
 export function joinConversationRoom(

@@ -12,6 +12,7 @@ async function loanOfficerLoanPipelineRoutes(fastify) {
   fastify.register(require("./uploadSubmissionDocument"));
   fastify.register(require("./requestDocuments"));
   fastify.register(require("./submitDocumentsToLender"));
+  fastify.register(require("./updateDocumentAutoForward"));
   fastify.register(require("./listLoi"));
   fastify.register(require("./getSubmittedlenders"));
   fastify.register(require("./sendClientLink"));

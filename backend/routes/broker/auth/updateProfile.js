@@ -2,6 +2,23 @@ const path = require("path");
 const fs = require("fs");
 const { pipeline } = require("stream/promises");
 
+const PROFILE_FIELDS = [
+  "company",
+  "tollFree",
+  "tollFreeExt",
+  "serviceProvider",
+  "address",
+  "suite",
+  "city",
+  "state",
+  "zipCode",
+  "agentType",
+  "licenseNumber",
+  "preferredComm",
+  "website",
+  "phone",
+];
+
 /**
  * @param {import("fastify").FastifyInstance} fastify
  */
@@ -19,9 +36,6 @@ async function brokerUpdateProfileRoutes(fastify) {
       const prisma = fastify.prisma;
 
       try {
-        // ===============================
-        // BROKER GUARD
-        // ===============================
         if (!req.user || req.user.orgType !== "BROKER") {
           return reply.code(403).send({
             success: false,
@@ -29,34 +43,43 @@ async function brokerUpdateProfileRoutes(fastify) {
           });
         }
 
-        const parts = req.parts();
+        const userId = req.user.userId || req.user.id;
 
-        // ===============================
-        // USER FIELDS
-        // ===============================
-        let firstName;
-        let lastName;
-        let profileImage;
+        const existingUser = await prisma.userAccount.findUnique({
+          where: { id: userId },
+          include: { brokerProfile: true },
+        });
+
+        if (!existingUser) {
+          return reply.code(404).send({
+            success: false,
+            message: "User not found",
+          });
+        }
+
+        const parts = req.parts();
+        let firstName = existingUser.firstName;
+        let lastName = existingUser.lastName;
+        let phone = existingUser.phone;
+        let profileImage = existingUser.profileImage;
+        const profileData = {};
 
         for await (const part of parts) {
-          // ===============================
-          // HANDLE TEXT FIELDS
-          // ===============================
           if (part.type === "field") {
-            switch (part.fieldname) {
-              case "firstName":
-                firstName = part.value;
-                break;
-
-              case "lastName":
-                lastName = part.value;
-                break;
+            if (part.fieldname === "firstName") {
+              firstName = String(part.value).trim();
+            }
+            if (part.fieldname === "lastName") {
+              lastName = String(part.value).trim();
+            }
+            if (part.fieldname === "phone") {
+              phone = String(part.value).trim();
+            }
+            if (PROFILE_FIELDS.includes(part.fieldname)) {
+              profileData[part.fieldname] = String(part.value).trim();
             }
           }
 
-          // ===============================
-          // HANDLE FILE (PROFILE IMAGE)
-          // ===============================
           if (part.type === "file" && part.fieldname === "profileImage") {
             const allowedMimeTypes = [
               "image/jpeg",
@@ -75,44 +98,60 @@ async function brokerUpdateProfileRoutes(fastify) {
               process.cwd(),
               "public",
               "uploads",
-              "profile"
+              "profile",
             );
 
             await fs.promises.mkdir(uploadDir, { recursive: true });
 
             const fileExt = path.extname(part.filename || "") || ".jpg";
-
-            const fileName = `${req.user.userId}-${Date.now()}${fileExt}`;
-
+            const fileName = `${userId}-${Date.now()}${fileExt}`;
             const filePath = path.join(uploadDir, fileName);
 
-            // stream file safely
             await pipeline(part.file, fs.createWriteStream(filePath));
-
             profileImage = `/public/uploads/profile/${fileName}`;
           }
         }
 
-        // ===============================
-        // NOTHING TO UPDATE CHECK
-        // ===============================
-        if (!firstName && !lastName && !profileImage) {
+        if (!firstName?.trim()) {
           return reply.code(400).send({
             success: false,
-            message: "Nothing to update",
+            message: "First name is required",
           });
         }
 
-        // ===============================
-        // UPDATE USER ACCOUNT
-        // ===============================
-        const user = await prisma.userAccount.update({
-          where: { id: req.user.userId },
-          data: {
-            ...(firstName && { firstName }),
-            ...(lastName && { lastName }),
-            ...(profileImage && { profileImage }),
-          },
+        const updatedUser = await prisma.$transaction(async (tx) => {
+          await tx.userAccount.update({
+            where: { id: userId },
+            data: {
+              firstName,
+              lastName,
+              phone: profileData.phone ?? phone,
+              profileImage,
+            },
+          });
+
+          const brokerFields = { ...profileData };
+          delete brokerFields.phone;
+
+          if (Object.keys(brokerFields).length > 0 || existingUser.brokerProfile) {
+            await tx.brokerUserProfile.upsert({
+              where: { userId },
+              update: brokerFields,
+              create: {
+                userId,
+                ...brokerFields,
+              },
+            });
+          }
+
+          return tx.userAccount.findUnique({
+            where: { id: userId },
+            include: {
+              organization: true,
+              roles: { include: { role: true } },
+              brokerProfile: true,
+            },
+          });
         });
 
         return reply.send({
@@ -120,11 +159,25 @@ async function brokerUpdateProfileRoutes(fastify) {
           message: "Broker profile updated successfully",
           data: {
             user: {
-              id: user.id,
-              firstName: user.firstName,
-              lastName: user.lastName,
-              profileImage: user.profileImage,
+              id: updatedUser.id,
+              email: updatedUser.email,
+              firstName: updatedUser.firstName,
+              lastName: updatedUser.lastName,
+              name: `${updatedUser.firstName || ""} ${updatedUser.lastName || ""}`.trim(),
+              phone: updatedUser.phone,
+              profileImage: updatedUser.profileImage,
+              status: updatedUser.status,
+              roles: updatedUser.roles.map((r) => r.role.name),
+              brokerProfile: updatedUser.brokerProfile,
             },
+            organization: updatedUser.organization
+              ? {
+                  id: updatedUser.organization.id,
+                  name: updatedUser.organization.name,
+                  type: updatedUser.organization.type,
+                  status: updatedUser.organization.status,
+                }
+              : null,
           },
         });
       } catch (err) {
@@ -135,7 +188,7 @@ async function brokerUpdateProfileRoutes(fastify) {
           message: "Failed to update broker profile",
         });
       }
-    }
+    },
   );
 }
 

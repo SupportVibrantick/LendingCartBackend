@@ -21,6 +21,7 @@ export type SocketChatMessage = {
 
 type MessageListener = (msg: SocketChatMessage) => void;
 type ErrorListener = (message: string) => void;
+type EventListener = (payload: unknown) => void;
 
 type OrgRoomOptions = {
   getBrokerOrgId?: () => string | null;
@@ -32,7 +33,23 @@ let activeToken: string | null = null;
 let orgRoomOptions: OrgRoomOptions = {};
 const messageListeners = new Set<MessageListener>();
 const errorListeners = new Set<ErrorListener>();
+const eventListeners = new Map<string, Set<EventListener>>();
+const boundSocketEvents = new Set<string>();
 const conversationIds = new Set<string>();
+
+function notifyEventListeners(event: string, payload: unknown) {
+  eventListeners.get(event)?.forEach((listener) => listener(payload));
+}
+
+function bindCustomSocketEvents() {
+  if (!socket) return;
+
+  for (const event of eventListeners.keys()) {
+    if (boundSocketEvents.has(event)) continue;
+    socket.on(event, (payload: unknown) => notifyEventListeners(event, payload));
+    boundSocketEvents.add(event);
+  }
+}
 
 function resolveOrgIds(token: string) {
   const fromToken = getOrgIdsFromToken(token);
@@ -89,6 +106,7 @@ function teardownSocket() {
   socket.disconnect();
   socket = null;
   activeToken = null;
+  boundSocketEvents.clear();
 }
 
 function ensureSocket(token: string, options: OrgRoomOptions = {}) {
@@ -129,6 +147,22 @@ export function subscribeChatMessages(listener: MessageListener): () => void {
 export function subscribeChatErrors(listener: ErrorListener): () => void {
   errorListeners.add(listener);
   return () => errorListeners.delete(listener);
+}
+
+export function subscribeSocketEvent(
+  event: string,
+  listener: EventListener,
+): () => void {
+  if (!eventListeners.has(event)) {
+    eventListeners.set(event, new Set());
+  }
+
+  eventListeners.get(event)!.add(listener);
+  bindCustomSocketEvents();
+
+  return () => {
+    eventListeners.get(event)?.delete(listener);
+  };
 }
 
 export function trackConversationRoom(conversationId?: string | null) {

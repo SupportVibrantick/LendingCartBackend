@@ -20,6 +20,9 @@ import {
   FiEye,
 } from "react-icons/fi";
 import Chat from "./Chat";
+import ClientNotificationDropdown, {
+  type ClientNotification,
+} from "./ClientNotificationDropdown";
 import {
   buildSubmissionFieldMap,
   formatFieldDisplayValue,
@@ -43,6 +46,8 @@ interface DocumentItem {
 const API_BASE =
   import.meta.env.VITE_API_BASE || "https://api-lendingcart.vibrantick.org";
 
+const LOAN_AUTOMATION_LOGO = "/loanAutomation.jpeg";
+
 const getStatusStyles = (status: string) => {
   switch (status) {
     case "SUBMITTED":
@@ -52,13 +57,18 @@ const getStatusStyles = (status: string) => {
       return "bg-blue-50 text-blue-700 ring-1 ring-blue-200";
 
     case "PENDING":
+    case "CLIENT_PENDING":
       return "bg-amber-50 text-amber-700 ring-1 ring-amber-200";
 
     case "REJECTED":
     case "LENDER_DECLINED":
+    case "AUTO_DECLINED":
       return "bg-red-50 text-red-700 ring-1 ring-red-200";
 
     case "APPROVED":
+    case "LENDER_APPROVED":
+    case "AUTO_APPROVED":
+    case "FUNDED":
       return "bg-green-50 text-green-700 ring-1 ring-green-200";
 
     default:
@@ -75,18 +85,46 @@ const getStatusDot = (status: string) => {
       return "bg-blue-500";
 
     case "PENDING":
+    case "CLIENT_PENDING":
       return "bg-amber-500";
 
     case "REJECTED":
     case "LENDER_DECLINED":
+    case "AUTO_DECLINED":
       return "bg-red-500";
 
     case "APPROVED":
+    case "LENDER_APPROVED":
+    case "AUTO_APPROVED":
+    case "FUNDED":
       return "bg-green-500";
 
     default:
       return "bg-gray-400";
   }
+};
+
+const formatStatusLabel = (status?: string | null) => {
+  if (!status) return "Unknown";
+
+  const labels: Record<string, string> = {
+    LENDER_APPROVED: "Approved",
+    LENDER_DECLINED: "Declined",
+    AUTO_APPROVED: "Approved",
+    AUTO_DECLINED: "Declined",
+    CLIENT_PENDING: "Pending",
+    IN_REVIEW: "In Review",
+  };
+
+  return labels[status] || status.replace(/_/g, " ");
+};
+
+const getClientInitials = (name?: string | null) => {
+  if (!name?.trim()) return "CL";
+
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
 };
 
 export default function ClientUpload() {
@@ -393,6 +431,25 @@ console.log("Selected Status:", selectedApplication?.status);
     }
   };
 
+  const handleClientNotificationClick = async (
+    notification: ClientNotification,
+  ) => {
+    const appId = notification.metadata?.applicationId;
+
+    if (appId) {
+      await fetchApplicationDetails(appId);
+    }
+
+    const tabByEvent: Record<string, typeof activeTab> = {
+      NEW_MESSAGE: "chat",
+      DOCUMENTS_REQUESTED: "documents",
+      LENDER_CONDITIONAL: "documents",
+    };
+
+    const nextTab = tabByEvent[notification.eventType || ""] || "application";
+    setActiveTab(nextTab);
+  };
+
   const fetchApplications = async (pageNumber = 1) => {
     try {
       setApplicationsLoading(true);
@@ -541,88 +598,106 @@ if (borrowerSignature) {
     );
   }
 
+  const displayName =
+    applicationData?.borrower?.name || clientName || "Client";
+  const displayEmail = applicationData?.borrower?.email || "-";
+  const clientInitials = getClientInitials(displayName);
+  const isClientLoggedIn = Boolean(sessionStorage.getItem("client_token"));
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white p-6">
+    <div className="min-h-screen bg-slate-50 p-4 sm:p-6">
       <div className="max-w-8xl mx-auto">
-        {/* TOP SUMMARY CARD - TABS SE UPAR */}
-        {activeTab === "applications" && applicationData && (
-          <div className="relative mb-8 overflow-hidden p-1">
-            {/* Decorative Background Element */}
-            <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-indigo-500/5 blur-3xl" />
+        {/* TOP HEADER */}
+        {(applicationData || clientName || isClientLoggedIn) && (
+          <header className="relative mb-6 overflow-visible rounded-2xl border border-slate-200 bg-white">
+            <div className="h-1 rounded-t-2xl bg-blue-600" />
 
-            <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 p-6">
-              {/* Name Column */}
-              <div className="group">
-                <p className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.1em] text-slate-400">
-                  <span className="h-1.5 w-1.5 rounded-full bg-indigo-600 shadow-[0_0_8px_rgba(79,70,229,0.6)]" />
-                  Borrower Name
-                </p>
-                <p className="mt-2 text-md font-bold tracking-tight text-slate-900 group-hover:text-indigo-600 transition-colors">
-                  {applicationData?.borrower?.name || "Anonymous User"}
-                </p>
-              </div>
+            <div className="relative px-4 py-4 sm:px-6 sm:py-5">
+              <div className="mb-4 flex items-center justify-between gap-4 border-b border-slate-100 pb-4">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="h-11 w-11 shrink-0 overflow-hidden rounded-xl border border-slate-200">
+                    <img
+                      src={LOAN_AUTOMATION_LOGO}
+                      alt="Loan Automation"
+                      className="h-full w-full object-cover"
+                    />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-bold text-slate-900">
+                      Loan Automation
+                    </p>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-blue-700">
+                      Client Portal
+                    </p>
+                  </div>
+                </div>
 
-              {/* Email Column */}
-              <div className="group">
-                <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-slate-400">
-                  Primary Contact
-                </p>
-                <div className="mt-2 flex items-center gap-1">
-                  <span className="flex h-8 w-8 items-center justify-center">
-                    <svg
-                      className="h-4 w-4 text-slate-400"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                      />
-                    </svg>
-                  </span>
-                  <p className="text-sm font-semibold text-slate-600 break-all leading-tight">
-                    {applicationData?.borrower?.email || "-"}
-                  </p>
+                <div className="flex items-center gap-2 sm:gap-3">
+                  {isClientLoggedIn && (
+                    <ClientNotificationDropdown
+                      apiBase={API_BASE}
+                      onNotificationClick={handleClientNotificationClick}
+                    />
+                  )}
+
+                  <button
+                    onClick={handleLogout}
+                    className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-medium text-slate-700 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+                  >
+                    <FiLogOut size={16} />
+                    <span className="hidden sm:inline">Logout</span>
+                  </button>
                 </div>
               </div>
 
-              <div className="hidden lg:block lg:col-span-3" />
-            </div>
-          </div>
-        )}
-        <div className="flex items-center justify-between mb-6 border-b pb-2">
-          {/* LEFT SIDE ACTIONS */}
-          <div className="flex items-center gap-6">
-            {/* APPLICATIONS */}
-            <button
-              onClick={() => setActiveTab("applications")}
-              className={`relative flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium transition-all
-      ${
-        activeTab === "applications"
-          ? "text-white bg-gradient-to-r from-blue-500 to-teal-500 shadow-md"
-          : "text-gray-500 hover:text-blue-600"
-      }`}
-            >
-              <FiFileText size={16} />
-              Applications
-              {activeTab === "applications" && (
-                <span className="absolute -bottom-2 left-2 right-2 h-[2px] bg-blue-500 rounded-full" />
-              )}
-            </button>
-          </div>
+              <div className="flex min-w-0 items-center gap-4">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-blue-100 bg-blue-50 text-base font-bold text-blue-700">
+                  {clientInitials}
+                </div>
 
-          {/* RIGHT SIDE */}
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 text-sm  font-medium text-red-600 transition"
-          >
-            <FiLogOut size={16} />
-            Logout
-          </button>
-        </div>
+                <div className="min-w-0">
+                  <h1 className="truncate text-lg font-bold tracking-tight text-slate-900 sm:text-xl">
+                    {displayName}
+                  </h1>
+                  <p className="mt-1 flex items-center gap-2 truncate text-sm text-slate-500">
+                    <FiUser className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+                    <span className="truncate">{displayEmail}</span>
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="border-t border-slate-100 bg-slate-50/70 px-4 py-2.5 sm:px-6">
+              <nav className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    setSelectedApplication(null);
+                    setActiveTab("applications");
+                  }}
+                  className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-all ${
+                    activeTab === "applications"
+                      ? "bg-white text-blue-700 ring-1 ring-blue-200"
+                      : "text-slate-500 hover:bg-white hover:text-slate-800"
+                  }`}
+                >
+                  <FiFileText size={16} />
+                  Applications
+                </button>
+
+                {activeTab !== "applications" && selectedApplication && (
+                  <span className="hidden items-center gap-2 text-sm text-slate-400 sm:inline-flex">
+                    <span>/</span>
+                    <span className="max-w-[220px] truncate font-medium text-slate-600">
+                      {selectedApplication.applicationNumber ||
+                        applicationNumber ||
+                        "Application"}
+                    </span>
+                  </span>
+                )}
+              </nav>
+            </div>
+          </header>
+        )}
 
         {activeTab === "documents" && (
           <>
@@ -807,14 +882,19 @@ if (borrowerSignature) {
         )}
 
         {activeTab === "applications" && (
-          <div className="min-h-[88vh] bg-white rounded-2xl p-6">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-5">
-              <h2 className="text-xl font-semibold text-gray-800">
-                Loan Applications
-              </h2>
+          <div className="min-h-[88vh] rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
+            <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h2 className="text-xl font-bold tracking-tight text-slate-900">
+                  Loan Applications
+                </h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  Track status, documents, and updates for your loans.
+                </p>
+              </div>
 
               {/* SEARCH BOX */}
-              <div className="relative w-full md:w-72">
+              <div className="relative w-full md:w-80">
                 {/* ICON */}
                 <FiSearch
                   className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
@@ -930,7 +1010,7 @@ if (borrowerSignature) {
                             <span
                               className={`h-1.5 w-1.5 rounded-full ${getStatusDot(app.status)}`}
                             />
-                            {app.status.replace("_", " ")}
+                            {formatStatusLabel(app.status)}
                           </span>
                         </div>
 
@@ -1135,7 +1215,7 @@ if (borrowerSignature) {
                             selectedApplication?.status,
                           )}`}
                         >
-                          {selectedApplication?.status}
+                          {formatStatusLabel(selectedApplication?.status)}
                         </span>
                       </div>
                     </div>
@@ -1669,19 +1749,10 @@ if (borrowerSignature) {
                     >
                       {/* Dot indicator */}
                       <span
-                        className={`h-2 w-2 rounded-full
-                        ${
-                          applicationData.status === "SUBMITTED"
-                            ? "bg-emerald-500"
-                            : applicationData.status === "PENDING"
-                              ? "bg-amber-500"
-                              : applicationData.status === "REJECTED"
-                                ? "bg-red-500"
-                                : "bg-gray-400"
-                        }`}
+                        className={`h-2 w-2 rounded-full ${getStatusDot(applicationData.status)}`}
                       />
 
-                      {applicationData.status}
+                      {formatStatusLabel(applicationData.status)}
                     </span>
                   </div>
                 </div>

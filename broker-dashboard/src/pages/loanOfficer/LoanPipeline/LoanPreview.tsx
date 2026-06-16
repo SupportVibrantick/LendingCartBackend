@@ -345,6 +345,7 @@ const LoanPreview = () => {
   // const [search, setSearch] = useState("");
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [sending, setSending] = useState(false);
+  const [autoForwardSaving, setAutoForwardSaving] = useState(false);
   // const [currentPage, setCurrentPage] = useState(1);
 
   // const [search, setSearch] = useState("");
@@ -353,6 +354,8 @@ const LoanPreview = () => {
 
   const selectableDocuments =
     documentsData?.documents?.filter((d: any) => d.status !== "SKIPPED") || [];
+
+  const autoForwardEnabled = Boolean(documentsData?.autoForwardDocumentsToLender);
 
   const isAllSelected =
     selectableDocuments.length > 0 &&
@@ -496,6 +499,60 @@ const LoanPreview = () => {
       });
     } finally {
       setSending(false);
+    }
+  };
+
+  const handleToggleAutoForward = async () => {
+    if (!submissionId) return;
+
+    const nextValue = !autoForwardEnabled;
+
+    try {
+      setAutoForwardSaving(true);
+
+      const res = await fetch(
+        `${API_BASE}/loanofficer/loan-pipeline/submissions/${submissionId}/documents/auto-forward`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            ...getAuthHeaders(),
+          },
+          body: JSON.stringify({
+            autoForwardDocumentsToLender: nextValue,
+          }),
+        },
+      );
+
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Failed to update document forwarding");
+      }
+
+      setDocumentsData((prev: any) =>
+        prev
+          ? {
+              ...prev,
+              autoForwardDocumentsToLender: nextValue,
+            }
+          : prev,
+      );
+
+      if (nextValue) {
+        setSelectedRows([]);
+        setSelectedLenders([]);
+      }
+
+      toast.success(
+        nextValue
+          ? "Auto-forward enabled — uploads go directly to lenders"
+          : "Manual review enabled — you will send documents manually",
+      );
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update setting");
+    } finally {
+      setAutoForwardSaving(false);
     }
   };
 
@@ -2128,12 +2185,43 @@ dark:bg-red-900/20 dark:text-red-400"
             Requested Documents
           </h2>
           <p className="text-sm text-slate-500">
-            Upload and manage submission documents
+            {autoForwardEnabled
+              ? "Uploaded documents are sent directly to lenders"
+              : "Upload and manage submission documents"}
           </p>
         </div>
 
-        <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
-          {selectedRows.length > 0 && (
+        <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto md:items-center">
+          <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-2.5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+                Document forwarding
+              </p>
+              <p className="text-[11px] text-slate-500">
+                {autoForwardEnabled
+                  ? "Auto-forward to lenders"
+                  : "Review before send"}
+              </p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={autoForwardEnabled}
+              disabled={autoForwardSaving}
+              onClick={handleToggleAutoForward}
+              className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition ${
+                autoForwardEnabled ? "bg-emerald-500" : "bg-slate-300"
+              } ${autoForwardSaving ? "opacity-60 cursor-not-allowed" : "cursor-pointer"}`}
+            >
+              <span
+                className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${
+                  autoForwardEnabled ? "translate-x-6" : "translate-x-1"
+                }`}
+              />
+            </button>
+          </div>
+
+          {!autoForwardEnabled && selectedRows.length > 0 && (
             <div className="w-full md:w-72 z-999">
               <Select
                 isMulti
@@ -2215,7 +2303,15 @@ dark:bg-red-900/20 dark:text-red-400"
         </div>
       </div>
 
-      {selectedRows.length > 0 && (
+      {autoForwardEnabled && (
+        <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-200">
+          Auto-forward is on. When the client or you upload a document, it is
+          sent to the lender(s) that requested it. Turn off the toggle to review
+          and send documents manually.
+        </div>
+      )}
+
+      {!autoForwardEnabled && selectedRows.length > 0 && (
         <div className="mb-4 flex items-center justify-between rounded-2xl border border-blue-200 bg-gradient-to-r from-blue-50 to-cyan-50 px-5 py-3 shadow-sm dark:border-blue-900/40 dark:from-slate-900 dark:to-slate-800">
           {/* LEFT TEXT */}
           <p className="text-sm font-medium text-blue-700 dark:text-cyan-300">

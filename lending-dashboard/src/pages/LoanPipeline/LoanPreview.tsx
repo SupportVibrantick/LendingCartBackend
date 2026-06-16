@@ -285,7 +285,7 @@ export default function LoanPreview() {
       setDocSelectModal((prev) => ({ ...prev, loading: true }));
 
       const res = await fetch(
-        `${API_BASE}/lender/document-config/list?loanProductCode=${code}`,
+        `${API_BASE}/lender/document-config/list?loanProductCode=${encodeURIComponent(code)}&limit=100`,
         {
           headers: getAuthHeaders(),
         },
@@ -405,9 +405,18 @@ export default function LoanPreview() {
     try {
       setDocSelectModal((prev) => ({ ...prev, loading: true }));
 
-      const res = await fetch(`${API_BASE}/lender/document-config/list`, {
-        headers: getAuthHeaders(),
-      });
+      const loanType = submissionDetail?.loanApplication?.loanProductCode;
+
+      if (!loanType) {
+        throw new Error("Loan product not found for this application");
+      }
+
+      const res = await fetch(
+        `${API_BASE}/lender/document-config/list?loanProductCode=${encodeURIComponent(loanType)}&limit=100`,
+        {
+          headers: getAuthHeaders(),
+        },
+      );
 
       const json = await res.json();
 
@@ -415,14 +424,8 @@ export default function LoanPreview() {
         throw new Error("Failed to fetch documents");
       }
 
-      const loanType = submissionDetail?.loanApplication?.loanProductCode;
-
-      const filtered = json.data.filter(
-        (doc: any) => doc.lenderProduct.loanProductCode === loanType,
-      );
-
       setDocSelectModal({
-        documents: filtered,
+        documents: json.data || [],
         selectedDocs: [],
         loading: false,
       });

@@ -19,7 +19,8 @@ async function listLenderDocumentConfigRoutes(fastify) {
             isCustom: { type: "boolean" },
 
             page: { type: "number", minimum: 1, default: 1 },
-            limit: { type: "number", minimum: 1, maximum: 100, default: 10 },
+            limit: { type: "number", minimum: 1, maximum: 200 },
+            all: { type: "boolean", default: false },
           },
         },
       },
@@ -50,11 +51,26 @@ async function listLenderDocumentConfigRoutes(fastify) {
           isRequired,
           isCustom,
           page = 1,
-          limit = 10,
+          limit,
+          all = false,
         } = req.query;
 
         page = Number(page);
-        limit = Number(limit);
+
+        const hasProductFilter = Boolean(lenderProductId || loanProductCode);
+        const wantsAll =
+          all === true ||
+          all === "true" ||
+          (hasProductFilter && limit === undefined);
+
+        if (wantsAll) {
+          limit = 200;
+          page = 1;
+        } else {
+          limit = Number(limit ?? (hasProductFilter ? 100 : 10));
+        }
+
+        limit = Math.min(Math.max(limit, 1), 200);
 
         const skip = (page - 1) * limit;
 

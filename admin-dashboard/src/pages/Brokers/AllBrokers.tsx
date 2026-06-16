@@ -7,6 +7,11 @@ import {
   BROKER_DETAIL_PATH,
   setActiveBrokerId,
 } from "../../lib/brokerDetailNavigation";
+import {
+  LO_US_STATES,
+  formatLoZip,
+  normalizeLoWebsiteUrl,
+} from "../../lib/brokerLoanOfficerForm";
 
 Swal.mixin({
   customClass: {
@@ -101,8 +106,17 @@ export default function BrokersPage() {
     adminLastName: "",
     adminEmail: "",
     adminPassword: "",
+    adminPhone: "",
+    company: "",
+    licenseNumber: "",
+    address: "",
+    city: "",
+    state: "",
+    zipCode: "",
+    website: "",
   });
   const [formError, setFormError] = useState<string | null>(null);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
 
   const [query, setQuery] = useState("");
@@ -189,38 +203,148 @@ export default function BrokersPage() {
       adminLastName: "",
       adminEmail: "",
       adminPassword: "",
+      adminPhone: "",
+      company: "",
+      licenseNumber: "",
+      address: "",
+      city: "",
+      state: "",
+      zipCode: "",
+      website: "",
     });
     setFormError(null);
+    setErrors({});
     setIsAddOpen(true);
+  };
+
+  const formatUSPhone = (value: string) => {
+    const numbers = value.replace(/\D/g, "").slice(0, 10);
+    if (numbers.length <= 3) return numbers;
+    if (numbers.length <= 6) {
+      return `(${numbers.slice(0, 3)}) ${numbers.slice(3)}`;
+    }
+    return `(${numbers.slice(0, 3)}) ${numbers.slice(3, 6)}-${numbers.slice(6)}`;
+  };
+
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {};
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const usPhoneRegex = /^(?:\+1\s?)?(?:\(?\d{3}\)?[\s.-]?)\d{3}[\s.-]?\d{4}$/;
+    const nameRegex = /^[A-Za-z\s'-]+$/;
+    const strongPassword =
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/;
+
+    if (!form.organizationName.trim()) {
+      newErrors.organizationName = "Organization name is required.";
+    } else if (form.organizationName.trim().length < 2) {
+      newErrors.organizationName = "Minimum 2 characters required.";
+    }
+
+    if (!form.organizationEmail.trim()) {
+      newErrors.organizationEmail = "Organization email is required.";
+    } else if (!emailRegex.test(form.organizationEmail.trim())) {
+      newErrors.organizationEmail = "Enter a valid email address.";
+    }
+
+    if (!form.organizationPhone.trim()) {
+      newErrors.organizationPhone = "Organization phone is required.";
+    } else if (!usPhoneRegex.test(form.organizationPhone.trim())) {
+      newErrors.organizationPhone =
+        "Enter valid US phone number (e.g., 123-456-7890).";
+    }
+
+    if (!form.adminFirstName.trim()) {
+      newErrors.adminFirstName = "First name is required.";
+    } else if (!nameRegex.test(form.adminFirstName.trim())) {
+      newErrors.adminFirstName = "Only letters allowed.";
+    }
+
+    if (!form.adminLastName.trim()) {
+      newErrors.adminLastName = "Last name is required.";
+    } else if (!nameRegex.test(form.adminLastName.trim())) {
+      newErrors.adminLastName = "Only letters allowed.";
+    }
+
+    if (!form.adminEmail.trim()) {
+      newErrors.adminEmail = "Admin email is required.";
+    } else if (!emailRegex.test(form.adminEmail.trim())) {
+      newErrors.adminEmail = "Enter a valid email address.";
+    }
+
+    if (!form.adminPassword.trim()) {
+      newErrors.adminPassword = "Password is required.";
+    } else if (!strongPassword.test(form.adminPassword)) {
+      newErrors.adminPassword =
+        "Password must be 8+ chars, include uppercase, lowercase, number & special character.";
+    }
+
+    if (form.adminPhone.trim() && !usPhoneRegex.test(form.adminPhone.trim())) {
+      newErrors.adminPhone =
+        "Enter valid US phone number (e.g., 123-456-7890).";
+    }
+
+    const licenseRegex = /^[A-Za-z0-9-]{4,20}$/;
+    const zipRegex = /^\d{5}(-\d{4})?$/;
+
+    if (form.licenseNumber.trim() && !licenseRegex.test(form.licenseNumber.trim())) {
+      newErrors.licenseNumber =
+        "License must be 4–20 alphanumeric characters.";
+    }
+
+    if (form.zipCode.trim() && !zipRegex.test(form.zipCode.trim())) {
+      newErrors.zipCode = "Enter valid US ZIP (e.g. 12345 or 12345-6789).";
+    }
+
+    if (form.website.trim()) {
+      const normalized = normalizeLoWebsiteUrl(form.website);
+      if (!normalized) {
+        newErrors.website = "Enter a valid website URL.";
+      }
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
     setFormError(null);
 
-    if (
-      !form.organizationName.trim() ||
-      !form.organizationEmail.trim() ||
-      !form.adminEmail.trim() ||
-      !form.adminPassword.trim()
-    ) {
-      setFormError(
-        "Please fill required fields: organization name, organization email, admin email and password.",
-      );
-      return;
-    }
+    if (!validateForm()) return;
 
     setSubmitting(true);
     try {
-      const payload = {
-        organizationName: form.organizationName,
-        organizationEmail: form.organizationEmail,
-        organizationPhone: form.organizationPhone,
-        adminFirstName: form.adminFirstName,
-        adminLastName: form.adminLastName,
-        adminEmail: form.adminEmail,
+      const payload: Record<string, string> = {
+        organizationName: form.organizationName.trim(),
+        organizationEmail: form.organizationEmail.trim().toLowerCase(),
+        organizationPhone: form.organizationPhone.replace(/\D/g, ""),
+        adminFirstName: form.adminFirstName.trim(),
+        adminLastName: form.adminLastName.trim(),
+        adminEmail: form.adminEmail.trim().toLowerCase(),
         adminPassword: form.adminPassword,
       };
+
+      const adminPhoneDigits = form.adminPhone.replace(/\D/g, "");
+      if (adminPhoneDigits) payload.adminPhone = adminPhoneDigits;
+
+      const optionalFields: Array<[keyof typeof form, string]> = [
+        ["company", "company"],
+        ["licenseNumber", "licenseNumber"],
+        ["address", "address"],
+        ["city", "city"],
+        ["state", "state"],
+        ["zipCode", "zipCode"],
+      ];
+
+      optionalFields.forEach(([formKey, payloadKey]) => {
+        const value = String(form[formKey] ?? "").trim();
+        if (value) payload[payloadKey] = value;
+      });
+
+      if (form.website.trim()) {
+        const normalizedWebsite = normalizeLoWebsiteUrl(form.website);
+        if (normalizedWebsite) payload.website = normalizedWebsite;
+      }
 
       const headers = getAuthHeaders();
 
@@ -829,7 +953,7 @@ export default function BrokersPage() {
         {/* Add Broker Modal */}
         {isAddOpen && (
           <div className="fixed inset-0 z-500000 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-            <div className="bg-white rounded-xl p-6 w-full max-w-2xl shadow-lg dark:bg-slate-900 dark:border dark:border-slate-700">
+            <div className="bg-white rounded-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-lg dark:bg-slate-900 dark:border dark:border-slate-700">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
                   Create Broker
@@ -860,13 +984,21 @@ export default function BrokersPage() {
                       </span>
                       <input
                         value={form.organizationName}
-                        onChange={(e) =>
-                          setForm({ ...form, organizationName: e.target.value })
-                        }
-                        className="w-full px-3 py-2 mt-1 border rounded-md
-                              border-gray-300 bg-white text-gray-900
-                              dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
+                        onChange={(e) => {
+                          setForm({ ...form, organizationName: e.target.value });
+                          setErrors((prev) => ({ ...prev, organizationName: "" }));
+                        }}
+                        className={`w-full px-3 py-2 mt-1 border rounded-md bg-white text-gray-900 dark:bg-slate-800 dark:text-gray-100 ${
+                          errors.organizationName
+                            ? "border-red-500"
+                            : "border-gray-300 dark:border-slate-600"
+                        }`}
                       />
+                      {errors.organizationName && (
+                        <p className="text-xs text-red-600 mt-1">
+                          {errors.organizationName}
+                        </p>
+                      )}
                     </label>
 
                     <label className="block">
@@ -875,17 +1007,26 @@ export default function BrokersPage() {
                         <span className="text-red-500">*</span>
                       </span>
                       <input
+                        type="email"
                         value={form.organizationEmail}
-                        onChange={(e) =>
+                        onChange={(e) => {
                           setForm({
                             ...form,
                             organizationEmail: e.target.value,
-                          })
-                        }
-                        className="w-full px-3 py-2 mt-1 border rounded-md
-                              border-gray-300 bg-white text-gray-900
-                              dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
+                          });
+                          setErrors((prev) => ({ ...prev, organizationEmail: "" }));
+                        }}
+                        className={`w-full px-3 py-2 mt-1 border rounded-md bg-white text-gray-900 dark:bg-slate-800 dark:text-gray-100 ${
+                          errors.organizationEmail
+                            ? "border-red-500"
+                            : "border-gray-300 dark:border-slate-600"
+                        }`}
                       />
+                      {errors.organizationEmail && (
+                        <p className="text-xs text-red-600 mt-1">
+                          {errors.organizationEmail}
+                        </p>
+                      )}
                     </label>
 
                     <label className="block md:col-span-1">
@@ -894,17 +1035,27 @@ export default function BrokersPage() {
                         <span className="text-red-500">*</span>
                       </span>
                       <input
+                        type="tel"
                         value={form.organizationPhone}
-                        onChange={(e) =>
+                        onChange={(e) => {
                           setForm({
                             ...form,
-                            organizationPhone: e.target.value,
-                          })
-                        }
-                        className="w-full px-3 py-2 mt-1 border rounded-md
-                              border-gray-300 bg-white text-gray-900
-                              dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
+                            organizationPhone: formatUSPhone(e.target.value),
+                          });
+                          setErrors((prev) => ({ ...prev, organizationPhone: "" }));
+                        }}
+                        placeholder="(123) 456-7890"
+                        className={`w-full px-3 py-2 mt-1 border rounded-md bg-white text-gray-900 dark:bg-slate-800 dark:text-gray-100 ${
+                          errors.organizationPhone
+                            ? "border-red-500"
+                            : "border-gray-300 dark:border-slate-600"
+                        }`}
                       />
+                      {errors.organizationPhone && (
+                        <p className="text-xs text-red-600 mt-1">
+                          {errors.organizationPhone}
+                        </p>
+                      )}
                     </label>
                   </div>
                 </div>
@@ -915,7 +1066,7 @@ export default function BrokersPage() {
                     <h3 className="font-semibold text-gray-800 dark:text-gray-100">
                       Admin Details
                     </h3>
-                    <InfoTip text="Admin user who will manage their lender." />
+                    <InfoTip text="Admin user who will manage this broker organization." />
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -926,13 +1077,21 @@ export default function BrokersPage() {
                       </span>
                       <input
                         value={form.adminFirstName}
-                        onChange={(e) =>
-                          setForm({ ...form, adminFirstName: e.target.value })
-                        }
-                        className="w-full px-3 py-2 mt-1 border rounded-md
-                              border-gray-300 bg-white text-gray-900
-                              dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
+                        onChange={(e) => {
+                          setForm({ ...form, adminFirstName: e.target.value });
+                          setErrors((prev) => ({ ...prev, adminFirstName: "" }));
+                        }}
+                        className={`w-full px-3 py-2 mt-1 border rounded-md bg-white text-gray-900 dark:bg-slate-800 dark:text-gray-100 ${
+                          errors.adminFirstName
+                            ? "border-red-500"
+                            : "border-gray-300 dark:border-slate-600"
+                        }`}
                       />
+                      {errors.adminFirstName && (
+                        <p className="text-xs text-red-600 mt-1">
+                          {errors.adminFirstName}
+                        </p>
+                      )}
                     </label>
 
                     <label className="block">
@@ -941,13 +1100,21 @@ export default function BrokersPage() {
                       </span>
                       <input
                         value={form.adminLastName}
-                        onChange={(e) =>
-                          setForm({ ...form, adminLastName: e.target.value })
-                        }
-                        className="w-full px-3 py-2 mt-1 border rounded-md
-                              border-gray-300 bg-white text-gray-900
-                              dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
+                        onChange={(e) => {
+                          setForm({ ...form, adminLastName: e.target.value });
+                          setErrors((prev) => ({ ...prev, adminLastName: "" }));
+                        }}
+                        className={`w-full px-3 py-2 mt-1 border rounded-md bg-white text-gray-900 dark:bg-slate-800 dark:text-gray-100 ${
+                          errors.adminLastName
+                            ? "border-red-500"
+                            : "border-gray-300 dark:border-slate-600"
+                        }`}
                       />
+                      {errors.adminLastName && (
+                        <p className="text-xs text-red-600 mt-1">
+                          {errors.adminLastName}
+                        </p>
+                      )}
                     </label>
 
                     {/* Email + Password parallel */}
@@ -956,14 +1123,23 @@ export default function BrokersPage() {
                         Admin Email <span className="text-red-500">*</span>
                       </span>
                       <input
+                        type="email"
                         value={form.adminEmail}
-                        onChange={(e) =>
-                          setForm({ ...form, adminEmail: e.target.value })
-                        }
-                        className="w-full px-3 py-2 mt-1 border rounded-md
-                              border-gray-300 bg-white text-gray-900
-                              dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
+                        onChange={(e) => {
+                          setForm({ ...form, adminEmail: e.target.value });
+                          setErrors((prev) => ({ ...prev, adminEmail: "" }));
+                        }}
+                        className={`w-full px-3 py-2 mt-1 border rounded-md bg-white text-gray-900 dark:bg-slate-800 dark:text-gray-100 ${
+                          errors.adminEmail
+                            ? "border-red-500"
+                            : "border-gray-300 dark:border-slate-600"
+                        }`}
                       />
+                      {errors.adminEmail && (
+                        <p className="text-xs text-red-600 mt-1">
+                          {errors.adminEmail}
+                        </p>
+                      )}
                     </label>
 
                     <label className="block">
@@ -975,12 +1151,15 @@ export default function BrokersPage() {
                         <input
                           type={showPassword ? "text" : "password"}
                           value={form.adminPassword}
-                          onChange={(e) =>
-                            setForm({ ...form, adminPassword: e.target.value })
-                          }
-                          className="w-full px-3 py-2 mt-1 border rounded-md pr-10
-                    border-gray-300 bg-white text-gray-900
-                    dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
+                          onChange={(e) => {
+                            setForm({ ...form, adminPassword: e.target.value });
+                            setErrors((prev) => ({ ...prev, adminPassword: "" }));
+                          }}
+                          className={`w-full px-3 py-2 mt-1 border rounded-md pr-10 bg-white text-gray-900 dark:bg-slate-800 dark:text-gray-100 ${
+                            errors.adminPassword
+                              ? "border-red-500"
+                              : "border-gray-300 dark:border-slate-600"
+                          }`}
                         />
 
                         <button
@@ -997,6 +1176,188 @@ export default function BrokersPage() {
                           )}
                         </button>
                       </div>
+                      {errors.adminPassword && (
+                        <p className="text-xs text-red-600 mt-1">
+                          {errors.adminPassword}
+                        </p>
+                      )}
+                    </label>
+
+                    <label className="block">
+                      <span className="text-sm text-gray-700 dark:text-slate-200">
+                        Admin Phone
+                      </span>
+                      <input
+                        type="tel"
+                        value={form.adminPhone}
+                        onChange={(e) => {
+                          setForm({
+                            ...form,
+                            adminPhone: formatUSPhone(e.target.value),
+                          });
+                          setErrors((prev) => ({ ...prev, adminPhone: "" }));
+                        }}
+                        placeholder="(123) 456-7890"
+                        className={`w-full px-3 py-2 mt-1 border rounded-md bg-white text-gray-900 dark:bg-slate-800 dark:text-gray-100 ${
+                          errors.adminPhone
+                            ? "border-red-500"
+                            : "border-gray-300 dark:border-slate-600"
+                        }`}
+                      />
+                      {errors.adminPhone && (
+                        <p className="text-xs text-red-600 mt-1">
+                          {errors.adminPhone}
+                        </p>
+                      )}
+                    </label>
+                  </div>
+                </div>
+
+                {/* ================= PROFESSIONAL SECTION (OPTIONAL) ================= */}
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <h3 className="font-semibold text-gray-800 dark:text-gray-100">
+                      Professional Information
+                    </h3>
+                    <InfoTip text="Optional broker profile details. Can be updated later from the broker dashboard." />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <label className="block md:col-span-2">
+                      <span className="text-sm text-gray-700 dark:text-slate-200">
+                        Company
+                      </span>
+                      <input
+                        value={form.company}
+                        onChange={(e) => {
+                          setForm({ ...form, company: e.target.value });
+                          setErrors((prev) => ({ ...prev, company: "" }));
+                        }}
+                        className="w-full px-3 py-2 mt-1 border rounded-md bg-white text-gray-900 border-gray-300 dark:bg-slate-800 dark:text-gray-100 dark:border-slate-600"
+                      />
+                    </label>
+
+                    <label className="block">
+                      <span className="text-sm text-gray-700 dark:text-slate-200">
+                        License Number
+                      </span>
+                      <input
+                        value={form.licenseNumber}
+                        onChange={(e) => {
+                          setForm({ ...form, licenseNumber: e.target.value });
+                          setErrors((prev) => ({ ...prev, licenseNumber: "" }));
+                        }}
+                        className={`w-full px-3 py-2 mt-1 border rounded-md bg-white text-gray-900 dark:bg-slate-800 dark:text-gray-100 ${
+                          errors.licenseNumber
+                            ? "border-red-500"
+                            : "border-gray-300 dark:border-slate-600"
+                        }`}
+                      />
+                      {errors.licenseNumber && (
+                        <p className="text-xs text-red-600 mt-1">
+                          {errors.licenseNumber}
+                        </p>
+                      )}
+                    </label>
+
+                    <label className="block">
+                      <span className="text-sm text-gray-700 dark:text-slate-200">
+                        Website
+                      </span>
+                      <input
+                        value={form.website}
+                        onChange={(e) => {
+                          setForm({ ...form, website: e.target.value });
+                          setErrors((prev) => ({ ...prev, website: "" }));
+                        }}
+                        placeholder="example.com"
+                        className={`w-full px-3 py-2 mt-1 border rounded-md bg-white text-gray-900 dark:bg-slate-800 dark:text-gray-100 ${
+                          errors.website
+                            ? "border-red-500"
+                            : "border-gray-300 dark:border-slate-600"
+                        }`}
+                      />
+                      {errors.website && (
+                        <p className="text-xs text-red-600 mt-1">
+                          {errors.website}
+                        </p>
+                      )}
+                    </label>
+
+                    <label className="block md:col-span-2">
+                      <span className="text-sm text-gray-700 dark:text-slate-200">
+                        Address
+                      </span>
+                      <input
+                        value={form.address}
+                        onChange={(e) => {
+                          setForm({ ...form, address: e.target.value });
+                          setErrors((prev) => ({ ...prev, address: "" }));
+                        }}
+                        className="w-full px-3 py-2 mt-1 border rounded-md bg-white text-gray-900 border-gray-300 dark:bg-slate-800 dark:text-gray-100 dark:border-slate-600"
+                      />
+                    </label>
+
+                    <label className="block">
+                      <span className="text-sm text-gray-700 dark:text-slate-200">
+                        City
+                      </span>
+                      <input
+                        value={form.city}
+                        onChange={(e) => {
+                          setForm({ ...form, city: e.target.value });
+                          setErrors((prev) => ({ ...prev, city: "" }));
+                        }}
+                        className="w-full px-3 py-2 mt-1 border rounded-md bg-white text-gray-900 border-gray-300 dark:bg-slate-800 dark:text-gray-100 dark:border-slate-600"
+                      />
+                    </label>
+
+                    <label className="block">
+                      <span className="text-sm text-gray-700 dark:text-slate-200">
+                        State
+                      </span>
+                      <select
+                        value={form.state}
+                        onChange={(e) => {
+                          setForm({ ...form, state: e.target.value });
+                          setErrors((prev) => ({ ...prev, state: "" }));
+                        }}
+                        className="w-full px-3 py-2 mt-1 border rounded-md bg-white text-gray-900 border-gray-300 dark:bg-slate-800 dark:text-gray-100 dark:border-slate-600"
+                      >
+                        <option value="">Select state</option>
+                        {LO_US_STATES.map((state) => (
+                          <option key={state.code} value={state.code}>
+                            {state.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+
+                    <label className="block">
+                      <span className="text-sm text-gray-700 dark:text-slate-200">
+                        ZIP Code
+                      </span>
+                      <input
+                        value={form.zipCode}
+                        onChange={(e) => {
+                          setForm({
+                            ...form,
+                            zipCode: formatLoZip(e.target.value),
+                          });
+                          setErrors((prev) => ({ ...prev, zipCode: "" }));
+                        }}
+                        placeholder="12345"
+                        className={`w-full px-3 py-2 mt-1 border rounded-md bg-white text-gray-900 dark:bg-slate-800 dark:text-gray-100 ${
+                          errors.zipCode
+                            ? "border-red-500"
+                            : "border-gray-300 dark:border-slate-600"
+                        }`}
+                      />
+                      {errors.zipCode && (
+                        <p className="text-xs text-red-600 mt-1">
+                          {errors.zipCode}
+                        </p>
+                      )}
                     </label>
                   </div>
                 </div>

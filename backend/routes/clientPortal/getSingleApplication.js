@@ -1,4 +1,5 @@
 const jwt = require("jsonwebtoken");
+const { resolveApplicationStatus } = require("../../utils/resolveApplicationStatus");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
@@ -197,6 +198,7 @@ const borrowerSignature =
         success: true,
         data: {
           ...application,
+          status: resolveApplicationStatus(application),
 
           amountRequested,
           loanProductCode,

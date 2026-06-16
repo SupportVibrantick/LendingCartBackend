@@ -1,6 +1,16 @@
 import { adminFetch, adminFetchMultipart, type PaginatedResponse } from "./adminApi";
 import { fetchSubscriberDetail, type SubscriberDetail } from "./subscriptionApi";
 
+export type BrokerAdminProfile = {
+  company?: string | null;
+  licenseNumber?: string | null;
+  address?: string | null;
+  city?: string | null;
+  state?: string | null;
+  zipCode?: string | null;
+  website?: string | null;
+};
+
 export type BrokerDetail = {
   id: string;
   name: string;
@@ -21,6 +31,7 @@ export type BrokerDetail = {
     updatedAt?: string;
     role?: string | null;
     roles?: string[];
+    profile?: BrokerAdminProfile | null;
   }>;
   primaryAdmin?: {
     id: string;
@@ -33,6 +44,7 @@ export type BrokerDetail = {
     updatedAt?: string;
     role?: string | null;
     roles?: string[];
+    profile?: BrokerAdminProfile | null;
   } | null;
   affiliateLinks?: Array<{
     id: string;
@@ -112,6 +124,24 @@ export function resolveBrokerPrimaryAdmin(broker: BrokerDetail) {
     broker.admins?.[broker.admins.length - 1] ||
     null
   );
+}
+
+export function resolveBrokerAdminProfile(broker: BrokerDetail) {
+  const primary = resolveBrokerPrimaryAdmin(broker);
+  const hasProfileData = (profile?: BrokerAdminProfile | null) =>
+    Boolean(
+      profile &&
+        Object.values(profile).some(
+          (value) => value !== null && value !== undefined && String(value).trim() !== "",
+        ),
+    );
+
+  if (hasProfileData(primary?.profile)) {
+    return primary!.profile!;
+  }
+
+  const adminWithProfile = broker.admins?.find((admin) => hasProfileData(admin.profile));
+  return adminWithProfile?.profile || primary?.profile || null;
 }
 
 export function resolveBrokerWhiteLabel(broker: BrokerDetail) {
@@ -247,8 +277,10 @@ export type BrokerUpdateInput = {
     firstName?: string;
     lastName?: string;
     email?: string;
+    phone?: string;
     password?: string;
     status?: string;
+    profile?: BrokerAdminProfile;
   };
 };
 

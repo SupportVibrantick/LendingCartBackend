@@ -192,6 +192,7 @@ async function listAllApplications(fastify) {
           success: false,
           message: error.message || "Server error",
         });
+        
       }
     },
   );

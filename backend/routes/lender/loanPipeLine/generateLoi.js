@@ -6,12 +6,10 @@ const fs = require("fs");
 const path = require("path");
 const PizZip = require("pizzip");
 const Docxtemplater = require("docxtemplater");
-const libre = require("libreoffice-convert");
-const util = require("util");
-
-const convertAsync = util.promisify(libre.convert);
 
 const { loadDocxTemplate } = require("../../../utils/loadDocxTemplate");
+const { convertDocxToPdf } = require("../../../utils/convertDocxToPdf");
+const { generateLoiPdf } = require("../../../services/generateLoiPdf");
 const { logAudit } = require("../../../services/logger/auditLogger");
 
 async function generateLoiRoute(fastify) {
@@ -211,21 +209,42 @@ async function generateLoiRoute(fastify) {
         /* ===============================
            CONVERT TO PDF
         =============================== */
+        const review = lenderRecord.lenderReviews?.[0];
+        const loiDate = new Date().toLocaleDateString();
         let pdfBuffer;
+        let generatedVia = "docx-template";
 
         try {
-          pdfBuffer = await convertAsync(docxBuffer, ".pdf", undefined);
-
-          if (!pdfBuffer || pdfBuffer.length === 0) {
-            throw new Error("Empty PDF generated");
-          }
+          pdfBuffer = await convertDocxToPdf(docxBuffer);
         } catch (err) {
-          fastify.log.error("PDF conversion error:", err);
+          fastify.log.warn(
+            { error: err.message, code: err.code },
+            "LibreOffice conversion unavailable, using PDFKit fallback",
+          );
 
-          return reply.code(500).send({
-            success: false,
-            message: "PDF conversion failed",
-          });
+          try {
+            pdfBuffer = await generateLoiPdf({
+              applicationNumber:
+                lenderRecord.loanApplication.applicationNumber,
+              lenderName: lenderRecord.lender?.name || "",
+              approvedAmount: review?.approvedAmount || "",
+              interestRate: review?.interestRate || "",
+              notes: review?.notes || "",
+              date: loiDate,
+              fieldMap,
+            });
+            generatedVia = "pdfkit-fallback";
+          } catch (fallbackErr) {
+            fastify.log.error("PDF fallback error:", fallbackErr);
+
+            return reply.code(500).send({
+              success: false,
+              message:
+                err.code === "LIBREOFFICE_MISSING"
+                  ? "PDF conversion failed. Install LibreOffice or retry after server restart."
+                  : "PDF conversion failed",
+            });
+          }
         }
 
         /* ===============================
@@ -313,7 +332,7 @@ async function generateLoiRoute(fastify) {
           entityType: "ApplicationLender",
           entityId: applicationLenderId,
           action: "GENERATE_LOI",
-          newValue: { loiUrl: fileUrl },
+          newValue: { loiUrl: fileUrl, generatedVia },
         });
 
         /* ===============================

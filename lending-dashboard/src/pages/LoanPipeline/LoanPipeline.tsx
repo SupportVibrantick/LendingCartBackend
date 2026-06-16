@@ -177,9 +177,12 @@ const totalVolume = stats.totalVolume;
         loading: true,
       }));
 
-      const res = await fetch(`${API_BASE}/lender/document-config/list`, {
-        headers: getAuthHeaders(),
-      });
+      const res = await fetch(
+        `${API_BASE}/lender/document-config/list?loanProductCode=${encodeURIComponent(row.loanType)}&limit=100`,
+        {
+          headers: getAuthHeaders(),
+        },
+      );
 
       const json = await res.json();
 
@@ -187,15 +190,10 @@ const totalVolume = stats.totalVolume;
         throw new Error("Failed to fetch documents");
       }
 
-      // 🔥 FILTER BASED ON PRODUCT
-      const filtered = json.data.filter(
-        (doc: any) => doc.lenderProduct.loanProductCode === row.loanType,
-      );
-
       setDocSelectModal({
         isOpen: true,
         applicationId: row.applicationLenderId,
-        documents: filtered,
+        documents: json.data || [],
         selectedDocs: [],
         loading: false,
       });

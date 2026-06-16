@@ -1,5 +1,9 @@
 const { loadTemplate } = require("../../../utils/loadTemplate");
 const sendMail = require("../../../services/mail");
+const {
+  notifyClient,
+  CLIENT_NOTIFICATION_EVENTS,
+} = require("../../../services/clientNotifications");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
@@ -240,6 +244,22 @@ ${portalLink}
         /* ===============================
            SUCCESS RESPONSE
         =============================== */
+
+        if (loan.clientId) {
+          await notifyClient(prisma, fastify.io, {
+            clientId: loan.clientId,
+            eventType: CLIENT_NOTIFICATION_EVENTS.DOCUMENTS_REQUESTED,
+            category: "DOCUMENT",
+            subject: "Documents requested",
+            body: `New documents have been requested for application ${loan.applicationNumber}.`,
+            metadata: {
+              applicationId: loan.id,
+              applicationNumber: loan.applicationNumber,
+              documentCount: uniqueDocIds.length,
+              requestedBy: req.user.orgType,
+            },
+          });
+        }
 
         return reply.send({
           success: true,

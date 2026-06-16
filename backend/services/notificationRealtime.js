@@ -48,4 +48,43 @@ function emitPlatformNotification(io, platformOrgId, notification) {
   io.to(`platform_${platformOrgId}`).emit("NOTIFICATION", payload);
 }
 
-module.exports = { emitBrokerNotification, emitPlatformNotification };
+function emitClientNotification(io, clientId, notification) {
+  if (!io || !clientId || !notification) return;
+
+  const payload = {
+    id: notification.id,
+    eventType: notification.eventType,
+    category: notification.category,
+    subject: notification.subject,
+    body: notification.body,
+    metadata: notification.metadata || {},
+    createdAt: notification.createdAt,
+    isRead: false,
+  };
+
+  io.to(`client_${clientId}`).emit("CLIENT_NOTIFICATION", payload);
+}
+
+function emitLenderNotification(io, lenderOrgId, notification) {
+  if (!io || !lenderOrgId || !notification) return;
+
+  const payload = {
+    id: notification.id,
+    eventType: notification.eventType,
+    category: notification.category,
+    subject: notification.subject,
+    body: notification.body,
+    metadata: notification.metadata || {},
+    createdAt: notification.createdAt,
+    isRead: false,
+  };
+
+  io.to(`lender_${lenderOrgId}`).emit("NOTIFICATION", payload);
+}
+
+module.exports = {
+  emitBrokerNotification,
+  emitPlatformNotification,
+  emitClientNotification,
+  emitLenderNotification,
+};

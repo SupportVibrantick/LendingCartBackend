@@ -73,6 +73,7 @@ import {
   fetchBrokerDetail,
   resolveBrokerOrganizationName,
   resolveBrokerPrimaryAdmin,
+  resolveBrokerAdminProfile,
   resolveBrokerWhiteLabel,
   fetchBrokerLenders,
   fetchBrokerLoanOfficers,
@@ -91,6 +92,7 @@ import {
   type BrokerContact,
   type BrokerContactInput,
   type BrokerDetail,
+  type BrokerAdminProfile,
   type BrokerLenderAccessRow,
   type BrokerTeamMember,
 } from "../../lib/brokerDetailApi";
@@ -219,6 +221,39 @@ function formatActivityRelative(value?: string | null) {
 function personName(first?: string | null, last?: string | null, email?: string) {
   const name = [first, last].filter(Boolean).join(" ").trim();
   return name || email || "—";
+}
+
+function formatOverviewStateName(code?: string | null) {
+  if (!code) return undefined;
+  return CONTACT_US_STATES.find((state) => state.code === code)?.name || code;
+}
+
+function formatOverviewWebsite(url?: string | null) {
+  if (!url) return undefined;
+  const display = url.replace(/^https?:\/\/(www\.)?/i, "");
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-[#13538A] hover:underline break-all dark:text-indigo-400"
+    >
+      {display}
+    </a>
+  );
+}
+
+function formatProfessionalAddress(profile?: BrokerAdminProfile | null) {
+  if (!profile) return undefined;
+  const cityLine = [
+    profile.city,
+    formatOverviewStateName(profile.state),
+    profile.zipCode,
+  ]
+    .filter(Boolean)
+    .join(", ");
+  const parts = [profile.address, cityLine].filter(Boolean);
+  return parts.length ? parts.join(" · ") : undefined;
 }
 
 function clientName(row: BrokerClientRow) {
@@ -1253,7 +1288,9 @@ export default function BrokerDetailPage() {
       adminFirstName: admin?.firstName || "",
       adminLastName: admin?.lastName || "",
       adminEmail: admin?.email || "",
+      adminPhone: admin?.phone || "",
       adminStatus: admin?.status || "",
+      adminProfile: resolveBrokerAdminProfile(broker),
       createdAt: broker.createdAt,
     });
   };
@@ -1272,8 +1309,10 @@ export default function BrokerDetailPage() {
           firstName: updated.adminFirstName,
           lastName: updated.adminLastName,
           email: updated.adminEmail,
+          phone: updated.adminPhone || "",
           password: updated.adminPassword?.trim() || undefined,
           status: updated.adminStatus,
+          profile: updated.adminProfile || undefined,
         },
       });
       toast.success("Broker updated");
@@ -1341,6 +1380,7 @@ export default function BrokerDetailPage() {
   }
 
   const primaryAdmin = resolveBrokerPrimaryAdmin(broker);
+  const adminProfile = resolveBrokerAdminProfile(broker);
 
   const renderOverview = () => {
     const activeSubscription = subscription?.subscription;
@@ -1440,6 +1480,27 @@ export default function BrokerDetailPage() {
           />
           <DetailCell label="Admin status" value={primaryAdmin?.status} />
           <DetailCell label="Member since" value={formatDate(primaryAdmin?.createdAt)} />
+          <DetailCell label="Admin last updated" value={formatDate(primaryAdmin?.updatedAt)} />
+
+          <OverviewSubsection label="Professional Information" accent="bg-teal-500" />
+          <DetailCell label="Company" value={adminProfile?.company} />
+          <DetailCell label="License number" value={adminProfile?.licenseNumber} />
+          <DetailCell
+            label="Website"
+            value={formatOverviewWebsite(adminProfile?.website)}
+            icon={<ExternalLink size={12} className="shrink-0 text-slate-400" />}
+          />
+          <DetailCell label="Street address" value={adminProfile?.address} />
+          <DetailCell label="City" value={adminProfile?.city} />
+          <DetailCell
+            label="State"
+            value={formatOverviewStateName(adminProfile?.state)}
+          />
+          <DetailCell label="ZIP code" value={adminProfile?.zipCode} />
+          <DetailCell
+            label="Full address"
+            value={formatProfessionalAddress(adminProfile)}
+          />
 
           <OverviewSubsection label="Platform Summary" accent="bg-amber-500" />
           <DetailCell label="Team members" value={broker.counts?.admins ?? broker.admins?.length ?? 0} />
@@ -2638,10 +2699,19 @@ export default function BrokerDetailPage() {
                 {broker.email || "—"} ·{" "}
                 {broker.phone ? formatContactPhoneValue(broker.phone) : "—"}
               </p>
+              {adminProfile?.company ? (
+                <p className="text-xs font-medium text-slate-600 dark:text-slate-300 mt-0.5">
+                  {adminProfile.company}
+                  {adminProfile.licenseNumber ? ` · License ${adminProfile.licenseNumber}` : ""}
+                </p>
+              ) : null}
               {primaryAdmin ? (
                 <p className="text-[10px] text-slate-400 mt-1">
                   Primary admin: {personName(primaryAdmin.firstName, primaryAdmin.lastName)} ·{" "}
                   {primaryAdmin.email || "—"}
+                  {primaryAdmin.phone
+                    ? ` · ${formatContactPhoneValue(primaryAdmin.phone)}`
+                    : ""}
                 </p>
               ) : null}
               <div className="mt-3">

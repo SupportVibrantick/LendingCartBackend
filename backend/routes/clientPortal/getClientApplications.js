@@ -1,4 +1,5 @@
 const jwt = require("jsonwebtoken");
+const { resolveApplicationStatus } = require("../../utils/resolveApplicationStatus");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
@@ -111,6 +112,10 @@ async function getClientApplicationsRoute(fastify) {
             documentUploads: {
               select: { id: true },
             },
+
+            applicationLenders: {
+              select: { status: true },
+            },
           },
         });
 
@@ -170,7 +175,7 @@ async function getClientApplicationsRoute(fastify) {
           return {
             id: app.id,
             applicationNumber: app.applicationNumber,
-            status: app.status,
+            status: resolveApplicationStatus(app),
 
             // ✅ Priority: submission > root
             loanProduct: productFromField || app.loanProductCode || null,

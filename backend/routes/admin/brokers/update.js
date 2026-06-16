@@ -2,6 +2,35 @@
 const { adminLogs } = require("../../../services/logger/contextLogger.js");
 const bcrypt = require("bcrypt");
 
+function normalizeWebsiteUrl(input) {
+  if (!input?.trim()) return null;
+
+  let url = input.trim();
+  if (!/^https?:\/\//i.test(url)) {
+    url = `https://www.${url.replace(/^www\./i, "")}`;
+  }
+
+  try {
+    const parsed = new URL(url);
+    parsed.pathname = parsed.pathname.replace(/\/$/, "");
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}
+
+function buildBrokerProfileData(fields = {}) {
+  return {
+    company: fields.company?.trim() || null,
+    licenseNumber: fields.licenseNumber?.trim() || null,
+    address: fields.address?.trim() || null,
+    city: fields.city?.trim() || null,
+    state: fields.state?.trim() || null,
+    zipCode: fields.zipCode?.trim() || null,
+    website: normalizeWebsiteUrl(fields.website),
+  };
+}
+
 /**
  * PATCH /:id
  * - update broker fields (name, email, phone, status)
@@ -37,8 +66,21 @@ async function updateBrokerRoutes(fastify, options) {
                 email: { type: "string", format: "email" },
                 firstName: { type: "string" },
                 lastName: { type: "string" },
+                phone: { type: "string" },
                 password: { type: "string" },
                 status: { type: "string" },
+                profile: {
+                  type: "object",
+                  properties: {
+                    company: { type: "string" },
+                    licenseNumber: { type: "string" },
+                    address: { type: "string" },
+                    city: { type: "string" },
+                    state: { type: "string" },
+                    zipCode: { type: "string" },
+                    website: { type: "string" },
+                  },
+                },
               },
             },
           },
@@ -125,6 +167,41 @@ async function updateBrokerRoutes(fastify, options) {
           return reply.status(400).send({ success: false, message: "Nothing to update" });
         }
 
+        const licenseRegex = /^[A-Za-z0-9-]{4,20}$/;
+        const zipRegex = /^\d{5}(-\d{4})?$/;
+
+        if (admin?.profile) {
+          const { licenseNumber, zipCode, website } = admin.profile;
+          if (licenseNumber?.trim() && !licenseRegex.test(licenseNumber.trim())) {
+            return reply.status(400).send({
+              success: false,
+              message: "License must be 4–20 alphanumeric characters",
+            });
+          }
+          if (zipCode?.trim() && !zipRegex.test(zipCode.trim())) {
+            return reply.status(400).send({
+              success: false,
+              message: "Enter valid US ZIP (e.g. 12345 or 12345-6789)",
+            });
+          }
+          if (website?.trim() && !normalizeWebsiteUrl(website)) {
+            return reply.status(400).send({
+              success: false,
+              message: "Enter a valid website URL",
+            });
+          }
+        }
+
+        if (admin?.phone !== undefined) {
+          const digits = String(admin.phone).replace(/\D/g, "");
+          if (digits && !/^[0-9]{10,15}$/.test(digits)) {
+            return reply.status(400).send({
+              success: false,
+              message: "Admin phone must be 10–15 digits",
+            });
+          }
+        }
+
         // Basic existence check for organization
         const existingOrg = await prisma.organization.findUnique({ where: { id: orgId } });
         if (!existingOrg) return reply.status(404).send({ success: false, message: "Broker not found" });
@@ -133,6 +210,7 @@ async function updateBrokerRoutes(fastify, options) {
 
         // Prepare admin update if provided
         let adminUpdate = null;
+        let adminProfileUpdate = null;
         if (admin) {
           // identify admin user by id or email
           const adminWhere = admin.id ? { id: admin.id } : { email: admin.email };
@@ -148,8 +226,15 @@ async function updateBrokerRoutes(fastify, options) {
           for (const f of ["email", "firstName", "lastName", "status"]) {
             if (f in admin && admin[f] !== undefined) adminUpdate[f] = admin[f];
           }
+          if (admin.phone !== undefined) {
+            const digits = String(admin.phone).replace(/\D/g, "");
+            adminUpdate.phone = digits || null;
+          }
           if (admin.password) {
             adminUpdate.passwordHash = await bcrypt.hash(admin.password, 10);
+          }
+          if (admin.profile !== undefined) {
+            adminProfileUpdate = buildBrokerProfileData(admin.profile);
           }
           adminUpdate._id = foundAdmin.id; // keep id for the transaction
         }
@@ -172,8 +257,24 @@ async function updateBrokerRoutes(fastify, options) {
             updatedAdmin = await tx.userAccount.update({
               where: { id },
               data: adminUpdate,
-              select: { id: true, email: true, firstName: true, lastName: true, status: true, updatedAt: true },
+              select: {
+                id: true,
+                email: true,
+                firstName: true,
+                lastName: true,
+                phone: true,
+                status: true,
+                updatedAt: true,
+              },
             });
+
+            if (adminProfileUpdate) {
+              await tx.brokerUserProfile.upsert({
+                where: { userId: id },
+                create: { userId: id, ...adminProfileUpdate },
+                update: adminProfileUpdate,
+              });
+            }
           }
         });
 

@@ -1,5 +1,8 @@
 const fp = require("fastify-plugin");
 const { logAudit } = require("../../../services/logger/auditLogger");
+const {
+  canBrokerEditSubmittedApplication,
+} = require("../../../utils/resolveApplicationStatus");
 
 async function editSubmittedApplication(fastify) {
   fastify.put(
@@ -51,6 +54,9 @@ async function editSubmittedApplication(fastify) {
             brokerOrgId
           },
           include: {
+            applicationLenders: {
+              select: { status: true },
+            },
             submissions: {
               orderBy: { createdAt: "desc" },
               take: 1
@@ -67,10 +73,11 @@ async function editSubmittedApplication(fastify) {
 
         /* ================= BUSINESS RULES ================= */
 
-        if (!["SUBMITTED", "REJECTED"].includes(application.status)) {
+        const editCheck = canBrokerEditSubmittedApplication(application);
+        if (!editCheck.allowed) {
           return reply.code(400).send({
             success: false,
-            message: `Editing not allowed for status: ${application.status}`
+            message: editCheck.reason,
           });
         }
 
@@ -92,7 +99,7 @@ async function editSubmittedApplication(fastify) {
             data: {
               applicationId: application.id,
               applicationProductId: latestSubmission.applicationProductId,
-              status: "UPDATED"
+              status: application.status === "DRAFT" ? "CLIENT_PENDING" : "UPDATED",
             }
           });
 

@@ -1,601 +1,742 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Dropdown } from "../ui/dropdown/Dropdown";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
-import { socket } from "../../lib/socket";
+import { CHAT_API_BASE, getOrgIdsFromToken } from "../../lib/chatSocket";
+import {
+  ensureChatSocket,
+  subscribeSocketEvent,
+} from "../../lib/chatSocketManager";
 import toast from "react-hot-toast";
+import {
+  FiBell,
+  FiBriefcase,
+  FiFileText,
+  FiMessageSquare,
+  FiSend,
+  FiUpload,
+  FiX,
+} from "react-icons/fi";
 
-const API_BASE = import.meta.env.VITE_API_BASE;
+const API_BASE = CHAT_API_BASE;
+
+type NotificationMetadata = {
+  brokerName?: string;
+  lenderName?: string;
+  applicationId?: string;
+  applicationNumber?: string;
+  applicationLenderId?: string;
+  conversationId?: string;
+  senderName?: string;
+  documentType?: string;
+  source?: string;
+};
+
+type LenderNotification = {
+  id: string;
+  eventType?: string;
+  category?: string;
+  body?: string;
+  subject?: string;
+  metadata?: NotificationMetadata;
+  createdAt: string | Date;
+  isRead: boolean;
+};
+
+function getLenderToken() {
+  return sessionStorage.getItem("lender_token");
+}
+
+function getLenderOrgId(): string | null {
+  try {
+    const user = JSON.parse(sessionStorage.getItem("lender_user") || "{}");
+    if (user.organizationId) return user.organizationId;
+  } catch {
+    /* ignore */
+  }
+
+  const token = getLenderToken();
+  return token ? getOrgIdsFromToken(token).lenderOrgId : null;
+}
+
+function formatRelativeTime(value?: string | Date) {
+  if (!value) return "Just now";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Just now";
+
+  const diffMs = Date.now() - date.getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+
+  if (diffMin < 1) return "Just now";
+  if (diffMin < 60) return `${diffMin}m ago`;
+
+  const diffHours = Math.floor(diffMin / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays === 1) return "Yesterday";
+  if (diffDays < 7) return `${diffDays}d ago`;
+
+  return date.toLocaleDateString([], {
+    month: "short",
+    day: "numeric",
+    year: date.getFullYear() !== new Date().getFullYear() ? "numeric" : undefined,
+  });
+}
+
+function getNotificationStyle(eventType?: string) {
+  switch (eventType) {
+    case "APPLICATION_RECEIVED":
+      return {
+        icon: FiSend,
+        label: "Application",
+        tone: "bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300",
+      };
+    case "DOCUMENT_UPLOADED":
+      return {
+        icon: FiUpload,
+        label: "Document",
+        tone: "bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300",
+      };
+    case "NEW_MESSAGE":
+      return {
+        icon: FiMessageSquare,
+        label: "Message",
+        tone: "bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300",
+      };
+    case "LOI_GENERATED":
+      return {
+        icon: FiFileText,
+        label: "LOI",
+        tone: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
+      };
+    default:
+      return {
+        icon: FiBriefcase,
+        label: "Alert",
+        tone: "bg-orange-100 text-orange-700 dark:bg-orange-500/15 dark:text-orange-300",
+      };
+  }
+}
+
+function getNotificationMetaLabel(notification: LenderNotification) {
+  const meta = notification.metadata || {};
+  return (
+    meta.applicationNumber ||
+    meta.brokerName ||
+    meta.senderName ||
+    meta.documentType ||
+    meta.lenderName ||
+    notification.category ||
+    "System"
+  );
+}
+
+function normalizeNotification(payload: Record<string, unknown>): LenderNotification {
+  const metadata = (payload.metadata as NotificationMetadata | undefined) || {};
+  const createdAt =
+    (payload.createdAt as string | Date | undefined) || new Date().toISOString();
+
+  return {
+    id: String(payload.id || `notif-${Date.now()}`),
+    eventType: (payload.eventType as string | undefined) || "SYSTEM",
+    category: payload.category as string | undefined,
+    body:
+      (payload.body as string | undefined) ||
+      (payload.subject as string | undefined) ||
+      "New notification",
+    subject: payload.subject as string | undefined,
+    metadata,
+    createdAt,
+    isRead: Boolean(payload.isRead),
+  };
+}
+
+function prependNotification(
+  prev: LenderNotification[],
+  incoming: LenderNotification,
+) {
+  if (prev.some((item) => item.id === incoming.id)) return prev;
+  return [incoming, ...prev];
+}
+
+function groupNotifications(notifications: LenderNotification[]) {
+  const today: LenderNotification[] = [];
+  const yesterday: LenderNotification[] = [];
+  const thisWeek: LenderNotification[] = [];
+  const earlier: LenderNotification[] = [];
+
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startOfYesterday = new Date(startOfToday);
+  startOfYesterday.setDate(startOfYesterday.getDate() - 1);
+  const startOfWeek = new Date(startOfToday);
+  startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
+
+  notifications.forEach((notification) => {
+    const date = new Date(notification.createdAt);
+    if (date >= startOfToday) today.push(notification);
+    else if (date >= startOfYesterday) yesterday.push(notification);
+    else if (date >= startOfWeek) thisWeek.push(notification);
+    else earlier.push(notification);
+  });
+
+  return { today, yesterday, thisWeek, earlier };
+}
 
 export default function NotificationDropdown() {
   const [isOpen, setIsOpen] = useState(false);
-  // const [notifying, setNotifying] = useState(true);
-  const [notifications, setNotifications] = useState<any[]>([]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [reading, setReading] = useState(false);
+  const [notifications, setNotifications] = useState<LenderNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
 
-  const fetchNotifications = async () => {
-    try {
-      setLoading(true);
+  const seenRealtimeIds = useRef(new Set<string>());
 
-      const token = sessionStorage.getItem("lender_token");
+  const pushRealtimeNotification = useCallback((incoming: LenderNotification) => {
+    if (seenRealtimeIds.current.has(incoming.id)) return;
+    seenRealtimeIds.current.add(incoming.id);
 
-      const res = await fetch(
-        `${API_BASE}/lender/notifications?page=1&limit=20`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
-      );
+    setNotifications((prev) => prependNotification(prev, incoming));
+    setUnreadCount((prev) => prev + 1);
 
-      const json = await res.json();
+    const style = getNotificationStyle(incoming.eventType);
+    const Icon = style.icon;
 
-      if (!res.ok || !json.success) {
-        throw new Error("Failed to fetch notifications");
-      }
-
-      setNotifications(json.data.notifications || []);
-      setUnreadCount(json.data.unreadCount || 0);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const groupNotifications = (notifications: any[]) => {
-    const today: any[] = [];
-    const yesterday: any[] = [];
-    const earlier: any[] = [];
-
-    const now = new Date();
-
-    const startOfToday = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate(),
+    toast.custom(
+      (t) => (
+        <div
+          className={`${
+            t.visible ? "opacity-100" : "opacity-0"
+          } pointer-events-auto flex w-[min(360px,calc(100vw-2rem))] items-start gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-lg dark:border-gray-700 dark:bg-gray-900`}
+        >
+          <span
+            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${style.tone}`}
+          >
+            <Icon className="h-4 w-4" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+              {style.label}
+            </p>
+            <p className="mt-0.5 text-sm text-gray-800 dark:text-gray-100">
+              {incoming.body}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => toast.dismiss(t.id)}
+            className="shrink-0 text-gray-400 hover:text-gray-600"
+            aria-label="Dismiss"
+          >
+            <FiX className="h-4 w-4" />
+          </button>
+        </div>
+      ),
+      { id: incoming.id, duration: 4500, position: "top-right" },
     );
-
-    const startOfYesterday = new Date(startOfToday);
-    startOfYesterday.setDate(startOfYesterday.getDate() - 1);
-
-    notifications.forEach((n) => {
-      const date = new Date(n.createdAt);
-
-      if (date >= startOfToday) {
-        today.push(n);
-      } else if (date >= startOfYesterday) {
-        yesterday.push(n);
-      } else {
-        earlier.push(n);
-      }
-    });
-
-    return { today, yesterday, earlier };
-  };
-
-  function toggleDropdown() {
-    setIsOpen(!isOpen);
-  }
-
-  function closeDropdown() {
-    setIsOpen(false);
-  }
-
-  const handleClick = () => {
-    toggleDropdown();
-    // setNotifying(false);
-  };
-
-  useEffect(() => {
-    fetchNotifications();
   }, []);
 
-  const deleteNotification = async (id: string) => {
+  const fetchNotifications = useCallback(async (pageNumber = 1) => {
     try {
-      const token = sessionStorage.getItem("lender_token");
+      if (pageNumber === 1) setLoading(true);
+      else setLoadingMore(true);
 
-      const res = await fetch(`${API_BASE}/lender/notifications/${id}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
+      const token = getLenderToken();
+      if (!token) return;
+
+      const res = await fetch(
+        `${API_BASE}/lender/notifications?page=${pageNumber}&limit=10`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
         },
-      });
-
-      const json = await res.json();
-
-      if (!res.ok || !json.success) {
-        throw new Error("Failed to delete notification");
-      }
-
-      // ✅ remove from UI
-      setNotifications((prev) => prev.filter((n) => n.id !== id));
-
-      // ✅ update unread count
-      const deleted = notifications.find((n) => n.id === id);
-      if (deleted && !deleted.isRead) {
-        setUnreadCount((prev) => Math.max(prev - 1, 0));
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const markAsRead = async (id: string) => {
-    try {
-      const token = sessionStorage.getItem("lender_token");
-
-      const res = await fetch(`${API_BASE}/lender/notifications/${id}/read`, {
-        method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      const json = await res.json();
-
-      if (!res.ok || !json.success) {
-        throw new Error("Failed to mark as read");
-      }
-
-      // ✅ update UI instantly
-      setNotifications((prev) =>
-        prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)),
       );
 
-      // ✅ update unread count
-      setUnreadCount((prev) => Math.max(prev - 1, 0));
-    } catch (err) {
-      console.error(err);
-    }
-  };
+      const data = await res.json();
+      const newNotifications = (data?.data?.notifications ||
+        []) as LenderNotification[];
 
-  const markAllAsRead = async () => {
-    try {
-      const token = sessionStorage.getItem("lender_token");
-
-      const res = await fetch(`${API_BASE}/lender/notifications/read-all`, {
-        method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      const json = await res.json();
-
-      if (!res.ok || !json.success) {
-        throw new Error("Failed to mark all as read");
+      if (pageNumber === 1) {
+        setNotifications(newNotifications);
+        setPage(1);
+        setHasMore(newNotifications.length >= 10);
+      } else {
+        setNotifications((prev) => {
+          const existingIds = new Set(prev.map((item) => item.id));
+          const merged = newNotifications.filter((item) => !existingIds.has(item.id));
+          return [...prev, ...merged];
+        });
+        setHasMore(newNotifications.length >= 10);
       }
 
-      // ✅ update UI instantly
-      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
-
-      // ✅ reset unread count
-      setUnreadCount(0);
+      setUnreadCount(data?.data?.unreadCount || 0);
     } catch (err) {
-      console.error(err);
+      console.error("Notification API error", err);
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
     }
-  };
+  }, []);
 
-  const renderItem = (n: any) => (
-    <DropdownItem
-      key={n.id}
-      onItemClick={() => {
-        if (!n.isRead) markAsRead(n.id);
-        closeDropdown();
-      }}
-      className={`flex justify-between items-start p-4 rounded-xl border cursor-pointer
-  ${!n.isRead ? "bg-blue-50" : "opacity-70"}`}
-    >
-      {/* LEFT */}
-      <div className="flex gap-3">
-        {/* Avatar initials */}
-        <div className="w-10 h-10 rounded-full text-[#134E4A] flex items-center justify-center font-semibold text-sm">
-          {n.metadata?.lenderName
-            ?.split(" ")
-            .map((w: string) => w[0])
-            .slice(0, 2)
-            .join("")
-            .toUpperCase() || "NA"}
-        </div>
-
-        {/* TEXT */}
-        <div className="flex flex-col">
-          <span className="text-sm text-gray-800 dark:text-white">
-            {n.body}
-          </span>
-
-          <span className="text-xs text-gray-500 mt-1 flex items-center gap-2">
-            <span>{(n.metadata?.lenderName || "Lender").slice(0, 12)}...</span>
-
-            <span className="w-1 h-1 bg-gray-400 rounded-full"></span>
-
-            <span>{new Date(n.createdAt).toLocaleString()}</span>
-          </span>
-        </div>
-      </div>
-
-      {/* DELETE BUTTON */}
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          deleteNotification(n.id);
-        }}
-        className="text-gray-400 hover:text-red-500 transition"
-      >
-        ✕
-      </button>
-    </DropdownItem>
-  );
-
-  const deleteAllNotifications = async () => {
+  const markAsRead = useCallback(async (id: string) => {
     try {
-      const token = sessionStorage.getItem("lender_token");
-
-      const res = await fetch(`${API_BASE}/lender/notifications/delete-all`, {
-        method: "DELETE",
+      const token = getLenderToken();
+      await fetch(`${API_BASE}/lender/notifications/${id}/read`, {
+        method: "PATCH",
         headers: {
+          "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
+        body: JSON.stringify({}),
       });
 
-      const json = await res.json();
+      setNotifications((prev) =>
+        prev.map((item) => (item.id === id ? { ...item, isRead: true } : item)),
+      );
+      setUnreadCount((prev) => Math.max(prev - 1, 0));
+    } catch (err) {
+      console.error("Mark read error", err);
+    }
+  }, []);
 
+  const markAllAsRead = useCallback(async () => {
+    try {
+      setReading(true);
+      const token = getLenderToken();
+
+      await fetch(`${API_BASE}/lender/notifications/read-all`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({}),
+      });
+
+      setNotifications((prev) => prev.map((item) => ({ ...item, isRead: true })));
+      setUnreadCount(0);
+    } finally {
+      setReading(false);
+    }
+  }, []);
+
+  const deleteNotification = useCallback(async (id: string) => {
+    try {
+      const token = getLenderToken();
+      await fetch(`${API_BASE}/lender/notifications/${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      setNotifications((prev) => {
+        const deleted = prev.find((item) => item.id === id);
+        if (deleted && !deleted.isRead) {
+          setUnreadCount((count) => Math.max(count - 1, 0));
+        }
+        return prev.filter((item) => item.id !== id);
+      });
+    } catch (err) {
+      console.error("Delete notification error", err);
+    }
+  }, []);
+
+  const deleteAllNotifications = useCallback(async () => {
+    try {
+      const token = getLenderToken();
+      const res = await fetch(`${API_BASE}/lender/notifications/delete-all`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const json = await res.json();
       if (!res.ok || !json.success) {
         throw new Error("Failed to delete all notifications");
       }
 
-      // ✅ clear UI
       setNotifications([]);
       setUnreadCount(0);
+      setHasMore(false);
     } catch (err) {
-      console.error(err);
+      console.error("Delete all error", err);
+      toast.error("Could not delete notifications");
     }
-  };
+  }, []);
+
+  const handleScroll = useCallback(
+    (e: React.UIEvent<HTMLElement>) => {
+      const target = e.currentTarget;
+      const { scrollTop, scrollHeight, clientHeight } = target;
+
+      if (scrollHeight - scrollTop <= clientHeight + 50 && hasMore && !loadingMore) {
+        const nextPage = page + 1;
+        setPage(nextPage);
+        fetchNotifications(nextPage);
+      }
+    },
+    [fetchNotifications, hasMore, loadingMore, page],
+  );
+
+  const toggleDropdown = useCallback(() => {
+    setIsOpen((prev) => {
+      const next = !prev;
+      if (next) fetchNotifications(1);
+      return next;
+    });
+  }, [fetchNotifications]);
+
+  const closeDropdown = useCallback(() => setIsOpen(false), []);
+  const closeModal = useCallback(() => setIsModalOpen(false), []);
 
   useEffect(() => {
-    const lenderUser = sessionStorage.getItem("lender_user");
+    if (!isModalOpen) return;
 
-    if (!lenderUser) return;
-
-    const parsedUser = JSON.parse(lenderUser);
-    const lenderOrgId = parsedUser.organizationId;
-
-    if (!lenderOrgId) return;
-
-    // ✅ Connect
-    socket.on("connect", () => {
-      console.log("✅ Socket connected:", socket.id);
-
-      socket.emit("joinLenderRoom", lenderOrgId);
-      console.log("📡 Joined lender room:", lenderOrgId);
-    });
-
-    // ❌ Error
-    socket.on("connect_error", (err) => {
-      console.error("❌ Socket error:", err.message);
-    });
-
-    // 🔌 Disconnect
-    socket.on("disconnect", (reason) => {
-      console.log("⚠️ Disconnected:", reason);
-    });
-
-    // 🎉 NEW NOTIFICATION EVENT (IMPORTANT)
-    socket.on("APPLICATION_SENT", (data) => {
-      console.log("📩 Notification received:", data);
-
-      const notification = {
-        id: data.id || Date.now(),
-        body: data.body || "New application received",
-        createdAt: new Date(),
-        isRead: false,
-        metadata: {
-          lenderName: data?.lenderName || "Lender",
-        },
-      };
-
-      setNotifications((prev) => {
-        const exists = prev.find((n) => n.id === notification.id);
-        if (exists) return prev;
-        return [notification, ...prev];
-      });
-
-      // ✅ Update unread count
-      setUnreadCount((prev) => prev + 1);
-
-      // 🔔 Toast
-      toast.success(notification.body);
-    });
-
-    // 🧹 Cleanup
-    return () => {
-      socket.off("connect");
-      socket.off("disconnect");
-      socket.off("connect_error");
-      socket.off("APPLICATION_SENT");
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeModal();
     };
-  }, []);
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.addEventListener("keydown", onKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [isModalOpen, closeModal]);
+
+  useEffect(() => {
+    fetchNotifications(1);
+  }, [fetchNotifications]);
+
+  useEffect(() => {
+    const token = getLenderToken();
+    const lenderOrgId = getLenderOrgId();
+    if (!token || !lenderOrgId) return;
+
+    ensureChatSocket(token, {
+      getLenderOrgId: () => getLenderOrgId(),
+    });
+
+    const unsubscribeNotification = subscribeSocketEvent("NOTIFICATION", (payload) => {
+      if (!payload || typeof payload !== "object") return;
+      pushRealtimeNotification(
+        normalizeNotification(payload as Record<string, unknown>),
+      );
+    });
+
+    const unsubscribeChat = subscribeSocketEvent("newMessage", (payload) => {
+      if (!payload || typeof payload !== "object") return;
+      const msg = payload as Record<string, unknown>;
+      const preview =
+        (msg.text as string | undefined) ||
+        ((msg.fileName as string | undefined) ? "Sent a file" : "New message");
+
+      pushRealtimeNotification({
+        id: `msg-${String(msg.id || Date.now())}`,
+        eventType: "NEW_MESSAGE",
+        category: "MESSAGE",
+        body: `${msg.senderName || "Someone"}: ${preview}`,
+        metadata: {
+          conversationId: msg.conversationId as string | undefined,
+          senderName: msg.senderName as string | undefined,
+        },
+        createdAt: (msg.createdAt as string | undefined) || new Date().toISOString(),
+        isRead: false,
+      });
+    });
+
+    return () => {
+      unsubscribeNotification();
+      unsubscribeChat();
+    };
+  }, [pushRealtimeNotification]);
+
+  const grouped = useMemo(() => groupNotifications(notifications), [notifications]);
+  const badgeLabel = unreadCount > 9 ? "9+" : String(unreadCount);
+
+  const renderNotificationItem = (
+    notification: LenderNotification,
+    variant: "dropdown" | "modal" = "dropdown",
+  ) => {
+    const style = getNotificationStyle(notification.eventType);
+    const Icon = style.icon;
+    const isUnread = !notification.isRead;
+
+    const content = (
+      <>
+        <div className="flex min-w-0 flex-1 gap-3">
+          <span
+            className={`relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${style.tone}`}
+          >
+            <Icon className="h-4 w-4" />
+          </span>
+
+          <div className="min-w-0 flex-1">
+            <div className="mb-1 flex items-center gap-2">
+              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                {style.label}
+              </span>
+              {isUnread && (
+                <span className="h-2 w-2 rounded-full bg-orange-500" />
+              )}
+            </div>
+
+            <p className="text-sm text-slate-700 dark:text-slate-200">
+              {notification.body}
+            </p>
+
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              {getNotificationMetaLabel(notification)} ·{" "}
+              {formatRelativeTime(notification.createdAt)}
+            </p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            deleteNotification(notification.id);
+          }}
+          className="shrink-0 text-slate-400 transition hover:text-red-500 dark:hover:text-red-400"
+          aria-label="Delete notification"
+        >
+          <FiX className="h-4 w-4" />
+        </button>
+      </>
+    );
+
+    if (variant === "modal") {
+      return (
+        <div
+          key={notification.id}
+          onClick={() => {
+            if (!notification.isRead) markAsRead(notification.id);
+          }}
+          className={`flex cursor-pointer items-start justify-between gap-3 rounded-xl border p-4 transition hover:bg-gray-50 dark:hover:bg-gray-800 ${
+            isUnread
+              ? "border-orange-200 bg-orange-50 dark:border-orange-500/20 dark:bg-orange-500/10"
+              : "border-gray-200 dark:border-gray-700"
+          }`}
+        >
+          {content}
+        </div>
+      );
+    }
+
+    return (
+      <DropdownItem
+        onItemClick={() => {
+          if (!notification.isRead) markAsRead(notification.id);
+          closeDropdown();
+        }}
+        className={`flex items-start justify-between gap-3 rounded-lg border-b px-4 py-3 transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800 ${
+          isUnread
+            ? "border-orange-200 bg-orange-50 dark:border-orange-500/20 dark:bg-orange-500/10"
+            : "border-slate-200 dark:border-slate-800"
+        }`}
+      >
+        {content}
+      </DropdownItem>
+    );
+  };
+
+  const renderSection = (
+    title: string,
+    items: LenderNotification[],
+    variant: "dropdown" | "modal",
+  ) => {
+    if (items.length === 0) return null;
+
+    const Wrapper = variant === "dropdown" ? "li" : "div";
+
+    return (
+      <>
+        <Wrapper className={variant === "dropdown" ? "px-3 py-2" : "px-1"}>
+          <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+            {title}
+          </span>
+        </Wrapper>
+        {items.map((notification) =>
+          variant === "dropdown" ? (
+            <li key={notification.id}>
+              {renderNotificationItem(notification, "dropdown")}
+            </li>
+          ) : (
+            renderNotificationItem(notification, "modal")
+          ),
+        )}
+      </>
+    );
+  };
 
   return (
     <div className="relative">
       <button
-        className="relative flex items-center justify-center text-gray-500 transition-colors bg-white border border-gray-200 rounded-full dropdown-toggle hover:text-gray-700 h-11 w-11 hover:bg-gray-100 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white"
-        onClick={handleClick}
+        type="button"
+        className="dropdown-toggle relative flex h-11 w-11 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 transition-colors hover:text-gray-700 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white"
+        onClick={toggleDropdown}
+        aria-label="Notifications"
       >
         {unreadCount > 0 && (
-          <span className="absolute right-0 top-0.5 h-2 w-2 rounded-full bg-orange-400 animate-ping"></span>
+          <span className="absolute -right-1 -top-1 z-10 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-orange-500 px-1 text-[10px] font-bold text-white">
+            {badgeLabel}
+          </span>
         )}
-        <svg
-          className="fill-current"
-          width="20"
-          height="20"
-          viewBox="0 0 20 20"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <path
-            fillRule="evenodd"
-            clipRule="evenodd"
-            d="M10.75 2.29248C10.75 1.87827 10.4143 1.54248 10 1.54248C9.58583 1.54248 9.25004 1.87827 9.25004 2.29248V2.83613C6.08266 3.20733 3.62504 5.9004 3.62504 9.16748V14.4591H3.33337C2.91916 14.4591 2.58337 14.7949 2.58337 15.2091C2.58337 15.6234 2.91916 15.9591 3.33337 15.9591H4.37504H15.625H16.6667C17.0809 15.9591 17.4167 15.6234 17.4167 15.2091C17.4167 14.7949 17.0809 14.4591 16.6667 14.4591H16.375V9.16748C16.375 5.9004 13.9174 3.20733 10.75 2.83613V2.29248ZM14.875 14.4591V9.16748C14.875 6.47509 12.6924 4.29248 10 4.29248C7.30765 4.29248 5.12504 6.47509 5.12504 9.16748V14.4591H14.875ZM8.00004 17.7085C8.00004 18.1228 8.33583 18.4585 8.75004 18.4585H11.25C11.6643 18.4585 12 18.1228 12 17.7085C12 17.2943 11.6643 16.9585 11.25 16.9585H8.75004C8.33583 16.9585 8.00004 17.2943 8.00004 17.7085Z"
-            fill="currentColor"
-          />
-        </svg>
+        <FiBell className="h-5 w-5" />
       </button>
+
       <Dropdown
         isOpen={isOpen}
         onClose={closeDropdown}
-        className="absolute -right-[240px] mt-[17px] flex h-[480px] w-[350px] flex-col rounded-2xl border border-gray-200 bg-white p-3 shadow-theme-lg dark:border-gray-800 dark:bg-gray-dark sm:w-[361px] lg:right-0"
+        className="right-0 mt-2 flex h-[min(480px,calc(100vh-6rem))] w-[min(361px,calc(100vw-1.5rem))] flex-col rounded-2xl border border-gray-200 bg-white p-3 shadow-theme-lg dark:border-gray-800 dark:bg-slate-900"
       >
-        <div className="flex items-center justify-between pb-3 mb-3 border-b border-gray-100 dark:border-gray-700">
-          <h5 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
-            Notification
-          </h5>
-          <button
-            onClick={toggleDropdown}
-            className="text-gray-500 transition dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-          >
-            <svg
-              className="fill-current"
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
+        <div className="mb-3 flex items-center justify-between border-b border-gray-100 pb-3 dark:border-gray-700">
+          <div>
+            <h5 className="text-lg font-semibold text-gray-800 dark:text-slate-100">
+              Notifications
+            </h5>
+            {unreadCount > 0 && (
+              <p className="text-xs text-slate-500">{unreadCount} unread</p>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            {unreadCount > 0 && (
+              <button
+                type="button"
+                onClick={markAllAsRead}
+                disabled={reading}
+                className="text-xs font-medium text-indigo-600 hover:underline disabled:opacity-50 dark:text-indigo-400"
+              >
+                {reading ? "..." : "Mark all read"}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={closeDropdown}
+              className="text-gray-500 transition hover:text-red-500 dark:text-gray-400"
+              aria-label="Close notifications"
             >
-              <path
-                fillRule="evenodd"
-                clipRule="evenodd"
-                d="M6.21967 7.28131C5.92678 6.98841 5.92678 6.51354 6.21967 6.22065C6.51256 5.92775 6.98744 5.92775 7.28033 6.22065L11.999 10.9393L16.7176 6.22078C17.0105 5.92789 17.4854 5.92788 17.7782 6.22078C18.0711 6.51367 18.0711 6.98855 17.7782 7.28144L13.0597 12L17.7782 16.7186C18.0711 17.0115 18.0711 17.4863 17.7782 17.7792C17.4854 18.0721 17.0105 18.0721 16.7176 17.7792L11.999 13.0607L7.28033 17.7794C6.98744 18.0722 6.51256 18.0722 6.21967 17.7794C5.92678 17.4865 5.92678 17.0116 6.21967 16.7187L10.9384 12L6.21967 7.28131Z"
-                fill="currentColor"
-              />
-            </svg>
-          </button>
+              <FiX className="h-5 w-5" />
+            </button>
+          </div>
         </div>
-        <ul className="flex flex-col h-auto overflow-y-auto custom-scrollbar">
+
+        <ul
+          onScroll={handleScroll}
+          className="custom-scrollbar flex h-auto flex-col overflow-y-auto"
+        >
           {loading && (
-            <li className="text-center py-4 text-gray-500">Loading...</li>
+            <li className="p-4 text-sm text-gray-500">Loading notifications...</li>
           )}
 
           {!loading && notifications.length === 0 && (
             <li className="flex flex-col items-center justify-center py-10 text-center">
-              {/* Icon */}
-              <div className="w-12 h-12 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800 mb-3">
-                🔔
+              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800">
+                <FiBell className="h-5 w-5 text-slate-400" />
               </div>
-
-              {/* Title */}
               <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">
-                No Notifications
+                No notifications
               </p>
-
-              {/* Subtitle */}
-              <p className="text-xs text-gray-500 mt-1">
-                You're all caught up 🎉
-              </p>
+              <p className="mt-1 text-xs text-gray-500">You&apos;re all caught up</p>
             </li>
           )}
 
-          {(() => {
-            const { today, yesterday, earlier } =
-              groupNotifications(notifications);
+          {renderSection("Today", grouped.today, "dropdown")}
+          {renderSection("Yesterday", grouped.yesterday, "dropdown")}
+          {renderSection("This week", grouped.thisWeek, "dropdown")}
+          {renderSection("Earlier", grouped.earlier, "dropdown")}
 
-            return (
-              <>
-                {today.length > 0 && (
-                  <>
-                    <li className="flex items-center justify-between px-3 py-1">
-                      <span className="text-xs font-semibold text-gray-500">
-                        Today
-                      </span>
-
-                      {today.length > 0 && (
-                        <button
-                          onClick={deleteAllNotifications}
-                          className="text-xs text-red-500 hover:underline"
-                        >
-                          Delete All
-                        </button>
-                      )}
-                    </li>
-                    {today.map((n) => (
-                      <li key={n.id}>{renderItem(n)}</li>
-                    ))}
-                  </>
-                )}
-
-                {yesterday.length > 0 && (
-                  <>
-                    <li className="flex items-center justify-between px-3 py-1">
-                      <span className="text-xs font-semibold text-gray-500">
-                        Yesterday
-                      </span>
-
-                      {yesterday.length > 0 && (
-                        <button
-                          onClick={deleteAllNotifications}
-                          className="text-xs text-red-500 hover:underline"
-                        >
-                          Delete All
-                        </button>
-                      )}
-                    </li>
-                    {yesterday.map((n) => (
-                      <li key={n.id}>{renderItem(n)}</li>
-                    ))}
-                  </>
-                )}
-
-                {earlier.length > 0 && (
-                  <>
-                    <li className="flex items-center justify-between px-3 py-1">
-                      <span className="text-xs font-semibold text-gray-500">
-                        Earlier
-                      </span>
-
-                      {earlier.length > 0 && (
-                        <button
-                          onClick={deleteAllNotifications}
-                          className="text-xs text-red-500 hover:underline"
-                        >
-                          Delete All
-                        </button>
-                      )}
-                    </li>
-                    {earlier.map((n) => (
-                      <li key={n.id}>{renderItem(n)}</li>
-                    ))}
-                  </>
-                )}
-              </>
-            );
-          })()}
+          {loadingMore && (
+            <li className="py-3 text-center text-xs text-gray-400">Loading more...</li>
+          )}
         </ul>
+
         {notifications.length > 0 && (
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="block w-full px-4 py-2 mt-3 text-sm font-medium text-center border rounded-lg hover:bg-gray-100"
-          >
-            View All Notifications
-          </button>
+          <div className="mt-3 flex gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setIsModalOpen(true);
+                closeDropdown();
+              }}
+              className="block flex-1 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
+            >
+              View all
+            </button>
+            <button
+              type="button"
+              onClick={deleteAllNotifications}
+              className="rounded-lg border border-red-200 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 dark:border-red-500/30 dark:text-red-400 dark:hover:bg-red-500/10"
+            >
+              Clear all
+            </button>
+          </div>
         )}
       </Dropdown>
-      {isModalOpen && (
-        <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="w-full max-w-2xl bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border">
-            {/* HEADER */}
-            <div className="flex items-center justify-between px-6 py-4 border-b">
-              <h2 className="text-lg font-semibold">All Notifications</h2>
 
-              <div className="flex items-center gap-4">
-                {/* ✅ Mark All as Read */}
-                {unreadCount > 0 && (
-                  <button
-                    onClick={markAllAsRead}
-                    className="text-sm text-blue-500 hover:underline"
+      {isModalOpen &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
+            onClick={closeModal}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="all-notifications-title"
+          >
+            <div
+              className="flex max-h-[min(640px,calc(100vh-2rem))] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-900"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex shrink-0 items-center justify-between border-b px-6 py-4 dark:border-gray-700">
+                <div>
+                  <h2
+                    id="all-notifications-title"
+                    className="text-lg font-semibold text-gray-800 dark:text-white"
                   >
-                    Mark all as read
-                  </button>
-                )}
+                    All notifications
+                  </h2>
+                  {unreadCount > 0 && (
+                    <p className="text-xs text-slate-500">{unreadCount} unread</p>
+                  )}
+                </div>
 
-                {/* ❌ Close */}
-                <button
-                  onClick={() => setIsModalOpen(false)}
-                  className="text-gray-500 hover:text-red-500"
-                >
-                  ✕
-                </button>
+                <div className="flex items-center gap-3">
+                  {unreadCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={markAllAsRead}
+                      disabled={reading}
+                      className="rounded-lg bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-indigo-500/10 dark:text-indigo-400"
+                    >
+                      {reading ? "..." : "Mark all read"}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={closeModal}
+                    className="text-gray-500 hover:text-red-500"
+                    aria-label="Close"
+                  >
+                    <FiX className="h-5 w-5" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="custom-scrollbar max-h-[500px] space-y-3 overflow-y-auto p-4">
+                {renderSection("Today", grouped.today, "modal")}
+                {renderSection("Yesterday", grouped.yesterday, "modal")}
+                {renderSection("This week", grouped.thisWeek, "modal")}
+                {renderSection("Earlier", grouped.earlier, "modal")}
               </div>
             </div>
-
-            {/* LIST */}
-            <div className="max-h-[500px] custom-scrollbar overflow-y-auto p-4 space-y-3">
-              {(() => {
-                const { today, yesterday, earlier } =
-                  groupNotifications(notifications);
-
-                const renderItem = (n: any) => (
-                  <div
-                    key={n.id}
-                    className={`flex justify-between items-start p-4 rounded-xl border transition hover:bg-gray-50
-      ${!n.isRead ? "bg-blue-50 border-blue-200" : "border-gray-200"}`}
-                  >
-                    <div className="flex gap-3">
-                      <div className="w-10 h-10 rounded-full bg-[#134E4A] text-white flex items-center justify-center font-semibold">
-                        {n.metadata?.lenderName
-                          ?.split(" ")
-                          .map((w: string) => w[0])
-                          .slice(0, 2)
-                          .join("")
-                          .toUpperCase() || "NA"}
-                      </div>
-
-                      <div>
-                        <p className="text-sm">{n.body}</p>
-                        <p className="text-xs text-gray-500 mt-1">
-                          {n.metadata?.lenderName || "Lender"} •{" "}
-                          {new Date(n.createdAt).toLocaleString()}
-                        </p>
-                      </div>
-                    </div>
-
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        deleteNotification(n.id);
-                      }}
-                      className="text-gray-400 hover:text-red-500"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                );
-
-                return (
-                  <>
-                    {today.length > 0 && (
-                      <>
-                        <div className="flex items-center justify-between px-1">
-                          <p className="text-xs font-semibold text-gray-500">
-                            Today
-                          </p>
-
-                          {today.length > 0 && (
-                            <button
-                              onClick={deleteAllNotifications}
-                              className="text-xs text-red-500 hover:underline"
-                            >
-                              Delete All
-                            </button>
-                          )}
-                        </div>
-                        {today.map(renderItem)}
-                      </>
-                    )}
-
-                    {yesterday.length > 0 && (
-                      <>
-                        <p className="text-xs font-semibold text-gray-500 px-1 mt-4">
-                          Yesterday
-                        </p>
-                        {yesterday.map(renderItem)}
-                      </>
-                    )}
-
-                    {earlier.length > 0 && (
-                      <>
-                        <p className="text-xs font-semibold text-gray-500 px-1 mt-4">
-                          Earlier
-                        </p>
-                        {earlier.map(renderItem)}
-                      </>
-                    )}
-                  </>
-                );
-              })()}
-            </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

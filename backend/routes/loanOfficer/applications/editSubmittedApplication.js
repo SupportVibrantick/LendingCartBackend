@@ -1,6 +1,9 @@
 const fp = require("fastify-plugin");
 const { logAudit } = require("../../../services/logger/auditLogger");
 const { getUserId } = require("../../../services/loanOfficerAccess");
+const {
+  canBrokerEditSubmittedApplication,
+} = require("../../../utils/resolveApplicationStatus");
 
 async function editSubmittedApplication(fastify) {
   fastify.put("/:applicationId/edit", async (req, reply) => {
@@ -27,6 +30,9 @@ async function editSubmittedApplication(fastify) {
       const application = await prisma.loanApplication.findFirst({
         where: { id: applicationId, brokerOrgId, brokerUserId: userId },
         include: {
+          applicationLenders: {
+            select: { status: true },
+          },
           submissions: { orderBy: { createdAt: "desc" }, take: 1 },
         },
       });
@@ -38,10 +44,11 @@ async function editSubmittedApplication(fastify) {
         });
       }
 
-      if (!["SUBMITTED", "REJECTED"].includes(application.status)) {
+      const editCheck = canBrokerEditSubmittedApplication(application);
+      if (!editCheck.allowed) {
         return reply.code(400).send({
           success: false,
-          message: `Editing not allowed for status: ${application.status}`,
+          message: editCheck.reason,
         });
       }
 

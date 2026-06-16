@@ -1,25 +1,45 @@
 import { useEffect, useState } from "react";
 import {
-  Pencil,
-  X,
+  Briefcase,
+  Building2,
   Camera,
   Check,
-  User,
-  Mail,
-  ShieldCheck,
-  Briefcase,
-  LockKeyhole,
   Eye,
   EyeOff,
+  LockKeyhole,
+  Mail,
+  Pencil,
+  Phone,
+  ShieldCheck,
+  User,
+  X,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
+const inputClass =
+  "w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-900 outline-none transition focus:border-[#13538A]/40 focus:bg-white focus:ring-2 focus:ring-[#13538A]/10 dark:border-gray-700 dark:bg-gray-800 dark:text-white";
+
+const displayClass =
+  "rounded-xl border border-gray-100 bg-gray-50 px-4 py-2.5 text-sm text-gray-800 dark:border-gray-700 dark:bg-gray-800/80 dark:text-gray-200";
+
+function getBrokerToken() {
+  return sessionStorage.getItem("broker_token");
+}
+
 export default function UserProfileCard() {
   const [user, setUser] = useState<any>(null);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [company, setCompany] = useState("");
+  const [licenseNumber, setLicenseNumber] = useState("");
+  const [address, setAddress] = useState("");
+  const [city, setCity] = useState("");
+  const [state, setState] = useState("");
+  const [zipCode, setZipCode] = useState("");
+  const [website, setWebsite] = useState("");
   const [profileImage, setProfileImage] = useState<File | null>(null);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -36,20 +56,32 @@ export default function UserProfileCard() {
     try {
       const res = await fetch(`${API_BASE}/broker/auth/me`, {
         headers: {
-          Authorization: `Bearer ${sessionStorage.getItem("broker_token")}`,
+          Authorization: `Bearer ${getBrokerToken()}`,
         },
       });
 
       const json = await res.json();
-      const { user, organization } = json.data;
+      if (!res.ok || json.ok !== true) {
+        throw new Error(json.message || "Failed to load profile");
+      }
 
+      const profile = json.data;
       setUser({
-        ...user,
-        organizationName: organization?.name,
+        ...profile.user,
+        organization: profile.organization,
+        organizationName: profile.organization?.name,
       });
-
-      setFirstName(user.firstName || "");
-      setLastName(user.lastName || "");
+      setFirstName(profile.user.firstName || "");
+      setLastName(profile.user.lastName || "");
+      setPhone(profile.user.phone || "");
+      const bp = profile.user.brokerProfile || {};
+      setCompany(bp.company || "");
+      setLicenseNumber(bp.licenseNumber || "");
+      setAddress(bp.address || "");
+      setCity(bp.city || "");
+      setState(bp.state || "");
+      setZipCode(bp.zipCode || "");
+      setWebsite(bp.website || "");
     } catch {
       toast.error("Unable to load profile");
     }
@@ -59,15 +91,36 @@ export default function UserProfileCard() {
     loadUser();
   }, []);
 
-  if (!user)
+  if (!user) {
     return (
-      <div className="w-full max-w-4xl mx-auto mt-10 animate-pulse bg-white dark:bg-gray-900 h-96 rounded-3xl border border-gray-100 dark:border-gray-800" />
+      <div className="space-y-6 p-4 md:p-6">
+        <div className="h-32 animate-pulse rounded-2xl bg-gray-200 dark:bg-gray-800" />
+        <div className="h-96 animate-pulse rounded-2xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900" />
+      </div>
     );
+  }
 
-  const displayName = `${firstName} ${lastName}`.trim();
-  const roleLabel = user.roles?.[0]?.replace(/_/g, " ");
+  const displayName =
+    [firstName, lastName].filter(Boolean).join(" ").trim() || "Broker";
+  const roleLabel = user.roles?.[0]?.replace(/_/g, " ") || "Broker";
   const isChanged =
-    firstName !== user.firstName || lastName !== user.lastName || profileImage;
+    firstName !== user.firstName ||
+    lastName !== user.lastName ||
+    phone !== (user.phone || "") ||
+    company !== (user.brokerProfile?.company || "") ||
+    licenseNumber !== (user.brokerProfile?.licenseNumber || "") ||
+    address !== (user.brokerProfile?.address || "") ||
+    city !== (user.brokerProfile?.city || "") ||
+    state !== (user.brokerProfile?.state || "") ||
+    zipCode !== (user.brokerProfile?.zipCode || "") ||
+    website !== (user.brokerProfile?.website || "") ||
+    Boolean(profileImage);
+
+  const avatarSrc = profileImage
+    ? URL.createObjectURL(profileImage)
+    : user.profileImage
+      ? `${API_BASE}${user.profileImage}`
+      : `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=13538A&color=ffffff`;
 
   const validateNewPassword = (password: string) => {
     if (password.length < 8) return "Password must be at least 8 characters";
@@ -115,7 +168,7 @@ export default function UserProfileCard() {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${sessionStorage.getItem("broker_token")}`,
+          Authorization: `Bearer ${getBrokerToken()}`,
         },
         body: JSON.stringify({
           currentPassword,
@@ -134,8 +187,11 @@ export default function UserProfileCard() {
       toast.success(json.message || "Password changed successfully", {
         id: toastId,
       });
-    } catch (err: any) {
-      toast.error(err.message || "Unable to change password", { id: toastId });
+    } catch (err: unknown) {
+      toast.error(
+        err instanceof Error ? err.message : "Unable to change password",
+        { id: toastId },
+      );
     } finally {
       setChangingPassword(false);
     }
@@ -150,83 +206,138 @@ export default function UserProfileCard() {
     const formData = new FormData();
     formData.append("firstName", firstName.trim());
     formData.append("lastName", lastName.trim());
-
-    if (profileImage) {
-      formData.append("profileImage", profileImage);
-    }
+    formData.append("phone", phone.trim());
+    formData.append("company", company.trim());
+    formData.append("licenseNumber", licenseNumber.trim());
+    formData.append("address", address.trim());
+    formData.append("city", city.trim());
+    formData.append("state", state.trim());
+    formData.append("zipCode", zipCode.trim());
+    formData.append("website", website.trim());
+    if (profileImage) formData.append("profileImage", profileImage);
 
     setSaving(true);
-
     try {
       const res = await fetch(`${API_BASE}/broker/auth/update/profile`, {
         method: "PUT",
         headers: {
-          Authorization: `Bearer ${sessionStorage.getItem("broker_token")}`,
+          Authorization: `Bearer ${getBrokerToken()}`,
         },
         body: formData,
       });
 
       const json = await res.json();
-
       if (!res.ok || json.success === false) {
-        throw new Error(json.message);
+        throw new Error(json.message || "Update failed");
       }
 
-      setUser((prev: any) => ({
-        ...prev,
-        firstName,
-        lastName,
-        profileImage: json.data?.user?.profileImage || json.data?.profileImage || prev.profileImage,
-      }));
+      const updatedUser = {
+        ...user,
+        ...(json.data?.user || {}),
+        brokerProfile:
+          json.data?.user?.brokerProfile || user.brokerProfile,
+        organizationName:
+          json.data?.organization?.name || user.organizationName,
+      };
 
+      setUser(updatedUser);
       setEditing(false);
       setProfileImage(null);
-      await loadUser();
+
+      const stored = JSON.parse(sessionStorage.getItem("broker_user") || "{}");
+      sessionStorage.setItem(
+        "broker_user",
+        JSON.stringify({
+          ...stored,
+          firstName: updatedUser.firstName,
+          lastName: updatedUser.lastName,
+          name: updatedUser.name,
+          profileImage: updatedUser.profileImage,
+        }),
+      );
+
       window.dispatchEvent(
         new CustomEvent("broker-profile-updated", {
-          detail: { firstName, lastName, profileImage: json.data?.user?.profileImage },
-        })
+          detail: {
+            firstName: updatedUser.firstName,
+            lastName: updatedUser.lastName,
+            profileImage: updatedUser.profileImage,
+          },
+        }),
       );
+
+      await loadUser();
       toast.success("Profile updated successfully");
-    } catch (err: any) {
-      toast.error(err.message || "Update failed");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Update failed");
     } finally {
       setSaving(false);
     }
   };
 
+  const cancelEdit = () => {
+    setEditing(false);
+    setProfileImage(null);
+    setFirstName(user.firstName || "");
+    setLastName(user.lastName || "");
+    setPhone(user.phone || "");
+    const bp = user.brokerProfile || {};
+    setCompany(bp.company || "");
+    setLicenseNumber(bp.licenseNumber || "");
+    setAddress(bp.address || "");
+    setCity(bp.city || "");
+    setState(bp.state || "");
+    setZipCode(bp.zipCode || "");
+    setWebsite(bp.website || "");
+  };
+
   return (
-    <div className="mx-auto p-4 md:p-6">
-      <div className="dark:bg-gray-900 rounded-[1rem] overflow-hidden">
-        {/* HEADER */}
-        <div className="relative h-32 bg-gradient-to-r from-[#13538A] to-[#1a6aad]">
-          <div className="absolute -bottom-12 left-8 flex items-end gap-6">
-            {/* AVATAR */}
-            <div className="relative group">
-              <div className="absolute -inset-1.5 bg-white dark:bg-gray-900 rounded-full"></div>
+    <div className="space-y-6 p-4 md:p-6">
+      <div className="overflow-hidden rounded-2xl border border-[#13538A]/15 bg-gradient-to-br from-[#13538A] via-[#1a6aad] to-[#2C92D5] p-6 text-white shadow-sm sm:p-8">
+        <p className="text-xs font-semibold uppercase tracking-widest text-white/70">
+          Account · Settings
+        </p>
+        <h1 className="mt-1 text-2xl font-bold sm:text-3xl">My Profile</h1>
+        <p className="mt-2 max-w-xl text-sm text-white/80">
+          Manage your personal information, professional details, and account
+          settings for the broker portal.
+        </p>
+      </div>
 
-              <div className="relative w-32 h-32 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden border-4 border-white dark:border-gray-900 shadow-lg">
+      <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
+        <div className="relative h-36 bg-gradient-to-r from-[#13538A] via-[#1a6aad] to-[#2C92D5] sm:h-40">
+          <div className="absolute right-4 top-4 sm:right-6 sm:top-6">
+            <span className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-white backdrop-blur-sm">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />
+              {roleLabel}
+            </span>
+          </div>
+
+          <div className="absolute -bottom-14 left-4 sm:left-8">
+            <div className="group relative">
+              <div className="absolute -inset-1 rounded-full bg-white/90 dark:bg-gray-900" />
+              <div className="relative h-28 w-28 overflow-hidden rounded-full border-4 border-white shadow-lg dark:border-gray-900 sm:h-32 sm:w-32">
                 <img
-                  src={
-                    profileImage
-                      ? URL.createObjectURL(profileImage)
-                      : user.profileImage
-                        ? `${API_BASE}${user.profileImage}`
-                        : `https://ui-avatars.com/api/?name=${displayName}&background=2563eb&color=ffffff`
-                  }
-                  className="w-full h-full object-cover"
+                  src={avatarSrc}
+                  alt={displayName}
+                  className="h-full w-full object-cover"
                 />
-
                 {editing && (
-                  <label className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center text-white cursor-pointer opacity-0 group-hover:opacity-100 transition">
+                  <label className="absolute inset-0 flex cursor-pointer flex-col items-center justify-center bg-black/55 text-white opacity-0 transition group-hover:opacity-100">
                     <Camera size={22} />
+                    <span className="mt-1 text-[10px] font-medium">Change</span>
                     <input
                       type="file"
+                      accept="image/*"
                       className="hidden"
-                      onChange={(e) =>
-                        e.target.files?.[0] &&
-                        setProfileImage(e.target.files[0])
-                      }
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file?.type.startsWith("image/")) {
+                          setProfileImage(file);
+                        } else {
+                          toast.error("Only image files allowed");
+                        }
+                      }}
                     />
                   </label>
                 )}
@@ -235,96 +346,182 @@ export default function UserProfileCard() {
           </div>
         </div>
 
-        {/* HEADER INFO */}
-        <div className="pt-16 pb-6 px-8 flex justify-between items-center flex-wrap gap-4">
+        <div className="flex flex-wrap items-start justify-between gap-4 px-4 pb-6 pt-16 sm:px-8 sm:pt-20">
           <div>
-            <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-              {displayName || "Your Name"}
-            </h1>
-
-            <p className="text-sm text-blue-600 dark:text-blue-400 flex items-center gap-2">
-              <Briefcase size={14} /> {roleLabel}
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+              {displayName}
+            </h2>
+            <p className="mt-1 flex items-center gap-2 text-sm font-medium text-[#13538A] dark:text-[#6ba3d8]">
+              <Briefcase size={14} />
+              {roleLabel}
             </p>
+            {user.organizationName && (
+              <p className="mt-1 flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                <Building2 size={14} />
+                {user.organizationName}
+              </p>
+            )}
           </div>
 
-          {/* EDIT BUTTON */}
           <button
-            onClick={() => {
-              setEditing(!editing);
-              setProfileImage(null);
-            }}
-            className={`flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-medium transition
-              ${
-                editing
-                  ? "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300"
-                  : "bg-blue-600 text-white hover:bg-blue-700"
-              }`}
+            type="button"
+            onClick={() => (editing ? cancelEdit() : setEditing(true))}
+            className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition ${
+              editing
+                ? "border border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
+                : "bg-[#13538A] text-white shadow-sm hover:bg-[#1a6aad]"
+            }`}
           >
             {editing ? (
               <>
-                <X size={16} /> Cancel
+                <X size={16} />
+                Cancel
               </>
             ) : (
               <>
-                <Pencil size={16} /> Edit Profile
+                <Pencil size={16} />
+                Edit Profile
               </>
             )}
           </button>
         </div>
 
-        {/* BODY */}
-        <div className="grid lg:grid-cols-3 gap-8 p-8">
-          {/* LEFT */}
-          <div className="lg:col-span-2 space-y-6">
-            <div className="grid md:grid-cols-2 gap-5">
-              <ProfileField
-                label="First Name"
-                value={firstName}
-                editing={editing}
-                onChange={setFirstName}
-                icon={<User size={14} />}
-              />
+        <div className="grid gap-6 border-t border-gray-100 p-4 dark:border-gray-800 sm:p-8 lg:grid-cols-3">
+          <div className="space-y-6 lg:col-span-2">
+            <section>
+              <h3 className="mb-4 text-sm font-semibold text-gray-900 dark:text-white">
+                Personal Information
+              </h3>
+              <div className="grid gap-4 md:grid-cols-2">
+                <ProfileField
+                  label="First Name"
+                  value={firstName}
+                  editing={editing}
+                  onChange={setFirstName}
+                  icon={<User size={14} />}
+                />
+                <ProfileField
+                  label="Last Name"
+                  value={lastName}
+                  editing={editing}
+                  onChange={setLastName}
+                  icon={<User size={14} />}
+                />
+                <ProfileField
+                  label="Phone"
+                  value={phone}
+                  editing={editing}
+                  onChange={setPhone}
+                  icon={<Phone size={14} />}
+                />
+              </div>
+            </section>
 
-              <ProfileField
-                label="Last Name"
-                value={lastName}
-                editing={editing}
-                onChange={setLastName}
-                icon={<User size={14} />}
-              />
-            </div>
+            <section>
+              <h3 className="mb-4 text-sm font-semibold text-gray-900 dark:text-white">
+                Professional Information
+              </h3>
+              <div className="grid gap-4 md:grid-cols-2">
+                <ProfileField
+                  label="Company"
+                  value={company}
+                  editing={editing}
+                  onChange={setCompany}
+                  icon={<Building2 size={14} />}
+                />
+                <ProfileField
+                  label="License Number"
+                  value={licenseNumber}
+                  editing={editing}
+                  onChange={setLicenseNumber}
+                  icon={<Briefcase size={14} />}
+                />
+                <ProfileField
+                  label="Address"
+                  value={address}
+                  editing={editing}
+                  onChange={setAddress}
+                  icon={<Building2 size={14} />}
+                />
+                <ProfileField
+                  label="City"
+                  value={city}
+                  editing={editing}
+                  onChange={setCity}
+                  icon={<Building2 size={14} />}
+                />
+                <ProfileField
+                  label="State"
+                  value={state}
+                  editing={editing}
+                  onChange={setState}
+                  icon={<Building2 size={14} />}
+                />
+                <ProfileField
+                  label="ZIP Code"
+                  value={zipCode}
+                  editing={editing}
+                  onChange={setZipCode}
+                  icon={<Building2 size={14} />}
+                />
+                <ProfileField
+                  label="Website"
+                  value={website}
+                  editing={editing}
+                  onChange={setWebsite}
+                  icon={<Briefcase size={14} />}
+                />
+              </div>
+            </section>
 
-            <div>
-              <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 mb-3">
-                SECURITY
-              </p>
+            <section>
+              <h3 className="mb-4 text-sm font-semibold text-gray-900 dark:text-white">
+                Contact & Organization
+              </h3>
+              <div className="grid gap-4 md:grid-cols-2">
+                <InfoCard
+                  label="Email"
+                  value={user.email}
+                  icon={<Mail size={18} />}
+                />
+                <InfoCard
+                  label="Organization"
+                  value={user.organizationName || "—"}
+                  icon={<ShieldCheck size={18} />}
+                />
+              </div>
+            </section>
 
-              <div className="p-5 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl">
-                <div className="flex items-start justify-between gap-4 flex-wrap">
+            <section>
+              <h3 className="mb-4 text-sm font-semibold text-gray-900 dark:text-white">
+                Security
+              </h3>
+              <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900/60">
+                <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
-                    <p className="text-sm font-medium text-gray-900 dark:text-white flex items-center gap-2">
-                      <LockKeyhole size={16} /> Password
+                    <p className="flex items-center gap-2 text-sm font-medium text-gray-900 dark:text-white">
+                      <LockKeyhole size={16} />
+                      Password
                     </p>
                     <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                      Update your account password. Use at least 8 characters with
-                      upper, lower, number, and special character.
+                      Update your account password. Use at least 8 characters
+                      with upper, lower, number, and special character.
                     </p>
                   </div>
-
                   <button
                     type="button"
                     onClick={() => {
                       setShowPasswordSection((prev) => !prev);
                       resetPasswordForm();
                     }}
-                    className="px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-xl hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-300 dark:hover:bg-blue-900/50"
+                    className="rounded-xl bg-blue-50 px-4 py-2 text-sm font-medium text-blue-600 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-300"
                   >
                     {showPasswordSection ? "Cancel" : "Change Password"}
                   </button>
                 </div>
 
                 {showPasswordSection && (
-                  <div className="grid md:grid-cols-2 gap-4 mt-5 pt-5 border-t border-gray-100 dark:border-gray-800">
+                  <div className="mt-5 grid gap-4 border-t border-gray-100 pt-5 dark:border-gray-800 md:grid-cols-2">
                     <PasswordField
                       label="Current password"
                       value={currentPassword}
@@ -346,12 +543,12 @@ export default function UserProfileCard() {
                       onToggle={() => setShowNewPassword((prev) => !prev)}
                       onChange={setConfirmPassword}
                     />
-                    <div className="md:col-span-2 flex justify-end">
+                    <div className="flex justify-end md:col-span-2">
                       <button
                         type="button"
                         onClick={handleChangePassword}
                         disabled={changingPassword}
-                        className="px-5 py-2.5 text-sm font-medium text-white bg-blue-600 rounded-xl hover:bg-blue-700 disabled:opacity-50"
+                        className="rounded-xl bg-[#13538A] px-5 py-2.5 text-sm font-medium text-white hover:bg-[#1a6aad] disabled:opacity-50"
                       >
                         {changingPassword ? "Saving..." : "Update Password"}
                       </button>
@@ -359,57 +556,68 @@ export default function UserProfileCard() {
                   </div>
                 )}
               </div>
-            </div>
+            </section>
+          </div>
 
-            <div>
-              <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 mb-3">
-                CONTACT INFO
+          <aside className="space-y-4">
+            <div className="rounded-2xl border border-gray-100 bg-gray-50 p-5 dark:border-gray-700 dark:bg-gray-800/50">
+              <h4 className="font-semibold text-gray-900 dark:text-white">
+                Account Overview
+              </h4>
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                Your broker portal activity at a glance.
               </p>
 
-              <div className="grid md:grid-cols-2 gap-4">
-                <ReadOnlyField
-                  label="Email"
-                  value={user.email}
-                  icon={<Mail size={16} />}
+              <div className="mt-4 flex items-center gap-2 rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2.5 text-sm font-medium text-emerald-700 dark:border-emerald-800/50 dark:bg-emerald-900/20 dark:text-emerald-400">
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-40" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                </span>
+                {user.status === "DISABLED" ? "Inactive Account" : "Active Account"}
+              </div>
+
+              <div className="mt-4 grid grid-cols-2 gap-3">
+                <StatTile
+                  label="Applications"
+                  value={String(user.applicationCount ?? 0)}
                 />
-                <ReadOnlyField
-                  label="Organization"
-                  value={user.organizationName}
-                  icon={<ShieldCheck size={16} />}
-                />
+                <StatTile label="Role" value={roleLabel} compact />
               </div>
             </div>
-          </div>
 
-          {/* RIGHT PANEL */}
-          <div className="bg-gray-50 dark:bg-gray-800/60 rounded-2xl p-5 border border-gray-100 dark:border-gray-700">
-            <h4 className="font-semibold text-gray-900 dark:text-white mb-2">
-              Profile Status
-            </h4>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
-              Keep your profile updated.
-            </p>
-
-            <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30 p-3 rounded-xl border border-green-100 dark:border-green-800">
-              <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-              Active Account
+            <div className="rounded-2xl border border-[#13538A]/15 bg-[#13538A]/5 p-5 dark:border-[#13538A]/25 dark:bg-[#13538A]/10">
+              <p className="text-xs font-semibold uppercase tracking-wider text-[#13538A]">
+                Tip
+              </p>
+              <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+                Keep your company, license, and contact details updated so
+                lenders and clients see accurate information across the platform.
+              </p>
             </div>
-          </div>
+          </aside>
         </div>
 
-        {/* FOOTER */}
         {editing && (
-          <div className="px-8 py-5 border-t border-gray-100 dark:border-gray-800 flex justify-end">
+          <div className="flex justify-end gap-3 border-t border-gray-100 px-4 py-4 dark:border-gray-800 sm:px-8">
             <button
+              type="button"
+              onClick={cancelEdit}
+              className="rounded-xl border border-gray-200 px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+            >
+              Discard
+            </button>
+            <button
+              type="button"
               onClick={handleSave}
               disabled={saving || !isChanged}
-              className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-xl bg-[#13538A] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#1a6aad] disabled:opacity-50"
             >
               {saving ? (
                 "Saving..."
               ) : (
                 <>
-                  <Check size={16} /> Save Changes
+                  <Check size={16} />
+                  Save Changes
                 </>
               )}
             </button>
@@ -420,26 +628,83 @@ export default function UserProfileCard() {
   );
 }
 
-/* ================= COMPONENTS ================= */
-
-function ProfileField({ label, value, editing, onChange, icon }: any) {
+function ProfileField({
+  label,
+  value,
+  editing,
+  onChange,
+  icon,
+}: {
+  label: string;
+  value: string;
+  editing: boolean;
+  onChange?: (value: string) => void;
+  icon: React.ReactNode;
+}) {
   return (
     <div className="space-y-2">
-      <label className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-2">
-        {icon} {label}
+      <label className="flex items-center gap-2 text-xs font-medium text-gray-500 dark:text-gray-400">
+        {icon}
+        {label}
       </label>
-
-      {editing ? (
+      {editing && onChange ? (
         <input
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+          className={inputClass}
         />
       ) : (
-        <div className="px-4 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl text-sm text-gray-800 dark:text-gray-200">
-          {value || "—"}
-        </div>
+        <div className={displayClass}>{value || "—"}</div>
       )}
+    </div>
+  );
+}
+
+function InfoCard({
+  label,
+  value,
+  icon,
+}: {
+  label: string;
+  value: string;
+  icon: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-start gap-3 rounded-xl border border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-gray-900/60">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#13538A]/10 text-[#13538A]">
+        {icon}
+      </div>
+      <div className="min-w-0">
+        <p className="text-xs font-medium text-gray-400">{label}</p>
+        <p className="mt-0.5 truncate text-sm font-medium text-gray-900 dark:text-white">
+          {value}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function StatTile({
+  label,
+  value,
+  compact = false,
+}: {
+  label: string;
+  value: string;
+  compact?: boolean;
+}) {
+  return (
+    <div className="rounded-xl border border-gray-100 bg-white p-3 dark:border-gray-700 dark:bg-gray-900">
+      <p className="text-[10px] font-medium uppercase tracking-wider text-gray-400">
+        {label}
+      </p>
+      <p
+        className={`mt-1 font-bold text-gray-900 dark:text-white ${
+          compact ? "text-sm" : "text-2xl"
+        }`}
+      >
+        {value}
+      </p>
     </div>
   );
 }
@@ -465,7 +730,7 @@ function PasswordField({
           type={show ? "text" : "password"}
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2 pr-11 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+          className={`${inputClass} pr-11`}
         />
         <button
           type="button"
@@ -474,23 +739,6 @@ function PasswordField({
         >
           {show ? <EyeOff size={16} /> : <Eye size={16} />}
         </button>
-      </div>
-    </div>
-  );
-}
-
-function ReadOnlyField({ label, value, icon }: any) {
-  return (
-    <div className="flex items-center gap-4 px-4 py-3 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl">
-      <div className="p-2 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 rounded-lg">
-        {icon}
-      </div>
-
-      <div>
-        <p className="text-xs text-gray-400 dark:text-gray-500">{label}</p>
-        <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
-          {value}
-        </p>
       </div>
     </div>
   );

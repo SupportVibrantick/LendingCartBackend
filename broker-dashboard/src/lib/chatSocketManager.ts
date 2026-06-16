@@ -43,18 +43,22 @@ function resolveOrgIds(token: string) {
   return {
     brokerOrgId: orgRoomOptions.getBrokerOrgId?.() || fromToken.brokerOrgId,
     lenderOrgId: orgRoomOptions.getLenderOrgId?.() || fromToken.lenderOrgId,
+    clientId: fromToken.clientId,
   };
 }
 
 function joinOrgRooms(token: string) {
   if (!socket?.connected) return;
 
-  const { brokerOrgId, lenderOrgId } = resolveOrgIds(token);
+  const { brokerOrgId, lenderOrgId, clientId } = resolveOrgIds(token);
   if (brokerOrgId) {
     socket.emit("joinBrokerRoom", brokerOrgId);
   }
   if (lenderOrgId) {
     socket.emit("joinLenderRoom", lenderOrgId);
+  }
+  if (clientId) {
+    socket.emit("joinClientRoom", clientId);
   }
 }
 

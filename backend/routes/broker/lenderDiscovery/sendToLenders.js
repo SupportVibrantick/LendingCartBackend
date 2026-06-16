@@ -4,6 +4,10 @@ const {
   notifyBroker,
   BROKER_NOTIFICATION_EVENTS,
 } = require("../../../services/brokerNotifications");
+const {
+  notifyLender,
+  LENDER_NOTIFICATION_EVENTS,
+} = require("../../../services/lenderNotifications");
 
 module.exports = async function sendToLenders(fastify) {
   fastify.post(
@@ -64,6 +68,9 @@ module.exports = async function sendToLenders(fastify) {
 
         const application = await prisma.loanApplication.findUnique({
           where: { id: applicationId },
+          include: {
+            brokerOrg: { select: { name: true } },
+          },
         });
 
         if (!application) {
@@ -257,6 +264,27 @@ module.exports = async function sendToLenders(fastify) {
               applicationLenderIds: results.map((item) => item.applicationLenderId),
             },
           });
+
+          const brokerName = application.brokerOrg?.name || "Broker";
+
+          for (const result of results) {
+            if (!result.lenderOrgId) continue;
+
+            await notifyLender(prisma, fastify.io, {
+              lenderOrgId: result.lenderOrgId,
+              eventType: LENDER_NOTIFICATION_EVENTS.APPLICATION_RECEIVED,
+              category: "APPLICATION",
+              subject: "New Loan Application",
+              body: `${brokerName} sent application ${application.applicationNumber} for your review`,
+              metadata: {
+                applicationId,
+                applicationNumber: application.applicationNumber,
+                applicationLenderId: result.applicationLenderId,
+                brokerName,
+                lenderName: result.lenderName,
+              },
+            });
+          }
         }
 
         /* ================= RESPONSE ================= */

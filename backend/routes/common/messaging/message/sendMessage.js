@@ -4,6 +4,14 @@
 
 const { logAudit } = require("../../../../services/logger/auditLogger");
 const {
+  notifyClient,
+  CLIENT_NOTIFICATION_EVENTS,
+} = require("../../../../services/clientNotifications");
+const {
+  notifyLender,
+  LENDER_NOTIFICATION_EVENTS,
+} = require("../../../../services/lenderNotifications");
+const {
   assertCanSendMessage,
   findLenderApplicationAccess,
   ensureLenderParticipant,
@@ -274,6 +282,86 @@ if (
         /* ================= REALTIME EMIT ================= */
 
         await emitRealtimeMessage(fastify.io, prisma, message, conversationId);
+
+        if (
+          senderType !== "CLIENT" &&
+          ["CLIENT_BROKER", "CLIENT_OFFICER"].includes(conversation.type) &&
+          conversation.loanApplicationId
+        ) {
+          const loan = await prisma.loanApplication.findUnique({
+            where: { id: conversation.loanApplicationId },
+            select: {
+              id: true,
+              clientId: true,
+              applicationNumber: true,
+            },
+          });
+
+          if (loan?.clientId) {
+            const preview =
+              message.type === "TEXT"
+                ? message.text?.slice(0, 120) || "New message"
+                : message.fileName || "New file shared";
+
+            await notifyClient(prisma, fastify.io, {
+              clientId: loan.clientId,
+              eventType: CLIENT_NOTIFICATION_EVENTS.NEW_MESSAGE,
+              category: "MESSAGE",
+              subject: `New message from ${senderName || senderType}`,
+              body: preview,
+              metadata: {
+                applicationId: loan.id,
+                applicationNumber: loan.applicationNumber,
+                conversationId,
+                senderName,
+                senderType,
+              },
+            });
+          }
+        }
+
+        if (
+          senderType === "BROKER" &&
+          conversation.type === "BROKER_LENDER" &&
+          conversation.applicationLenderId
+        ) {
+          const appLender = await prisma.applicationLender.findUnique({
+            where: { id: conversation.applicationLenderId },
+            select: {
+              id: true,
+              lenderOrgId: true,
+              loanApplication: {
+                select: {
+                  id: true,
+                  applicationNumber: true,
+                },
+              },
+            },
+          });
+
+          if (appLender?.lenderOrgId) {
+            const preview =
+              message.type === "TEXT"
+                ? message.text?.slice(0, 120) || "New message"
+                : message.fileName || "New file shared";
+
+            await notifyLender(prisma, fastify.io, {
+              lenderOrgId: appLender.lenderOrgId,
+              eventType: LENDER_NOTIFICATION_EVENTS.NEW_MESSAGE,
+              category: "MESSAGE",
+              subject: `New message from ${senderName || "Broker"}`,
+              body: `${senderName || "Broker"}: ${preview}`,
+              metadata: {
+                applicationId: appLender.loanApplication?.id,
+                applicationNumber: appLender.loanApplication?.applicationNumber,
+                applicationLenderId: appLender.id,
+                conversationId,
+                senderName,
+                senderType,
+              },
+            });
+          }
+        }
 
         await logAudit({
           prisma,

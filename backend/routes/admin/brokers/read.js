@@ -4,6 +4,18 @@ const { adminLogs } = require("../../../services/logger/contextLogger.js");
 
 function formatBrokerAdmin(user) {
   const roles = user.roles.map((entry) => entry.role.name);
+  const profile = user.brokerProfile
+    ? {
+        company: user.brokerProfile.company,
+        licenseNumber: user.brokerProfile.licenseNumber,
+        address: user.brokerProfile.address,
+        city: user.brokerProfile.city,
+        state: user.brokerProfile.state,
+        zipCode: user.brokerProfile.zipCode,
+        website: user.brokerProfile.website,
+      }
+    : null;
+
   return {
     id: user.id,
     email: user.email,
@@ -15,6 +27,7 @@ function formatBrokerAdmin(user) {
     updatedAt: user.updatedAt,
     roles,
     role: roles[0] || null,
+    profile,
   };
 }
 
@@ -33,6 +46,39 @@ function pickPrimaryBrokerAdmin(users) {
 
   return users[users.length - 1];
 }
+
+const brokerAdminProfileSchema = {
+  type: ["object", "null"],
+  properties: {
+    company: { type: ["string", "null"] },
+    licenseNumber: { type: ["string", "null"] },
+    address: { type: ["string", "null"] },
+    city: { type: ["string", "null"] },
+    state: { type: ["string", "null"] },
+    zipCode: { type: ["string", "null"] },
+    website: { type: ["string", "null"] },
+  },
+};
+
+const brokerAdminSchema = {
+  type: "object",
+  properties: {
+    id: { type: "string" },
+    email: { type: "string" },
+    firstName: { type: ["string", "null"] },
+    lastName: { type: ["string", "null"] },
+    phone: { type: ["string", "null"] },
+    status: { type: "string" },
+    createdAt: { type: "string" },
+    updatedAt: { type: "string" },
+    role: { type: ["string", "null"] },
+    roles: {
+      type: "array",
+      items: { type: "string" },
+    },
+    profile: brokerAdminProfileSchema,
+  },
+};
 
 async function readBrokerRoutes(fastify) {
   // ----------------------------- //
@@ -172,18 +218,10 @@ async function readBrokerRoutes(fastify) {
 
                   admins: {
                     type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        id: { type: "string" },
-                        email: { type: "string" },
-                        firstName: { type: ["string", "null"] },
-                        lastName: { type: ["string", "null"] },
-                        status: { type: "string" },
-                        createdAt: { type: "string" },
-                      },
-                    },
+                    items: brokerAdminSchema,
                   },
+
+                  primaryAdmin: brokerAdminSchema,
 
                   affiliateLinks: { type: "array", items: { type: "object" } },
 
@@ -250,6 +288,17 @@ async function readBrokerRoutes(fastify) {
                 roles: {
                   select: {
                     role: { select: { name: true } },
+                  },
+                },
+                brokerProfile: {
+                  select: {
+                    company: true,
+                    licenseNumber: true,
+                    address: true,
+                    city: true,
+                    state: true,
+                    zipCode: true,
+                    website: true,
                   },
                 },
               },
