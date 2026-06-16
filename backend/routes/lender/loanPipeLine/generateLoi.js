@@ -10,6 +10,7 @@ const Docxtemplater = require("docxtemplater");
 const { loadDocxTemplate } = require("../../../utils/loadDocxTemplate");
 const { convertDocxToPdf } = require("../../../utils/convertDocxToPdf");
 const { generateLoiPdf } = require("../../../services/generateLoiPdf");
+const { buildLoiTemplateData } = require("../../../services/buildLoiTemplateData");
 const { logAudit } = require("../../../services/logger/auditLogger");
 
 async function generateLoiRoute(fastify) {
@@ -68,8 +69,28 @@ async function generateLoiRoute(fastify) {
           include: {
             loanApplication: {
               include: {
+                client: {
+                  include: {
+                    contacts: {
+                      where: { isPrimary: true },
+                      take: 1,
+                    },
+                  },
+                },
+                brokerOrg: true,
+                brokerUser: {
+                  include: {
+                    brokerProfile: true,
+                  },
+                },
                 submissions: {
-                  include: { fields: true },
+                  include: {
+                    fields: {
+                      include: {
+                        builderField: true,
+                      },
+                    },
+                  },
                   orderBy: { createdAt: "desc" },
                   take: 1,
                 },
@@ -109,18 +130,14 @@ async function generateLoiRoute(fastify) {
         }
 
         /* ===============================
-           MAP FORM FIELDS
+           MAP FORM FIELDS + TEMPLATE DATA
         =============================== */
-        const fieldMap = {};
-
-        for (const field of submission.fields || []) {
-          if (!field?.fieldKey) continue;
-
-          fieldMap[field.fieldKey] =
-            typeof field.value === "object"
-              ? JSON.stringify(field.value)
-              : String(field.value ?? "");
-        }
+        const loiData = buildLoiTemplateData({
+          submission,
+          loanApplication: lenderRecord.loanApplication,
+          lenderRecord,
+          applicationLenderId,
+        });
 
         /* ===============================
            LOAD TEMPLATE (DYNAMIC + FALLBACK)
@@ -174,22 +191,10 @@ async function generateLoiRoute(fastify) {
           const doc = new Docxtemplater(zip, {
             paragraphLoop: true,
             linebreaks: true,
+            nullGetter: () => "—",
           });
 
-          const review = lenderRecord.lenderReviews?.[0];
-
-          doc.setData({
-            ...fieldMap,
-            applicationId: lenderRecord.loanApplication.id,
-            applicationNumber:
-              lenderRecord.loanApplication.applicationNumber,
-            lenderName: lenderRecord.lender?.name || "",
-            status: lenderRecord.status,
-            approvedAmount: review?.approvedAmount || "",
-            interestRate: review?.interestRate || "",
-            notes: review?.notes || "",
-            date: new Date().toLocaleDateString(),
-          });
+          doc.setData(loiData);
 
           doc.render();
 
@@ -210,7 +215,7 @@ async function generateLoiRoute(fastify) {
            CONVERT TO PDF
         =============================== */
         const review = lenderRecord.lenderReviews?.[0];
-        const loiDate = new Date().toLocaleDateString();
+        const loiDate = loiData.date;
         let pdfBuffer;
         let generatedVia = "docx-template";
 
@@ -224,14 +229,13 @@ async function generateLoiRoute(fastify) {
 
           try {
             pdfBuffer = await generateLoiPdf({
-              applicationNumber:
-                lenderRecord.loanApplication.applicationNumber,
-              lenderName: lenderRecord.lender?.name || "",
+              applicationNumber: loiData.applicationNumber,
+              lenderName: loiData.lenderName,
               approvedAmount: review?.approvedAmount || "",
               interestRate: review?.interestRate || "",
-              notes: review?.notes || "",
+              notes: loiData.notes,
               date: loiDate,
-              fieldMap,
+              fieldMap: loiData,
             });
             generatedVia = "pdfkit-fallback";
           } catch (fallbackErr) {
