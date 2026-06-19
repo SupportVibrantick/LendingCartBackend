@@ -758,7 +758,7 @@ export default function LoanApplicationsPage() {
   };
 
   const handleSendClientLink = async (applicationId: string) => {
-    console.log(applicationId);
+    // console.log(applicationId);
     try {
       const token = sessionStorage.getItem("loan_officer_token");
 

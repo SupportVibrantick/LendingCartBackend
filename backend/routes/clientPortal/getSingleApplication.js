@@ -257,7 +257,7 @@ const borrowerSignature =
 
       return reply.code(500).send({
         success: false,
-        message: "Unexpected server error",
+        message: error.message || "Unexpected server error",
       });
     }
   });
