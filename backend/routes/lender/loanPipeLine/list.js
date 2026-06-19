@@ -302,6 +302,16 @@ async function listSubmittedApplications(fastify) {
                 (doc) => doc.status !== "COMPLETE",
               ).length || 0;
 
+            const lenderDecision = latestReview?.reviewStatus ?? null;
+            let applicationStatus = app.status;
+
+            if (
+              applicationStatus === "IN_REVIEW" &&
+              lenderDecision === "APPROVED"
+            ) {
+              applicationStatus = "LENDER_APPROVED";
+            }
+
             return {
               applicationLenderId: item.id,
 
@@ -309,7 +319,7 @@ async function listSubmittedApplications(fastify) {
               loiGenerated: !!item.loiUrl,
               // Pipeline vs Decision
               lenderPipelineStatus: item.status,
-              lenderDecision: latestReview?.reviewStatus ?? null,
+              lenderDecision,
 
               approvedAmount: latestReview?.approvedAmount ?? null,
               interestRate: latestReview?.interestRate ?? null,
@@ -327,7 +337,7 @@ async function listSubmittedApplications(fastify) {
               loanProductCode: app.loanProductCode,
               amountRequested,
               termMonthsRequested,
-              applicationStatus: app.status,
+              applicationStatus,
               createdAt: app.createdAt,
 
               // Added here

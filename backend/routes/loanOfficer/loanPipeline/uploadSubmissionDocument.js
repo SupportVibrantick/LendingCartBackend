@@ -11,6 +11,9 @@ const {
 const {
   getAutoForwardDocumentsToLender,
 } = require("../../../services/documentAutoForwardSetting");
+const {
+  syncUploadToExistingLenderSubmissions,
+} = require("../../../services/syncUploadToExistingLenderSubmissions");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
@@ -248,6 +251,24 @@ module.exports = async function uploadSubmissionDocument(fastify) {
               "Auto-forward loan officer document failed",
             );
           }
+        }
+
+        try {
+          await syncUploadToExistingLenderSubmissions(fastify.prisma, {
+            loanApplicationId: submission.application.id,
+            documentRequirementId: requirementId,
+            documentUploadId: createdUpload.id,
+          });
+        } catch (syncErr) {
+          fastify.log.error(
+            {
+              error: syncErr.message,
+              loanApplicationId: submission.application.id,
+              documentRequirementId: requirementId,
+              documentUploadId: createdUpload.id,
+            },
+            "Sync upload to existing lender submissions failed",
+          );
         }
 
         /* ===============================

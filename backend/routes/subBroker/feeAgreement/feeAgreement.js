@@ -1,4 +1,9 @@
 module.exports = async function (fastify) {
+  const { normalizeFeeAgreement } = require("../../../services/feeAgreementEnrichment");
+  const {
+    getBrokerWhiteLabelBranding,
+  } = require("../../../services/brokerBranding");
+
   fastify.get(
     "/:loanId/fee-agreement",
 
@@ -114,81 +119,22 @@ module.exports = async function (fastify) {
           });
         }
 
+        const whiteLabelBranding = await getBrokerWhiteLabelBranding(
+          prisma,
+          agreement.brokerOrgId,
+        );
+
         /* ===============================
            SUCCESS RESPONSE
         =============================== */
 
         return reply.send({
           ok: true,
-
-          data: {
-            id: agreement.id,
-
-            loanApplicationId: agreement.loanApplicationId,
-
-            brokerOrgId: agreement.brokerOrgId,
-
-            clientId: agreement.clientId,
-
-            clientName: agreement.clientName || "",
-
-            clientEntityName: agreement.clientEntityName || "",
-
-            clientEmail: agreement.clientEmail || "",
-
-            clientPhone: agreement.clientPhone || "",
-
-            clientAddress: agreement.clientAddress || "",
-
-            brokerName: agreement.brokerName || "",
-
-            brokerCompany: agreement.brokerCompany || "",
-
-            brokerEmail: agreement.brokerEmail || "",
-
-            brokerPhone: agreement.brokerPhone || "",
-
-            brokerAddress: agreement.brokerAddress || "",
-
-            brokerState: agreement.brokerState || "",
-
-            brokerCounty: agreement.brokerCounty || "",
-
-            subjectAddress: agreement.subjectAddress || "",
-
-            brokerPoints: agreement.brokerPoints || "",
-
-            upfrontFee: agreement.upfrontFee || "",
-
-            exclusivityMonths: agreement.exclusivityMonths || 0,
-
-            agreementHtml: agreement.agreementHtml || "",
-
-            clientSignature: agreement.clientSignature || null,
-
-            agreementFile: agreement.agreementFile || null,
-
-            signedAt: agreement.signedAt,
-
-            createdAt: agreement.createdAt,
-
-            updatedAt: agreement.updatedAt,
-
-            application: {
-              id: agreement.loanApplication?.id,
-
-              applicationNumber:
-                agreement.loanApplication?.applicationNumber || "",
-
-              status: agreement.loanApplication?.status || "",
-
-              amountRequested: agreement.loanApplication?.amountRequested || 0,
-
-              purpose: agreement.loanApplication?.purpose || "",
-
-              client: agreement.loanApplication?.client || null,
-            },
-          },
+          data: normalizeFeeAgreement(
+            agreement,
+            agreement.loanApplication,
+            whiteLabelBranding,
+          ),
         });
       } catch (err) {
         req.log.error(err);
@@ -199,7 +145,6 @@ module.exports = async function (fastify) {
           message: "Failed to fetch Fee Agreement",
         });
       }
-      y;
     },
   );
 };

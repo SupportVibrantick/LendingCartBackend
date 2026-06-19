@@ -1,35 +1,44 @@
+const {
+  APPLICATION_LENDER_LOI_INCLUDE,
+  parseLoiListQuery,
+  formatBrokerLoiRecord,
+  buildLoiSearchFilter,
+  buildLoiPagination,
+} = require("../../../utils/brokerLoiList");
+
 /**
  * @param {import("fastify").FastifyInstance} fastify
  */
 
 async function listLoiRoute(fastify) {
-
   fastify.get(
     "/:applicationId/lois",
     {
       schema: {
-        tags: ["Broker -> Loan Pipeline"],
+        tags: ["Loan Officer -> Loan Pipeline"],
         summary: "Fetch LOIs received from lenders",
         params: {
           type: "object",
           required: ["applicationId"],
           properties: {
-            applicationId: { type: "string" }
-          }
-        }
-      }
+            applicationId: { type: "string" },
+          },
+        },
+        querystring: {
+          type: "object",
+          properties: {
+            page: { type: "integer", minimum: 1 },
+            limit: { type: "integer", minimum: 1, maximum: 20 },
+            search: { type: "string" },
+          },
+        },
+      },
     },
 
     async (req, reply) => {
-
       const prisma = fastify.prisma;
 
       try {
-
-        /* ===============================
-           AUTH CHECK
-        =============================== */
-
         if (
           !req.user ||
           req.user.orgType !== "BROKER" ||
@@ -37,16 +46,13 @@ async function listLoiRoute(fastify) {
         ) {
           return reply.code(403).send({
             success: false,
-            message: "Broker access only"
+            message: "Loan officer access only",
           });
         }
 
         const brokerOrgId = req.user.organizationId;
         const { applicationId } = req.params;
-
-        /* ===============================
-           VERIFY APPLICATION OWNERSHIP
-        =============================== */
+        const { page, limit, search, skip } = parseLoiListQuery(req.query);
 
         const application = await prisma.loanApplication.findFirst({
           where: {
@@ -54,96 +60,67 @@ async function listLoiRoute(fastify) {
             brokerOrgId,
             brokerUserId: req.user.id || req.user.userId,
           },
+          select: {
+            id: true,
+            applicationNumber: true,
+            status: true,
+            amountRequested: true,
+            purpose: true,
+          },
         });
 
         if (!application) {
           return reply.code(404).send({
             success: false,
-            message: "Application not found"
+            message: "Application not found",
           });
         }
 
-        /* ===============================
-           FETCH LOI RECORDS
-        =============================== */
+        const where = {
+          loanApplicationId: applicationId,
+          loiUrl: { not: null },
+          ...buildLoiSearchFilter(search),
+        };
 
-        const lenders = await prisma.applicationLender.findMany({
-          where: {
-            loanApplicationId: applicationId,
-            loiUrl: { not: null }
-          },
-          include: {
-            lender: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-                phone: true
-              }
-            },
-            lenderReviews: {
-              orderBy: { createdAt: "desc" },
-              take: 1
-            }
-          }
-        });
+        const [total, lenders] = await Promise.all([
+          prisma.applicationLender.count({ where }),
+          prisma.applicationLender.findMany({
+            where,
+            include: APPLICATION_LENDER_LOI_INCLUDE,
+            orderBy: [{ sentAt: "desc" }, { lastUpdatedAt: "desc" }],
+            skip,
+            take: limit,
+          }),
+        ]);
 
-        if (!lenders.length) {
-          return reply.send({
-            success: true,
-            message: "No LOI received yet",
-            data: {
-              applicationId,
-              totalLoiReceived: 0,
-              lois: []
-            }
-          });
-        }
-
-        /* ===============================
-           FORMAT RESPONSE
-        =============================== */
-
-        const lois = lenders.map((l) => {
-
-          const review = l.lenderReviews?.[0];
-
-          return {
-            applicationLenderId: l.id,
-            lenderOrgId: l.lender?.id,
-            lenderName: l.lender?.name,
-            lenderEmail: l.lender?.email,
-            lenderPhone: l.lender?.phone,
-            status: l.status,
-            loiUrl: l.loiUrl,
-            approvedAmount: review?.approvedAmount ?? null,
-            interestRate: review?.interestRate ?? null,
-            notes: review?.notes ?? null,
-            generatedAt: review?.createdAt ?? null
-          };
-        });
+        const lois = lenders.map(formatBrokerLoiRecord);
+        const pagination = buildLoiPagination(page, limit, total);
 
         return reply.send({
           success: true,
           data: {
             applicationId,
-            totalLoiReceived: lois.length,
-            lois
-          }
+            applicationNumber: application.applicationNumber,
+            applicationStatus: application.status,
+            amountRequested:
+              application.amountRequested != null
+                ? Number(application.amountRequested)
+                : null,
+            purpose: application.purpose ?? null,
+            totalLoiReceived: total,
+            lois,
+            pagination,
+          },
         });
-
       } catch (error) {
-
         fastify.log.error(error);
 
         return reply.code(500).send({
           success: false,
-          message: "Failed to fetch LOI data"
+          message: "Failed to fetch LOI data",
         });
-
       }
-
-    }
+    },
   );
 }
 

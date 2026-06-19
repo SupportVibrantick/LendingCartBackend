@@ -1,0 +1,29 @@
+const LOAN_APPLICATION_STATUSES_PRESERVED_ON_DOCUMENT_SEND = new Set([
+  "LENDER_APPROVED",
+  "LENDER_DECLINED",
+  "FUNDED",
+  "WITHDRAWN",
+  "AUTO_APPROVED",
+  "AUTO_DECLINED",
+  "SUSPENDED",
+]);
+
+const APPLICATION_LENDER_STATUSES_SET_IN_REVIEW_ON_DOCUMENT_SEND = new Set([
+  "SENT",
+  "IN_REVIEW",
+]);
+
+function shouldPreserveLoanApplicationStatus(status) {
+  return LOAN_APPLICATION_STATUSES_PRESERVED_ON_DOCUMENT_SEND.has(status);
+}
+
+function canSetLenderInReviewOnDocumentSend(status) {
+  return APPLICATION_LENDER_STATUSES_SET_IN_REVIEW_ON_DOCUMENT_SEND.has(status);
+}
+
+module.exports = {
+  LOAN_APPLICATION_STATUSES_PRESERVED_ON_DOCUMENT_SEND,
+  APPLICATION_LENDER_STATUSES_SET_IN_REVIEW_ON_DOCUMENT_SEND,
+  shouldPreserveLoanApplicationStatus,
+  canSetLenderInReviewOnDocumentSend,
+};

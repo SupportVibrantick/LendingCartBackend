@@ -121,7 +121,7 @@ async function listAllApplications(fastify) {
     "/",
     {
       schema: {
-        tags: ["Admin -> Loan Pipeline"],
+        tags: ["Admin -> Loan Pipeline"], 
         summary: "View all submitted applications",
       },
     },
@@ -180,7 +180,7 @@ async function listAllApplications(fastify) {
                   totalAmount:
                     amountAgg._sum.amountRequested != null
                       ? Number(amountAgg._sum.amountRequested)
-                      : 0,
+                      : 0, 
                 },
               }
             : {}),
@@ -192,7 +192,7 @@ async function listAllApplications(fastify) {
           success: false,
           message: error.message || "Server error",
         });
-        
+
       }
     },
   );

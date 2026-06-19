@@ -1,5 +1,6 @@
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const { resolveClientDisplayName } = require("../../utils/resolveClientDisplayName");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
@@ -86,15 +87,11 @@ async function clientLoginRoute(fastify) {
           });
         }
 
-        const primaryContact =
-  user?.client?.contacts?.[0];
-
-const clientName =
-  `${primaryContact?.firstName || ""} ${
-    primaryContact?.lastName || ""
-  }`.trim() ||
-  user?.client?.legalName ||
-  "Client";
+        const clientName = await resolveClientDisplayName(prisma, {
+          clientId: user.clientId,
+          client: user.client,
+          contacts: user.client?.contacts || [],
+        });
 
         /* ===============================
            GENERATE JWT (KEEP jsonwebtoken)

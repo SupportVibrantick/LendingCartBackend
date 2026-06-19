@@ -3,6 +3,7 @@ import axios from "axios";
 import { useParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import { Eye, EyeOff } from "lucide-react";
+import { saveClientPortalSession } from "../../lib/clientPortalSession";
 
 const API_BASE =
   import.meta.env.VITE_API_BASE || "https://api-lendingcart.vibrantick.org";
@@ -68,12 +69,14 @@ export default function ClientAuth() {
       });
 
       const clientToken = res.data?.data?.token;
+      const user = res.data?.data?.user;
+
       if (!clientToken) {
         toast.error("Token not received");
         return;
       }
 
-      sessionStorage.setItem("client_token", clientToken);
+      saveClientPortalSession(clientToken, user);
 
       toast.success("Login successful");
 
@@ -115,8 +118,9 @@ export default function ClientAuth() {
       );
 
       const clientToken = loginRes.data?.data?.token;
+      const user = loginRes.data?.data?.user;
 
-      sessionStorage.setItem("client_token", clientToken);
+      saveClientPortalSession(clientToken, user);
 
       // REDIRECT
       window.location.href = `/client-portal/${token}`;

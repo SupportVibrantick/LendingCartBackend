@@ -4,41 +4,40 @@ import { useLocation, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
   Check,
+  ChevronLeft,
+  ChevronRight,
   Download,
   Eye,
   FileIcon,
   FileText,
+  Filter,
   Loader2,
+  Search,
+  SearchX,
   User,
+  ChevronDown,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import Chat from "./Chat";
 import { MdEmail } from "react-icons/md";
 import { BiLogoProductHunt } from "react-icons/bi";
 import { FaDollarSign } from "react-icons/fa6";
+import { formatDocumentStatusLabel } from "../../lib/documentStatus";
+import { getLenderDocumentSourceDisplay } from "../../lib/documentSource";
+import {
+  canLenderRequestDocuments,
+  getLenderRequestDocumentsDisabledReason,
+} from "../../lib/loanPipelineUtils";
+import LenderSubmissionDetailsView from "../../components/submissions/LenderSubmissionDetailsView";
+import {
+  getNumericFieldValue,
+  mapLenderSubmissionFields,
+} from "../../lib/submissionFieldUtils";
 
 type PreviewTab = "details" | "documents" | "requestDocs" | "loi" | "chat";
+type DocumentSourceFilter = "all" | "mine" | "broker";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
-
-const parseValue = (val: string): any => {
-  try {
-    return JSON.parse(val);
-  } catch {
-    return val;
-  }
-};
-
-const formatFieldKey = (key: string | null | undefined) => {
-  if (!key) return "";
-
-  return key
-    .replace(/([a-z])([A-Z])/g, "$1 $2")
-    .replace(/_/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .replace(/\b\w/g, (char) => char.toUpperCase());
-};
 
 const normalizeText = (value: unknown) => String(value || "").trim();
 
@@ -102,18 +101,6 @@ const getBorrowerDisplayName = (submissionDetail: any) => {
   return "N/A";
 };
 
-const getBorrowerEntityType = (submissionDetail: any) =>
-  normalizeText(
-    submissionDetail?.loanApplication?.client?.entityType ||
-      getSubmissionFieldValue(
-        submissionDetail,
-        "entityType",
-        "borrowerEntityType",
-        "businessType",
-      ) ||
-      "-",
-  );
-
 function getAuthHeaders(): HeadersInit {
   const token = sessionStorage.getItem("lender_token");
   return {
@@ -121,17 +108,6 @@ function getAuthHeaders(): HeadersInit {
     ...(token && { Authorization: `Bearer ${token}` }),
   };
 }
-
-const InfoCard = ({ label, value }: { label: string; value: any }) => (
-  <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700 p-4 rounded-xl transition-colors duration-300">
-    <p className="text-xs text-slate-500 mb-1">{label}</p>
-    <p className="text-sm font-semibold break-words">
-      {typeof value === "string"
-        ? value.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
-        : (value ?? "-")}
-    </p>
-  </div>
-);
 
 const tabMeta: Array<{ id: PreviewTab; label: string }> = [
   { id: "details", label: "View Details" },
@@ -176,6 +152,11 @@ export default function LoanPreview() {
   const [submissionDetail, setSubmissionDetail] = useState<any>(null);
   const [documentsLoading, setDocumentsLoading] = useState(false);
   const [documentsData, setDocumentsData] = useState<any>(null);
+  const [documentsPagination, setDocumentsPagination] = useState<any>(null);
+  const [documentPage, setDocumentPage] = useState(1);
+  const [documentSearchInput, setDocumentSearchInput] = useState("");
+  const [documentSourceFilter, setDocumentSourceFilter] =
+    useState<DocumentSourceFilter>("all");
   const [loiLoading, setLoiLoading] = useState(false);
   const [loiUrl, setLoiUrl] = useState<string | null>(null);
   const [loanProducts, setLoanProducts] = useState<any[]>([]);
@@ -381,8 +362,22 @@ export default function LoanPreview() {
     if (!applicationLenderId) return;
     try {
       setDocumentsLoading(true);
+
+      const params = new URLSearchParams({
+        page: String(documentPage),
+        limit: "10",
+      });
+
+      if (documentSearchInput.trim()) {
+        params.set("search", documentSearchInput.trim());
+      }
+
+      if (documentSourceFilter !== "all") {
+        params.set("sourceFilter", documentSourceFilter);
+      }
+
       const res = await fetch(
-        `${API_BASE}/lender/loan-pipeline/lender/applications/${applicationLenderId}/documents`,
+        `${API_BASE}/lender/loan-pipeline/lender/applications/${applicationLenderId}/documents?${params.toString()}`,
         {
           headers: getAuthHeaders(),
         },
@@ -394,6 +389,11 @@ export default function LoanPreview() {
       }
 
       setDocumentsData(json.data);
+      setDocumentsPagination(json.data.pagination || null);
+
+      if (json.data.pagination?.page) {
+        setDocumentPage(json.data.pagination.page);
+      }
     } catch (err: any) {
       toast.error(err.message || "Failed to load documents");
     } finally {
@@ -555,13 +555,53 @@ export default function LoanPreview() {
     if (activeTab === "loi") {
       fetchLoi();
     }
-  }, [activeTab, applicationLenderId]);
+  }, [activeTab, applicationLenderId, documentPage, documentSearchInput, documentSourceFilter]);
+
+  const latestLenderReview = submissionDetail?.lenderReviews?.[0];
+  const latestReviewStatus =
+    latestLenderReview?.reviewStatus || latestLenderReview?.decision || null;
+
+  const canRequestDocuments = useMemo(() => {
+    if (!submissionDetail) return true;
+
+    return canLenderRequestDocuments(
+      submissionDetail.status,
+      latestReviewStatus,
+    );
+  }, [submissionDetail, latestReviewStatus]);
+
+  const requestDocumentsDisabledReason = useMemo(
+    () =>
+      getLenderRequestDocumentsDisabledReason(
+        submissionDetail?.status,
+        latestReviewStatus,
+      ),
+    [submissionDetail?.status, latestReviewStatus],
+  );
 
   useEffect(() => {
-    if (activeTab === "requestDocs" && docSelectModal.documents.length === 0) {
+    if (
+      activeTab === "requestDocs" &&
+      canRequestDocuments &&
+      docSelectModal.documents.length === 0
+    ) {
       fetchDocumentConfig();
     }
-  }, [activeTab]);
+  }, [activeTab, canRequestDocuments]);
+
+  useEffect(() => {
+    if (!canRequestDocuments && activeTab === "requestDocs") {
+      setActiveTab("details");
+      navigate("/loan-preview/?tab=details", {
+        replace: true,
+        state: {
+          applicationLenderId,
+          initialTab: "details",
+          isLoi,
+        },
+      });
+    }
+  }, [canRequestDocuments, activeTab, applicationLenderId, isLoi, navigate]);
 
   useEffect(() => {
     if (selectedLoanProduct) {
@@ -574,6 +614,44 @@ export default function LoanPreview() {
     submissionDetail?.loanApplicationId ||
     submissionDetail?.loanApplication?.loanApplicationId ||
     "";
+
+  const submissionFields = useMemo(
+    () =>
+      mapLenderSubmissionFields(
+        submissionDetail?.loanApplication?.submissions?.[0]?.fields || [],
+      ),
+    [submissionDetail],
+  );
+
+  const loanAmount = useMemo(
+    () => getNumericFieldValue(submissionFields, "amountRequested"),
+    [submissionFields],
+  );
+  const ltv = useMemo(
+    () => getNumericFieldValue(submissionFields, "ltvPercentage"),
+    [submissionFields],
+  );
+  const ltc = useMemo(
+    () => getNumericFieldValue(submissionFields, "ltcPercentage"),
+    [submissionFields],
+  );
+  const arv = useMemo(
+    () => getNumericFieldValue(submissionFields, "arvPercentage"),
+    [submissionFields],
+  );
+  const dscr = useMemo(
+    () => getNumericFieldValue(submissionFields, "dscr"),
+    [submissionFields],
+  );
+  const netWorth = useMemo(
+    () => getNumericFieldValue(submissionFields, "netWorth"),
+    [submissionFields],
+  );
+
+  const submittedDate = submissionDetail?.loanApplication?.submissions?.[0]
+    ?.createdAt
+    ? new Date(submissionDetail.loanApplication.submissions[0].createdAt)
+    : null;
 
   const renderChat = () => {
     if (!resolvedChatApplicationId) {
@@ -588,6 +666,13 @@ export default function LoanPreview() {
   };
 
   const onTabChange = (tab: PreviewTab) => {
+    if (tab === "requestDocs" && !canRequestDocuments) {
+      if (requestDocumentsDisabledReason) {
+        toast.error(requestDocumentsDisabledReason);
+      }
+      return;
+    }
+
     setActiveTab(tab);
     navigate(`/loan-preview/?tab=${tab}`, {
       replace: true,
@@ -617,228 +702,17 @@ export default function LoanPreview() {
     }
 
     return (
-      <div className="space-y-8">
-        {submissionDetail.lenderReviews?.length > 0 &&
-          (() => {
-            const latestReview = submissionDetail?.lenderReviews?.[0];
-
-            if (!latestReview) return null;
-
-            const review = latestReview;
-            const reviewStatus =
-              review.reviewStatus || review.decision || "PENDING";
-            const isApproved = reviewStatus === "APPROVED";
-            const isRejected =
-              reviewStatus === "DECLINED" || reviewStatus === "REJECTED";
-            const isConditional =
-              reviewStatus === "CONDITIONAL" ||
-              reviewStatus === "LENDER_CONDITIONAL";
-
-            return (
-              <div
-                className={`relative overflow-hidden rounded-2xl border p-6 dark:bg-slate-900 ${
-                  isApproved
-                    ? "border-emerald-200 dark:border-emerald-500/30 bg-[#F7FEFB]"
-                    : isRejected
-                      ? "border-rose-200 dark:border-rose-500/30 bg-[#FFF9FA]"
-                      : isConditional
-                        ? "border-amber-200 dark:border-amber-500/30 bg-amber-50/50 dark:bg-amber-900/10"
-                        : "border-slate-200 dark:border-slate-700"
-                }`}
-              >
-                <div
-                  className={`absolute top-0 left-0 right-0 h-1 ${
-                    isApproved
-                      ? "bg-emerald-500"
-                      : isRejected
-                        ? "bg-rose-500"
-                        : isConditional
-                          ? "bg-amber-500"
-                          : "bg-slate-400"
-                  }`}
-                />
-
-                <div className="flex items-center gap-3 mb-6">
-                  <div
-                    className={`flex items-center justify-center h-12 w-12 rounded-xl text-xl font-bold ${
-                      isApproved
-                        ? "bg-emerald-500 text-white"
-                        : isRejected
-                          ? "bg-rose-100 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400"
-                          : isConditional
-                            ? "bg-amber-500 text-white"
-                            : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
-                    }`}
-                  >
-                    {isApproved
-                      ? "OK"
-                      : isRejected
-                        ? "NO"
-                        : isConditional
-                          ? "!"
-                          : "-"}
-                  </div>
-
-                  <div>
-                    <p className="text-xs uppercase tracking-wider text-slate-400">
-                      Lender Decision
-                    </p>
-                    <h3
-                      className={`text-lg font-bold ${
-                        isApproved
-                          ? "text-emerald-600 dark:text-emerald-400"
-                          : isRejected
-                            ? "text-rose-600 dark:text-rose-400"
-                            : isConditional
-                              ? "text-amber-600 dark:text-amber-400"
-                              : "text-slate-700 dark:text-slate-200"
-                      }`}
-                    >
-                      {reviewStatus}
-                    </h3>
-                  </div>
-                </div>
-
-                <div className="grid md:grid-cols-3 gap-6 text-sm">
-                  {review.approvedAmount && (
-                    <div>
-                      <p className="text-xs text-slate-400 mb-1">
-                        Approved Amount
-                      </p>
-                      <p className="font-semibold text-slate-800 dark:text-slate-200">
-                        ${Number(review.approvedAmount).toLocaleString()}
-                      </p>
-                    </div>
-                  )}
-
-                  {review.interestRate && (
-                    <div>
-                      <p className="text-xs text-slate-400 mb-1">
-                        Interest Rate
-                      </p>
-                      <p className="font-semibold text-slate-800 dark:text-slate-200">
-                        {review.interestRate}%
-                      </p>
-                    </div>
-                  )}
-
-                  {(review.updatedAt || review.createdAt) && (
-                    <div>
-                      <p className="text-xs text-slate-400 mb-1">Reviewed On</p>
-                      <p className="font-semibold text-slate-800 dark:text-slate-200">
-                        {new Date(
-                          review.updatedAt || review.createdAt,
-                        ).toLocaleString()}
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                {review.notes && (
-                  <div className="mt-6 border-t border-slate-200 dark:border-slate-700 pt-4">
-                    <p className="text-xs text-slate-400 mb-2">Notes</p>
-                    <p className="text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap break-words text-sm">
-                      {review.notes}
-                    </p>
-                  </div>
-                )}
-              </div>
-            );
-          })()}
-
-        <div className="grid md:grid-cols-3 gap-6">
-          <InfoCard
-            label="Application Id"
-            value={submissionDetail.loanApplication?.applicationNumber}
-          />
-          <InfoCard label="Status" value={submissionDetail.status} />
-          <InfoCard
-            label="Loan Product"
-            value={
-              PRODUCT_LABELS[
-                submissionDetail.loanApplication?.loanProductCode
-              ] || submissionDetail.loanApplication?.loanProductCode
-            }
-          />
-          <InfoCard
-            label="Borrower"
-            value={getBorrowerDisplayName(submissionDetail)}
-          />
-          <InfoCard
-            label="Entity Type"
-            value={getBorrowerEntityType(submissionDetail)}
-          />
-          <InfoCard
-            label="Broker"
-            value={submissionDetail.loanApplication?.brokerOrg?.name}
-          />
-        </div>
-
-        <div>
-          <h3 className="font-semibold mb-4 text-slate-700 dark:text-slate-300">
-            Submission Details
-          </h3>
-
-          {(() => {
-            const fields =
-              submissionDetail.loanApplication?.submissions?.[0]?.fields || [];
-            const normalFields = fields.filter(
-              (f: any) => f.fieldKey !== "borrowerSignature",
-            );
-            const signatureField = fields.find(
-              (f: any) => f.fieldKey === "borrowerSignature",
-            );
-
-            return (
-              <>
-                <div className="grid md:grid-cols-2 gap-4">
-                  {normalFields.map((field: any) => {
-                    const value = parseValue(field.value);
-
-                    return (
-                      <div
-                        key={field.id}
-                        className="bg-slate-50 dark:bg-slate-800 p-3 rounded-lg"
-                      >
-                        <p className="text-xs text-slate-500 mb-1">
-                          {field.fieldKey === "amountRequested"
-                            ? "Loan Amount Requested"
-                            : formatFieldKey(field.fieldKey)}
-                        </p>
-                        <p className="text-sm font-medium break-words">
-                          {field.fieldKey === "loanProductCode"
-                            ? PRODUCT_LABELS[value] || value
-                            : typeof value === "string"
-                              ? value
-                                  .replace(/_/g, " ")
-                                  .replace(/\b\w/g, (c) => c.toUpperCase())
-                              : String(value ?? "-")}
-                        </p>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {signatureField && (
-                  <div className="mt-10 flex flex-col items-center">
-                    <p className="text-sm font-semibold mb-3 text-slate-600 dark:text-slate-300">
-                      Borrower Signature
-                    </p>
-
-                    <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
-                      <img
-                        src={signatureField.value}
-                        alt="Signature"
-                        className="h-28 object-contain"
-                      />
-                    </div>
-                  </div>
-                )}
-              </>
-            );
-          })()}
-        </div>
-      </div>
+      <LenderSubmissionDetailsView
+        applicationLender={submissionDetail}
+        fields={submissionFields}
+        loanAmount={loanAmount}
+        ltv={ltv}
+        ltc={ltc}
+        arv={arv}
+        dscr={dscr}
+        netWorth={netWorth}
+        submittedDate={submittedDate}
+      />
     );
   };
 
@@ -878,19 +752,109 @@ export default function LoanPreview() {
               Total Documents
             </p>
             <p className="text-xl font-bold text-blue-600 mt-1">
-              {documentsData.documents?.length || 0}
+              {documentsData.totalDocumentsCount ??
+                documentsPagination?.total ??
+                documentsData.documents?.length ??
+                0}
             </p>
           </div>
         </div>
 
         {/* TABLE CARD */}
         <div className="rounded-2xl border bg-white dark:bg-slate-900 overflow-hidden dark:border-slate-700">
-          <div className="px-5 py-4 border-b dark:border-slate-800">
-            <h2 className="text-sm font-semibold text-slate-600 dark:text-slate-300">
-              Documents List
-            </h2>
+          <div className="flex flex-col gap-3 border-b px-5 py-4 dark:border-slate-800 lg:flex-row lg:items-end lg:justify-between">
+            <div className="flex items-center gap-2 text-slate-700 dark:text-slate-200">
+              <h2 className="text-sm font-semibold text-slate-600 dark:text-slate-300">
+                Documents List
+              </h2>
+              {(documentSourceFilter !== "all" || documentSearchInput.trim()) && (
+                <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
+                  Filtered
+                </span>
+              )}
+            </div>
+
+            <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center lg:w-auto">
+              <div className="relative w-full sm:w-52">
+                <Filter
+                  size={15}
+                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                />
+                <select
+                  value={documentSourceFilter}
+                  onChange={(e) => {
+                    setDocumentSourceFilter(
+                      e.target.value as DocumentSourceFilter,
+                    );
+                    setDocumentPage(1);
+                  }}
+                  className="w-full appearance-none rounded-xl border border-slate-200 bg-slate-50/80 py-2.5 pl-9 pr-9 text-sm text-slate-800 outline-none transition hover:border-slate-300 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/15 dark:border-slate-700 dark:bg-slate-800/80 dark:text-white dark:focus:border-blue-400 dark:focus:bg-slate-900"
+                >
+                  <option value="all">All documents</option>
+                  <option value="mine">My documents</option>
+                  <option value="broker">Broker documents</option>
+                </select>
+                <ChevronDown
+                  size={16}
+                  className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
+                />
+              </div>
+
+              <div className="relative w-full sm:max-w-xs">
+              <Search
+                size={16}
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+              />
+              <input
+                type="search"
+                value={documentSearchInput}
+                onChange={(e) => {
+                  setDocumentSearchInput(e.target.value);
+                  setDocumentPage(1);
+                }}
+                placeholder="Search documents..."
+                className="w-full rounded-xl border border-slate-200 bg-slate-50/80 py-2.5 pl-9 pr-9 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/15 dark:border-slate-700 dark:bg-slate-800/80 dark:text-white dark:focus:border-blue-400 dark:focus:bg-slate-900"
+              />
+              {documentSearchInput && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDocumentSearchInput("");
+                    setDocumentPage(1);
+                  }}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400 transition hover:bg-slate-200/80 hover:text-slate-600 dark:hover:bg-slate-700 dark:hover:text-slate-200"
+                  aria-label="Clear search"
+                >
+                  <SearchX size={14} />
+                </button>
+              )}
+              </div>
+            </div>
           </div>
 
+          {documentsData.documents?.length === 0 ? (
+            <div className="flex flex-col items-center justify-center gap-3 px-6 py-16 text-center">
+              <SearchX className="h-10 w-10 text-slate-300 dark:text-slate-600" />
+              <p className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                {documentSearchInput.trim() || documentSourceFilter !== "all"
+                  ? "No documents match your filters."
+                  : "No documents available yet."}
+              </p>
+              {(documentSearchInput.trim() || documentSourceFilter !== "all") && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDocumentSearchInput("");
+                    setDocumentSourceFilter("all");
+                    setDocumentPage(1);
+                  }}
+                  className="text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400"
+                >
+                  Clear filters
+                </button>
+              )}
+            </div>
+          ) : (
           <table className="w-full text-left">
             <thead className="text-xs uppercase text-slate-400">
               <tr>
@@ -934,43 +898,22 @@ export default function LoanPreview() {
                             : "bg-yellow-100 text-yellow-700 dark:bg-yellow-500/10 dark:text-yellow-400"
                       }`}
                     >
-                      {doc.status}
+                      {formatDocumentStatusLabel(doc.status)}
                     </span>
                   </td>
                   <td className="px-5 py-4 text-center">
-                    {doc.source === "BROKER_ADDED" ? (
-                      <span
-                        className="inline-flex items-center rounded-full 
-      bg-blue-100 px-3 py-1 text-[11px] font-semibold 
-      text-blue-700 dark:bg-blue-500/10 dark:text-blue-400"
-                      >
-                        Broker
-                      </span>
-                    ) : doc.source === "SUB_BROKER_ADDED" ? (
-                      <span
-                        className="inline-flex items-center rounded-full 
-  bg-emerald-100 px-3 py-1 text-[11px] font-semibold 
-  text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400"
-                      >
-                        Sub Broker
-                      </span>
-                    ) : doc.source === "LENDER_ADDED" ? (
-                      <span
-                        className="inline-flex items-center rounded-full 
-      bg-purple-100 px-3 py-1 text-[11px] font-semibold 
-      text-purple-700 dark:bg-purple-500/10 dark:text-purple-400"
-                      >
-                        Lender
-                      </span>
-                    ) : (
-                      <span
-                        className="inline-flex items-center rounded-full 
-      bg-slate-100 px-3 py-1 text-[11px] font-semibold 
-      text-slate-700 dark:bg-slate-700 dark:text-slate-300"
-                      >
-                        {doc.source}
-                      </span>
-                    )}
+                    {(() => {
+                      const sourceDisplay = getLenderDocumentSourceDisplay(doc);
+
+                      return (
+                        <span
+                          title={sourceDisplay.label}
+                          className={`inline-flex max-w-[180px] items-center justify-center truncate rounded-full px-3 py-1 text-[11px] font-semibold ${sourceDisplay.className}`}
+                        >
+                          {sourceDisplay.label}
+                        </span>
+                      );
+                    })()}
                   </td>
 
                   {/* COUNT */}
@@ -1048,6 +991,75 @@ export default function LoanPreview() {
               ))}
             </tbody>
           </table>
+          )}
+
+          {documentsPagination && documentsPagination.totalPages > 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 bg-slate-50/80 px-4 py-3 dark:border-slate-800 dark:bg-slate-900/60">
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                Page{" "}
+                <span className="font-semibold text-slate-700 dark:text-slate-200">
+                  {documentsPagination.page}
+                </span>{" "}
+                of{" "}
+                <span className="font-semibold text-slate-700 dark:text-slate-200">
+                  {documentsPagination.totalPages}
+                </span>
+                {documentsPagination.total != null && (
+                  <span className="ml-1 text-slate-400">
+                    ({documentsPagination.total} documents
+                    {documentSearchInput.trim() || documentSourceFilter !== "all"
+                      ? " found"
+                      : ""})
+                  </span>
+                )}
+              </p>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  disabled={documentPage === 1}
+                  onClick={() => setDocumentPage((current) => current - 1)}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 dark:disabled:border-slate-800 dark:disabled:bg-slate-800/50 dark:disabled:text-slate-600"
+                >
+                  <ChevronLeft size={16} />
+                  Previous
+                </button>
+
+                {documentsPagination.totalPages > 1 &&
+                  Array.from(
+                    { length: documentsPagination.totalPages },
+                    (_, index) => {
+                      const pageNum = index + 1;
+
+                      return (
+                        <button
+                          key={pageNum}
+                          type="button"
+                          onClick={() => setDocumentPage(pageNum)}
+                          className={`h-9 min-w-9 rounded-xl px-2.5 text-sm font-semibold transition ${
+                            documentPage === pageNum
+                              ? "bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-sm"
+                              : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                          }`}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    },
+                  )}
+
+                <button
+                  type="button"
+                  disabled={documentPage === documentsPagination.totalPages}
+                  onClick={() => setDocumentPage((current) => current + 1)}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 dark:disabled:border-slate-800 dark:disabled:bg-slate-800/50 dark:disabled:text-slate-600"
+                >
+                  Next
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -1640,19 +1652,34 @@ export default function LoanPreview() {
             <div className="flex flex-wrap gap-2">
               {tabMeta
                 .filter((tab) => tab.id !== "loi" || isLoi)
-                .map((tab) => (
+                .map((tab) => {
+                  const isRequestDocsTab = tab.id === "requestDocs";
+                  const isDisabled = isRequestDocsTab && !canRequestDocuments;
+
+                  return (
                   <button
                     key={tab.id}
+                    type="button"
+                    disabled={isDisabled}
+                    title={
+                      isDisabled
+                        ? requestDocumentsDisabledReason ||
+                          "Documents cannot be requested for this application."
+                        : undefined
+                    }
                     onClick={() => onTabChange(tab.id)}
                     className={`px-4 py-2.5 rounded-t-xl text-xs font-semibold transition-all ${
                       activeTab === tab.id
                         ? "bg-[#18B6B4] text-white"
-                        : "text-slate-500 hover:text-[#18B6B4] bg-slate-50 dark:bg-slate-800/70 dark:text-slate-300"
+                        : isDisabled
+                          ? "cursor-not-allowed bg-slate-100 text-slate-400 opacity-60 dark:bg-slate-800/40 dark:text-slate-500"
+                          : "text-slate-500 hover:text-[#18B6B4] bg-slate-50 dark:bg-slate-800/70 dark:text-slate-300"
                     }`}
                   >
                     {tab.label}
                   </button>
-                ))}
+                  );
+                })}
             </div>
           </div>
 
@@ -1675,8 +1702,10 @@ export default function LoanPreview() {
                 <div>
                   <h2 className="text-lg font-bold">Select File to Preview</h2>
                   <p className="text-xs text-slate-500">
-                    {multiFileModal.doc.documentType.name} (
-                    {multiFileModal.doc.uploadedCount} uploads)
+                    {multiFileModal.doc.documentName ||
+                      multiFileModal.doc.documentType?.name ||
+                      "Document"}{" "}
+                    ({multiFileModal.doc.uploadedCount} uploads)
                   </p>
                 </div>
                 <button
@@ -1708,7 +1737,7 @@ export default function LoanPreview() {
                             {file.fileName}
                           </p>
                           <p className="text-[10px] text-slate-500 mt-1 uppercase">
-                            {file.fileMimeType.split("/")[1] || "FILE"}
+                            {file.fileMimeType?.split("/")[1] || "FILE"}
                           </p>
                         </div>
                       </div>

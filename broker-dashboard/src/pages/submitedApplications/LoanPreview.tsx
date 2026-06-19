@@ -1,5 +1,7 @@
 ﻿import {
   ArrowLeft,
+  ChevronLeft,
+  ChevronRight,
   Download,
   Eye,
   FileSearch,
@@ -27,13 +29,40 @@ import LoanPreviewChat from "./LoanPreviewChat";
 import FeeAgreement from "./FeeAgreement";
 import LoanApplication from "../LoanApplication/LoanApplication";
 import { mapSubmissionToLoanApplication } from "../../lib/mapSubmissionToLoanApplication";
+import {
+  expandDocumentsForDisplay,
+  getDocumentSentDisplay,
+  getDocumentSourceDisplay,
+  type DocumentSentFilter,
+  summarizeSendFromDisplayRows,
+} from "../../lib/documentLenderSend";
+import {
+  formatDocumentStatusLabel,
+  getDocumentStatusChipClass,
+} from "../../lib/documentStatus";
+import DocumentControlsBar from "../../components/documents/DocumentControlsBar";
+import BrokerLoiPanel from "../../components/loi/BrokerLoiPanel";
+import SubmissionDetailsView from "../../components/submissions/SubmissionDetailsView";
+import {
+  canLenderReceiveDocuments,
+  getLenderStatusBadgeClass,
+} from "../../lib/lenderDocumentDelivery";
+import {
+  canBrokerRequestDocuments,
+  getBrokerRequestDocumentsDisabledReason,
+} from "../../lib/brokerDocumentRequest";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
 type SubmissionField = {
   fieldId: string | null;
   fieldKey: string | null;
+  label?: string | null;
+  type?: string | null;
   value: string;
+  sectionName?: string | null;
+  sectionSortOrder?: number | null;
+  fieldSortOrder?: number | null;
 };
 
 type Lender = {
@@ -61,22 +90,6 @@ type Lender = {
   canSend: boolean;
   rejectionReasons: string[];
 };
-
-type GroupedFields = {
-  primaryBorrower: SubmissionField[];
-  coBorrowers: Record<string, SubmissionField[]>;
-  entity: SubmissionField[];
-  property: SubmissionField[];
-  loan: SubmissionField[];
-  financial: SubmissionField[];
-  others: SubmissionField[];
-};
-
-// type UploadedPreview = {
-//   url: string;
-//   type: string;
-//   name: string;
-// };
 
 type TabKey =
   | "view-details"
@@ -166,43 +179,23 @@ function getAuthHeaders(): HeadersInit {
   };
 }
 
-const getDocumentStatusChip = (status: string) => {
-  switch (status) {
-    case "COMPLETE":
-      return "bg-emerald-100 text-emerald-700";
+const getDocumentStatusChip = getDocumentStatusChipClass;
 
-    case "PARTIAL":
-      return "bg-amber-100 text-amber-700";
+// const formatFieldKey = (key: string | null | undefined) => {
+//   if (!key) return "";
 
-    case "PENDING":
-      return "bg-yellow-100 text-yellow-600";
+//   if (key === "amountRequested") {
+//     return "Loan Amount Requested";
+//   }
 
-    case "SKIPPED":
-      return "bg-red-100 text-red-700";
-
-    case "SENT_TO_LENDER":
-      return "bg-blue-100 text-blue-700";
-
-    default:
-      return "bg-slate-100 text-slate-500";
-  }
-};
-
-const formatFieldKey = (key: string | null | undefined) => {
-  if (!key) return "";
-
-  if (key === "amountRequested") {
-    return "Loan Amount Requested";
-  }
-
-  return key
-    .replace(/^coBorrower_\d+_/, "coBorrower_")
-    .replace(/([a-z])([A-Z])/g, "$1 $2")
-    .replace(/_/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .replace(/\b\w/g, (char) => char.toUpperCase());
-};
+//   return key
+//     .replace(/^coBorrower_\d+_/, "coBorrower_")
+//     .replace(/([a-z])([A-Z])/g, "$1 $2")
+//     .replace(/_/g, " ")
+//     .replace(/\s+/g, " ")
+//     .trim()
+//     .replace(/\b\w/g, (char) => char.toUpperCase());
+// };
 
 const Metric = ({
   label,
@@ -265,32 +258,6 @@ const formatCompactAmount = (value: number) => {
   return `$${num}`;
 };
 
-const FieldItem = ({ field }: { field: SubmissionField }) => {
-  const parsedValue = parseValue(field.value);
-  const displayValue =
-    parsedValue !== undefined && parsedValue !== null
-      ? typeof parsedValue === "boolean"
-        ? parsedValue
-          ? "Yes"
-          : "No"
-        : String(parsedValue)
-      : "-";
-
-  return (
-    <div className="space-y-1">
-      <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-        {formatFieldKey(field.fieldKey)}
-      </label>
-      <div
-        aria-readonly="true"
-        className="break-words rounded-lg border border-dashed border-slate-300 bg-slate-100 px-3 py-2.5 text-sm text-slate-700 cursor-default select-none dark:border-slate-600 dark:bg-slate-800/70 dark:text-slate-300"
-      >
-        {displayValue}
-      </div>
-    </div>
-  );
-};
-
 const LoanPreview = () => {
   const Location = useLocation();
   const bottomRef = useRef<HTMLDivElement | null>(null);
@@ -327,14 +294,14 @@ const LoanPreview = () => {
   // );
   const [searchInput, setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [documentSentFilter, setDocumentSentFilter] =
+    useState<DocumentSentFilter>("all");
+  const [documentLenderFilter, setDocumentLenderFilter] = useState("");
 
   const [previewFiles, setPreviewFiles] = useState<any[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [activeAction, setActiveAction] = useState<string | null>(null);
 
-  const [lois, setLois] = useState<any[]>([]);
-  const [loiLoading, setLoiLoading] = useState(false);
-  const [loiLoadedFor, setLoiLoadedFor] = useState<string | null>(null);
   const [lenders, setLenders] = useState<Lender[]>([]);
   const [borrowerSummary, setBorrowerSummary] = useState<any>(null);
   const [sendingId, setSendingId] = useState<string | null>(null);
@@ -365,8 +332,26 @@ const LoanPreview = () => {
   // const [debouncedLenderSearch, setDebouncedLenderSearch] = useState("");
   // const itemsPerPage = 9;
 
-  const selectableDocuments =
-    documentsData?.documents?.filter((d: any) => d.status !== "SKIPPED") || [];
+  const displayDocuments = useMemo(
+    () =>
+      expandDocumentsForDisplay(documentsData?.documents || [], {
+        applicationLenderId:
+          documentLenderFilter ||
+          documentsData?.activeFilters?.applicationLenderId ||
+          undefined,
+      }),
+    [
+      documentsData?.documents,
+      documentsData?.activeFilters?.applicationLenderId,
+      documentLenderFilter,
+    ],
+  );
+
+  const documentFilterLenders = documentsData?.documentFilterLenders || [];
+
+  const selectableDocuments = displayDocuments.filter(
+    (doc) => doc.status !== "SKIPPED",
+  );
 
   const autoForwardEnabled = Boolean(documentsData?.autoForwardDocumentsToLender);
 
@@ -380,7 +365,7 @@ const LoanPreview = () => {
       return;
     }
 
-    const selectableIds = selectableDocuments.map((d: any) => d.requirementId);
+    const selectableIds = selectableDocuments.map((doc) => doc.rowKey);
 
     setSelectedRows(selectableIds);
   };
@@ -440,9 +425,25 @@ const LoanPreview = () => {
       return;
     }
 
+    const { payload, skippedByLender } = summarizeSendFromDisplayRows(
+      displayDocuments,
+      selectedRows,
+      selectedLenders,
+    );
+
+    if (payload.length === 0) {
+      toast.error(
+        "None of the selected documents apply to the selected lenders",
+      );
+      return;
+    }
+
     const result = await Swal.fire({
       title: "Send Documents?",
-      text: "Selected documents will be sent to selected lenders.",
+      text:
+        skippedByLender.length > 0
+          ? "Each lender will only receive documents they requested (plus broker documents). Some selections may be skipped for certain lenders."
+          : "Selected documents will be sent to selected lenders.",
       icon: "warning",
       showCancelButton: true,
       confirmButtonText: "Yes, send",
@@ -467,13 +468,6 @@ const LoanPreview = () => {
 
       const token = sessionStorage.getItem("broker_token");
 
-      const payload = {
-        lenders: selectedLenders.map((applicationLenderId) => ({
-          applicationLenderId,
-          requirementIds: selectedRows,
-        })),
-      };
-
       const res = await fetch(
         `${API_BASE}/broker/loan-pipeline/submissions/${submissionId}/documents/submit`,
         {
@@ -482,7 +476,7 @@ const LoanPreview = () => {
             "Content-Type": "application/json",
             ...(token && { Authorization: `Bearer ${token}` }),
           },
-          body: JSON.stringify(payload),
+          body: JSON.stringify({ lenders: payload }),
         },
       );
 
@@ -492,9 +486,33 @@ const LoanPreview = () => {
         throw new Error(json.message || "Failed to send documents");
       }
 
+      const blockedResults = (json.results || []).filter(
+        (result: any) => !result.success && result.blockedByStatus,
+      );
+      const successResults = (json.results || []).filter(
+        (result: any) => result.success,
+      );
+
+      if (successResults.length === 0) {
+        const blockedMessage =
+          blockedResults.map((result: any) => result.message).join(" ") ||
+          "No documents were sent to the selected lenders.";
+
+        throw new Error(blockedMessage);
+      }
+
+      const skippedNote =
+        skippedByLender.length > 0
+          ? " Some documents were skipped for lenders that did not request them."
+          : "";
+      const blockedNote =
+        blockedResults.length > 0
+          ? ` ${blockedResults.length} lender(s) were skipped because they are approved, declined, or withdrawn.`
+          : "";
+
       await Swal.fire({
         title: "Success",
-        text: "Documents sent to lenders successfully",
+        text: `Documents sent to lenders successfully.${skippedNote}${blockedNote}`,
         icon: "success",
         confirmButtonColor: "#22c55e",
       });
@@ -574,6 +592,16 @@ const LoanPreview = () => {
   const applicationId = submissionDetail?.applicationId;
   const submissionId = Location.state?.submissionId;
 
+  const canRequestDocuments = useMemo(
+    () => canBrokerRequestDocuments(submissionDetail),
+    [submissionDetail],
+  );
+
+  const documentRequestBlockedReason = useMemo(
+    () => getBrokerRequestDocumentsDisabledReason(submissionDetail),
+    [submissionDetail],
+  );
+
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedLenderSearch(lenderSearchQ);
@@ -628,13 +656,26 @@ const LoanPreview = () => {
     submissionId: string,
     pageNo = 1,
     searchQuery = "",
+    lenderFilter = documentLenderFilter,
+    sentFilter: DocumentSentFilter = documentSentFilter,
   ) => {
     try {
       setDocumentsLoading(true);
       const token = sessionStorage.getItem("broker_token");
 
+      const params = new URLSearchParams({
+        page: String(pageNo),
+        limit: String(limit),
+        search: searchQuery,
+        sentFilter,
+      });
+
+      if (lenderFilter) {
+        params.set("applicationLenderId", lenderFilter);
+      }
+
       const res = await fetch(
-        `${API_BASE}/broker/loan-pipeline/submissions/${submissionId}/documents?page=${pageNo}&limit=${limit}&search=${searchQuery}`,
+        `${API_BASE}/broker/loan-pipeline/submissions/${submissionId}/documents?${params.toString()}`,
         {
           headers: {
             ...(token && { Authorization: `Bearer ${token}` }),
@@ -660,42 +701,16 @@ const LoanPreview = () => {
     }
   };
 
-  const fetchLois = async (id: string) => {
-    try {
-      setLoiLoading(true);
-      const submissionRes = await fetch(
-        `${API_BASE}/api/public/broker/applications/submissions/${id}`,
-      );
-      const submissionJson = await submissionRes.json();
-      if (!submissionRes.ok || !submissionJson.success) {
-        throw new Error(submissionJson.message || "Failed to fetch submission");
-      }
-      const currentApplicationId = submissionJson?.data?.applicationId;
-      if (!currentApplicationId) {
-        throw new Error("Application ID not found");
-      }
-      const loiRes = await fetch(
-        `${API_BASE}/broker/loan-pipeline/${currentApplicationId}/lois`,
-        {
-          method: "GET",
-          headers: getAuthHeaders(),
-        },
-      );
-      const loiJson = await loiRes.json();
-      if (!loiRes.ok || !loiJson.success) {
-        throw new Error(loiJson.message || "Failed to fetch LOIs");
-      }
-      setLois(loiJson.data?.lois || []);
-      setLoiLoadedFor(id);
-    } catch (err: any) {
-      toast.error(err.message || "Failed to load LOIs");
-    } finally {
-      setLoiLoading(false);
-    }
-  };
 
   const handleRequestDocuments = async () => {
     if (!applicationId) return;
+    if (!canRequestDocuments) {
+      toast.error(
+        documentRequestBlockedReason ||
+          "Documents cannot be requested for this application.",
+      );
+      return;
+    }
     if (selectedRequestDocs.length === 0) {
       toast.error("Please select at least one document");
       return;
@@ -950,8 +965,6 @@ const LoanPreview = () => {
     setRequestDocsLoadedFor(null);
     setDocumentsData(null);
     setDocumentsLoadedFor(null);
-    setLois([]);
-    setLoiLoadedFor(null);
     setLenders([]);
     setBorrowerSummary(null);
     // setSentLenders({});
@@ -981,8 +994,15 @@ const LoanPreview = () => {
   }, [submissionDetail?.canEdit, activeTab]);
 
   useEffect(() => {
+    if (!canRequestDocuments && activeTab === "request-document") {
+      setActiveTab("view-details");
+    }
+  }, [canRequestDocuments, activeTab]);
+
+  useEffect(() => {
     if (
       activeTab === "request-document" &&
+      canRequestDocuments &&
       applicationId &&
       requestDocsLoadedFor !== applicationId
     ) {
@@ -996,28 +1016,31 @@ const LoanPreview = () => {
     ) {
       fetchSubmissionDocuments(submissionId, 1, debouncedSearch);
     }
-
-    if (
-      activeTab === "view-loi" &&
-      submissionId &&
-      loiLoadedFor !== submissionId
-    ) {
-      fetchLois(submissionId);
-    }
   }, [
     activeTab,
     applicationId,
     submissionId,
     requestDocsLoadedFor,
     documentsLoadedFor,
-    loiLoadedFor,
   ]);
 
   useEffect(() => {
     if (submissionId) {
-      fetchSubmissionDocuments(submissionId, page, debouncedSearch);
+      fetchSubmissionDocuments(
+        submissionId,
+        page,
+        debouncedSearch,
+        documentLenderFilter,
+        documentSentFilter,
+      );
     }
-  }, [page, debouncedSearch, submissionId]);
+  }, [
+    page,
+    debouncedSearch,
+    documentLenderFilter,
+    documentSentFilter,
+    submissionId,
+  ]);
 
   useEffect(() => {
     if (activeTab === "find-lenders" && submissionId) {
@@ -1040,87 +1063,6 @@ const LoanPreview = () => {
     return () => clearTimeout(timer);
   }, [searchInput]);
 
-  const groupedFields = useMemo(() => {
-    const signatureField = fields.find(
-      (f: any) => f.fieldKey === "borrowerSignature",
-    );
-
-    const groups: GroupedFields = {
-      primaryBorrower: [],
-      coBorrowers: {},
-      entity: [],
-      property: [],
-      loan: [],
-      financial: [],
-      others: [],
-    };
-
-    fields.forEach((field: SubmissionField) => {
-      const key = field.fieldKey || "";
-      if (!key || key === "borrowerSignature") return;
-
-      // CoBorrower
-      if (key.startsWith("coBorrower_")) {
-        const match = key.match(/^coBorrower_(\d+)_/);
-        if (match) {
-          const index = match[1];
-          if (!groups.coBorrowers[index]) {
-            groups.coBorrowers[index] = [];
-          }
-          groups.coBorrowers[index].push(field);
-        }
-        return;
-      }
-
-      // Property FIRST (important to avoid overlap)
-      if (/property/i.test(key)) {
-        groups.property.push(field);
-        return;
-      }
-
-      // Entity
-      if (/entity|dba|legalName|entityType|business/i.test(key)) {
-        groups.entity.push(field);
-        return;
-      }
-
-      // Financial
-      if (/noi|revenue|income|rent|tax|insurance|hoa/i.test(key)) {
-        groups.financial.push(field);
-        return;
-      }
-
-      // Loan
-      if (/loan|amount|ltv|ltc|dscr|interest|term/i.test(key)) {
-        groups.loan.push(field);
-        return;
-      }
-
-      // Primary Borrower (strict)
-      if (
-        key.startsWith("borrower") ||
-        /firstName|lastName|email|phone|dob|ssn|employer/i.test(key)
-      ) {
-        groups.primaryBorrower.push(field);
-        return;
-      }
-
-      // Address fallback (smart split)
-      if (/address|city|state|zip/i.test(key)) {
-        if (key.toLowerCase().includes("property")) {
-          groups.property.push(field);
-        } else {
-          groups.primaryBorrower.push(field);
-        }
-        return;
-      }
-
-      // Others
-      groups.others.push(field);
-    });
-    return { ...groups, signatureField };
-  }, [fields]);
-
   const loanAmount = Number(getFieldValue(fields, "amountRequested") ?? 0) || 0;
   const ltv = Number(getFieldValue(fields, "ltvPercentage") ?? 0) || 0;
   const ltc = Number(getFieldValue(fields, "ltcPercentage") ?? 0) || 0;
@@ -1130,9 +1072,6 @@ const LoanPreview = () => {
 
   const submittedDate = submissionDetail?.submittedAt
     ? new Date(submissionDetail.submittedAt)
-    : null;
-  const firstReview = Array.isArray(submissionDetail?.lenders?.[0]?.reviews)
-    ? submissionDetail.lenders[0].reviews[0] || null
     : null;
 
   const tabs = [
@@ -1199,286 +1138,21 @@ const LoanPreview = () => {
   const currentFile = previewFiles[activeIndex];
 
   const renderViewDetails = () => (
-    <div className="space-y-6">
-      {firstReview && (
-        <div
-          className={`relative overflow-hidden rounded-2xl border p-6 shadow-sm ${
-            firstReview.reviewStatus === "APPROVED"
-              ? "border-emerald-400 bg-emerald-50/60 dark:bg-emerald-500/5"
-              : firstReview.reviewStatus === "CONDITIONAL"
-                ? "border-amber-400 bg-amber-50/60 dark:bg-amber-500/5"
-                : "border-rose-400 bg-rose-50/60 dark:bg-rose-500/5"
-          }`}
-        >
-          <div
-            className={`absolute inset-x-0 top-0 h-1 ${
-              firstReview.reviewStatus === "APPROVED"
-                ? "bg-emerald-500"
-                : firstReview.reviewStatus === "CONDITIONAL"
-                  ? "bg-amber-500"
-                  : "bg-rose-500"
-            }`}
-          />
-          <div className="mb-6 flex items-center gap-4">
-            <div
-              className={`flex h-12 w-12 items-center justify-center rounded-xl text-xl font-bold text-white ${
-                firstReview.reviewStatus === "APPROVED"
-                  ? "bg-emerald-500"
-                  : firstReview.reviewStatus === "CONDITIONAL"
-                    ? "bg-amber-500"
-                    : "bg-rose-500"
-              }`}
-            >
-              {firstReview.reviewStatus === "APPROVED"
-                ? "OK"
-                : firstReview.reviewStatus === "CONDITIONAL"
-                  ? "!"
-                  : "NO"}
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-wider text-slate-500">
-                Lender Decision
-              </p>
-              <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">
-                {firstReview.reviewStatus === "DECLINED"
-                  ? "REJECTED"
-                  : firstReview.reviewStatus}
-              </h3>
-            </div>
-          </div>
-          <div className="grid gap-6 text-sm md:grid-cols-4">
-            {firstReview.approvedAmount && (
-              <div>
-                <p className="mb-1 text-xs text-slate-500">Approved Amount</p>
-                <p className="font-semibold text-slate-900 dark:text-slate-100">
-                  ${Number(firstReview.approvedAmount).toLocaleString()}
-                </p>
-              </div>
-            )}
-            {firstReview.interestRate && (
-              <div>
-                <p className="mb-1 text-xs text-slate-500">Interest Rate</p>
-                <p className="font-semibold text-slate-900 dark:text-slate-100">
-                  {firstReview.interestRate}%
-                </p>
-              </div>
-            )}
-            {firstReview.reviewedAt && (
-              <div>
-                <p className="mb-1 text-xs text-slate-500">
-                  {firstReview.reviewStatus === "DECLINED"
-                    ? "Rejected On"
-                    : "Reviewed On"}
-                </p>
-                <p className="font-semibold text-slate-900 dark:text-slate-100">
-                  {new Date(firstReview.reviewedAt).toLocaleString()}
-                </p>
-              </div>
-            )}
-          </div>
-          {firstReview.notes && (
-            <div className="mt-6 border-t border-slate-200 pt-4 dark:border-slate-700">
-              <p className="mb-2 text-xs text-slate-500">Notes</p>
-              <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-700 dark:text-slate-300">
-                {firstReview.notes}
-              </p>
-            </div>
-          )}
-        </div>
-      )}
-
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950">
-        <div className="mb-6 flex flex-col gap-3 text-sm font-medium md:flex-row md:items-center md:justify-between">
-          <div>
-            <span className="font-semibold">Application No:</span>{" "}
-            <span className="text-slate-700 dark:text-slate-300">
-              {submissionDetail?.applicationNumber || "-"}
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="font-semibold">Status:</span>
-            <span
-              className={`rounded-full px-3 py-1 text-xs font-semibold tracking-wide ${getStatusChip(submissionDetail?.status)}`}
-            >
-              {formatSubmissionStatus(submissionDetail?.status)}
-            </span>
-          </div>
-        </div>
-        <div className="mb-6 rounded-[28px] border border-sky-100 bg-gradient-to-br from-white via-sky-50 to-cyan-50 p-6 shadow-[0_18px_40px_rgba(14,116,144,0.08)] dark:border-blue-900/30 dark:bg-blue-950/20">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-5">
-            <Metric
-              label="Loan Amount"
-              value={formatCompactAmount(Number(loanAmount || 0))}
-              variant="panel"
-            />
-            <Metric
-              label="LTV %"
-              value={ltv ? `${ltv.toFixed(2)}%` : "-"}
-              variant="panel"
-            />
-            <Metric
-              label="LTC %"
-              value={ltc ? `${ltc.toFixed(2)}%` : "-"}
-              variant="panel"
-            />
-            <Metric
-              label="ARV %"
-              value={arv ? `${arv.toFixed(2)}%` : "-"}
-              variant="panel"
-            />
-            <Metric
-              label="DSCR"
-              value={dscr ? dscr.toFixed(2) : "-"}
-              variant="panel"
-            />
-            <Metric
-              label="Net Worth"
-              value={formatCompactAmount(Number(netWorth || 0))}
-              variant="panel"
-            />
-          </div>
-        </div>
-
-        <div className="mb-4 flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-300">
-          <Eye className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
-          <p>
-            Read-only preview. To edit application details, open the{" "}
-            <span className="font-semibold text-cyan-700 dark:text-cyan-400">
-              Update Application
-            </span>{" "}
-            tab.
-          </p>
-        </div>
-
-        <div className="space-y-10 rounded-xl border p-6 dark:border-slate-800">
-          {groupedFields.primaryBorrower.length > 0 && (
-            <div>
-              <h3 className="mb-4 border-b pb-2 text-md font-bold">
-                Primary Borrower
-              </h3>
-              <div className="grid gap-6 md:grid-cols-2">
-                {groupedFields.primaryBorrower.map((field: any) => (
-                  <FieldItem key={`${field.fieldKey}`} field={field} />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {Object.keys(groupedFields.coBorrowers).map((index) => (
-            <div key={index}>
-              <h3 className="mb-4 border-b pb-2 text-md font-bold">
-                Co Borrower {index}
-              </h3>
-              <div className="grid gap-6 md:grid-cols-2">
-                {groupedFields.coBorrowers[index].map((field: any) => (
-                  <FieldItem key={field.fieldKey} field={field} />
-                ))}
-              </div>
-            </div>
-          ))}
-
-          {/* Entity */}
-          {groupedFields.entity.length > 0 && (
-            <div>
-              <h3 className="mb-4 border-b pb-2 text-md font-bold">
-                Entity Information
-              </h3>
-              <div className="grid gap-6 md:grid-cols-2">
-                {groupedFields.entity.map((field) => (
-                  <FieldItem key={field.fieldKey} field={field} />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Property */}
-          {groupedFields.property.length > 0 && (
-            <div>
-              <h3 className="mb-4 border-b pb-2 text-md font-bold dark:border-slate-800">
-                Property Details
-              </h3>
-              <div className="grid gap-6 md:grid-cols-2">
-                {groupedFields.property.map((field) => (
-                  <FieldItem key={field.fieldKey} field={field} />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Financial */}
-          {groupedFields.financial.length > 0 && (
-            <div>
-              <h3 className="mb-4 border-b pb-2 text-md font-bold">
-                Financial Details
-              </h3>
-              <div className="grid gap-6 md:grid-cols-2">
-                {groupedFields.financial.map((field) => (
-                  <FieldItem key={field.fieldKey} field={field} />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Loan */}
-          {groupedFields.loan.length > 0 && (
-            <div>
-              <h3 className="mb-4 border-b pb-2 text-md font-bold">
-                Loan Details
-              </h3>
-              <div className="grid gap-6 md:grid-cols-2">
-                {groupedFields.loan.map((field) => (
-                  <FieldItem key={field.fieldKey} field={field} />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Others */}
-          {groupedFields.others.length > 0 && (
-            <div>
-              <h3 className="mb-4 border-b pb-2 text-md font-bold">
-                Other Details
-              </h3>
-              <div className="grid gap-6 md:grid-cols-2">
-                {groupedFields.others.map((field) => (
-                  <FieldItem key={field.fieldKey} field={field} />
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {groupedFields.signatureField && (
-          <div className="mt-8 space-y-4 text-center">
-            <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-              Digital Signature
-            </h3>
-            <div className="flex justify-center">
-              <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800/70">
-                <img
-                  src={parseValue(groupedFields.signatureField.value)}
-                  alt="Digital Signature"
-                  className="h-40 object-contain"
-                />
-              </div>
-            </div>
-          </div>
-        )}
-
-        {submittedDate && (
-          <div className="mt-8 flex flex-col justify-between gap-2 border-t pt-6 text-sm text-slate-600 dark:text-slate-400 md:flex-row">
-            <div>
-              <span className="font-semibold">Submitted Date:</span>{" "}
-              {submittedDate.toLocaleDateString()}
-            </div>
-            <div>
-              <span className="font-semibold">Submitted Time:</span>{" "}
-              {submittedDate.toLocaleTimeString()}
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
+    <SubmissionDetailsView
+      submissionDetail={submissionDetail}
+      fields={fields}
+      formatSubmissionStatus={formatSubmissionStatus}
+      getStatusChip={getStatusChip}
+      formatCompactAmount={formatCompactAmount}
+      loanAmount={loanAmount}
+      ltv={ltv}
+      ltc={ltc}
+      arv={arv}
+      dscr={dscr}
+      netWorth={netWorth}
+      submittedDate={submittedDate}
+      showEditHint={submissionDetail?.canEdit !== false}
+    />
   );
 
   const loanApplicationInitial = useMemo(() => {
@@ -1545,7 +1219,22 @@ const LoanPreview = () => {
   };
 
 
-  const renderRequestDocument = () => (
+  const renderRequestDocument = () => {
+    if (!canRequestDocuments) {
+      return (
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+          <h2 className="text-lg font-semibold text-gray-800 dark:text-slate-100">
+            Request Document
+          </h2>
+          <p className="mt-2 text-sm text-slate-500">
+            {documentRequestBlockedReason ||
+              "Documents cannot be requested for this application."}
+          </p>
+        </div>
+      );
+    }
+
+    return (
     <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950">
       <div className="mb-4 flex items-center justify-between">
         <div>
@@ -1650,117 +1339,16 @@ const LoanPreview = () => {
         </>
       )}
     </div>
-  );
+    );
+  };
 
   const renderViewLoi = () => (
-    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950">
-      <div className="mb-5 flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-bold dark:text-white">
-            Letters of Intent
-          </h2>
-          <p className="text-sm text-slate-500">
-            Available lender LOIs for this submission.
-          </p>
-        </div>
-      </div>
-
-      {loiLoading ? (
-        <div className="py-10 text-center text-slate-500">Loading LOIs...</div>
-      ) : lois.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-500/10">
-            <FileText className="h-7 w-7 text-amber-600 dark:text-amber-400" />
-          </div>
-          <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">
-            No LOIs Available
-          </h3>
-          <p className="mt-1 max-w-sm text-sm text-slate-500 dark:text-slate-400">
-            No lenders have issued a Letter of Intent for this application yet.
-            Once available, it will appear here.
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {lois.map((loi, index) => (
-            <div
-              key={`${loi.lenderName}-${index}`}
-              className="space-y-3 rounded-xl border border-slate-200 p-4 dark:border-slate-800"
-            >
-              <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-slate-900 dark:text-white">
-                  {loi.lenderName}
-                </h3>
-                <span className="rounded-full bg-indigo-100 px-3 py-1 text-xs text-indigo-600">
-                  {loi.status}
-                </span>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span className="text-slate-500 dark:text-slate-300">
-                    Email
-                  </span>
-                  <div className="dark:text-slate-400">
-                    {loi.lenderEmail || "-"}
-                  </div>
-                </div>
-                <div>
-                  <span className="text-slate-500 dark:text-slate-300">
-                    Phone
-                  </span>
-                  <div className="dark:text-slate-400">
-                    {loi.lenderPhone || "-"}
-                  </div>
-                </div>
-                <div>
-                  <span className="text-slate-500 dark:text-slate-300">
-                    Approved Amount
-                  </span>
-                  <div className="dark:text-slate-400">
-                    {loi.approvedAmount
-                      ? `$${Number(loi.approvedAmount).toLocaleString()}`
-                      : "-"}
-                  </div>
-                </div>
-                <div>
-                  <span className="text-slate-500 dark:text-slate-300">
-                    Interest Rate
-                  </span>
-                  <div className="dark:text-slate-400">
-                    {loi.interestRate ? `${loi.interestRate}%` : "-"}
-                  </div>
-                </div>
-              </div>
-
-              {loi.notes && (
-                <div className="text-sm">
-                  <span className="text-slate-500 dark:text-slate-300">
-                    Notes
-                  </span>
-                  <p className="mt-1 dark:text-slate-400">{loi.notes}</p>
-                </div>
-              )}
-
-              {/* <div className="flex justify-end border-t pt-3 dark:border-slate-800">
-                <button
-                  onClick={() =>
-                    setPreviewFile({
-                      url: `${API_BASE}/public${loi.loiUrl}`,
-                      type: "application/pdf",
-                      name: `${loi.lenderName} LOI`,
-                    })
-                  }
-                  className="rounded-lg bg-purple-600 px-4 py-2 text-sm text-white hover:bg-purple-700"
-                >
-                  View LOI PDF
-                </button>
-              </div> */}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
+    <BrokerLoiPanel
+      applicationId={applicationId}
+      apiRole="broker"
+      getAuthHeaders={getAuthHeaders}
+      isActive={activeTab === "view-loi"}
+    />
   );
 
   const PRODUCT_LABELS: Record<string, string> = {
@@ -2169,12 +1757,19 @@ dark:bg-red-900/20 dark:text-red-400"
   };
 
   const lenderOptions = useMemo(() => {
-    return submittedLenders.map((l) => ({
-      value: l.applicationLenderId,
-      label: l.lenderName,
-      status: l.status,
-    }));
+    return submittedLenders
+      .filter((l) => canLenderReceiveDocuments(l))
+      .map((l) => ({
+        value: l.applicationLenderId,
+        label: l.lenderName,
+        status: l.status,
+      }));
   }, [submittedLenders]);
+
+  useEffect(() => {
+    const receivableIds = new Set(lenderOptions.map((option) => option.value));
+    setSelectedLenders((prev) => prev.filter((id) => receivableIds.has(id)));
+  }, [lenderOptions]);
 
   const CustomOption = (props: any) => {
     const { data } = props;
@@ -2189,11 +1784,9 @@ dark:bg-red-900/20 dark:text-red-400"
 
           {/* STATUS */}
           <span
-            className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${
-              data.status === "IN_REVIEW"
-                ? "bg-yellow-100 text-yellow-700"
-                : "bg-blue-100 text-blue-700"
-            }`}
+            className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${getLenderStatusBadgeClass(
+              data.status,
+            )}`}
           >
             {data.status}
           </span>
@@ -2223,52 +1816,31 @@ dark:bg-red-900/20 dark:text-red-400"
 
   const renderDocuments = () => (
     <div className="min-h-screen h-[90vh] rounded-3xl  p-6">
-      {/* HEADER */}
-      <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        {/* LEFT */}
-        <div>
-          <h2 className="text-xl font-bold text-slate-800 dark:text-white">
-            Requested Documents
-          </h2>
-          <p className="text-sm text-slate-500">
-            {autoForwardEnabled
-              ? "Uploaded documents are sent directly to lenders"
-              : "Upload and manage submission documents"}
-          </p>
-        </div>
+      <div className="mb-2">
+        <h2 className="text-xl font-bold text-slate-800 dark:text-white">
+          Requested Documents
+        </h2>
+        <p className="mt-1 text-sm text-slate-500">
+          Upload, filter, and send documents to lenders on this application.
+        </p>
+      </div>
 
-        <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto md:items-center">
-          <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-2.5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-            <div className="min-w-0">
-              <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">
-                Document forwarding
-              </p>
-              <p className="text-[11px] text-slate-500">
-                {autoForwardEnabled
-                  ? "Auto-forward to lenders"
-                  : "Broker review before send"}
-              </p>
-            </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={autoForwardEnabled}
-              disabled={autoForwardSaving}
-              onClick={handleToggleAutoForward}
-              className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition ${
-                autoForwardEnabled ? "bg-emerald-500" : "bg-slate-300"
-              } ${autoForwardSaving ? "opacity-60 cursor-not-allowed" : "cursor-pointer"}`}
-            >
-              <span
-                className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${
-                  autoForwardEnabled ? "translate-x-6" : "translate-x-1"
-                }`}
-              />
-            </button>
-          </div>
-
-          {!autoForwardEnabled && selectedRows.length > 0 && (
-            <div className="w-full md:w-72 z-999">
+      <DocumentControlsBar
+        autoForwardEnabled={autoForwardEnabled}
+        autoForwardSaving={autoForwardSaving}
+        onToggleAutoForward={handleToggleAutoForward}
+        documentFilterLenders={documentFilterLenders}
+        documentLenderFilter={documentLenderFilter}
+        onDocumentLenderFilterChange={setDocumentLenderFilter}
+        documentSentFilter={documentSentFilter}
+        onDocumentSentFilterChange={setDocumentSentFilter}
+        searchInput={searchInput}
+        onSearchInputChange={setSearchInput}
+        onResetPage={() => setPage(1)}
+        manualSendSlot={
+          !autoForwardEnabled && selectedRows.length > 0 ? (
+            lenderOptions.length > 0 ? (
+            <div className="w-full min-w-[220px] sm:w-64 z-999">
               <Select
                 isMulti
                 options={finalOptions}
@@ -2277,7 +1849,7 @@ dark:bg-red-900/20 dark:text-red-400"
                 )}
                 closeMenuOnSelect={false}
                 hideSelectedOptions={false}
-                placeholder="Select Lenders"
+                placeholder="Send to lenders..."
                 isLoading={lenderLoading}
                 onChange={(selected: any) => {
                   if (!selected) {
@@ -2311,10 +1883,12 @@ dark:bg-red-900/20 dark:text-red-400"
                 styles={{
                   control: (base) => ({
                     ...base,
-                    minHeight: "42px",
-                    maxHeight: "42px",
+                    minHeight: "40px",
+                    maxHeight: "40px",
                     overflow: "hidden",
                     borderRadius: "12px",
+                    borderColor: "#e2e8f0",
+                    backgroundColor: "#f8fafc",
                   }),
                   valueContainer: (base) => ({
                     ...base,
@@ -2324,38 +1898,15 @@ dark:bg-red-900/20 dark:text-red-400"
                 }}
               />
             </div>
-          )}
-
-          {/* SEARCH */}
-          <div className="relative w-full md:w-80">
-            <input
-              type="text"
-              placeholder="Search documents..."
-              value={searchInput}
-              onChange={(e) => {
-                setSearchInput(e.target.value);
-                setPage(1);
-              }}
-              className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 pr-10 text-sm outline-none transition
-      focus:border-blue-500 focus:ring-2 focus:ring-blue-200
-      dark:border-slate-700 dark:bg-slate-900 dark:text-white"
-            />
-
-            <FileSearch
-              size={18}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
-            />
-          </div>
-        </div>
-      </div>
-
-      {autoForwardEnabled && (
-        <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-200">
-          Auto-forward is on. When the client or you upload a document, it is
-          sent to the lender(s) that requested it. Turn off the toggle to review
-          and send documents manually.
-        </div>
-      )}
+            ) : (
+              <p className="max-w-xs text-xs text-amber-700 dark:text-amber-300">
+                No active lenders available. Approved, declined, or withdrawn
+                lenders cannot receive documents.
+              </p>
+            )
+          ) : undefined
+        }
+      />
 
       {!autoForwardEnabled && selectedRows.length > 0 && (
         <div className="mb-4 flex items-center justify-between rounded-2xl border border-blue-200 bg-gradient-to-r from-blue-50 to-cyan-50 px-5 py-3 shadow-sm dark:border-blue-900/40 dark:from-slate-900 dark:to-slate-800">
@@ -2367,10 +1918,15 @@ dark:bg-red-900/20 dark:text-red-400"
           {/* BUTTON */}
           <button
             onClick={handleSendToLender}
+            disabled={
+              sending ||
+              lenderOptions.length === 0 ||
+              selectedLenders.length === 0
+            }
             className="inline-flex items-center gap-2 px-3 py-2 text-xs font-semibold
       bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-xl
       shadow-md hover:shadow-lg hover:scale-[1.03] active:scale-95
-      transition-all duration-200"
+      transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100"
           >
             {sending ? (
               "Sending..."
@@ -2389,7 +1945,7 @@ dark:bg-red-900/20 dark:text-red-400"
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-500 border-t-transparent"></div>
           <p className="mt-3 text-sm text-slate-500">Loading documents...</p>
         </div>
-      ) : documentsData?.documents?.length > 0 ? (
+      ) : displayDocuments.length > 0 ? (
         <div className="h-[85vh] my-4 flex flex-col rounded-2xl border border-slate-200 dark:border-slate-800">
           {/* TABLE */}
           <div className="h-full overflow-y-auto">
@@ -2415,20 +1971,23 @@ dark:bg-red-900/20 dark:text-red-400"
 
               {/* BODY */}
               <tbody className="divide-y dark:divide-slate-800">
-                {documentsData.documents.map((doc: any) => {
-                  const isOpen = activeAction === doc.requirementId;
+                {displayDocuments.map((doc) => {
+                  const isOpen = activeAction === doc.rowKey;
+                  const { label: sourceLabel, className: sourceClass } =
+                    getDocumentSourceDisplay(doc, { brokerSourceLabel: "Me" });
+                  const sentDisplay = getDocumentSentDisplay(doc);
 
                   return (
                     <tr
-                      key={doc.requirementId}
+                      key={doc.rowKey}
                       className="group hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-all hover:shadow-sm"
                     >
                       <td className="px-5 py-4">
                         <input
                           type="checkbox"
                           disabled={doc.status === "SKIPPED"}
-                          checked={selectedRows.includes(doc.requirementId)}
-                          onChange={() => handleSelectRow(doc.requirementId)}
+                          checked={selectedRows.includes(doc.rowKey)}
+                          onChange={() => handleSelectRow(doc.rowKey)}
                           className="h-4 w-4 accent-emerald-600 cursor-pointer disabled:opacity-40"
                         />
                       </td>
@@ -2448,54 +2007,48 @@ dark:bg-red-900/20 dark:text-red-400"
 
                       {/* SOURCE */}
                       <td className="px-5 py-4 text-center">
-                        {(() => {
-                          let sourceLabel = "-";
-                          let sourceClass = "bg-slate-100 text-slate-600";
-
-                          if (doc.source === "BROKER_ADDED") {
-                            sourceLabel = "Principal Broker";
-                            sourceClass = "bg-indigo-100 text-indigo-700";
-                          } else if (doc.source === "SUB_BROKER_ADDED") {
-                            sourceLabel = "Sub Broker";
-                            sourceClass = "bg-cyan-100 text-cyan-700";
-                          } else if (doc?.requestedByLenders?.length) {
-                            sourceLabel = doc.requestedByLenders[0].lenderName;
-
-                            sourceClass = "bg-emerald-100 text-emerald-700";
-                          }
-
-                          return (
-                            <span
-                              className={`px-3 py-1 text-xs rounded-full font-medium ${sourceClass}`}
-                            >
-                              {sourceLabel}
-                            </span>
-                          );
-                        })()}
+                        <span
+                          className={`px-3 py-1 text-xs rounded-full font-medium ${sourceClass}`}
+                        >
+                          {sourceLabel}
+                        </span>
                       </td>
 
                       {/* STATUS */}
                       <td className="px-5 py-4 text-center">
-                        <span
-                          className={`px-3 py-1 rounded-full text-xs font-semibold ${getDocumentStatusChip(
-                            doc.status,
-                          )}`}
-                        >
-                          {doc.status?.replaceAll("_", " ")?.toUpperCase()}
-                        </span>
+                        <div className="flex flex-col items-center gap-1">
+                          <span
+                            className={`px-3 py-1 rounded-full text-xs font-semibold ${getDocumentStatusChip(
+                              doc.status ?? ""
+                            )}`}
+                          >
+                            {formatDocumentStatusLabel(doc.status)}
+                          </span>
+                          {sentDisplay && (
+                            <span
+                              className={`max-w-[180px] text-center text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                                sentDisplay.isSent
+                                  ? "bg-emerald-50 text-emerald-700"
+                                  : "bg-orange-50 text-orange-700"
+                              }`}
+                            >
+                              {sentDisplay.detail}
+                            </span>
+                          )}
+                        </div>
                       </td>
 
                       {/* FILES */}
                       <td className="px-5 py-4 text-center">
-                        {doc.uploadedCount > 0 ? (
+                        {Number(doc.uploadedCount) > 0 ? (
                           <div className="flex justify-center items-center gap-2">
                             <span className="px-3 py-1 text-xs rounded-full bg-emerald-100 text-emerald-700 font-semibold">
-                              {doc.uploadedCount} Files
+                              {Number(doc.uploadedCount)} Files
                             </span>
 
                             <button
                               onClick={() => {
-                                setPreviewFiles(doc.uploadedFiles);
+                                setPreviewFiles(((doc.uploadedFiles as any[]) || []));
                                 setActiveIndex(0);
                               }}
                               className="p-2 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition-all"
@@ -2514,7 +2067,7 @@ dark:bg-red-900/20 dark:text-red-400"
                       <td className="px-5 py-4 text-right relative">
                         <button
                           onClick={() =>
-                            setActiveAction(isOpen ? null : doc.requirementId)
+                            setActiveAction(isOpen ? null : doc.rowKey)
                           }
                           className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition"
                         >
@@ -2667,31 +2220,65 @@ dark:bg-red-900/20 dark:text-red-400"
           </div>
 
           {/* PAGINATION */}
-          <div className="flex items-center justify-between px-4 py-3 border-t dark:border-slate-800 bg-white dark:bg-slate-900">
-            <p className="text-sm text-slate-500">
+          <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-t border-slate-200 bg-slate-50/80 dark:border-slate-800 dark:bg-slate-900/60">
+            <p className="text-sm text-slate-500 dark:text-slate-400">
               Page{" "}
-              <span className="font-semibold">{documentsPagination?.page}</span>{" "}
+              <span className="font-semibold text-slate-700 dark:text-slate-200">
+                {documentsPagination?.page}
+              </span>{" "}
               of{" "}
-              <span className="font-semibold">
+              <span className="font-semibold text-slate-700 dark:text-slate-200">
                 {documentsPagination?.totalPages}
               </span>
+              {documentsPagination?.total != null && (
+                <span className="ml-1 text-slate-400">
+                  ({documentsPagination.total} documents)
+                </span>
+              )}
             </p>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <button
+                type="button"
                 disabled={page === 1}
                 onClick={() => setPage((p) => p - 1)}
-                className="px-3 py-1.5 rounded-lg border text-sm hover:bg-slate-100 disabled:opacity-40"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 dark:disabled:border-slate-800 dark:disabled:bg-slate-800/50 dark:disabled:text-slate-600"
               >
-                â† Prev
+                <ChevronLeft size={16} />
+                Previous
               </button>
 
+              {documentsPagination?.totalPages > 1 &&
+                Array.from(
+                  { length: documentsPagination.totalPages },
+                  (_, index) => {
+                    const pageNum = index + 1;
+
+                    return (
+                      <button
+                        key={pageNum}
+                        type="button"
+                        onClick={() => setPage(pageNum)}
+                        className={`h-9 min-w-9 rounded-xl px-2.5 text-sm font-semibold transition ${
+                          page === pageNum
+                            ? "bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-sm"
+                            : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                        }`}
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  },
+                )}
+
               <button
+                type="button"
                 disabled={page === documentsPagination?.totalPages}
                 onClick={() => setPage((p) => p + 1)}
-                className="px-3 py-1.5 rounded-lg border text-sm hover:bg-slate-100 disabled:opacity-40"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 dark:disabled:border-slate-800 dark:disabled:bg-slate-800/50 dark:disabled:text-slate-600"
               >
-                Next â†’
+                Next
+                <ChevronRight size={16} />
               </button>
             </div>
           </div>
@@ -2952,16 +2539,32 @@ const productCode = submissionDetail?.loanProduct?.name || "-";
                 {tabs.map((tab) => {
                   const Icon = tab.icon;
                   const isActive = activeTab === tab.key;
+                  const isRequestDocumentTab = tab.key === "request-document";
+                  const isDisabled =
+                    isRequestDocumentTab && !canRequestDocuments;
 
                   return (
                     <button
                       key={tab.key}
-                      onClick={() => setActiveTab(tab.key)}
+                      type="button"
+                      disabled={isDisabled}
+                      title={
+                        isDisabled
+                          ? documentRequestBlockedReason ||
+                            "Documents cannot be requested for this application."
+                          : undefined
+                      }
+                      onClick={() => {
+                        if (isDisabled) return;
+                        setActiveTab(tab.key);
+                      }}
                       className={`group relative inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium transition-all duration-200
           ${
             isActive
               ? "bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-md"
-              : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white"
+              : isDisabled
+                ? "cursor-not-allowed text-slate-400 opacity-60 dark:text-slate-500"
+                : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white"
           }
         `}
                     >
@@ -3074,20 +2677,24 @@ const productCode = submissionDetail?.loanProduct?.name || "-";
               {/* LEFT */}
               {activeIndex > 0 && (
                 <button
+                  type="button"
                   onClick={() => setActiveIndex((p) => p - 1)}
-                  className="absolute left-4 bg-white p-2 rounded-full shadow"
+                  className="absolute left-4 inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-md transition hover:bg-slate-50"
+                  aria-label="Previous file"
                 >
-                  â†
+                  <ChevronLeft size={20} />
                 </button>
               )}
 
               {/* RIGHT */}
               {activeIndex < previewFiles.length - 1 && (
                 <button
+                  type="button"
                   onClick={() => setActiveIndex((p) => p + 1)}
-                  className="absolute right-4 bg-white p-2 rounded-full shadow"
+                  className="absolute right-4 inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-md transition hover:bg-slate-50"
+                  aria-label="Next file"
                 >
-                  â†’
+                  <ChevronRight size={20} />
                 </button>
               )}
 

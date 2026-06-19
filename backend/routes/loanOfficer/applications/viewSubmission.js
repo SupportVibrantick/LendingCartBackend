@@ -1,5 +1,10 @@
 module.exports = async function viewSubmission(fastify) {
   const { mapSubmissionFieldResponse } = require("../../../services/staticSubmissionFields");
+  const {
+    resolveBrokerPipelineDisplayStatus,
+    canBrokerRequestDocuments,
+    canBrokerEditSubmittedApplication,
+  } = require("../../../utils/resolveApplicationStatus");
   fastify.get("/submissions/:submissionId", async (req, reply) => {
     const { submissionId } = req.params;
 
@@ -19,7 +24,11 @@ module.exports = async function viewSubmission(fastify) {
         include: {
           fields: {
             include: {
-              builderField: true,
+              builderField: {
+                include: {
+                  section: true,
+                },
+              },
             },
           },
           application: {
@@ -28,6 +37,7 @@ module.exports = async function viewSubmission(fastify) {
               loanProductCode: true,
               brokerOrgId: true,
               brokerUserId: true,
+              status: true,
 
               // ❌ DO NOT TRUST THIS (kept only if needed later)
               amountRequested: true,
@@ -55,6 +65,7 @@ module.exports = async function viewSubmission(fastify) {
                   },
                   lenderProduct: true,
                   lenderReviews: {
+                    orderBy: { createdAt: "desc" },
                     include: {
                       reviewedByUser: true,
                       conditions: true,
@@ -135,6 +146,12 @@ module.exports = async function viewSubmission(fastify) {
 
     const amountRequested = amountField?.value ?? null;
 
+    const application = submission.application;
+    const applicationStatus = application?.status ?? null;
+    const pipelineStatus = resolveBrokerPipelineDisplayStatus(application);
+    const editCheck = canBrokerEditSubmittedApplication(application);
+    const documentRequestCheck = canBrokerRequestDocuments(application);
+
     /* ===============================
        RESPONSE
     =============================== */
@@ -160,6 +177,14 @@ module.exports = async function viewSubmission(fastify) {
 
         applicationProductId: submission.applicationProductId,
         status: submission.status,
+        pipelineStatus,
+        applicationStatus,
+        canEdit: editCheck.allowed,
+        editBlockedReason: editCheck.allowed ? null : editCheck.reason,
+        canRequestDocuments: documentRequestCheck.allowed,
+        documentRequestBlockedReason: documentRequestCheck.allowed
+          ? null
+          : documentRequestCheck.reason,
         submittedAt: submission.createdAt,
 
         /* ================= FIELDS ================= */
@@ -184,6 +209,7 @@ module.exports = async function viewSubmission(fastify) {
               interestRate: r.interestRate,
               notes: r.notes,
               reviewedAt: r.createdAt,
+              updatedAt: r.updatedAt,
 
               reviewedBy: r.reviewedByUser
                 ? {
@@ -202,6 +228,32 @@ module.exports = async function viewSubmission(fastify) {
                 satisfiedAt: c.satisfiedAt,
               })),
             })),
+            latestReview: l.lenderReviews[0]
+              ? {
+                  reviewId: l.lenderReviews[0].id,
+                  reviewStatus: l.lenderReviews[0].reviewStatus,
+                  approvedAmount: l.lenderReviews[0].approvedAmount,
+                  interestRate: l.lenderReviews[0].interestRate,
+                  notes: l.lenderReviews[0].notes,
+                  reviewedAt: l.lenderReviews[0].createdAt,
+                  updatedAt: l.lenderReviews[0].updatedAt,
+                  reviewedBy: l.lenderReviews[0].reviewedByUser
+                    ? {
+                        userId: l.lenderReviews[0].reviewedByUser.id,
+                        name: `${l.lenderReviews[0].reviewedByUser.firstName ?? ""} ${
+                          l.lenderReviews[0].reviewedByUser.lastName ?? ""
+                        }`.trim(),
+                        email: l.lenderReviews[0].reviewedByUser.email,
+                      }
+                    : null,
+                  conditions: l.lenderReviews[0].conditions.map((c) => ({
+                    conditionId: c.id,
+                    description: c.description,
+                    status: c.status,
+                    satisfiedAt: c.satisfiedAt,
+                  })),
+                }
+              : null,
           })),
       },
     });

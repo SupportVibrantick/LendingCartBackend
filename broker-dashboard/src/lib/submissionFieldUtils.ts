@@ -214,3 +214,219 @@ export function getAdditionalFields(fieldMap: Record<string, any>) {
     return true;
   });
 }
+
+export const PRODUCT_LABELS: Record<string, string> = {
+  FIX_AND_FLIP_LOAN_1_TO_4_UNITS: "FIX & FLIP",
+  DSCR_LOAN_1_TO_4_UNITS: "DSCR",
+  CONSTRUCTION_LOAN_1_TO_4_UNITS: "CONSTRUCTION",
+  BRIDGE_LOAN_1_TO_4_UNITS: "BRIDGE LOAN",
+  SBA_504_REAL_ESTATE_AND_EQUIPMENT: "SBA 504",
+  USDA_BI: "USDA B&I",
+  MEZZANINE_LOAN: "MEZZANINE",
+  PREFERRED_EQUITY: "PREFERRED EQUITY",
+  WORKING_CAPITAL: "WORKING CAPITAL",
+  EQUIPMENT_FINANCING: "EQUIPMENT",
+  PURCHASE_ORDER_FINANCING: "PURCHASE ORDER",
+};
+
+export type SubmissionDetailField = {
+  fieldId?: string | null;
+  fieldKey?: string | null;
+  label?: string | null;
+  type?: string | null;
+  value: string;
+  sectionName?: string | null;
+  sectionSortOrder?: number | null;
+  fieldSortOrder?: number | null;
+};
+
+export type SubmissionFieldSection = {
+  id: string;
+  title: string;
+  sortOrder: number;
+  fields: SubmissionDetailField[];
+};
+
+const METRIC_ONLY_FIELD_KEYS = new Set([
+  "ltvPercentage",
+  "ltcPercentage",
+  "arvPercentage",
+  "dscr",
+  "netWorth",
+]);
+
+function resolveHeuristicSection(fieldKey: string) {
+  if (fieldKey.startsWith("coBorrower_")) {
+    const match = fieldKey.match(/^coBorrower_(\d+)_/);
+    const index = match ? Number(match[1]) : 1;
+    return {
+      id: `co-borrower-${index}`,
+      title: `Co-Borrower ${index}`,
+      sortOrder: 200 + index,
+    };
+  }
+
+  if (/property/i.test(fieldKey)) {
+    return {
+      id: "property-details",
+      title: "Property Details",
+      sortOrder: 400,
+    };
+  }
+
+  if (/entity|dba|legalName|entityType|business|formationDate|yearsInBusiness/i.test(fieldKey)) {
+    return {
+      id: "entity-information",
+      title: "Entity Information",
+      sortOrder: 300,
+    };
+  }
+
+  if (/noi|revenue|income|rent|tax|insurance|hoa|assets|liabilities|floodZone/i.test(fieldKey)) {
+    return {
+      id: "financial-details",
+      title: "Financial Details",
+      sortOrder: 500,
+    };
+  }
+
+  if (/loan|amount|interest|term|purpose|recourse|ltv|ltc|dscr|product/i.test(fieldKey)) {
+    return {
+      id: "loan-details",
+      title: "Loan Details",
+      sortOrder: 450,
+    };
+  }
+
+  if (
+    fieldKey.startsWith("borrower") ||
+    /firstName|lastName|email|phone|dob|ssn|employer|creditScore|address|city|state|zip|country|mailing/i.test(
+      fieldKey,
+    )
+  ) {
+    return {
+      id: "primary-borrower",
+      title: "Primary Borrower",
+      sortOrder: 100,
+    };
+  }
+
+  return {
+    id: "other-details",
+    title: "Additional Details",
+    sortOrder: 900,
+  };
+}
+
+export function parseSubmissionFieldValue(value: string | unknown) {
+  if (typeof value !== "string") return value;
+
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
+}
+
+export function getSubmissionFieldLabel(field: SubmissionDetailField) {
+  if (field.label) return field.label;
+  if (field.fieldKey) return formatFieldLabel(field.fieldKey);
+  return "Field";
+}
+
+export function formatSubmissionFieldValue(
+  field: SubmissionDetailField,
+  productLabels: Record<string, string> = PRODUCT_LABELS,
+) {
+  const fieldKey = field.fieldKey || "";
+  const parsed = parseSubmissionFieldValue(field.value);
+
+  if (fieldKey === "loanProductCode") {
+    const code = String(parsed ?? "");
+    return productLabels[code] || code.replace(/_/g, " ");
+  }
+
+  return formatFieldDisplayValue(fieldKey, parsed);
+}
+
+export function groupSubmissionFieldsForDisplay(
+  fields: SubmissionDetailField[] = [],
+) {
+  const signatureField =
+    fields.find((field) => field.fieldKey === "borrowerSignature") || null;
+
+  const sectionMap = new Map<string, SubmissionFieldSection>();
+
+  fields.forEach((field) => {
+    const fieldKey = field.fieldKey || "";
+    if (!fieldKey || fieldKey === "borrowerSignature") return;
+    if (METRIC_ONLY_FIELD_KEYS.has(fieldKey)) return;
+
+    const heuristic = resolveHeuristicSection(fieldKey);
+    const useBuilderSection =
+      Boolean(field.sectionName) && !fieldKey.startsWith("coBorrower_");
+
+    const sectionId = useBuilderSection
+      ? `builder:${field.sectionName}`
+      : heuristic.id;
+    const title = useBuilderSection ? field.sectionName! : heuristic.title;
+    const sortOrder = useBuilderSection
+      ? field.sectionSortOrder ?? 600
+      : heuristic.sortOrder;
+
+    if (!sectionMap.has(sectionId)) {
+      sectionMap.set(sectionId, {
+        id: sectionId,
+        title,
+        sortOrder,
+        fields: [],
+      });
+    }
+
+    sectionMap.get(sectionId)!.fields.push(field);
+  });
+
+  const sections = Array.from(sectionMap.values())
+    .map((section) => ({
+      ...section,
+      fields: [...section.fields].sort((left, right) => {
+        const leftOrder = left.fieldSortOrder ?? 9999;
+        const rightOrder = right.fieldSortOrder ?? 9999;
+        if (leftOrder !== rightOrder) return leftOrder - rightOrder;
+        return getSubmissionFieldLabel(left).localeCompare(
+          getSubmissionFieldLabel(right),
+        );
+      }),
+    }))
+    .filter((section) => section.fields.length > 0)
+    .sort(
+      (left, right) =>
+        left.sortOrder - right.sortOrder ||
+        left.title.localeCompare(right.title),
+    );
+
+  return { sections, signatureField };
+}
+
+export function getBorrowerDisplayNameFromFields(
+  fields: SubmissionDetailField[] = [],
+  fallbackName?: string | null,
+) {
+  const map = Object.fromEntries(
+    fields
+      .filter((field) => field.fieldKey)
+      .map((field) => [field.fieldKey, parseSubmissionFieldValue(field.value)]),
+  );
+
+  const firstName = map.borrowerFirstName || map.first_name || "";
+  const lastName = map.borrowerLastName || map.last_name || "";
+  const combined = `${firstName} ${lastName}`.trim();
+
+  return combined || fallbackName || "—";
+}
+
+export function getEntityTypeFromFields(fields: SubmissionDetailField[] = []) {
+  const field = fields.find((item) => item.fieldKey === "entityType");
+  if (!field) return "—";
+  return formatSubmissionFieldValue(field);
+}

@@ -1,4 +1,9 @@
 const dayjs = require("dayjs");
+const { mapClientPortalDocuments } = require("../../utils/mapClientPortalDocuments");
+const {
+  canClientSignApplication,
+  resolveLatestActiveSubmission,
+} = require("../../utils/clientPortalSubmission");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
@@ -15,6 +20,7 @@ async function getClientLoanDetailsRoute(fastify) {
           type: "object",
           properties: {
             token: { type: "string" },
+            applicationId: { type: "string", format: "uuid" },
           },
         },
       },
@@ -85,9 +91,12 @@ async function getClientLoanDetailsRoute(fastify) {
           );
 
           const clientId = decoded.clientId;
+          const { applicationId } = req.query;
 
           const loanRecord = await prisma.loanApplication.findFirst({
-            where: { clientId },
+            where: applicationId
+              ? { id: applicationId, clientId }
+              : { clientId },
             include: {
               submissions: {
                 include: { fields: true },
@@ -99,9 +108,11 @@ async function getClientLoanDetailsRoute(fastify) {
                 },
               },
             },
-            orderBy: {
-              createdAt: "desc",
-            },
+            orderBy: applicationId
+              ? undefined
+              : {
+                  createdAt: "desc",
+                },
           });
 
           if (!loanRecord) {
@@ -165,11 +176,36 @@ async function getClientLoanDetailsRoute(fastify) {
           .join(" ")
           .trim();
 
+        const borrowerSignature = getField("borrowerSignature");
+        const latestSubmission = resolveLatestActiveSubmission(loan.submissions || []);
+        const signatureState = canClientSignApplication({
+          status: loan.status,
+          submittedAt: loan.submittedAt,
+          createdAt: loan.createdAt,
+          borrowerSignature,
+          submissions: loan.submissions,
+        });
+
         const response = {
           loanApplicationId: loan.id,
+          id: loan.id,
           applicationNumber: loan.applicationNumber,
           status: loan.status,
+          submittedAt: loan.submittedAt,
           createdAt: dayjs(loan.createdAt).format("DD MMM YYYY"),
+          submissions: loan.submissions || [],
+          latestSubmission: latestSubmission
+            ? {
+                id: latestSubmission.id,
+                status: latestSubmission.status,
+                createdAt: latestSubmission.createdAt,
+                fields: latestSubmission.fields || [],
+              }
+            : null,
+          borrowerSignature,
+          canClientSign: signatureState.allowed,
+          clientSignBlockedReason: signatureState.reason || null,
+          alreadySigned: Boolean(signatureState.alreadySigned),
 
           borrower: {
             name: borrowerName || null,
@@ -205,17 +241,7 @@ async function getClientLoanDetailsRoute(fastify) {
 
           fullApplication: allFields,
 
-          documents: loan.documentRequirements.map((doc) => ({
-            id: doc.id,
-            name: doc.documentType.name,
-            status: doc.status,
-            required: doc.isRequired,
-            uploadedFiles: doc.uploads.map((file) => ({
-              fileName: file.fileName,
-              fileUrl: file.fileUrl,
-              uploadedAt: file.uploadedAt,
-            })),
-          })),
+          documents: mapClientPortalDocuments(loan.documentRequirements || []),
         };
 
         return reply.send({

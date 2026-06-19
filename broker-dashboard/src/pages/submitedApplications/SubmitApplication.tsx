@@ -23,6 +23,11 @@ import {
 import Swal from "sweetalert2";
 import { MdEdit } from "react-icons/md";
 import PageMeta from "../../components/common/PageMeta";
+import { formatDocumentStatusLabel } from "../../lib/documentStatus";
+import {
+  canBrokerReassignApplication,
+  getBrokerReassignmentBlockedReason,
+} from "../../lib/brokerApplicationAssignment";
 
 /* ================= TYPES ================= */
 // type SubmissionListItem = {
@@ -136,7 +141,11 @@ function formatStatusLabel(status?: string) {
 
 const STATUS_FILTERS = [
   { value: "", label: "All", statKey: "totalApplications" as const },
-  { value: "CLIENT_PENDING", label: "Client Pending", statKey: "clientPending" as const },
+  {
+    value: "CLIENT_PENDING",
+    label: "Client Pending",
+    statKey: "clientPending" as const,
+  },
   { value: "DRAFT", label: "Draft", statKey: "draft" as const },
   { value: "SUBMITTED", label: "Submitted", statKey: "submitted" as const },
   { value: "IN_REVIEW", label: "In Review", statKey: "inReview" as const },
@@ -261,7 +270,7 @@ export default function LoanApplicationsPage() {
 
   const navigate = useNavigate();
 
-  const formatFieldKey = (key: string | null | undefined) => {
+  const formatFieldKey = (key: string | null | undefined) => { 
     if (!key) return "";
 
     let cleaned = key
@@ -380,6 +389,18 @@ export default function LoanApplicationsPage() {
       setAssignSubBrokerError("");
       if (!selectedSubBroker) {
         setAssignSubBrokerError("Please select a sub broker");
+        return;
+      }
+
+      const currentRow = rows.find(
+        (row) => row.applicationId === assignSubBrokerModal.applicationId,
+      );
+      if (!canBrokerReassignApplication({ status: currentRow?.status })) {
+        const reason = getBrokerReassignmentBlockedReason({
+          status: currentRow?.status,
+        });
+        setAssignSubBrokerError(reason);
+        toast.error(reason);
         return;
       }
 
@@ -628,62 +649,62 @@ export default function LoanApplicationsPage() {
 
   const loadSubmissions = useCallback(
     async (cursor?: string, searchValue?: string, statusValue?: string) => {
-    try {
-      setLoading(true);
+      try {
+        setLoading(true);
 
-      const url = new URL(API_BASE + "/broker/loan-pipeline/submissions");
-      const activeSearch = (searchValue ?? searchTerm).trim();
-      const activeStatus = statusValue ?? statusFilter;
+        const url = new URL(API_BASE + "/broker/loan-pipeline/submissions");
+        const activeSearch = (searchValue ?? searchTerm).trim();
+        const activeStatus = statusValue ?? statusFilter;
 
-      if (activeSearch) {
-        url.searchParams.append("search", activeSearch);
+        if (activeSearch) {
+          url.searchParams.append("search", activeSearch);
+        }
+
+        if (activeStatus) {
+          url.searchParams.append("status", activeStatus);
+        }
+
+        if (cursor) {
+          url.searchParams.append("cursor", cursor);
+        }
+
+        const res = await fetch(url.toString(), {
+          headers: getAuthHeaders(),
+        });
+
+        const json = await res.json();
+
+        const list = Array.isArray(json.data) ? json.data : [];
+
+        const formatted = list.map((item: any) => ({
+          submissionId: item.submissionId,
+          borrowerName: item.borrower || "N/A",
+          applicationNumber: item.applicationNumber,
+          applicationId: item.applicationId,
+          company: "-",
+          loanType: item.loanInfo,
+          cityState: item.location?.split(",")[0]?.trim() || "N/A",
+
+          country: item.location?.split(",")[1]?.trim() || "",
+          amount: Number(item.amount) || 0,
+          status: item.status,
+          date: item.submittedOn,
+          pendingDocumentsCount: item.pendingDocumentsCount,
+          assignedOfficerName: item.assignedLoanOfficer?.name || null,
+          assignedOfficerId: item.assignedLoanOfficer?.id || null,
+          assignedOfficerImage: item.assignedLoanOfficer?.profileImage || null,
+          assignedSubBrokers: item.assignedSubBrokers || [],
+        }));
+
+        setRows((prev) => (cursor ? [...prev, ...formatted] : formatted));
+
+        setNextCursor(json.pagination.nextCursor);
+        setHasMore(json.pagination.hasMore);        
+      } finally {
+        setLoading(false);
       }
-
-      if (activeStatus) {
-        url.searchParams.append("status", activeStatus);
-      }
-
-      if (cursor) {
-        url.searchParams.append("cursor", cursor);
-      }
-
-      const res = await fetch(url.toString(), {
-        headers: getAuthHeaders(),
-      });
-
-      const json = await res.json();
-
-      const list = Array.isArray(json.data) ? json.data : [];
-
-      const formatted = list.map((item: any) => ({
-        submissionId: item.submissionId,
-        borrowerName: item.borrower || "N/A",
-        applicationNumber: item.applicationNumber,
-        applicationId: item.applicationId,
-        company: "-",
-        loanType: item.loanInfo,
-        cityState: item.location?.split(",")[0]?.trim() || "N/A",
-
-        country: item.location?.split(",")[1]?.trim() || "",
-        amount: Number(item.amount) || 0,
-        status: item.status,
-        date: item.submittedOn,
-        pendingDocumentsCount: item.pendingDocumentsCount,
-        assignedOfficerName: item.assignedLoanOfficer?.name || null,
-        assignedOfficerId: item.assignedLoanOfficer?.id || null,
-        assignedOfficerImage: item.assignedLoanOfficer?.profileImage || null,
-        assignedSubBrokers: item.assignedSubBrokers || [],
-      }));
-
-      setRows((prev) => (cursor ? [...prev, ...formatted] : formatted));
-
-      setNextCursor(json.pagination.nextCursor);
-      setHasMore(json.pagination.hasMore);
-    } finally {
-      setLoading(false);
-    }
-  },
-  [searchTerm, statusFilter],
+    },  
+    [searchTerm, statusFilter],
   );
 
   const fetchPipelineStats = async () => {
@@ -808,7 +829,7 @@ export default function LoanApplicationsPage() {
   };
 
   const handleSendClientLink = async (applicationId: string) => {
-    console.log(applicationId);
+    // console.log(applicationId);
     try {
       const token = sessionStorage.getItem("broker_token");
 
@@ -1109,7 +1130,15 @@ export default function LoanApplicationsPage() {
   const openAssignModal = async (
     applicationId: string,
     currentOfficerId?: string | null,
+    pipelineStatus?: string | null,
   ) => {
+    if (!canBrokerReassignApplication({ status: pipelineStatus })) {
+      toast.error(
+        getBrokerReassignmentBlockedReason({ status: pipelineStatus }),
+      );
+      return;
+    }
+
     setAssignModal({
       open: true,
       applicationId,
@@ -1124,6 +1153,16 @@ export default function LoanApplicationsPage() {
   const handleAssignLoanOfficer = async () => {
     if (!selectedOfficer) {
       setAssignError("Please select a loan officer");
+      return;
+    }
+
+    const currentRow = rows.find(
+      (row) => row.applicationId === assignModal.applicationId,
+    );
+    if (!canBrokerReassignApplication({ status: currentRow?.status })) {
+      setAssignError(
+        getBrokerReassignmentBlockedReason({ status: currentRow?.status }),
+      );
       return;
     }
 
@@ -1151,7 +1190,11 @@ export default function LoanApplicationsPage() {
           ? "Loan officer updated successfully"
           : "Loan officer assigned successfully",
       );
-      setAssignModal({ open: false, applicationId: "", currentOfficerId: null });
+      setAssignModal({
+        open: false,
+        applicationId: "",
+        currentOfficerId: null,
+      });
       loadSubmissions();
     } catch (err: any) {
       setAssignError(err.message || "Something went wrong");
@@ -1213,7 +1256,9 @@ export default function LoanApplicationsPage() {
                 <TrendingUp className="h-3.5 w-3.5" />
                 Pipeline Management
               </div>
-              <h1 className="text-2xl font-semibold tracking-tight">Loan Pipeline</h1>
+              <h1 className="text-2xl font-semibold tracking-tight">
+                Loan Pipeline
+              </h1>
               <p className="mt-1 max-w-2xl text-sm text-white/80">
                 {pipelineStats.totalApplications} total application
                 {pipelineStats.totalApplications === 1 ? "" : "s"} ·{" "}
@@ -1290,40 +1335,42 @@ export default function LoanApplicationsPage() {
                   disabled={loading}
                   className="inline-flex h-10 items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-60 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-200"
                 >
-                  <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+                  <RefreshCw
+                    className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
+                  />
                   Refresh
                 </button>
               </div>
             </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-medium text-gray-500">Status:</span>
-            {STATUS_FILTERS.map((filter) => {
-              const count = pipelineStats[filter.statKey] ?? 0;
-              const active = statusFilter === filter.value;
-              return (
-                <button
-                  key={filter.value || "all"}
-                  type="button"
-                  onClick={() => setStatusFilter(filter.value)}
-                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition ${
-                    active
-                      ? "bg-[#13538A] text-white"
-                      : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300"
-                  }`}
-                >
-                  {filter.label}
-                  <span
-                    className={`rounded-full px-1.5 py-0.5 text-[10px] ${
-                      active ? "bg-white/20" : "bg-white dark:bg-gray-900"
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-medium text-gray-500">Status:</span>
+              {STATUS_FILTERS.map((filter) => {
+                const count = pipelineStats[filter.statKey] ?? 0;
+                const active = statusFilter === filter.value;
+                return (
+                  <button
+                    key={filter.value || "all"}
+                    type="button"
+                    onClick={() => setStatusFilter(filter.value)}
+                    className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition ${
+                      active
+                        ? "bg-[#13538A] text-white"
+                        : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300"
                     }`}
                   >
-                    {count}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+                    {filter.label}
+                    <span
+                      className={`rounded-full px-1.5 py-0.5 text-[10px] ${
+                        active ? "bg-white/20" : "bg-white dark:bg-gray-900"
+                      }`}
+                    >
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
 
@@ -1383,7 +1430,10 @@ export default function LoanApplicationsPage() {
                 {loading && rows.length === 0 ? (
                   Array.from({ length: 4 }).map((_, i) => (
                     <tr key={i}>
-                      <td colSpan={9} className="px-4 py-4 first:pl-6 last:pr-6 lg:px-5 lg:first:pl-8 lg:last:pr-8">
+                      <td
+                        colSpan={9}
+                        className="px-4 py-4 first:pl-6 last:pr-6 lg:px-5 lg:first:pl-8 lg:last:pr-8"
+                      >
                         <div className="h-10 animate-pulse rounded-lg bg-gray-100 dark:bg-gray-800" />
                       </td>
                     </tr>
@@ -1429,12 +1479,16 @@ export default function LoanApplicationsPage() {
                       <td
                         onClick={() => openPreview(row.submissionId)}
                         className="overflow-hidden px-3 py-3 align-middle"
-                        title={[row.cityState, row.country].filter(Boolean).join(", ")}
+                        title={[row.cityState, row.country]
+                          .filter(Boolean)
+                          .join(", ")}
                       >
                         <div className="flex min-w-0 items-center gap-1 text-sm text-gray-700 dark:text-gray-300">
                           <MapPin className="h-3.5 w-3.5 shrink-0 text-gray-400" />
                           <span className="truncate">
-                            {[row.cityState, row.country].filter(Boolean).join(", ") || "—"}
+                            {[row.cityState, row.country]
+                              .filter(Boolean)
+                              .join(", ") || "—"}
                           </span>
                         </div>
                       </td>
@@ -1452,7 +1506,9 @@ export default function LoanApplicationsPage() {
                         onClick={() => openPreview(row.submissionId)}
                         className="overflow-hidden px-3 py-3 align-middle text-sm text-gray-600 dark:text-gray-400"
                       >
-                        <span className="block truncate">{formatShortDate(row.date)}</span>
+                        <span className="block truncate">
+                          {formatShortDate(row.date)}
+                        </span>
                       </td>
 
                       <td
@@ -1477,7 +1533,10 @@ export default function LoanApplicationsPage() {
                             {row.assignedOfficerName}
                           </span>
                         ) : (
-                          <span className="text-xs text-gray-400">—</span>
+                          <div className="flex items-center gap-1 text-xs text-gray-400">
+                            <Users className="h-3 w-3" />
+                            Unassigned
+                          </div>
                         )}
                       </td>
 
@@ -1485,7 +1544,8 @@ export default function LoanApplicationsPage() {
                         onClick={() => openPreview(row.submissionId)}
                         className="overflow-hidden px-3 py-3 align-middle text-center"
                       >
-                        {row.assignedSubBrokers && row.assignedSubBrokers.length > 0 ? (
+                        {row.assignedSubBrokers &&
+                        row.assignedSubBrokers.length > 0 ? (
                           <button
                             type="button"
                             onClick={(e) => {
@@ -1501,10 +1561,13 @@ export default function LoanApplicationsPage() {
                             {row.assignedSubBrokers.length}
                           </button>
                         ) : (
-                          <span className="text-xs text-gray-400">—</span>
+                          <div className="flex items-center gap-1 text-xs text-gray-400">
+                            <Users className="h-3 w-3" />
+                            Unassigned
+                          </div>
                         )}
                       </td>
-
+  
                       <td
                         className="overflow-hidden px-2 py-3 pr-6 text-right align-middle lg:pr-8"
                         onClick={(e) => e.stopPropagation()}
@@ -1517,7 +1580,8 @@ export default function LoanApplicationsPage() {
                             data-dropdown-trigger
                             onClick={(e) => {
                               e.stopPropagation();
-                              const rect = e.currentTarget.getBoundingClientRect();
+                              const rect =
+                                e.currentTarget.getBoundingClientRect();
                               setDropdownPos({
                                 top: rect.top - 8,
                                 left: rect.right - 192,
@@ -1574,42 +1638,62 @@ export default function LoanApplicationsPage() {
                                   Send Client Link
                                 </button>
                               )}
-                              <button
-                                type="button"
-                                onMouseDown={(e) => e.preventDefault()}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setActiveDropdown(null);
-                                  openAssignModal(
-                                    row.applicationId,
-                                    row.assignedOfficerId,
-                                  );
-                                }}
-                                className="flex w-full items-center gap-3 px-4 py-3 text-sm text-indigo-600 hover:bg-indigo-50"
-                              >
-                                <MdEdit size={14} />
-                                {row.assignedOfficerName
-                                  ? "Change Officer"
-                                  : "Assign Officer"}
-                              </button>
-                              <button
-                                type="button"
-                                onMouseDown={(e) => e.preventDefault()}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setActiveDropdown(null);
-                                  setAssignSubBrokerModal({
-                                    open: true,
-                                    applicationId: row.applicationId,
-                                    applicationNumber: row.applicationNumber || "",
-                                  });
-                                  fetchSubBrokers();
-                                }}
-                                className="flex w-full items-center gap-3 px-4 py-3 text-sm text-cyan-600 hover:bg-cyan-50"
-                              >
-                                <MdEdit size={14} />
-                                Assign Sub Broker
-                              </button>
+                              {canBrokerReassignApplication({
+                                status: row.status,
+                              }) && (
+                                <>
+                                  <button
+                                    type="button"
+                                    onMouseDown={(e) => e.preventDefault()}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setActiveDropdown(null);
+                                      openAssignModal(
+                                        row.applicationId,
+                                        row.assignedOfficerId,
+                                        row.status,
+                                      );
+                                    }}
+                                    className="flex w-full items-center gap-3 px-4 py-3 text-sm text-indigo-600 hover:bg-indigo-50"
+                                  >
+                                    <MdEdit size={14} />
+                                    {row.assignedOfficerName
+                                      ? "Change Officer"
+                                      : "Assign Officer"}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onMouseDown={(e) => e.preventDefault()}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (
+                                        !canBrokerReassignApplication({
+                                          status: row.status,
+                                        })
+                                      ) {
+                                        toast.error(
+                                          getBrokerReassignmentBlockedReason({
+                                            status: row.status,
+                                          }),
+                                        );
+                                        return;
+                                      }
+                                      setActiveDropdown(null);
+                                      setAssignSubBrokerModal({
+                                        open: true,
+                                        applicationId: row.applicationId,
+                                        applicationNumber:
+                                          row.applicationNumber || "",
+                                      });
+                                      fetchSubBrokers();
+                                    }}
+                                    className="flex w-full items-center gap-3 px-4 py-3 text-sm text-cyan-600 hover:bg-cyan-50"
+                                  >
+                                    <MdEdit size={14} />
+                                    Assign Sub Broker
+                                  </button>
+                                </>
+                              )}
                             </div>,
                             document.body,
                           )}
@@ -1654,176 +1738,177 @@ export default function LoanApplicationsPage() {
                 <Loader2 className="mx-auto h-5 w-5 animate-spin text-[#13538A]" />
               )}
               {!loading && hasMore && (
-                <p className="text-xs text-gray-400">Scroll for more applications</p>
+                <p className="text-xs text-gray-400">
+                  Scroll for more applications
+                </p>
               )}
             </div>
           </div>
         </div>
       </div>
 
-        {viewSubmissionId &&
-          createPortal(
-            <div
-              className="fixed inset-0 z-50
+      {viewSubmissionId &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-50
                                             bg-black/40 dark:bg-black/70
                                             backdrop-blur-[1px]
                                             flex items-center justify-center p-4"
-            >
-              <div
-                className="bg-white dark:bg-slate-900
+          >
+            <div
+              className="bg-white dark:bg-slate-900
                                             text-slate-900 dark:text-slate-100
                                             rounded-2xl
                                             w-full max-w-7xl max-h-[90vh]
                                             overflow-y-auto
                                             shadow-xl dark:shadow-black/40"
-              >
-                {/* HEADER */}
-                <div className="sticky top-0 z-10 bg-white dark:bg-slate-900 flex items-center justify-between px-6 py-3 border-b dark:border-slate-800">
-                  <div>
-                    <h2 className="font-bold text-lg">Application Details</h2>
-                  </div>
-                  <button
-                    onClick={() => {
-                      setViewSubmissionId(null);
-                      setSubmissionDetail(null);
-                    }}
-                    className="text-slate-400 hover:text-red-500 text-xl"
-                  >
-                    ✕
-                  </button>
+            >
+              {/* HEADER */}
+              <div className="sticky top-0 z-10 bg-white dark:bg-slate-900 flex items-center justify-between px-6 py-3 border-b dark:border-slate-800">
+                <div>
+                  <h2 className="font-bold text-lg">Application Details</h2>
                 </div>
+                <button
+                  onClick={() => {
+                    setViewSubmissionId(null);
+                    setSubmissionDetail(null);
+                  }}
+                  className="text-slate-400 hover:text-red-500 text-xl"
+                >
+                  ✕
+                </button>
+              </div>
 
-                {/* BODY */}
-                <div className="p-6 space-y-8">
-                  {detailLoading ? (
-                    <p className="text-center text-slate-500">Loading…</p>
-                  ) : submissionDetail ? (
-                    (() => {
-                      const signatureField = submissionDetail.fields?.find(
-                        (f: any) => f.fieldKey === "borrowerSignature",
-                      );
+              {/* BODY */}
+              <div className="p-6 space-y-8">
+                {detailLoading ? (
+                  <p className="text-center text-slate-500">Loading…</p>
+                ) : submissionDetail ? (
+                  (() => {
+                    const signatureField = submissionDetail.fields?.find(
+                      (f: any) => f.fieldKey === "borrowerSignature",
+                    );
 
-                      /* ===================== YAHAN PASTE KARO ===================== */
+                    /* ===================== YAHAN PASTE KARO ===================== */
 
-                      const allFields = submissionDetail.fields.filter(
-                        (f: any) => f.fieldKey !== "borrowerSignature",
-                      );
+                    const allFields = submissionDetail.fields.filter(
+                      (f: any) => f.fieldKey !== "borrowerSignature",
+                    );
 
-                      const primaryFields: any[] = [];
-                      const coBorrowerGroups: Record<string, any[]> = {};
-                      const otherFields: any[] = [];
+                    const primaryFields: any[] = [];
+                    const coBorrowerGroups: Record<string, any[]> = {};
+                    const otherFields: any[] = [];
 
-                      allFields.forEach((f: any) => {
-                        const key = f.fieldKey || "";
+                    allFields.forEach((f: any) => {
+                      const key = f.fieldKey || "";
 
-                        if (key.startsWith("coBorrower_")) {
-                          const match = key.match(/^coBorrower_(\d+)_/);
-                          if (match) {
-                            const index = match[1];
-                            if (!coBorrowerGroups[index]) {
-                              coBorrowerGroups[index] = [];
-                            }
-                            coBorrowerGroups[index].push(f);
+                      if (key.startsWith("coBorrower_")) {
+                        const match = key.match(/^coBorrower_(\d+)_/);
+                        if (match) {
+                          const index = match[1];
+                          if (!coBorrowerGroups[index]) {
+                            coBorrowerGroups[index] = [];
                           }
-                        } else if (
-                          key.startsWith("borrower") ||
-                          key === "city" ||
-                          key === "state" ||
-                          key === "isBroker"
-                        ) {
-                          primaryFields.push(f);
-                        } else {
-                          otherFields.push(f);
+                          coBorrowerGroups[index].push(f);
                         }
-                      });
+                      } else if (
+                        key.startsWith("borrower") ||
+                        key === "city" ||
+                        key === "state" ||
+                        key === "isBroker"
+                      ) {
+                        primaryFields.push(f);
+                      } else {
+                        otherFields.push(f);
+                      }
+                    });
 
-                      const loanAmount =
-                        Number(
-                          getFieldValue(
-                            submissionDetail.fields,
-                            "amountRequested",
-                          ) ?? 0,
-                        ) || 0;
+                    const loanAmount =
+                      Number(
+                        getFieldValue(
+                          submissionDetail.fields,
+                          "amountRequested",
+                        ) ?? 0,
+                      ) || 0;
 
-                      const ltv =
-                        Number(
-                          getFieldValue(
-                            submissionDetail.fields,
-                            "ltvPercentage",
-                          ) ?? 0,
-                        ) || 0;
+                    const ltv =
+                      Number(
+                        getFieldValue(
+                          submissionDetail.fields,
+                          "ltvPercentage",
+                        ) ?? 0,
+                      ) || 0;
 
-                      const ltc =
-                        Number(
-                          getFieldValue(
-                            submissionDetail.fields,
-                            "ltcPercentage",
-                          ) ?? 0,
-                        ) || 0;
+                    const ltc =
+                      Number(
+                        getFieldValue(
+                          submissionDetail.fields,
+                          "ltcPercentage",
+                        ) ?? 0,
+                      ) || 0;
 
-                      const arv =
-                        Number(
-                          getFieldValue(
-                            submissionDetail.fields,
-                            "arvPercentage",
-                          ) ?? 0,
-                        ) || 0;
+                    const arv =
+                      Number(
+                        getFieldValue(
+                          submissionDetail.fields,
+                          "arvPercentage",
+                        ) ?? 0,
+                      ) || 0;
 
-                      const dscr =
-                        Number(
-                          getFieldValue(submissionDetail.fields, "dscr") ?? 0,
-                        ) || 0;
+                    const dscr =
+                      Number(
+                        getFieldValue(submissionDetail.fields, "dscr") ?? 0,
+                      ) || 0;
 
-                      const netWorth =
-                        Number(
-                          getFieldValue(submissionDetail.fields, "netWorth") ??
-                            0,
-                        ) || 0;
+                    const netWorth =
+                      Number(
+                        getFieldValue(submissionDetail.fields, "netWorth") ?? 0,
+                      ) || 0;
 
-                      const submittedDate = new Date(
-                        submissionDetail.submittedAt,
-                      );
-                      const formattedDate = submittedDate.toLocaleDateString();
-                      const formattedTime = submittedDate.toLocaleTimeString();
-                      const reviewsArray =
-                        submissionDetail?.lenders?.[0]?.reviews || [];
+                    const submittedDate = new Date(
+                      submissionDetail.submittedAt,
+                    );
+                    const formattedDate = submittedDate.toLocaleDateString();
+                    const formattedTime = submittedDate.toLocaleTimeString();
+                    const reviewsArray =
+                      submissionDetail?.lenders?.[0]?.reviews || [];
 
-                      const firstReview =
-                        Array.isArray(reviewsArray) && reviewsArray.length > 0
-                          ? reviewsArray[0]
-                          : null;
+                    const firstReview =
+                      Array.isArray(reviewsArray) && reviewsArray.length > 0
+                        ? reviewsArray[0]
+                        : null;
 
-                      const FieldItem = ({ field }: { field: any }) => {
-                        const parsedValue = parseValue(field.value);
-
-                        return (
-                          <div className="space-y-1">
-                            <label className="text-xs font-semibold text-slate-500 uppercase">
-                              {formatFieldKey(field.fieldKey)}
-                            </label>
-
-                            <div
-                              className="px-3 py-2 rounded-lg border text-sm font-medium break-words
-bg-slate-100 border-slate-200
-dark:bg-slate-800 dark:border-slate-700"
-                            >
-                              {parsedValue !== undefined && parsedValue !== null
-                                ? typeof parsedValue === "boolean"
-                                  ? parsedValue
-                                    ? "Yes"
-                                    : "No"
-                                  : String(parsedValue)
-                                : "-"}
-                            </div>
-                          </div>
-                        );
-                      };
+                    const FieldItem = ({ field }: { field: any }) => {
+                      const parsedValue = parseValue(field.value);
 
                       return (
-                        <>
-                          {firstReview && (
-                            <div
-                              className={`relative overflow-hidden rounded-2xl border p-6 mb-8 shadow-md
+                        <div className="space-y-1">
+                          <label className="text-xs font-semibold text-slate-500 uppercase">
+                            {formatFieldKey(field.fieldKey)}
+                          </label>
+
+                          <div
+                            className="px-3 py-2 rounded-lg border text-sm font-medium break-words
+bg-slate-100 border-slate-200
+dark:bg-slate-800 dark:border-slate-700"
+                          >
+                            {parsedValue !== undefined && parsedValue !== null
+                              ? typeof parsedValue === "boolean"
+                                ? parsedValue
+                                  ? "Yes"
+                                  : "No"
+                                : String(parsedValue)
+                              : "-"}
+                          </div>
+                        </div>
+                      );
+                    };
+
+                    return (
+                      <>
+                        {firstReview && (
+                          <div
+                            className={`relative overflow-hidden rounded-2xl border p-6 mb-8 shadow-md
      ${
        firstReview.reviewStatus === "APPROVED"
          ? "border-emerald-400 bg-emerald-50/40 dark:bg-emerald-500/5"
@@ -1832,10 +1917,10 @@ dark:bg-slate-800 dark:border-slate-700"
            : "border-rose-400 bg-rose-50/40 dark:bg-rose-500/5"
      }
     `}
-                            >
-                              {/* Top Accent Line */}
-                              <div
-                                className={`absolute top-0 left-0 right-0 h-1
+                          >
+                            {/* Top Accent Line */}
+                            <div
+                              className={`absolute top-0 left-0 right-0 h-1
         ${
           firstReview.reviewStatus === "APPROVED"
             ? "bg-emerald-500"
@@ -1844,12 +1929,12 @@ dark:bg-slate-800 dark:border-slate-700"
               : "bg-rose-500"
         }
       `}
-                              />
+                            />
 
-                              {/* Header Section */}
-                              <div className="flex items-center gap-4 mb-6">
-                                <div
-                                  className={`flex items-center justify-center h-12 w-12 rounded-xl text-white text-xl font-bold
+                            {/* Header Section */}
+                            <div className="flex items-center gap-4 mb-6">
+                              <div
+                                className={`flex items-center justify-center h-12 w-12 rounded-xl text-white text-xl font-bold
           ${
             firstReview.reviewStatus === "APPROVED"
               ? "bg-emerald-500"
@@ -1858,20 +1943,20 @@ dark:bg-slate-800 dark:border-slate-700"
                 : "bg-rose-500"
           }
         `}
-                                >
-                                  {firstReview.reviewStatus === "APPROVED"
-                                    ? "✓"
-                                    : firstReview.reviewStatus === "CONDITIONAL"
-                                      ? "!"
-                                      : "✕"}
-                                </div>
+                              >
+                                {firstReview.reviewStatus === "APPROVED"
+                                  ? "✓"
+                                  : firstReview.reviewStatus === "CONDITIONAL"
+                                    ? "!"
+                                    : "✕"}
+                              </div>
 
-                                <div>
-                                  <p className="text-xs uppercase tracking-wider text-slate-500">
-                                    Lender Decision
-                                  </p>
-                                  <h3
-                                    className={`text-lg font-bold
+                              <div>
+                                <p className="text-xs uppercase tracking-wider text-slate-500">
+                                  Lender Decision
+                                </p>
+                                <h3
+                                  className={`text-lg font-bold
            ${
              firstReview.reviewStatus === "APPROVED"
                ? "text-emerald-600 dark:text-emerald-400"
@@ -1880,214 +1965,212 @@ dark:bg-slate-800 dark:border-slate-700"
                  : "text-rose-600 dark:text-rose-400"
            }
           `}
-                                  >
-                                    {firstReview.reviewStatus === "DECLINED"
-                                      ? "REJECTED"
-                                      : firstReview.reviewStatus}
-                                  </h3>
-                                </div>
+                                >
+                                  {firstReview.reviewStatus === "DECLINED"
+                                    ? "REJECTED"
+                                    : firstReview.reviewStatus}
+                                </h3>
                               </div>
+                            </div>
 
-                              {/* Inline Row */}
-                              <div className="grid md:grid-cols-4 gap-6 text-sm">
-                                {firstReview.approvedAmount && (
-                                  <div>
-                                    <p className="text-xs text-slate-500 mb-1">
-                                      Approved Amount
-                                    </p>
-                                    <p className="font-semibold text-slate-900 dark:text-slate-100">
-                                      $
-                                      {Number(
-                                        firstReview.approvedAmount,
-                                      ).toLocaleString()}
-                                    </p>
-                                  </div>
-                                )}
-
-                                {firstReview.interestRate && (
-                                  <div>
-                                    <p className="text-xs text-slate-500 mb-1">
-                                      Interest Rate
-                                    </p>
-                                    <p className="font-semibold text-slate-900 dark:text-slate-100">
-                                      {firstReview.interestRate}%
-                                    </p>
-                                  </div>
-                                )}
-
-                                {firstReview?.reviewedAt && (
-                                  <div>
-                                    <p className="text-xs text-slate-500 mb-1">
-                                      {firstReview.reviewStatus === "DECLINED"
-                                        ? "Rejected On"
-                                        : "Reviewed On"}
-                                    </p>
-                                    <p className="font-semibold text-slate-900 dark:text-slate-100">
-                                      {new Date(
-                                        firstReview.reviewedAt,
-                                      ).toLocaleString()}
-                                    </p>
-                                  </div>
-                                )}
-                              </div>
-
-                              {/* Notes Full Width Below */}
-                              {firstReview.notes && (
-                                <div className="mt-6 pt-4 border-t border-slate-200 dark:border-slate-700">
-                                  <p className="text-xs text-slate-500 mb-2">
-                                    Notes
+                            {/* Inline Row */}
+                            <div className="grid md:grid-cols-4 gap-6 text-sm">
+                              {firstReview.approvedAmount && (
+                                <div>
+                                  <p className="text-xs text-slate-500 mb-1">
+                                    Approved Amount
                                   </p>
-                                  <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap break-words">
-                                    {firstReview.notes}
+                                  <p className="font-semibold text-slate-900 dark:text-slate-100">
+                                    $
+                                    {Number(
+                                      firstReview.approvedAmount,
+                                    ).toLocaleString()}
+                                  </p>
+                                </div>
+                              )}
+
+                              {firstReview.interestRate && (
+                                <div>
+                                  <p className="text-xs text-slate-500 mb-1">
+                                    Interest Rate
+                                  </p>
+                                  <p className="font-semibold text-slate-900 dark:text-slate-100">
+                                    {firstReview.interestRate}%
+                                  </p>
+                                </div>
+                              )}
+
+                              {firstReview?.reviewedAt && (
+                                <div>
+                                  <p className="text-xs text-slate-500 mb-1">
+                                    {firstReview.reviewStatus === "DECLINED"
+                                      ? "Rejected On"
+                                      : "Reviewed On"}
+                                  </p>
+                                  <p className="font-semibold text-slate-900 dark:text-slate-100">
+                                    {new Date(
+                                      firstReview.reviewedAt,
+                                    ).toLocaleString()}
                                   </p>
                                 </div>
                               )}
                             </div>
-                          )}
 
-                          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 text-sm font-medium">
-                            {/* Application Number */}
-                            <div>
-                              <span className="font-semibold">
-                                Application No:
-                              </span>{" "}
-                              <span className="text-slate-700 dark:text-slate-300">
-                                {submissionDetail.applicationNumber || "-"}
-                              </span>
-                            </div>
+                            {/* Notes Full Width Below */}
+                            {firstReview.notes && (
+                              <div className="mt-6 pt-4 border-t border-slate-200 dark:border-slate-700">
+                                <p className="text-xs text-slate-500 mb-2">
+                                  Notes
+                                </p>
+                                <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap break-words">
+                                  {firstReview.notes}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        )}
 
-                            {/* Status */}
-                            <div className="flex items-center gap-2">
-                              <span className="font-semibold text-sm">
-                                Status:
-                              </span>
-
-                              <span
-                                className={`px-3 py-1 rounded-full text-xs font-semibold tracking-wide ${getStatusChip(
-                                  submissionDetail.status,
-                                )}`}
-                              >
-                                {submissionDetail.status === "DECLINED"
-                                  ? "REJECTED"
-                                  : submissionDetail.status}
-                              </span>
-                            </div>
+                        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 text-sm font-medium">
+                          {/* Application Number */}
+                          <div>
+                            <span className="font-semibold">
+                              Application No:
+                            </span>{" "}
+                            <span className="text-slate-700 dark:text-slate-300">
+                              {submissionDetail.applicationNumber || "-"}
+                            </span>
                           </div>
 
-                          {/* STATS BOX */}
-                          <div
-                            className="bg-slate-50 border border-slate-200 rounded-2xl p-6 shadow-sm
+                          {/* Status */}
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-sm">
+                              Status:
+                            </span>
+
+                            <span
+                              className={`px-3 py-1 rounded-full text-xs font-semibold tracking-wide ${getStatusChip(
+                                submissionDetail.status,
+                              )}`}
+                            >
+                              {submissionDetail.status === "DECLINED"
+                                ? "REJECTED"
+                                : submissionDetail.status}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* STATS BOX */}
+                        <div
+                          className="bg-slate-50 border border-slate-200 rounded-2xl p-6 shadow-sm
 dark:bg-slate-900 dark:border-slate-800"
-                          >
-                            <div className="grid grid-cols-2 md:grid-cols-6 gap-6 text-center">
-                              <Stat
-                                label="Loan Amount"
-                                value={`$${loanAmount.toLocaleString()}`}
-                              />
-                              <Stat
-                                label="LTV %"
-                                value={ltv ? `${ltv.toFixed(2)}%` : "—%"}
-                              />
-                              <Stat
-                                label="LTC %"
-                                value={ltc ? `${ltc.toFixed(2)}%` : "—%"}
-                              />
-                              <Stat
-                                label="ARV %"
-                                value={arv ? `${arv.toFixed(2)}%` : "—%"}
-                              />
-                              <Stat
-                                label="DSCR"
-                                value={dscr ? dscr.toFixed(2) : "—"}
-                              />
-                              <Stat
-                                label="Net Worth"
-                                value={`$${netWorth.toLocaleString()}`}
-                              />
-                            </div>
+                        >
+                          <div className="grid grid-cols-2 md:grid-cols-6 gap-6 text-center">
+                            <Stat
+                              label="Loan Amount"
+                              value={`$${loanAmount.toLocaleString()}`}
+                            />
+                            <Stat
+                              label="LTV %"
+                              value={ltv ? `${ltv.toFixed(2)}%` : "—%"}
+                            />
+                            <Stat
+                              label="LTC %"
+                              value={ltc ? `${ltc.toFixed(2)}%` : "—%"}
+                            />
+                            <Stat
+                              label="ARV %"
+                              value={arv ? `${arv.toFixed(2)}%` : "—%"}
+                            />
+                            <Stat
+                              label="DSCR"
+                              value={dscr ? dscr.toFixed(2) : "—"}
+                            />
+                            <Stat
+                              label="Net Worth"
+                              value={`$${netWorth.toLocaleString()}`}
+                            />
                           </div>
+                        </div>
 
-                          {/* ALL FIELDS (EXCEPT SIGNATURE) */}
-                          <div className="rounded-xl p-6">
-                            <div className=" gap-6">
-                              <div
-                                className="border border-slate-200 rounded-xl p-6 space-y-10
+                        {/* ALL FIELDS (EXCEPT SIGNATURE) */}
+                        <div className="rounded-xl p-6">
+                          <div className=" gap-6">
+                            <div
+                              className="border border-slate-200 rounded-xl p-6 space-y-10
 bg-white dark:bg-slate-900
 dark:border-slate-800"
-                              >
-                                {/* PRIMARY BORROWER */}
-                                {primaryFields.length > 0 && (
-                                  <div>
-                                    <h3
-                                      className="text-md font-bold mb-4 border-b pb-2
+                            >
+                              {/* PRIMARY BORROWER */}
+                              {primaryFields.length > 0 && (
+                                <div>
+                                  <h3
+                                    className="text-md font-bold mb-4 border-b pb-2
 text-slate-800 dark:text-slate-200
 border-slate-200 dark:border-slate-700"
-                                    >
-                                      Primary Borrower
-                                    </h3>
+                                  >
+                                    Primary Borrower
+                                  </h3>
 
-                                    <div className="grid md:grid-cols-2 gap-6">
-                                      {primaryFields.map(
-                                        (f: any, i: number) => (
-                                          <FieldItem key={i} field={f} />
-                                        ),
-                                      )}
-                                    </div>
+                                  <div className="grid md:grid-cols-2 gap-6">
+                                    {primaryFields.map((f: any, i: number) => (
+                                      <FieldItem key={i} field={f} />
+                                    ))}
                                   </div>
-                                )}
+                                </div>
+                              )}
 
-                                {/* CO BORROWERS */}
-                                {Object.keys(coBorrowerGroups).map((index) => (
-                                  <div key={index}>
-                                    <h3 className="text-md font-bold mb-4 border-b pb-2">
-                                      Co Borrower {index}
-                                    </h3>
+                              {/* CO BORROWERS */}
+                              {Object.keys(coBorrowerGroups).map((index) => (
+                                <div key={index}>
+                                  <h3 className="text-md font-bold mb-4 border-b pb-2">
+                                    Co Borrower {index}
+                                  </h3>
 
-                                    <div className="grid md:grid-cols-2 gap-6">
-                                      {coBorrowerGroups[index].map(
-                                        (f: any, i: number) => (
-                                          <FieldItem key={i} field={f} />
-                                        ),
-                                      )}
-                                    </div>
-                                  </div>
-                                ))}
-
-                                {/* OTHER FIELDS */}
-                                {otherFields.length > 0 && (
-                                  <div>
-                                    <h3 className="text-md font-bold mb-4 border-b dark:border-slate-700  pb-2">
-                                      Loan Details
-                                    </h3>
-
-                                    <div className="grid md:grid-cols-2 gap-6">
-                                      {otherFields.map((f: any, i: number) => (
+                                  <div className="grid md:grid-cols-2 gap-6">
+                                    {coBorrowerGroups[index].map(
+                                      (f: any, i: number) => (
                                         <FieldItem key={i} field={f} />
-                                      ))}
-                                    </div>
+                                      ),
+                                    )}
                                   </div>
-                                )}
-                              </div>
+                                </div>
+                              ))}
+
+                              {/* OTHER FIELDS */}
+                              {otherFields.length > 0 && (
+                                <div>
+                                  <h3 className="text-md font-bold mb-4 border-b dark:border-slate-700  pb-2">
+                                    Loan Details
+                                  </h3>
+
+                                  <div className="grid md:grid-cols-2 gap-6">
+                                    {otherFields.map((f: any, i: number) => (
+                                      <FieldItem key={i} field={f} />
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           </div>
+                        </div>
 
-                          {/* DIGITAL SIGNATURE */}
-                          {signatureField && (
-                            <div className="text-center space-y-4">
-                              <h3
-                                className="
+                        {/* DIGITAL SIGNATURE */}
+                        {signatureField && (
+                          <div className="text-center space-y-4">
+                            <h3
+                              className="
                                   text-sm font-semibold 
                                   text-slate-700 
                                   dark:text-slate-300
                                   transition-colors duration-300
                                 "
-                              >
-                                Digital Signature
-                              </h3>
+                            >
+                              Digital Signature
+                            </h3>
 
-                              <div className="flex justify-center">
-                                <div
-                                  className="
+                            <div className="flex justify-center">
+                              <div
+                                className="
                                         bg-white 
                                         dark:bg-slate-800/70
                                         border border-slate-200 
@@ -2096,50 +2179,50 @@ border-slate-200 dark:border-slate-700"
                                         p-4 
                                         shadow-sm 
                                         transition-colors duration-300"
-                                >
-                                  <img
-                                    src={parseValue(signatureField.value)}
-                                    alt="Digital Signature"
-                                    className="h-40 object-contain"
-                                  />
-                                </div>
+                              >
+                                <img
+                                  src={parseValue(signatureField.value)}
+                                  alt="Digital Signature"
+                                  className="h-40 object-contain"
+                                />
                               </div>
                             </div>
-                          )}
-
-                          {/* SUBMITTED DATE & TIME (LAST) */}
-                          <div
-                            className="border-t border-slate-200 dark:border-slate-700 pt-6 
-text-sm text-slate-600 dark:text-slate-400 flex justify-between"
-                          >
-                            <div>
-                              <span className="font-semibold">
-                                Submitted Date:
-                              </span>{" "}
-                              {formattedDate}
-                            </div>
-                            <div>
-                              <span className="font-semibold">
-                                Submitted Time:
-                              </span>{" "}
-                              {formattedTime}
-                            </div>
                           </div>
-                        </>
-                      );
-                    })()
-                  ) : null}
-                </div>
-              </div>
-            </div>,
-            document.body,
-          )}
+                        )}
 
-        {subBrokerModal.open &&
-          createPortal(
-            <div className="fixed inset-0 z-[9999] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
-              <div
-                className="
+                        {/* SUBMITTED DATE & TIME (LAST) */}
+                        <div
+                          className="border-t border-slate-200 dark:border-slate-700 pt-6 
+text-sm text-slate-600 dark:text-slate-400 flex justify-between"
+                        >
+                          <div>
+                            <span className="font-semibold">
+                              Submitted Date:
+                            </span>{" "}
+                            {formattedDate}
+                          </div>
+                          <div>
+                            <span className="font-semibold">
+                              Submitted Time:
+                            </span>{" "}
+                            {formattedTime}
+                          </div>
+                        </div>
+                      </>
+                    );
+                  })()
+                ) : null}
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
+
+      {subBrokerModal.open &&
+        createPortal(
+          <div className="fixed inset-0 z-[9999] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+            <div
+              className="
         w-full max-w-2xl
         rounded-2xl
         bg-white dark:bg-slate-900
@@ -2147,27 +2230,27 @@ text-sm text-slate-600 dark:text-slate-400 flex justify-between"
         shadow-2xl
         overflow-hidden
       "
-              >
-                <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-slate-800">
-                  <h3 className="font-semibold text-slate-900 dark:text-white">
-                    Assigned Sub Brokers
-                  </h3>
+            >
+              <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-slate-800">
+                <h3 className="font-semibold text-slate-900 dark:text-white">
+                  Assigned Sub Brokers
+                </h3>
 
-                  <button
-                    onClick={() =>
-                      setSubBrokerModal({
-                        open: false,
-                        brokers: [],
-                      })
-                    }
-                    className="text-slate-400 hover:text-red-500 text-lg"
-                  >
-                    ✕
-                  </button>
-                </div>
+                <button
+                  onClick={() =>
+                    setSubBrokerModal({
+                      open: false,
+                      brokers: [],
+                    })
+                  }
+                  className="text-slate-400 hover:text-red-500 text-lg"
+                >
+                  ✕
+                </button>
+              </div>
 
-                <div
-                  className="
+              <div
+                className="
   p-5
   grid grid-cols-1 sm:grid-cols-2 gap-4
 
@@ -2181,11 +2264,11 @@ text-sm text-slate-600 dark:text-slate-400 flex justify-between"
 
   overscroll-contain
 "
-                >
-                  {subBrokerModal.brokers.map((broker) => (
-                    <div
-                      key={broker.id}
-                      className="
+              >
+                {subBrokerModal.brokers.map((broker) => (
+                  <div
+                    key={broker.id}
+                    className="
   relative overflow-hidden
   rounded-2xl
   border border-slate-200 dark:border-slate-700
@@ -2194,12 +2277,12 @@ text-sm text-slate-600 dark:text-slate-400 flex justify-between"
   hover:-translate-y-0.5
   transition-all duration-300
 "
-                    >
-                      {/* TOP */}
-                      <div className="flex items-start gap-3">
-                        {/* Avatar */}
-                        <div
-                          className="
+                  >
+                    {/* TOP */}
+                    <div className="flex items-start gap-3">
+                      {/* Avatar */}
+                      <div
+                        className="
       h-12 w-12 rounded-2xl
       bg-gradient-to-br from-cyan-500 to-blue-500
       flex items-center justify-center
@@ -2207,280 +2290,280 @@ text-sm text-slate-600 dark:text-slate-400 flex justify-between"
       font-bold text-base
       shrink-0
     "
-                        >
-                          {broker.name?.charAt(0) || "S"}
-                        </div>
+                      >
+                        {broker.name?.charAt(0) || "S"}
+                      </div>
 
-                        {/* INFO */}
-                        <div className="min-w-0 flex-1">
-                          <h4
-                            className="
+                      {/* INFO */}
+                      <div className="min-w-0 flex-1">
+                        <h4
+                          className="
         text-sm font-semibold
         text-slate-800 dark:text-slate-100
         truncate
       "
-                          >
-                            {broker.name}
-                          </h4>
+                        >
+                          {broker.name}
+                        </h4>
 
-                          <p
-                            className="
+                        <p
+                          className="
         mt-1 text-xs
         text-slate-500 dark:text-slate-400
       "
-                          >
-                            Sub Broker
-                          </p>
-                        </div>
+                        >
+                          Sub Broker
+                        </p>
                       </div>
                     </div>
-                  ))}
-                </div>
-              </div>
-            </div>,
-            document.body,
-          )}
-
-        {/* FIND LENDERS MODAL */}
-        {findLenderModalOpen &&
-          createPortal(
-            <div className="fixed inset-0 z-50 bg-black/40 dark:bg-black/70 backdrop-blur-[1px] flex items-center justify-center p-4">
-              <div className="bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 rounded-2xl w-full max-w-6xl max-h-[90vh] overflow-y-auto shadow-xl dark:shadow-black/40 flex flex-col">
-                {/* HEADER */}
-                <div className="flex items-center justify-between px-6 py-3 border-b dark:border-slate-800 shrink-0">
-                  <div>
-                    <h2 className="font-bold text-lg">Find Lenders</h2>
-                    <p className="text-xs text-slate-500">
-                      Connect with verified lenders
-                    </p>
                   </div>
-                  <button
-                    onClick={() => {
-                      setFindLenderModalOpen(false);
-                      setLenders([]);
-                      setBorrowerSummary(null);
-                      setSentLenders({});
-                      setImageErrors({});
-                      setApplicationId(null);
-                    }}
-                    className="text-slate-400 hover:text-red-500 text-xl"
-                  >
-                    ✕
-                  </button>
-                </div>
+                ))}
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
 
-                {/* CONTENT */}
-                <div className="p-6 overflow-y-auto bg-gray-50 dark:bg-slate-950">
-                  {/* Filters */}
-                  <div className="mb-6 flex flex-col md:flex-row gap-4">
-                    <div className="relative flex-1">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                      <input
-                        value={lenderSearchQ}
-                        onChange={(e) => {
-                          setLenderPage(1);
-                          setLenderSearchQ(e.target.value);
-                        }}
-                        placeholder="Search lenders by name or email..."
-                        className="w-full pl-10 pr-4 py-2 rounded-xl text-sm border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                      />
-                    </div>
-                    <select
-                      value={lenderLimit}
+      {/* FIND LENDERS MODAL */}
+      {findLenderModalOpen &&
+        createPortal(
+          <div className="fixed inset-0 z-50 bg-black/40 dark:bg-black/70 backdrop-blur-[1px] flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 rounded-2xl w-full max-w-6xl max-h-[90vh] overflow-y-auto shadow-xl dark:shadow-black/40 flex flex-col">
+              {/* HEADER */}
+              <div className="flex items-center justify-between px-6 py-3 border-b dark:border-slate-800 shrink-0">
+                <div>
+                  <h2 className="font-bold text-lg">Find Lenders</h2>
+                  <p className="text-xs text-slate-500">
+                    Connect with verified lenders
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setFindLenderModalOpen(false);
+                    setLenders([]);
+                    setBorrowerSummary(null);
+                    setSentLenders({});
+                    setImageErrors({});
+                    setApplicationId(null);
+                  }}
+                  className="text-slate-400 hover:text-red-500 text-xl"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* CONTENT */}
+              <div className="p-6 overflow-y-auto bg-gray-50 dark:bg-slate-950">
+                {/* Filters */}
+                <div className="mb-6 flex flex-col md:flex-row gap-4">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input
+                      value={lenderSearchQ}
                       onChange={(e) => {
                         setLenderPage(1);
-                        setLenderLimit(Number(e.target.value));
+                        setLenderSearchQ(e.target.value);
                       }}
-                      className="px-4 py-2 rounded-xl text-sm border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900"
-                    >
-                      <option value={6}>6 / page</option>
-                      <option value={9}>9 / page</option>
-                      <option value={12}>12 / page</option>
-                    </select>
+                      placeholder="Search lenders by name or email..."
+                      className="w-full pl-10 pr-4 py-2 rounded-xl text-sm border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    />
                   </div>
+                  <select
+                    value={lenderLimit}
+                    onChange={(e) => {
+                      setLenderPage(1);
+                      setLenderLimit(Number(e.target.value));
+                    }}
+                    className="px-4 py-2 rounded-xl text-sm border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900"
+                  >
+                    <option value={6}>6 / page</option>
+                    <option value={9}>9 / page</option>
+                    <option value={12}>12 / page</option>
+                  </select>
+                </div>
 
-                  {borrowerSummary &&
-                    borrowerSummary.loanAmount &&
-                    borrowerSummary.borrowerMinTerm &&
-                    borrowerSummary.borrowerMaxTerm &&
-                    borrowerSummary.creditScore && (
-                      <div className="mb-6 bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 p-4 rounded-xl">
-                        <div className="text-sm font-semibold text-[#2C92D5] dark:text-blue-400 mb-2">
-                          Borrower Summary
+                {borrowerSummary &&
+                  borrowerSummary.loanAmount &&
+                  borrowerSummary.borrowerMinTerm &&
+                  borrowerSummary.borrowerMaxTerm &&
+                  borrowerSummary.creditScore && (
+                    <div className="mb-6 bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 p-4 rounded-xl">
+                      <div className="text-sm font-semibold text-[#2C92D5] dark:text-blue-400 mb-2">
+                        Borrower Summary
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                        <div>
+                          <span className="font-semibold">Loan Amount:</span>
+                          <div>
+                            $
+                            {Number(
+                              borrowerSummary.loanAmount,
+                            ).toLocaleString()}
+                          </div>
                         </div>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                          <div>
-                            <span className="font-semibold">Loan Amount:</span>
-                            <div>
-                              $
-                              {Number(
-                                borrowerSummary.loanAmount,
-                              ).toLocaleString()}
-                            </div>
-                          </div>
 
+                        <div>
+                          <span className="font-semibold">Term:</span>
                           <div>
-                            <span className="font-semibold">Term:</span>
-                            <div>
-                              {borrowerSummary.borrowerMinTerm} -{" "}
-                              {borrowerSummary.borrowerMaxTerm} months
-                            </div>
+                            {borrowerSummary.borrowerMinTerm} -{" "}
+                            {borrowerSummary.borrowerMaxTerm} months
                           </div>
+                        </div>
 
-                          <div>
-                            <span className="font-semibold">Credit Score:</span>
-                            <div>{borrowerSummary.creditScore}</div>
-                          </div>
+                        <div>
+                          <span className="font-semibold">Credit Score:</span>
+                          <div>{borrowerSummary.creditScore}</div>
+                        </div>
 
-                          <div>
-                            <span className="font-semibold">
-                              Eligible Lenders:
-                            </span>
-                            <div>{lenders.length}</div>
-                          </div>
+                        <div>
+                          <span className="font-semibold">
+                            Eligible Lenders:
+                          </span>
+                          <div>{lenders.length}</div>
                         </div>
                       </div>
-                    )}
+                    </div>
+                  )}
 
-                  {/* Loading */}
-                  {lenderLoading && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {[1, 2, 3].map((i) => (
+                {/* Loading */}
+                {lenderLoading && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {[1, 2, 3].map((i) => (
+                      <div
+                        key={i}
+                        className="h-64 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 animate-pulse"
+                      />
+                    ))}
+                  </div>
+                )}
+
+                {/* Empty State */}
+                {!lenderLoading && lenders.length === 0 && (
+                  <div className="text-center py-10">
+                    <div className="w-16 h-16 mx-auto bg-slate-100 dark:bg-slate-900 rounded-full flex items-center justify-center mb-4">
+                      <SearchX className="w-8 h-8 text-slate-400" />
+                    </div>
+                    <h3 className="font-bold text-slate-700 dark:text-slate-300">
+                      No lenders found
+                    </h3>
+                    <p className="text-sm text-slate-500">
+                      Try adjusting your search terms
+                    </p>
+                  </div>
+                )}
+
+                {/* Lenders Grid */}
+                {!lenderLoading && lenders.length > 0 && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {filteredLenders
+                      .slice(
+                        (lenderPage - 1) * lenderLimit,
+                        lenderPage * lenderLimit,
+                      )
+                      .map((l) => (
                         <div
-                          key={i}
-                          className="h-64 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 animate-pulse"
-                        />
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Empty State */}
-                  {!lenderLoading && lenders.length === 0 && (
-                    <div className="text-center py-10">
-                      <div className="w-16 h-16 mx-auto bg-slate-100 dark:bg-slate-900 rounded-full flex items-center justify-center mb-4">
-                        <SearchX className="w-8 h-8 text-slate-400" />
-                      </div>
-                      <h3 className="font-bold text-slate-700 dark:text-slate-300">
-                        No lenders found
-                      </h3>
-                      <p className="text-sm text-slate-500">
-                        Try adjusting your search terms
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Lenders Grid */}
-                  {!lenderLoading && lenders.length > 0 && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {filteredLenders
-                        .slice(
-                          (lenderPage - 1) * lenderLimit,
-                          lenderPage * lenderLimit,
-                        )
-                        .map((l) => (
-                          <div
-                            key={l.id}
-                            className="group relative bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5 transition-all duration-300 hover:shadow-md"
-                          >
-                            {/* Header */}
-                            <div className="flex items-start justify-between mb-3">
-                              <div className="flex items-center gap-3">
-                                {/* Profile Image / Fallback Icon */}
-                                <div
-                                  className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center 
+                          key={l.id}
+                          className="group relative bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5 transition-all duration-300 hover:shadow-md"
+                        >
+                          {/* Header */}
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex items-center gap-3">
+                              {/* Profile Image / Fallback Icon */}
+                              <div
+                                className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center 
                     bg-slate-100 dark:bg-slate-800 
                     border border-slate-200 dark:border-slate-700"
-                                >
-                                  {l.profileImage && !imageErrors[l.id] ? (
-                                    <img
-                                      src={l.profileImage}
-                                      alt={l.name}
-                                      className="w-full h-full object-cover"
-                                      onError={() =>
-                                        setImageErrors((prev) => ({
-                                          ...prev,
-                                          [l.id]: true,
-                                        }))
-                                      }
-                                    />
-                                  ) : (
-                                    <Building2 className="w-6 h-6 text-slate-500 dark:text-slate-400" />
-                                  )}
-                                </div>
-
-                                {/* Name + Email */}
-                                <div>
-                                  <h3 className="text-lg font-bold text-slate-900 dark:text-white">
-                                    {l.name}
-                                  </h3>
-                                  <div className="text-xs text-slate-500 dark:text-slate-400">
-                                    {l.email || "No email available"}
-                                  </div>
-                                </div>
+                              >
+                                {l.profileImage && !imageErrors[l.id] ? (
+                                  <img
+                                    src={l.profileImage}
+                                    alt={l.name}
+                                    className="w-full h-full object-cover"
+                                    onError={() =>
+                                      setImageErrors((prev) => ({
+                                        ...prev,
+                                        [l.id]: true,
+                                      }))
+                                    }
+                                  />
+                                ) : (
+                                  <Building2 className="w-6 h-6 text-slate-500 dark:text-slate-400" />
+                                )}
                               </div>
 
-                              {/* Eligibility Badge */}
-                              <span
-                                className={`text-xs font-bold px-2 py-1 rounded-full ${
-                                  l.eligibilityStatus === "Eligible"
-                                    ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400"
-                                    : "bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400"
-                                }`}
-                              >
-                                {l.eligibilityStatus}
-                              </span>
+                              {/* Name + Email */}
+                              <div>
+                                <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                                  {l.name}
+                                </h3>
+                                <div className="text-xs text-slate-500 dark:text-slate-400">
+                                  {l.email || "No email available"}
+                                </div>
+                              </div>
                             </div>
 
-                            {/* Loan Product */}
-                            <div className="text-sm font-semibold text-slate-600 dark:text-slate-400 mb-3">
-                              Product: {l.loanProductCode}
-                            </div>
+                            {/* Eligibility Badge */}
+                            <span
+                              className={`text-xs font-bold px-2 py-1 rounded-full ${
+                                l.eligibilityStatus === "Eligible"
+                                  ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400"
+                                  : "bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400"
+                              }`}
+                            >
+                              {l.eligibilityStatus}
+                            </span>
+                          </div>
 
-                            {/* Funding Range */}
-                            <div className="text-sm font-medium text-slate-800 dark:text-slate-200">
-                              Funding: ${Number(l.minFunding).toLocaleString()}{" "}
-                              - ${Number(l.maxFunding).toLocaleString()}
-                            </div>
+                          {/* Loan Product */}
+                          <div className="text-sm font-semibold text-slate-600 dark:text-slate-400 mb-3">
+                            Product: {l.loanProductCode}
+                          </div>
 
-                            {/* Terms */}
-                            <div className="text-sm mt-1 text-slate-600 dark:text-slate-400">
-                              Term: {l.minMonths} - {l.maxMonths} months
-                            </div>
+                          {/* Funding Range */}
+                          <div className="text-sm font-medium text-slate-800 dark:text-slate-200">
+                            Funding: ${Number(l.minFunding).toLocaleString()} -
+                            ${Number(l.maxFunding).toLocaleString()}
+                          </div>
 
-                            {/* Interest */}
-                            <div className="text-sm mt-1 text-slate-600 dark:text-slate-400">
-                              Interest: {l.interestRateRange}
-                            </div>
+                          {/* Terms */}
+                          <div className="text-sm mt-1 text-slate-600 dark:text-slate-400">
+                            Term: {l.minMonths} - {l.maxMonths} months
+                          </div>
 
-                            {/* Funding Speed */}
-                            <div className="text-sm mt-1 text-slate-600 dark:text-slate-400">
-                              Funding Speed: {l.fundingSpeedDays} Days
-                            </div>
+                          {/* Interest */}
+                          <div className="text-sm mt-1 text-slate-600 dark:text-slate-400">
+                            Interest: {l.interestRateRange}
+                          </div>
 
-                            {/* Send Button */}
-                            <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-800">
-                              <button
-                                disabled={
-                                  sendingId === l.lenderProductId ||
-                                  sentLenders[l.lenderProductId]
+                          {/* Funding Speed */}
+                          <div className="text-sm mt-1 text-slate-600 dark:text-slate-400">
+                            Funding Speed: {l.fundingSpeedDays} Days
+                          </div>
+
+                          {/* Send Button */}
+                          <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-800">
+                            <button
+                              disabled={
+                                sendingId === l.lenderProductId ||
+                                sentLenders[l.lenderProductId]
+                              }
+                              onClick={async () => {
+                                const result = await Swal.fire({
+                                  title: "Send to Lender?",
+                                  text: `Are you sure you want to send this application to ${l.name}?`,
+                                  icon: "question",
+                                  showCancelButton: true,
+                                  confirmButtonColor: "#2563eb",
+                                  cancelButtonColor: "#d33",
+                                  confirmButtonText: "Yes, Send",
+                                  cancelButtonText: "Cancel",
+                                });
+
+                                if (result.isConfirmed) {
+                                  sendToLender(l.lenderProductId);
                                 }
-                                onClick={async () => {
-                                  const result = await Swal.fire({
-                                    title: "Send to Lender?",
-                                    text: `Are you sure you want to send this application to ${l.name}?`,
-                                    icon: "question",
-                                    showCancelButton: true,
-                                    confirmButtonColor: "#2563eb",
-                                    cancelButtonColor: "#d33",
-                                    confirmButtonText: "Yes, Send",
-                                    cancelButtonText: "Cancel",
-                                  });
-
-                                  if (result.isConfirmed) {
-                                    sendToLender(l.lenderProductId);
-                                  }
-                                }}
-                                className={`w-full py-2 rounded-lg text-sm font-semibold transition-all
+                              }}
+                              className={`w-full py-2 rounded-lg text-sm font-semibold transition-all
       ${
         sentLenders[l.lenderProductId]
           ? "bg-emerald-500 text-white cursor-not-allowed"
@@ -2488,106 +2571,105 @@ text-sm text-slate-600 dark:text-slate-400 flex justify-between"
       }
       disabled:opacity-60 disabled:cursor-not-allowed
     `}
-                              >
-                                {sendingId === l.lenderProductId ? (
-                                  <div className="flex items-center justify-center gap-2">
-                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                    Sending...
-                                  </div>
-                                ) : sentLenders[l.lenderProductId] ? (
-                                  "Sent"
-                                ) : (
-                                  "Send to Lender"
-                                )}
-                              </button>
-                            </div>
+                            >
+                              {sendingId === l.lenderProductId ? (
+                                <div className="flex items-center justify-center gap-2">
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                  Sending...
+                                </div>
+                              ) : sentLenders[l.lenderProductId] ? (
+                                "Sent"
+                              ) : (
+                                "Send to Lender"
+                              )}
+                            </button>
                           </div>
-                        ))}
-                    </div>
-                  )}
+                        </div>
+                      ))}
+                  </div>
+                )}
 
-                  {/* Pagination */}
-                  {!lenderLoading && filteredLenders.length > lenderLimit && (
-                    <div className="mt-8 flex items-center justify-between border-t border-slate-200 dark:border-slate-800 pt-4">
-                      <p className="text-xs text-slate-500">
-                        Page {lenderPage} of{" "}
-                        {Math.ceil(filteredLenders.length / lenderLimit)}
-                      </p>
-                      <div className="flex gap-2">
-                        <button
-                          disabled={lenderPage === 1}
-                          onClick={() => setLenderPage((p) => p - 1)}
-                          className="p-2 rounded-lg border dark:border-slate-800 disabled:opacity-30 hover:bg-slate-100 dark:hover:bg-slate-800"
-                        >
-                          <ChevronLeft size={16} />
-                        </button>
-                        <button
-                          disabled={
-                            lenderPage >=
-                            Math.ceil(filteredLenders.length / lenderLimit)
-                          }
-                          onClick={() => setLenderPage((p) => p + 1)}
-                          className="p-2 rounded-lg border dark:border-slate-800 disabled:opacity-30 hover:bg-slate-100 dark:hover:bg-slate-800"
-                        >
-                          <ChevronRight size={16} />
-                        </button>
-                      </div>
+                {/* Pagination */}
+                {!lenderLoading && filteredLenders.length > lenderLimit && (
+                  <div className="mt-8 flex items-center justify-between border-t border-slate-200 dark:border-slate-800 pt-4">
+                    <p className="text-xs text-slate-500">
+                      Page {lenderPage} of{" "}
+                      {Math.ceil(filteredLenders.length / lenderLimit)}
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        disabled={lenderPage === 1}
+                        onClick={() => setLenderPage((p) => p - 1)}
+                        className="p-2 rounded-lg border dark:border-slate-800 disabled:opacity-30 hover:bg-slate-100 dark:hover:bg-slate-800"
+                      >
+                        <ChevronLeft size={16} />
+                      </button>
+                      <button
+                        disabled={
+                          lenderPage >=
+                          Math.ceil(filteredLenders.length / lenderLimit)
+                        }
+                        onClick={() => setLenderPage((p) => p + 1)}
+                        className="p-2 rounded-lg border dark:border-slate-800 disabled:opacity-30 hover:bg-slate-100 dark:hover:bg-slate-800"
+                      >
+                        <ChevronRight size={16} />
+                      </button>
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
-            </div>,
-            document.body,
-          )}
+            </div>
+          </div>,
+          document.body,
+        )}
 
-        {documentModalOpen &&
-          createPortal(
-            <div className="fixed inset-0 z-[9999999999] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
-              <div
-                className="bg-white dark:bg-slate-900 
+      {documentModalOpen &&
+        createPortal(
+          <div className="fixed inset-0 z-[9999999999] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+            <div
+              className="bg-white dark:bg-slate-900 
 rounded-3xl 
 w-full max-w-6xl 
 max-h-[85vh] 
 overflow-hidden 
 shadow-[0_20px_60px_rgba(0,0,0,0.15)] 
 flex flex-col"
-              >
-                {/* HEADER */}
-                <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200 dark:border-slate-800 shrink-0">
-                  <h2 className="font-semibold text-sm tracking-wide text-slate-700 dark:text-slate-200">
-                    Requested Documents
-                  </h2>
+            >
+              {/* HEADER */}
+              <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200 dark:border-slate-800 shrink-0">
+                <h2 className="font-semibold text-sm tracking-wide text-slate-700 dark:text-slate-200">
+                  Requested Documents
+                </h2>
 
-                  <button
-                    onClick={() => {
-                      setDocumentModalOpen(false);
-                      setDocumentsData(null);
-                    }}
-                    className="w-7 h-7 flex items-center justify-center rounded-full 
+                <button
+                  onClick={() => {
+                    setDocumentModalOpen(false);
+                    setDocumentsData(null);
+                  }}
+                  className="w-7 h-7 flex items-center justify-center rounded-full 
     hover:bg-red-100 dark:hover:bg-red-500/20 
     text-slate-400 hover:text-red-500 transition text-sm"
-                  >
-                    ✕
-                  </button>
-                </div>
+                >
+                  ✕
+                </button>
+              </div>
 
-                {/* SCROLLABLE BODY */}
-                <div className="p-6 overflow-y-auto">
-                  {documentsLoading ? (
-                    <div className="text-center text-slate-500 py-10">
-                      Loading documents...
-                    </div>
-                  ) : documentsData?.documents?.length > 0 ? (
-                    <div className="grid sm:grid-cols-4 gap-4">
-                      {documentsData.documents.map(
-                        (doc: any, index: number) => {
-                          const hasFiles =
-                            doc.uploadedFiles && doc.uploadedFiles.length > 0;
+              {/* SCROLLABLE BODY */}
+              <div className="p-6 overflow-y-auto">
+                {documentsLoading ? (
+                  <div className="text-center text-slate-500 py-10">
+                    Loading documents...
+                  </div>
+                ) : documentsData?.documents?.length > 0 ? (
+                  <div className="grid sm:grid-cols-4 gap-4">
+                    {documentsData.documents.map((doc: any, index: number) => {
+                      const hasFiles =
+                        doc.uploadedFiles && doc.uploadedFiles.length > 0;
 
-                          return (
-                            <div
-                              key={index}
-                              className="
+                      return (
+                        <div
+                          key={index}
+                          className="
 relative
 bg-white dark:bg-slate-900
 border border-slate-200 dark:border-slate-800
@@ -2598,234 +2680,50 @@ transition-all duration-200
 flex flex-col
 h-[320px]   
 "
-                            >
-                              {/* Top Section */}
-                              <div className="flex items-center gap-4 mb-4">
-                                <div className="flex items-center justify-between w-full">
-                                  <h3 className="font-medium text-[13px] text-slate-900 dark:text-slate-200 truncate">
-                                    {doc.documentName}
-                                  </h3>
+                        >
+                          {/* Top Section */}
+                          <div className="flex items-center gap-4 mb-4">
+                            <div className="flex items-center justify-between w-full">
+                              <h3 className="font-medium text-[13px] text-slate-900 dark:text-slate-200 truncate">
+                                {doc.documentName}
+                              </h3>
 
-                                  {(previewFiles[doc.requirementId]?.length >
-                                    0 ||
-                                    selectedFiles[doc.requirementId]?.length >
-                                      0) && (
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setPreviewFiles((prev) => {
-                                          const copy = { ...prev };
-                                          delete copy[doc.requirementId];
-                                          return copy;
-                                        });
+                              {(previewFiles[doc.requirementId]?.length > 0 ||
+                                selectedFiles[doc.requirementId]?.length >
+                                  0) && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setPreviewFiles((prev) => {
+                                      const copy = { ...prev };
+                                      delete copy[doc.requirementId];
+                                      return copy;
+                                    });
 
-                                        setSelectedFiles((prev) => {
-                                          const copy = { ...prev };
-                                          delete copy[doc.requirementId];
-                                          return copy;
-                                        });
-                                      }}
-                                      className="text-[10px] px-2 py-1 rounded-md 
+                                    setSelectedFiles((prev) => {
+                                      const copy = { ...prev };
+                                      delete copy[doc.requirementId];
+                                      return copy;
+                                    });
+                                  }}
+                                  className="text-[10px] px-2 py-1 rounded-md 
                  bg-red-50 text-red-600 
                  hover:bg-red-100 
                  dark:bg-red-500/10 dark:text-red-400 
                  dark:hover:bg-red-500/20
                  transition"
-                                    >
-                                      Clear
-                                    </button>
-                                  )}
-                                </div>
-                              </div>
+                                >
+                                  Clear
+                                </button>
+                              )}
+                            </div>
+                          </div>
 
-                              {/* Upload Area */}
-                              {!hasFiles ? (
-                                <div className="space-y-3 flex-1 flex flex-col overflow-hidden">
-                                  {/* Preview */}
-                                  {previewFiles[doc.requirementId]?.length >
-                                    0 && (
-                                    <div
-                                      className="
-flex flex-wrap gap-2
-max-h-[220px]
-overflow-y-auto
-pr-1
-scrollbar-thin
-scrollbar-thumb-slate-300
-dark:scrollbar-thumb-slate-700
-"
-                                    >
-                                      {previewFiles[doc.requirementId].map(
-                                        (file, i) => (
-                                          <div
-                                            key={i}
-                                            className="relative w-16 h-16 rounded-lg border-2 border-blue-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 overflow-hidden flex items-center justify-center"
-                                          >
-                                            {/* IMAGE PREVIEW */}
-                                            {file.type.startsWith("image") ? (
-                                              <img
-                                                src={file.url}
-                                                alt={file.name}
-                                                className="w-full h-full object-cover"
-                                              />
-                                            ) : file.type.includes("pdf") ? (
-                                              <div className="flex flex-col items-center justify-center text-xs text-red-500 font-semibold">
-                                                📄
-                                                <span className="text-[9px] mt-1">
-                                                  PDF
-                                                </span>
-                                              </div>
-                                            ) : (
-                                              <div className="text-xs text-slate-500">
-                                                File
-                                              </div>
-                                            )}
-
-                                            {/* Remove Button */}
-                                            <button
-                                              type="button"
-                                              onClick={() => {
-                                                setPreviewFiles((prev) => {
-                                                  const updated = [
-                                                    ...(prev[
-                                                      doc.requirementId
-                                                    ] || []),
-                                                  ];
-                                                  updated.splice(i, 1);
-                                                  const copy = { ...prev };
-                                                  if (updated.length === 0)
-                                                    delete copy[
-                                                      doc.requirementId
-                                                    ];
-                                                  else
-                                                    copy[doc.requirementId] =
-                                                      updated;
-                                                  return copy;
-                                                });
-
-                                                setSelectedFiles((prev) => {
-                                                  const updated = [
-                                                    ...(prev[
-                                                      doc.requirementId
-                                                    ] || []),
-                                                  ];
-                                                  updated.splice(i, 1);
-                                                  const copy = { ...prev };
-                                                  if (updated.length === 0)
-                                                    delete copy[
-                                                      doc.requirementId
-                                                    ];
-                                                  else
-                                                    copy[doc.requirementId] =
-                                                      updated;
-                                                  return copy;
-                                                });
-                                              }}
-                                              className="absolute top-1 right-1 bg-black/60 text-white text-xs px-1 rounded hover:bg-red-500 transition"
-                                            >
-                                              ✕
-                                            </button>
-                                          </div>
-                                        ),
-                                      )}
-                                    </div>
-                                  )}
-
-                                  {/* File Select – show only if no file selected */}
-                                  {!selectedFiles[doc.requirementId] && (
-                                    <label className="h-full flex flex-col justify-center items-center border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-lg p-6 text-center hover:border-amber-400 transition cursor-pointer">
-                                      <input
-                                        type="file"
-                                        multiple
-                                        accept=".pdf,.png,.jpg,.jpeg"
-                                        className="hidden"
-                                        onChange={(e) => {
-                                          const files = Array.from(
-                                            e.target.files || [],
-                                          );
-                                          if (!files.length) return;
-
-                                          const validFiles: File[] = [];
-                                          const previews: {
-                                            url: string;
-                                            type: string;
-                                            name: string;
-                                          }[] = [];
-
-                                          files.forEach((file) => {
-                                            if (file.size > 5 * 1024 * 1024) {
-                                              toast.error(
-                                                `${file.name} exceeds 5MB limit`,
-                                              );
-                                              return;
-                                            }
-
-                                            validFiles.push(file);
-                                            previews.push({
-                                              url: URL.createObjectURL(file),
-                                              type: file.type,
-                                              name: file.name,
-                                            });
-                                          });
-
-                                          if (!validFiles.length) return;
-
-                                          setSelectedFiles((prev) => ({
-                                            ...prev,
-                                            [doc.requirementId]: [
-                                              ...(prev[doc.requirementId] ||
-                                                []),
-                                              ...validFiles,
-                                            ],
-                                          }));
-
-                                          setPreviewFiles((prev) => ({
-                                            ...prev,
-                                            [doc.requirementId]: [
-                                              ...(prev[doc.requirementId] ||
-                                                []),
-                                              ...previews,
-                                            ],
-                                          }));
-                                        }}
-                                      />
-
-                                      <p className="text-xs text-amber-600 font-medium">
-                                        Click to Select File
-                                      </p>
-                                      <p className="text-[10px] text-slate-400 mt-1">
-                                        PDF / JPG / PNG (Max 5MB)
-                                      </p>
-                                    </label>
-                                  )}
-
-                                  {/* Upload Button – only after file selected */}
-                                  {selectedFiles[doc.requirementId]?.length >
-                                    0 && (
-                                    <button
-                                      onClick={() =>
-                                        handleDocumentUpload(
-                                          documentsData.submissionId,
-                                          doc.requirementId,
-                                        )
-                                      }
-                                      disabled={
-                                        uploadingDocId === doc.requirementId
-                                      }
-                                      className="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold py-2 rounded-lg transition disabled:opacity-60"
-                                    >
-                                      {uploadingDocId === doc.requirementId ? (
-                                        <div className="flex items-center justify-center gap-2">
-                                          <Loader2 className="w-4 h-4 animate-spin" />
-                                          Uploading...
-                                        </div>
-                                      ) : (
-                                        "Upload Document"
-                                      )}
-                                    </button>
-                                  )}
-                                </div>
-                              ) : (
+                          {/* Upload Area */}
+                          {!hasFiles ? (
+                            <div className="space-y-3 flex-1 flex flex-col overflow-hidden">
+                              {/* Preview */}
+                              {previewFiles[doc.requirementId]?.length > 0 && (
                                 <div
                                   className="
 flex flex-wrap gap-2
@@ -2834,637 +2732,806 @@ overflow-y-auto
 pr-1
 scrollbar-thin
 scrollbar-thumb-slate-300
-dark:scrollbar-thumb-slate-700 w-full
+dark:scrollbar-thumb-slate-700
 "
                                 >
-                                  {doc.uploadedFiles.map(
-                                    (file: any, i: number) => {
-                                      const isImage =
-                                        file.fileMimeType?.startsWith("image");
+                                  {previewFiles[doc.requirementId].map(
+                                    (file, i) => (
+                                      <div
+                                        key={i}
+                                        className="relative w-16 h-16 rounded-lg border-2 border-blue-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 overflow-hidden flex items-center justify-center"
+                                      >
+                                        {/* IMAGE PREVIEW */}
+                                        {file.type.startsWith("image") ? (
+                                          <img
+                                            src={file.url}
+                                            alt={file.name}
+                                            className="w-full h-full object-cover"
+                                          />
+                                        ) : file.type.includes("pdf") ? (
+                                          <div className="flex flex-col items-center justify-center text-xs text-red-500 font-semibold">
+                                            📄
+                                            <span className="text-[9px] mt-1">
+                                              PDF
+                                            </span>
+                                          </div>
+                                        ) : (
+                                          <div className="text-xs text-slate-500">
+                                            File
+                                          </div>
+                                        )}
 
-                                      return (
-                                        <div
-                                          key={i}
-                                          className="relative w-16 h-16 rounded-lg border-2 border-[#98bfe1] bg-slate-100 dark:bg-slate-800 overflow-hidden flex items-center justify-center"
+                                        {/* Remove Button */}
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setPreviewFiles((prev) => {
+                                              const updated = [
+                                                ...(prev[doc.requirementId] ||
+                                                  []),
+                                              ];
+                                              updated.splice(i, 1);
+                                              const copy = { ...prev };
+                                              if (updated.length === 0)
+                                                delete copy[doc.requirementId];
+                                              else
+                                                copy[doc.requirementId] =
+                                                  updated;
+                                              return copy;
+                                            });
+
+                                            setSelectedFiles((prev) => {
+                                              const updated = [
+                                                ...(prev[doc.requirementId] ||
+                                                  []),
+                                              ];
+                                              updated.splice(i, 1);
+                                              const copy = { ...prev };
+                                              if (updated.length === 0)
+                                                delete copy[doc.requirementId];
+                                              else
+                                                copy[doc.requirementId] =
+                                                  updated;
+                                              return copy;
+                                            });
+                                          }}
+                                          className="absolute top-1 right-1 bg-black/60 text-white text-xs px-1 rounded hover:bg-red-500 transition"
                                         >
-                                          {isImage ? (
-                                            <img
-                                              src={`${API_BASE}${file.fileUrl}`}
-                                              alt={file.fileName}
-                                              className="w-full h-full object-cover"
-                                            />
-                                          ) : (
-                                            <div className="flex flex-col items-center justify-center text-xs text-slate-600 dark:text-slate-300">
-                                              📄
-                                              <span className="mt-1 truncate px-1 text-[10px]">
-                                                PDF
-                                              </span>
-                                            </div>
-                                          )}
-
-                                          {/* View Overlay */}
-                                          <a
-                                            href={`${API_BASE}${file.fileUrl}`}
-                                            target="_blank"
-                                            rel="noreferrer"
-                                            className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition flex items-center justify-center text-white text-xs font-semibold"
-                                          >
-                                            View
-                                          </a>
-                                        </div>
-                                      );
-                                    },
+                                          ✕
+                                        </button>
+                                      </div>
+                                    ),
                                   )}
                                 </div>
                               )}
 
-                              {/* Bottom Status */}
-                              <div className="mt-auto pt-3 ">
-                                <div className="mt-4 flex justify-between items-center">
-                                  <span
-                                    className={`text-[10px] px-3 py-1 rounded-full
+                              {/* File Select – show only if no file selected */}
+                              {!selectedFiles[doc.requirementId] && (
+                                <label className="h-full flex flex-col justify-center items-center border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-lg p-6 text-center hover:border-amber-400 transition cursor-pointer">
+                                  <input
+                                    type="file"
+                                    multiple
+                                    accept=".pdf,.png,.jpg,.jpeg"
+                                    className="hidden"
+                                    onChange={(e) => {
+                                      const files = Array.from(
+                                        e.target.files || [],
+                                      );
+                                      if (!files.length) return;
+
+                                      const validFiles: File[] = [];
+                                      const previews: {
+                                        url: string;
+                                        type: string;
+                                        name: string;
+                                      }[] = [];
+
+                                      files.forEach((file) => {
+                                        if (file.size > 5 * 1024 * 1024) {
+                                          toast.error(
+                                            `${file.name} exceeds 5MB limit`,
+                                          );
+                                          return;
+                                        }
+
+                                        validFiles.push(file);
+                                        previews.push({
+                                          url: URL.createObjectURL(file),
+                                          type: file.type,
+                                          name: file.name,
+                                        });
+                                      });
+
+                                      if (!validFiles.length) return;
+
+                                      setSelectedFiles((prev) => ({
+                                        ...prev,
+                                        [doc.requirementId]: [
+                                          ...(prev[doc.requirementId] || []),
+                                          ...validFiles,
+                                        ],
+                                      }));
+
+                                      setPreviewFiles((prev) => ({
+                                        ...prev,
+                                        [doc.requirementId]: [
+                                          ...(prev[doc.requirementId] || []),
+                                          ...previews,
+                                        ],
+                                      }));
+                                    }}
+                                  />
+
+                                  <p className="text-xs text-amber-600 font-medium">
+                                    Click to Select File
+                                  </p>
+                                  <p className="text-[10px] text-slate-400 mt-1">
+                                    PDF / JPG / PNG (Max 5MB)
+                                  </p>
+                                </label>
+                              )}
+
+                              {/* Upload Button – only after file selected */}
+                              {selectedFiles[doc.requirementId]?.length > 0 && (
+                                <button
+                                  onClick={() =>
+                                    handleDocumentUpload(
+                                      documentsData.submissionId,
+                                      doc.requirementId,
+                                    )
+                                  }
+                                  disabled={
+                                    uploadingDocId === doc.requirementId
+                                  }
+                                  className="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold py-2 rounded-lg transition disabled:opacity-60"
+                                >
+                                  {uploadingDocId === doc.requirementId ? (
+                                    <div className="flex items-center justify-center gap-2">
+                                      <Loader2 className="w-4 h-4 animate-spin" />
+                                      Uploading...
+                                    </div>
+                                  ) : (
+                                    "Upload Document"
+                                  )}
+                                </button>
+                              )}
+                            </div>
+                          ) : (
+                            <div
+                              className="
+flex flex-wrap gap-2
+max-h-[220px]
+overflow-y-auto
+pr-1
+scrollbar-thin
+scrollbar-thumb-slate-300
+dark:scrollbar-thumb-slate-700 w-full
+"
+                            >
+                              {doc.uploadedFiles.map((file: any, i: number) => {
+                                const isImage =
+                                  file.fileMimeType?.startsWith("image");
+
+                                return (
+                                  <div
+                                    key={i}
+                                    className="relative w-16 h-16 rounded-lg border-2 border-[#98bfe1] bg-slate-100 dark:bg-slate-800 overflow-hidden flex items-center justify-center"
+                                  >
+                                    {isImage ? (
+                                      <img
+                                        src={`${API_BASE}${file.fileUrl}`}
+                                        alt={file.fileName}
+                                        className="w-full h-full object-cover"
+                                      />
+                                    ) : (
+                                      <div className="flex flex-col items-center justify-center text-xs text-slate-600 dark:text-slate-300">
+                                        📄
+                                        <span className="mt-1 truncate px-1 text-[10px]">
+                                          PDF
+                                        </span>
+                                      </div>
+                                    )}
+
+                                    {/* View Overlay */}
+                                    <a
+                                      href={`${API_BASE}${file.fileUrl}`}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition flex items-center justify-center text-white text-xs font-semibold"
+                                    >
+                                      View
+                                    </a>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+
+                          {/* Bottom Status */}
+                          <div className="mt-auto pt-3 ">
+                            <div className="mt-4 flex justify-between items-center">
+                              <span
+                                className={`text-[10px] px-3 py-1 rounded-full
                           ${
                             doc.status === "PENDING"
                               ? "bg-amber-100 text-amber-600"
                               : "bg-emerald-100 text-emerald-600"
                           }`}
-                                  >
-                                    {doc.status}
-                                  </span>
+                              >
+                                {formatDocumentStatusLabel(doc.status)}
+                              </span>
 
-                                  <span className="text-[11px] font-semibold text-red-400">
-                                    {doc.uploadedCount} Uploaded
-                                  </span>
-                                </div>
-                              </div>
+                              <span className="text-[11px] font-semibold text-red-400">
+                                {doc.uploadedCount} Uploaded
+                              </span>
                             </div>
-                          );
-                        },
-                      )}
-                    </div>
-                  ) : (
-                    <div className="text-center text-slate-500 py-10">
-                      No documents found
-                    </div>
-                  )}
-                </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center text-slate-500 py-10">
+                    No documents found
+                  </div>
+                )}
               </div>
-            </div>,
-            document.body,
-          )}
+            </div>
+          </div>,
+          document.body,
+        )}
 
-        {loiModalOpen &&
-          createPortal(
-            <div className="fixed inset-0 z-[99999999] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-              <div className="bg-white dark:bg-slate-900 w-full max-w-3xl rounded-2xl shadow-xl">
-                {/* Header */}
-                <div className="flex items-center justify-between px-6 py-3 border-b dark:border-slate-800">
-                  <h2 className="font-bold text-lg dark:text-white">
-                    Letters of Intent
-                  </h2>
+      {loiModalOpen &&
+        createPortal(
+          <div className="fixed inset-0 z-[99999999] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-slate-900 w-full max-w-3xl rounded-2xl shadow-xl">
+              {/* Header */}
+              <div className="flex items-center justify-between px-6 py-3 border-b dark:border-slate-800">
+                <h2 className="font-bold text-lg dark:text-white">
+                  Letters of Intent
+                </h2>
 
-                  <button
-                    onClick={() => setLoiModalOpen(false)}
-                    className="text-slate-400 hover:text-red-500 text-xl"
-                  >
-                    ✕
-                  </button>
-                </div>
+                <button
+                  onClick={() => setLoiModalOpen(false)}
+                  className="text-slate-400 hover:text-red-500 text-xl"
+                >
+                  ✕
+                </button>
+              </div>
 
-                {/* Body */}
-                <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
-                  {lois.length === 0 ? (
-                    /* Empty State */
-                    <div className="flex flex-col items-center justify-center py-16 text-center">
-                      <div
-                        className="
+              {/* Body */}
+              <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+                {lois.length === 0 ? (
+                  /* Empty State */
+                  <div className="flex flex-col items-center justify-center py-16 text-center">
+                    <div
+                      className="
         w-16 h-16
         flex items-center justify-center
         rounded-full
         bg-amber-100 dark:bg-amber-500/10
         mb-4
       "
-                      >
-                        <FileText className="w-7 h-7 text-amber-600 dark:text-amber-400" />
-                      </div>
-
-                      <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">
-                        No LOIs Available
-                      </h3>
-
-                      <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-sm">
-                        No lenders have issued a Letter of Intent for this
-                        application yet. Once available, it will appear here.
-                      </p>
+                    >
+                      <FileText className="w-7 h-7 text-amber-600 dark:text-amber-400" />
                     </div>
-                  ) : (
-                    lois.map((loi, index) => (
-                      <div
-                        key={index}
-                        className="border border-slate-200 dark:border-slate-800 rounded-xl p-4 space-y-3"
-                      >
-                        {/* Lender */}
-                        <div className="flex justify-between items-center">
-                          <h3 className="font-semibold text-slate-900 dark:text-white">
-                            {loi.lenderName}
-                          </h3>
 
-                          <span className="text-xs px-3 py-1 rounded-full bg-indigo-100 text-indigo-600">
-                            {loi.status}
+                    <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">
+                      No LOIs Available
+                    </h3>
+
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-sm">
+                      No lenders have issued a Letter of Intent for this
+                      application yet. Once available, it will appear here.
+                    </p>
+                  </div>
+                ) : (
+                  lois.map((loi, index) => (
+                    <div
+                      key={index}
+                      className="border border-slate-200 dark:border-slate-800 rounded-xl p-4 space-y-3"
+                    >
+                      {/* Lender */}
+                      <div className="flex justify-between items-center">
+                        <h3 className="font-semibold text-slate-900 dark:text-white">
+                          {loi.lenderName}
+                        </h3>
+
+                        <span className="text-xs px-3 py-1 rounded-full bg-indigo-100 text-indigo-600">
+                          {loi.status}
+                        </span>
+                      </div>
+
+                      {/* Details */}
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <span className="text-slate-500 dark:text-slate-300">
+                            Email
                           </span>
-                        </div>
-
-                        {/* Details */}
-                        <div className="grid grid-cols-2 gap-4 text-sm">
-                          <div>
-                            <span className="text-slate-500 dark:text-slate-300">
-                              Email
-                            </span>
-                            <div className="dark:text-slate-400">
-                              {loi.lenderEmail || "-"}
-                            </div>
-                          </div>
-
-                          <div>
-                            <span className="text-slate-500 dark:text-slate-300">
-                              Phone
-                            </span>
-                            <div className="dark:text-slate-400">
-                              {loi.lenderPhone || "-"}
-                            </div>
-                          </div>
-
-                          <div>
-                            <span className="text-slate-500 dark:text-slate-300"> 
-                              Approved Amount
-                            </span>
-                            <div className="dark:text-slate-400">
-                              {loi.approvedAmount
-                                ? `$${Number(loi.approvedAmount).toLocaleString()}`
-                                : "-"}
-                            </div>
-                          </div>
-
-                          <div>
-                            <span className="text-slate-500 dark:text-slate-300">
-                              Interest Rate
-                            </span>
-                            <div className="dark:text-slate-400">
-                              {loi.interestRate ? `${loi.interestRate}%` : "-"}
-                            </div>
+                          <div className="dark:text-slate-400">
+                            {loi.lenderEmail || "-"}
                           </div>
                         </div>
 
-                        {/* Notes */}
-                        {loi.notes && (
-                          <div className="text-sm">
-                            <span className="text-slate-500 dark:text-slate-300">
-                              Notes
-                            </span>
-                            <p className="dark:text-slate-400 mt-1">
-                              {loi.notes}
-                            </p>
+                        <div>
+                          <span className="text-slate-500 dark:text-slate-300">
+                            Phone
+                          </span>
+                          <div className="dark:text-slate-400">
+                            {loi.lenderPhone || "-"}
                           </div>
-                        )}
+                        </div>
 
-                        {/* View PDF */}
-                        <div className="pt-3 border-t dark:border-slate-800 flex justify-end">
-                          <button
-                            onClick={() => {
-                              const fileUrl = `${API_BASE}/public${loi.loiUrl}`;
+                        <div>
+                          <span className="text-slate-500 dark:text-slate-300">
+                            Approved Amount
+                          </span>
+                          <div className="dark:text-slate-400">
+                            {loi.approvedAmount
+                              ? `$${Number(loi.approvedAmount).toLocaleString()}`
+                              : "-"}
+                          </div>
+                        </div>
 
-                              setPreviewFile({
-                                url: fileUrl,
-                                type: "application/pdf",
-                                name: `${loi.lenderName} LOI`,
-                              });
-                            }}
-                            className="px-4 py-2 rounded-lg bg-purple-600 text-white text-sm hover:bg-purple-700"
-                          >
-                            View LOI PDF
-                          </button>
+                        <div>
+                          <span className="text-slate-500 dark:text-slate-300">
+                            Interest Rate
+                          </span>
+                          <div className="dark:text-slate-400">
+                            {loi.interestRate ? `${loi.interestRate}%` : "-"}
+                          </div>
                         </div>
                       </div>
-                    ))
-                  )}
-                </div>
+
+                      {/* Notes */}
+                      {loi.notes && (
+                        <div className="text-sm">
+                          <span className="text-slate-500 dark:text-slate-300">
+                            Notes
+                          </span>
+                          <p className="dark:text-slate-400 mt-1">
+                            {loi.notes}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* View PDF */}
+                      <div className="pt-3 border-t dark:border-slate-800 flex justify-end">
+                        <button
+                          onClick={() => {
+                            const fileUrl = `${API_BASE}/public${loi.loiUrl}`;
+
+                            setPreviewFile({
+                              url: fileUrl,
+                              type: "application/pdf",
+                              name: `${loi.lenderName} LOI`,
+                            });
+                          }}
+                          className="px-4 py-2 rounded-lg bg-purple-600 text-white text-sm hover:bg-purple-700"
+                        >
+                          View LOI PDF
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
-            </div>,
-            document.body,
-          )}
+            </div>
+          </div>,
+          document.body,
+        )}
 
-        {previewFile &&
-          createPortal(
-            <div className="fixed inset-0 z-[99999999] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
-              <div className="w-full max-w-6xl bg-white dark:bg-slate-900 rounded-2xl shadow-2xl flex flex-col h-[90vh] overflow-hidden">
-                {/* Header */}
-                <div className="flex items-center justify-between px-6 py-3 border-b dark:border-slate-800 shrink-0">
-                  <div>
-                    <h2 className="text-lg font-bold truncate max-w-md dark:text-white">
-                      {previewFile.name}
-                    </h2>
-                    <p className="text-xs text-slate-500">PDF Preview</p>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    {/* Download Button */}
-                    <button
-                      onClick={async () => {
-                        try {
-                          const res = await fetch(previewFile.url);
-
-                          const blob = await res.blob();
-
-                          const url = window.URL.createObjectURL(blob);
-
-                          const link = document.createElement("a");
-                          link.href = url;
-                          link.download = previewFile.name || "LOI.pdf";
-
-                          document.body.appendChild(link);
-                          link.click();
-
-                          link.remove();
-                          window.URL.revokeObjectURL(url);
-                        } catch (err) {
-                          console.error("Download failed", err);
-                        }
-                      }}
-                      className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition"
-                    >
-                      Download
-                    </button>
-
-                    {/* Close Button */}
-                    <button
-                      onClick={() => setPreviewFile(null)}
-                      className="px-4 py-2 rounded-xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700 transition"
-                    >
-                      Close
-                    </button>
-                  </div>
-                </div>
-
-                {/* PDF Preview */}
-                <div className="flex-1 bg-slate-100 dark:bg-slate-950">
-                  <iframe
-                    src={`https://docs.google.com/gview?url=${previewFile.url}&embedded=true`}
-                    title={previewFile.name}
-                    className="w-full h-full border-none"
-                  />
-                </div>
-              </div>
-            </div>,
-            document.body,
-          )}
-
-        {docSelectModal.isOpen &&
-          createPortal(
-            <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50 backdrop-blur-sm">
-              <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl border border-gray-100">
-                {/* HEADER */}
-                <div className="flex items-center justify-between px-6 py-3 border-b">
-                  <h2 className="text-lg font-semibold text-gray-800">
-                    Select Documents
+      {previewFile &&
+        createPortal(
+          <div className="fixed inset-0 z-[99999999] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+            <div className="w-full max-w-6xl bg-white dark:bg-slate-900 rounded-2xl shadow-2xl flex flex-col h-[90vh] overflow-hidden">
+              {/* Header */}
+              <div className="flex items-center justify-between px-6 py-3 border-b dark:border-slate-800 shrink-0">
+                <div>
+                  <h2 className="text-lg font-bold truncate max-w-md dark:text-white">
+                    {previewFile.name}
                   </h2>
+                  <p className="text-xs text-slate-500">PDF Preview</p>
+                </div>
 
+                <div className="flex items-center gap-2">
+                  {/* Download Button */}
                   <button
-                    onClick={() =>
-                      setDocSelectModal({
-                        isOpen: false,
-                        applicationId: "",
-                        documents: [],
-                        selectedDocs: [],
-                        loading: false,
-                      })
-                    }
-                    className="text-gray-400 hover:text-gray-600"
+                    onClick={async () => {
+                      try {
+                        const res = await fetch(previewFile.url);
+
+                        const blob = await res.blob();
+
+                        const url = window.URL.createObjectURL(blob);
+
+                        const link = document.createElement("a");
+                        link.href = url;
+                        link.download = previewFile.name || "LOI.pdf";
+
+                        document.body.appendChild(link);
+                        link.click();
+
+                        link.remove();
+                        window.URL.revokeObjectURL(url);
+                      } catch (err) {
+                        console.error("Download failed", err);
+                      }
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition"
                   >
-                    ✕
+                    Download
+                  </button>
+
+                  {/* Close Button */}
+                  <button
+                    onClick={() => setPreviewFile(null)}
+                    className="px-4 py-2 rounded-xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700 transition"
+                  >
+                    Close
                   </button>
                 </div>
+              </div>
 
-                {/* BODY */}
-                <div className="px-6 py-5">
-                  <div className="flex items-center justify-between mb-4">
-                    <p className="text-sm text-gray-500">
-                      Select which documents are required.
-                    </p>
+              {/* PDF Preview */}
+              <div className="flex-1 bg-slate-100 dark:bg-slate-950">
+                <iframe
+                  src={`https://docs.google.com/gview?url=${previewFile.url}&embedded=true`}
+                  title={previewFile.name}
+                  className="w-full h-full border-none"
+                />
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
 
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() =>
-                          setDocSelectModal((prev) => ({
-                            ...prev,
-                            selectedDocs: prev.documents.map(
-                              (d: any) => d.documentTypeId,
-                            ),
-                          }))
-                        }
-                        className="px-3 py-1 text-xs rounded-md border bg-gray-50 hover:bg-gray-100"
-                      >
-                        Select All
-                      </button>
+      {docSelectModal.isOpen &&
+        createPortal(
+          <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+            <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl border border-gray-100">
+              {/* HEADER */}
+              <div className="flex items-center justify-between px-6 py-3 border-b">
+                <h2 className="text-lg font-semibold text-gray-800">
+                  Select Documents
+                </h2>
 
-                      <button
-                        onClick={() =>
-                          setDocSelectModal((prev) => ({
-                            ...prev,
-                            selectedDocs: [],
-                          }))
-                        }
-                        className="px-3 py-1 text-xs rounded-md border bg-gray-50 hover:bg-gray-100"
-                      >
-                        Clear
-                      </button>
-                    </div>
+                <button
+                  onClick={() =>
+                    setDocSelectModal({
+                      isOpen: false,
+                      applicationId: "",
+                      documents: [],
+                      selectedDocs: [],
+                      loading: false,
+                    })
+                  }
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* BODY */}
+              <div className="px-6 py-5">
+                <div className="flex items-center justify-between mb-4">
+                  <p className="text-sm text-gray-500">
+                    Select which documents are required.
+                  </p>
+
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() =>
+                        setDocSelectModal((prev) => ({
+                          ...prev,
+                          selectedDocs: prev.documents.map(
+                            (d: any) => d.documentTypeId,
+                          ),
+                        }))
+                      }
+                      className="px-3 py-1 text-xs rounded-md border bg-gray-50 hover:bg-gray-100"
+                    >
+                      Select All
+                    </button>
+
+                    <button
+                      onClick={() =>
+                        setDocSelectModal((prev) => ({
+                          ...prev,
+                          selectedDocs: [],
+                        }))
+                      }
+                      className="px-3 py-1 text-xs rounded-md border bg-gray-50 hover:bg-gray-100"
+                    >
+                      Clear
+                    </button>
                   </div>
+                </div>
 
-                  {/* LOADING */}
-                  {docSelectModal.loading ? (
-                    <div className="text-center py-10 text-gray-500">
-                      Loading documents...
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                      {docSelectModal.documents.map((doc: any) => {
-                        const isSelected = docSelectModal.selectedDocs.includes(
-                          doc.documentTypeId,
-                        );
+                {/* LOADING */}
+                {docSelectModal.loading ? (
+                  <div className="text-center py-10 text-gray-500">
+                    Loading documents...
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    {docSelectModal.documents.map((doc: any) => {
+                      const isSelected = docSelectModal.selectedDocs.includes(
+                        doc.documentTypeId,
+                      );
 
-                        return (
-                          <div
-                            key={doc.documentTypeId}
-                            onClick={() => {
-                              const updated = isSelected
-                                ? docSelectModal.selectedDocs.filter(
-                                    (id) => id !== doc.documentTypeId,
-                                  )
-                                : [
-                                    ...docSelectModal.selectedDocs,
-                                    doc.documentTypeId,
-                                  ];
+                      return (
+                        <div
+                          key={doc.documentTypeId}
+                          onClick={() => {
+                            const updated = isSelected
+                              ? docSelectModal.selectedDocs.filter(
+                                  (id) => id !== doc.documentTypeId,
+                                )
+                              : [
+                                  ...docSelectModal.selectedDocs,
+                                  doc.documentTypeId,
+                                ];
 
-                              setDocSelectModal({
-                                ...docSelectModal,
-                                selectedDocs: updated,
-                              });
-                            }}
-                            className={`cursor-pointer flex items-center justify-between px-4 py-3 rounded-xl border transition
+                            setDocSelectModal({
+                              ...docSelectModal,
+                              selectedDocs: updated,
+                            });
+                          }}
+                          className={`cursor-pointer flex items-center justify-between px-4 py-3 rounded-xl border transition
                       ${
                         isSelected
                           ? "border-emerald-500 bg-emerald-50"
                           : "border-gray-200 hover:border-gray-300"
                       }`}
-                          >
-                            <div className="flex items-center gap-2">
-                              <span className="w-2 h-2 rounded-full bg-orange-400" />
-                              <span className="text-sm text-gray-700">
-                                {doc.documentType.name}
-                              </span>
-                            </div>
-
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              readOnly
-                              className="accent-emerald-600"
-                            />
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-orange-400" />
+                            <span className="text-sm text-gray-700">
+                              {doc.documentType.name}
+                            </span>
                           </div>
-                        );
-                      })}
-                    </div>
-                  )}
 
-                  <div className="mt-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Message
-                    </label>
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            readOnly
+                            className="accent-emerald-600"
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
 
-                    <textarea
-                      placeholder="Enter a message for the client (optional)..."
-                      className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm 
+                <div className="mt-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Message
+                  </label>
+
+                  <textarea
+                    placeholder="Enter a message for the client (optional)..."
+                    className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm 
                focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500
                transition resize-none min-h-[90px]"
-                      value={requestMessage}
-                      onChange={(e) => setRequestMessage(e.target.value)}
-                    />
+                    value={requestMessage}
+                    onChange={(e) => setRequestMessage(e.target.value)}
+                  />
 
-                    <p className="text-xs text-gray-400 mt-1">
-                      This message will be sent along with the document request.
-                    </p>
-                  </div>
+                  <p className="text-xs text-gray-400 mt-1">
+                    This message will be sent along with the document request.
+                  </p>
+                </div>
 
-                  {/* FOOTER */}
-                  <div className="flex items-center justify-between mt-6">
-                    <p className="text-sm text-gray-500">
-                      {docSelectModal.selectedDocs.length} selected
-                    </p>
+                {/* FOOTER */}
+                <div className="flex items-center justify-between mt-6">
+                  <p className="text-sm text-gray-500">
+                    {docSelectModal.selectedDocs.length} selected
+                  </p>
 
-                    <button
-                      onClick={handleRequestDocuments}
-                      disabled={docSelectModal.selectedDocs.length === 0}
-                      className="bg-emerald-600 text-white px-5 py-2 rounded-lg text-sm hover:bg-emerald-700 disabled:opacity-50"
-                    >
-                      Request Documents
-                    </button>
-                  </div>
+                  <button
+                    onClick={handleRequestDocuments}
+                    disabled={docSelectModal.selectedDocs.length === 0}
+                    className="bg-emerald-600 text-white px-5 py-2 rounded-lg text-sm hover:bg-emerald-700 disabled:opacity-50"
+                  >
+                    Request Documents
+                  </button>
                 </div>
               </div>
-            </div>,
-            document.body,
-          )}
+            </div>
+          </div>,
+          document.body,
+        )}
 
-        {assignModal.open && (
-          <div className="fixed inset-0 z-999 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-            <div className="w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl p-6">
-              {/* HEADER */}
-              <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">
-                {assignModal.currentOfficerId
-                  ? "Change Loan Officer"
-                  : "Assign Loan Officer"}
-              </h3>
+      {assignModal.open && (
+        <div className="fixed inset-0 z-999 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl p-6">
+            {/* HEADER */}
+            <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">
+              {assignModal.currentOfficerId
+                ? "Change Loan Officer"
+                : "Assign Loan Officer"}
+            </h3>
 
-              {assignModal.currentOfficerId && (
-                <p className="mb-4 text-sm text-slate-500 dark:text-slate-400">
-                  Only one loan officer can be assigned per application. Selecting
-                  a new officer will replace the current assignment.
-                </p>
-              )}
+            {assignModal.currentOfficerId && (
+              <p className="mb-4 text-sm text-slate-500 dark:text-slate-400">
+                Only one loan officer can be assigned per application. Selecting
+                a new officer will replace the current assignment.
+              </p>
+            )}
 
-              {/* SELECT */}
-              <div className="space-y-2">
-                <label className="text-sm text-slate-500 dark:text-slate-400">
-                  Select Officer
-                </label>
+            {/* SELECT */}
+            <div className="space-y-2">
+              <label className="text-sm text-slate-500 dark:text-slate-400">
+                Select Officer
+              </label>
 
-                <div className="relative">
-                  <select
-                    value={selectedOfficer}
-                    onChange={(e) => setSelectedOfficer(e.target.value)}
-                    className="w-full appearance-none rounded-xl border border-slate-300 dark:border-slate-700 
+              <div className="relative">
+                <select
+                  value={selectedOfficer}
+                  onChange={(e) => setSelectedOfficer(e.target.value)}
+                  className="w-full appearance-none rounded-xl border border-slate-300 dark:border-slate-700 
             bg-white dark:bg-slate-900 px-4 py-2 pr-10 text-sm
             text-slate-800 dark:text-slate-200
             focus:ring-2 focus:ring-indigo-500 outline-none"
-                  >
-                    <option value="">Select Loan Officer</option>
-
-                    {loanOfficers.map((o) => (
-                      <option key={o.id} value={o.id}>
-                        {o.firstName} {o.lastName} ({o.email})
-                      </option>
-                    ))}
-                  </select>
-
-                  {/* Arrow */}
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
-                    ▼
-                  </div>
-                </div>
-              </div>
-
-              {/* PREVIEW CARD */}
-              {selectedOfficer && (
-                <div className="mt-4 p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex items-center gap-3">
-                  {(() => {
-                    const officer = loanOfficers.find(
-                      (o) => o.id === selectedOfficer,
-                    );
-                    if (!officer) return null;
-
-                    
-                    return (
-                      <>
-                        <div className="h-10 w-10 rounded-full bg-indigo-500 text-white flex items-center justify-center font-bold">
-                          {officer.firstName?.charAt(0)}
-                        </div>
-
-                        <div>
-                          <div className="text-sm font-semibold text-slate-800 dark:text-slate-100">
-                            {officer.firstName} {officer.lastName}
-                          </div>
-                          <div className="text-xs text-slate-500">
-                            {officer.email}
-                          </div>
-                        </div>
-                      </>
-                    );
-                  })()}
-                </div>
-              )}
-
-              {assignError && (
-                <div
-                  className="mt-4 px-3 py-2 rounded-lg border border-red-200 bg-red-50 
-  text-red-600 text-sm dark:bg-red-900/20 dark:border-red-800 dark:text-red-400"
                 >
-                  {assignError}
+                  <option value="">Select Loan Officer</option>
+
+                  {loanOfficers.map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.firstName} {o.lastName} ({o.email})
+                    </option>
+                  ))}
+                </select>
+
+                {/* Arrow */}
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
+                  ▼
                 </div>
-              )}
-
-              {/* ACTIONS */}
-              <div className="flex justify-end gap-3 mt-6">
-                <button
-                  onClick={() =>
-                    setAssignModal({
-                      open: false,
-                      applicationId: "",
-                      currentOfficerId: null,
-                    })
-                  }
-                  className="px-4 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 
-          text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
-                >
-                  Cancel
-                </button>
-
-                <button
-                  onClick={handleAssignLoanOfficer}
-                  disabled={assignLoading}
-                  className="px-4 py-2 text-sm rounded-lg bg-indigo-600 text-white 
-          hover:bg-indigo-700 disabled:opacity-50"
-                >
-                  {assignLoading
-                    ? "Saving..."
-                    : assignModal.currentOfficerId
-                      ? "Update"
-                      : "Assign"}
-                </button>
               </div>
             </div>
-          </div>
-        )}
 
-        {assignSubBrokerModal.open && (
-          <div className="fixed inset-0 z-[99999999] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-            <div className="w-full max-w-lg rounded-[32px] border border-white/20 bg-white p-8">
-              <div className="mb-6">
-                <h2 className="text-2xl font-bold text-slate-900">
-                  Assign Sub Broker
-                </h2>
+            {/* PREVIEW CARD */}
+            {selectedOfficer && (
+              <div className="mt-4 p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex items-center gap-3">
+                {(() => {
+                  const officer = loanOfficers.find(
+                    (o) => o.id === selectedOfficer,
+                  );
+                  if (!officer) return null;
+
+                  return (
+                    <>
+                      <div className="h-10 w-10 rounded-full bg-indigo-500 text-white flex items-center justify-center font-bold">
+                        {officer.firstName?.charAt(0)}
+                      </div>
+
+                      <div>
+                        <div className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                          {officer.firstName} {officer.lastName}
+                        </div>
+                        <div className="text-xs text-slate-500">
+                          {officer.email}
+                        </div>
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
+            )}
 
-              <div className="space-y-3">
-                <label className="text-sm font-medium text-slate-700">
-                  Select Sub Broker
-                </label>
+            {assignError && (
+              <div
+                className="mt-4 px-3 py-2 rounded-lg border border-red-200 bg-red-50 
+  text-red-600 text-sm dark:bg-red-900/20 dark:border-red-800 dark:text-red-400"
+              >
+                {assignError}
+              </div>
+            )}
 
-                <select
-                  value={selectedSubBroker}
-                  onChange={(e) => {
-                    setSelectedSubBroker(e.target.value);
+            {/* ACTIONS */}
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={() =>
+                  setAssignModal({
+                    open: false,
+                    applicationId: "",
+                    currentOfficerId: null,
+                  })
+                }
+                className="px-4 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 
+          text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+              >
+                Cancel
+              </button>
 
-                    setAssignSubBrokerError("");
-                  }}
-                  className={`h-14 w-full rounded-2xl border px-4 text-sm outline-none transition
+              <button
+                onClick={handleAssignLoanOfficer}
+                disabled={assignLoading}
+                className="px-4 py-2 text-sm rounded-lg bg-indigo-600 text-white 
+          hover:bg-indigo-700 disabled:opacity-50"
+              >
+                {assignLoading
+                  ? "Saving..."
+                  : assignModal.currentOfficerId
+                    ? "Update"
+                    : "Assign"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {assignSubBrokerModal.open && (
+        <div className="fixed inset-0 z-[99999999] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="w-full max-w-lg rounded-[32px] border border-white/20 bg-white p-8">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-slate-900">
+                Assign Sub Broker
+              </h2>
+            </div>
+
+            <div className="space-y-3">
+              <label className="text-sm font-medium text-slate-700">
+                Select Sub Broker
+              </label>
+
+              <select
+                value={selectedSubBroker}
+                onChange={(e) => {
+                  setSelectedSubBroker(e.target.value);
+
+                  setAssignSubBrokerError("");
+                }}
+                className={`h-14 w-full rounded-2xl border px-4 text-sm outline-none transition
   ${
     assignSubBrokerError
       ? "border-red-400 bg-red-50 focus:border-red-500"
       : "border-slate-200 bg-slate-50 focus:border-cyan-400 focus:bg-white"
   }`}
-                >
-                  <option value="">Select Sub Broker</option>
+              >
+                <option value="">Select Sub Broker</option>
 
-                  {subBrokers.map((broker) => (
-                    <option key={broker.id} value={broker.id}>
-                      {broker.firstName} {broker.lastName} ({broker.email})
-                    </option>
-                  ))}
-                </select>
-                {assignSubBrokerError && (
-                  <p className="text-sm font-medium text-red-500">
-                    {assignSubBrokerError}
-                  </p>
-                )}
-              </div>
+                {subBrokers.map((broker) => (
+                  <option key={broker.id} value={broker.id}>
+                    {broker.firstName} {broker.lastName} ({broker.email})
+                  </option>
+                ))}
+              </select>
+              {assignSubBrokerError && (
+                <p className="text-sm font-medium text-red-500">
+                  {assignSubBrokerError}
+                </p>
+              )}
+            </div>
 
-              <div className="mt-8 flex items-center justify-end gap-3">
-                <button
-                  onClick={() => {
-                    setAssignSubBrokerModal({
-                      open: false,
-                      applicationId: "",
-                      applicationNumber: "",
-                    });
+            <div className="mt-8 flex items-center justify-end gap-3">
+              <button
+                onClick={() => {
+                  setAssignSubBrokerModal({
+                    open: false,
+                    applicationId: "",
+                    applicationNumber: "",
+                  });
 
-                    setSelectedSubBroker("");
-                  }}
-                  className="h-12 rounded-2xl border border-slate-200 px-5 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
-                >
-                  Cancel
-                </button>
+                  setSelectedSubBroker("");
+                }}
+                className="h-12 rounded-2xl border border-slate-200 px-5 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
+              >
+                Cancel
+              </button>
 
-                <button
-                  onClick={handleAssignSubBroker}
-                  disabled={assigningSubBroker}
-                  className="h-12 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 px-5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
-                >
-                  {assigningSubBroker ? "Assigning..." : "Assign Sub Broker"}
-                </button>
-              </div>
+              <button
+                onClick={handleAssignSubBroker}
+                disabled={assigningSubBroker}
+                className="h-12 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 px-5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+              >
+                {assigningSubBroker ? "Assigning..." : "Assign Sub Broker"}
+              </button>
             </div>
           </div>
-        )}
+        </div>
+      )}
     </>
   );
 }

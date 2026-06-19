@@ -1,5 +1,8 @@
 module.exports = async function (fastify) {
   const { normalizeFeeAgreement } = require("../../../../services/feeAgreementEnrichment");
+  const {
+    getBrokerWhiteLabelBranding,
+  } = require("../../../../services/brokerBranding");
   fastify.get(
     "/:loanId/fee-agreement",
     {
@@ -240,6 +243,7 @@ module.exports = async function (fastify) {
                 })) || [],
           },
           agreement.loanApplication,
+          await getBrokerWhiteLabelBranding(prisma, agreement.brokerOrgId),
         );
 
         /* ===============================

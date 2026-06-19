@@ -1,3 +1,14 @@
+const {
+  filterRequirementIdsForLender,
+} = require("../../../utils/filterDocumentRequirementsForLender");
+const {
+  canLenderReceiveDocuments,
+  getLenderDocumentDeliveryBlockMessage,
+} = require("../../../utils/lenderDocumentDelivery");
+const {
+  applyDocumentSendStatusUpdates,
+} = require("../../../services/applyDocumentSendStatusUpdates");
+
 /**
  * @param {import("fastify").FastifyInstance} fastify
  */
@@ -80,6 +91,7 @@ module.exports = async function submitDocumentsToLender(fastify) {
 
         let totalSubmitted = 0;
         const results = [];
+        const successfulApplicationLenderIds = [];
 
         /* ===============================
            PROCESS EACH LENDER
@@ -111,7 +123,20 @@ module.exports = async function submitDocumentsToLender(fastify) {
             continue;
           }
 
-          /* VALIDATE REQUIREMENTS */
+          if (!canLenderReceiveDocuments(lender.status)) {
+            results.push({
+              lenderId: applicationLenderId,
+              success: false,
+              message: getLenderDocumentDeliveryBlockMessage(lender.status),
+              blockedByStatus: lender.status,
+            });
+            continue;
+          }
+
+          /* VALIDATE + FILTER REQUIREMENTS PER LENDER */
+          let filteredRequirementIds = requirementIds;
+          let skippedCount = 0;
+
           if (requirementIds && requirementIds.length > 0) {
             if (
               !Array.isArray(requirementIds) ||
@@ -142,14 +167,36 @@ module.exports = async function submitDocumentsToLender(fastify) {
               });
               continue;
             }
+
+            const filterResult = await filterRequirementIdsForLender(
+              fastify.prisma,
+              {
+                loanApplicationId,
+                applicationLenderId,
+                requirementIds,
+              },
+            );
+
+            filteredRequirementIds = filterResult.allowedIds;
+            skippedCount = filterResult.skippedIds.length;
+
+            if (filteredRequirementIds.length === 0) {
+              results.push({
+                lenderId: applicationLenderId,
+                success: false,
+                message: "No eligible documents for this lender",
+                skippedCount,
+              });
+              continue;
+            }
           }
 
           /* BUILD FILTER */
           let uploadFilter = { loanApplicationId };
 
-          if (requirementIds && requirementIds.length > 0) {
+          if (filteredRequirementIds && filteredRequirementIds.length > 0) {
             uploadFilter.documentRequirementId = {
-              in: requirementIds,
+              in: filteredRequirementIds,
             };
           }
 
@@ -183,32 +230,22 @@ module.exports = async function submitDocumentsToLender(fastify) {
           });
 
           totalSubmitted += uploadIds.length;
-
-          /* UPDATE LENDER */
-          try {
-            await fastify.prisma.applicationLender.update({
-              where: { id: applicationLenderId },
-              data: {
-                status: "IN_REVIEW",
-                sentAt: new Date(),
-              },
-            });
-          } catch {}
+          successfulApplicationLenderIds.push(applicationLenderId);
 
           results.push({
             lenderId: applicationLenderId,
             success: true,
             submittedCount: uploadIds.length,
+            skippedCount,
           });
         }
 
-        /* UPDATE APPLICATION */
-        try {
-          await fastify.prisma.loanApplication.update({
-            where: { id: loanApplicationId },
-            data: { status: "IN_REVIEW" },
+        if (successfulApplicationLenderIds.length > 0) {
+          await applyDocumentSendStatusUpdates(fastify.prisma, {
+            loanApplicationId,
+            applicationLenderIds: successfulApplicationLenderIds,
           });
-        } catch {}
+        }
 
         /* ===============================
            RESPONSE

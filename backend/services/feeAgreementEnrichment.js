@@ -29,8 +29,88 @@ function canClientSignFeeAgreement(agreement) {
   return Number.isFinite(exclusivityMonths) && exclusivityMonths > 0;
 }
 
-function normalizeFeeAgreement(feeAgreement, loanApplication = null) {
+function resolveStoredClientEntityName(feeAgreement, loanApplication = null) {
+  const {
+    resolveClientEntityLabelFromData,
+    isPlaceholderName,
+  } = require("./resolveClientDisplayName");
+
+  const stored = feeAgreement?.clientEntityName;
+  if (stored && !isPlaceholderName(stored)) {
+    return stored;
+  }
+
+  if (!loanApplication?.client) {
+    return isPlaceholderName(stored) ? null : stored || null;
+  }
+
+  return (
+    resolveClientEntityLabelFromData(
+      loanApplication.client,
+      loanApplication.submissions || [],
+    ) || null
+  );
+}
+
+function resolveStoredClientName(feeAgreement, loanApplication = null) {
+  const {
+    resolveClientDisplayNameFromData,
+    isPlaceholderName,
+  } = require("./resolveClientDisplayName");
+
+  const stored = feeAgreement?.clientName;
+  if (stored && !isPlaceholderName(stored)) {
+    return stored;
+  }
+
+  if (!loanApplication?.client) {
+    return isPlaceholderName(stored) ? null : stored || null;
+  }
+
+  return resolveClientDisplayNameFromData(
+    loanApplication.client,
+    loanApplication.submissions || [],
+  );
+}
+
+function enrichLoanApplicationClient(loanApplication) {
+  if (!loanApplication?.client) return loanApplication;
+
+  const {
+    resolveClientDisplayNameFromData,
+    resolveClientEntityLabelFromData,
+    isPlaceholderName,
+  } = require("./resolveClientDisplayName");
+
+  const submissions = loanApplication.submissions || [];
+  const client = loanApplication.client;
+  const displayName = resolveClientDisplayNameFromData(client, submissions);
+  const entityLabel = resolveClientEntityLabelFromData(client, submissions);
+
+  return {
+    ...loanApplication,
+    client: {
+      ...client,
+      legalName: isPlaceholderName(client.legalName) ? displayName : client.legalName,
+      entityLabel: entityLabel || null,
+    },
+  };
+}
+
+function normalizeFeeAgreement(
+  feeAgreement,
+  loanApplication = null,
+  whiteLabelBranding = null,
+) {
   if (!feeAgreement) return null;
+
+  const {
+    resolveAgreementBranding,
+  } = require("./brokerBranding");
+
+  const enrichedLoanApplication = loanApplication
+    ? enrichLoanApplicationClient(loanApplication)
+    : null;
 
   const brokerOrg = loanApplication?.brokerOrg || null;
   const brokerUser = loanApplication?.brokerUser || null;
@@ -45,9 +125,17 @@ function normalizeFeeAgreement(feeAgreement, loanApplication = null) {
     brokerOrg?.name,
   );
 
+  const branding = resolveAgreementBranding(feeAgreement, whiteLabelBranding);
+
   return {
     ...feeAgreement,
-    clientName: coalesce(feeAgreement.clientName, loanApplication?.client?.legalName),
+    ...(enrichedLoanApplication
+      ? { loanApplication: enrichedLoanApplication }
+      : {}),
+    brokerLogoUrl: branding.brokerLogoUrl,
+    brokerBrandName: branding.brokerBrandName,
+    clientName: resolveStoredClientName(feeAgreement, loanApplication),
+    clientEntityName: resolveStoredClientEntityName(feeAgreement, loanApplication),
     clientEmail: coalesce(
       feeAgreement.clientEmail,
       loanApplication?.client?.contacts?.[0]?.email,

@@ -25,7 +25,7 @@ if (!token || !conversationId) {
 const socket = io("http://localhost:4000", {
   transports: ["websocket"],
   auth: {
-    token, // ✅ REQUIRED
+    token,
   },
 });
 
@@ -67,7 +67,7 @@ socket.on("newMessage", (msg) => {
   console.log(
     `📩 [${msg.senderType} - ${msg.senderName}] (${msg.conversationId.slice(0, 6)}) ${msg.text}`,
   );
-});
+}); 
 
 /* ===============================
    ERROR

@@ -1,7 +1,7 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router";
 import { Navigate } from "react-router-dom";
 import SignIn from "./pages/AuthPages/SignIn";
-import SignUp from "./pages/AuthPages/SignUp";
+// import SignUp from "./pages/AuthPages/SignUp";
 import ResetPassword from "./pages/AuthPages/ResetPassword";
 import NotFound from "./pages/OtherPage/NotFound";
 import UserProfiles from "./pages/UserProfiles";
@@ -76,6 +76,7 @@ import LoanOfficerDashboard from "./pages/loanOfficer/Dashboard/LoanOfficerDashb
 import LoanOfficerMessagesPage from "./pages/loanOfficer/Messages/LoanOfficerMessagesPage";
 import LoanOfficerApplication from "./pages/loanOfficer/LoanApplication/LoanApplication";
 import LoanOfficerContacts from "./pages/loanOfficer/Contacts/ContactPage";
+import BrokerBranding from "./pages/Settings/BrokerBranding";
 
 // type RequirePermissionProps = {
 //   children: ReactNode;
@@ -268,6 +269,7 @@ export default function App() {
 
             {/* Others Page */}
             <Route path="/profile" element={<UserProfiles />} />
+            <Route path="/settings/branding" element={<BrokerBranding />} />
             <Route path="/calendar" element={<Calendar />} />
             <Route path="/blank" element={<Blank />} />
 
@@ -300,7 +302,7 @@ export default function App() {
           {/* Auth Layout */}
           <Route path="/impersonate" element={<ImpersonateLogin />} />
           <Route path="/signin" element={<SignIn />} />
-          <Route path="/signup" element={<SignUp />} />
+          {/* <Route path="/signup" element={<SignUp />} /> */}
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/client-upload" element={<ClientAuth />} />
           <Route path="/client-upload/:token" element={<ClientAuth />} />

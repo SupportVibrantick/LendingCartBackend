@@ -28,6 +28,7 @@ import {
 
 import Swal from "sweetalert2";
 import { MdEdit } from "react-icons/md";
+import { formatDocumentStatusLabel } from "../../../lib/documentStatus";
 
 /* ================= TYPES ================= */
 // type SubmissionListItem = {
@@ -2994,7 +2995,7 @@ dark:scrollbar-thumb-slate-700 w-full
                               : "bg-emerald-100 text-emerald-600"
                           }`}
                                   >
-                                    {doc.status}
+                                    {formatDocumentStatusLabel(doc.status)}
                                   </span>
 
                                   <span className="text-[11px] font-semibold text-red-400">

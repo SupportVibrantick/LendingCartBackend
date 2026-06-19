@@ -4,6 +4,9 @@ const {
   notifyClient,
   CLIENT_NOTIFICATION_EVENTS,
 } = require("../../../services/clientNotifications");
+const {
+  canBrokerRequestDocuments,
+} = require("../../../utils/resolveApplicationStatus");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
@@ -98,6 +101,9 @@ async function requestDocumentsRoute(fastify) {
                 contacts: true,
               },
             },
+            applicationLenders: {
+              select: { status: true },
+            },
           },
         });
 
@@ -105,6 +111,15 @@ async function requestDocumentsRoute(fastify) {
           return reply.code(404).send({
             success: false,
             message: "Loan application not found or access denied",
+          });
+        }
+
+        const requestCheck = canBrokerRequestDocuments(loan);
+
+        if (!requestCheck.allowed) {
+          return reply.code(400).send({
+            success: false,
+            message: requestCheck.reason,
           });
         }
 

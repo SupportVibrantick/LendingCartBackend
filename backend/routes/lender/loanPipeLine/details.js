@@ -58,8 +58,18 @@ async function getApplicationDetails(fastify) {
                 documentUploads: true,
 
                 submissions: {
+                  orderBy: { createdAt: "desc" },
+                  take: 1,
                   include: {
-                    fields: true,
+                    fields: {
+                      include: {
+                        builderField: {
+                          include: {
+                            section: true,
+                          },
+                        },
+                      },
+                    },
                   },
                 },
 

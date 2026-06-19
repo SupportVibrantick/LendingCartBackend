@@ -14,6 +14,9 @@ const {
   autoForwardDocumentUpload,
 } = require("../../services/autoForwardDocumentUpload");
 const {
+  syncUploadToExistingLenderSubmissions,
+} = require("../../services/syncUploadToExistingLenderSubmissions");
+const {
   notifyLendersForForwardedDocument,
 } = require("../../services/lenderNotifications");
 const {
@@ -228,6 +231,24 @@ async function uploadDocumentsRoute(fastify) {
               "Auto-forward client document failed",
             );
           }
+        }
+
+        try {
+          await syncUploadToExistingLenderSubmissions(prisma, {
+            loanApplicationId,
+            documentRequirementId,
+            documentUploadId: upload.id,
+          });
+        } catch (syncErr) {
+          fastify.log.error(
+            {
+              error: syncErr.message,
+              loanApplicationId,
+              documentRequirementId,
+              documentUploadId: upload.id,
+            },
+            "Sync client upload to existing lender submissions failed",
+          );
         }
 
         /* ============================

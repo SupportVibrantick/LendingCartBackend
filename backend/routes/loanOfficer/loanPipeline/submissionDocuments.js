@@ -4,13 +4,22 @@
 const {
   getAutoForwardDocumentsToLender,
 } = require("../../../services/documentAutoForwardSetting");
+const {
+  buildDocumentSentToLenderMap,
+  formatSentToLenders,
+} = require("../../../utils/buildDocumentSentToLenderMap");
+const {
+  buildLenderRequestMap,
+  buildDocumentFilterLenders,
+  buildSubmissionDocumentsWhere,
+  documentMatchesSentFilter,
+  paginateDocuments,
+  filterDocumentLenderContext,
+} = require("../../../utils/submissionDocumentsQuery");
 
 module.exports = async function submissionDocuments(fastify) {
   fastify.get("/submissions/:submissionId/documents", async (req, reply) => {
     try {
-      /* ===============================
-         AUTH CHECK
-      =============================== */
       if (!req.user || req.user.orgType !== "BROKER") {
         return reply.code(403).send({
           success: false,
@@ -28,19 +37,22 @@ module.exports = async function submissionDocuments(fastify) {
       }
 
       const { submissionId } = req.params;
-
-      /* ===============================
-         PAGINATION
-      =============================== */
-      const { page = 1, limit = 10, search = "" } = req.query;
+      const {
+        page = 1,
+        limit = 10,
+        search = "",
+        applicationLenderId = "",
+        sentFilter = "all",
+      } = req.query;
 
       const pageNumber = Math.max(parseInt(page) || 1, 1);
       const pageSize = Math.min(parseInt(limit) || 10, 50);
       const skip = (pageNumber - 1) * pageSize;
+      const lenderFilterId =
+        typeof applicationLenderId === "string" ? applicationLenderId.trim() : "";
+      const normalizedSentFilter =
+        typeof sentFilter === "string" ? sentFilter.trim().toLowerCase() : "all";
 
-      /* ===============================
-         FETCH SUBMISSION
-      =============================== */
       const submission = await fastify.prisma.applicationSubmission.findUnique({
         where: { id: submissionId },
         include: { application: true },
@@ -60,7 +72,8 @@ module.exports = async function submissionDocuments(fastify) {
         });
       }
 
-      if (submission.application.brokerUserId !== req.user.id) {
+      const userId = req.user.id || req.user.userId;
+      if (submission.application.brokerUserId !== userId) {
         return reply.code(403).send({
           success: false,
           message: "Access denied - not assigned to you",
@@ -69,14 +82,9 @@ module.exports = async function submissionDocuments(fastify) {
 
       const loanApplicationId = submission.application.id;
 
-      /* ===============================
-         FETCH LENDER REQUESTS (IMPROVED)
-      =============================== */
       const lenderRequests =
         await fastify.prisma.lenderDocumentRequest.findMany({
-          where: {
-            loanApplicationId,
-          },
+          where: { loanApplicationId },
           include: {
             applicationLender: {
               include: {
@@ -91,96 +99,68 @@ module.exports = async function submissionDocuments(fastify) {
           },
         });
 
-      const lenderMap = new Map();
+      const documentFilterLenders = buildDocumentFilterLenders(lenderRequests);
+      const lenderMap = buildLenderRequestMap(lenderRequests);
 
-      for (const reqItem of lenderRequests) {
-        const docId = reqItem.documentTypeId;
-
-        if (!lenderMap.has(docId)) {
-          lenderMap.set(docId, []);
-        }
-
-        lenderMap.get(docId).push({
-          lenderId: reqItem.applicationLender?.lender?.id || null,
-          lenderName: reqItem.applicationLender?.lender?.name || null,
-          applicationLenderId: reqItem.applicationLenderId,
+      if (
+        lenderFilterId &&
+        !documentFilterLenders.some(
+          (lender) => lender.applicationLenderId === lenderFilterId,
+        )
+      ) {
+        return reply.code(400).send({
+          success: false,
+          message: "Invalid lender filter",
         });
       }
 
-      /* ===============================
-         BUILD WHERE (SEARCH SUPPORT)
-      =============================== */
-      const whereCondition = {
+      const whereCondition = buildSubmissionDocumentsWhere({
         loanApplicationId,
+        search,
+        applicationLenderId: lenderFilterId,
+        lenderRequests,
+      });
 
-OR: [
-  {
-    source: "BROKER_ADDED",
-  },
+      const useInMemoryPagination =
+        normalizedSentFilter === "sent" || normalizedSentFilter === "not_sent";
 
-  {
-    source: "SUB_BROKER_ADDED",
-    isSentToBroker: true,
-  },
-
-  {
-    source: "LENDER_ADDED",
-  },
-],
-
-        ...(search && {
-          documentType: {
-            name: {
-              contains: search,
-              mode: "insensitive",
-            },
-          },
-        }),
-      };
-
-      /* ===============================
-         TOTAL COUNT
-      =============================== */
-      const totalCount =
-        await fastify.prisma.applicationDocumentRequirement.count({
-          where: whereCondition,
-        });
-
-      /* ===============================
-         FETCH DOCUMENTS
-      =============================== */
       const documentRequirements =
         await fastify.prisma.applicationDocumentRequirement.findMany({
           where: whereCondition,
-          skip,
-          take: pageSize,
+          ...(useInMemoryPagination ? {} : { skip, take: pageSize }),
           include: {
             documentType: true,
-
-   uploads: {
-  orderBy: {
-    uploadedAt: "desc",
-  },
-
-  include: {
-    subBrokerSubmissions: true,
-  },
-},
+            uploads: {
+              orderBy: { uploadedAt: "desc" },
+              include: { subBrokerSubmissions: true },
+            },
           },
         });
 
-      /* ===============================
-         FORMAT RESPONSE
-      =============================== */
-      const documents = documentRequirements.map((d) => {
-const matchedSubmission =
-  d.uploads.find(
-    (u) =>
-      u.subBrokerSubmissions
-        ?.length,
-  );
+      const { byRequirement, lenderNameById } =
+        await buildDocumentSentToLenderMap(fastify.prisma, loanApplicationId);
+
+      let documents = documentRequirements.map((d) => {
+        const matchedSubmission = d.uploads.find(
+          (upload) => upload.subBrokerSubmissions?.length,
+        );
         const uploadedCount = d.uploads.length;
-        const requestedBy = lenderMap.get(d.documentTypeId) || [];
+        let requestedBy = lenderMap.get(d.documentTypeId) || [];
+
+        if (lenderFilterId) {
+          requestedBy = filterDocumentLenderContext(requestedBy, lenderFilterId);
+        }
+
+        const sentInfo = formatSentToLenders(
+          d.id,
+          requestedBy,
+          byRequirement,
+          lenderNameById,
+        );
+
+        const sentToLenders = lenderFilterId
+          ? filterDocumentLenderContext(sentInfo.sentToLenders, lenderFilterId)
+          : sentInfo.sentToLenders;
 
         return {
           requirementId: d.id,
@@ -189,33 +169,56 @@ const matchedSubmission =
           source: d.source,
           isRequired: d.isRequired,
           status:
-  matchedSubmission
-    ?.subBrokerSubmissions?.[0]
-    ?.status || d.status,
-
-          // ✅ FULL LENDER DETAILS
+            matchedSubmission?.subBrokerSubmissions?.[0]?.status || d.status,
           requestedByLenders: requestedBy,
           requestedByCount: requestedBy.length,
-
+          sentToLenders,
+          isSentToAnyLender: sentToLenders.some((item) => item.isSent),
           uploadedCount,
-
-          uploadedFiles: d.uploads.map((u) => ({
-            uploadId: u.id,
-            fileName: u.fileName,
-            fileUrl: u.fileUrl,
-            fileMimeType: u.fileMimeType,
-            uploadedAt: u.uploadedAt,
+          uploadedFiles: d.uploads.map((upload) => ({
+            uploadId: upload.id,
+            fileName: upload.fileName,
+            fileUrl: upload.fileUrl,
+            fileMimeType: upload.fileMimeType,
+            uploadedAt: upload.uploadedAt,
           })),
-subBrokerSubmissionId:
-  matchedSubmission
-    ?.subBrokerSubmissions?.[0]
-    ?.id || null,
+          subBrokerSubmissionId:
+            matchedSubmission?.subBrokerSubmissions?.[0]?.id || null,
         };
       });
 
-      const pendingCount = documents.filter(
-        (doc) => doc.status === "PENDING",
-      ).length;
+      if (useInMemoryPagination) {
+        documents = documents.filter((doc) =>
+          documentMatchesSentFilter(
+            doc,
+            normalizedSentFilter,
+            lenderFilterId || null,
+          ),
+        );
+      }
+
+      let pagination;
+
+      if (useInMemoryPagination) {
+        const paged = paginateDocuments(documents, pageNumber, pageSize);
+        documents = paged.documents;
+        pagination = paged.pagination;
+      } else {
+        const totalCount =
+          await fastify.prisma.applicationDocumentRequirement.count({
+            where: whereCondition,
+          });
+
+        pagination = {
+          page: pageNumber,
+          limit: pageSize,
+          total: totalCount,
+          totalPages: Math.ceil(totalCount / pageSize) || 1,
+        };
+      }
+
+      const pendingCount = documents.filter((doc) => doc.status === "PENDING")
+        .length;
 
       const autoForwardDocumentsToLender =
         await getAutoForwardDocumentsToLender(
@@ -223,9 +226,6 @@ subBrokerSubmissionId:
           loanApplicationId,
         );
 
-      /* ===============================
-         RESPONSE
-      =============================== */
       return reply.send({
         success: true,
         data: {
@@ -234,14 +234,12 @@ subBrokerSubmissionId:
           autoForwardDocumentsToLender,
           documentsRequested: pendingCount > 0,
           pendingDocumentsCount: pendingCount,
-
-          pagination: {
-            page: pageNumber,
-            limit: pageSize,
-            total: totalCount,
-            totalPages: Math.ceil(totalCount / pageSize),
+          documentFilterLenders,
+          activeFilters: {
+            applicationLenderId: lenderFilterId || null,
+            sentFilter: normalizedSentFilter,
           },
-
+          pagination,
           documents,
         },
       });

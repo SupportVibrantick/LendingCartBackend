@@ -7,6 +7,21 @@ const {
 
 // ADDED (Fee Agreement)
 const createFeeAgreement = require("../../routes/broker/loanPipeline/feeAgreement/createFeeAgreement");
+const {
+  resolveClientSignableSubmission,
+} = require("../../utils/clientPortalSubmission");
+
+const submissionInclude = {
+  submissions: {
+    orderBy: { createdAt: "desc" },
+    include: {
+      fields: {
+        where: { fieldKey: "borrowerSignature" },
+      },
+    },
+  },
+  client: true,
+};
 
 async function submitClientApplication(fastify) {
   fastify.post(
@@ -66,9 +81,9 @@ async function submitClientApplication(fastify) {
             where: { token },
             include: {
               loanApplication: {
-                include: { submissions: true }
-              }
-            }
+                include: submissionInclude,
+              },
+            },
           });
 
           if (!tokenRecord) {
@@ -125,10 +140,10 @@ async function submitClientApplication(fastify) {
 
           loan = await prisma.loanApplication.findFirst({
             where: {
-              id: loanApplicationId, // FIXED
-              clientId
+              id: loanApplicationId,
+              clientId,
             },
-            include: { submissions: true }
+            include: submissionInclude,
           });
 
           if (!loan) {
@@ -157,25 +172,25 @@ async function submitClientApplication(fastify) {
           });
         }
 
-        if (["SUBMITTED", "COMPLETED"].includes(loan.status)) {
+        /* =========================================
+           GET LATEST SIGNABLE SUBMISSION
+        ========================================= */
+
+        const signable = resolveClientSignableSubmission(loan.submissions || []);
+
+        if (signable.alreadySigned) {
           return reply.code(400).send({
             success: false,
-            message: "Application already submitted"
+            message: signable.reason || "Application already submitted",
           });
         }
 
-        /* =========================================
-           GET LATEST PENDING SUBMISSION
-        ========================================= */
+        submission = signable.submission;
 
-        submission = loan.submissions
-          .filter(s => s.status === "CLIENT_PENDING")
-          .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
-
-        if (!submission) { 
+        if (!submission) {
           return reply.code(404).send({
             success: false,
-            message: "No pending submission found"
+            message: signable.reason || "No pending submission found",
           });
         }
 

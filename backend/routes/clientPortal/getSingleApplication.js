@@ -1,5 +1,9 @@
 const jwt = require("jsonwebtoken");
 const { resolveApplicationStatus } = require("../../utils/resolveApplicationStatus");
+const { mapClientPortalDocuments } = require("../../utils/mapClientPortalDocuments");
+const {
+  canClientSignApplication,
+} = require("../../utils/clientPortalSubmission");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
@@ -191,6 +195,19 @@ const propertyAddress =
 const borrowerSignature =
   getField("borrowerSignature") || null;
 
+      const documents = mapClientPortalDocuments(
+        application.documentRequirements || [],
+      );
+
+      const signatureState = canClientSignApplication({
+        status: application.status,
+        submittedAt: application.submittedAt,
+        createdAt: application.createdAt,
+        borrowerSignature,
+        submissions: application.submissions,
+        latestSubmission,
+      });
+
       /* ===============================
          FINAL RESPONSE ✅ FULL DATA
       =============================== */
@@ -208,6 +225,7 @@ const borrowerSignature =
           borrowerPhone,
           propertyAddress,
           borrowerSignature,
+          documents,
 
           latestSubmission: latestSubmission
             ? {
@@ -217,6 +235,10 @@ const borrowerSignature =
                 fields: latestSubmission.fields || [],
               }
             : null,
+
+          canClientSign: signatureState.allowed,
+          clientSignBlockedReason: signatureState.reason || null,
+          alreadySigned: Boolean(signatureState.alreadySigned),
 
           feeAgreement: feeAgreement || null,
 

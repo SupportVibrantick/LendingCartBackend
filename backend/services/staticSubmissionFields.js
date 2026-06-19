@@ -167,6 +167,9 @@ function mapSubmissionFieldResponse(field) {
     options: field.builderField?.options ?? fallback?.options ?? null,
     value: field.value,
     source: field.source,
+    sectionName: field.builderField?.section?.name ?? null,
+    sectionSortOrder: field.builderField?.section?.sortOrder ?? null,
+    fieldSortOrder: field.builderField?.sortOrder ?? null,
   };
 }
 

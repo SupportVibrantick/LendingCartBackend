@@ -1,4 +1,7 @@
 const prisma = require("../../../config/prisma");
+const {
+  resolveClientDisplayNameFromData,
+} = require("../../../services/resolveClientDisplayName");
 
 async function getApplicationsRoute(fastify, options) {
   fastify.get(
@@ -206,6 +209,17 @@ async function getApplicationsRoute(fastify, options) {
                 entityType: true,
 
                 industry: true,
+
+                contacts: {
+                  orderBy: [{ isPrimary: "desc" }, { id: "asc" }],
+                  select: {
+                    firstName: true,
+                    lastName: true,
+                    email: true,
+                    phone: true,
+                    isPrimary: true,
+                  },
+                },
               },
             },
 
@@ -284,12 +298,28 @@ async function getApplicationsRoute(fastify, options) {
             fieldsMap[field.fieldKey] = field.value;
           });
 
+          const submissions = latestSubmission
+            ? [
+                {
+                  fields: (latestSubmission.fields || []).map((field) => ({
+                    fieldKey: field.fieldKey,
+                    value: field.value,
+                  })),
+                },
+              ]
+            : [];
+
+          const borrowerName = resolveClientDisplayNameFromData(
+            item.client,
+            submissions,
+          );
+
           return {
             submissionId: latestSubmission?.id || item.id,
 
             applicationId: item.id,
 
-            borrower: item.client?.legalName || "Applicant",
+            borrower: borrowerName,
 
             applicationNumber: item.applicationNumber || "-",
 

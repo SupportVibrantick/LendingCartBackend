@@ -116,6 +116,11 @@ module.exports = async function signFeeAgreement(fastify) {
         }
 
         const { canClientSignFeeAgreement } = require("../../services/feeAgreementEnrichment");
+        const generateAgreementHtml = require("../broker/loanPipeline/feeAgreement/generateAgreementHtml");
+        const {
+          getBrokerWhiteLabelBranding,
+          lockAgreementBranding,
+        } = require("../../services/brokerBranding");
 
         if (!canClientSignFeeAgreement(agreement)) {
           return reply.code(400).send({
@@ -125,15 +130,34 @@ module.exports = async function signFeeAgreement(fastify) {
           });
         }
 
+        const signedAt = new Date();
+        const whiteLabelBranding = await getBrokerWhiteLabelBranding(
+          prisma,
+          agreement.brokerOrgId,
+        );
+        const lockedBranding = lockAgreementBranding(
+          agreement,
+          whiteLabelBranding,
+        );
+        const updatedData = {
+          ...agreement,
+          ...lockedBranding,
+          clientSignature: signature,
+          signedAt: signedAt.toISOString(),
+        };
+        const agreementHtml = generateAgreementHtml(updatedData);
+
         /* ===============================
            UPDATE
         =============================== */
         const updated = await prisma.feeAgreement.update({
           where: { id: agreement.id },
           data: {
+            ...lockedBranding,
             clientSignature: signature,
-            signedAt: new Date(),
+            signedAt,
             status: "SIGNED",
+            agreementHtml,
           },
         });
 

@@ -106,8 +106,90 @@ function canBrokerEditSubmittedApplication(application) {
   };
 }
 
+/**
+ * Whether a broker may request additional documents from the client.
+ */
+function canBrokerRequestDocuments(application) {
+  if (!application) {
+    return {
+      allowed: false,
+      reason: "Application not found",
+    };
+  }
+
+  const lenders = application.applicationLenders || [];
+  const displayStatus = resolveBrokerPipelineDisplayStatus(application);
+  const status = application.status;
+  const resolvedStatus = resolveApplicationStatus(application);
+
+  if (
+    displayStatus === "APPROVED" ||
+    ["LENDER_APPROVED", "AUTO_APPROVED"].includes(resolvedStatus)
+  ) {
+    return {
+      allowed: false,
+      reason:
+        "Documents cannot be requested after a lender has approved this application.",
+    };
+  }
+
+  if (displayStatus === "DECLINED" || resolvedStatus === "LENDER_DECLINED") {
+    return {
+      allowed: false,
+      reason: "Documents cannot be requested for a declined application.",
+    };
+  }
+
+  if (["FUNDED", "WITHDRAWN", "SUSPENDED"].includes(status)) {
+    return {
+      allowed: false,
+      reason: `Documents cannot be requested for status: ${status}`,
+    };
+  }
+
+  return { allowed: true };
+}
+
+/**
+ * Whether a broker may assign or change loan officer / sub broker.
+ */
+function canBrokerReassignApplication(application) {
+  if (!application) {
+    return {
+      allowed: false,
+      reason: "Application not found",
+    };
+  }
+
+  const displayStatus = resolveBrokerPipelineDisplayStatus(application);
+  const status = application.status;
+  const resolvedStatus = resolveApplicationStatus(application);
+
+  if (
+    displayStatus === "APPROVED" ||
+    ["LENDER_APPROVED", "AUTO_APPROVED"].includes(resolvedStatus)
+  ) {
+    return {
+      allowed: false,
+      reason:
+        "Officer and sub broker cannot be changed after a lender has approved this application.",
+    };
+  }
+
+  if (["FUNDED", "WITHDRAWN", "SUSPENDED"].includes(status)) {
+    return {
+      allowed: false,
+      reason: `Assignment cannot be changed for status: ${status}`,
+    };
+  }
+
+  return { allowed: true };
+}
+
 module.exports = {
   resolveApplicationStatus,
   resolveBrokerPipelineDisplayStatus,
   canBrokerEditSubmittedApplication,
+  canBrokerRequestDocuments,
+  canBrokerReassignApplication,
 };

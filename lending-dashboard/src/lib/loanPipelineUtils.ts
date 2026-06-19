@@ -58,6 +58,9 @@ export function formatCompactAmount(amount?: number | null) {
 export function formatApplicationStatus(status?: string) {
   if (!status) return "—";
 
+  if (status === "LENDER_APPROVED") return "Lender Approved";
+  if (status === "LENDER_DECLINED") return "Lender Declined";
+
   const cleaned = status.replace("LENDER_", "");
   if (cleaned === "CONDITIONAL") return "Docs Requested";
   if (cleaned === "DECLINED") return "Declined";
@@ -80,6 +83,10 @@ export function getApplicationStatusColor(status?: string) {
       return "bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20";
     case "IN_REVIEW":
       return "bg-indigo-50 text-indigo-700 border border-indigo-200 dark:bg-indigo-500/10 dark:text-indigo-400 dark:border-indigo-500/20";
+    case "LENDER_APPROVED":
+      return "bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20";
+    case "LENDER_DECLINED":
+      return "bg-red-50 text-red-700 border border-red-200 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20";
     case "SENT":
       return "bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20";
     case "CONDITIONAL":
@@ -155,6 +162,37 @@ export function formatEntityTypeLabel(value?: string) {
   return value
     .replace(/_/g, " ")
     .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+export function canLenderRequestDocuments(
+  lenderStatus?: string | null,
+  latestReviewStatus?: string | null,
+) {
+  const status = (lenderStatus || "").toUpperCase().trim();
+  const review = (latestReviewStatus || "").toUpperCase().trim();
+
+  if (["APPROVED", "DECLINED"].includes(status)) return false;
+  if (["APPROVED", "DECLINED"].includes(review)) return false;
+
+  return true;
+}
+
+export function getLenderRequestDocumentsDisabledReason(
+  lenderStatus?: string | null,
+  latestReviewStatus?: string | null,
+) {
+  const status = (lenderStatus || "").toUpperCase().trim();
+  const review = (latestReviewStatus || "").toUpperCase().trim();
+
+  if (status === "APPROVED" || review === "APPROVED") {
+    return "This application is already approved. Additional documents cannot be requested.";
+  }
+
+  if (status === "DECLINED" || review === "DECLINED") {
+    return "This application was declined. Documents cannot be requested.";
+  }
+
+  return "";
 }
 
 export function getPaginationWindow(

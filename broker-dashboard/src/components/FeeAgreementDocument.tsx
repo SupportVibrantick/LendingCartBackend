@@ -2,10 +2,12 @@ import type { ReactNode, RefObject } from "react";
 import {
   displayAgreementText,
   displayBrokerName,
+  displayClientEntityLabel,
   displayExclusivityMonths,
   displayFeeAmount,
   displayFeePercent,
   displayGoverningLaw,
+  formatIssuerPartyName,
   hasFeeTerms,
 } from "../lib/feeAgreementDisplayUtils";
 
@@ -25,6 +27,9 @@ export default function FeeAgreementDocument({
   const brokerName = displayBrokerName(data.brokerName, data.brokerCompany);
   const brokerCompany = displayAgreementText(data.brokerCompany, "Not provided");
   const feeTermsPending = !hasFeeTerms(data);
+  const logoSrc = data.brokerLogoUrl || "/loanAutomation.jpeg";
+  const logoAlt =
+    data.brokerBrandName || data.brokerCompany || "Broker Logo";
 
   return (
     <div
@@ -34,9 +39,13 @@ export default function FeeAgreementDocument({
       <div className="text-center space-y-2">
         <div className="flex justify-center">
           <img
-            src="/loanAutomation.jpeg"
-            alt="Loan Automation Logo"
-            className="object-contain rounded-full h-24 w-24"
+            src={logoSrc}
+            alt={logoAlt}
+            className={`object-contain ${
+              data.brokerLogoUrl
+                ? "h-24 max-w-[220px]"
+                : "h-24 w-24 rounded-full"
+            }`}
           />
         </div>
 
@@ -52,8 +61,7 @@ export default function FeeAgreementDocument({
           This Finder & Financial Agreement is made and entered into on{" "}
           <b>{new Date(data.createdAt).toLocaleDateString()}</b> by and between{" "}
           <b>
-            {displayAgreementText(data.clientName)} (
-            {displayAgreementText(data.clientEntityName)})
+            {formatIssuerPartyName(data.clientName, data.clientEntityName)}
           </b>
           , whose address is{" "}
           <b>{displayAgreementText(data.clientAddress)}</b> ("Issuer"), and{" "}
@@ -176,7 +184,11 @@ export default function FeeAgreementDocument({
           <b>Name:</b> {displayAgreementText(data.clientName)}
         </p>
         <p>
-          <b>Entity:</b> {displayAgreementText(data.clientEntityName)}
+          <b>Entity:</b>{" "}
+          {displayClientEntityLabel(
+            data.clientEntityName,
+            data.loanApplication?.client?.entityType,
+          )}
         </p>
         <p>
           <b>Email:</b> {displayAgreementText(data.clientEmail)}

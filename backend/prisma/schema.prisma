@@ -29,22 +29,22 @@ model Organization {
   brokerLenderInvitesAsBroker BrokerLenderInvite[] @relation("BrokerInvite_broker")
   brokerLenderInvitesAsLender BrokerLenderInvite[] @relation("BrokerInvite_lender")
 
-  brokerWhiteLabelSettings BrokerWhiteLabelSetting[]
-  clients                  Client[]                  @relation("BrokerClients")
-  escrowTitleCompanies     EscrowTitleCompany[]
-  lenderProducts           LenderProduct[]
-  brokerLoanApplications   LoanApplication[]         @relation("BrokerLoanApplications")
-  users                    UserAccount[]
-  contacts                 Contact[]
-  loiTemplates             LenderLoiTemplate[]
-  feeAgreements            FeeAgreement[]            @relation("OrgToFeeAgreement")
-  campaigns                Campaign[]                @relation("OrgCampaigns")
+  brokerWhiteLabelSettings  BrokerWhiteLabelSetting[]
+  clients                   Client[]                   @relation("BrokerClients")
+  escrowTitleCompanies      EscrowTitleCompany[]
+  lenderProducts            LenderProduct[]
+  brokerLoanApplications    LoanApplication[]          @relation("BrokerLoanApplications")
+  users                     UserAccount[]
+  contacts                  Contact[]
+  loiTemplates              LenderLoiTemplate[]
+  feeAgreements             FeeAgreement[]             @relation("OrgToFeeAgreement")
+  campaigns                 Campaign[]                 @relation("OrgCampaigns")
   organizationSubscriptions OrganizationSubscription[]
-  subscriptionInvoices     SubscriptionInvoice[]
-  loanAiUsers              LoanAiUser[]
+  subscriptionInvoices      SubscriptionInvoice[]
+  loanAiUsers               LoanAiUser[]
   // soft-delete fields (additive, non-breaking)
-  isDeleted                Boolean?                  @default(false) @map("is_deleted")
-  deletedAt                DateTime?                 @map("deleted_at") @db.Timestamptz(6)
+  isDeleted                 Boolean?                   @default(false) @map("is_deleted")
+  deletedAt                 DateTime?                  @map("deleted_at") @db.Timestamptz(6)
 
   @@map("organizations")
 }
@@ -486,26 +486,26 @@ model SubscriptionPackage {
 }
 
 model OrganizationSubscription {
-  id                    String                         @id @default(uuid()) @db.Uuid
-  organizationId        String                         @db.Uuid
-  packageId             String                         @db.Uuid
-  billingCycle          SubscriptionBillingCycle       @default(MONTHLY)
-  status                OrganizationSubscriptionStatus @default(ACTIVE)
-  currentPeriodStart    DateTime                       @db.Timestamptz(6)
-  currentPeriodEnd      DateTime                       @db.Timestamptz(6)
+  id                        String                         @id @default(uuid()) @db.Uuid
+  organizationId            String                         @db.Uuid
+  packageId                 String                         @db.Uuid
+  billingCycle              SubscriptionBillingCycle       @default(MONTHLY)
+  status                    OrganizationSubscriptionStatus @default(ACTIVE)
+  currentPeriodStart        DateTime                       @db.Timestamptz(6)
+  currentPeriodEnd          DateTime                       @db.Timestamptz(6)
   trialEndsAt               DateTime?                      @db.Timestamptz(6)
   trialEndingReminderSentAt DateTime?                      @db.Timestamptz(6)
   cancelledAt               DateTime?                      @db.Timestamptz(6)
-  cancelAtPeriodEnd     Boolean                        @default(false)
-  stripeCustomerId      String?
-  stripeSubscriptionId  String?
-  assignedByAdminId     String?                        @db.Uuid
-  notes                 String?
-  createdAt             DateTime                       @default(now()) @db.Timestamptz(6)
-  updatedAt             DateTime                       @updatedAt @db.Timestamptz(6)
+  cancelAtPeriodEnd         Boolean                        @default(false)
+  stripeCustomerId          String?
+  stripeSubscriptionId      String?
+  assignedByAdminId         String?                        @db.Uuid
+  notes                     String?
+  createdAt                 DateTime                       @default(now()) @db.Timestamptz(6)
+  updatedAt                 DateTime                       @updatedAt @db.Timestamptz(6)
 
-  organization Organization         @relation(fields: [organizationId], references: [id])
-  package      SubscriptionPackage  @relation(fields: [packageId], references: [id])
+  organization Organization          @relation(fields: [organizationId], references: [id])
+  package      SubscriptionPackage   @relation(fields: [packageId], references: [id])
   usageRecords SubscriptionUsage[]
   invoices     SubscriptionInvoice[]
 
@@ -677,37 +677,37 @@ model AffiliateLink {
 }
 
 model LoanApplication {
-  id                     String                           @id @default(uuid()) @db.Uuid
-  applicationNumber      String                           @unique
-  brokerOrgId            String                           @db.Uuid
-  brokerUserId           String?                          @db.Uuid
-  clientId               String                           @db.Uuid
-  loanProductCode        LoanProductCode
-  status                 LoanApplicationStatus            @default(DRAFT)
-  amountRequested        Decimal?                         @db.Decimal(20, 2)
-  termMonthsRequested    Int?
-  purpose                String?
-  createdAt              DateTime                         @default(now()) @db.Timestamptz(6)
-  updatedAt              DateTime                         @updatedAt @db.Timestamptz(6)
-  submittedAt            DateTime?                        @db.Timestamptz(6)
-  autoForwardDocumentsToLender Boolean                  @default(false) @map("auto_forward_documents_to_lender")
-  collaterals            ApplicationCollateral[]
-  documentRequirements   ApplicationDocumentRequirement[]
-  documentUploads        ApplicationDocumentUpload[]
-  lenderDocumentRequests LenderDocumentRequest[]
-  financials             ApplicationFinancial?
-  applicationLenders     ApplicationLender[]
-  ruleEvaluations        ApplicationRuleEvaluation[]
-  statusHistory          ApplicationStatusHistory[]
-  escrowInstructions     EscrowInstruction[]
-  brokerOrg              Organization                     @relation("BrokerLoanApplications", fields: [brokerOrgId], references: [id])
-  brokerUser             UserAccount?                     @relation("BrokerUserLoanApplications", fields: [brokerUserId], references: [id])
-  client                 Client                           @relation(fields: [clientId], references: [id])
-  submissions            ApplicationSubmission[]
-  clientUploadTokens     ClientUploadToken[]
-  feeAgreement           FeeAgreement?                    @relation("LoanToFeeAgreement")
-  subBrokerAssignments   SubBrokerApplication[]
-  subBrokerSubmissions   SubBrokerSubmission[]
+  id                           String                           @id @default(uuid()) @db.Uuid
+  applicationNumber            String                           @unique
+  brokerOrgId                  String                           @db.Uuid
+  brokerUserId                 String?                          @db.Uuid
+  clientId                     String                           @db.Uuid
+  loanProductCode              LoanProductCode
+  status                       LoanApplicationStatus            @default(DRAFT)
+  amountRequested              Decimal?                         @db.Decimal(20, 2)
+  termMonthsRequested          Int?
+  purpose                      String?
+  createdAt                    DateTime                         @default(now()) @db.Timestamptz(6)
+  updatedAt                    DateTime                         @updatedAt @db.Timestamptz(6)
+  submittedAt                  DateTime?                        @db.Timestamptz(6)
+  autoForwardDocumentsToLender Boolean                          @default(false) @map("auto_forward_documents_to_lender")
+  collaterals                  ApplicationCollateral[]
+  documentRequirements         ApplicationDocumentRequirement[]
+  documentUploads              ApplicationDocumentUpload[]
+  lenderDocumentRequests       LenderDocumentRequest[]
+  financials                   ApplicationFinancial?
+  applicationLenders           ApplicationLender[]
+  ruleEvaluations              ApplicationRuleEvaluation[]
+  statusHistory                ApplicationStatusHistory[]
+  escrowInstructions           EscrowInstruction[]
+  brokerOrg                    Organization                     @relation("BrokerLoanApplications", fields: [brokerOrgId], references: [id])
+  brokerUser                   UserAccount?                     @relation("BrokerUserLoanApplications", fields: [brokerUserId], references: [id])
+  client                       Client                           @relation(fields: [clientId], references: [id])
+  submissions                  ApplicationSubmission[]
+  clientUploadTokens           ClientUploadToken[]
+  feeAgreement                 FeeAgreement?                    @relation("LoanToFeeAgreement")
+  subBrokerAssignments         SubBrokerApplication[]
+  subBrokerSubmissions         SubBrokerSubmission[]
 
   @@index([brokerOrgId])
   @@index([clientId])
@@ -1131,6 +1131,9 @@ model FeeAgreement {
   brokerAddress String?
   brokerState   String?
   brokerCounty  String?
+
+  brokerLogoUrl   String?
+  brokerBrandName String?
 
   subjectAddress String?
 
@@ -1993,7 +1996,7 @@ enum LoanProductCode {
    * SBA & USDA
    * ==========================================
    */
-   
+
   SBA_504_REAL_ESTATE_AND_EQUIPMENT
   SBA_7A_WORKING_CAPITAL
   SBA_7A_BUSINESS_ACQUISITION

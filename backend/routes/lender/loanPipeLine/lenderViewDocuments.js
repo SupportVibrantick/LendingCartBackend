@@ -1,6 +1,13 @@
 /**
  * @param {import("fastify").FastifyInstance} fastify
  */
+const {
+  formatUserName,
+  resolveLenderDocumentSourceLabel,
+  matchesLenderDocumentSourceFilter,
+} = require("../../../utils/resolveLenderDocumentSourceLabel");
+const { paginateDocuments } = require("../../../utils/submissionDocumentsQuery");
+
 module.exports = async function lenderViewDocuments(fastify) {
   fastify.get(
     "/lender/applications/:applicationLenderId/documents",
@@ -26,6 +33,26 @@ module.exports = async function lenderViewDocuments(fastify) {
         }
 
         const { applicationLenderId } = req.params;
+        const {
+          page = 1,
+          limit = 10,
+          search = "",
+          sourceFilter = "all",
+        } = req.query;
+
+        const pageNumber = Math.max(parseInt(page, 10) || 1, 1);
+        const pageSize = Math.min(parseInt(limit, 10) || 10, 50);
+        const searchTerm =
+          typeof search === "string" ? search.trim().toLowerCase() : "";
+        const normalizedSourceFilter =
+          typeof sourceFilter === "string"
+            ? sourceFilter.trim().toLowerCase()
+            : "all";
+        const activeSourceFilter = ["all", "mine", "broker"].includes(
+          normalizedSourceFilter,
+        )
+          ? normalizedSourceFilter
+          : "all";
 
         if (!applicationLenderId) {
           return reply.code(400).send({
@@ -46,6 +73,22 @@ module.exports = async function lenderViewDocuments(fastify) {
             select: {
               id: true,
               loanApplicationId: true,
+              lender: {
+                select: { name: true },
+              },
+              loanApplication: {
+                select: {
+                  brokerOrg: {
+                    select: { name: true },
+                  },
+                  brokerUser: {
+                    select: {
+                      firstName: true,
+                      lastName: true,
+                    },
+                  },
+                },
+              },
             },
           });
 
@@ -57,6 +100,27 @@ module.exports = async function lenderViewDocuments(fastify) {
         }
 
         const loanApplicationId = applicationLender.loanApplicationId;
+        const brokerOrgName = applicationLender.loanApplication?.brokerOrg?.name || null;
+        const brokerUserName = formatUserName(
+          applicationLender.loanApplication?.brokerUser,
+        );
+        const lenderName = applicationLender.lender?.name || null;
+
+        /* ===============================
+           THIS LENDER'S DOCUMENT REQUESTS
+        =============================== */
+        const lenderRequests =
+          await fastify.prisma.lenderDocumentRequest.findMany({
+            where: {
+              applicationLenderId,
+              loanApplicationId,
+            },
+            select: { documentTypeId: true },
+          });
+
+        const lenderRequestedTypeIds = new Set(
+          lenderRequests.map((row) => row.documentTypeId),
+        );
 
         /* ===============================
            FETCH REQUIREMENTS (GLOBAL)
@@ -72,56 +136,122 @@ module.exports = async function lenderViewDocuments(fastify) {
           });
 
         /* ===============================
-           FETCH SUBMISSIONS (🔥 CORE FIX)
+           REQUIREMENTS SHARED WITH THIS LENDER
         =============================== */
         const submissions =
           await fastify.prisma.applicationDocumentSubmission.findMany({
-            where: {
-              applicationLenderId,
-            },
-            include: {
+            where: { applicationLenderId },
+            select: {
               documentUpload: {
-                include: {
-                  uploadedByUser: {
-                    select: {
-                      id: true,
-                      firstName: true,
-                      lastName: true,
-                      email: true,
-                    },
-                  },
-                  uploadedByClientUser: {
-                    select: {
-                      id: true,
-                      email: true,
-                    },
-                  },
-                },
+                select: { documentRequirementId: true },
               },
             },
           });
 
-        /* ===============================
-           MAP SUBMISSIONS → REQUIREMENTS
-        =============================== */
-        const submissionMap = new Map();
+        const sharedRequirementIds = [
+          ...new Set(
+            submissions
+              .map((sub) => sub.documentUpload?.documentRequirementId)
+              .filter(Boolean),
+          ),
+        ];
 
-        for (const sub of submissions) {
-          const upload = sub.documentUpload;
-          if (!upload || !upload.documentRequirementId) continue;
+        const sharedRequirementIdSet = new Set(sharedRequirementIds);
 
-          if (!submissionMap.has(upload.documentRequirementId)) {
-            submissionMap.set(upload.documentRequirementId, []);
+        const isRequirementVisibleToLender = (reqDoc) => {
+          if (reqDoc.status === "SKIPPED") return false;
+
+          if (reqDoc.source === "LENDER_ADDED") {
+            return lenderRequestedTypeIds.has(reqDoc.documentTypeId);
           }
 
-          submissionMap.get(upload.documentRequirementId).push(upload);
+          if (
+            reqDoc.source === "BROKER_ADDED" ||
+            reqDoc.source === "SUB_BROKER_ADDED"
+          ) {
+            return sharedRequirementIdSet.has(reqDoc.id);
+          }
+
+          if (lenderRequestedTypeIds.has(reqDoc.documentTypeId)) {
+            return true;
+          }
+
+          return sharedRequirementIdSet.has(reqDoc.id);
+        };
+
+        const uploadInclude = {
+          uploadedByUser: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+          uploadedByClientUser: {
+            select: {
+              id: true,
+              email: true,
+            },
+          },
+        };
+
+        const uploadsByRequirement = new Map();
+
+        if (sharedRequirementIds.length > 0) {
+          const sharedUploads =
+            await fastify.prisma.applicationDocumentUpload.findMany({
+              where: {
+                loanApplicationId,
+                documentRequirementId: { in: sharedRequirementIds },
+              },
+              include: uploadInclude,
+              orderBy: { uploadedAt: "desc" },
+            });
+
+          for (const upload of sharedUploads) {
+            if (!upload.documentRequirementId) continue;
+
+            if (!uploadsByRequirement.has(upload.documentRequirementId)) {
+              uploadsByRequirement.set(upload.documentRequirementId, []);
+            }
+
+            uploadsByRequirement.get(upload.documentRequirementId).push(upload);
+          }
         }
+
+        const formatUploadedFile = (upload, reqDoc) => ({
+          uploadId: upload.id,
+          fileName: upload.fileName,
+          fileUrl: upload.fileUrl,
+          fileMimeType: upload.fileMimeType,
+          uploadedAt: upload.uploadedAt,
+          uploadedBy: upload.uploadedByUser
+            ? {
+                type:
+                  reqDoc.source === "SUB_BROKER_ADDED" ? "SUB_BROKER" : "BROKER",
+                userId: upload.uploadedByUser.id,
+                name: `${upload.uploadedByUser.firstName ?? ""} ${
+                  upload.uploadedByUser.lastName ?? ""
+                }`.trim(),
+                email: upload.uploadedByUser.email,
+              }
+            : upload.uploadedByClientUser
+              ? {
+                  type: "CLIENT",
+                  userId: upload.uploadedByClientUser.id,
+                  email: upload.uploadedByClientUser.email,
+                }
+              : null,
+        });
 
         /* ===============================
            FORMAT DOCUMENTS
         =============================== */
-        const documents = requirements.map((reqDoc) => {
-          const uploads = submissionMap.get(reqDoc.id) || [];
+        const documents = requirements
+          .filter(isRequirementVisibleToLender)
+          .map((reqDoc) => {
+          const uploads = uploadsByRequirement.get(reqDoc.id) || [];
           const uploadedCount = uploads.length;
 
           return {
@@ -129,6 +259,12 @@ module.exports = async function lenderViewDocuments(fastify) {
             documentTypeId: reqDoc.documentTypeId,
             documentName: reqDoc.documentType?.name ?? null,
             source: reqDoc.source,
+            sourceLabel: resolveLenderDocumentSourceLabel(reqDoc, {
+              brokerOrgName,
+              brokerUserName,
+              lenderName,
+              uploads,
+            }),
             isRequired: reqDoc.isRequired,
 
             status:
@@ -142,44 +278,33 @@ module.exports = async function lenderViewDocuments(fastify) {
 
             uploadedCount,
 
-            uploadedFiles: uploads.map((upload) => ({
-              uploadId: upload.id,
-              fileName: upload.fileName,
-              fileUrl: upload.fileUrl,
-              fileMimeType: upload.fileMimeType,
-              uploadedAt: upload.uploadedAt,
-
-              uploadedBy: upload.uploadedByUser
-                ? {
-                    type:
-                      reqDoc.source === "SUB_BROKER_ADDED"
-                        ? "SUB_BROKER"
-                        : "BROKER",
-                    userId: upload.uploadedByUser.id,
-                    name: `${upload.uploadedByUser.firstName ?? ""} ${
-                      upload.uploadedByUser.lastName ?? ""
-                    }`.trim(),
-                    email: upload.uploadedByUser.email,
-                  }
-                : upload.uploadedByClientUser
-                  ? {
-                      type: "CLIENT",
-                      userId: upload.uploadedByClientUser.id,
-                      email: upload.uploadedByClientUser.email,
-                    }
-                  : null,
-            })),
+            uploadedFiles: uploads.map((upload) =>
+              formatUploadedFile(upload, reqDoc),
+            ),
           };
         });
 
-        /* ===============================
-           FILTER (OPTIONAL CLEAN UX)
-        =============================== */
         const visibleDocuments = documents.filter(
-          (doc) =>
-            doc.status !== "SKIPPED" &&
-            (doc.uploadedCount > 0 || doc.isRequired),
+          (doc) => doc.uploadedCount > 0 || doc.isRequired,
         );
+
+        const sourceFilteredDocuments = visibleDocuments.filter((doc) =>
+          matchesLenderDocumentSourceFilter(doc, activeSourceFilter),
+        );
+
+        const filteredDocuments = searchTerm
+          ? sourceFilteredDocuments.filter((doc) => {
+              const documentName = (doc.documentName || "").toLowerCase();
+              const sourceLabel = (doc.sourceLabel || "").toLowerCase();
+              const source = (doc.source || "").toLowerCase();
+
+              return (
+                documentName.includes(searchTerm) ||
+                sourceLabel.includes(searchTerm) ||
+                source.includes(searchTerm)
+              );
+            })
+          : sourceFilteredDocuments;
 
         /* ===============================
            PENDING COUNT
@@ -187,6 +312,12 @@ module.exports = async function lenderViewDocuments(fastify) {
         const pendingCount = visibleDocuments.filter(
           (d) => d.uploadedCount === 0,
         ).length;
+
+        const { documents: paginatedDocuments, pagination } = paginateDocuments(
+          filteredDocuments,
+          pageNumber,
+          pageSize,
+        );
 
         /* ===============================
            RESPONSE
@@ -197,7 +328,13 @@ module.exports = async function lenderViewDocuments(fastify) {
             applicationLenderId,
             loanApplicationId,
             documentsPendingCount: pendingCount,
-            documents: visibleDocuments,
+            totalDocumentsCount: visibleDocuments.length,
+            activeFilters: {
+              search: searchTerm || null,
+              sourceFilter: activeSourceFilter,
+            },
+            pagination,
+            documents: paginatedDocuments,
           },
         });
       } catch (error) {

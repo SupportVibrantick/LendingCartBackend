@@ -1,6 +1,8 @@
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
-const { loanAiLoginSchema } = require("../../../../schemas/public/loanAi/auth.schema");
+const {
+  loanAiLoginSchema,
+} = require("../../../../schemas/public/loanAi/auth.schema");
 const { commonLogs } = require("../../../../services/logger/contextLogger");
 
 function signLoanAiToken(user) {

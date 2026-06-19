@@ -5,6 +5,9 @@ const {
   notifyBroker,
   BROKER_NOTIFICATION_EVENTS,
 } = require("../../../services/brokerNotifications");
+const {
+  canBrokerReassignApplication,
+} = require("../../../utils/resolveApplicationStatus");
 
 const SUBBROKER_CHAT_DB_TYPE = "CLIENT_BROKER";
 
@@ -160,6 +163,14 @@ async function assignApplicationRoute(fastify, options) {
 
             message:
               "Application not found",
+          });
+        }
+
+        const reassignmentCheck = canBrokerReassignApplication(application);
+        if (!reassignmentCheck.allowed) {
+          return reply.code(403).send({
+            success: false,
+            message: reassignmentCheck.reason,
           });
         }
 

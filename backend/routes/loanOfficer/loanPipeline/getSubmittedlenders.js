@@ -1,6 +1,8 @@
 /**
  * @param {import("fastify").FastifyInstance} fastify
  */
+const { canLenderReceiveDocuments } = require("../../../utils/lenderDocumentDelivery");
+
 module.exports = async function getSubmittedLenders(fastify) {
   fastify.get(
     "/:loanId/submitted-lenders",
@@ -153,6 +155,7 @@ module.exports = async function getSubmittedLenders(fastify) {
           loanProductCode: l.lenderProduct?.loanProductCode || null,
 
           status: l.status,
+          canReceiveDocuments: canLenderReceiveDocuments(l.status),
           sentAt: l.sentAt,
           lastUpdatedAt: l.lastUpdatedAt,
         }));

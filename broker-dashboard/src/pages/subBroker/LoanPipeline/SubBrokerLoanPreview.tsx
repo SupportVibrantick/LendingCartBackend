@@ -7,7 +7,7 @@ import {
   FolderOpen,
   // Loader2,
   MoreVertical,
-  Pencil,
+  // Pencil,
   Search,
   Send,
   Upload,
@@ -23,6 +23,12 @@ import { FiFolder, FiSend, FiTag, FiUser } from "react-icons/fi";
 import { FaRegCreditCard } from "react-icons/fa6";
 import LoanPreviewChat from "./LoanPreviewChat";
 import FeeAgreement from "./FeeAgreement";
+import SubmissionDetailsView from "../../../components/submissions/SubmissionDetailsView";
+import {
+  formatDocumentStatusLabel,
+  getDocumentStatusChipClass,
+} from "../../../lib/documentStatus";
+import { getBorrowerDisplayNameFromFields } from "../../../lib/submissionFieldUtils";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
@@ -58,15 +64,15 @@ type Lender = {
   rejectionReasons: string[];
 };
 
-type GroupedFields = {
-  primaryBorrower: SubmissionField[];
-  coBorrowers: Record<string, SubmissionField[]>;
-  entity: SubmissionField[];
-  property: SubmissionField[];
-  loan: SubmissionField[];
-  financial: SubmissionField[];
-  others: SubmissionField[];
-};
+// type GroupedFields = {
+//   primaryBorrower: SubmissionField[];
+//   coBorrowers: Record<string, SubmissionField[]>;
+//   entity: SubmissionField[];
+//   property: SubmissionField[];
+//   loan: SubmissionField[];
+//   financial: SubmissionField[];
+//   others: SubmissionField[];
+// };
 
 // type UploadedPreview = {
 //   url: string;
@@ -91,6 +97,15 @@ const parseValue = (val: string): any => {
   } catch {
     return val;
   }
+};
+
+const formatSubmissionStatus = (status?: string) => {
+  if (!status) return "-";
+  if (status === "DECLINED") return "Rejected";
+  return status
+    .replace(/_/g, " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (c: string) => c.toUpperCase());
 };
 
 const getStatusChip = (status?: string) => {
@@ -151,29 +166,7 @@ function getAuthHeaders(): HeadersInit {
   };
 }
 
-const getDocumentStatusChip = (
-  status: string,
-) => {
-  switch (status) {
-    case "COMPLETED":
-      return "bg-emerald-100 text-emerald-700";
-
-    case "PARTIAL":
-      return "bg-amber-100 text-amber-700";
-
-    case "PENDING":
-      return "bg-yellow-100 text-yellow-700";
-
-    case "SKIPPED":
-      return "bg-red-100 text-red-700";
-
-    case "SENT TO PRINCIPAL BROKER":
-      return "bg-blue-100 text-blue-700";
-
-    default:
-      return "bg-slate-100 text-slate-500";
-  }
-};
+const getDocumentStatusChip = getDocumentStatusChipClass;
 
 const getSourceChip = (source?: string) => {
   switch (source) {
@@ -213,43 +206,43 @@ const formatSource = (source?: string) => {
   }
 };
 
-const formatFieldKey = (key: string | null | undefined) => {
-  if (!key) return "";
+// const formatFieldKey = (key: string | null | undefined) => {
+//   if (!key) return "";
 
-  return key
-    .replace(/^coBorrower_\d+_/, "coBorrower_")
-    .replace(/([a-z])([A-Z])/g, "$1 $2")
-    .replace(/_/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .replace(/\b\w/g, (char) => char.toUpperCase());
-};
+//   return key
+//     .replace(/^coBorrower_\d+_/, "coBorrower_")
+//     .replace(/([a-z])([A-Z])/g, "$1 $2")
+//     .replace(/_/g, " ")
+//     .replace(/\s+/g, " ")
+//     .trim()
+//     .replace(/\b\w/g, (char) => char.toUpperCase());
+// };
 
-const stringifyFieldValue = (value: unknown) => {
-  if (value === undefined || value === null) return "";
-  if (typeof value === "string") return value;
-  if (typeof value === "boolean") return value ? "true" : "false";
+// const stringifyFieldValue = (value: unknown) => {
+//   if (value === undefined || value === null) return "";
+//   if (typeof value === "string") return value;
+//   if (typeof value === "boolean") return value ? "true" : "false";
 
-  try {
-    return JSON.stringify(value);
-  } catch {
-    return String(value);
-  }
-};
+//   try {
+//     return JSON.stringify(value);
+//   } catch {
+//     return String(value);
+//   }
+// };
 
-const buildEditableFieldValues = (submissionFields: SubmissionField[]) => {
-  return submissionFields.reduce(
-    (acc: Record<string, string>, field: SubmissionField) => {
-      if (!field.fieldKey || field.fieldKey === "borrowerSignature") {
-        return acc;
-      }
+// const buildEditableFieldValues = (submissionFields: SubmissionField[]) => {
+//   return submissionFields.reduce(
+//     (acc: Record<string, string>, field: SubmissionField) => {
+//       if (!field.fieldKey || field.fieldKey === "borrowerSignature") {
+//         return acc;
+//       }
 
-      acc[field.fieldKey] = stringifyFieldValue(parseValue(field.value));
-      return acc;
-    },
-    {},
-  );
-};
+//       acc[field.fieldKey] = stringifyFieldValue(parseValue(field.value));
+//       return acc;
+//     },
+//     {},
+//   );
+// };
 
 const Metric = ({
   label,
@@ -312,155 +305,9 @@ const formatCompactAmount = (value: number) => {
   return `$${num}`;
 };
 
-const FieldItem = ({ field }: { field: SubmissionField }) => {
-  const parsedValue = parseValue(field.value);
-
-  return (
-    <div className="space-y-1">
-      <label className="text-xs font-semibold uppercase text-slate-500">
-        {formatFieldKey(field.fieldKey)}
-      </label>
-      <div className="break-words rounded-lg border bg-slate-50 px-3 py-2 text-sm font-medium dark:border-slate-800 dark:bg-slate-900">
-        {parsedValue !== undefined && parsedValue !== null
-          ? typeof parsedValue === "boolean"
-            ? parsedValue
-              ? "Yes"
-              : "No"
-            : String(parsedValue)
-          : "-"}
-      </div>
-    </div>
-  );
-};
-
-const EditableFieldItem = ({
-  field,
-  value,
-  onChange,
-  errors,
-}: {
-  field: SubmissionField;
-  value: string;
-  onChange: (fieldKey: string, nextValue: string) => void;
-  errors: Record<string, string>;
-}) => {
-  const fieldKey = field.fieldKey;
-
-  const parsedValue = parseValue(field.value);
-
-  const isBoolean = typeof parsedValue === "boolean";
-
-  const shouldUseTextarea =
-    !isBoolean &&
-    (value.length > 80 ||
-      /address|notes|description|message/i.test(fieldKey || ""));
-
-  return (
-    <div className="space-y-1">
-      {/* LABEL */}
-      <label className="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">
-        {formatFieldKey(field.fieldKey)}
-      </label>
-
-      {/* BOOLEAN SELECT */}
-      {isBoolean ? (
-        <select
-          disabled
-          value={value}
-          onChange={(e) => {
-            if (!fieldKey) return;
-
-            onChange(fieldKey, e.target.value);
-          }}
-          className="
-w-full cursor-not-allowed rounded-lg
-border border-slate-200
-bg-slate-100
-px-3 py-2
-text-sm font-medium
-text-slate-500
-opacity-80
-
-dark:border-slate-700
-dark:bg-slate-800
-dark:text-slate-400
-"
-        >
-          <option value="true">Yes</option>
-
-          <option value="false">No</option>
-        </select>
-      ) : shouldUseTextarea ? (
-        /* TEXTAREA */
-        <textarea
-          disabled
-          value={value}
-          onChange={(e) => {
-            if (!fieldKey) return;
-
-            onChange(fieldKey, e.target.value);
-          }}
-          rows={3}
-          className="
-w-full resize-none cursor-not-allowed rounded-lg
-border border-slate-200
-bg-slate-100
-px-3 py-2
-text-sm font-medium
-text-slate-500
-opacity-80
-
-dark:border-slate-700
-dark:bg-slate-800
-dark:text-slate-400
-"
-        />
-      ) : (
-        /* INPUT */
-        <input
-          disabled
-          type="text"
-          value={value}
-          onChange={(e) => {
-            if (!fieldKey) return;
-
-            let val = e.target.value;
-
-            if (/amount|price|cost|rate|score|value|footage/i.test(fieldKey)) {
-              val = val.replace(/[^0-9.]/g, "");
-            }
-
-            onChange(fieldKey, val);
-          }}
-          className="
-w-full cursor-not-allowed rounded-lg
-border border-slate-200
-bg-slate-100
-px-3 py-2
-text-sm font-medium
-opacity-80
-
-dark:border-slate-700
-dark:bg-slate-800
-dark:text-slate-400
-"
-        />
-      )}
-
-      {/* ERROR */}
-      {fieldKey && errors[fieldKey] && (
-        <p className="mt-1 text-xs text-red-500 dark:text-red-400">
-          {errors[fieldKey]}
-        </p>
-      )}
-    </div>
-  );
-};
-
 const LoanPreview = () => {
   const Location = useLocation();
   const bottomRef = useRef<HTMLDivElement | null>(null);
-  const [errors, setErrors] = useState<Record<string, string>>({});
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState<TabKey>("view-details");
@@ -508,9 +355,9 @@ const LoanPreview = () => {
   // const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
   const [lendersLoadedFor, setLendersLoadedFor] = useState<string | null>(null);
   // const [previewFile, setPreviewFile] = useState<UploadedPreview | null>(null);
-  const [editableFieldValues, setEditableFieldValues] = useState<
-    Record<string, string>
-  >({});
+  // const [editableFieldValues, setEditableFieldValues] = useState<
+  //   Record<string, string>
+  // >({});
 
   const [lenderFilter, setLenderFilter] = useState<
     "all" | "eligible" | "rejected" | "sent"
@@ -547,16 +394,31 @@ const LoanPreview = () => {
 
   const fields = submissionDetail?.fields || [];
   const applicationId = submissionDetail?.applicationId;
+  const canRequestDocuments = submissionDetail?.canRequestDocuments !== false;
+  const documentRequestBlockedReason =
+    submissionDetail?.documentRequestBlockedReason ?? null;
+
+  const borrowerDisplayName = useMemo(() => {
+    const resolved = submissionDetail?.borrowerName?.trim();
+    if (
+      resolved &&
+      resolved !== "Applicant" &&
+      resolved !== "Individual Applicant"
+    ) {
+      return resolved;
+    }
+    return getBorrowerDisplayNameFromFields(fields) || resolved || "—";
+  }, [submissionDetail?.borrowerName, fields]);
   const submissionId = Location.state?.submissionId;
 
-  const formatPhoneNumber = (value: string) => {
-    const digits = value.replace(/\D/g, "").slice(0, 10);
+  // const formatPhoneNumber = (value: string) => {
+  //   const digits = value.replace(/\D/g, "").slice(0, 10);
 
-    if (digits.length <= 3) return digits;
-    if (digits.length <= 6) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+  //   if (digits.length <= 3) return digits;
+  //   if (digits.length <= 6) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
 
-    return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
-  };
+  //   return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+  // };
 
   const fetchSubmissionDetails = async (id: string) => {
     try {
@@ -568,7 +430,7 @@ const LoanPreview = () => {
       if (!res.ok || !json.success)
         throw new Error(json.message || "Failed to fetch submission");
       setSubmissionDetail(json.data);
-      setEditableFieldValues(buildEditableFieldValues(json.data?.fields || []));
+      // setEditableFieldValues(buildEditableFieldValues(json.data?.fields || []));
     } catch (err: any) {
       toast.error(err.message || "Failed to fetch submission details");
     } finally {
@@ -620,13 +482,17 @@ const LoanPreview = () => {
 
       const json = await res.json();
 
-      if (json.success) {
-        setDocumentsData(json.data);
-        setPagination(json.data.pagination);
-        setPage(json.data.pagination.page);
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Failed to fetch documents");
       }
-    } catch (err) {
+
+      setDocumentsData(json.data);
+      setPagination(json.data.pagination);
+      setPage(json.data.pagination.page);
+      setDocumentsLoadedFor(submissionId);
+    } catch (err: any) {
       console.error(err);
+      toast.error(err.message || "Failed to load documents");
     } finally {
       setDocumentsLoading(false);
     }
@@ -934,13 +800,19 @@ const LoanPreview = () => {
     setPreviewFiles([]);
     setSelectedRequestDocs([]);
     setRequestMessage("");
-    setEditableFieldValues({});
-    setActiveTab("update-application");
+    // setEditableFieldValues({});
+    setActiveTab("view-details");
 
     if (submissionId) {
       fetchSubmissionDetails(submissionId);
     }
   }, [submissionId]);
+
+  useEffect(() => {
+    if (!canRequestDocuments && activeTab === "request-document") {
+      setActiveTab("view-details");
+    }
+  }, [canRequestDocuments, activeTab]);
 
   useEffect(() => {
     if (
@@ -995,86 +867,86 @@ const LoanPreview = () => {
     return () => clearTimeout(timer);
   }, [searchInput]);
 
-  const groupedFields = useMemo(() => {
-    const signatureField = fields.find(
-      (f: any) => f.fieldKey === "borrowerSignature",
-    );
+  // const groupedFields = useMemo(() => {
+  //   const signatureField = fields.find(
+  //     (f: any) => f.fieldKey === "borrowerSignature",
+  //   );
 
-    const groups: GroupedFields = {
-      primaryBorrower: [],
-      coBorrowers: {},
-      entity: [],
-      property: [],
-      loan: [],
-      financial: [],
-      others: [],
-    };
+  //   const groups: GroupedFields = {
+  //     primaryBorrower: [],
+  //     coBorrowers: {},
+  //     entity: [],
+  //     property: [],
+  //     loan: [],
+  //     financial: [],
+  //     others: [],
+  //   };
 
-    fields.forEach((field: SubmissionField) => {
-      const key = field.fieldKey || "";
-      if (!key || key === "borrowerSignature") return;
+  //   fields.forEach((field: SubmissionField) => {
+  //     const key = field.fieldKey || "";
+  //     if (!key || key === "borrowerSignature") return;
 
-      // CoBorrower
-      if (key.startsWith("coBorrower_")) {
-        const match = key.match(/^coBorrower_(\d+)_/);
-        if (match) {
-          const index = match[1];
-          if (!groups.coBorrowers[index]) {
-            groups.coBorrowers[index] = [];
-          }
-          groups.coBorrowers[index].push(field);
-        }
-        return;
-      }
+  //     // CoBorrower
+  //     if (key.startsWith("coBorrower_")) {
+  //       const match = key.match(/^coBorrower_(\d+)_/);
+  //       if (match) {
+  //         const index = match[1];
+  //         if (!groups.coBorrowers[index]) {
+  //           groups.coBorrowers[index] = [];
+  //         }
+  //         groups.coBorrowers[index].push(field);
+  //       }
+  //       return;
+  //     }
 
-      // Property FIRST (important to avoid overlap)
-      if (/property/i.test(key)) {
-        groups.property.push(field);
-        return;
-      }
+  //     // Property FIRST (important to avoid overlap)
+  //     if (/property/i.test(key)) {
+  //       groups.property.push(field);
+  //       return;
+  //     }
 
-      // Entity
-      if (/entity|dba|legalName|entityType|business/i.test(key)) {
-        groups.entity.push(field);
-        return;
-      }
+  //     // Entity
+  //     if (/entity|dba|legalName|entityType|business/i.test(key)) {
+  //       groups.entity.push(field);
+  //       return;
+  //     }
 
-      // Financial
-      if (/noi|revenue|income|rent|tax|insurance|hoa/i.test(key)) {
-        groups.financial.push(field);
-        return;
-      }
+  //     // Financial
+  //     if (/noi|revenue|income|rent|tax|insurance|hoa/i.test(key)) {
+  //       groups.financial.push(field);
+  //       return;
+  //     }
 
-      // Loan
-      if (/loan|amount|ltv|ltc|dscr|interest|term/i.test(key)) {
-        groups.loan.push(field);
-        return;
-      }
+  //     // Loan
+  //     if (/loan|amount|ltv|ltc|dscr|interest|term/i.test(key)) {
+  //       groups.loan.push(field);
+  //       return;
+  //     }
 
-      // Primary Borrower (strict)
-      if (
-        key.startsWith("borrower") ||
-        /firstName|lastName|email|phone|dob|ssn|employer/i.test(key)
-      ) {
-        groups.primaryBorrower.push(field);
-        return;
-      }
+  //     // Primary Borrower (strict)
+  //     if (
+  //       key.startsWith("borrower") ||
+  //       /firstName|lastName|email|phone|dob|ssn|employer/i.test(key)
+  //     ) {
+  //       groups.primaryBorrower.push(field);
+  //       return;
+  //     }
 
-      // Address fallback (smart split)
-      if (/address|city|state|zip/i.test(key)) {
-        if (key.toLowerCase().includes("property")) {
-          groups.property.push(field);
-        } else {
-          groups.primaryBorrower.push(field);
-        }
-        return;
-      }
+  //     // Address fallback (smart split)
+  //     if (/address|city|state|zip/i.test(key)) {
+  //       if (key.toLowerCase().includes("property")) {
+  //         groups.property.push(field);
+  //       } else {
+  //         groups.primaryBorrower.push(field);
+  //       }
+  //       return;
+  //     }
 
-      // Others
-      groups.others.push(field);
-    });
-    return { ...groups, signatureField };
-  }, [fields]);
+  //     // Others
+  //     groups.others.push(field);
+  //   });
+  //   return { ...groups, signatureField };
+  // }, [fields]);
 
   const loanAmount = Number(getFieldValue(fields, "amountRequested") ?? 0) || 0;
   const ltv = Number(getFieldValue(fields, "ltvPercentage") ?? 0) || 0;
@@ -1086,35 +958,24 @@ const LoanPreview = () => {
   const submittedDate = submissionDetail?.submittedAt
     ? new Date(submissionDetail.submittedAt)
     : null;
-  const firstReview = Array.isArray(submissionDetail?.lenders?.[0]?.reviews)
-    ? submissionDetail.lenders[0].reviews[0] || null
-    : null;
 
   const tabs = [
-    // {
-    //   key: "view-details" as const,
-    //   label: "View Details",
-    //   icon: Eye,
-    //   color: "text-blue-600",
-    // },
     {
-      key: "update-application" as const,
+      key: "view-details" as const,
       label: "View Details",
-      icon: Pencil,
-      color: "text-cyan-600",
+      icon: Eye,
+      color: "text-blue-600",
     },
-    // {
-    //   key: "find-lenders" as const,
-    //   label: "Lender Hub",
-    //   icon: FileSearch,
-    //   color: "text-blue-600",
-    // },
-    {
-      key: "request-document" as const,
-      label: "Request Document",
-      icon: Send,
-      color: "text-emerald-600",
-    },
+    ...(canRequestDocuments
+      ? [
+          {
+            key: "request-document" as const,
+            label: "Request Document",
+            icon: Send,
+            color: "text-emerald-600",
+          },
+        ]
+      : []),
     {
       key: "view-loi" as const,
       label: "View LOI",
@@ -1147,26 +1008,26 @@ const LoanPreview = () => {
     },
   ];
 
-  const handleEditableFieldChange = (fieldKey: string, nextValue: string) => {
-    let value = nextValue;
+  // const handleEditableFieldChange = (fieldKey: string, nextValue: string) => {
+  //   let value = nextValue;
 
-    // Phone formatting
-    if (/phone/i.test(fieldKey)) {
-      value = formatPhoneNumber(nextValue);
-    }
+  //   // Phone formatting
+  //   if (/phone/i.test(fieldKey)) {
+  //     value = formatPhoneNumber(nextValue);
+  //   }
 
-    setEditableFieldValues((prev) => {
-      if (prev[fieldKey] === value) return prev;
-      return { ...prev, [fieldKey]: value };
-    });
+  //   setEditableFieldValues((prev) => {
+  //     if (prev[fieldKey] === value) return prev;
+  //     return { ...prev, [fieldKey]: value };
+  //   });
 
-    // error remove on typing
-    setErrors((prev) => {
-      const copy = { ...prev };
-      delete copy[fieldKey];
-      return copy;
-    });
-  };
+  //   // error remove on typing
+  //   setErrors((prev) => {
+  //     const copy = { ...prev };
+  //     delete copy[fieldKey];
+  //     return copy;
+  //   });
+  // };
 
   // useEffect(() => {
   //   const timer = setTimeout(() => {
@@ -1183,556 +1044,309 @@ const LoanPreview = () => {
   const currentFile = previewFiles[activeIndex];
 
   const renderViewDetails = () => (
-    <div className="space-y-6">
-      {firstReview && (
-        <div
-          className={`relative overflow-hidden rounded-2xl border p-6 shadow-sm ${
-            firstReview.reviewStatus === "APPROVED"
-              ? "border-emerald-400 bg-emerald-50/60 dark:bg-emerald-500/5"
-              : firstReview.reviewStatus === "CONDITIONAL"
-                ? "border-amber-400 bg-amber-50/60 dark:bg-amber-500/5"
-                : "border-rose-400 bg-rose-50/60 dark:bg-rose-500/5"
-          }`}
-        >
-          <div
-            className={`absolute inset-x-0 top-0 h-1 ${
-              firstReview.reviewStatus === "APPROVED"
-                ? "bg-emerald-500"
-                : firstReview.reviewStatus === "CONDITIONAL"
-                  ? "bg-amber-500"
-                  : "bg-rose-500"
-            }`}
-          />
-          <div className="mb-6 flex items-center gap-4">
-            <div
-              className={`flex h-12 w-12 items-center justify-center rounded-xl text-xl font-bold text-white ${
-                firstReview.reviewStatus === "APPROVED"
-                  ? "bg-emerald-500"
-                  : firstReview.reviewStatus === "CONDITIONAL"
-                    ? "bg-amber-500"
-                    : "bg-rose-500"
-              }`}
-            >
-              {firstReview.reviewStatus === "APPROVED"
-                ? "OK"
-                : firstReview.reviewStatus === "CONDITIONAL"
-                  ? "!"
-                  : "NO"}
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-wider text-slate-500">
-                Lender Decision
-              </p>
-              <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">
-                {firstReview.reviewStatus === "DECLINED"
-                  ? "REJECTED"
-                  : firstReview.reviewStatus}
-              </h3>
-            </div>
-          </div>
-          <div className="grid gap-6 text-sm md:grid-cols-4">
-            {firstReview.approvedAmount && (
-              <div>
-                <p className="mb-1 text-xs text-slate-500">Approved Amount</p>
-                <p className="font-semibold text-slate-900 dark:text-slate-100">
-                  ${Number(firstReview.approvedAmount).toLocaleString()}
-                </p>
-              </div>
-            )}
-            {firstReview.interestRate && (
-              <div>
-                <p className="mb-1 text-xs text-slate-500">Interest Rate</p>
-                <p className="font-semibold text-slate-900 dark:text-slate-100">
-                  {firstReview.interestRate}%
-                </p>
-              </div>
-            )}
-            {firstReview.reviewedAt && (
-              <div>
-                <p className="mb-1 text-xs text-slate-500">
-                  {firstReview.reviewStatus === "DECLINED"
-                    ? "Rejected On"
-                    : "Reviewed On"}
-                </p>
-                <p className="font-semibold text-slate-900 dark:text-slate-100">
-                  {new Date(firstReview.reviewedAt).toLocaleString()}
-                </p>
-              </div>
-            )}
-          </div>
-          {firstReview.notes && (
-            <div className="mt-6 border-t border-slate-200 pt-4 dark:border-slate-700">
-              <p className="mb-2 text-xs text-slate-500">Notes</p>
-              <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-700 dark:text-slate-300">
-                {firstReview.notes}
-              </p>
-            </div>
-          )}
-        </div>
-      )}
-
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950">
-        <div className="mb-6 flex flex-col gap-3 text-sm font-medium md:flex-row md:items-center md:justify-between">
-          <div>
-            <span className="font-semibold">Application No:</span>{" "}
-            <span className="text-slate-700 dark:text-slate-300">
-              {submissionDetail?.applicationNumber || "-"}
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="font-semibold">Status:</span>
-            <span
-              className={`rounded-full px-3 py-1 text-xs font-semibold tracking-wide ${getStatusChip(submissionDetail?.status)}`}
-            >
-              {submissionDetail?.status === "DECLINED"
-                ? "REJECTED"
-                : submissionDetail?.status || "-"}
-            </span>
-          </div>
-        </div>
-        <div className="mb-6 rounded-[28px] border border-sky-100 bg-gradient-to-br from-white via-sky-50 to-cyan-50 p-6 shadow-[0_18px_40px_rgba(14,116,144,0.08)] dark:border-blue-900/30 dark:bg-blue-950/20">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-5">
-            <Metric
-              label="Loan Amount"
-              value={formatCompactAmount(Number(loanAmount || 0))}
-              variant="panel"
-            />
-            <Metric
-              label="LTV %"
-              value={ltv ? `${ltv.toFixed(2)}%` : "-"}
-              variant="panel"
-            />
-            <Metric
-              label="LTC %"
-              value={ltc ? `${ltc.toFixed(2)}%` : "-"}
-              variant="panel"
-            />
-            <Metric
-              label="ARV %"
-              value={arv ? `${arv.toFixed(2)}%` : "-"}
-              variant="panel"
-            />
-            <Metric
-              label="DSCR"
-              value={dscr ? dscr.toFixed(2) : "-"}
-              variant="panel"
-            />
-            <Metric
-              label="Net Worth"
-              value={formatCompactAmount(Number(netWorth || 0))}
-              variant="panel"
-            />
-          </div>
-        </div>
-
-        <div className="space-y-10 rounded-xl border p-6 dark:border-slate-800">
-          {groupedFields.primaryBorrower.length > 0 && (
-            <div>
-              <h3 className="mb-4 border-b pb-2 text-md font-bold">
-                Primary Borrower
-              </h3>
-              <div className="grid gap-6 md:grid-cols-2">
-                {groupedFields.primaryBorrower.map((field: any) => (
-                  <FieldItem key={`${field.fieldKey}`} field={field} />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {Object.keys(groupedFields.coBorrowers).map((index) => (
-            <div key={index}>
-              <h3 className="mb-4 border-b pb-2 text-md font-bold">
-                Co Borrower {index}
-              </h3>
-              <div className="grid gap-6 md:grid-cols-2">
-                {groupedFields.coBorrowers[index].map((field: any) => (
-                  <EditableFieldItem
-                    key={field.fieldKey}
-                    field={field}
-                    value={editableFieldValues[field.fieldKey || ""] ?? ""}
-                    onChange={handleEditableFieldChange}
-                    errors={errors}
-                  />
-                ))}
-              </div>
-            </div>
-          ))}
-
-          {/* Entity */}
-          {groupedFields.entity.length > 0 && (
-            <div>
-              <h3 className="mb-4 border-b pb-2 text-md font-bold">
-                Entity Information
-              </h3>
-              <div className="grid gap-6 md:grid-cols-2">
-                {groupedFields.entity.map((field) => (
-                  <FieldItem key={field.fieldKey} field={field} />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Property */}
-          {groupedFields.property.length > 0 && (
-            <div>
-              <h3 className="mb-4 border-b pb-2 text-md font-bold dark:border-slate-800">
-                Property Details
-              </h3>
-              <div className="grid gap-6 md:grid-cols-2">
-                {groupedFields.property.map((field) => (
-                  <FieldItem key={field.fieldKey} field={field} />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Financial */}
-          {groupedFields.financial.length > 0 && (
-            <div>
-              <h3 className="mb-4 border-b pb-2 text-md font-bold">
-                Financial Details
-              </h3>
-              <div className="grid gap-6 md:grid-cols-2">
-                {groupedFields.financial.map((field) => (
-                  <FieldItem key={field.fieldKey} field={field} />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Loan */}
-          {groupedFields.loan.length > 0 && (
-            <div>
-              <h3 className="mb-4 border-b pb-2 text-md font-bold">
-                Loan Details
-              </h3>
-              <div className="grid gap-6 md:grid-cols-2">
-                {groupedFields.loan.map((field) => (
-                  <FieldItem key={field.fieldKey} field={field} />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Others */}
-          {groupedFields.others.length > 0 && (
-            <div>
-              <h3 className="mb-4 border-b pb-2 text-md font-bold">
-                Other Details
-              </h3>
-              <div className="grid gap-6 md:grid-cols-2">
-                {groupedFields.others.map((field) => (
-                  <FieldItem key={field.fieldKey} field={field} />
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {groupedFields.signatureField && (
-          <div className="mt-8 space-y-4 text-center">
-            <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-              Digital Signature
-            </h3>
-            <div className="flex justify-center">
-              <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800/70">
-                <img
-                  src={parseValue(groupedFields.signatureField.value)}
-                  alt="Digital Signature"
-                  className="h-40 object-contain"
-                />
-              </div>
-            </div>
-          </div>
-        )}
-
-        {submittedDate && (
-          <div className="mt-8 flex flex-col justify-between gap-2 border-t pt-6 text-sm text-slate-600 dark:text-slate-400 md:flex-row">
-            <div>
-              <span className="font-semibold">Submitted Date:</span>{" "}
-              {submittedDate.toLocaleDateString()}
-            </div>
-            <div>
-              <span className="font-semibold">Submitted Time:</span>{" "}
-              {submittedDate.toLocaleTimeString()}
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
+    <SubmissionDetailsView
+      submissionDetail={submissionDetail}
+      fields={fields}
+      formatSubmissionStatus={formatSubmissionStatus}
+      getStatusChip={getStatusChip}
+      formatCompactAmount={formatCompactAmount}
+      loanAmount={loanAmount}
+      ltv={ltv}
+      ltc={ltc}
+      arv={arv}
+      dscr={dscr}
+      netWorth={netWorth}
+      submittedDate={submittedDate}
+      showEditHint={false}
+    />
   );
 
-  const renderUpdateApplication = () => (
-    <div className="space-y-6">
-      <div
-        className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm 
-dark:border-slate-800 dark:bg-slate-900"
-      >
-        <div className="mb-6 flex flex-col gap-3 text-sm font-medium md:flex-row md:flex-wrap md:items-center md:justify-between">
-          {/* Application No */}
-          <div>
-            <span className="font-semibold">Application No:</span>{" "}
-            <span className="text-slate-700 dark:text-slate-300">
-              {submissionDetail?.applicationNumber || "-"}
-            </span>
-          </div>
+//   const renderUpdateApplication = () => (
+//     <div className="space-y-6">
+//       <div
+//         className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm 
+// dark:border-slate-800 dark:bg-slate-900"
+//       >
+//         <div className="mb-6 flex flex-col gap-3 text-sm font-medium md:flex-row md:flex-wrap md:items-center md:justify-between">
+//           {/* Application No */}
+//           <div>
+//             <span className="font-semibold">Application No:</span>{" "}
+//             <span className="text-slate-700 dark:text-slate-300">
+//               {submissionDetail?.applicationNumber || "-"}
+//             </span>
+//           </div>
 
-          {/* Client Name */}
-          <div>
-            <span className="font-semibold">Borrower Name:</span>{" "}
-            <span className="text-slate-700 dark:text-slate-300">
-              {submissionDetail?.borrowerName || "-"}
-            </span>
-          </div>
+//           {/* Client Name */}
+//           <div>
+//             <span className="font-semibold">Borrower Name:</span>{" "}
+//             <span className="text-slate-700 dark:text-slate-300">
+//               {submissionDetail?.borrowerName || "-"}
+//             </span>
+//           </div>
 
-          {/* Product Code */}
-          <div>
-            <span className="font-semibold">Product Code:</span>{" "}
-            <span className="text-slate-700 dark:text-slate-300">
-              {submissionDetail &&
-                submissionDetail?.loanProduct &&
-                submissionDetail?.loanProduct?.name}
-            </span>
-          </div>
+//           {/* Product Code */}
+//           <div>
+//             <span className="font-semibold">Product Code:</span>{" "}
+//             <span className="text-slate-700 dark:text-slate-300">
+//               {submissionDetail &&
+//                 submissionDetail?.loanProduct &&
+//                 submissionDetail?.loanProduct?.name}
+//             </span>
+//           </div>
 
-          {/* Status */}
-          <div className="flex items-center gap-2">
-            <span className="font-semibold">Status:</span>
-            <span
-              className={`rounded-full px-3 py-1 text-xs font-semibold tracking-wide ${getStatusChip(submissionDetail?.status)}`}
-            >
-              {submissionDetail?.status === "DECLINED"
-                ? "REJECTED"
-                : submissionDetail?.status || "-"}
-            </span>
-          </div>
+//           {/* Status */}
+//           <div className="flex items-center gap-2">
+//             <span className="font-semibold">Status:</span>
+//             <span
+//               className={`rounded-full px-3 py-1 text-xs font-semibold tracking-wide ${getStatusChip(submissionDetail?.status)}`}
+//             >
+//               {submissionDetail?.status === "DECLINED"
+//                 ? "REJECTED"
+//                 : submissionDetail?.status || "-"}
+//             </span>
+//           </div>
+//         </div>
+
+//         <div
+//           className="mb-6 rounded-[28px] border border-slate-200 
+// bg-slate-50 p-6 shadow-sm 
+// dark:border-slate-800 dark:bg-slate-900"
+//         >
+//           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+//             <Metric
+//               label="Loan Amount"
+//               value={`$${loanAmount.toLocaleString()}`}
+//               variant="panel"
+//             />
+//             <Metric
+//               label="LTV %"
+//               value={ltv ? `${ltv.toFixed(2)}%` : "-"}
+//               variant="panel"
+//             />
+//             <Metric
+//               label="LTC %"
+//               value={ltc ? `${ltc.toFixed(2)}%` : "-"}
+//               variant="panel"
+//             />
+//             <Metric
+//               label="ARV %"
+//               value={arv ? `${arv.toFixed(2)}%` : "-"}
+//               variant="panel"
+//             />
+//             <Metric
+//               label="DSCR"
+//               value={dscr ? dscr.toFixed(2) : "-"}
+//               variant="panel"
+//             />
+//             <Metric
+//               label="Net Worth"
+//               value={`$${netWorth.toLocaleString()}`}
+//               variant="panel"
+//             />
+//           </div>
+//         </div>
+
+//         <div
+//           className="space-y-10 rounded-xl border border-slate-200 p-6 
+// bg-white dark:border-slate-800 dark:bg-slate-900"
+//         >
+//           {groupedFields.primaryBorrower.length > 0 && (
+//             <div>
+//               <h3
+//                 className="mb-4 border-b border-slate-200 pb-2 text-md font-bold 
+// text-slate-800 dark:border-slate-700 dark:text-slate-200"
+//               >
+//                 Primary Borrower
+//               </h3>
+//               <div className="grid gap-6 md:grid-cols-2">
+//                 {groupedFields.primaryBorrower.map((field: any) => (
+//                   <EditableFieldItem
+//                     key={field.fieldKey}
+//                     field={field}
+//                     value={editableFieldValues[field.fieldKey || ""] ?? ""}
+//                     onChange={handleEditableFieldChange}
+//                     errors={errors}
+//                   />
+//                 ))}
+//               </div>
+//             </div>
+//           )}
+
+//           {Object.keys(groupedFields.coBorrowers).map((index) => (
+//             <div key={index}>
+//               <h3 className="mb-4 border-b pb-2 text-md font-bold">
+//                 Co Borrower {index}
+//               </h3>
+//               <div className="grid gap-6 md:grid-cols-2">
+//                 {groupedFields.coBorrowers[index].map((field: any) => (
+//                   <EditableFieldItem
+//                     key={field.fieldKey}
+//                     field={field}
+//                     value={editableFieldValues[field.fieldKey || ""] ?? ""}
+//                     onChange={handleEditableFieldChange}
+//                     errors={errors}
+//                   />
+//                 ))}
+//               </div>
+//             </div>
+//           ))}
+
+//           {groupedFields.others.length > 0 && (
+//             <div>
+//               <h3 className="mb-4 border-b pb-2 text-md font-bold dark:border-slate-800">
+//                 Loan Details
+//               </h3>
+//               <div className="grid gap-6 md:grid-cols-2">
+//                 {groupedFields.others.map((field: any) => (
+//                   <EditableFieldItem
+//                     key={field.fieldKey}
+//                     field={field}
+//                     value={editableFieldValues[field.fieldKey || ""] ?? ""}
+//                     onChange={handleEditableFieldChange}
+//                     errors={errors}
+//                   />
+//                 ))}
+//               </div>
+//             </div>
+//           )}
+
+//           {/* Entity */}
+//           {groupedFields.entity.length > 0 && (
+//             <div>
+//               <h3 className="mb-4 border-b pb-2 text-md font-bold dark:border-slate-800">
+//                 Entity Information
+//               </h3>
+//               <div className="grid gap-6 md:grid-cols-2">
+//                 {groupedFields.entity.map((field) => (
+//                   <EditableFieldItem
+//                     key={field.fieldKey}
+//                     field={field}
+//                     value={editableFieldValues[field.fieldKey || ""] ?? ""}
+//                     onChange={handleEditableFieldChange}
+//                     errors={errors}
+//                   />
+//                 ))}
+//               </div>
+//             </div>
+//           )}
+
+//           {/* Property */}
+//           {groupedFields.property.length > 0 && (
+//             <div>
+//               <h3 className="mb-4 border-b pb-2 text-md font-bold dark:border-slate-800">
+//                 Property Details
+//               </h3>
+//               <div className="grid gap-6 md:grid-cols-2">
+//                 {groupedFields.property.map((field) => (
+//                   <EditableFieldItem
+//                     key={field.fieldKey}
+//                     field={field}
+//                     value={editableFieldValues[field.fieldKey || ""] ?? ""}
+//                     onChange={handleEditableFieldChange}
+//                     errors={errors}
+//                   />
+//                 ))}
+//               </div>
+//             </div>
+//           )}
+
+//           {/* Financial */}
+//           {groupedFields.financial.length > 0 && (
+//             <div>
+//               <h3 className="mb-4 border-b pb-2 text-md font-bold dark:border-slate-800">
+//                 Financial Details
+//               </h3>
+//               <div className="grid gap-6 md:grid-cols-2">
+//                 {groupedFields.financial.map((field) => (
+//                   <EditableFieldItem
+//                     key={field.fieldKey}
+//                     field={field}
+//                     value={editableFieldValues[field.fieldKey || ""] ?? ""}
+//                     onChange={handleEditableFieldChange}
+//                     errors={errors}
+//                   />
+//                 ))}
+//               </div>
+//             </div>
+//           )}
+
+//           {/* Loan */}
+//           {groupedFields.loan.length > 0 && (
+//             <div>
+//               <h3 className="mb-4 border-b pb-2 text-md font-bold dark:border-slate-800">
+//                 Loan Details
+//               </h3>
+//               <div className="grid gap-6 md:grid-cols-2">
+//                 {groupedFields.loan.map((field) => (
+//                   <EditableFieldItem
+//                     key={field.fieldKey}
+//                     field={field}
+//                     value={editableFieldValues[field.fieldKey || ""] ?? ""}
+//                     onChange={handleEditableFieldChange}
+//                     errors={errors}
+//                   />
+//                 ))}
+//               </div>
+//             </div>
+//           )}
+
+//           {/* Others */}
+//           {groupedFields.others.length > 0 && (
+//             <div>
+//               <h3 className="mb-4 border-b pb-2 text-md font-bold dark:border-slate-800">
+//                 Other Details
+//               </h3>
+//               <div className="grid gap-6 md:grid-cols-2">
+//                 {groupedFields.others.map((field) => (
+//                   <EditableFieldItem
+//                     key={field.fieldKey}
+//                     field={field}
+//                     value={editableFieldValues[field.fieldKey || ""] ?? ""}
+//                     onChange={handleEditableFieldChange}
+//                     errors={errors}
+//                   />
+//                 ))}
+//               </div>
+//             </div>
+//           )}
+//         </div>
+
+//         {groupedFields.signatureField && (
+//           <div className="mt-8 space-y-4 text-center">
+//             <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+//               Digital Signature
+//             </h3>
+//             <div className="flex justify-center">
+//               <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800/70">
+//                 <img
+//                   src={parseValue(groupedFields.signatureField.value)}
+//                   alt="Digital Signature"
+//                   className="h-40 object-contain"
+//                 />
+//               </div>
+//             </div>
+//           </div>
+//         )}
+//       </div>
+//     </div>
+//   );
+
+  const renderRequestDocument = () => {
+    if (!canRequestDocuments) {
+      return (
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+          <h2 className="text-lg font-semibold text-gray-800 dark:text-slate-100">
+            Request Document
+          </h2>
+          <p className="mt-2 text-sm text-slate-500">
+            {documentRequestBlockedReason ||
+              "Documents cannot be requested for this application."}
+          </p>
         </div>
+      );
+    }
 
-        <div
-          className="mb-6 rounded-[28px] border border-slate-200 
-bg-slate-50 p-6 shadow-sm 
-dark:border-slate-800 dark:bg-slate-900"
-        >
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-            <Metric
-              label="Loan Amount"
-              value={`$${loanAmount.toLocaleString()}`}
-              variant="panel"
-            />
-            <Metric
-              label="LTV %"
-              value={ltv ? `${ltv.toFixed(2)}%` : "-"}
-              variant="panel"
-            />
-            <Metric
-              label="LTC %"
-              value={ltc ? `${ltc.toFixed(2)}%` : "-"}
-              variant="panel"
-            />
-            <Metric
-              label="ARV %"
-              value={arv ? `${arv.toFixed(2)}%` : "-"}
-              variant="panel"
-            />
-            <Metric
-              label="DSCR"
-              value={dscr ? dscr.toFixed(2) : "-"}
-              variant="panel"
-            />
-            <Metric
-              label="Net Worth"
-              value={`$${netWorth.toLocaleString()}`}
-              variant="panel"
-            />
-          </div>
-        </div>
-
-        <div
-          className="space-y-10 rounded-xl border border-slate-200 p-6 
-bg-white dark:border-slate-800 dark:bg-slate-900"
-        >
-          {groupedFields.primaryBorrower.length > 0 && (
-            <div>
-              <h3
-                className="mb-4 border-b border-slate-200 pb-2 text-md font-bold 
-text-slate-800 dark:border-slate-700 dark:text-slate-200"
-              >
-                Primary Borrower
-              </h3>
-              <div className="grid gap-6 md:grid-cols-2">
-                {groupedFields.primaryBorrower.map((field: any) => (
-                  <EditableFieldItem
-                    key={field.fieldKey}
-                    field={field}
-                    value={editableFieldValues[field.fieldKey || ""] ?? ""}
-                    onChange={handleEditableFieldChange}
-                    errors={errors}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {Object.keys(groupedFields.coBorrowers).map((index) => (
-            <div key={index}>
-              <h3 className="mb-4 border-b pb-2 text-md font-bold">
-                Co Borrower {index}
-              </h3>
-              <div className="grid gap-6 md:grid-cols-2">
-                {groupedFields.coBorrowers[index].map((field: any) => (
-                  <EditableFieldItem
-                    key={field.fieldKey}
-                    field={field}
-                    value={editableFieldValues[field.fieldKey || ""] ?? ""}
-                    onChange={handleEditableFieldChange}
-                    errors={errors}
-                  />
-                ))}
-              </div>
-            </div>
-          ))}
-
-          {groupedFields.others.length > 0 && (
-            <div>
-              <h3 className="mb-4 border-b pb-2 text-md font-bold dark:border-slate-800">
-                Loan Details
-              </h3>
-              <div className="grid gap-6 md:grid-cols-2">
-                {groupedFields.others.map((field: any) => (
-                  <EditableFieldItem
-                    key={field.fieldKey}
-                    field={field}
-                    value={editableFieldValues[field.fieldKey || ""] ?? ""}
-                    onChange={handleEditableFieldChange}
-                    errors={errors}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Entity */}
-          {groupedFields.entity.length > 0 && (
-            <div>
-              <h3 className="mb-4 border-b pb-2 text-md font-bold dark:border-slate-800">
-                Entity Information
-              </h3>
-              <div className="grid gap-6 md:grid-cols-2">
-                {groupedFields.entity.map((field) => (
-                  <EditableFieldItem
-                    key={field.fieldKey}
-                    field={field}
-                    value={editableFieldValues[field.fieldKey || ""] ?? ""}
-                    onChange={handleEditableFieldChange}
-                    errors={errors}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Property */}
-          {groupedFields.property.length > 0 && (
-            <div>
-              <h3 className="mb-4 border-b pb-2 text-md font-bold dark:border-slate-800">
-                Property Details
-              </h3>
-              <div className="grid gap-6 md:grid-cols-2">
-                {groupedFields.property.map((field) => (
-                  <EditableFieldItem
-                    key={field.fieldKey}
-                    field={field}
-                    value={editableFieldValues[field.fieldKey || ""] ?? ""}
-                    onChange={handleEditableFieldChange}
-                    errors={errors}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Financial */}
-          {groupedFields.financial.length > 0 && (
-            <div>
-              <h3 className="mb-4 border-b pb-2 text-md font-bold dark:border-slate-800">
-                Financial Details
-              </h3>
-              <div className="grid gap-6 md:grid-cols-2">
-                {groupedFields.financial.map((field) => (
-                  <EditableFieldItem
-                    key={field.fieldKey}
-                    field={field}
-                    value={editableFieldValues[field.fieldKey || ""] ?? ""}
-                    onChange={handleEditableFieldChange}
-                    errors={errors}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Loan */}
-          {groupedFields.loan.length > 0 && (
-            <div>
-              <h3 className="mb-4 border-b pb-2 text-md font-bold dark:border-slate-800">
-                Loan Details
-              </h3>
-              <div className="grid gap-6 md:grid-cols-2">
-                {groupedFields.loan.map((field) => (
-                  <EditableFieldItem
-                    key={field.fieldKey}
-                    field={field}
-                    value={editableFieldValues[field.fieldKey || ""] ?? ""}
-                    onChange={handleEditableFieldChange}
-                    errors={errors}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Others */}
-          {groupedFields.others.length > 0 && (
-            <div>
-              <h3 className="mb-4 border-b pb-2 text-md font-bold dark:border-slate-800">
-                Other Details
-              </h3>
-              <div className="grid gap-6 md:grid-cols-2">
-                {groupedFields.others.map((field) => (
-                  <EditableFieldItem
-                    key={field.fieldKey}
-                    field={field}
-                    value={editableFieldValues[field.fieldKey || ""] ?? ""}
-                    onChange={handleEditableFieldChange}
-                    errors={errors}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {groupedFields.signatureField && (
-          <div className="mt-8 space-y-4 text-center">
-            <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-              Digital Signature
-            </h3>
-            <div className="flex justify-center">
-              <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800/70">
-                <img
-                  src={parseValue(groupedFields.signatureField.value)}
-                  alt="Digital Signature"
-                  className="h-40 object-contain"
-                />
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-
-  const renderRequestDocument = () => (
+    return (
     <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950">
       <div className="mb-4 flex items-center justify-between">
         <div>
@@ -1837,7 +1451,8 @@ text-slate-800 dark:border-slate-700 dark:text-slate-200"
         </>
       )}
     </div>
-  );
+    );
+  };
 
   const renderViewLoi = () => (
     <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950">
@@ -2490,9 +2105,7 @@ dark:bg-red-900/20 dark:text-red-400"
         doc.status,
       )}`}
     >
-      {doc.status
-        ?.replaceAll("_", " ")
-        ?.toUpperCase()}
+      {formatDocumentStatusLabel(doc.status)}
     </span>
 
     {doc.status === "SKIPPED" && (
@@ -2833,8 +2446,10 @@ dark:hover:bg-blue-500/10
 
   const renderTabContent = () => {
     switch (activeTab) {
+      case "view-details":
+        return renderViewDetails();
       case "update-application":
-        return renderUpdateApplication();
+        return renderViewDetails();
       case "find-lenders":
         return renderFindLenders();
       case "request-document":
@@ -2920,11 +2535,7 @@ dark:hover:bg-blue-500/10
                       Borrower Name
                     </span>
                     <span className="text-sm font-semibold text-blue-900 dark:text-white">
-                      {submissionDetail?.borrowerName ||
-                        `${getFieldValue(fields, "borrowerFirstName") || ""} ${
-                          getFieldValue(fields, "borrowerLastName") || ""
-                        }`.trim() ||
-                        "Unknown"}
+                      {borrowerDisplayName}
                     </span>
                   </div>
                 </div>
@@ -3012,9 +2623,7 @@ dark:hover:bg-blue-500/10
                   submissionDetail?.status,
                 )}`}
               >
-                {submissionDetail?.status === "DECLINED"
-                  ? "REJECTED"
-                  : submissionDetail?.status || "Draft"}
+                {formatSubmissionStatus(submissionDetail?.status)}
               </span>
             </div>
           </div>

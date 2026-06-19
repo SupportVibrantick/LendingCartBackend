@@ -1,4 +1,61 @@
 const EMPTY_MARKERS = new Set(["n/a", "na", "—", "-", "null", "undefined"]);
+const PLACEHOLDER_NAMES = new Set([
+  "Applicant",
+  "Individual Applicant",
+  "Unknown",
+  "Client",
+  "Customer",
+  "N/A",
+]);
+
+export function isPlaceholderAgreementName(value: unknown): boolean {
+  if (isEmptyAgreementValue(value)) return true;
+  return PLACEHOLDER_NAMES.has(String(value).trim());
+}
+
+export function formatIssuerPartyName(
+  clientName: unknown,
+  clientEntityName: unknown,
+): string {
+  const name = displayAgreementText(clientName);
+  if (
+    isEmptyAgreementValue(clientEntityName) ||
+    isPlaceholderAgreementName(clientEntityName)
+  ) {
+    return name;
+  }
+  return `${name} (${displayAgreementText(clientEntityName)})`;
+}
+
+export function displayClientEntityLabel(
+  clientEntityName: unknown,
+  entityType?: unknown,
+): string {
+  if (
+    !isEmptyAgreementValue(clientEntityName) &&
+    !isPlaceholderAgreementName(clientEntityName)
+  ) {
+    return displayAgreementText(clientEntityName);
+  }
+
+  if (!isEmptyAgreementValue(entityType)) {
+    const normalized = String(entityType).trim().toUpperCase().replace(/\s+/g, "_");
+    if (
+      normalized === "INDIVIDUAL" ||
+      normalized === "SOLE_PROPRIETOR" ||
+      normalized === "SOLE_PROPRIETORSHIP"
+    ) {
+      return "Individual";
+    }
+
+    return String(entityType)
+      .replace(/_/g, " ")
+      .toLowerCase()
+      .replace(/\b\w/g, (char) => char.toUpperCase());
+  }
+
+  return "Individual";
+}
 
 export function isEmptyAgreementValue(value: unknown): boolean {
   if (value === null || value === undefined) return true;

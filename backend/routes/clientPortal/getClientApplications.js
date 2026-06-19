@@ -1,5 +1,6 @@
 const jwt = require("jsonwebtoken");
 const { resolveApplicationStatus } = require("../../utils/resolveApplicationStatus");
+const { CLIENT_VISIBLE_DOC_SOURCES } = require("../../utils/mapClientPortalDocuments");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
@@ -106,7 +107,7 @@ async function getClientApplicationsRoute(fastify) {
             },
 
             documentRequirements: {
-              select: { id: true },
+              select: { id: true, source: true, status: true },
             },
 
             documentUploads: {
@@ -172,6 +173,10 @@ async function getClientApplicationsRoute(fastify) {
           const amountFromField = getFieldValue("amountRequested");
           const productFromField = getFieldValue("loanProductCode");
 
+          const visibleRequirements = (app.documentRequirements || []).filter(
+            (req) => CLIENT_VISIBLE_DOC_SOURCES.has(req.source),
+          );
+
           return {
             id: app.id,
             applicationNumber: app.applicationNumber,
@@ -197,8 +202,10 @@ async function getClientApplicationsRoute(fastify) {
             createdAt: app.createdAt,
 
             documentProgress: {
-              total: app.documentRequirements.length,
-              uploaded: app.documentUploads.length,
+              total: visibleRequirements.length,
+              uploaded: visibleRequirements.filter(
+                (req) => req.status === "COMPLETE",
+              ).length,
             },
           };
         });

@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 
 import { MdOutlinePreview } from "react-icons/md";
+import { formatDocumentStatusLabel } from "../../../lib/documentStatus";
 
 /* ================= TYPES ================= */
 
@@ -1016,7 +1017,7 @@ text-slate-700
                             </p>
 
                             <p className="text-[10px] text-slate-400">
-                              Applicant
+                              Borrower
                             </p>
                           </div>
                         </div>
@@ -2206,7 +2207,7 @@ dark:scrollbar-thumb-slate-700 w-full
                               : "bg-emerald-100 text-emerald-600"
                           }`}
                                   >
-                                    {doc.status}
+                                    {formatDocumentStatusLabel(doc.status)}
                                   </span>
 
                                   <span className="text-[11px] font-semibold text-red-400">

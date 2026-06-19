@@ -1,4 +1,12 @@
 const generateAgreementHtml = require("./generateAgreementHtml");
+const {
+  getBrokerWhiteLabelBranding,
+  buildBrandingSnapshot,
+} = require("../../../../services/brokerBranding");
+const {
+  resolveClientDisplayNameFromData,
+  resolveClientEntityLabelFromData,
+} = require("../../../../services/resolveClientDisplayName");
 
 function extractValue(val) {
   if (!val) return "";
@@ -30,7 +38,13 @@ module.exports = async function createFeeAgreement(fastify, loanId) {
   const loan = await prisma.loanApplication.findUnique({
     where: { id: loanId },
     include: {
-      client: true,
+      client: {
+        include: {
+          contacts: {
+            orderBy: [{ isPrimary: "desc" }, { id: "asc" }],
+          },
+        },
+      },
       brokerOrg: true,
       brokerUser: {
         include: {
@@ -77,22 +91,9 @@ module.exports = async function createFeeAgreement(fastify, loanId) {
   // ✅ CLIENT MAPPING (FIXED)
   // ===============================
 
-const clientFirstName =
-  fieldMap.borrowerFirstName ||
-  fieldMap.first_name ||
-  primaryContact?.firstName ||
-  "";
-
-const clientLastName =
-  fieldMap.borrowerLastName ||
-  fieldMap.last_name ||
-  primaryContact?.lastName ||
-  "";
-
-  const clientFullName =
-    `${clientFirstName} ${clientLastName}`.trim() ||
-    loan.client?.legalName ||
-    "N/A";
+  const submissions = [submission];
+  const clientFullName = resolveClientDisplayNameFromData(loan.client, submissions);
+  const clientEntityName = resolveClientEntityLabelFromData(loan.client, submissions);
 
   const clientAddress =
     fieldMap.address ||
@@ -146,7 +147,7 @@ const subjectAddress =
   const snapshotData = {
     // CLIENT
     clientName: clientFullName,
-    clientEntityName: loan.client?.legalName || "",
+    clientEntityName,
     clientEmail: primaryContact?.email || "",
     clientPhone:
   primaryContact?.phone ||
@@ -182,8 +183,22 @@ brokerAddress,
     exclusivityMonths: null,
   };
 
+  const whiteLabelBranding = await getBrokerWhiteLabelBranding(
+    prisma,
+    loan.brokerOrgId,
+  );
+  const brandingSnapshot = buildBrandingSnapshot(
+    whiteLabelBranding,
+    loan.brokerOrg?.name,
+  );
+
+  const agreementPayload = {
+    ...snapshotData,
+    ...brandingSnapshot,
+  };
+
   // 🧾 HTML
-  const agreementHtml = generateAgreementHtml(snapshotData);
+  const agreementHtml = generateAgreementHtml(agreementPayload);
 
   // 💾 SAVE
   const feeAgreement = await prisma.feeAgreement.create({
@@ -191,7 +206,7 @@ brokerAddress,
       loanApplicationId: loan.id,
       brokerOrgId: loan.brokerOrgId,
       clientId: loan.clientId,
-      ...snapshotData,
+      ...agreementPayload,
       agreementHtml,
       status: "DRAFT",
     },

@@ -31,6 +31,17 @@ import {
   getCoBorrowerGroups,
   parseNumericValue,
 } from "../../lib/submissionFieldUtils";
+import {
+  clearClientPortalSession,
+  isPlaceholderClientName,
+  resolveClientProfileFromSession,
+  saveClientPortalSession,
+} from "../../lib/clientPortalSession";
+import {
+  formatClientPortalSubmittedDate,
+  resolveClientSignableSubmission,
+  submissionHasClientSignature,
+} from "../../lib/clientPortalSignature";
 
 /* ================= TYPES ================= */
 const SigCanvas = SignatureCanvas as unknown as React.FC<any>;
@@ -38,10 +49,62 @@ const SigCanvas = SignatureCanvas as unknown as React.FC<any>;
 interface DocumentItem {
   id: string;
   name: string;
-  status: "PENDING" | "UPLOADED";
-  uploadedFiles: string[];
+  status: "PENDING" | "UPLOADED" | string;
+  uploadedFiles: Array<
+    | string
+    | {
+        fileName?: string;
+        fileUrl?: string;
+        uploadedAt?: string;
+      }
+  >;
   required: boolean;
 }
+
+const mapApiDocumentsToItems = (docs: any[] = []): DocumentItem[] =>
+  docs.map((doc) => ({
+    id: doc.id,
+    name: doc.name || doc.documentType?.name || "Document",
+    status: doc.status,
+    uploadedFiles: doc.uploadedFiles || [],
+    required: doc.required ?? doc.isRequired ?? true,
+  }));
+
+const buildUploadedState = (docs: DocumentItem[]) => {
+  const uploadedMap: Record<string, boolean> = {};
+  let uploadedCount = 0;
+
+  docs.forEach((doc) => {
+    if (doc.uploadedFiles?.length > 0) {
+      uploadedMap[doc.id] = true;
+      uploadedCount += doc.uploadedFiles.length;
+    }
+  });
+
+  return { uploadedMap, uploadedCount };
+};
+
+const applyApplicationDocuments = (
+  docs: DocumentItem[],
+  setters: {
+    setDocuments: React.Dispatch<React.SetStateAction<DocumentItem[]>>;
+    setUploaded: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
+    setUploadedFilesCount: React.Dispatch<React.SetStateAction<number>>;
+    setFiles: React.Dispatch<React.SetStateAction<Record<string, File[]>>>;
+  },
+) => {
+  const { uploadedMap, uploadedCount } = buildUploadedState(docs);
+  setters.setDocuments(docs);
+  setters.setUploaded(uploadedMap);
+  setters.setUploadedFilesCount(uploadedCount);
+  setters.setFiles({});
+};
+
+const CLIENT_VISIBLE_DOC_SOURCES = new Set([
+  "BROKER_ADDED",
+  "LENDER_ADDED",
+  "SUB_BROKER_ADDED",
+]);
 
 const API_BASE =
   import.meta.env.VITE_API_BASE || "https://api-lendingcart.vibrantick.org";
@@ -142,6 +205,7 @@ export default function ClientUpload() {
   const [uploadedFilesCount, setUploadedFilesCount] = useState(0);
   const [applicationNumber, setApplicationNumber] = useState("");
   const [clientName, setClientName] = useState("");
+  const [clientEmail, setClientEmail] = useState("");
   const [applicationId, setApplicationId] = useState("");
   const [selectedApplication, setSelectedApplication] = useState<any>(null);
   const [applicationDetailsLoading, setApplicationDetailsLoading] =
@@ -165,6 +229,8 @@ export default function ClientUpload() {
     "documents" | "application" | "chat" | "applications" | "feeAgreement"
   >("applications");
   const [isSignedFromAPI, setIsSignedFromAPI] = useState(false);
+  const [clientSignBlockedReason, setClientSignBlockedReason] = useState("");
+  const [canClientSign, setCanClientSign] = useState(false);
 
   const PRODUCT_LABELS: Record<string, string> = {
   FIX_AND_FLIP_LOAN_1_TO_4_UNITS: "FIX & FLIP",
@@ -197,16 +263,127 @@ export default function ClientUpload() {
     return { headers };
   };
 
+  const documentSetters = {
+    setDocuments,
+    setUploaded,
+    setUploadedFilesCount,
+    setFiles,
+  };
+
+  const clearApplicationDocuments = () => {
+    applyApplicationDocuments([], documentSetters);
+  };
+
+  const applyDocumentsFromApi = (rawDocs: any[] = []) => {
+    applyApplicationDocuments(mapApiDocumentsToItems(rawDocs), documentSetters);
+  };
+
+  const applyDocumentsFromApplication = (application: any) => {
+    if (Array.isArray(application?.documents)) {
+      applyDocumentsFromApi(application.documents);
+      return;
+    }
+
+    const requirements = (application?.documentRequirements || []).filter(
+      (doc: any) => CLIENT_VISIBLE_DOC_SOURCES.has(doc.source),
+    );
+    applyDocumentsFromApi(
+      requirements.map((doc: any) => ({
+        id: doc.id,
+        name: doc.documentType?.name,
+        status: doc.status,
+        required: doc.isRequired,
+        uploadedFiles: (doc.uploads || []).map((file: any) => ({
+          fileName: file.fileName,
+          fileUrl: file.fileUrl,
+          uploadedAt: file.uploadedAt,
+        })),
+      })),
+    );
+  };
+
+  const loadClientProfile = async () => {
+    try {
+      const res = await axios.get(
+        `${API_BASE}/client-portal/profile`,
+        getClientPortalAuthConfig(),
+      );
+
+      const data = res.data?.data;
+      if (!data) return;
+
+      if (data.clientName && !isPlaceholderClientName(data.clientName)) {
+        setClientName(data.clientName);
+      }
+
+      if (data.email) {
+        setClientEmail(data.email);
+      }
+
+      const token = sessionStorage.getItem("client_token");
+      if (token) {
+        saveClientPortalSession(token, {
+          clientName: data.clientName,
+          email: data.email,
+          clientId: data.clientId,
+        });
+      }
+    } catch (err) {
+      console.error("Failed to load client profile", err);
+    }
+  };
+
   useEffect(() => {
-    verifyToken();
+    initializePortal();
   }, [token]);
 
-  const verifyToken = async () => {
+  const initializePortal = async () => {
+    try {
+      const clientToken = sessionStorage.getItem("client_token");
+
+      // Magic-link / token flow: load the single linked application.
+      if (token) {
+        await loadLoanContext();
+        return;
+      }
+
+      // Logged-in client with multiple applications: don't preload another app's docs.
+      if (clientToken) {
+        clearApplicationDocuments();
+        setApplicationId("");
+        setApplicationData(null);
+        setSelectedApplication(null);
+
+        const profile = resolveClientProfileFromSession();
+        if (profile?.clientName && !isPlaceholderClientName(profile.clientName)) {
+          setClientName(profile.clientName);
+        }
+        if (profile?.email) {
+          setClientEmail(profile.email);
+        }
+
+        await loadClientProfile();
+
+        setLoading(false);
+        return;
+      }
+
+      await loadLoanContext();
+    } catch (err) {
+      console.error(err);
+      setInvalidToken(true);
+      setLoading(false);
+    }
+  };
+
+  const loadLoanContext = async () => {
     try {
       let url = `${API_BASE}/client-portal/loan`;
 
       if (token) {
         url += `?token=${token}`;
+      } else if (applicationId) {
+        url += `?applicationId=${applicationId}`;
       }
 
       const res = await axios.get(url, getClientPortalAuthConfig());
@@ -216,45 +393,63 @@ export default function ClientUpload() {
         (item: any) => item.key === "borrowerSignature",
       )?.value;
 
-if (signatureFromAPI) {
-  setSignature(signatureFromAPI);
-  setIsSignedFromAPI(true);
-} else {
-  setSignature("");
-  setIsSignedFromAPI(false);
-}
-
-      const docs = (data?.documents || []).map((doc: any) => ({
-        id: doc.id,
-        name: doc.name,
-        status: doc.status,
-        uploadedFiles: doc.uploadedFiles || [],
-        required: doc.required,
-      }));
-      setApplicationId(data?.loanApplicationId || "");
-      setDocuments(docs);
-      setApplicationNumber(data?.applicationNumber || "");
-      setClientName(data?.borrower?.name || "");
-      // setEmail(data?.borrower?.email || "");
-      // setCreditScore(data?.borrower?.creditScore || "");
-
-      // setStatus(data?.status || "");
-      // setLoanProductCode(data?.loanDetails?.loanProductCode || "");
-      setApplicationData(data);
-
-      const uploadedMap: Record<string, boolean> = {};
-      docs.forEach((doc: DocumentItem) => {
-        if (doc.uploadedFiles?.length > 0) {
-          uploadedMap[doc.id] = true;
-        }
+      applySignatureState({
+        ...data,
+        borrowerSignature: signatureFromAPI || data?.borrowerSignature,
       });
 
-      setUploaded(uploadedMap);
+      setApplicationId(data?.loanApplicationId || data?.id || "");
+      applyDocumentsFromApi(data?.documents || []);
+      setApplicationNumber(data?.applicationNumber || "");
+      setClientName(data?.borrower?.name || data?.borrowerName || "");
+      setApplicationData(data);
     } catch (err) {
       console.error(err);
       setInvalidToken(true);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const applySignatureState = (data: any) => {
+    const borrowerSignature =
+      data?.borrowerSignature ||
+      data?.submissions
+        ?.flatMap((submission: any) => submission.fields || [])
+        ?.find((field: any) => field.fieldKey === "borrowerSignature")?.value;
+
+    const signatureState = resolveClientSignableSubmission({
+      status: data?.status,
+      submittedAt: data?.submittedAt,
+      createdAt: data?.createdAt,
+      borrowerSignature,
+      submissions: data?.submissions,
+      latestSubmission: data?.latestSubmission,
+    });
+
+    const signed =
+      Boolean(data?.alreadySigned) ||
+      signatureState.alreadySigned ||
+      data?.latestSubmission?.status === "COMPLETED" ||
+      submissionHasClientSignature(
+        data?.latestSubmission,
+        borrowerSignature,
+      );
+
+    if (signed) {
+      setSignature(borrowerSignature ? String(borrowerSignature) : "");
+      setIsSignedFromAPI(true);
+      setCanClientSign(false);
+      setClientSignBlockedReason("");
+    } else {
+      setSignature("");
+      setIsSignedFromAPI(false);
+      setCanClientSign(
+        data?.canClientSign === true || signatureState.canSign,
+      );
+      setClientSignBlockedReason(
+        data?.clientSignBlockedReason || signatureState.reason || "",
+      );
     }
   };
 
@@ -294,8 +489,21 @@ if (signatureFromAPI) {
   };
 
   const handleSubmitSignature = async () => {
+    if (!canClientSign) {
+      toast.error(
+        clientSignBlockedReason ||
+          "Signing is not available for this application right now.",
+      );
+      return;
+    }
+
     if (!sigRef.current || sigRef.current.isEmpty()) {
       toast.error("Please provide your signature first");
+      return;
+    }
+
+    if (!applicationId) {
+      toast.error("Application not found. Please reopen the application.");
       return;
     }
 
@@ -305,10 +513,6 @@ if (signatureFromAPI) {
       const capturedSignature = sigRef.current
         .getCanvas()
         .toDataURL("image/png");
-
-        console.log("Submitting Application ID:", applicationId);
-console.log("Selected Application ID:", selectedApplication?.id);
-console.log("Selected Status:", selectedApplication?.status);
 
       let submitUrl = `${API_BASE}/client-portal/e-sign/submit`;
       if (token) {
@@ -325,8 +529,11 @@ console.log("Selected Status:", selectedApplication?.status);
       );
 
       setSignature(capturedSignature);
-      // setStatus("SUBMITTED");
-      await verifyToken();
+      if (applicationId) {
+        await fetchApplicationDetails(applicationId, { keepCurrentTab: true });
+      } else if (token) {
+        await loadLoanContext();
+      }
       toast.success("Signature submitted successfully");
       sigRef.current?.clear();
     } catch (err: any) {
@@ -420,6 +627,10 @@ console.log("Selected Status:", selectedApplication?.status);
       setFiles((prev) => ({ ...prev, [id]: [] }));
 
       toast.success("Document uploaded successfully");
+
+      if (applicationId) {
+        await fetchApplicationDetails(applicationId, { keepCurrentTab: true });
+      }
     } catch (err: any) {
       console.error("UPLOAD ERROR:", err?.response || err);
 
@@ -464,7 +675,6 @@ console.log("Selected Status:", selectedApplication?.status);
 
       const res = await axios.get(url, getClientPortalAuthConfig());
 
-      verifyToken();
       setApplications(res.data?.data || []);
       setPage(res.data?.meta?.page || 1);
       setTotalPages(res.data?.meta?.totalPages || 1);
@@ -475,7 +685,10 @@ console.log("Selected Status:", selectedApplication?.status);
     }
   };
 
-  const fetchApplicationDetails = async (id: string) => {
+  const fetchApplicationDetails = async (
+    id: string,
+    options?: { keepCurrentTab?: boolean },
+  ) => {
     try {
       setApplicationDetailsLoading(true);
 
@@ -487,21 +700,12 @@ console.log("Selected Status:", selectedApplication?.status);
       const data = res.data?.data;
 
       setApplicationId(data.id);
-      setSignature("");
-setIsSignedFromAPI(false);
+      setApplicationNumber(data.applicationNumber || "");
 
-const borrowerSignature =
-  data?.borrowerSignature ||
-  data?.submissions
-    ?.flatMap((s: any) => s.fields || [])
-    ?.find((f: any) => f.fieldKey === "borrowerSignature")
-    ?.value;
+      applySignatureState(data);
 
-if (borrowerSignature) {
-  setSignature(borrowerSignature);
-  setIsSignedFromAPI(true);
-}
       setSelectedApplication(data);
+      applyDocumentsFromApplication(data);
 
       const map = buildSubmissionFieldMap(data);
       setFieldMap(map);
@@ -515,7 +719,9 @@ if (borrowerSignature) {
         },
       });
 
-      setActiveTab("application");
+      if (!options?.keepCurrentTab) {
+        setActiveTab("application");
+      }
     } catch (err) {
       console.error(err);
       toast.error("Failed to fetch application details");
@@ -568,10 +774,7 @@ if (borrowerSignature) {
   };
 
   const handleLogout = () => {
-    // remove token
-    sessionStorage.removeItem("client_token");
-
-    // redirect to login page
+    clearClientPortalSession();
     window.location.href = "/client-portal";
   };
 
@@ -598,9 +801,17 @@ if (borrowerSignature) {
     );
   }
 
-  const displayName =
-    applicationData?.borrower?.name || clientName || "Client";
-  const displayEmail = applicationData?.borrower?.email || "-";
+  const displayName = (() => {
+    const candidates = [applicationData?.borrower?.name, clientName];
+    for (const name of candidates) {
+      if (name && !isPlaceholderClientName(name)) {
+        return name;
+      }
+    }
+    return clientEmail?.split("@")[0] || "Client";
+  })();
+  const displayEmail =
+    applicationData?.borrower?.email || clientEmail || "-";
   const clientInitials = getClientInitials(displayName);
   const isClientLoggedIn = Boolean(sessionStorage.getItem("client_token"));
 
@@ -1139,8 +1350,10 @@ if (borrowerSignature) {
                     <button
                       onClick={() => {
                         setSelectedApplication(null);
+                        setApplicationData(null);
+                        setApplicationId("");
+                        clearApplicationDocuments();
                         setActiveTab("applications");
-                        verifyToken();
                       }}
                       className="flex items-center gap-2 text-sm text-gray-500 hover:text-blue-600 mb-3"
                     >
@@ -1160,7 +1373,13 @@ if (borrowerSignature) {
 
                       {/* DOCUMENTS */}
                       <button
-                        onClick={() => setActiveTab("documents")}
+                        onClick={() => {
+                          if (!applicationId) {
+                            toast.error("Select an application first");
+                            return;
+                          }
+                          setActiveTab("documents");
+                        }}
                         className={`relative flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium transition-all
       hover:text-blue-500`}
                       >
@@ -1664,10 +1883,21 @@ if (borrowerSignature) {
                           ✔ Signed by client
                         </p>
 
-                        <img
-                          src={signature}
-                          className="h-28 mx-auto object-contain"
-                        />
+                        {signature ? (
+                          <img
+                            src={signature}
+                            className="h-28 mx-auto object-contain"
+                          />
+                        ) : (
+                          <p className="text-sm text-gray-600">
+                            Your application has been submitted.
+                          </p>
+                        )}
+                      </div>
+                    ) : !canClientSign ? (
+                      <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                        {clientSignBlockedReason ||
+                          "Signing is not available for this application right now. Please contact your broker if you need help."}
                       </div>
                     ) : (
                       <>
@@ -1720,9 +1950,9 @@ if (borrowerSignature) {
                         {/* Submit */}
                         <button
                           onClick={handleSubmitSignature}
-                          disabled={!signature || submittingSign}
+                          disabled={!signature || submittingSign || !canClientSign}
                           className={`mt-4 w-full rounded-lg py-2 font-medium transition ${
-                            !signature || submittingSign
+                            !signature || submittingSign || !canClientSign
                               ? "cursor-not-allowed bg-slate-200 text-slate-500 shadow-none"
                               : "bg-emerald-600 text-white shadow-[0_12px_24px_rgba(5,150,105,0.22)] hover:bg-emerald-700"
                           }`}
@@ -1739,7 +1969,9 @@ if (borrowerSignature) {
                   <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mt-6">
                     {/* Date */}
                     <span className="text-sm text-gray-500">
-                      Submitted Date: {applicationData.createdAt}
+                      {applicationData?.submittedAt
+                        ? `Submitted: ${formatClientPortalSubmittedDate(applicationData)}`
+                        : `Application Created: ${formatClientPortalSubmittedDate(applicationData)}`}
                     </span>
 
                     {/* Status Badge */}

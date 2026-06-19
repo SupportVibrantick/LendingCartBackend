@@ -137,6 +137,10 @@ const AppSidebar: React.FC = () => {
               name: "Settings",
               subItems: [
                 {
+                  name: "Branding",
+                  path: "/settings/branding",
+                },
+                {
                   icon: <FaAppStore />,
                   name: "Application Builder",
                   subItems: [

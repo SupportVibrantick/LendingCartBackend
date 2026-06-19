@@ -1,4 +1,8 @@
 const generateAgreementHtml = require("./generateAgreementHtml");
+const {
+  getBrokerWhiteLabelBranding,
+  lockAgreementBranding,
+} = require("../../../../services/brokerBranding");
 
 module.exports = async function (fastify) {
   fastify.post(
@@ -73,10 +77,19 @@ module.exports = async function (fastify) {
         }
 
         const signedAt = new Date();
+        const whiteLabelBranding = await getBrokerWhiteLabelBranding(
+          prisma,
+          agreement.brokerOrgId,
+        );
+        const lockedBranding = lockAgreementBranding(
+          agreement,
+          whiteLabelBranding,
+        );
 
         // 🧠 Merge data + signature for HTML regeneration
         const updatedData = {
           ...agreement,
+          ...lockedBranding,
           clientSignature: signature,
           signedAt: signedAt.toISOString(),
         };
@@ -88,6 +101,7 @@ module.exports = async function (fastify) {
         const signedAgreement = await prisma.feeAgreement.update({
           where: { id },
           data: {
+            ...lockedBranding,
             clientSignature: signature,
             signedAt,
             status: "SIGNED",

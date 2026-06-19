@@ -1,3 +1,10 @@
+const {
+  filterReceivableApplicationLenderIds,
+} = require("../utils/lenderDocumentDelivery");
+const {
+  applyDocumentSendStatusUpdates,
+} = require("./applyDocumentSendStatusUpdates");
+
 /**
  * Forward a newly uploaded document to all lenders that requested it.
  */
@@ -31,12 +38,23 @@ async function autoForwardDocumentUpload(prisma, {
     },
   });
 
-  const applicationLenderIds = [
+  const requestedApplicationLenderIds = [
     ...new Set(lenderRequests.map((item) => item.applicationLenderId)),
   ];
 
+  const applicationLenderIds = await filterReceivableApplicationLenderIds(
+    prisma,
+    requestedApplicationLenderIds,
+  );
+
   if (applicationLenderIds.length === 0) {
-    return { forwarded: false, reason: "no_lenders", submittedCount: 0 };
+    return {
+      forwarded: false,
+      reason: "no_receivable_lenders",
+      submittedCount: 0,
+      skippedLenderCount:
+        requestedApplicationLenderIds.length - applicationLenderIds.length,
+    };
   }
 
   const submissionRows = applicationLenderIds.map((applicationLenderId) => ({
@@ -57,26 +75,17 @@ async function autoForwardDocumentUpload(prisma, {
     },
   });
 
-  await prisma.applicationLender.updateMany({
-    where: {
-      id: { in: applicationLenderIds },
-      loanApplicationId,
-    },
-    data: {
-      status: "IN_REVIEW",
-      sentAt: new Date(),
-    },
-  });
-
-  await prisma.loanApplication.update({
-    where: { id: loanApplicationId },
-    data: { status: "IN_REVIEW" },
+  await applyDocumentSendStatusUpdates(prisma, {
+    loanApplicationId,
+    applicationLenderIds,
   });
 
   return {
     forwarded: true,
     submittedCount: applicationLenderIds.length,
     applicationLenderIds,
+    skippedLenderCount:
+      requestedApplicationLenderIds.length - applicationLenderIds.length,
   };
 }
 

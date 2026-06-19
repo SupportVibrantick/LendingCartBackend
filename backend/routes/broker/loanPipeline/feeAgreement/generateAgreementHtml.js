@@ -1,12 +1,30 @@
+const { isPlaceholderName } = require("../../../../services/resolveClientDisplayName");
+
+function formatIssuerPartyName(clientName, clientEntityName) {
+  const name = clientName || "___";
+  if (!clientEntityName || isPlaceholderName(clientEntityName)) {
+    return name;
+  }
+  return `${name} (${clientEntityName})`;
+}
+
 module.exports = function generateAgreementHtml(data) {
   const today = new Date().toLocaleDateString();
+  const logoBlock = data.brokerLogoUrl
+    ? `<div style="text-align:center;margin-bottom:16px;">
+        <img src="${data.brokerLogoUrl}" alt="${data.brokerBrandName || "Broker Logo"}" style="max-height:96px;max-width:220px;object-fit:contain;" />
+      </div>`
+    : "";
+
+  const issuerParty = formatIssuerPartyName(data.clientName, data.clientEntityName);
 
   return `
+    ${logoBlock}
     <h2 style="text-align:center;">FINDER & FINANCIAL AGREEMENT</h2>
 
     <p>
       This Finder & Financial Agreement is made and entered into this Date: <b>${today}</b> 
-      by and between <b>${data.clientName || "___"} (${data.clientEntityName || "___"})</b>, 
+      by and between <b>${issuerParty}</b>, 
       whose address is: <b>${data.clientAddress || "___"}</b> ("Issuer"),
       and <b>${data.brokerName || "___"} (${data.brokerCompany || "___"})</b>, 
       whose address is: <b>${data.brokerAddress || "___"}</b> ("Finder").

@@ -1,5 +1,8 @@
 const jwt = require("jsonwebtoken");
 const { normalizeFeeAgreement } = require("../../services/feeAgreementEnrichment");
+const {
+  getBrokerWhiteLabelBranding,
+} = require("../../services/brokerBranding");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
@@ -123,7 +126,11 @@ module.exports = async function getClientFeeAgreement(fastify) {
         =============================== */
         return reply.send({
           ok: true,
-          data: normalizeFeeAgreement(feeAgreement, application),
+          data: normalizeFeeAgreement(
+            feeAgreement,
+            application,
+            await getBrokerWhiteLabelBranding(prisma, application.brokerOrgId),
+          ),
         });
 
       } catch (error) {
