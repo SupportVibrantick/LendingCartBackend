@@ -21,6 +21,13 @@ const COLUMN_PATCHES = [
 
   `ALTER TABLE "clients"
     ADD COLUMN IF NOT EXISTS "deleted_at" TIMESTAMPTZ(6)`,
+
+  // Fee Agreement branding fields
+  `ALTER TABLE "fee_agreements"
+    ADD COLUMN IF NOT EXISTS "brokerLogoUrl" TEXT`,
+
+  `ALTER TABLE "fee_agreements"
+    ADD COLUMN IF NOT EXISTS "brokerBrandName" TEXT`,
 ];
 
 async function applySchemaPatches(existingPrisma) {
