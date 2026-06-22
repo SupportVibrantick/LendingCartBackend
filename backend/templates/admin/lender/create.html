@@ -111,10 +111,10 @@
         <p>Below are your account details:</p>
 
         <div class="details-box">
-          <p><strong>Lender Name:</strong> {{lenderName}}</p>
-          <p><strong>Lender Email:</strong> {{lenderEmail}}</p>
-          <p><strong>Lender Phone:</strong> {{lenderPhone}}</p>
-          <p><strong>Assigned Broker:</strong> {{brokerName}}</p>
+          <p><strong>Lender Name:</strong> {{default lenderName organizationName}}</p>
+          <p><strong>Lender Email:</strong> {{default lenderEmail organizationEmail}}</p>
+          <p><strong>Lender Phone:</strong> {{default lenderPhone organizationPhone}}</p>
+          <p><strong>Assigned Broker:</strong> {{default brokerName "Your broker"}}</p>
         </div>
 
         <p>

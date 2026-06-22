@@ -442,9 +442,9 @@ export default function LoanApplicationsPage() {
       });
 
       setSelectedSubBroker("");
+      await refreshPipelineData();
     } catch (err: any) {
       setAssignSubBrokerError(err.message || "Something went wrong");
-
       toast.error(err.message || "Something went wrong");
     } finally {
       setAssigningSubBroker(false);
@@ -852,11 +852,12 @@ export default function LoanApplicationsPage() {
       }
 
       toast.success("Client link sent successfully");
+      await refreshPipelineData();
     } catch (err: any) {
       toast.error(err.message || "Something went wrong");
     }
   };
-
+  
   useEffect(() => {
     loadSubmissions(undefined, initialQuery || undefined, statusFilter);
     fetchPipelineStats();
@@ -870,9 +871,15 @@ export default function LoanApplicationsPage() {
     loadSubmissions(undefined, searchTerm, statusFilter);
   }, [statusFilter]);
 
+  const refreshPipelineData = useCallback(async () => {
+    await Promise.all([
+      loadSubmissions(undefined, searchTerm, statusFilter),
+      fetchPipelineStats(),
+    ]);
+  }, [loadSubmissions, searchTerm, statusFilter]);
+
   const handleRefresh = () => {
-    loadSubmissions(undefined, searchTerm, statusFilter);
-    fetchPipelineStats();
+    void refreshPipelineData();
   };
 
   const openPreview = (submissionId: string) => {
@@ -1195,7 +1202,7 @@ export default function LoanApplicationsPage() {
         applicationId: "",
         currentOfficerId: null,
       });
-      loadSubmissions();
+      await refreshPipelineData();
     } catch (err: any) {
       setAssignError(err.message || "Something went wrong");
     } finally {

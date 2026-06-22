@@ -4,10 +4,14 @@ import {
   Filter,
   Search,
   SendHorizonal,
+  UserRound,
   X,
   Zap,
 } from "lucide-react";
-import type { DocumentSentFilter } from "../../lib/documentLenderSend";
+import type {
+  DocumentSentFilter,
+  DocumentSourceFilter,
+} from "../../lib/documentLenderSend";
 
 type DocumentFilterLender = {
   applicationLenderId: string;
@@ -24,6 +28,8 @@ type DocumentControlsBarProps = {
   onDocumentLenderFilterChange: (value: string) => void;
   documentSentFilter: DocumentSentFilter;
   onDocumentSentFilterChange: (value: DocumentSentFilter) => void;
+  documentSourceFilter: DocumentSourceFilter;
+  onDocumentSourceFilterChange: (value: DocumentSourceFilter) => void;
   searchInput: string;
   onSearchInputChange: (value: string) => void;
   onResetPage: () => void;
@@ -45,6 +51,8 @@ export default function DocumentControlsBar({
   onDocumentLenderFilterChange,
   documentSentFilter,
   onDocumentSentFilterChange,
+  documentSourceFilter,
+  onDocumentSourceFilterChange,
   searchInput,
   onSearchInputChange,
   onResetPage,
@@ -53,11 +61,13 @@ export default function DocumentControlsBar({
   const hasActiveFilters =
     Boolean(documentLenderFilter) ||
     documentSentFilter !== "all" ||
+    documentSourceFilter !== "all" ||
     Boolean(searchInput.trim());
 
   const clearFilters = () => {
     onDocumentLenderFilterChange("");
     onDocumentSentFilterChange("all");
+    onDocumentSourceFilterChange("all");
     onSearchInputChange("");
     onResetPage();
   };
@@ -100,7 +110,7 @@ export default function DocumentControlsBar({
             </div>
             <p className="mt-0.5 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
               {autoForwardEnabled
-                ? "New uploads are sent directly to the lender(s) that requested them."
+                ? "New uploads from the client or broker are sent automatically to the relevant lender(s) on this deal."
                 : "Review uploads first, then choose which lender receives each document."}
             </p>
           </div>
@@ -156,7 +166,13 @@ export default function DocumentControlsBar({
 
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-12">
           {/* Search — primary, wider */}
-          <div className="md:col-span-2 xl:col-span-5">
+          <div
+            className={
+              documentFilterLenders.length > 0
+                ? "md:col-span-2 xl:col-span-4"
+                : "md:col-span-2 xl:col-span-5"
+            }
+          >
             <label htmlFor="doc-search" className={labelClass}>
               Search
             </label>
@@ -192,9 +208,46 @@ export default function DocumentControlsBar({
             </div>
           </div>
 
+          {/* Source filter */}
+          <div
+            className={
+              documentFilterLenders.length > 0 ? "xl:col-span-2" : "xl:col-span-3"
+            }
+          >
+            <label htmlFor="doc-source-filter" className={labelClass}>
+              Source
+            </label>
+            <div className="relative">
+              <UserRound
+                size={16}
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+              />
+              <select
+                id="doc-source-filter"
+                value={documentSourceFilter}
+                onChange={(e) => {
+                  onDocumentSourceFilterChange(
+                    e.target.value as DocumentSourceFilter,
+                  );
+                  onResetPage();
+                }}
+                className={selectClass}
+              >
+                <option value="all">All sources</option>
+                <option value="broker">My documents</option>
+                <option value="lender">Lender requested</option>
+                <option value="sub_broker">Sub broker</option>
+              </select>
+              <ChevronDown
+                size={16}
+                className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
+              />
+            </div>
+          </div>
+
           {/* Lender filter */}
           {documentFilterLenders.length > 0 && (
-            <div className="xl:col-span-4">
+            <div className="xl:col-span-3">
               <label htmlFor="doc-lender-filter" className={labelClass}>
                 Lender
               </label>

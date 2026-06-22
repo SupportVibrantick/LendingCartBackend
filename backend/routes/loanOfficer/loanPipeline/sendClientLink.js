@@ -1,5 +1,6 @@
 const crypto = require("crypto");
 const { loadTemplate } = require("../../../utils/loadTemplate");
+const { buildClientLinkEmailData } = require("../../../utils/emailTemplateData");
 const sendMail = require("../../../services/mail");
 
 async function sendClientLinkRoute(fastify) {
@@ -110,12 +111,16 @@ async function sendClientLinkRoute(fastify) {
 
       const uploadLink = `${process.env.FRONTEND_URL}/client-upload/${tokenRecord.token}`;
 
-      const html = loadTemplate("broker/clientLink", {
-        clientName: loan.client?.legalName || "Customer",
-        uploadLink,
-        applicationNumber: loan.applicationNumber,
-        brokerName: req.user?.firstName || "Your Loan Officer",
-      });
+      const html = loadTemplate(
+        "broker/clientLink",
+        buildClientLinkEmailData({
+          clientName: loan.client?.legalName,
+          uploadLink,
+          applicationNumber: loan.applicationNumber,
+          brokerName: req.user?.firstName,
+          preset: "portalAccess",
+        }),
+      );
 
       const subject = "Access Your Loan Application Portal";
       const text = `Access your loan application using this secure link:\n${uploadLink}`;

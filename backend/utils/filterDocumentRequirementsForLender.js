@@ -1,4 +1,64 @@
 const BROKER_SENDABLE_SOURCES = new Set(["BROKER_ADDED", "SUB_BROKER_ADDED"]);
+const {
+  filterReceivableApplicationLenderIds,
+} = require("./lenderDocumentDelivery");
+
+/**
+ * Resolve which application lenders should receive an auto-forwarded upload.
+ * Broker/sub-broker docs go to submitted lenders on the deal.
+ * Lender-requested docs go to lenders that requested the document type.
+ */
+async function resolveAutoForwardApplicationLenderIds(
+  prisma,
+  { loanApplicationId, requirement },
+) {
+  if (BROKER_SENDABLE_SOURCES.has(requirement.source)) {
+    const submittedLenders = await prisma.applicationLender.findMany({
+      where: {
+        loanApplicationId,
+        sentAt: { not: null },
+      },
+      select: { id: true },
+    });
+
+    const candidateIds = submittedLenders.map((lender) => lender.id);
+    const applicationLenderIds = await filterReceivableApplicationLenderIds(
+      prisma,
+      candidateIds,
+    );
+
+    return {
+      applicationLenderIds,
+      candidateCount: candidateIds.length,
+      mode: "broker_added_submitted_lenders",
+    };
+  }
+
+  const lenderRequests = await prisma.lenderDocumentRequest.findMany({
+    where: {
+      loanApplicationId,
+      documentTypeId: requirement.documentTypeId,
+    },
+    select: {
+      applicationLenderId: true,
+    },
+  });
+
+  const candidateIds = [
+    ...new Set(lenderRequests.map((item) => item.applicationLenderId)),
+  ];
+
+  const applicationLenderIds = await filterReceivableApplicationLenderIds(
+    prisma,
+    candidateIds,
+  );
+
+  return {
+    applicationLenderIds,
+    candidateCount: candidateIds.length,
+    mode: "lender_requested",
+  };
+}
 
 /**
  * Keep broker/sub-broker requested docs for any selected lender.
@@ -67,5 +127,6 @@ async function filterRequirementIdsForLender(
 
 module.exports = {
   filterRequirementIdsForLender,
+  resolveAutoForwardApplicationLenderIds,
   BROKER_SENDABLE_SOURCES,
 };

@@ -2,6 +2,7 @@
 
 const { PrismaClient } = require("@prisma/client");
 const bcrypt = require("bcrypt");
+const { applySchemaPatches } = require("../applySchemaPatches");
 
 const prisma = new PrismaClient();
 
@@ -99,10 +100,20 @@ async function createLender({
     // ==========================================
     // LENDER PRODUCT
     // ==========================================
+    const equipmentFinanceProduct = await tx.loanProduct.findFirst({
+      where: { code: "EQUIPMENT_FINANCE" },
+    });
+
+    if (!equipmentFinanceProduct) {
+      throw new Error(
+        "EQUIPMENT_FINANCE loan product not found. Run admin loan product seed first.",
+      );
+    }
+
     await tx.lenderProduct.create({
       data: {
         lenderOrgId: lender.id,
-
+        loanProductId: equipmentFinanceProduct.id,
         loanProductCode: "EQUIPMENT_FINANCE",
 
         propertyTypes: ["MULTIFAMILY"],
@@ -114,10 +125,6 @@ async function createLender({
         maxTermMonths: 60,
 
         minCreditScore,
-
-        maxLtvPercent: 75,
-        maxLtcPercent: 90,
-        maxArvPercent: 80,
 
         minExperience,
 
@@ -135,6 +142,8 @@ async function createLender({
 
 async function main() {
   console.log("🚀 Seeding Equipment Finance Eligible Lenders...");
+
+  await applySchemaPatches(prisma);
 
   await createLender({
     orgName: "Equipment Finance Prime",

@@ -112,9 +112,22 @@ export function buildSubmissionFieldMap(applicationData: any) {
   });
 
   latest?.fields?.forEach((field: any) => {
-    if (!field?.fieldKey) return;
-    map[field.fieldKey] = field.value;
+    const fieldKey = field.fieldKey ?? field.builderField?.fieldKey;
+    if (!fieldKey) return;
+    const rawValue = field.value;
+    map[fieldKey] =
+      typeof rawValue === "string" || typeof rawValue === "number"
+        ? rawValue
+        : rawValue ?? null;
   });
+
+  if (applicationData?.latestSubmission?.fields?.length) {
+    applicationData.latestSubmission.fields.forEach((field: any) => {
+      const fieldKey = field.fieldKey ?? field.builderField?.fieldKey;
+      if (!fieldKey) return;
+      map[fieldKey] = field.value;
+    });
+  }
 
   for (const submission of applicationData?.submissions || []) {
     const signatureField = submission.fields?.find(
@@ -274,7 +287,11 @@ function resolveHeuristicSection(fieldKey: string) {
     };
   }
 
-  if (/entity|dba|legalName|entityType|business|formationDate|yearsInBusiness/i.test(fieldKey)) {
+  if (
+    /entity|dba|legalName|entityType|business|formationDate|yearsInBusiness|naics|goodwill|inventory|equipment|ebitda/i.test(
+      fieldKey,
+    )
+  ) {
     return {
       id: "entity-information",
       title: "Entity Information",
@@ -282,7 +299,7 @@ function resolveHeuristicSection(fieldKey: string) {
     };
   }
 
-  if (/noi|revenue|income|rent|tax|insurance|hoa|assets|liabilities|floodZone/i.test(fieldKey)) {
+  if (/noi|revenue|income|rent|tax|insurance|hoa|assets|liabilities|floodZone|financial/i.test(fieldKey)) {
     return {
       id: "financial-details",
       title: "Financial Details",
@@ -429,4 +446,43 @@ export function getEntityTypeFromFields(fields: SubmissionDetailField[] = []) {
   const field = fields.find((item) => item.fieldKey === "entityType");
   if (!field) return "—";
   return formatSubmissionFieldValue(field);
+}
+
+function normalizeFieldValue(value: unknown): string {
+  if (value === undefined || value === null) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+export function mapSubmissionDetailFields(
+  rawFields: any[] = [],
+): SubmissionDetailField[] {
+  return rawFields.map((field) => ({
+    fieldId: field.fieldId || field.id || null,
+    fieldKey: field.fieldKey ?? field.builderField?.fieldKey ?? null,
+    label: field.label ?? field.builderField?.label ?? null,
+    type: field.type ?? field.builderField?.fieldType ?? null,
+    value: normalizeFieldValue(field.value),
+    sectionName: field.sectionName ?? field.builderField?.section?.name ?? null,
+    sectionSortOrder:
+      field.sectionSortOrder ?? field.builderField?.section?.sortOrder ?? null,
+    fieldSortOrder: field.fieldSortOrder ?? field.builderField?.sortOrder ?? null,
+  }));
+}
+
+export function getNumericFieldValue(
+  fields: SubmissionDetailField[],
+  fieldKey: string,
+) {
+  const field = fields.find((item) => item.fieldKey === fieldKey);
+  if (!field) return 0;
+  return parseNumericValue(parseSubmissionFieldValue(field.value)) || 0;
 }

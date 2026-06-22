@@ -2,6 +2,7 @@
 
 const prisma = require("../client");
 const { BROKER_ORG_NAME } = require("../seedConfig");
+const { BROKER_APPLICATION_PRODUCT_CODES } = require("../loanProductCatalog");
 
 async function seedApplicationBuilder() {
   console.log("🚀 Seeding Application Builder...");
@@ -79,34 +80,22 @@ async function seedApplicationBuilder() {
    * ==========================================
    */
 
-  const loanProductCodes = [
-    "BRIDGE_LOAN",
-    "FIX_AND_FLIP_LOAN_1_TO_4_UNITS",
-    "DSCR_LOAN_1_TO_4_UNITS",
-    "CONSTRUCTION_LOAN_1_TO_4_UNITS",
-    "RENTAL_PORTFOLIO",
-    "CRE_PERMANENT_LOAN",
-    "CMBS",
-    "AGENCY_LOAN_MULTIFAMILY",
-    "MEZZANINE_FINANCE",
-    "PREFERRED_EQUITY",
-    // "SBA_7A",
-    "SBA_7A_BUSINESS_ACQUISITION",
-    "SBA_7A_WORKING_CAPITAL",
-    "SBA_7A_EQUIPMENT_PURCHASE",
-    "SBA_7A_REAL_ESTATE",
-    "SBA_504_REAL_ESTATE_AND_EQUIPMENT",
-    "USDA_BI",
-    "PURCHASE_ORDER_FINANCE",
-    "EQUIPMENT_FINANCE",
-    "INVOICE_FACTORING",
-    "ACCOUNTS_PAYABLE_FINANCE",
-    "ACCOUNTS_RECEIVABLE",
-  ];
+  const loanProductCodes = BROKER_APPLICATION_PRODUCT_CODES;
 
   const applicationProducts = [];
 
   for (const loanProductCode of loanProductCodes) {
+    const catalogProduct = await prisma.loanProduct.findFirst({
+      where: { code: loanProductCode },
+    });
+
+    if (!catalogProduct) {
+      console.warn(
+        `⚠️ Skipping broker application product ${loanProductCode}: not in loan_products table`,
+      );
+      continue;
+    }
+
     let product = await prisma.brokerApplicationProduct.findFirst({
       where: {
         brokerApplicationId: application.id,
@@ -200,7 +189,7 @@ SBA_504_REAL_ESTATE_AND_EQUIPMENT: [
   },
 ],
 
-  CONSTRUCTION_LOAN_1_TO_4_UNITS: [
+  CONSTRUCTION_LOAN: [
     {
       name: "Construction Details",
       description: "Construction project information",
@@ -208,13 +197,13 @@ SBA_504_REAL_ESTATE_AND_EQUIPMENT: [
     },
   ],
 
-//   SBA_7A: [
-//     {
-//       name: "Business Financials",
-//       description: "Business financial information",
-//       sortOrder: 100,
-//     },
-//   ],
+  CONSTRUCTION_LOAN_1_TO_4_UNITS: [
+    {
+      name: "Construction Details",
+      description: "Construction project information",
+      sortOrder: 100,
+    },
+  ],
 
   SBA_7A_BUSINESS_ACQUISITION: [
     {
@@ -284,6 +273,14 @@ SBA_504_REAL_ESTATE_AND_EQUIPMENT: [
   {
     name: "DSCR Metrics",
     description: "DSCR underwriting information",
+    sortOrder: 100,
+  },
+],
+
+BRIDGE_LOAN_1_TO_4_UNITS: [
+  {
+    name: "Bridge Loan Details",
+    description: "Bridge financing information",
     sortOrder: 100,
   },
 ],
@@ -408,6 +405,31 @@ SBA_504_REAL_ESTATE_AND_EQUIPMENT: [
   },
 ],
 
+  CONSTRUCTION_LOAN: [
+    {
+      sectionName: "Construction Details",
+      fieldKey: "constructionBudget",
+      label: "Construction Budget",
+      fieldType: "NUMBER",
+      sortOrder: 1,
+    },
+    {
+      sectionName: "Construction Details",
+      fieldKey: "builderName",
+      label: "Builder Name",
+      fieldType: "TEXT",
+      sortOrder: 2,
+    },
+    {
+      sectionName: "Construction Details",
+      fieldKey: "permitStatus",
+      label: "Permit Status",
+      fieldType: "SELECT",
+      options: ["Approved", "Pending", "Not Applied"],
+      sortOrder: 3,
+    },
+  ],
+
   CONSTRUCTION_LOAN_1_TO_4_UNITS: [
     {
       sectionName: "Construction Details",
@@ -521,6 +543,30 @@ SBA_504_REAL_ESTATE_AND_EQUIPMENT: [
     fieldKey: "dscrRatio",
     label: "DSCR Ratio",
     fieldType: "NUMBER",
+    sortOrder: 3,
+  },
+],
+
+BRIDGE_LOAN_1_TO_4_UNITS: [
+  {
+    sectionName: "Bridge Loan Details",
+    fieldKey: "currentPropertyValue",
+    label: "Current Property Value",
+    fieldType: "NUMBER",
+    sortOrder: 1,
+  },
+  {
+    sectionName: "Bridge Loan Details",
+    fieldKey: "existingLoanBalance",
+    label: "Existing Loan Balance",
+    fieldType: "NUMBER",
+    sortOrder: 2,
+  },
+  {
+    sectionName: "Bridge Loan Details",
+    fieldKey: "expectedRefinanceDate",
+    label: "Expected Refinance Date",
+    fieldType: "DATE",
     sortOrder: 3,
   },
 ],
@@ -793,3 +839,14 @@ data: {
 module.exports = {
   seedApplicationBuilder,
 };
+
+if (require.main === module) {
+  seedApplicationBuilder()
+    .catch((err) => {
+      console.error("❌ Application builder seed failed:", err);
+      process.exit(1);
+    })
+    .finally(async () => {
+      await prisma.$disconnect();
+    });
+}

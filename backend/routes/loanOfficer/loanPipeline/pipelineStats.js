@@ -1,4 +1,7 @@
 const { officerPreHandler, getUserId } = require("../../../services/loanOfficerAccess");
+const {
+  countBrokerPipelineStats,
+} = require("../../../utils/resolveApplicationStatus");
 
 module.exports = async function loanOfficerPipelineStats(fastify) {
   fastify.get(
@@ -47,41 +50,20 @@ module.exports = async function loanOfficerPipelineStats(fastify) {
           return Number(sum || 0) + (isNaN(parsedAmount) ? 0 : parsedAmount);
         }, 0);
 
-        const approved = applications.filter((s) =>
-          s.application?.applicationLenders?.some((l) => l.status === "APPROVED"),
-        ).length;
-
-        const rejected = applications.filter(
-          (s) =>
-            s.application?.applicationLenders?.length > 0 &&
-            s.application.applicationLenders.every((l) => l.status === "DECLINED"),
-        ).length;
-
-        const inReview = applications.filter(
-          (s) =>
-            s.application?.status === "IN_REVIEW" ||
-            s.application?.applicationLenders?.some((l) => l.status === "IN_REVIEW"),
-        ).length;
-
-        const draft = applications.filter((s) => s.application?.status === "DRAFT").length;
-        const submitted = applications.filter((s) => s.application?.status === "SUBMITTED").length;
-        const clientPending = applications.filter(
-          (s) => s.application?.status === "CLIENT_PENDING",
-        ).length;
-        const newApplications = applications.filter((s) => s.application?.status === "NEW").length;
+        const statusCounts = countBrokerPipelineStats(applications);
 
         return reply.send({
           success: true,
           data: {
             totalVolume,
             totalApplications: applications.length,
-            newApplications,
-            submitted,
-            clientPending,
-            approved,
-            rejected,
-            inReview,
-            draft,
+            newApplications: statusCounts.newApplications,
+            submitted: statusCounts.submitted,
+            clientPending: statusCounts.clientPending,
+            approved: statusCounts.approved,
+            rejected: statusCounts.rejected,
+            inReview: statusCounts.inReview,
+            draft: statusCounts.draft,
           },
         });
       } catch (error) {

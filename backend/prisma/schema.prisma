@@ -340,6 +340,11 @@ model LenderProduct {
 
   maxLtvPercent Decimal? @db.Decimal(5, 2)
 
+  minMezzLtvPercent Decimal? @db.Decimal(5, 2)
+  maxMezzLtvPercent Decimal? @db.Decimal(5, 2)
+  exitFeePercent    Decimal? @db.Decimal(5, 2)
+  preferredReturnPercent Decimal? @db.Decimal(5, 2)
+
   // ✅ ARV
   maxArvPercent Decimal? @db.Decimal(5, 2)
 
@@ -350,6 +355,57 @@ model LenderProduct {
   minExperience  String?
 
   interestRateRange String?
+
+  originationPointsPercent Decimal? @db.Decimal(5, 2)
+  extensionAvailable       Boolean? @default(false)
+  personalGuaranteeRequired Boolean? @default(false)
+  firstTimeBorrowersAllowed Boolean? @default(false)
+
+  minDscr                   Decimal? @db.Decimal(5, 2)
+  minDebtYieldPercent       Decimal? @db.Decimal(5, 2)
+  amortizationYears         Int?
+  minUnits                  Int?
+  prepaymentStructure       String?
+  minPropertiesInPortfolio  Int?
+  maxPropertiesInPortfolio  Int?
+  interestOnlyAvailable     Boolean? @default(false)
+  shortTermRentalsOk        Boolean? @default(false)
+  foreignNationalsAllowed   Boolean? @default(false)
+
+  gcRequired                  Boolean? @default(false)
+  completionGuaranteeRequired Boolean? @default(false)
+
+  criteriaNotes            String?  @db.Text
+
+  maxRateSpreadPercent     Decimal? @db.Decimal(5, 2)
+  avgTurnaroundDays        Int?
+  preferredLenderPlp       Boolean? @default(false)
+  requiredInjectionPercent Decimal? @db.Decimal(5, 2)
+  goodwillFinancingAllowed Boolean? @default(false)
+  sellerFinancingAllowed   Boolean? @default(false)
+  minTimeInBusinessMonths  Int?
+  lineOfCreditAvailable    Boolean? @default(false)
+  usedEquipmentAllowed     Boolean? @default(false)
+  ownerOccupiedRequired    Boolean? @default(false)
+  maxTotalProjectAmount    Decimal? @db.Decimal(15, 2)
+  maxSba504DebentureAmount Decimal? @db.Decimal(15, 2)
+  jobCreationRequired      Boolean? @default(false)
+  maxUsdaGuaranteeAmount   Decimal? @db.Decimal(15, 2)
+  usdaGuaranteePercent     Decimal? @db.Decimal(5, 2)
+  ruralAreaRequired        Boolean? @default(false)
+  advanceRatePercent       Decimal? @db.Decimal(5, 2)
+  transactionFeePercent    Decimal? @db.Decimal(5, 2)
+  minGrossMarginPercent    Decimal? @db.Decimal(5, 2)
+  internationalPosAllowed  Boolean? @default(false)
+  saleLeasebackAvailable   Boolean? @default(false)
+  discountFeePercent       Decimal? @db.Decimal(5, 2)
+  maxInvoiceAgeDays        Int?
+  nonRecourseAvailable     Boolean? @default(false)
+  governmentInvoicesOk     Boolean? @default(false)
+  earlyPaymentDiscountPercent Decimal? @db.Decimal(5, 2)
+  paymentTermsExtensionDays Int?
+  dynamicDiscountingAvailable Boolean? @default(false)
+  reverseFactoringAvailable Boolean? @default(false)
 
   statesSupported String?
 
@@ -855,6 +911,18 @@ model ApplicationDocumentRequirement {
 
   sentToBrokerAt DateTime?
 
+  requiresClientSignature    Boolean              @default(false) @map("requires_client_signature")
+  signDocumentTitle          String?              @map("sign_document_title")
+  templateFileName           String?              @map("template_file_name")
+  templateFileUrl            String?              @map("template_file_url")
+  templateMimeType           String?              @map("template_mime_type")
+  signStatus                 SignDocumentStatus?  @map("sign_status")
+  sentToClientAt             DateTime?            @map("sent_to_client_at") @db.Timestamptz(6)
+  clientSignedAt             DateTime?            @map("client_signed_at") @db.Timestamptz(6)
+  lenderSeenAt               DateTime?            @map("lender_seen_at") @db.Timestamptz(6)
+  requestApplicationLenderId String?              @map("request_application_lender_id") @db.Uuid
+  requestApplicationLender   ApplicationLender?   @relation("SignDocumentRequests", fields: [requestApplicationLenderId], references: [id])
+
   @@index([loanApplicationId])
   @@index([documentTypeId])
   @@map("application_document_requirements")
@@ -872,6 +940,8 @@ model ApplicationDocumentUpload {
 
   isSubmittedToLender  Boolean                         @default(false)
   submittedAt          DateTime?                       @db.Timestamptz(6)
+  isSignedOutput       Boolean                         @default(false) @map("is_signed_output")
+  clientSignatureData  String?                         @map("client_signature_data")
   documentSubmissions  ApplicationDocumentSubmission[]
   uploadedAt           DateTime                        @default(now()) @db.Timestamptz(6)
   documentRequirement  ApplicationDocumentRequirement? @relation(fields: [documentRequirementId], references: [id])
@@ -975,6 +1045,7 @@ model ApplicationLender {
   lenderReviews          LenderReview[]
   documentSubmissions    ApplicationDocumentSubmission[]
   lenderDocumentRequests LenderDocumentRequest[]
+  signDocumentRequests   ApplicationDocumentRequirement[] @relation("SignDocumentRequests")
 
   @@unique([loanApplicationId, lenderProductId]) //  ADD THIS
   @@index([loanApplicationId])
@@ -2170,6 +2241,14 @@ enum DocRequirementStatus {
   PARTIAL
   COMPLETE
   SKIPPED
+}
+
+enum SignDocumentStatus {
+  AWAITING_BROKER
+  SENT_TO_CLIENT
+  CLIENT_SIGNED
+  FORWARDED_TO_LENDER
+  LENDER_SEEN
 }
 
 enum ApplicationLenderStatus {

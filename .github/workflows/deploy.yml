@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       RESET_DB: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.reset_database == true && 'true' || 'false' }}
-      RUN_SEED: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.run_seed == false && 'false' || 'true' }}
+      RUN_SEED: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.run_seed == 'true' && 'true' || 'false' }}
 
     steps:
       - name: Checkout Repository
@@ -60,32 +60,20 @@ jobs:
 
             if [ "${RESET_DB}" = "true" ]; then
               echo "⚠️ Resetting database (ALL DATA WILL BE LOST)..."
-              if [ -d prisma/migrations ] && [ "$(ls -A prisma/migrations 2>/dev/null)" ]; then
-                npx prisma migrate reset --force --skip-seed
-              else
-                npx prisma db push --force-reset --accept-data-loss
-              fi
+              npx prisma migrate reset --force --skip-seed
             fi
+
+            echo "🗄️ Deploying database (migrate + patches)..."
+            npm run db:deploy
 
             echo "🔧 Generating Prisma client..."
             npx prisma generate
-
-            echo "🗄️ Syncing database schema..."
-            if [ -d prisma/migrations ] && [ "$(ls -A prisma/migrations 2>/dev/null)" ]; then
-              npx prisma migrate deploy
-            else
-              echo "ℹ️ No prisma/migrations found — using prisma db push"
-              npx prisma db push
-            fi
-
-            echo "🔧 Applying schema patches..."
-            npm run db:patch
 
             if [ "${RUN_SEED}" = "true" ]; then
               echo "🌱 Running database seed..."
               npm run db:seed
             else
-              echo "⏭️ Skipping database seed (run_seed=false)"
+              echo "⏭️ Skipping database seed"
             fi
 
             echo "🔁 Restarting backend..."

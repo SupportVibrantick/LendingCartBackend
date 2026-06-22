@@ -1,4 +1,6 @@
 const { loadTemplate } = require("../../../utils/loadTemplate");
+const { buildClientLinkEmailData } = require("../../../utils/emailTemplateData");
+const { buildClientPortalUrl } = require("../../../utils/emailBranding");
 const sendMail = require("../../../services/mail");
 const {
   sendEmailUsingKafka,
@@ -350,10 +352,18 @@ async function lenderDecisionRoutes(fastify) {
            OPTIONAL EMAIL (NO TOKEN NOW)
         =============================== */
         if (decision === "CONDITIONAL" && clientEmail) {
-          const html = loadTemplate("clientPortal/document", {
-            clientName: record.loanApplication.client?.legalName || "Customer",
-            applicationNumber: record.loanApplication.applicationNumber,
-          });
+          const html = loadTemplate(
+            "clientPortal/document",
+            buildClientLinkEmailData({
+              clientName: record.loanApplication.client?.legalName,
+              applicationNumber: record.loanApplication.applicationNumber,
+              uploadLink: buildClientPortalUrl(),
+              message:
+                "The lender has requested additional documents to continue processing your application.",
+              preset: "lenderConditional",
+              brokerName: "Your Broker",
+            }),
+          );
 
           const subject = "Documents Required for Your Loan Application";
           const text = `Additional documents are required. Please contact your broker.`;

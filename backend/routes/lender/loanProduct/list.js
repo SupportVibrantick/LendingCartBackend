@@ -15,6 +15,36 @@ const toPositiveNumberOrNull = (value) => {
   return parsed && parsed > 0 ? parsed : null;
 };
 
+const DECIMAL_PRODUCT_FIELDS = [
+  "maxLtvPercent",
+  "minMezzLtvPercent",
+  "maxMezzLtvPercent",
+  "exitFeePercent",
+  "preferredReturnPercent",
+  "maxArvPercent",
+  "maxLtcPercent",
+  "originationPointsPercent",
+  "minDscr",
+  "minDebtYieldPercent",
+  "maxRateSpreadPercent",
+  "requiredInjectionPercent",
+  "maxTotalProjectAmount",
+  "maxSba504DebentureAmount",
+  "maxUsdaGuaranteeAmount",
+  "usdaGuaranteePercent",
+  "advanceRatePercent",
+  "transactionFeePercent",
+  "minGrossMarginPercent",
+  "discountFeePercent",
+  "earlyPaymentDiscountPercent",
+];
+
+const normalizeDecimalFields = (product) =>
+  DECIMAL_PRODUCT_FIELDS.reduce((acc, field) => {
+    acc[field] = toNumberOrNull(product[field]);
+    return acc;
+  }, {});
+
 const toStringArray = (value) => {
   if (Array.isArray(value)) {
     return value.filter((item) => typeof item === "string" && item.trim());
@@ -229,20 +259,31 @@ if (search) {
         // 🧠 FORMAT RESPONSE
         const formatted = products.map((p) => ({
           ...p,
-  // ✅ IMPORTANT
-  code: p.loanProduct?.code || p.loanProductCode || null,
-  name: p.loanProduct?.name || null,
+          ...normalizeDecimalFields(p),
+          // ✅ IMPORTANT
+          code: p.loanProduct?.code || p.loanProductCode || null,
+          name: p.loanProduct?.name || null,
           minLoanAmount: toPositiveNumberOrNull(p.minLoanAmount),
           maxLoanAmount: toPositiveNumberOrNull(p.maxLoanAmount),
           minTermMonths: toPositiveNumberOrNull(p.minTermMonths),
           maxTermMonths: toPositiveNumberOrNull(p.maxTermMonths),
-maxLtvPercent: toPositiveNumberOrNull(p.maxLtvPercent),
-
-// ✅ ARV
-maxArvPercent: toPositiveNumberOrNull(p.maxArvPercent),
-
-// ✅ LTC
-maxLtcPercent: toPositiveNumberOrNull(p.maxLtcPercent),
+          minCreditScore: toPositiveNumberOrNull(p.minCreditScore),
+          avgTurnaroundDays: toPositiveNumberOrNull(p.avgTurnaroundDays),
+          amortizationYears: toPositiveNumberOrNull(p.amortizationYears),
+          minUnits: toPositiveNumberOrNull(p.minUnits),
+          minPropertiesInPortfolio: toPositiveNumberOrNull(
+            p.minPropertiesInPortfolio,
+          ),
+          maxPropertiesInPortfolio: toPositiveNumberOrNull(
+            p.maxPropertiesInPortfolio,
+          ),
+          minTimeInBusinessMonths: toPositiveNumberOrNull(
+            p.minTimeInBusinessMonths,
+          ),
+          maxInvoiceAgeDays: toPositiveNumberOrNull(p.maxInvoiceAgeDays),
+          paymentTermsExtensionDays: toPositiveNumberOrNull(
+            p.paymentTermsExtensionDays,
+          ),
 
           // ✅ Normalize legacy + current JSON shapes
           businessTypes: toGroupedSelectionMap(p.businessTypes, "name"),

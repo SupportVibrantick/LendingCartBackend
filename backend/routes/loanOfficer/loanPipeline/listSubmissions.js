@@ -2,16 +2,10 @@
  * @param {import("fastify").FastifyInstance} fastify
  */
 
-const validStatuses = [
-  "DRAFT",
-  "SUBMITTED",
-  "IN_REVIEW",
-  "CLIENT_PENDING",
-  "APPROVED",
-  "DECLINED",
-  "COMPLETED",
-  "SUSPENDED",
-];
+const {
+  resolveBrokerPipelineDisplayStatus,
+  buildBrokerPipelineApplicationStatusWhere,
+} = require("../../../utils/resolveApplicationStatus");
 
 module.exports = async function listSubmissionsTable(fastify) {
   fastify.get(
@@ -60,19 +54,16 @@ module.exports = async function listSubmissionsTable(fastify) {
 
         /* ================= WHERE ================= */
 
+        const statusFilter = buildBrokerPipelineApplicationStatusWhere(status);
+
       const whereCondition = {
-  ...(status
-    ? {
-        status,
-      }
-    : {
-        status: {
-          not: "SUPERSEDED",
-        },
-      }),
+  status: {
+    not: "SUPERSEDED",
+  },
 
   application: {
     brokerOrgId: orgId,
+    ...statusFilter,
 
     ...(isOfficer && {
       brokerUserId: userId,
@@ -407,17 +398,8 @@ const country =
   ) ||
   null;
 
-  const lenderApproved =
-  app?.applicationLenders?.some(
-    (l) => l.status === "APPROVED",
-  );
+          const displayStatus = resolveBrokerPipelineDisplayStatus(app);
 
-const lenderDeclined =
-  app?.applicationLenders?.length > 0 &&
-  app?.applicationLenders?.every(
-    (l) => l.status === "DECLINED",
-  );
-  
           const location =
             [city, state, country].filter(Boolean).join(", ") || "N/A";
 
@@ -433,11 +415,7 @@ const lenderDeclined =
             location,
             amount,
 
-status: lenderApproved
-  ? "APPROVED"
-  : lenderDeclined
-  ? "DECLINED"
-  : app?.status,
+            status: displayStatus,
             submissionStatus: s.status,
 
             submittedOn: s.createdAt,

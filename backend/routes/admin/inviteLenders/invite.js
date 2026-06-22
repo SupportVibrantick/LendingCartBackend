@@ -4,6 +4,8 @@ const { adminLogs } = require("../../../services/logger/contextLogger.js");
 
 // Mail + Kafka
 const { loadTemplate } = require("../../../utils/loadTemplate");
+const { buildLenderSignInUrl } = require("../../../utils/emailBranding");
+const { buildLenderInviteEmailData } = require("../../../utils/emailTemplateData");
 const sendMail = require("../../../services/mail");
 const { sendEmailUsingKafka } = require("../../../services/kafka/email/producer.js");
 
@@ -64,17 +66,15 @@ async function inviteLenderRoutes(fastify) {
         // ---------------------------
         // PREPARE EMAIL
         // ---------------------------
-        const apiBase = process.env.VITE_API_BASE || process.env.APP_URL;
-
-        const signupUrl = `https://lender-lendingcart.vibrantick.org`;
-
-        const html = loadTemplate("admin/lender/invite", {
-          name: fullName,
-          email,
-          phone,
-          signupUrl,
-          currentYear: new Date().getFullYear(),
-        });
+        const html = loadTemplate(
+          "admin/lender/invite",
+          buildLenderInviteEmailData({
+            name: fullName,
+            email,
+            phone,
+            signupUrl: buildLenderSignInUrl(),
+          }),
+        );
 
         const subject = "You're Invited to Join as a Lender";
         const text = `Hello ${fullName}, you have been invited to join our lending platform. Please register using the provided link.`;

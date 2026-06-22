@@ -54,7 +54,7 @@ async function main() {
   await seedLenderUser();
   await seedLenderProfile();
 
-  
+
   await seedDocumentTypes();
 
   await seedSubscriptionPackages();

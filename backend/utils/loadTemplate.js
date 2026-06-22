@@ -1,46 +1,71 @@
 const fs = require("fs");
 const path = require("path");
 const Handlebars = require("handlebars");
+const { getEmailBranding } = require("./emailBranding");
 
-// Register required helpers
-Handlebars.registerHelper("eq", function (a, b) {
-  return a === b;
-}); 
+let partialsRegistered = false;
 
-Handlebars.registerHelper("neq", function (a, b) {
-  return a !== b;
+const registerPartials = () => {
+  if (partialsRegistered) return;
+
+  const partialsDir = path.join(__dirname, "../templates/partials");
+  if (!fs.existsSync(partialsDir)) {
+    partialsRegistered = true;
+    return;
+  }
+
+  fs.readdirSync(partialsDir).forEach((file) => {
+    if (!file.endsWith(".html")) return;
+    const partialName = path.basename(file, ".html");
+    const partialPath = path.join(partialsDir, file);
+    Handlebars.registerPartial(
+      partialName,
+      fs.readFileSync(partialPath, "utf8"),
+    );
+  });
+
+  partialsRegistered = true;
+};
+
+Handlebars.registerHelper("eq", (a, b) => a === b);
+Handlebars.registerHelper("neq", (a, b) => a !== b);
+Handlebars.registerHelper("and", (a, b) => a && b);
+Handlebars.registerHelper("or", (a, b) => a || b);
+Handlebars.registerHelper("not", (a) => !a);
+Handlebars.registerHelper("default", (value, fallback) => {
+  if (value === undefined || value === null || value === "") {
+    return fallback;
+  }
+  return value;
 });
 
-Handlebars.registerHelper("and", function (a, b) {
-  return a && b;
-});
+const templateCache = new Map();
 
-Handlebars.registerHelper("or", function (a, b) {
-  return a || b;
-});
+const loadTemplate = (templateName, data = {}) => {
+  registerPartials();
 
-Handlebars.registerHelper("not", function (a) {
-  return !a;
-});
-
-// Load and compile email template
-const loadTemplate = (templateName, data) => {
   const templatePath = path.join(
     __dirname,
     "../templates",
-    `${templateName}.html`
+    `${templateName}.html`,
   );
 
   if (!fs.existsSync(templatePath)) {
-    throw new Error(`Template not found at: ${templatePath}`);
+    throw new Error(`Email template not found: ${templateName}`);
   }
 
-  const templateContent = fs.readFileSync(templatePath, "utf8");
+  if (!templateCache.has(templateName)) {
+    const templateContent = fs.readFileSync(templatePath, "utf8");
+    templateCache.set(templateName, Handlebars.compile(templateContent));
+  }
 
-  // Compile AFTER registering helpers
-  const template = Handlebars.compile(templateContent);
+  const template = templateCache.get(templateName);
+  const branding = getEmailBranding();
 
-  return template(data);
+  return template({
+    ...branding,
+    ...data,
+  });
 };
 
 module.exports = { loadTemplate };

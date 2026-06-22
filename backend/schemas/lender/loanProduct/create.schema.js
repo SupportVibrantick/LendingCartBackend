@@ -1,5 +1,10 @@
 const { z } = require("zod");
 const { LoanProductCode } = require("@prisma/client");
+const {
+  isMinMaxLoanAmountRangeValid,
+  getMinMaxLoanAmountRangeError,
+  isMinMaxTermRangeValid,
+} = require("../../../utils/validateLenderProductRanges");
 
 // flexible object schema (category → subtypes)
 const nestedTypeSchema = z.record(
@@ -29,6 +34,10 @@ const baseProductSchema = z.object({
   maxTermMonths: z.number().int().positive().optional(),
 
 maxLtvPercent: z.number().min(0).optional(),
+minMezzLtvPercent: z.number().min(0).optional(),
+maxMezzLtvPercent: z.number().min(0).optional(),
+exitFeePercent: z.number().min(0).optional(),
+preferredReturnPercent: z.number().min(0).optional(),
 
 maxArvPercent: z.number().min(0).optional(),
 maxLtcPercent: z.number().min(0).optional(),
@@ -38,6 +47,53 @@ maxLtcPercent: z.number().min(0).optional(),
   minExperience: experienceSchema,
 
   interestRateRange: z.string().optional(),
+
+  originationPointsPercent: z.number().min(0).optional(),
+  extensionAvailable: z.boolean().optional(),
+  personalGuaranteeRequired: z.boolean().optional(),
+  firstTimeBorrowersAllowed: z.boolean().optional(),
+  minDscr: z.number().positive().optional(),
+  minDebtYieldPercent: z.number().min(0).optional(),
+  amortizationYears: z.number().int().positive().optional(),
+  minUnits: z.number().int().positive().optional(),
+  prepaymentStructure: z.string().optional(),
+  minPropertiesInPortfolio: z.number().int().positive().optional(),
+  maxPropertiesInPortfolio: z.number().int().positive().optional(),
+  interestOnlyAvailable: z.boolean().optional(),
+  shortTermRentalsOk: z.boolean().optional(),
+  foreignNationalsAllowed: z.boolean().optional(),
+  preferredLenderPlp: z.boolean().optional(),
+  maxRateSpreadPercent: z.number().min(0).optional(),
+  avgTurnaroundDays: z.number().int().positive().optional(),
+  requiredInjectionPercent: z.number().min(0).max(100).optional(),
+  goodwillFinancingAllowed: z.boolean().optional(),
+  sellerFinancingAllowed: z.boolean().optional(),
+  minTimeInBusinessMonths: z.number().int().min(0).optional(),
+  lineOfCreditAvailable: z.boolean().optional(),
+  usedEquipmentAllowed: z.boolean().optional(),
+  ownerOccupiedRequired: z.boolean().optional(),
+  maxTotalProjectAmount: z.number().positive().optional(),
+  maxSba504DebentureAmount: z.number().positive().optional(),
+  jobCreationRequired: z.boolean().optional(),
+  maxUsdaGuaranteeAmount: z.number().positive().optional(),
+  usdaGuaranteePercent: z.number().min(0).max(100).optional(),
+  ruralAreaRequired: z.boolean().optional(),
+  advanceRatePercent: z.number().min(0).max(100).optional(),
+  transactionFeePercent: z.number().min(0).max(100).optional(),
+  minGrossMarginPercent: z.number().min(0).max(100).optional(),
+  internationalPosAllowed: z.boolean().optional(),
+  saleLeasebackAvailable: z.boolean().optional(),
+  discountFeePercent: z.number().min(0).max(100).optional(),
+  maxInvoiceAgeDays: z.number().int().positive().optional(),
+  nonRecourseAvailable: z.boolean().optional(),
+  governmentInvoicesOk: z.boolean().optional(),
+  earlyPaymentDiscountPercent: z.number().min(0).max(100).optional(),
+  paymentTermsExtensionDays: z.number().int().positive().optional(),
+  dynamicDiscountingAvailable: z.boolean().optional(),
+  reverseFactoringAvailable: z.boolean().optional(),
+  gcRequired: z.boolean().optional(),
+  completionGuaranteeRequired: z.boolean().optional(),
+  criteriaNotes: z.string().optional(),
 
   statesSupported: z.array(z.string()).optional(),
 
@@ -89,36 +145,27 @@ maxLtvPercent: z.number().min(0).optional(),
         "Either 'products' or 'loanProductCodes' must be provided",
     }
   )
-  .refine(
-    (data) => {
-      const items = data.products || [];
-      return items.every(
-        (item) =>
-          !item.minLoanAmount ||
-          !item.maxLoanAmount ||
-          item.minLoanAmount <= item.maxLoanAmount
-      );
-    },
-    {
-      message:
-        "minLoanAmount cannot be greater than maxLoanAmount",
-    }
-  )
-  .refine(
-    (data) => {
-      const items = data.products || [];
-      return items.every(
-        (item) =>
-          !item.minTermMonths ||
-          !item.maxTermMonths ||
-          item.minTermMonths <= item.maxTermMonths
-      );
-    },
-    {
-      message:
-        "minTermMonths cannot be greater than maxTermMonths",
-    }
-  );
+  .superRefine((data, ctx) => {
+    const items = data.products || [];
+
+    items.forEach((item, index) => {
+      if (!isMinMaxLoanAmountRangeValid(item)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: getMinMaxLoanAmountRangeError(item),
+          path: ["products", index, "minLoanAmount"],
+        });
+      }
+
+      if (!isMinMaxTermRangeValid(item)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "minTermMonths cannot be greater than maxTermMonths",
+          path: ["products", index, "minTermMonths"],
+        });
+      }
+    });
+  });
 
 module.exports = {
   createLenderLoanProductSchema,

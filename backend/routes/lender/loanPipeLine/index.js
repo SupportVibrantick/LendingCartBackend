@@ -9,6 +9,7 @@ async function loanPipelineRoutes(fastify) {
   fastify.register(require("./viewLoi.js"));
   fastify.register(require("./uploadLoiTemplate.js"));
   fastify.register(require("./getLoanPipelineStats.js"));
+  fastify.register(require("./signDocuments.js"));
 }
 
 module.exports = loanPipelineRoutes;

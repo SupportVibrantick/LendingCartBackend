@@ -7,6 +7,14 @@ import StepThree from "./LoanCriteria/StepThree";
 import StepFour from "./LoanCriteria/StepFour";
 import StepFive from "./LoanCriteria/StepFive";
 import EquipmentFinancingStep from "./LoanCriteria/EquipmentFinancingStep";
+import {
+  buildLenderProductCriteriaPayload,
+  getRequiredCriteriaKeysForProduct,
+  isMezzanineProduct,
+  isNoMinLoanCriteriaProduct,
+  isSba504Product,
+  mapApiProductToCriteriaForm,
+} from "../../lib/loanProductCriteriaFields";
 
 type FormType = {
   loanPrograms: string[];
@@ -82,7 +90,7 @@ export default function AddLoanProduct() {
         return `Please fill details for ${product.name}`;
       }
 
-      const requiredFields = ["minLoan", "maxLoan", "minTerm", "maxTerm"];
+      const requiredFields = getRequiredCriteriaKeysForProduct(product.code);
 
       for (const field of requiredFields) {
         if (!data[field] && data[field] !== 0) {
@@ -96,6 +104,36 @@ export default function AddLoanProduct() {
 
       if (!data.documents || data.documents.length === 0) {
         return `${product.name}: Select at least one required document`;
+      }
+
+      if (isSba504Product(product.code)) {
+        const total = Number(data.maxTotalProject);
+        const debenture = Number(data.maxSba504Debenture);
+        if (
+          data.maxTotalProject &&
+          data.maxSba504Debenture &&
+          debenture > total
+        ) {
+          return `${product.name}: SBA 504 debenture cannot exceed total project amount`;
+        }
+      } else if (
+        !isNoMinLoanCriteriaProduct(product.code) &&
+        !isMezzanineProduct(product.code)
+      ) {
+        const minAmount = Number(
+          data.minFacilitySize ?? data.minProgramSize ?? data.minLoan,
+        );
+        const maxAmount = Number(
+          data.maxFacilitySize ?? data.maxProgramSize ?? data.maxLoan,
+        );
+
+        if (
+          Number.isFinite(minAmount) &&
+          Number.isFinite(maxAmount) &&
+          minAmount > maxAmount
+        ) {
+          return `${product.name}: Minimum amount cannot exceed maximum amount`;
+        }
       }
     }
 
@@ -124,67 +162,13 @@ export default function AddLoanProduct() {
 
         const payload = {
           loanProductCode: product.code,
-
           businessTypes: form.businessTypes,
           propertyTypes: form.propertyTypes,
-
-          minLoanAmount:
-            criteria.minLoan !== undefined && criteria.minLoan !== ""
-              ? Number(criteria.minLoan)
-              : null,
-
-          maxLoanAmount:
-            criteria.maxLoan !== undefined && criteria.maxLoan !== ""
-              ? Number(criteria.maxLoan)
-              : null,
-
-          minTermMonths:
-            criteria.minTerm !== undefined && criteria.minTerm !== ""
-              ? Number(criteria.minTerm)
-              : null,
-
-          maxTermMonths:
-            criteria.maxTerm !== undefined && criteria.maxTerm !== ""
-              ? Number(criteria.maxTerm)
-              : null,
-
-          ...(criteria.maxLtv !== undefined &&
-            criteria.maxLtv !== "" && {
-              maxLtvPercent: Number(criteria.maxLtv),
-            }),
-
-          ...(criteria.maxArv !== undefined &&
-            criteria.maxArv !== "" && {
-              maxArvPercent: Number(criteria.maxArv),
-            }),
-
-          ...(criteria.maxLtc !== undefined &&
-            criteria.maxLtc !== "" && {
-              maxLtcPercent: Number(criteria.maxLtc),
-            }),
-
-          minCreditScore:
-            criteria.fico !== undefined && criteria.fico !== ""
-              ? Number(criteria.fico)
-              : null,
-
-          minExperience:
-            criteria.experience !== undefined && criteria.experience !== ""
-              ? String(criteria.experience)
-              : null,
-
-          interestRateRange:
-            criteria.minRate && criteria.maxRate
-              ? `${criteria.minRate}-${criteria.maxRate}`
-              : null,
-
-          statesSupported: criteria.states || [],
-
+          ...buildLenderProductCriteriaPayload(criteria, product.code),
           ...(product.code === "EQUIPMENT_FINANCE" &&
             form.equipmentFinance?.length && {
               equipmentTypes: form.equipmentFinance,
             }),
-
           isActive: true,
         };
 
@@ -309,10 +293,13 @@ export default function AddLoanProduct() {
     return null;
   };
 
+  const step5ValidationMessage =
+    step === loanCriteriaStepIndex ? validateStep5() : null;
+
   const nextDisabled =
     (!isLastStep && step === 0 && form.loanPrograms.length === 0) ||
     (step === loanCriteriaStepIndex && hasStep5Errors) ||
-    (isLastStep && validateStep5() !== null) ||
+    (isLastStep && step5ValidationMessage !== null) ||
     submitting;
 
   return (
@@ -391,6 +378,9 @@ export default function AddLoanProduct() {
             Step <span className="font-semibold text-gray-700">{step + 1}</span>{" "}
             of{" "}
             <span className="font-semibold text-gray-700">{steps.length}</span>
+            {isLastStep && step5ValidationMessage && (
+              <p className="mt-1 text-red-600">{step5ValidationMessage}</p>
+            )}
           </div>
 
           <div className="flex items-center gap-3">

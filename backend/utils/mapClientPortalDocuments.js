@@ -6,7 +6,11 @@ const CLIENT_VISIBLE_DOC_SOURCES = new Set([
 
 function mapClientPortalDocuments(documentRequirements = []) {
   return documentRequirements
-    .filter((doc) => CLIENT_VISIBLE_DOC_SOURCES.has(doc.source))
+    .filter(
+      (doc) =>
+        CLIENT_VISIBLE_DOC_SOURCES.has(doc.source) &&
+        !doc.requiresClientSignature,
+    )
     .map((doc) => ({
       id: doc.id,
       name: doc.documentType?.name || "Document",

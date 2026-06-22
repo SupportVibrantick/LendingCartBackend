@@ -12,13 +12,21 @@ export type DocumentSendRow = {
     applicationLenderId: string;
     lenderName: string;
     isSent: boolean;
+    sentCount?: number;
+    pendingCount?: number;
+    uploadedCount?: number;
+    isFullySent?: boolean;
     sentAt?: string | null;
   }>;
   isSentToAnyLender?: boolean;
+  hasPendingSendToLender?: boolean;
+  uploadedCount?: number;
   [key: string]: unknown;
 };
 
 export type DocumentSentFilter = "all" | "sent" | "not_sent";
+
+export type DocumentSourceFilter = "all" | "broker" | "lender" | "sub_broker";
 
 export type DocumentDisplayRow = DocumentSendRow & {
   rowKey: string;
@@ -171,8 +179,35 @@ export function getDocumentSourceDisplay(
   };
 }
 
+function formatLenderSendDetail(
+  entry: NonNullable<DocumentSendRow["sentToLenders"]>[number],
+  uploadedCount: number,
+) {
+  const total = entry.uploadedCount ?? uploadedCount;
+  const sent = entry.sentCount ?? (entry.isSent ? total : 0);
+  const pending =
+    entry.pendingCount ?? Math.max(0, total - sent);
+
+  if (total <= 0) {
+    return entry.isSent
+      ? `Sent to ${entry.lenderName}`
+      : `Not sent to ${entry.lenderName}`;
+  }
+
+  if (sent <= 0) {
+    return `${total} file${total === 1 ? "" : "s"} not sent to ${entry.lenderName}`;
+  }
+
+  if (pending > 0) {
+    return `${sent} of ${total} sent to ${entry.lenderName} · ${pending} pending`;
+  }
+
+  return `${sent} of ${total} sent to ${entry.lenderName}`;
+}
+
 export function getDocumentSentDisplay(doc: DocumentDisplayRow) {
   const sentToLenders = doc.sentToLenders || [];
+  const uploadedCount = Number(doc.uploadedCount) || 0;
 
   if (doc.sourceLender?.applicationLenderId) {
     const entry = sentToLenders.find(
@@ -183,15 +218,19 @@ export function getDocumentSentDisplay(doc: DocumentDisplayRow) {
     if (!entry) {
       return {
         isSent: false,
+        isPartial: false,
         detail: `Not sent to ${doc.sourceLender.lenderName}`,
       };
     }
 
+    const pending =
+      entry.pendingCount ??
+      Math.max(0, (entry.uploadedCount ?? uploadedCount) - (entry.sentCount ?? 0));
+
     return {
       isSent: entry.isSent,
-      detail: entry.isSent
-        ? `Sent to ${entry.lenderName}`
-        : `Not sent to ${entry.lenderName}`,
+      isPartial: entry.isSent && pending > 0,
+      detail: formatLenderSendDetail(entry, uploadedCount),
     };
   }
 
@@ -199,26 +238,69 @@ export function getDocumentSentDisplay(doc: DocumentDisplayRow) {
 
   if (sentEntries.length === 0) {
     if (sentToLenders.length > 0) {
-      return { isSent: false, detail: "Not sent to lenders" };
+      return { isSent: false, isPartial: false, detail: "Not sent to lenders" };
     }
 
     if (doc.isSentToAnyLender) {
-      return { isSent: true, detail: "Sent to lender" };
+      return { isSent: true, isPartial: false, detail: "Sent to lender" };
     }
 
     return null;
   }
 
   if (sentEntries.length === 1) {
+    const entry = sentEntries[0];
+    const pending =
+      entry.pendingCount ??
+      Math.max(0, (entry.uploadedCount ?? uploadedCount) - (entry.sentCount ?? 0));
+
     return {
       isSent: true,
-      detail: `Sent to ${sentEntries[0].lenderName}`,
+      isPartial: pending > 0,
+      detail: formatLenderSendDetail(entry, uploadedCount),
+    };
+  }
+
+  const totalPending = sentEntries.reduce(
+    (sum, entry) =>
+      sum +
+      (entry.pendingCount ??
+        Math.max(
+          0,
+          (entry.uploadedCount ?? uploadedCount) - (entry.sentCount ?? 0),
+        )),
+    0,
+  );
+
+  return {
+    isSent: true,
+    isPartial: totalPending > 0,
+    detail:
+      totalPending > 0
+        ? `Sent to ${sentEntries.length} lenders · ${totalPending} file${totalPending === 1 ? "" : "s"} pending`
+        : `Sent to ${sentEntries.length} lenders`,
+  };
+}
+
+export function getUploadFileSentLabel(file: {
+  isSentToAnyLender?: boolean;
+  sentToLenders?: Array<{ lenderName?: string | null }>;
+}) {
+  if (file.isSentToAnyLender && (file.sentToLenders?.length ?? 0) > 0) {
+    const lenderNames = file.sentToLenders
+      ?.map((entry) => entry.lenderName)
+      .filter(Boolean)
+      .join(", ");
+
+    return {
+      isSent: true,
+      label: lenderNames ? `Sent to ${lenderNames}` : "Sent to lender",
     };
   }
 
   return {
-    isSent: true,
-    detail: `Sent to ${sentEntries.length} lenders`,
+    isSent: false,
+    label: "Pending send",
   };
 }
 
@@ -234,8 +316,34 @@ export function matchesDocumentSentFilter(
 ) {
   if (filter === "all") return true;
 
-  const isSent = isDocumentSentToLender(doc);
-  return filter === "sent" ? isSent : !isSent;
+  const sentToLenders = doc.sentToLenders || [];
+  const uploadedCount = Number(doc.uploadedCount) || 0;
+  const sourceLenderId = doc.sourceLender?.applicationLenderId;
+  let hasSent = false;
+  let hasPending = false;
+
+  if (sourceLenderId) {
+    const entry = sentToLenders.find(
+      (item) => item.applicationLenderId === sourceLenderId,
+    );
+    const sentCount = entry?.sentCount ?? (entry?.isSent ? uploadedCount : 0);
+    const pendingCount =
+      entry?.pendingCount ?? Math.max(0, uploadedCount - sentCount);
+
+    hasSent = sentCount > 0;
+    hasPending = pendingCount > 0;
+  } else {
+    hasSent = sentToLenders.some((item) => item.isSent);
+    hasPending =
+      Boolean(doc.hasPendingSendToLender) ||
+      sentToLenders.some((item) => (item.pendingCount ?? 0) > 0);
+  }
+
+  if (filter === "sent") {
+    return hasSent && !hasPending;
+  }
+
+  return !hasSent || hasPending;
 }
 
 export function canSendDocumentToLender(

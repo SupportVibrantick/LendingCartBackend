@@ -7,11 +7,13 @@ const {
 const {
   buildDocumentSentToLenderMap,
   formatSentToLenders,
+  formatUploadSentToLenders,
 } = require("../../../utils/buildDocumentSentToLenderMap");
 const {
   buildLenderRequestMap,
   buildDocumentFilterLenders,
   buildSubmissionDocumentsWhere,
+  normalizeSourceFilter,
   documentMatchesSentFilter,
   paginateDocuments,
   filterDocumentLenderContext,
@@ -43,6 +45,8 @@ module.exports = async function submissionDocuments(fastify) {
         search = "",
         applicationLenderId = "",
         sentFilter = "all",
+        sourceFilter = "all",
+        documentCategory = "upload",
       } = req.query;
 
       const pageNumber = Math.max(parseInt(page) || 1, 1);
@@ -52,6 +56,7 @@ module.exports = async function submissionDocuments(fastify) {
         typeof applicationLenderId === "string" ? applicationLenderId.trim() : "";
       const normalizedSentFilter =
         typeof sentFilter === "string" ? sentFilter.trim().toLowerCase() : "all";
+      const normalizedSourceFilter = normalizeSourceFilter(sourceFilter);
 
       const submission = await fastify.prisma.applicationSubmission.findUnique({
         where: { id: submissionId },
@@ -111,6 +116,8 @@ module.exports = async function submissionDocuments(fastify) {
         search,
         applicationLenderId: lenderFilterId,
         lenderRequests,
+        sourceFilter: normalizedSourceFilter,
+        documentCategory,
       });
 
       const useInMemoryPagination =
@@ -129,7 +136,7 @@ module.exports = async function submissionDocuments(fastify) {
           },
         });
 
-      const { byRequirement, lenderNameById } =
+      const { byRequirement, byUpload, lenderNameById } =
         await buildDocumentSentToLenderMap(fastify.prisma, loanApplicationId);
 
       let documents = documentRequirements.map((d) => {
@@ -148,6 +155,7 @@ module.exports = async function submissionDocuments(fastify) {
           requestedBy,
           byRequirement,
           lenderNameById,
+          uploadedCount,
         );
 
         const sentToLenders = lenderFilterId
@@ -165,7 +173,8 @@ module.exports = async function submissionDocuments(fastify) {
           requestedByLenders: requestedBy,
           requestedByCount: requestedBy.length,
           sentToLenders,
-          isSentToAnyLender: sentToLenders.some((item) => item.isSent),
+          isSentToAnyLender: sentInfo.isSentToAnyLender,
+          hasPendingSendToLender: sentInfo.hasPendingSendToLender,
           uploadedCount,
           uploadedFiles: d.uploads.map((upload) => ({
             uploadId: upload.id,
@@ -173,6 +182,12 @@ module.exports = async function submissionDocuments(fastify) {
             fileUrl: upload.fileUrl,
             fileMimeType: upload.fileMimeType,
             uploadedAt: upload.uploadedAt,
+            sentToLenders: formatUploadSentToLenders(
+              upload.id,
+              byUpload,
+              lenderNameById,
+            ),
+            isSentToAnyLender: byUpload.has(upload.id),
           })),
           subBrokerSubmissionId:
             matchedSubmission?.subBrokerSubmissions?.[0]?.id || null,
@@ -230,6 +245,7 @@ module.exports = async function submissionDocuments(fastify) {
           activeFilters: {
             applicationLenderId: lenderFilterId || null,
             sentFilter: normalizedSentFilter,
+            sourceFilter: normalizedSourceFilter,
           },
           pagination,
           documents,

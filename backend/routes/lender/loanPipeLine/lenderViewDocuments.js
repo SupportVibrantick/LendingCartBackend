@@ -160,6 +160,7 @@ module.exports = async function lenderViewDocuments(fastify) {
 
         const isRequirementVisibleToLender = (reqDoc) => {
           if (reqDoc.status === "SKIPPED") return false;
+          if (reqDoc.requiresClientSignature) return false;
 
           if (reqDoc.source === "LENDER_ADDED") {
             return lenderRequestedTypeIds.has(reqDoc.documentTypeId);

@@ -115,18 +115,46 @@ export function formatFieldDisplayValue(fieldKey: string, value: unknown) {
   return String(value);
 }
 
+export function getLatestSubmission(submissions: any[] = []) {
+  if (!submissions.length) return null;
+
+  const active = submissions
+    .filter((submission) => submission.status !== "SUPERSEDED")
+    .sort(
+      (left, right) =>
+        new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime(),
+    );
+
+  return active[0] || submissions[submissions.length - 1];
+}
+
+function normalizeFieldValue(value: unknown): string {
+  if (value === undefined || value === null) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
 export function mapLenderSubmissionFields(
   rawFields: any[] = [],
 ): SubmissionDetailField[] {
   return rawFields.map((field) => ({
     fieldId: field.fieldId || field.id || null,
-    fieldKey: field.builderField?.fieldKey ?? field.fieldKey ?? null,
-    label: field.builderField?.label ?? null,
-    type: field.builderField?.fieldType ?? null,
-    value: field.value ?? "",
-    sectionName: field.builderField?.section?.name ?? null,
-    sectionSortOrder: field.builderField?.section?.sortOrder ?? null,
-    fieldSortOrder: field.builderField?.sortOrder ?? null,
+    fieldKey: field.fieldKey ?? field.builderField?.fieldKey ?? null,
+    label: field.label ?? field.builderField?.label ?? null,
+    type: field.type ?? field.builderField?.fieldType ?? null,
+    value: normalizeFieldValue(field.value),
+    sectionName: field.sectionName ?? field.builderField?.section?.name ?? null,
+    sectionSortOrder:
+      field.sectionSortOrder ?? field.builderField?.section?.sortOrder ?? null,
+    fieldSortOrder: field.fieldSortOrder ?? field.builderField?.sortOrder ?? null,
   }));
 }
 
@@ -161,8 +189,7 @@ function resolveHeuristicSection(fieldKey: string) {
     };
   }
 
-  if (
-    /entity|dba|legalName|entityType|business|formationDate|yearsInBusiness/i.test(
+  if (/entity|dba|legalName|entityType|business|formationDate|yearsInBusiness|naics|goodwill|inventory|equipment|ebitda/i.test(
       fieldKey,
     )
   ) {
@@ -173,7 +200,7 @@ function resolveHeuristicSection(fieldKey: string) {
     };
   }
 
-  if (/noi|revenue|income|rent|tax|insurance|hoa|assets|liabilities|floodZone/i.test(fieldKey)) {
+  if (/noi|revenue|income|rent|tax|insurance|hoa|assets|liabilities|floodZone|financial/i.test(fieldKey)) {
     return {
       id: "financial-details",
       title: "Financial Details",

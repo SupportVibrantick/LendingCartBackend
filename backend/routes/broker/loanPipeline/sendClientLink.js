@@ -1,6 +1,7 @@
 const crypto = require("crypto");
 
 const { loadTemplate } = require("../../../utils/loadTemplate");
+const { buildClientLinkEmailData } = require("../../../utils/emailTemplateData");
 const sendMail = require("../../../services/mail");
 
 /**
@@ -165,12 +166,16 @@ async function sendClientLinkRoute(fastify) {
         /* ===============================
            EMAIL TEMPLATE
         =============================== */
-        const html = loadTemplate("broker/clientLink", {
-          clientName: loan.client?.legalName || "Customer",
-          uploadLink,
-          applicationNumber: loan.applicationNumber,
-          brokerName: req.user?.firstName || "Your Broker",
-        });
+        const html = loadTemplate(
+          "broker/clientLink",
+          buildClientLinkEmailData({
+            clientName: loan.client?.legalName,
+            uploadLink,
+            applicationNumber: loan.applicationNumber,
+            brokerName: req.user?.firstName,
+            preset: "portalAccess",
+          }),
+        );
 
         const subject = "Access Your Loan Application Portal";
 

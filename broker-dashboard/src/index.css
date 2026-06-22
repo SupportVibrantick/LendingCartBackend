@@ -1035,3 +1035,27 @@ body.modal-open {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* Loan application date picker */
+.flatpickr-day.selected,
+.flatpickr-day.startRange,
+.flatpickr-day.endRange {
+  background: #2c92d5 !important;
+  border-color: #2c92d5 !important;
+}
+
+.flatpickr-day.selected:hover,
+.flatpickr-day.startRange:hover,
+.flatpickr-day.endRange:hover {
+  background: #2380bd !important;
+  border-color: #2380bd !important;
+}
+
+.flatpickr-day.today {
+  border-color: #2c92d5;
+}
+
+.flatpickr-months .flatpickr-prev-month:hover svg,
+.flatpickr-months .flatpickr-next-month:hover svg {
+  fill: #2c92d5;
+}

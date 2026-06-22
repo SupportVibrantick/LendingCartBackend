@@ -1,6 +1,7 @@
 const sendMail = require("./mail");
 const { sendEmailUsingKafka } = require("./kafka/email/producer");
 const { loadTemplate } = require("../utils/loadTemplate");
+const { buildBrokerSignInUrl } = require("../utils/emailBranding");
 const { commonLogs } = require("./logger/contextLogger");
 const { getPackagePrice } = require("./subscriptionBilling");
 const {
@@ -64,8 +65,7 @@ async function resolveBrokerRecipient(prisma, organizationId) {
 }
 
 async function sendTrialEndingReminderEmail(subscription, recipient) {
-  const apiBase = process.env.VITE_API_BASE || process.env.APP_URL || "";
-  const loginUrl = `${apiBase}/broker/login`;
+  const loginUrl = buildBrokerSignInUrl();
   const planPrice = getPackagePrice(subscription.package, subscription.billingCycle);
   const trialEndsAtFormatted = formatTrialEndDate(subscription.trialEndsAt);
 
@@ -76,9 +76,7 @@ async function sendTrialEndingReminderEmail(subscription, recipient) {
     planPrice: formatCurrency(planPrice, subscription.billingCycle),
     billingCycle: subscription.billingCycle === "YEARLY" ? "yearly" : "monthly",
     trialEndsAt: trialEndsAtFormatted,
-    apiBase,
     loginUrl,
-    currentYear: new Date().getFullYear(),
   });
 
   const subject = `Your LendingCart trial ends tomorrow — ${subscription.package.name} plan`;

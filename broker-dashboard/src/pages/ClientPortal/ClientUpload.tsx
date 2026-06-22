@@ -1,5 +1,5 @@
 import { useParams } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { Upload, FileText, CheckCircle } from "lucide-react";
 import toast from "react-hot-toast";
@@ -25,12 +25,12 @@ import ClientNotificationDropdown, {
 } from "./ClientNotificationDropdown";
 import {
   buildSubmissionFieldMap,
-  formatFieldDisplayValue,
-  formatFieldLabel,
-  getAdditionalFields,
-  getCoBorrowerGroups,
+  getLatestSubmission,
+  getNumericFieldValue,
+  mapSubmissionDetailFields,
   parseNumericValue,
 } from "../../lib/submissionFieldUtils";
+import ClientSubmissionDetailsView from "../../components/submissions/ClientSubmissionDetailsView";
 import {
   clearClientPortalSession,
   isPlaceholderClientName,
@@ -42,6 +42,7 @@ import {
   resolveClientSignableSubmission,
   submissionHasClientSignature,
 } from "../../lib/clientPortalSignature";
+import SignDocumentsPanel from "../../components/documents/SignDocumentsPanel";
 
 /* ================= TYPES ================= */
 const SigCanvas = SignatureCanvas as unknown as React.FC<any>;
@@ -226,11 +227,12 @@ export default function ClientUpload() {
   const [limit] = useState(9);
 
   const [activeTab, setActiveTab] = useState<
-    "documents" | "application" | "chat" | "applications" | "feeAgreement"
+    "documents" | "signDocuments" | "application" | "chat" | "applications" | "feeAgreement"
   >("applications");
   const [isSignedFromAPI, setIsSignedFromAPI] = useState(false);
   const [clientSignBlockedReason, setClientSignBlockedReason] = useState("");
   const [canClientSign, setCanClientSign] = useState(false);
+  const [tabRefreshKey, setTabRefreshKey] = useState(0);
 
   const PRODUCT_LABELS: Record<string, string> = {
   FIX_AND_FLIP_LOAN_1_TO_4_UNITS: "FIX & FLIP",
@@ -648,7 +650,27 @@ export default function ClientUpload() {
     const appId = notification.metadata?.applicationId;
 
     if (appId) {
-      await fetchApplicationDetails(appId);
+      const tabByEvent: Record<string, typeof activeTab> = {
+        NEW_MESSAGE: "chat",
+        DOCUMENTS_REQUESTED: "documents",
+        LENDER_CONDITIONAL: "documents",
+      };
+
+      const nextTab = tabByEvent[notification.eventType || ""] || "application";
+
+      if (nextTab === "documents") {
+        await fetchApplicationDetails(appId, { keepCurrentTab: true });
+        setActiveTab("documents");
+        return;
+      }
+
+      if (nextTab === "signDocuments" || nextTab === "feeAgreement") {
+        setTabRefreshKey((key) => key + 1);
+      }
+
+      await fetchApplicationDetails(appId, { keepCurrentTab: true });
+      setActiveTab(nextTab);
+      return;
     }
 
     const tabByEvent: Record<string, typeof activeTab> = {
@@ -730,6 +752,25 @@ export default function ClientUpload() {
     }
   };
 
+  const openApplicationTab = async (
+    tab: "documents" | "signDocuments" | "feeAgreement",
+  ) => {
+    if (!applicationId) {
+      toast.error("Select an application first");
+      return;
+    }
+
+    if (tab === "signDocuments" || tab === "feeAgreement") {
+      setTabRefreshKey((key) => key + 1);
+    }
+
+    setActiveTab(tab);
+
+    if (tab === "documents") {
+      await fetchApplicationDetails(applicationId, { keepCurrentTab: true });
+    }
+  };
+
   const formatCurrency = (val: any) => {
     const numeric = parseNumericValue(val);
     if (numeric === null) return "-";
@@ -760,11 +801,48 @@ export default function ClientUpload() {
     return value;
   };
 
-  const getDisplayValue = (key: string) =>
-    formatFieldDisplayValue(key, getValue(key));
+  const latestSubmission = useMemo(
+    () =>
+      applicationData?.latestSubmission ||
+      getLatestSubmission(applicationData?.submissions || []),
+    [applicationData],
+  );
 
-  const coBorrowerGroups = getCoBorrowerGroups(fieldMap);
-  const additionalFields = getAdditionalFields(fieldMap);
+  const submissionDetailFields = useMemo(
+    () => mapSubmissionDetailFields(latestSubmission?.fields || []),
+    [latestSubmission],
+  );
+
+  const detailLoanAmount = useMemo(
+    () =>
+      getNumericFieldValue(submissionDetailFields, "amountRequested") ||
+      Number(applicationData?.amountRequested) ||
+      0,
+    [submissionDetailFields, applicationData?.amountRequested],
+  );
+  const detailLtv = useMemo(
+    () => getNumericFieldValue(submissionDetailFields, "ltvPercentage"),
+    [submissionDetailFields],
+  );
+  const detailLtc = useMemo(
+    () => getNumericFieldValue(submissionDetailFields, "ltcPercentage"),
+    [submissionDetailFields],
+  );
+  const detailArv = useMemo(
+    () => getNumericFieldValue(submissionDetailFields, "arvPercentage"),
+    [submissionDetailFields],
+  );
+  const detailDscr = useMemo(
+    () => getNumericFieldValue(submissionDetailFields, "dscr"),
+    [submissionDetailFields],
+  );
+  const detailNetWorth = useMemo(
+    () => getNumericFieldValue(submissionDetailFields, "netWorth"),
+    [submissionDetailFields],
+  );
+  const submittedDate = latestSubmission?.createdAt
+    ? new Date(latestSubmission.createdAt)
+    : null;
 
   const handleEndSignature = () => {
     if (!sigRef.current || sigRef.current.isEmpty()) return;
@@ -912,7 +990,11 @@ export default function ClientUpload() {
 
         {activeTab === "documents" && (
           <>
-            {documents.length === 0 ? (
+            {applicationDetailsLoading ? (
+              <div className="flex items-center justify-center py-20 text-gray-500">
+                Loading documents...
+              </div>
+            ) : documents.length === 0 ? (
               <>
                 <div className="flex items-center justify-between mb-4">
                   {/* Back Button */}
@@ -1090,6 +1172,28 @@ export default function ClientUpload() {
               </>
             )}
           </>
+        )}
+
+        {activeTab === "signDocuments" && applicationId && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <button
+                onClick={() => setActiveTab("application")}
+                className="flex text-xs items-center gap-2 px-3 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 transition"
+              >
+                ← Back
+              </button>
+            </div>
+            <SignDocumentsPanel
+              key={tabRefreshKey}
+              mode="client"
+              apiBase={API_BASE}
+              getAuthHeaders={() => getClientPortalAuthConfig().headers}
+              loanApplicationId={applicationId}
+              clientName={clientName}
+              applicationNumber={applicationNumber}
+            />
+          </div>
         )}
 
         {activeTab === "applications" && (
@@ -1373,24 +1477,26 @@ export default function ClientUpload() {
 
                       {/* DOCUMENTS */}
                       <button
-                        onClick={() => {
-                          if (!applicationId) {
-                            toast.error("Select an application first");
-                            return;
-                          }
-                          setActiveTab("documents");
-                        }}
+                        onClick={() => openApplicationTab("documents")}
                         className={`relative flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium transition-all
       hover:text-blue-500`}
                       >
                         <FiUploadCloud size={16} />
                         Upload Documents
-                        <span className="absolute -bottom-2 left-2 right-2 h-[2px] bg-blue-500 rounded-full" />
+                      </button>
+
+                      <button
+                        onClick={() => openApplicationTab("signDocuments")}
+                        className={`relative flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium transition-all
+      hover:text-indigo-500`}
+                      >
+                        <FiFileText size={16} />
+                        Sign Documents
                       </button>
 
                       {/* Fee Agreement */}
                       <button
-                        onClick={() => setActiveTab("feeAgreement")}
+                        onClick={() => openApplicationTab("feeAgreement")}
                         className={`relative flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium transition-all
       hover:text-blue-500`}
                       >
@@ -1472,10 +1578,11 @@ export default function ClientUpload() {
                               Product
                             </p>
                             <p className="text-[13px] font-semibold text-purple-700 truncate">
-                              {PRODUCT_LABELS[getValue("loanProductCode")] ??
-  getValue("loanProductCode")
-    ?.replace(/_/g, " ")
-    .toUpperCase()}
+                              {applicationData?.loanProduct?.name ||
+                                PRODUCT_LABELS[getValue("loanProductCode")] ||
+                                getValue("loanProductCode")
+                                  ?.replace(/_/g, " ")
+                                  .toUpperCase()}
                             </p>
                           </div>
                         </div>
@@ -1588,288 +1695,20 @@ export default function ClientUpload() {
                     </div>
                   </div>
 
-                  {/* PRIMARY BORROWER */}
-                  <div className="mb-6">
-                    <h3 className="font-semibold text-gray-700 mb-3">
-                      Primary Borrower
-                    </h3>
-
-                    <div className="grid md:grid-cols-2 gap-4">
-                      <Input
-                        label="Borrower Name"
-                        value={getDisplayValue("borrowerName")}
-                      />
-                      <Input
-                        label="City"
-                        value={getDisplayValue("borrowerCity")}
-                      />
-                      <Input
-                        label="State"
-                        value={getDisplayValue("borrowerState")}
-                      />
-                      <Input
-                        label="Country"
-                        value={getDisplayValue("borrowerCountry")}
-                      />
-                    </div>
-                  </div>
-
-                  {/* LOAN DETAILS */}
-                  <div className="mb-6">
-                    <h3 className="font-semibold text-gray-700 mb-3">
-                      Loan Details
-                    </h3>
-
-                    <div className="grid md:grid-cols-2 gap-4">
-                      <Input
-                        label="Company Name"
-                        value={getDisplayValue("companyName")}
-                      />
-                      <Input label="Email" value={getDisplayValue("email")} />
-                      <Input label="Phone" value={getDisplayValue("phone")} />
-                      <Input
-                        label="Credit Score"
-                        value={getDisplayValue("creditScore")}
-                      />
-                      <Input
-                        label="Loan Product"
-                        value={
-                          PRODUCT_LABELS[getValue("loanProductCode")] ||
-                          getDisplayValue("loanProductCode")
-                        }
-                      />
-                      <Input
-                        label="Loan Amount Requested"
-                        value={getDisplayValue("amountRequested")}
-                      />
-                      <Input
-                        label="Interest Rate"
-                        value={getDisplayValue("interestRate")}
-                      />
-                      <Input
-                        label="Loan Term (Months)"
-                        value={getDisplayValue("loanTerm")}
-                      />
-                      <Input
-                        label="Purpose"
-                        value={getDisplayValue("purpose")}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="mt-8">
-                    <h3 className="text-lg font-semibold mb-4">
-                      Personal Information
-                    </h3>
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <Input
-                        label="Date of Birth"
-                        value={getDisplayValue("dob")}
-                      />
-                      <Input label="SSN" value={getDisplayValue("ssn")} />
-                      <Input
-                        label="Employer"
-                        value={getDisplayValue("employer")}
-                      />
-                      <Input
-                        label="Address"
-                        value={getDisplayValue("address")}
-                      />
-                      <Input
-                        label="Mailing Address"
-                        value={getDisplayValue("mailingAddress")}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="mt-8">
-                    <h3 className="text-lg font-semibold mb-4">
-                      Property Information
-                    </h3>
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <Input
-                        label="Property Type"
-                        value={getDisplayValue("propertyType")}
-                      />
-                      <Input
-                        label="Sub Property Type"
-                        value={getDisplayValue("subPropertyType")}
-                      />
-                      <Input
-                        label="Recourse"
-                        value={getDisplayValue("recourse")}
-                      />
-                      <Input
-                        label="Property Address"
-                        value={getDisplayValue("propertyAddress")}
-                      />
-                      <Input
-                        label="Property City"
-                        value={getDisplayValue("propertyCity")}
-                      />
-                      <Input
-                        label="Property State"
-                        value={getDisplayValue("propertyState")}
-                      />
-                      <Input
-                        label="Property Zip"
-                        value={getDisplayValue("propertyZip")}
-                      />
-                      <Input
-                        label="Property Country"
-                        value={getDisplayValue("propertyCountry")}
-                      />
-                      <Input
-                        label="Property in Flood Zone"
-                        value={getDisplayValue("floodZone")}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="mt-8">
-                    <h3 className="text-lg font-semibold mb-4">
-                      Entity Information
-                    </h3>
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <Input
-                        label="Entity Legal Name"
-                        value={getDisplayValue("entityLegalName")}
-                      />
-                      <Input
-                        label="Entity Type"
-                        value={getDisplayValue("entityType")}
-                      />
-                      <Input label="DBA" value={getDisplayValue("dba")} />
-                      <Input
-                        label="Formation Date"
-                        value={getDisplayValue("formationDate")}
-                      />
-                      <Input
-                        label="Years In Business"
-                        value={getDisplayValue("yearsInBusiness")}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="mt-8">
-                    <h3 className="text-lg font-semibold mb-4">
-                      Financial Information
-                    </h3>
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <Input
-                        label="Current Market Value"
-                        value={getDisplayValue("currentMarketValue")}
-                      />
-                      <Input
-                        label="After Repair Value"
-                        value={getDisplayValue("afterRepairValue")}
-                      />
-                      <Input
-                        label="Purchase Price"
-                        value={getDisplayValue("purchasePrice")}
-                      />
-                      <Input
-                        label="Purchase Date"
-                        value={getDisplayValue("purchaseDate")}
-                      />
-                      <Input
-                        label="Rehab Budget"
-                        value={getDisplayValue("rehabBudget")}
-                      />
-                      <Input
-                        label="Estimated Repair Months"
-                        value={getDisplayValue("estimatedRepairMonths")}
-                      />
-                      <Input
-                        label="Exit Strategy"
-                        value={getDisplayValue("exitStrategy")}
-                      />
-                      <Input
-                        label="Monthly Rent"
-                        value={getDisplayValue("monthlyRent")}
-                      />
-                      <Input
-                        label="Gross Revenue Actual"
-                        value={getDisplayValue("grossRevenueActual")}
-                      />
-                      <Input
-                        label="Gross Revenue Proforma"
-                        value={getDisplayValue("grossRevenueProforma")}
-                      />
-                      <Input
-                        label="NOI Actual"
-                        value={getDisplayValue("noiActual")}
-                      />
-                      <Input
-                        label="NOI Proforma"
-                        value={getDisplayValue("noiProforma")}
-                      />
-                      <Input
-                        label="Annual Taxes"
-                        value={getDisplayValue("annualTaxes")}
-                      />
-                      <Input
-                        label="Insurance Premium"
-                        value={getDisplayValue("insurancePremium")}
-                      />
-                      <Input
-                        label="HOA Dues"
-                        value={getDisplayValue("hoaDues")}
-                      />
-                      <Input
-                        label="Total Assets"
-                        value={getDisplayValue("totalAssets")}
-                      />
-                      <Input
-                        label="Total Liabilities"
-                        value={getDisplayValue("totalLiabilities")}
-                      />
-                      <Input
-                        label="Net Worth"
-                        value={getDisplayValue("netWorth")}
-                      />
-                    </div>
-                  </div>
-
-                  {Object.entries(coBorrowerGroups)
-                    .sort(([a], [b]) => Number(a) - Number(b))
-                    .map(([index, fields]) => (
-                      <div className="mt-8" key={`co-borrower-${index}`}>
-                        <h3 className="text-lg font-semibold mb-4">
-                          Co-Borrower {Number(index) + 1}
-                        </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                          {Object.entries(fields).map(([fieldKey, value]) => (
-                            <Input
-                              key={fieldKey}
-                              label={formatFieldLabel(fieldKey)}
-                              value={formatFieldDisplayValue(fieldKey, value)}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-
-                  {additionalFields.length > 0 && (
-                    <div className="mt-8">
-                      <h3 className="text-lg font-semibold mb-4">
-                        Additional Details
-                      </h3>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        {additionalFields.map(([fieldKey, value]) => (
-                          <Input
-                            key={fieldKey}
-                            label={formatFieldLabel(fieldKey)}
-                            value={formatFieldDisplayValue(fieldKey, value)}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                  <ClientSubmissionDetailsView
+                    application={applicationData}
+                    fields={submissionDetailFields}
+                    loanAmount={detailLoanAmount}
+                    ltv={detailLtv}
+                    ltc={detailLtc}
+                    arv={detailArv}
+                    dscr={detailDscr}
+                    netWorth={detailNetWorth}
+                    submittedDate={submittedDate}
+                    formatStatusLabel={formatStatusLabel}
+                    getStatusChipClass={getStatusStyles}
+                    sectionsOnly
+                  />
 
                   {/* SIGNATURE */}
                   <div className="mt-6">
@@ -1994,6 +1833,7 @@ export default function ClientUpload() {
 
         {activeTab === "feeAgreement" && (
           <FeeAgreement
+            key={tabRefreshKey}
             applicationId={
               selectedApplication?.id ||
               selectedApplication?.loanApplicationId ||

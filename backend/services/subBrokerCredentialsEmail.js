@@ -1,4 +1,5 @@
 const { loadTemplate } = require("../utils/loadTemplate");
+const { getEmailBranding } = require("../utils/emailBranding");
 const sendMail = require("./mail");
 const { sendEmailUsingKafka } = require("./kafka/email/producer");
 const { commonLogs } = require("./logger/contextLogger");
@@ -9,14 +10,8 @@ async function sendSubBrokerCredentialsEmail({
   password,
   organizationName,
 }) {
-  const brokerDashboardUrl =
-    process.env.VITE_BROKER_URI ||
-    process.env.VITE_BROKER_DASHBOARD_URL ||
-    process.env.BROKER_DASHBOARD_URL ||
-    "http://localhost:5173";
-
-  const baseUrl = brokerDashboardUrl.replace(/\/$/, "");
-  const loginUrl = `${baseUrl}/sub-broker/login`;
+  const { brokerDashboardUrl } = getEmailBranding();
+  const loginUrl = `${brokerDashboardUrl}/sub-broker/login`;
   const name = firstName || "there";
 
   const html = loadTemplate("broker/subBrokerCredentials", {

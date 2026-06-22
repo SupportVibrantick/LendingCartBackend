@@ -1,12 +1,14 @@
 const {
-  filterReceivableApplicationLenderIds,
-} = require("../utils/lenderDocumentDelivery");
+  resolveAutoForwardApplicationLenderIds,
+} = require("../utils/filterDocumentRequirementsForLender");
 const {
   applyDocumentSendStatusUpdates,
 } = require("./applyDocumentSendStatusUpdates");
 
 /**
- * Forward a newly uploaded document to all lenders that requested it.
+ * Forward a newly uploaded document when auto-forward is enabled.
+ * Client/lender-requested docs go to requesting lenders.
+ * Broker/sub-broker docs go to lenders the deal was submitted to.
  */
 async function autoForwardDocumentUpload(prisma, {
   loanApplicationId,
@@ -20,40 +22,37 @@ async function autoForwardDocumentUpload(prisma, {
     },
     select: {
       id: true,
+      source: true,
       documentTypeId: true,
     },
   });
 
   if (!requirement) {
-    return { forwarded: false, reason: "requirement_not_found", submittedCount: 0 };
+    return {
+      forwarded: false,
+      reason: "requirement_not_found",
+      submittedCount: 0,
+    };
   }
 
-  const lenderRequests = await prisma.lenderDocumentRequest.findMany({
-    where: {
+  const { applicationLenderIds, candidateCount, mode } =
+    await resolveAutoForwardApplicationLenderIds(prisma, {
       loanApplicationId,
-      documentTypeId: requirement.documentTypeId,
-    },
-    select: {
-      applicationLenderId: true,
-    },
-  });
-
-  const requestedApplicationLenderIds = [
-    ...new Set(lenderRequests.map((item) => item.applicationLenderId)),
-  ];
-
-  const applicationLenderIds = await filterReceivableApplicationLenderIds(
-    prisma,
-    requestedApplicationLenderIds,
-  );
+      requirement,
+    });
 
   if (applicationLenderIds.length === 0) {
     return {
       forwarded: false,
-      reason: "no_receivable_lenders",
+      reason:
+        mode === "broker_added_submitted_lenders"
+          ? candidateCount > 0
+            ? "no_receivable_lenders"
+            : "no_submitted_lenders"
+          : "no_receivable_lenders",
       submittedCount: 0,
-      skippedLenderCount:
-        requestedApplicationLenderIds.length - applicationLenderIds.length,
+      skippedLenderCount: candidateCount - applicationLenderIds.length,
+      mode,
     };
   }
 
@@ -84,8 +83,8 @@ async function autoForwardDocumentUpload(prisma, {
     forwarded: true,
     submittedCount: applicationLenderIds.length,
     applicationLenderIds,
-    skippedLenderCount:
-      requestedApplicationLenderIds.length - applicationLenderIds.length,
+    skippedLenderCount: candidateCount - applicationLenderIds.length,
+    mode,
   };
 }
 

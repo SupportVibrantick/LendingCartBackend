@@ -1,0 +1,16 @@
+{
+  "name": "lendingcart-monorepo",
+  "private": true,
+  "description": "Root scripts — backend lives in ./backend",
+  "scripts": {
+    "db:sync": "npm run db:sync --prefix backend",
+    "db:deploy": "npm run db:deploy --prefix backend",
+    "db:generate": "npm run db:generate --prefix backend",
+    "db:seed": "npm run db:seed --prefix backend",
+    "db:patch": "npm run db:patch --prefix backend",
+    "db:baseline": "npm run db:baseline --prefix backend",
+    "db:migrate": "npm run db:migrate --prefix backend",
+    "backend:dev": "npm run dev --prefix backend",
+    "backend:install": "npm ci --prefix backend"
+  }
+}

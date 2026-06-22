@@ -5,6 +5,8 @@ const bcrypt = require("bcrypt");
 
 // Mail + Kafka (same pattern as brokers)
 const { loadTemplate } = require("../../../utils/loadTemplate");
+const { buildLenderSignInUrl } = require("../../../utils/emailBranding");
+const { buildLenderWelcomeEmailData } = require("../../../utils/emailTemplateData");
 const sendMail = require("../../../services/mail");
 const { sendEmailUsingKafka } = require("../../../services/kafka/email/producer.js");
 const {
@@ -238,20 +240,17 @@ async function createLenderRoutes(fastify) {
         // EMAIL (UNCHANGED)
         // ---------------------------
         try {
-          const apiBase = process.env.VITE_API_BASE || process.env.APP_URL;
-
-          const html = loadTemplate("admin/lender/create", {
-            name: adminFirstName,
-            currentYear: new Date().getFullYear(),
-            organizationName,
-            organizationEmail,
-            organizationPhone,
-            adminFirstName,
-            adminLastName,
-            adminEmail,
-            apiBase,
-            loginUrl: `${apiBase}/lender/login`,
-          });
+          const html = loadTemplate(
+            "admin/lender/create",
+            buildLenderWelcomeEmailData({
+              name: adminFirstName,
+              organizationName,
+              organizationEmail: organizationEmail,
+              organizationPhone,
+              brokerName: brokerOrg?.name || "Your broker",
+              loginUrl: buildLenderSignInUrl(),
+            }),
+          );
 
           const subject = "Your Lender Account Has Been Created";
           const text = `Hello ${adminFirstName}, your lender account is ready.`;

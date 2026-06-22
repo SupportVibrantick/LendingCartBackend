@@ -1,4 +1,5 @@
 const { loadTemplate } = require("../../../utils/loadTemplate");
+const { buildClientLinkEmailData } = require("../../../utils/emailTemplateData");
 const sendMail = require("../../../services/mail");
 const {
   notifyClient,
@@ -201,17 +202,21 @@ async function requestDocumentsRoute(fastify) {
            EMAIL PREPARATION
         =============================== */
 
-        const portalLink = `${process.env.FRONTEND_URL}/client`;
+        const portalLink = `${process.env.FRONTEND_URL || "http://localhost:5173"}/client-portal`;
 
-        const html = loadTemplate("broker/clientLink", {
-          clientName: loan.client?.legalName || "Customer",
-          uploadLink: portalLink,
-          applicationNumber: loan.applicationNumber,
-          brokerName: actorName,
-          message:
-            message ||
-            "New documents have been requested for your application.",
-        });
+        const html = loadTemplate(
+          "broker/clientLink",
+          buildClientLinkEmailData({
+            clientName: loan.client?.legalName,
+            uploadLink: portalLink,
+            applicationNumber: loan.applicationNumber,
+            brokerName: actorName,
+            message:
+              message ||
+              "New documents have been requested for your application.",
+            preset: "documentsRequested",
+          }),
+        );
 
         const subject = "Document Request Update for Your Loan";
 

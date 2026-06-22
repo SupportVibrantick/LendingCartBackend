@@ -1,117 +1,69 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Document Uploaded</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Document Uploaded</title>
 </head>
-
 <body style="margin:0;padding:0;background:#f4f6fb;font-family:Arial,Helvetica,sans-serif;">
 
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6fb;padding:40px 0;">
-<tr>
-<td align="center">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6fb;padding:32px 12px;">
+  <tr>
+    <td align="center">
 
-<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 3px 10px rgba(0,0,0,0.05);">
+      <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:10px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.08);">
 
-<!-- HEADER -->
-<tr>
-<td style="background:#0b5cff;color:#ffffff;padding:20px;text-align:center;font-size:22px;font-weight:bold;">
-LendingCart
-</td>
-</tr>
+        {{> emailHeader emailTitle="Document Uploaded"}}
 
-<!-- BODY -->
-<tr>
-<td style="padding:30px;color:#333;font-size:15px;line-height:1.6;">
+        <tr>
+          <td style="padding:30px 36px;color:#333;font-size:15px;line-height:1.7;">
 
-<p>Hello,</p>
+            <p style="margin:0 0 16px;">Hello,</p>
 
-<p>
-A client has successfully uploaded a document for the loan application
-<strong>#{{applicationNumber}}</strong>.
-</p>
+            <p style="margin:0 0 16px;">
+              A client has uploaded a document for loan application
+              <strong>#{{applicationNumber}}</strong>.
+            </p>
 
-<p>
-Below are the document details:
-</p>
+            <table width="100%" cellpadding="0" cellspacing="0" style="margin:20px 0;border-collapse:collapse;">
+              <tr>
+                <td style="padding:10px;border:1px solid #e5e7eb;background:#f8fafc;font-weight:700;width:40%;">Client Name</td>
+                <td style="padding:10px;border:1px solid #e5e7eb;">{{clientName}}</td>
+              </tr>
+              <tr>
+                <td style="padding:10px;border:1px solid #e5e7eb;background:#f8fafc;font-weight:700;">Application Number</td>
+                <td style="padding:10px;border:1px solid #e5e7eb;">{{applicationNumber}}</td>
+              </tr>
+              <tr>
+                <td style="padding:10px;border:1px solid #e5e7eb;background:#f8fafc;font-weight:700;">Document Name</td>
+                <td style="padding:10px;border:1px solid #e5e7eb;">{{fileName}}</td>
+              </tr>
+              <tr>
+                <td style="padding:10px;border:1px solid #e5e7eb;background:#f8fafc;font-weight:700;">Uploaded At</td>
+                <td style="padding:10px;border:1px solid #e5e7eb;">{{uploadedAt}}</td>
+              </tr>
+            </table>
 
-<table width="100%" cellpadding="0" cellspacing="0" style="margin-top:20px;border-collapse:collapse;">
+            <div style="text-align:center;margin:28px 0;">
+              <a href="{{dashboardLink}}"
+                 style="background:#004aad;color:#ffffff;text-decoration:none;padding:14px 28px;border-radius:6px;font-size:16px;display:inline-block;font-weight:700;">
+                View Application
+              </a>
+            </div>
 
-<tr>
-<td style="padding:10px;border:1px solid #eee;background:#fafafa;font-weight:bold;width:40%;">
-Client Name
-</td>
-<td style="padding:10px;border:1px solid #eee;">
-{{clientName}}
-</td>
-</tr>
+            <p style="margin:0;">
+              Please review the uploaded document and continue processing the application.
+            </p>
 
-<tr>
-<td style="padding:10px;border:1px solid #eee;background:#fafafa;font-weight:bold;">
-Application Number
-</td>
-<td style="padding:10px;border:1px solid #eee;">
-{{applicationNumber}}
-</td>
-</tr>
+          </td>
+        </tr>
 
-<tr>
-<td style="padding:10px;border:1px solid #eee;background:#fafafa;font-weight:bold;">
-Document Name
-</td>
-<td style="padding:10px;border:1px solid #eee;">
-{{fileName}}
-</td>
-</tr>
+        {{> emailFooter}}
 
-<tr>
-<td style="padding:10px;border:1px solid #eee;background:#fafafa;font-weight:bold;">
-Uploaded At
-</td>
-<td style="padding:10px;border:1px solid #eee;">
-{{uploadedAt}}
-</td>
-</tr>
+      </table>
 
-</table>
-
-<div style="text-align:center;margin:30px 0;">
-<a href="{{dashboardLink}}" 
-style="background:#0b5cff;color:#ffffff;text-decoration:none;padding:14px 28px;border-radius:5px;font-size:16px;display:inline-block;font-weight:bold;">
-View Application
-</a>
-</div>
-
-<p>
-Please review the uploaded document and continue processing the application.
-</p>
-
-<p style="margin-top:30px;">
-Best Regards,<br>
-LendingCart Team
-</p>
-
-</td>
-</tr>
-
-<!-- FOOTER -->
-<tr>
-<td style="background:#f4f6fb;text-align:center;padding:20px;font-size:12px;color:#777;">
-<p style="margin:0;">
-© {{currentYear}} LendingCart. All rights reserved.
-</p>
-
-<p style="margin:5px 0 0;">
-This is an automated notification. Please do not reply to this email.
-</p>
-</td>
-</tr>
-
-</table>
-
-</td>
-</tr>
+    </td>
+  </tr>
 </table>
 
 </body>

@@ -6,6 +6,8 @@ const bcrypt = require("bcrypt");
 
 // Mail + Kafka
 const { loadTemplate } = require("../../../utils/loadTemplate");
+const { buildBrokerSignInUrl } = require("../../../utils/emailBranding");
+const { buildBrokerWelcomeEmailData } = require("../../../utils/emailTemplateData");
 const sendMail = require("../../../services/mail");
 const { sendEmailUsingKafka } = require("../../../services/kafka/email/producer.js");
 const {
@@ -209,26 +211,17 @@ async function createBrokerRoutes(fastify) {
         // 📧 SEND EMAIL (AFTER SUCCESS)
         // -----------------------------
         try {
-          const apiBase = process.env.VITE_API_BASE || process.env.APP_URL;
-
-          const html = loadTemplate("admin/broker/create", {
-            name: adminFirstName,
-            currentYear: new Date().getFullYear(),
-
-            // Org details
-            organizationName,
-            organizationEmail,
-            organizationPhone,
-
-            // Admin
-            adminFirstName,
-            adminLastName,
-            adminEmail,
-
-            // Logo + links
-            apiBase,
-            loginUrl: `${apiBase}/broker/login`,
-          });
+          const html = loadTemplate(
+            "admin/broker/create",
+            buildBrokerWelcomeEmailData({
+              name: adminFirstName,
+              organizationName,
+              organizationEmail,
+              organizationPhone,
+              adminEmail,
+              loginUrl: buildBrokerSignInUrl(),
+            }),
+          );
 
 
           const subject = "Your Broker Account Has Been Created";

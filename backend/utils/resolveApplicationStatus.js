@@ -60,6 +60,108 @@ function resolveBrokerPipelineDisplayStatus(application) {
   return application.status;
 }
 
+function countBrokerPipelineStats(submissions) {
+  const counts = {
+    approved: 0,
+    rejected: 0,
+    inReview: 0,
+    draft: 0,
+    submitted: 0,
+    clientPending: 0,
+    newApplications: 0,
+  };
+
+  for (const submission of submissions || []) {
+    const displayStatus = resolveBrokerPipelineDisplayStatus(
+      submission.application,
+    );
+
+    switch (displayStatus) {
+      case "APPROVED":
+        counts.approved += 1;
+        break;
+      case "DECLINED":
+        counts.rejected += 1;
+        break;
+      case "IN_REVIEW":
+        counts.inReview += 1;
+        break;
+      case "DRAFT":
+        counts.draft += 1;
+        break;
+      case "SUBMITTED":
+        counts.submitted += 1;
+        break;
+      case "CLIENT_PENDING":
+        counts.clientPending += 1;
+        break;
+      case "NEW":
+        counts.newApplications += 1;
+        break;
+      default:
+        break;
+    }
+  }
+
+  return counts;
+}
+
+function buildBrokerPipelineApplicationStatusWhere(status) {
+  if (!status) {
+    return {};
+  }
+
+  if (status === "APPROVED") {
+    return {
+      applicationLenders: {
+        some: { status: "APPROVED" },
+      },
+    };
+  }
+
+  if (status === "DECLINED") {
+    return {
+      AND: [
+        { applicationLenders: { some: {} } },
+        {
+          applicationLenders: {
+            every: { status: "DECLINED" },
+          },
+        },
+      ],
+    };
+  }
+
+  if (status === "SUBMITTED") {
+    return {
+      AND: [
+        { status: "SUBMITTED" },
+        {
+          NOT: {
+            applicationLenders: {
+              some: { status: "APPROVED" },
+            },
+          },
+        },
+        {
+          OR: [
+            { applicationLenders: { none: {} } },
+            {
+              NOT: {
+                applicationLenders: {
+                  every: { status: "DECLINED" },
+                },
+              },
+            },
+          ],
+        },
+      ],
+    };
+  }
+
+  return { status };
+}
+
 /**
  * Whether a broker may edit a submitted application payload.
  */
@@ -189,6 +291,8 @@ function canBrokerReassignApplication(application) {
 module.exports = {
   resolveApplicationStatus,
   resolveBrokerPipelineDisplayStatus,
+  countBrokerPipelineStats,
+  buildBrokerPipelineApplicationStatusWhere,
   canBrokerEditSubmittedApplication,
   canBrokerRequestDocuments,
   canBrokerReassignApplication,

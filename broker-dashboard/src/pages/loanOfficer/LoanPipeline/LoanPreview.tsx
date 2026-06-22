@@ -33,7 +33,9 @@ import {
   expandDocumentsForDisplay,
   getDocumentSentDisplay,
   getDocumentSourceDisplay,
+  getUploadFileSentLabel,
   type DocumentSentFilter,
+  type DocumentSourceFilter,
   summarizeSendFromDisplayRows,
 } from "../../../lib/documentLenderSend";
 import {
@@ -41,6 +43,7 @@ import {
   getDocumentStatusChipClass,
 } from "../../../lib/documentStatus";
 import DocumentControlsBar from "../../../components/documents/DocumentControlsBar";
+import SignDocumentsPanel from "../../../components/documents/SignDocumentsPanel";
 import BrokerLoiPanel from "../../../components/loi/BrokerLoiPanel";
 import SubmissionDetailsView from "../../../components/submissions/SubmissionDetailsView";
 import {
@@ -98,6 +101,7 @@ type TabKey =
   | "request-document"
   | "view-loi"
   | "documents"
+  | "sign-documents"
   // | "submitted-lenders"
   | "chat"
   | "fee-agreement";
@@ -292,6 +296,8 @@ const LoanPreview = () => {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [documentSentFilter, setDocumentSentFilter] =
     useState<DocumentSentFilter>("all");
+  const [documentSourceFilter, setDocumentSourceFilter] =
+    useState<DocumentSourceFilter>("all");
   const [documentLenderFilter, setDocumentLenderFilter] = useState("");
 
   const [previewFiles, setPreviewFiles] = useState<any[]>([]);
@@ -654,6 +660,7 @@ const LoanPreview = () => {
     searchQuery = "",
     lenderFilter = documentLenderFilter,
     sentFilter: DocumentSentFilter = documentSentFilter,
+    sourceFilter: DocumentSourceFilter = documentSourceFilter,
   ) => {
     try {
       setDocumentsLoading(true);
@@ -664,6 +671,8 @@ const LoanPreview = () => {
         limit: String(limit),
         search: searchQuery,
         sentFilter,
+        sourceFilter,
+        documentCategory: "upload",
       });
 
       if (lenderFilter) {
@@ -1026,6 +1035,7 @@ const LoanPreview = () => {
         debouncedSearch,
         documentLenderFilter,
         documentSentFilter,
+        documentSourceFilter,
       );
     }
   }, [
@@ -1033,6 +1043,7 @@ const LoanPreview = () => {
     debouncedSearch,
     documentLenderFilter,
     documentSentFilter,
+    documentSourceFilter,
     submissionId,
   ]);
 
@@ -1104,9 +1115,15 @@ const LoanPreview = () => {
     },
     {
       key: "documents" as const,
-      label: "Documents",
+      label: "Upload Documents",
       icon: FolderOpen,
       color: "text-amber-600",
+    },
+    {
+      key: "sign-documents" as const,
+      label: "Sign Documents",
+      icon: FileText,
+      color: "text-indigo-600",
     },
     // {
     //   key: "submitted-lenders" as const,
@@ -1827,6 +1844,8 @@ dark:bg-red-900/20 dark:text-red-400"
         onDocumentLenderFilterChange={setDocumentLenderFilter}
         documentSentFilter={documentSentFilter}
         onDocumentSentFilterChange={setDocumentSentFilter}
+        documentSourceFilter={documentSourceFilter}
+        onDocumentSourceFilterChange={setDocumentSourceFilter}
         searchInput={searchInput}
         onSearchInputChange={setSearchInput}
         onResetPage={() => setPage(1)}
@@ -2019,10 +2038,12 @@ dark:bg-red-900/20 dark:text-red-400"
                           </span>
                           {sentDisplay && (
                             <span
-                              className={`max-w-[180px] text-center text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                                sentDisplay.isSent
-                                  ? "bg-emerald-50 text-emerald-700"
-                                  : "bg-orange-50 text-orange-700"
+                              className={`max-w-[220px] text-center text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                                sentDisplay.isPartial
+                                  ? "bg-amber-50 text-amber-700"
+                                  : sentDisplay.isSent
+                                    ? "bg-emerald-50 text-emerald-700"
+                                    : "bg-orange-50 text-orange-700"
                               }`}
                             >
                               {sentDisplay.detail}
@@ -2233,6 +2254,20 @@ dark:bg-red-900/20 dark:text-red-400"
         return renderViewLoi();
       case "documents":
         return renderDocuments();
+      case "sign-documents":
+        return (
+          <SignDocumentsPanel
+            mode="broker"
+            apiBase={API_BASE}
+            apiRolePrefix="loanofficer"
+            getAuthHeaders={() => {
+              const headers = getAuthHeaders() as Record<string, string>;
+              return headers;
+            }}
+            submissionId={submissionId}
+            loanApplicationId={applicationId}
+          />
+        );
       // case "submitted-lenders":
       //   return renderSubmittedLenders();
       case "chat":
@@ -2529,6 +2564,13 @@ const productCode = submissionDetail?.loanProduct?.name || "-";
                 </h2>
                 <p className="text-xs text-white/70">
                   {activeIndex + 1} / {previewFiles.length}
+                  {currentFile && (
+                    <>
+                      {" "}
+                      ·{" "}
+                      {getUploadFileSentLabel(currentFile).label}
+                    </>
+                  )}
                 </p>
               </div>
 
@@ -2668,11 +2710,14 @@ const productCode = submissionDetail?.loanProduct?.name || "-";
 
             {/* THUMBNAILS */}
             <div className="flex gap-2 p-3 overflow-x-auto bg-slate-50">
-              {previewFiles.map((file, i) => (
+              {previewFiles.map((file, i) => {
+                const fileSent = getUploadFileSentLabel(file);
+
+                return (
                 <div
-                  key={i}
+                  key={file.uploadId || i}
                   onClick={() => setActiveIndex(i)}
-                  className={`h-14 w-20 flex items-center justify-center rounded-lg cursor-pointer border-2 overflow-hidden ${
+                  className={`relative h-14 w-20 flex items-center justify-center rounded-lg cursor-pointer border-2 overflow-hidden ${
                     i === activeIndex ? "border-blue-500" : "border-transparent"
                   }`}
                 >
@@ -2683,13 +2728,22 @@ const productCode = submissionDetail?.loanProduct?.name || "-";
                     />
                   ) : file.fileMimeType?.includes("pdf") ? (
                     <div className="flex flex-col items-center justify-center text-[10px] text-red-600 font-semibold">
-                      ðŸ“„ PDF
+                      PDF
                     </div>
                   ) : (
                     <div className="text-xs text-slate-400">FILE</div>
                   )}
+                  <span
+                    className={`absolute bottom-0 left-0 right-0 px-0.5 py-0.5 text-[8px] font-bold text-center truncate ${
+                      fileSent.isSent
+                        ? "bg-emerald-600 text-white"
+                        : "bg-amber-500 text-white"
+                    }`}
+                  >
+                    {fileSent.isSent ? "Sent" : "Pending"}
+                  </span>
                 </div>
-              ))}
+              )})}
             </div>
           </motion.div>
         </div>

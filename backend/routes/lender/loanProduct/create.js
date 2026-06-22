@@ -2,6 +2,38 @@ const { Prisma } = require("@prisma/client");
 const {
   createLenderLoanProductSchema,
 } = require("../../../schemas/lender/loanProduct/create.schema");
+const {
+  isBridgeLoanProduct,
+  isFixAndFlipProduct,
+  isDscrRentalProduct,
+  isRentalPortfolioProduct,
+  isConstructionLoanProduct,
+  isCrePermanentProduct,
+  isCmbsProduct,
+  isAgencyMultifamilyProduct,
+  isMezzanineProduct,
+  isPreferredEquityProduct,
+  isSba7aGeneralProduct,
+  isSba7aBusinessAcquisitionProduct,
+  isSba7aWorkingCapitalProduct,
+  isSba7aEquipmentPurchaseProduct,
+  isSba7aRealEstateProduct,
+  isSba504Product,
+  isUsdaBiProduct,
+  isPurchaseOrderFinanceProduct,
+  isEquipmentFinanceProduct,
+  isArFactoringProduct,
+  isApSupplyChainProduct,
+  isSba7aMaxLoanOnlyProduct,
+  isNoMinLoanCriteriaProduct,
+  isSba7aNoLtvProduct,
+  isNoLtvCriteriaProduct,
+  isNoPropertyMetricsProduct,
+  isNoTermCriteriaProduct,
+  isSba7aRateSpreadProduct,
+  supportsLtcPercent,
+} = require("../../../utils/lenderProductCriteria");
+const { stripNullValues } = require("../../../utils/stripNullValues");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
@@ -35,7 +67,9 @@ async function createLenderLoanProductRoutes(fastify) {
         const lenderOrgId = req.user.organizationId;
 
         // 🧪 VALIDATION
-        const parsed = createLenderLoanProductSchema.safeParse(req.body);
+        const parsed = createLenderLoanProductSchema.safeParse(
+          stripNullValues(req.body),
+        );
 
         if (!parsed.success) {
           return reply.status(400).send({
@@ -155,48 +189,320 @@ maxLtcPercent: data.maxLtcPercent,
               propertyTypes: item.propertyTypes ?? null,
 
               // 💰 FINANCIAL
-              minLoanAmount: item.minLoanAmount
-                ? new Prisma.Decimal(item.minLoanAmount)
-                : null,
+              minLoanAmount:
+                !isNoMinLoanCriteriaProduct(item.loanProductCode) &&
+                item.minLoanAmount
+                  ? new Prisma.Decimal(item.minLoanAmount)
+                  : null,
 
-              maxLoanAmount: item.maxLoanAmount
-                ? new Prisma.Decimal(item.maxLoanAmount)
-                : null,
+              maxLoanAmount:
+                !isSba504Product(item.loanProductCode) && item.maxLoanAmount
+                  ? new Prisma.Decimal(item.maxLoanAmount)
+                  : null,
 
               minTermMonths: item.minTermMonths ?? null,
               maxTermMonths: item.maxTermMonths ?? null,
 
-              maxLtvPercent: item.maxLtvPercent
-                ? new Prisma.Decimal(item.maxLtvPercent)
+              maxLtvPercent:
+                !isMezzanineProduct(item.loanProductCode) &&
+                !isPreferredEquityProduct(item.loanProductCode) &&
+                !isNoPropertyMetricsProduct(item.loanProductCode) &&
+                item.maxLtvPercent
+                  ? new Prisma.Decimal(item.maxLtvPercent)
+                  : null,
+
+              minMezzLtvPercent:
+                isMezzanineProduct(item.loanProductCode) &&
+                item.minMezzLtvPercent
+                  ? new Prisma.Decimal(item.minMezzLtvPercent)
+                  : null,
+              maxMezzLtvPercent:
+                isMezzanineProduct(item.loanProductCode) &&
+                item.maxMezzLtvPercent
+                  ? new Prisma.Decimal(item.maxMezzLtvPercent)
+                  : null,
+              exitFeePercent:
+                (isMezzanineProduct(item.loanProductCode) ||
+                  isPreferredEquityProduct(item.loanProductCode)) &&
+                item.exitFeePercent
+                  ? new Prisma.Decimal(item.exitFeePercent)
+                  : null,
+              preferredReturnPercent:
+                isPreferredEquityProduct(item.loanProductCode) &&
+                item.preferredReturnPercent
+                  ? new Prisma.Decimal(item.preferredReturnPercent)
+                  : null,
+              maxRateSpreadPercent:
+                isSba7aRateSpreadProduct(item.loanProductCode) &&
+                item.maxRateSpreadPercent
+                  ? new Prisma.Decimal(item.maxRateSpreadPercent)
+                  : null,
+              avgTurnaroundDays: isSba7aGeneralProduct(item.loanProductCode)
+                ? item.avgTurnaroundDays ?? null
                 : null,
+              preferredLenderPlp: isSba7aGeneralProduct(item.loanProductCode)
+                ? item.preferredLenderPlp ?? false
+                : false,
+              requiredInjectionPercent:
+                isSba7aBusinessAcquisitionProduct(item.loanProductCode) &&
+                item.requiredInjectionPercent
+                  ? new Prisma.Decimal(item.requiredInjectionPercent)
+                  : null,
+              goodwillFinancingAllowed: isSba7aBusinessAcquisitionProduct(
+                item.loanProductCode,
+              )
+                ? item.goodwillFinancingAllowed ?? false
+                : false,
+              sellerFinancingAllowed: isSba7aBusinessAcquisitionProduct(
+                item.loanProductCode,
+              )
+                ? item.sellerFinancingAllowed ?? false
+                : false,
+              minTimeInBusinessMonths: isSba7aWorkingCapitalProduct(
+                item.loanProductCode,
+              )
+                ? item.minTimeInBusinessMonths ?? null
+                : null,
+              lineOfCreditAvailable: isSba7aWorkingCapitalProduct(
+                item.loanProductCode,
+              )
+                ? item.lineOfCreditAvailable ?? false
+                : false,
+              usedEquipmentAllowed:
+                isSba7aEquipmentPurchaseProduct(item.loanProductCode) ||
+                isEquipmentFinanceProduct(item.loanProductCode)
+                  ? item.usedEquipmentAllowed ?? false
+                  : false,
+              saleLeasebackAvailable: isEquipmentFinanceProduct(
+                item.loanProductCode,
+              )
+                ? item.saleLeasebackAvailable ?? false
+                : false,
+              advanceRatePercent:
+                (isPurchaseOrderFinanceProduct(item.loanProductCode) ||
+                  isArFactoringProduct(item.loanProductCode)) &&
+                item.advanceRatePercent
+                  ? new Prisma.Decimal(item.advanceRatePercent)
+                  : null,
+              transactionFeePercent:
+                isPurchaseOrderFinanceProduct(item.loanProductCode) &&
+                item.transactionFeePercent
+                  ? new Prisma.Decimal(item.transactionFeePercent)
+                  : null,
+              minGrossMarginPercent:
+                isPurchaseOrderFinanceProduct(item.loanProductCode) &&
+                item.minGrossMarginPercent
+                  ? new Prisma.Decimal(item.minGrossMarginPercent)
+                  : null,
+              internationalPosAllowed: isPurchaseOrderFinanceProduct(
+                item.loanProductCode,
+              )
+                ? item.internationalPosAllowed ?? false
+                : false,
+              discountFeePercent:
+                isArFactoringProduct(item.loanProductCode) &&
+                item.discountFeePercent
+                  ? new Prisma.Decimal(item.discountFeePercent)
+                  : null,
+              maxInvoiceAgeDays: isArFactoringProduct(item.loanProductCode)
+                ? item.maxInvoiceAgeDays ?? null
+                : null,
+              nonRecourseAvailable: isArFactoringProduct(item.loanProductCode)
+                ? item.nonRecourseAvailable ?? false
+                : false,
+              governmentInvoicesOk: isArFactoringProduct(item.loanProductCode)
+                ? item.governmentInvoicesOk ?? false
+                : false,
+              earlyPaymentDiscountPercent:
+                isApSupplyChainProduct(item.loanProductCode) &&
+                item.earlyPaymentDiscountPercent
+                  ? new Prisma.Decimal(item.earlyPaymentDiscountPercent)
+                  : null,
+              paymentTermsExtensionDays: isApSupplyChainProduct(
+                item.loanProductCode,
+              )
+                ? item.paymentTermsExtensionDays ?? null
+                : null,
+              dynamicDiscountingAvailable: isApSupplyChainProduct(
+                item.loanProductCode,
+              )
+                ? item.dynamicDiscountingAvailable ?? false
+                : false,
+              reverseFactoringAvailable: isApSupplyChainProduct(
+                item.loanProductCode,
+              )
+                ? item.reverseFactoringAvailable ?? false
+                : false,
+              ownerOccupiedRequired: isSba7aRealEstateProduct(
+                item.loanProductCode,
+              )
+                ? item.ownerOccupiedRequired ?? false
+                : false,
+              maxTotalProjectAmount:
+                isSba504Product(item.loanProductCode) &&
+                item.maxTotalProjectAmount
+                  ? new Prisma.Decimal(item.maxTotalProjectAmount)
+                  : null,
+              maxSba504DebentureAmount:
+                isSba504Product(item.loanProductCode) &&
+                item.maxSba504DebentureAmount
+                  ? new Prisma.Decimal(item.maxSba504DebentureAmount)
+                  : null,
+              jobCreationRequired: isSba504Product(item.loanProductCode)
+                ? item.jobCreationRequired ?? false
+                : false,
+              maxUsdaGuaranteeAmount:
+                isUsdaBiProduct(item.loanProductCode) &&
+                item.maxUsdaGuaranteeAmount
+                  ? new Prisma.Decimal(item.maxUsdaGuaranteeAmount)
+                  : null,
+              usdaGuaranteePercent:
+                isUsdaBiProduct(item.loanProductCode) &&
+                item.usdaGuaranteePercent
+                  ? new Prisma.Decimal(item.usdaGuaranteePercent)
+                  : null,
+              ruralAreaRequired: isUsdaBiProduct(item.loanProductCode)
+                ? item.ruralAreaRequired ?? false
+                : false,
 
-              // ✅ ARV
-maxArvPercent: item.maxArvPercent
-  ? new Prisma.Decimal(item.maxArvPercent)
-  : null,
+              maxArvPercent:
+                !isBridgeLoanProduct(item.loanProductCode) &&
+                !isDscrRentalProduct(item.loanProductCode) &&
+                !isRentalPortfolioProduct(item.loanProductCode) &&
+                !isConstructionLoanProduct(item.loanProductCode) &&
+                !isCrePermanentProduct(item.loanProductCode) &&
+                !isCmbsProduct(item.loanProductCode) &&
+                !isAgencyMultifamilyProduct(item.loanProductCode) &&
+                !isMezzanineProduct(item.loanProductCode) &&
+                !isPreferredEquityProduct(item.loanProductCode) &&
+                !isNoPropertyMetricsProduct(item.loanProductCode) &&
+                item.maxArvPercent
+                  ? new Prisma.Decimal(item.maxArvPercent)
+                  : null,
 
-// ✅ LTC
-maxLtcPercent:
-  [
-    "MEZZ_FINANCE",
-    "FIX_AND_FLIP",
-    "FIX_AND_FLIP_LOAN_1_TO_4_UNITS",
-    "CONSTRUCTION_LOAN",
-    "CONSTRUCTION_LOAN_1_TO_4_UNITS",
-  ].includes(item.loanProductCode) &&
-  item.maxLtcPercent
-    ? new Prisma.Decimal(item.maxLtcPercent)
-    : null,
+              maxLtcPercent:
+                supportsLtcPercent(item.loanProductCode) &&
+                !isMezzanineProduct(item.loanProductCode) &&
+                !isPreferredEquityProduct(item.loanProductCode) &&
+                !isNoPropertyMetricsProduct(item.loanProductCode) &&
+                item.maxLtcPercent
+                  ? new Prisma.Decimal(item.maxLtcPercent)
+                  : null,
 
-              minCreditScore: item.minCreditScore ?? null,
+              minCreditScore:
+                isPurchaseOrderFinanceProduct(item.loanProductCode) ||
+                isArFactoringProduct(item.loanProductCode) ||
+                isApSupplyChainProduct(item.loanProductCode) ||
+                isCmbsProduct(item.loanProductCode) ||
+                isAgencyMultifamilyProduct(item.loanProductCode) ||
+                isMezzanineProduct(item.loanProductCode) ||
+                isPreferredEquityProduct(item.loanProductCode)
+                  ? null
+                  : item.minCreditScore ?? null,
 
-              // ✅ STRING FOR DB
               minExperience:
+                !isBridgeLoanProduct(item.loanProductCode) &&
+                !isFixAndFlipProduct(item.loanProductCode) &&
+                !isDscrRentalProduct(item.loanProductCode) &&
+                !isRentalPortfolioProduct(item.loanProductCode) &&
+                !isConstructionLoanProduct(item.loanProductCode) &&
+                !isCrePermanentProduct(item.loanProductCode) &&
+                !isCmbsProduct(item.loanProductCode) &&
+                !isAgencyMultifamilyProduct(item.loanProductCode) &&
+                !isMezzanineProduct(item.loanProductCode) &&
+                !isPreferredEquityProduct(item.loanProductCode) &&
+                !isNoPropertyMetricsProduct(item.loanProductCode) &&
                 item.minExperience !== undefined
                   ? String(item.minExperience)
                   : null,
 
-              interestRateRange: item.interestRateRange ?? null,
+              interestRateRange:
+                isPreferredEquityProduct(item.loanProductCode) ||
+                isNoMinLoanCriteriaProduct(item.loanProductCode) ||
+                isPurchaseOrderFinanceProduct(item.loanProductCode) ||
+                isArFactoringProduct(item.loanProductCode) ||
+                isApSupplyChainProduct(item.loanProductCode)
+                  ? null
+                  : item.interestRateRange ?? null,
+
+              originationPointsPercent:
+                !isRentalPortfolioProduct(item.loanProductCode) &&
+                !isCmbsProduct(item.loanProductCode) &&
+                !isAgencyMultifamilyProduct(item.loanProductCode) &&
+                !isNoPropertyMetricsProduct(item.loanProductCode) &&
+                item.originationPointsPercent
+                  ? new Prisma.Decimal(item.originationPointsPercent)
+                  : null,
+              extensionAvailable: isBridgeLoanProduct(item.loanProductCode)
+                ? item.extensionAvailable ?? false
+                : false,
+              personalGuaranteeRequired: isBridgeLoanProduct(
+                item.loanProductCode,
+              )
+                ? item.personalGuaranteeRequired ?? false
+                : false,
+              firstTimeBorrowersAllowed: isFixAndFlipProduct(
+                item.loanProductCode,
+              )
+                ? item.firstTimeBorrowersAllowed ?? false
+                : false,
+              minDscr:
+                (isDscrRentalProduct(item.loanProductCode) ||
+                  isRentalPortfolioProduct(item.loanProductCode) ||
+                  isCrePermanentProduct(item.loanProductCode) ||
+                  isCmbsProduct(item.loanProductCode) ||
+                  isAgencyMultifamilyProduct(item.loanProductCode)) &&
+                item.minDscr
+                  ? new Prisma.Decimal(item.minDscr)
+                  : null,
+              minDebtYieldPercent:
+                (isCrePermanentProduct(item.loanProductCode) ||
+                  isCmbsProduct(item.loanProductCode)) &&
+                item.minDebtYieldPercent
+                  ? new Prisma.Decimal(item.minDebtYieldPercent)
+                  : null,
+              amortizationYears:
+                isCrePermanentProduct(item.loanProductCode) ||
+                isCmbsProduct(item.loanProductCode) ||
+                isAgencyMultifamilyProduct(item.loanProductCode)
+                  ? item.amortizationYears ?? null
+                  : null,
+              minUnits: isAgencyMultifamilyProduct(item.loanProductCode)
+                ? item.minUnits ?? null
+                : null,
+              prepaymentStructure: isCmbsProduct(item.loanProductCode)
+                ? item.prepaymentStructure ?? null
+                : null,
+              minPropertiesInPortfolio: isRentalPortfolioProduct(
+                item.loanProductCode,
+              )
+                ? item.minPropertiesInPortfolio ?? null
+                : null,
+              maxPropertiesInPortfolio: isRentalPortfolioProduct(
+                item.loanProductCode,
+              )
+                ? item.maxPropertiesInPortfolio ?? null
+                : null,
+              interestOnlyAvailable: isDscrRentalProduct(item.loanProductCode)
+                ? item.interestOnlyAvailable ?? false
+                : false,
+              shortTermRentalsOk: isDscrRentalProduct(item.loanProductCode)
+                ? item.shortTermRentalsOk ?? false
+                : false,
+              foreignNationalsAllowed: isDscrRentalProduct(
+                item.loanProductCode,
+              )
+                ? item.foreignNationalsAllowed ?? false
+                : false,
+              gcRequired: isConstructionLoanProduct(item.loanProductCode)
+                ? item.gcRequired ?? false
+                : false,
+              completionGuaranteeRequired: isConstructionLoanProduct(
+                item.loanProductCode,
+              )
+                ? item.completionGuaranteeRequired ?? false
+                : false,
+              criteriaNotes: item.criteriaNotes ?? null,
 
               // ⚠️ CSV (as per DB)
               statesSupported:

@@ -1,45 +1,10 @@
 import { useEffect, useState } from "react";
 import { ChevronDown, Settings, FileText, CheckCircle2 } from "lucide-react";
 import toast from "react-hot-toast";
-
-const fields = [
-  { label: "Min Loan Amount ($)", key: "minLoan" },
-  { label: "Max Loan Amount ($)", key: "maxLoan" },
-  { label: "Min Rate (%)", key: "minRate" },
-  { label: "Max Rate (%)", key: "maxRate" },
-
-{
-  label: "Max LTV (%)",
-  key: "maxLtv",
-},
-
-{
-  label: "Max ARV (%)",
-  key: "maxArv",
-  // products: ["FIX_AND_FLIP", "BRIDGE"],
-},
-
-{
-  label: "Max LTC (%)",
-  key: "maxLtc",
-  products: [
-    "MEZZ_FINANCE_PREF_EQUITY",
-    "MEZZ_FINANCE",
-    "MEZZANINE_FINANCE",
-    "FIX_AND_FLIP",
-    "CONSTRUCTION_LOAN",
-    "CONSTRUCTION_LOAN_1_TO_4_UNITS",
-    "FIX_AND_FLIP_LOAN_1_TO_4_UNITS",
-  ],
-},
-
-  { label: "Min FICO Score", key: "fico" },
-
-  { label: "Min Experience (Years)", key: "experience" },
-
-  { label: "Min Term (months)", key: "minTerm" },
-  { label: "Max Term (months)", key: "maxTerm" },
-];
+import {
+  getCriteriaFieldsForProduct,
+  type CriteriaField,
+} from "../../../lib/loanProductCriteriaFields";
 
 const US_STATES = [
   "AL",
@@ -266,6 +231,42 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
       }
     }
 
+    if (key === "minFacilitySize" && current.maxFacilitySize) {
+      if (numVal > Number(current.maxFacilitySize)) {
+        return "Minimum facility size cannot exceed maximum facility size";
+      }
+    }
+
+    if (key === "maxFacilitySize" && current.minFacilitySize) {
+      if (numVal < Number(current.minFacilitySize)) {
+        return "Maximum facility size cannot be less than minimum facility size";
+      }
+    }
+
+    if (key === "minProgramSize" && current.maxProgramSize) {
+      if (numVal > Number(current.maxProgramSize)) {
+        return "Minimum program size cannot exceed maximum program size";
+      }
+    }
+
+    if (key === "maxProgramSize" && current.minProgramSize) {
+      if (numVal < Number(current.minProgramSize)) {
+        return "Maximum program size cannot be less than minimum program size";
+      }
+    }
+
+    if (key === "minProperties" && current.maxProperties) {
+      if (numVal > Number(current.maxProperties)) {
+        return "Minimum properties cannot exceed maximum properties";
+      }
+    }
+
+    if (key === "maxProperties" && current.minProperties) {
+      if (numVal < Number(current.minProperties)) {
+        return "Maximum properties cannot be less than minimum properties";
+      }
+    }
+
     // ✅ INTEREST RATE
     if (key === "minRate" && current.maxRate) {
       if (numVal > Number(current.maxRate)) {
@@ -292,25 +293,93 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
       }
     }
 
-if (
-  key === "maxLtv" ||
-  key === "maxArv" ||
-  key === "maxLtc"
-) {
-  if (numVal > 100) {
-    if (key === "maxLtv") {
-      return "LTV cannot exceed 100%";
+    if (
+      key === "maxLtv" ||
+      key === "maxArv" ||
+      key === "maxLtc" ||
+      key === "mezzLtvMin" ||
+      key === "mezzLtvMax"
+    ) {
+      if (numVal > 100) {
+        if (key === "maxLtv") {
+          return "LTV cannot exceed 100%";
+        }
+
+        if (key === "maxArv") {
+          return "ARV cannot exceed 100%";
+        }
+
+        if (key === "maxLtc") {
+          return "LTC cannot exceed 100%";
+        }
+
+        if (key === "mezzLtvMin" || key === "mezzLtvMax") {
+          return "Mezz LTV cannot exceed 100%";
+        }
+      }
     }
 
-    if (key === "maxArv") {
-      return "ARV cannot exceed 100%";
+    if (key === "mezzLtvMin" && current.mezzLtvMax) {
+      if (numVal > Number(current.mezzLtvMax)) {
+        return "Mezz LTV min cannot exceed max";
+      }
     }
 
-    if (key === "maxLtc") {
-      return "LTC cannot exceed 100%";
+    if (key === "mezzLtvMax" && current.mezzLtvMin) {
+      if (numVal < Number(current.mezzLtvMin)) {
+        return "Mezz LTV max cannot be less than min";
+      }
     }
-  }
-}
+
+    if (key === "maxRateSpread" && numVal > 100) {
+      return "Max rate spread cannot exceed 100%";
+    }
+
+    if (key === "requiredInjection" && numVal > 100) {
+      return "Required injection cannot exceed 100%";
+    }
+
+    if (key === "minTimeInBusiness" && (numVal < 0 || numVal > 600)) {
+      return "Min time in business must be between 0 and 600 months";
+    }
+
+    if (key === "usdaGuaranteePercent" && numVal > 100) {
+      return "USDA guarantee cannot exceed 100%";
+    }
+
+    if (
+      (key === "advanceRate" ||
+        key === "transactionFee" ||
+        key === "minGrossMargin" ||
+        key === "discountFee" ||
+        key === "earlyPaymentDiscount") &&
+      numVal > 100
+    ) {
+      return "Percentage cannot exceed 100%";
+    }
+
+    if (key === "maxInvoiceAgeDays" && (numVal <= 0 || numVal > 365)) {
+      return "Max invoice age must be between 1 and 365 days";
+    }
+
+    if (
+      key === "paymentTermsExtensionDays" &&
+      (numVal <= 0 || numVal > 365)
+    ) {
+      return "Payment terms extension must be between 1 and 365 days";
+    }
+
+    if (key === "avgTurnaroundDays" && (numVal <= 0 || numVal > 365)) {
+      return "Avg turnaround must be between 1 and 365 days";
+    }
+
+    if (key === "preferredReturn" && numVal > 100) {
+      return "Preferred return cannot exceed 100%";
+    }
+
+    if (key === "exitFee" && numVal > 100) {
+      return "Exit fee cannot exceed 100%";
+    }
 
     if (key === "fico") {
       if (numVal < 300 || numVal > 900) {
@@ -324,7 +393,128 @@ if (
       }
     }
 
+    if (key === "originationPoints" && numVal > 100) {
+      return "Origination points cannot exceed 100%";
+    }
+
+    if (key === "minDscr") {
+      if (numVal <= 0 || numVal > 10) {
+        return "Min DSCR must be between 0 and 10";
+      }
+    }
+
+    if (key === "minDebtYield" && numVal > 100) {
+      return "Min debt yield cannot exceed 100%";
+    }
+
+    if (key === "amortizationYears" && (numVal <= 0 || numVal > 50)) {
+      return "Amortization must be between 1 and 50 years";
+    }
+
+    if (key === "minUnits" && (numVal <= 0 || numVal > 10000)) {
+      return "Min units must be a positive number";
+    }
+
     return "";
+  };
+
+  const renderField = (product: any, field: CriteriaField) => {
+    const fieldType = field.type || "number";
+    const currentValue = value?.[product.id]?.[field.key];
+    const isRequired = field.required !== false && fieldType !== "toggle";
+
+    if (fieldType === "toggle") {
+      return (
+        <div key={field.key} className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-3 py-3">
+          <label className="text-xs text-gray-700 font-medium">{field.label}</label>
+          <button
+            type="button"
+            onClick={() =>
+              handleChange(product.id, field.key, !Boolean(currentValue))
+            }
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${
+              currentValue ? "bg-blue-600" : "bg-gray-300"
+            }`}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${
+                currentValue ? "translate-x-6" : "translate-x-1"
+              }`}
+            />
+          </button>
+        </div>
+      );
+    }
+
+    if (fieldType === "textarea") {
+      return (
+        <div key={field.key} className="col-span-2">
+          <label className="text-xs text-gray-600 mb-1 block">{field.label}</label>
+          <textarea
+            value={currentValue || ""}
+            onChange={(e) => handleChange(product.id, field.key, e.target.value)}
+            rows={4}
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+      );
+    }
+
+    if (fieldType === "text") {
+      return (
+        <div key={field.key} className="col-span-2">
+          <label className="text-xs text-gray-600 mb-1 block">
+            {field.label}
+            {isRequired && <span className="text-red-500"> *</span>}
+          </label>
+          <input
+            type="text"
+            value={currentValue || ""}
+            onChange={(e) => handleChange(product.id, field.key, e.target.value)}
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+      );
+    }
+
+    return (
+      <div key={field.key}>
+        <label className="text-xs text-gray-600 mb-1 block">
+          {field.label}
+          {isRequired && <span className="text-red-500"> *</span>}
+        </label>
+        <input
+          type="number"
+          step={field.decimal ? "0.01" : "1"}
+          value={currentValue || ""}
+          onChange={(e) => {
+            const val = e.target.value;
+            const err = validateField(product.id, field.key, val);
+
+            handleChange(product.id, field.key, val);
+
+            setErrors((prev: any) => ({
+              ...prev,
+              [product.id]: {
+                ...prev?.[product.id],
+                [field.key]: err,
+              },
+            }));
+          }}
+          className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2
+  ${
+    errors?.[product.id]?.[field.key]
+      ? "border-red-500 focus:ring-red-500"
+      : "border-gray-300 focus:ring-blue-500"
+  }`}
+        />
+        {errors?.[product.id]?.[field.key] && (
+          <p className="text-xs text-red-500 mt-1">
+            {errors[product.id][field.key]}
+          </p>
+        )}
+      </div>
+    );
   };
 
   useEffect(() => {
@@ -399,56 +589,9 @@ if (
             {isOpen && (
               <div className="p-4 bg-gray-50 border-t">
                 <div className="grid grid-cols-2 gap-4">
-                  {fields
-  .filter((field: any) => {
-    if (!field.products) return true;
-
-    return field.products.includes(product.code);
-  })
-  .map((field: any) => (
-                    <div key={field.key}>
-                      <label className="text-xs text-gray-600 mb-1 block">
-                        {field.label} <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="number"
-                        value={value?.[product.id]?.[field.key] || ""}
-                        onChange={(e) => {
-                          const val = e.target.value;
-
-                          // create updated object manually
-                          // const updatedProduct = {
-                          //   ...value?.[product.id],
-                          //   [field.key]: val,
-                          // };
-
-                          // pass updated data to validation
-                          const err = validateField(product.id, field.key, val);
-
-                          handleChange(product.id, field.key, val);
-
-                          setErrors((prev: any) => ({
-                            ...prev,
-                            [product.id]: {
-                              ...prev?.[product.id],
-                              [field.key]: err,
-                            },
-                          }));
-                        }}
-                        className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2
-  ${
-    errors?.[product.id]?.[field.key]
-      ? "border-red-500 focus:ring-red-500"
-      : "border-gray-300 focus:ring-blue-500"
-  }`}
-                      />
-                      {errors?.[product.id]?.[field.key] && (
-                        <p className="text-xs text-red-500 mt-1">
-                          {errors[product.id][field.key]}
-                        </p>
-                      )}
-                    </div>
-                  ))}
+                  {getCriteriaFieldsForProduct(product.code).map((field) =>
+                    renderField(product, field),
+                  )}
                 </div>
                 {/* STATES SECTION */}
                 <div className="mt-6">

@@ -1,4 +1,5 @@
 const { z } = require("zod");
+const { isMinMaxLoanAmountRangeValid, isMinMaxTermRangeValid } = require("../../../utils/validateLenderProductRanges");
 
 // subtype support (same as create)
 const nestedTypeSchema = z.record(
@@ -26,6 +27,10 @@ const updateLenderLoanProductSchema = z
 
     // ✅ LTV
 maxLtvPercent: z.number().min(0).optional(),
+    minMezzLtvPercent: z.number().min(0).optional(),
+    maxMezzLtvPercent: z.number().min(0).optional(),
+    exitFeePercent: z.number().min(0).optional(),
+    preferredReturnPercent: z.number().min(0).optional(),
 maxArvPercent: z.number().min(0).optional(),
     maxLtcPercent: z.number().min(0).optional(),
 
@@ -35,6 +40,53 @@ maxArvPercent: z.number().min(0).optional(),
     minExperience: experienceSchema,
 
     interestRateRange: z.string().optional(),
+
+    originationPointsPercent: z.number().min(0).optional(),
+    extensionAvailable: z.boolean().optional(),
+    personalGuaranteeRequired: z.boolean().optional(),
+    firstTimeBorrowersAllowed: z.boolean().optional(),
+    minDscr: z.number().positive().optional(),
+    minDebtYieldPercent: z.number().min(0).optional(),
+    amortizationYears: z.number().int().positive().optional(),
+    minUnits: z.number().int().positive().optional(),
+    prepaymentStructure: z.string().optional(),
+    minPropertiesInPortfolio: z.number().int().positive().optional(),
+    maxPropertiesInPortfolio: z.number().int().positive().optional(),
+    interestOnlyAvailable: z.boolean().optional(),
+    shortTermRentalsOk: z.boolean().optional(),
+    foreignNationalsAllowed: z.boolean().optional(),
+    gcRequired: z.boolean().optional(),
+    completionGuaranteeRequired: z.boolean().optional(),
+    preferredLenderPlp: z.boolean().optional(),
+    maxRateSpreadPercent: z.number().min(0).optional(),
+    avgTurnaroundDays: z.number().int().positive().optional(),
+    requiredInjectionPercent: z.number().min(0).max(100).optional(),
+    goodwillFinancingAllowed: z.boolean().optional(),
+    sellerFinancingAllowed: z.boolean().optional(),
+    minTimeInBusinessMonths: z.number().int().min(0).optional(),
+    lineOfCreditAvailable: z.boolean().optional(),
+    usedEquipmentAllowed: z.boolean().optional(),
+    ownerOccupiedRequired: z.boolean().optional(),
+    maxTotalProjectAmount: z.number().positive().optional(),
+    maxSba504DebentureAmount: z.number().positive().optional(),
+    jobCreationRequired: z.boolean().optional(),
+    maxUsdaGuaranteeAmount: z.number().positive().optional(),
+    usdaGuaranteePercent: z.number().min(0).max(100).optional(),
+    ruralAreaRequired: z.boolean().optional(),
+    advanceRatePercent: z.number().min(0).max(100).optional(),
+    transactionFeePercent: z.number().min(0).max(100).optional(),
+    minGrossMarginPercent: z.number().min(0).max(100).optional(),
+    internationalPosAllowed: z.boolean().optional(),
+    saleLeasebackAvailable: z.boolean().optional(),
+    discountFeePercent: z.number().min(0).max(100).optional(),
+    maxInvoiceAgeDays: z.number().int().positive().optional(),
+    nonRecourseAvailable: z.boolean().optional(),
+    governmentInvoicesOk: z.boolean().optional(),
+    earlyPaymentDiscountPercent: z.number().min(0).max(100).optional(),
+    paymentTermsExtensionDays: z.number().int().positive().optional(),
+    dynamicDiscountingAvailable: z.boolean().optional(),
+    reverseFactoringAvailable: z.boolean().optional(),
+    criteriaNotes: z.string().optional(),
 
     // ✅ JSON (subtype support)
     businessTypes: nestedTypeSchema.optional(),
@@ -58,26 +110,18 @@ maxArvPercent: z.number().min(0).optional(),
 
   // ✅ loan validation
   .refine(
-    (data) =>
-      !data.minLoanAmount ||
-      !data.maxLoanAmount ||
-      data.minLoanAmount <= data.maxLoanAmount,
+    (data) => isMinMaxLoanAmountRangeValid(data),
     {
-      message:
-        "minLoanAmount cannot be greater than maxLoanAmount",
-    }
+      message: "minLoanAmount cannot be greater than maxLoanAmount",
+    },
   )
 
   // ✅ term validation
   .refine(
-    (data) =>
-      !data.minTermMonths ||
-      !data.maxTermMonths ||
-      data.minTermMonths <= data.maxTermMonths,
+    (data) => isMinMaxTermRangeValid(data),
     {
-      message:
-        "minTermMonths cannot be greater than maxTermMonths",
-    }
+      message: "minTermMonths cannot be greater than maxTermMonths",
+    },
   );
 
 module.exports = {

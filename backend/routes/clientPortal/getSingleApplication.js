@@ -1,9 +1,20 @@
 const jwt = require("jsonwebtoken");
+const { mapSubmissionFieldResponse } = require("../../services/staticSubmissionFields");
+const {
+  resolveClientDisplayNameFromData,
+} = require("../../services/resolveClientDisplayName");
 const { resolveApplicationStatus } = require("../../utils/resolveApplicationStatus");
 const { mapClientPortalDocuments } = require("../../utils/mapClientPortalDocuments");
 const {
   canClientSignApplication,
+  resolveLatestActiveSubmission,
 } = require("../../utils/clientPortalSubmission");
+
+function findSubmissionFieldValue(fields, keys) {
+  const field = fields.find((item) => keys.includes(item.fieldKey));
+  if (!field) return null;
+  return field.value ?? null;
+}
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
@@ -13,9 +24,6 @@ async function getClientApplicationDetailsRoute(fastify) {
     const prisma = fastify.prisma;
 
     try {
-      /* ===============================
-         AUTH
-      =============================== */
       const authHeader = req.headers.authorization;
 
       if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -47,9 +55,6 @@ async function getClientApplicationDetailsRoute(fastify) {
       const clientId = decoded.clientId;
       const applicationId = req.params.id;
 
-      /* ===============================
-         FETCH DATA
-      =============================== */
       const application = await prisma.loanApplication.findFirst({
         where: {
           id: applicationId,
@@ -57,9 +62,18 @@ async function getClientApplicationDetailsRoute(fastify) {
         },
         include: {
           submissions: {
+            where: { status: { not: "SUPERSEDED" } },
             orderBy: { createdAt: "desc" },
             include: {
-              fields: true,
+              fields: {
+                include: {
+                  builderField: {
+                    include: {
+                      section: true,
+                    },
+                  },
+                },
+              },
             },
           },
           documentRequirements: {
@@ -72,10 +86,10 @@ async function getClientApplicationDetailsRoute(fastify) {
           financials: true,
           statusHistory: true,
           client: {
-  include: {
-    contacts: true,
-  },
-},
+            include: {
+              contacts: true,
+            },
+          },
           brokerOrg: true,
           applicationLenders: true,
         },
@@ -88,112 +102,92 @@ async function getClientApplicationDetailsRoute(fastify) {
         });
       }
 
-      /* ===============================
-         FETCH FULL FEE AGREEMENT ✅
-      =============================== */
       const feeAgreement = await prisma.feeAgreement.findUnique({
         where: {
           loanApplicationId: application.id,
         },
       });
 
-      /* ===============================
-         GET LATEST VALID SUBMISSION
-      =============================== */
-      const latestSubmission = (application.submissions || [])
-        .filter((s) => s.status !== "SUPERSEDED")
-        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
+      const loanProduct = await prisma.loanProduct.findFirst({
+        where: {
+          code: application.loanProductCode,
+        },
+        select: {
+          id: true,
+          name: true,
+        },
+      });
 
-      /* ===============================
-         BUILD FIELD MAP
-      =============================== */
-      const fieldMap = new Map();
+      const latestSubmission = resolveLatestActiveSubmission(
+        application.submissions || [],
+      );
 
-      if (latestSubmission?.fields?.length) {
-        for (const field of latestSubmission.fields) {
-          if (!field?.fieldKey) continue;
-          fieldMap.set(field.fieldKey.trim(), field.value ?? null);
-        }
-      }
+      const mappedFields = latestSubmission
+        ? latestSubmission.fields.map((field) => mapSubmissionFieldResponse(field))
+        : [];
 
-      const getField = (...keys) => {
-  for (const key of keys) {
-    const value = fieldMap.get(key);
+      const borrowerName = resolveClientDisplayNameFromData(
+        application.client,
+        latestSubmission
+          ? [
+              {
+                fields: latestSubmission.fields.map((field) => ({
+                  fieldKey: field.builderField?.fieldKey || field.fieldKey,
+                  value: field.value,
+                  builderField: field.builderField,
+                })),
+              },
+            ]
+          : [],
+      );
 
-    if (
-      value !== undefined &&
-      value !== null &&
-      value !== ""
-    ) {
-      return value;
-    }
-  }
+      const creditScore = findSubmissionFieldValue(mappedFields, [
+        "creditScore",
+        "credit_score",
+      ]);
 
-  return null;
-};
+      const amountRequested =
+        Number(
+          findSubmissionFieldValue(mappedFields, [
+            "amountRequested",
+            "loan_amount",
+            "loanAmount",
+          ]),
+        ) ||
+        application.amountRequested ||
+        0;
 
-      const toNumber = (val) => {
-        if (val === null || val === undefined) return null;
-        const num = Number(val);
-        return isNaN(num) ? null : num;
-      };
+      const loanProductCode =
+        findSubmissionFieldValue(mappedFields, [
+          "loanProductCode",
+          "loan_product",
+          "productCode",
+        ]) || application.loanProductCode || null;
 
-      /* ===============================
-         FIXED VALUES
-      =============================== */
-const amountRequested =
-  toNumber(
-    getField(
-      "amountRequested",
-      "loan_amount",
-      "loanAmount"
-    )
-  ) ??
-  application.amountRequested ??
-  0;
+      const borrowerEmail =
+        findSubmissionFieldValue(mappedFields, ["email", "borrowerEmail"]) ||
+        application.client?.contacts?.[0]?.email ||
+        "";
 
-const loanProductCode =
-  getField(
-    "loanProductCode",
-    "loan_product",
-    "productCode"
-  ) ||
-  application.loanProductCode ||
-  null;
+      const borrowerPhone =
+        findSubmissionFieldValue(mappedFields, [
+          "phone",
+          "mobile",
+          "borrowerPhone",
+        ]) ||
+        application.client?.contacts?.[0]?.phone ||
+        "";
 
-  const borrowerFirstName =
-  getField("borrowerFirstName", "first_name") ||
-  application.client?.contacts?.[0]?.firstName ||
-  "";
+      const propertyAddress =
+        findSubmissionFieldValue(mappedFields, [
+          "propertyAddress",
+          "property_address",
+          "businessAddress",
+          "business_address",
+        ]) || "";
 
-const borrowerLastName =
-  getField("borrowerLastName", "last_name") ||
-  application.client?.contacts?.[0]?.lastName ||
-  "";
-
-const borrowerName =
-  `${borrowerFirstName} ${borrowerLastName}`.trim();
-
-const borrowerEmail =
-  getField("email", "borrowerEmail") ||
-  application.client?.contacts?.[0]?.email ||
-  "";
-
-const borrowerPhone =
-  getField("phone", "mobile", "borrowerPhone") ||
-  application.client?.contacts?.[0]?.phone ||
-  "";
-
-const propertyAddress =
-  getField(
-    "propertyAddress",
-    "property_address",
-    "businessAddress",
-    "business_address"
-  ) || "";
-
-const borrowerSignature =
-  getField("borrowerSignature") || null;
+      const borrowerSignature =
+        findSubmissionFieldValue(mappedFields, ["borrowerSignature"]) || null;
 
       const documents = mapClientPortalDocuments(
         application.documentRequirements || [],
@@ -208,51 +202,45 @@ const borrowerSignature =
         latestSubmission,
       });
 
-      /* ===============================
-         FINAL RESPONSE ✅ FULL DATA
-      =============================== */
+      const enrichedSubmission = latestSubmission
+        ? {
+            ...latestSubmission,
+            fields: mappedFields,
+          }
+        : null;
+
       return reply.send({
         success: true,
         data: {
           ...application,
           status: resolveApplicationStatus(application),
-
+          submissions: enrichedSubmission ? [enrichedSubmission] : [],
           amountRequested,
           loanProductCode,
-
+          creditScore,
+          loanProduct: loanProduct
+            ? {
+                id: loanProduct.id,
+                name: loanProduct.name,
+              }
+            : null,
           borrowerName,
           borrowerEmail,
           borrowerPhone,
           propertyAddress,
           borrowerSignature,
           documents,
-
-          latestSubmission: latestSubmission
-            ? {
-                id: latestSubmission.id,
-                status: latestSubmission.status,
-                createdAt: latestSubmission.createdAt,
-                fields: latestSubmission.fields || [],
-              }
-            : null,
-
+          latestSubmission: enrichedSubmission,
           canClientSign: signatureState.allowed,
           clientSignBlockedReason: signatureState.reason || null,
           alreadySigned: Boolean(signatureState.alreadySigned),
-
           feeAgreement: feeAgreement || null,
-
-          _debug: {
-            submissionAmount: getField("amountRequested"),
-            dbAmount: application.amountRequested,
-            fieldKeys: [...fieldMap.keys()],
-          },
         },
       });
     } catch (error) {
       fastify.log.error(
         { error: error.message },
-        "Fetch application failed"
+        "Fetch application failed",
       );
 
       return reply.code(500).send({

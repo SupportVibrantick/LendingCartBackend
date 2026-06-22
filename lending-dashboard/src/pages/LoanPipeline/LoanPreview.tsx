@@ -29,37 +29,46 @@ import {
   getLenderRequestDocumentsDisabledReason,
 } from "../../lib/loanPipelineUtils";
 import LenderSubmissionDetailsView from "../../components/submissions/LenderSubmissionDetailsView";
+import SignDocumentsPanel from "../../components/documents/SignDocumentsPanel";
 import {
   getNumericFieldValue,
+  getLatestSubmission,
   mapLenderSubmissionFields,
+  parseSubmissionFieldValue,
+  type SubmissionDetailField,
 } from "../../lib/submissionFieldUtils";
 
-type PreviewTab = "details" | "documents" | "requestDocs" | "loi" | "chat";
+type PreviewTab = "details" | "documents" | "signDocuments" | "requestDocs" | "loi" | "chat";
 type DocumentSourceFilter = "all" | "mine" | "broker";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
 const normalizeText = (value: unknown) => String(value || "").trim();
 
-const getSubmissionFieldValue = (submissionDetail: any, ...keys: string[]) => {
-  const fields =
-    submissionDetail?.loanApplication?.submissions?.[0]?.fields || [];
-
-  return fields.find((field: any) => keys.includes(field.fieldKey))?.value;
+const getFieldValueFromList = (
+  fields: SubmissionDetailField[],
+  ...keys: string[]
+) => {
+  const field = fields.find((item) => item.fieldKey && keys.includes(item.fieldKey));
+  if (!field) return undefined;
+  return parseSubmissionFieldValue(field.value);
 };
 
-const getBorrowerDisplayName = (submissionDetail: any) => {
+const getBorrowerDisplayName = (
+  submissionDetail: any,
+  fields: SubmissionDetailField[] = [],
+) => {
   const firstName = normalizeText(
-    getSubmissionFieldValue(
-      submissionDetail,
+    getFieldValueFromList(
+      fields,
       "borrowerFirstName",
       "firstName",
       "first_name",
     ),
   );
   const lastName = normalizeText(
-    getSubmissionFieldValue(
-      submissionDetail,
+    getFieldValueFromList(
+      fields,
       "borrowerLastName",
       "lastName",
       "last_name",
@@ -73,8 +82,8 @@ const getBorrowerDisplayName = (submissionDetail: any) => {
   }
 
   const borrowerName = normalizeText(
-    getSubmissionFieldValue(
-      submissionDetail,
+    getFieldValueFromList(
+      fields,
       "borrowerName",
       "applicantName",
       "fullName",
@@ -84,6 +93,11 @@ const getBorrowerDisplayName = (submissionDetail: any) => {
 
   if (borrowerName) {
     return borrowerName;
+  }
+
+  const resolvedName = normalizeText(submissionDetail?.borrowerName);
+  if (resolvedName) {
+    return resolvedName;
   }
 
   const legalName = normalizeText(
@@ -111,7 +125,8 @@ function getAuthHeaders(): HeadersInit {
 
 const tabMeta: Array<{ id: PreviewTab; label: string }> = [
   { id: "details", label: "View Details" },
-  { id: "documents", label: "Documents" },
+  { id: "documents", label: "Upload Documents" },
+  { id: "signDocuments", label: "Sign Documents" },
   { id: "requestDocs", label: "Request Documents" },
   { id: "loi", label: "View LOI" },
   { id: "chat", label: "Chat" },
@@ -140,6 +155,7 @@ export default function LoanPreview() {
   const initialTab: PreviewTab = [
     "details",
     "documents",
+    "signDocuments",
     "requestDocs",
     "loi",
     "chat",
@@ -292,12 +308,6 @@ export default function LoanPreview() {
   };
 
   useEffect(() => {
-    if (applicationLenderId && !submissionDetail) {
-      fetchLenderApplicationDetail();
-    }
-  }, [applicationLenderId]);
-
-  useEffect(() => {
     if (!selectedLoanProduct) {
       setDocSelectModal({
         documents: [],
@@ -328,8 +338,12 @@ export default function LoanPreview() {
     }
   };
 
+  useEffect(() => {
+    setSubmissionDetail(null);
+  }, [applicationLenderId]);
+
   const fetchLenderApplicationDetail = async () => {
-    if (!applicationLenderId || submissionDetail) return;
+    if (!applicationLenderId) return;
 
     try {
       setDetailLoading(true);
@@ -353,10 +367,49 @@ export default function LoanPreview() {
     }
   };
 
-  const amountField =
-    submissionDetail?.loanApplication?.submissions?.[0]?.fields?.find(
-      (f: any) => f.fieldKey === "amountRequested",
-    );
+  const latestSubmission = useMemo(
+    () =>
+      submissionDetail?.latestSubmission ||
+      getLatestSubmission(submissionDetail?.loanApplication?.submissions || []),
+    [submissionDetail],
+  );
+
+  const submissionFields = useMemo(
+    () => mapLenderSubmissionFields(latestSubmission?.fields || []),
+    [latestSubmission],
+  );
+
+  const loanAmount = useMemo(
+    () =>
+      getNumericFieldValue(submissionFields, "amountRequested") ||
+      Number(submissionDetail?.amountRequested) ||
+      0,
+    [submissionFields, submissionDetail?.amountRequested],
+  );
+  const ltv = useMemo(
+    () => getNumericFieldValue(submissionFields, "ltvPercentage"),
+    [submissionFields],
+  );
+  const ltc = useMemo(
+    () => getNumericFieldValue(submissionFields, "ltcPercentage"),
+    [submissionFields],
+  );
+  const arv = useMemo(
+    () => getNumericFieldValue(submissionFields, "arvPercentage"),
+    [submissionFields],
+  );
+  const dscr = useMemo(
+    () => getNumericFieldValue(submissionFields, "dscr"),
+    [submissionFields],
+  );
+  const netWorth = useMemo(
+    () => getNumericFieldValue(submissionFields, "netWorth"),
+    [submissionFields],
+  );
+
+  const submittedDate = latestSubmission?.createdAt
+    ? new Date(latestSubmission.createdAt)
+    : null;
 
   const fetchDocuments = async () => {
     if (!applicationLenderId) return;
@@ -614,44 +667,6 @@ export default function LoanPreview() {
     submissionDetail?.loanApplicationId ||
     submissionDetail?.loanApplication?.loanApplicationId ||
     "";
-
-  const submissionFields = useMemo(
-    () =>
-      mapLenderSubmissionFields(
-        submissionDetail?.loanApplication?.submissions?.[0]?.fields || [],
-      ),
-    [submissionDetail],
-  );
-
-  const loanAmount = useMemo(
-    () => getNumericFieldValue(submissionFields, "amountRequested"),
-    [submissionFields],
-  );
-  const ltv = useMemo(
-    () => getNumericFieldValue(submissionFields, "ltvPercentage"),
-    [submissionFields],
-  );
-  const ltc = useMemo(
-    () => getNumericFieldValue(submissionFields, "ltcPercentage"),
-    [submissionFields],
-  );
-  const arv = useMemo(
-    () => getNumericFieldValue(submissionFields, "arvPercentage"),
-    [submissionFields],
-  );
-  const dscr = useMemo(
-    () => getNumericFieldValue(submissionFields, "dscr"),
-    [submissionFields],
-  );
-  const netWorth = useMemo(
-    () => getNumericFieldValue(submissionFields, "netWorth"),
-    [submissionFields],
-  );
-
-  const submittedDate = submissionDetail?.loanApplication?.submissions?.[0]
-    ?.createdAt
-    ? new Date(submissionDetail.loanApplication.submissions[0].createdAt)
-    : null;
 
   const renderChat = () => {
     if (!resolvedChatApplicationId) {
@@ -1450,7 +1465,18 @@ export default function LoanPreview() {
   }
 
   const getFieldValue = (key: string) => {
-    return getSubmissionFieldValue(submissionDetail, key);
+    const value = getFieldValueFromList(submissionFields, key);
+    if (value === undefined || value === null || value === "") return undefined;
+    return value;
+  };
+
+  const formatMetricValue = (value: unknown, suffix = "") => {
+    if (value === undefined || value === null || value === "") return "-";
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric) || numeric === 0) {
+      return String(value);
+    }
+    return `${numeric}${suffix}`;
   };
 
   return (
@@ -1479,7 +1505,7 @@ export default function LoanPreview() {
                   {submissionDetail?.loanApplication?.applicationNumber}
                 </p>
                 <p className="text-xs text-slate-500 mt-1">
-                  Borrower: {getBorrowerDisplayName(submissionDetail)}
+                  Borrower: {getBorrowerDisplayName(submissionDetail, submissionFields)}
                   {/* {" • "}
                   {getBorrowerEntityType(submissionDetail)} */}
                 </p>
@@ -1570,9 +1596,10 @@ export default function LoanPreview() {
                     className="text-sm font-semibold
         text-purple-900 dark:text-purple-100"
                   >
-                    {PRODUCT_LABELS[
-                      submissionDetail.loanApplication.loanProductCode
-                    ] ??
+                    {submissionDetail.loanProduct?.name ||
+                      PRODUCT_LABELS[
+                        submissionDetail.loanApplication.loanProductCode
+                      ] ||
                       submissionDetail.loanApplication.loanProductCode
                         ?.replace(/_/g, " ")
                         .toUpperCase()}
@@ -1605,8 +1632,8 @@ export default function LoanPreview() {
                     className="text-sm font-medium
       text-orange-900 dark:text-orange-100"
                   >
-                    {amountField?.value
-                      ? `$${Number(amountField.value).toLocaleString()}`
+                    {loanAmount
+                      ? `$${Number(loanAmount).toLocaleString()}`
                       : "-"}
                   </span>
                 </div>
@@ -1624,24 +1651,47 @@ export default function LoanPreview() {
             <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-6">
               <Metric
                 label="LTV"
-                value={`${getFieldValue("ltvPercentage") ?? "-"}%`}
+                value={
+                  ltv
+                    ? `${ltv.toFixed(2)}%`
+                    : `${formatMetricValue(getFieldValue("ltvPercentage"), "%")}`
+                }
               />
 
               <Metric
                 label="LTC"
-                value={`${getFieldValue("ltcPercentage") ?? "-"}%`}
+                value={
+                  ltc
+                    ? `${ltc.toFixed(2)}%`
+                    : `${formatMetricValue(getFieldValue("ltcPercentage"), "%")}`
+                }
               />
 
               <Metric
                 label="ARV %"
-                value={`${getFieldValue("arvPercentage") ?? "-"}%`}
+                value={
+                  arv
+                    ? `${arv.toFixed(2)}%`
+                    : `${formatMetricValue(getFieldValue("arvPercentage"), "%")}`
+                }
               />
 
-              <Metric label="DSCR RATIO" value={getFieldValue("dscr") ?? "-"} />
+              <Metric
+                label="DSCR RATIO"
+                value={
+                  dscr
+                    ? dscr.toFixed(2)
+                    : formatMetricValue(getFieldValue("dscr"))
+                }
+              />
 
               <Metric
                 label="NET WORTH"
-                value={`$${getFieldValue("netWorth") ?? "-"}`}
+                value={
+                  netWorth
+                    ? `$${Number(netWorth).toLocaleString()}`
+                    : `$${formatMetricValue(getFieldValue("netWorth"))}`
+                }
               />
             </div>
           </div>
@@ -1686,6 +1736,18 @@ export default function LoanPreview() {
           <div className="p-4 md:p-6">
             {activeTab === "details" && renderDetails()}
             {activeTab === "documents" && renderDocuments()}
+            {activeTab === "signDocuments" && (
+              <SignDocumentsPanel
+                mode="lender"
+                apiBase={API_BASE}
+                getAuthHeaders={() =>
+                  Object.fromEntries(
+                    Object.entries(getAuthHeaders() as Record<string, string>),
+                  )
+                }
+                applicationLenderId={applicationLenderId}
+              />
+            )}
             {activeTab === "requestDocs" && renderRequestDocs()}
             {activeTab === "loi" && renderLoi()}
             {activeTab === "chat" && renderChat()}

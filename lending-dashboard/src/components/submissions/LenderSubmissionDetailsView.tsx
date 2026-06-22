@@ -258,13 +258,17 @@ export default function LenderSubmissionDetailsView({
             />
             <InfoCard
               label="Loan Product"
-              value={formatLoanProduct(loanApplication?.loanProductCode)}
+              value={
+                applicationLender?.loanProduct?.name ||
+                formatLoanProduct(loanApplication?.loanProductCode)
+              }
             />
             <InfoCard
               label="Borrower"
               value={getBorrowerDisplayNameFromFields(
                 fields,
-                loanApplication?.client?.legalName,
+                applicationLender?.borrowerName ||
+                  loanApplication?.client?.legalName,
               )}
             />
             <InfoCard
@@ -290,7 +294,7 @@ export default function LenderSubmissionDetailsView({
                   ? formatSubmissionFieldValue(
                       fields.find((field) => field.fieldKey === "creditScore")!,
                     )
-                  : "—"
+                  : applicationLender?.creditScore ?? "—"
               }
             />
             {submittedDate && (

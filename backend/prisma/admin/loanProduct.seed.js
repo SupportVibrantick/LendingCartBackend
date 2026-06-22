@@ -1,99 +1,8 @@
 const prisma = require("../client");
+const { LOAN_PRODUCTS } = require("../loanProductCatalog");
 
 async function seedLoanProducts() {
-  const products = [
-    {
-      code: "BRIDGE_LOAN",
-      name: "Bridge Loan",
-    },
-    {
-      code: "FIX_AND_FLIP_LOAN_1_TO_4_UNITS",
-      name: "FIX & FLIP",
-    },
-    {
-      code: "DSCR_LOAN_1_TO_4_UNITS",
-      name: "DSCR / Rental",
-    },
-    {
-      code: "CONSTRUCTION_LOAN_1_TO_4_UNITS",
-      name: "CONSTRUCTION",
-    },
-    {
-      code: "RENTAL_PORTFOLIO",
-      name: "Rental Portfolio",
-    },
-    {
-      code: "CRE_PERMANENT_LOAN",
-      name: "CRE Permanent",
-    },
-    {
-      code: "CMBS",
-      name: "CMBS",
-    },
-    {
-      code: "AGENCY_LOAN_MULTIFAMILY",
-      name: "Agency Multifamily",
-    },
-    {
-      code: "MEZZANINE_FINANCE",
-      name: "Mezzanine",
-    },
-    {
-      code: "PREFERRED_EQUITY",
-      name: "Preferred Equity",
-    },
-    // {
-    //   code: "SBA_7A",
-    //   name: "SBA 7(a) — General",
-    // },
-    {
-      code: "SBA_7A_BUSINESS_ACQUISITION",
-      name: "SBA 7(a) — Business Acquisition",
-    },
-    {
-      code: "SBA_7A_WORKING_CAPITAL",
-      name: "SBA 7(a) — Working Capital",
-    },
-    {
-      code: "SBA_7A_EQUIPMENT_PURCHASE",
-      name: "SBA 7(a) — Equipment",
-    },
-    {
-      code: "SBA_7A_REAL_ESTATE",
-      name: "SBA 7(a) — Real Estate",
-    },
-    {
-      code: "SBA_504_REAL_ESTATE_AND_EQUIPMENT",
-      name: "SBA 504 Real Estate",
-    },
-    {
-      code: "USDA_BI",
-      name: "USDA B&I",
-    },
-    {
-      code: "PURCHASE_ORDER_FINANCE",
-      name: "Purchase Order Financing",
-    },
-    {
-      code: "EQUIPMENT_FINANCE",
-      name: "Equipment Finance",
-    },
-    {
-      code: "INVOICE_FACTORING",
-      name: "AR Factoring",
-    },
-    {
-      code: "ACCOUNTS_PAYABLE_FINANCE",
-      name: "AP Supply Chain",
-    },
-    {
-      code: "ACCOUNTS_RECEIVABLE",
-      name: "Accounts Receivable",
-      category: "ASSET_BASED_LENDING",
-    },
-  ];
-
-  for (const product of products) {
+  for (const product of LOAN_PRODUCTS) {
     const existing = await prisma.loanProduct.findFirst({
       where: {
         code: product.code,
@@ -110,6 +19,13 @@ async function seedLoanProducts() {
       });
 
       console.log(`✅ Created loan product: ${product.name}`);
+    } else if (existing.name !== product.name) {
+      await prisma.loanProduct.update({
+        where: { id: existing.id },
+        data: { name: product.name },
+      });
+
+      console.log(`✅ Updated loan product name: ${product.name}`);
     } else {
       console.log(`ℹ️ Loan product already exists: ${product.name}`);
     }
@@ -121,3 +37,14 @@ async function seedLoanProducts() {
 module.exports = {
   seedLoanProducts,
 };
+
+if (require.main === module) {
+  seedLoanProducts()
+    .catch((err) => {
+      console.error("❌ Loan products seed failed:", err);
+      process.exit(1);
+    })
+    .finally(async () => {
+      await prisma.$disconnect();
+    });
+}

@@ -29,6 +29,7 @@ fastify.register(require("./notifications"), { prefix: "/notifications" });
   //  Future APIs (you will add later)
   // fastify.register(require("./uploadDocuments"), { prefix: "/upload" });
 fastify.register(require("./signFeeAgreement"));
+fastify.register(require("./signDocuments"));
 }
 
 module.exports = clientPortalRoutes;

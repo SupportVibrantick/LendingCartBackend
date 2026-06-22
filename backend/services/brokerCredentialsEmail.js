@@ -1,4 +1,5 @@
 const { loadTemplate } = require("../utils/loadTemplate");
+const { buildBrokerSignInUrl } = require("../utils/emailBranding");
 const sendMail = require("./mail");
 const { sendEmailUsingKafka } = require("./kafka/email/producer");
 const { commonLogs } = require("./logger/contextLogger");
@@ -9,12 +10,7 @@ async function sendBrokerCredentialsEmail({
   temporaryPassword,
   organizationName,
 }) {
-  const brokerDashboardUrl =
-    process.env.VITE_BROKER_DASHBOARD_URL || process.env.BROKER_DASHBOARD_URL || "";
-
-  const loginUrl = brokerDashboardUrl.includes("/signin")
-    ? brokerDashboardUrl
-    : `${brokerDashboardUrl.replace(/\/$/, "")}/signin`;
+  const loginUrl = buildBrokerSignInUrl();
 
   const html = loadTemplate("loanAi/brokerCredentials", {
     name: adminFirstName,

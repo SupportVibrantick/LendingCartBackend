@@ -3,6 +3,38 @@ const { Prisma } = require("@prisma/client");
 const {
   updateLenderLoanProductSchema,
 } = require("../../../schemas/lender/loanProduct/update.schema");
+const {
+  isBridgeLoanProduct,
+  isFixAndFlipProduct,
+  isDscrRentalProduct,
+  isRentalPortfolioProduct,
+  isConstructionLoanProduct,
+  isCrePermanentProduct,
+  isCmbsProduct,
+  isAgencyMultifamilyProduct,
+  isMezzanineProduct,
+  isPreferredEquityProduct,
+  isSba7aGeneralProduct,
+  isSba7aBusinessAcquisitionProduct,
+  isSba7aWorkingCapitalProduct,
+  isSba7aEquipmentPurchaseProduct,
+  isSba7aRealEstateProduct,
+  isSba504Product,
+  isUsdaBiProduct,
+  isPurchaseOrderFinanceProduct,
+  isEquipmentFinanceProduct,
+  isArFactoringProduct,
+  isApSupplyChainProduct,
+  isSba7aMaxLoanOnlyProduct,
+  isNoMinLoanCriteriaProduct,
+  isSba7aNoLtvProduct,
+  isNoLtvCriteriaProduct,
+  isNoPropertyMetricsProduct,
+  isNoTermCriteriaProduct,
+  isSba7aRateSpreadProduct,
+  supportsLtcPercent,
+} = require("../../../utils/lenderProductCriteria");
+const { stripNullValues } = require("../../../utils/stripNullValues");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
@@ -45,7 +77,9 @@ async function updateLenderLoanProductRoutes(fastify) {
         const { id } = req.params;
 
         // 🧪 VALIDATION
-        const parsed = updateLenderLoanProductSchema.safeParse(req.body);
+        const parsed = updateLenderLoanProductSchema.safeParse(
+          stripNullValues(req.body),
+        );
 
         if (!parsed.success) {
           return reply.status(400).send({
@@ -89,20 +123,114 @@ async function updateLenderLoanProductRoutes(fastify) {
         // 💰 FINANCIAL
         setDecimal("minLoanAmount", data.minLoanAmount);
         setDecimal("maxLoanAmount", data.maxLoanAmount);
+        if (isNoMinLoanCriteriaProduct(existing.loanProductCode)) {
+          updateData.minLoanAmount = null;
+        }
+        if (isSba504Product(existing.loanProductCode)) {
+          updateData.maxLoanAmount = null;
+        }
 
         // ✅ LTV
-        setDecimal("maxLtvPercent", data.maxLtvPercent);
-
-        // ✅ ARV (ALL PRODUCTS)
-        setDecimal("maxArvPercent", data.maxArvPercent);
-
-        // ✅ LTC (ONLY SPECIFIC PRODUCTS)
         if (
-          [
-            "MEZZ_FINANCE_PREF_EQUITY",
-            "FIX_AND_FLIP",
-            "CONSTRUCTION_LOAN",
-          ].includes(existing.loanProductCode)
+          !isMezzanineProduct(existing.loanProductCode) &&
+          !isPreferredEquityProduct(existing.loanProductCode) &&
+          !isNoPropertyMetricsProduct(existing.loanProductCode)
+        ) {
+          setDecimal("maxLtvPercent", data.maxLtvPercent);
+        }
+        if (isMezzanineProduct(existing.loanProductCode)) {
+          setDecimal("minMezzLtvPercent", data.minMezzLtvPercent);
+          setDecimal("maxMezzLtvPercent", data.maxMezzLtvPercent);
+          setDecimal("exitFeePercent", data.exitFeePercent);
+        }
+        if (isPreferredEquityProduct(existing.loanProductCode)) {
+          setDecimal("preferredReturnPercent", data.preferredReturnPercent);
+          setDecimal("exitFeePercent", data.exitFeePercent);
+        }
+        if (isSba7aRateSpreadProduct(existing.loanProductCode)) {
+          setDecimal("maxRateSpreadPercent", data.maxRateSpreadPercent);
+        }
+        if (isSba7aGeneralProduct(existing.loanProductCode)) {
+          setValue("avgTurnaroundDays", data.avgTurnaroundDays);
+          setValue("preferredLenderPlp", data.preferredLenderPlp);
+        }
+        if (isSba7aBusinessAcquisitionProduct(existing.loanProductCode)) {
+          setDecimal("requiredInjectionPercent", data.requiredInjectionPercent);
+          setValue("goodwillFinancingAllowed", data.goodwillFinancingAllowed);
+          setValue("sellerFinancingAllowed", data.sellerFinancingAllowed);
+        }
+        if (isSba7aWorkingCapitalProduct(existing.loanProductCode)) {
+          setValue("minTimeInBusinessMonths", data.minTimeInBusinessMonths);
+          setValue("lineOfCreditAvailable", data.lineOfCreditAvailable);
+        }
+        if (isSba7aEquipmentPurchaseProduct(existing.loanProductCode)) {
+          setValue("usedEquipmentAllowed", data.usedEquipmentAllowed);
+        }
+        if (isSba7aRealEstateProduct(existing.loanProductCode)) {
+          setValue("ownerOccupiedRequired", data.ownerOccupiedRequired);
+        }
+        if (isSba504Product(existing.loanProductCode)) {
+          setDecimal("maxTotalProjectAmount", data.maxTotalProjectAmount);
+          setDecimal("maxSba504DebentureAmount", data.maxSba504DebentureAmount);
+          setValue("jobCreationRequired", data.jobCreationRequired);
+        }
+        if (isUsdaBiProduct(existing.loanProductCode)) {
+          setDecimal("maxUsdaGuaranteeAmount", data.maxUsdaGuaranteeAmount);
+          setDecimal("usdaGuaranteePercent", data.usdaGuaranteePercent);
+          setValue("ruralAreaRequired", data.ruralAreaRequired);
+        }
+        if (isPurchaseOrderFinanceProduct(existing.loanProductCode)) {
+          setDecimal("advanceRatePercent", data.advanceRatePercent);
+          setDecimal("transactionFeePercent", data.transactionFeePercent);
+          setDecimal("minGrossMarginPercent", data.minGrossMarginPercent);
+          setValue("internationalPosAllowed", data.internationalPosAllowed);
+        }
+        if (isArFactoringProduct(existing.loanProductCode)) {
+          setDecimal("advanceRatePercent", data.advanceRatePercent);
+          setDecimal("discountFeePercent", data.discountFeePercent);
+          setValue("maxInvoiceAgeDays", data.maxInvoiceAgeDays);
+          setValue("nonRecourseAvailable", data.nonRecourseAvailable);
+          setValue("governmentInvoicesOk", data.governmentInvoicesOk);
+        }
+        if (isApSupplyChainProduct(existing.loanProductCode)) {
+          setDecimal(
+            "earlyPaymentDiscountPercent",
+            data.earlyPaymentDiscountPercent,
+          );
+          setValue("paymentTermsExtensionDays", data.paymentTermsExtensionDays);
+          setValue(
+            "dynamicDiscountingAvailable",
+            data.dynamicDiscountingAvailable,
+          );
+          setValue("reverseFactoringAvailable", data.reverseFactoringAvailable);
+        }
+        if (isEquipmentFinanceProduct(existing.loanProductCode)) {
+          setValue("usedEquipmentAllowed", data.usedEquipmentAllowed);
+          setValue("saleLeasebackAvailable", data.saleLeasebackAvailable);
+        }
+
+        // ✅ ARV
+        if (
+          !isBridgeLoanProduct(existing.loanProductCode) &&
+          !isDscrRentalProduct(existing.loanProductCode) &&
+          !isRentalPortfolioProduct(existing.loanProductCode) &&
+          !isConstructionLoanProduct(existing.loanProductCode) &&
+          !isCrePermanentProduct(existing.loanProductCode) &&
+          !isCmbsProduct(existing.loanProductCode) &&
+          !isAgencyMultifamilyProduct(existing.loanProductCode) &&
+          !isMezzanineProduct(existing.loanProductCode) &&
+          !isPreferredEquityProduct(existing.loanProductCode) &&
+          !isNoPropertyMetricsProduct(existing.loanProductCode)
+        ) {
+          setDecimal("maxArvPercent", data.maxArvPercent);
+        }
+
+        // ✅ LTC
+        if (
+          supportsLtcPercent(existing.loanProductCode) &&
+          !isMezzanineProduct(existing.loanProductCode) &&
+          !isPreferredEquityProduct(existing.loanProductCode) &&
+          !isNoPropertyMetricsProduct(existing.loanProductCode)
         ) {
           setDecimal("maxLtcPercent", data.maxLtcPercent);
         }
@@ -110,16 +238,94 @@ async function updateLenderLoanProductRoutes(fastify) {
         // 🔢 NUMERIC
         setValue("minTermMonths", data.minTermMonths);
         setValue("maxTermMonths", data.maxTermMonths);
-        setValue("minCreditScore", data.minCreditScore);
+        if (
+          !isPurchaseOrderFinanceProduct(existing.loanProductCode) &&
+          !isArFactoringProduct(existing.loanProductCode) &&
+          !isApSupplyChainProduct(existing.loanProductCode) &&
+          !isCmbsProduct(existing.loanProductCode) &&
+          !isAgencyMultifamilyProduct(existing.loanProductCode) &&
+          !isMezzanineProduct(existing.loanProductCode) &&
+          !isPreferredEquityProduct(existing.loanProductCode)
+        ) {
+          setValue("minCreditScore", data.minCreditScore);
+        }
 
         // ✅ SAME AS CREATE (STRING)
-        if (data.minExperience !== undefined) {
+        if (
+          data.minExperience !== undefined &&
+          !isBridgeLoanProduct(existing.loanProductCode) &&
+          !isFixAndFlipProduct(existing.loanProductCode) &&
+          !isDscrRentalProduct(existing.loanProductCode) &&
+          !isRentalPortfolioProduct(existing.loanProductCode) &&
+          !isConstructionLoanProduct(existing.loanProductCode) &&
+          !isCrePermanentProduct(existing.loanProductCode) &&
+          !isCmbsProduct(existing.loanProductCode) &&
+          !isAgencyMultifamilyProduct(existing.loanProductCode) &&
+          !isMezzanineProduct(existing.loanProductCode) &&
+          !isPreferredEquityProduct(existing.loanProductCode) &&
+          !isNoPropertyMetricsProduct(existing.loanProductCode)
+        ) {
           updateData.minExperience =
             data.minExperience !== null ? String(data.minExperience) : null;
         }
 
+        if (!isNoPropertyMetricsProduct(existing.loanProductCode)) {
+          setDecimal("originationPointsPercent", data.originationPointsPercent);
+        }
+        if (isBridgeLoanProduct(existing.loanProductCode)) {
+          setValue("extensionAvailable", data.extensionAvailable);
+          setValue("personalGuaranteeRequired", data.personalGuaranteeRequired);
+        }
+        if (isFixAndFlipProduct(existing.loanProductCode)) {
+          setValue("firstTimeBorrowersAllowed", data.firstTimeBorrowersAllowed);
+        }
+        if (
+          isDscrRentalProduct(existing.loanProductCode) ||
+          isRentalPortfolioProduct(existing.loanProductCode) ||
+          isCrePermanentProduct(existing.loanProductCode) ||
+          isCmbsProduct(existing.loanProductCode) ||
+          isAgencyMultifamilyProduct(existing.loanProductCode)
+        ) {
+          setDecimal("minDscr", data.minDscr);
+        }
+        if (isDscrRentalProduct(existing.loanProductCode)) {
+          setValue("interestOnlyAvailable", data.interestOnlyAvailable);
+          setValue("shortTermRentalsOk", data.shortTermRentalsOk);
+          setValue("foreignNationalsAllowed", data.foreignNationalsAllowed);
+        }
+        if (isRentalPortfolioProduct(existing.loanProductCode)) {
+          setValue("minPropertiesInPortfolio", data.minPropertiesInPortfolio);
+          setValue("maxPropertiesInPortfolio", data.maxPropertiesInPortfolio);
+        }
+        if (isCrePermanentProduct(existing.loanProductCode)) {
+          setDecimal("minDebtYieldPercent", data.minDebtYieldPercent);
+          setValue("amortizationYears", data.amortizationYears);
+        }
+        if (isCmbsProduct(existing.loanProductCode)) {
+          setDecimal("minDebtYieldPercent", data.minDebtYieldPercent);
+          setValue("amortizationYears", data.amortizationYears);
+          setValue("prepaymentStructure", data.prepaymentStructure);
+        }
+        if (isAgencyMultifamilyProduct(existing.loanProductCode)) {
+          setValue("amortizationYears", data.amortizationYears);
+          setValue("minUnits", data.minUnits);
+        }
+        if (isConstructionLoanProduct(existing.loanProductCode)) {
+          setValue("gcRequired", data.gcRequired);
+          setValue("completionGuaranteeRequired", data.completionGuaranteeRequired);
+        }
+        setValue("criteriaNotes", data.criteriaNotes);
+
         // 📝 STRING
-        setValue("interestRateRange", data.interestRateRange);
+        if (
+          !isPreferredEquityProduct(existing.loanProductCode) &&
+          !isNoMinLoanCriteriaProduct(existing.loanProductCode) &&
+          !isPurchaseOrderFinanceProduct(existing.loanProductCode) &&
+          !isArFactoringProduct(existing.loanProductCode) &&
+          !isApSupplyChainProduct(existing.loanProductCode)
+        ) {
+          setValue("interestRateRange", data.interestRateRange);
+        }
 
         // ✅ JSON (NO stringify)
         setValue("businessTypes", data.businessTypes);

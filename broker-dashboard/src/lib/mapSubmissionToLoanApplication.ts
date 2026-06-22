@@ -3,6 +3,17 @@ import {
   type FormDataType,
   type LoanCategory,
 } from "../pages/LoanApplication/LoanApplication";
+import { createResidentialBorrowerDefaults, hydrateResidentialBorrowerFromFields } from "./residentialBorrower";
+import { createSbaEntityDefaults } from "./sba7aAcquisition";
+import {
+  ANNUAL_FINANCIAL_CALCULATED_ROWS,
+  ANNUAL_FINANCIAL_EDITABLE_ROWS,
+  createResidentialFinancialsDefaults,
+  FINANCIAL_YEAR_COLUMNS,
+  type FinancialYearColumn,
+  type ResidentialFinancials,
+  type YearTriple,
+} from "./residentialFinancials";
 
 type SubmissionField = {
   fieldId?: string | null;
@@ -125,6 +136,77 @@ const normalizeFloodZone = (val: unknown): string => {
   return normalized;
 };
 
+const normalizeYesNo = (val: unknown): boolean => {
+  if (typeof val === "boolean") return val;
+  const normalized = asString(val).trim().toLowerCase();
+  return ["yes", "y", "true", "1"].includes(normalized);
+};
+
+const loadFinancialYearTriple = (
+  fields: SubmissionField[],
+  prefix: string,
+): YearTriple => {
+  const triple = {} as YearTriple;
+  FINANCIAL_YEAR_COLUMNS.forEach((column: FinancialYearColumn) => {
+    triple[column] = asFormNumber(
+      getFieldValue(fields, `${prefix}_${column}`),
+    );
+  });
+  return triple;
+};
+
+const mapResidentialFinancialsFromFields = (
+  fields: SubmissionField[],
+): ResidentialFinancials => {
+  const financials = createResidentialFinancialsDefaults();
+
+  financials.rentalProperty = normalizeYesNo(getFieldValue(fields, "rentalProperty"));
+  financials.hasRentalIncome = normalizeYesNo(
+    getFieldValue(fields, "hasRentalIncome"),
+  );
+  financials.monthlyRent = asFormNumber(getFieldValue(fields, "monthlyRent"));
+  financials.dscrCalculationMethod =
+    asString(getFieldValue(fields, "dscrCalculationMethod")) === "proForma"
+      ? "proForma"
+      : "noi";
+  financials.annualPropertyTaxes = asFormNumber(
+    getFieldValue(fields, "annualTaxes"),
+  );
+  financials.annualInsurance = asFormNumber(
+    getFieldValue(fields, "insurancePremium"),
+  );
+  financials.hoaDues = asFormNumber(getFieldValue(fields, "hoaDues"));
+  financials.inFloodZone = normalizeYesNo(
+    getFieldValueByKeys(fields, ["inFloodZone", "floodZone"]),
+  );
+  financials.projectSummary = asString(getFieldValue(fields, "projectSummary"));
+  financials.exitStrategy = asString(getFieldValue(fields, "exitStrategy"));
+
+  ANNUAL_FINANCIAL_EDITABLE_ROWS.forEach(({ key }) => {
+    financials[key] = loadFinancialYearTriple(fields, `financial_${key}`);
+  });
+
+  ANNUAL_FINANCIAL_CALCULATED_ROWS.forEach(({ overrideKey }) => {
+    financials[overrideKey] = loadFinancialYearTriple(
+      fields,
+      `financial_${overrideKey}`,
+    );
+  });
+
+  const proFormaYears = [1, 2, 3].map((yearIndex) => ({
+    id: yearIndex,
+    amount: asFormNumber(
+      getFieldValue(fields, `proFormaNoi_year_${yearIndex}`),
+    ),
+  }));
+
+  if (proFormaYears.some((year) => year.amount)) {
+    financials.proFormaNoiYears = proFormaYears;
+  }
+
+  return financials;
+};
+
 export function inferCategoryFromProduct(productCode: string): LoanCategory {
   for (const [category, products] of Object.entries(CATEGORY_LOAN_TYPES)) {
     if (products.includes(productCode)) {
@@ -137,6 +219,7 @@ export function inferCategoryFromProduct(productCode: string): LoanCategory {
 export function createEmptyFormData(): FormDataType {
   return {
     borrower: {
+      ...createResidentialBorrowerDefaults(),
       name: "",
       entityName: "",
       phone: "",
@@ -155,12 +238,20 @@ export function createEmptyFormData(): FormDataType {
       purpose: "",
       amount: "",
       interestRate: "",
+      sellerFinancing: "no",
+      sellerNoteAmount: "",
+      estimatedClosingDate: "",
+      rateType: "FIXED",
+      brokerPoints: "",
+      amortization: "",
       currentMarketValue: "",
       purchasePrice: "",
       purchaseDate: "",
       totalAssets: "",
       totalLiabilities: "",
       afterRepairValue: "",
+      rehabCost: "",
+      constructionCost: "",
       propertyType: "",
       subPropertyType: "",
       recourse: "",
@@ -168,6 +259,7 @@ export function createEmptyFormData(): FormDataType {
       city: "",
       state: "",
       zip: "",
+      numberOfUnits: "",
     },
     loanTermIncome: {
       loanTerm: "",
@@ -187,7 +279,10 @@ export function createEmptyFormData(): FormDataType {
       dba: "",
       formationDate: "",
       yearsInBusiness: "",
+      ebitdaWithNoi: "",
+      ...createSbaEntityDefaults(),
     },
+    financials: createResidentialFinancialsDefaults(),
   };
 }
 
@@ -195,12 +290,15 @@ export function mapSubmissionToLoanApplication(fields: SubmissionField[]) {
   const formData = createEmptyFormData();
   const dynamicFormData: Record<string, unknown> = {};
 
-  const firstName = asString(getFieldValue(fields, "borrowerFirstName"));
-  const lastName = asString(getFieldValue(fields, "borrowerLastName"));
+  const residentialBorrower = hydrateResidentialBorrowerFromFields(fields);
 
   formData.borrower = {
     ...formData.borrower,
-    name: [firstName, lastName].filter(Boolean).join(" "),
+    ...residentialBorrower,
+    name:
+      [residentialBorrower.firstName, residentialBorrower.lastName]
+        .filter(Boolean)
+        .join(" ") || formData.borrower.name,
     entityName: asString(getFieldValue(fields, "companyName")),
     email: asString(getFieldValue(fields, "email")),
     phone: asString(getFieldValue(fields, "phone")),
@@ -219,19 +317,37 @@ export function mapSubmissionToLoanApplication(fields: SubmissionField[]) {
     purpose: asString(getFieldValue(fields, "purpose")),
     amount: asFormNumber(getFieldValue(fields, "amountRequested")),
     interestRate: asString(getFieldValue(fields, "interestRate")),
+    sellerFinancing:
+      asString(getFieldValue(fields, "sellerFinancing")) || "no",
+    sellerNoteAmount: asFormNumber(getFieldValue(fields, "sellerNoteAmount")),
+    estimatedClosingDate: asString(
+      getFieldValue(fields, "estimatedClosingDate"),
+    ),
+    rateType: asString(getFieldValue(fields, "rateType")) || "FIXED",
+    brokerPoints: asString(getFieldValue(fields, "brokerPoints")),
+    amortization: asString(getFieldValue(fields, "amortization")),
     currentMarketValue: asFormNumber(getFieldValue(fields, "currentMarketValue")),
     purchasePrice: asFormNumber(getFieldValue(fields, "purchasePrice")),
+    rehabCost: asFormNumber(getFieldValue(fields, "rehabBudget")),
+    constructionCost: asFormNumber(getFieldValue(fields, "constructionBudget")),
     purchaseDate: asString(getFieldValue(fields, "purchaseDate")),
     totalAssets: asFormNumber(getFieldValue(fields, "totalAssets")),
     totalLiabilities: asFormNumber(getFieldValue(fields, "totalLiabilities")),
     afterRepairValue: asFormNumber(getFieldValue(fields, "afterRepairValue")),
-    propertyType: asString(getFieldValue(fields, "propertyType")),
+    propertyType: asString(
+      getFieldValueByKeys(fields, [
+        "propertyType",
+        "businessIndustry",
+        "business_industry",
+      ]),
+    ),
     subPropertyType: asString(getFieldValue(fields, "subPropertyType")),
     recourse: asString(getFieldValue(fields, "recourse")),
     businessAddress: asString(getFieldValue(fields, "propertyAddress")),
     city: asString(getFieldValue(fields, "propertyCity")),
     state: asString(getFieldValue(fields, "propertyState")),
     zip: asString(getFieldValue(fields, "propertyZip")),
+    numberOfUnits: asString(getFieldValue(fields, "numberOfUnits")),
   };
 
   formData.loanTermIncome = {
@@ -264,7 +380,28 @@ export function mapSubmissionToLoanApplication(fields: SubmissionField[]) {
     dba: asString(getFieldValue(fields, "dba")),
     formationDate: asString(getFieldValue(fields, "formationDate")),
     yearsInBusiness: asString(getFieldValue(fields, "yearsInBusiness")),
+    ebitdaWithNoi: asFormNumber(getFieldValue(fields, "ebitda")),
+    naicsCode: asString(
+      getFieldValueByKeys(fields, ["naicsCode", "naics", "naics_code"]),
+    ),
+    goodwillAmount: asFormNumber(
+      getFieldValueByKeys(fields, ["goodwillAmount", "goodwill"]),
+    ),
+    inventoryIncluded: normalizeYesNo(
+      getFieldValueByKeys(fields, ["inventoryIncluded", "inventory_included"]),
+    ),
+    equipmentIncluded: normalizeYesNo(
+      getFieldValueByKeys(fields, ["equipmentIncluded", "equipment_included"]),
+    ),
+    inventoryValue: asFormNumber(
+      getFieldValueByKeys(fields, ["inventoryValue", "inventory_value"]),
+    ),
+    equipmentValue: asFormNumber(
+      getFieldValueByKeys(fields, ["equipmentValue", "equipment_value"]),
+    ),
   };
+
+  formData.financials = mapResidentialFinancialsFromFields(fields);
 
   const coBorrowerMap = new Map<
     number,
@@ -303,29 +440,58 @@ export function mapSubmissionToLoanApplication(fields: SubmissionField[]) {
     entry[suffix] = asString(rawValue);
   });
 
-  formData.coBorrowers = Array.from(coBorrowerMap.entries())
-    .sort(([a], [b]) => a - b)
-    .map(([, borrower]) => ({
-      id: borrower.id,
-      name: asString(borrower.name),
-      entityName: asString(borrower.entityName),
-      phone: asString(borrower.phone),
-      email: asString(borrower.email),
-      employer: asString(borrower.employer),
-      dob: asString(borrower.dob),
-      ssn: asString(borrower.ssn),
-      creditScore: asString(borrower.creditScore),
-      address: asString(borrower.address),
-      city: asString(borrower.city),
-      state: asString(borrower.state),
-      mailingAddress: asString(borrower.mailingAddress),
-      currentMarketValue: asString(borrower.currentMarketValue),
-      purchasePrice: asString(borrower.purchasePrice),
-      interestRate: asString(borrower.interestRate),
-      noi: asString(borrower.noi),
-      totalAssets: asString(borrower.totalAssets),
-      totalLiabilities: asString(borrower.totalLiabilities),
-    }));
+  const coBorrowerIndices = new Set<number>();
+  fields.forEach((field) => {
+    const match = (field.fieldKey || "").match(/^coBorrower_(\d+)_/);
+    if (match) coBorrowerIndices.add(Number(match[1]));
+  });
+  coBorrowerMap.forEach((_, index) => coBorrowerIndices.add(index));
+
+  formData.coBorrowers = Array.from(coBorrowerIndices)
+    .sort((a, b) => a - b)
+    .map((index) => {
+      const prefix = `coBorrower_${index}`;
+      const residential = hydrateResidentialBorrowerFromFields(fields, prefix);
+      const legacy = coBorrowerMap.get(index);
+      const coFirstName =
+        residential.firstName || asString(legacy?.firstName);
+      const coLastName = residential.lastName || asString(legacy?.lastName);
+
+      return {
+        id: legacy?.id ?? Date.now() + index,
+        ...residential,
+        firstName: coFirstName,
+        lastName: coLastName,
+        name:
+          asString(legacy?.name) ||
+          [coFirstName, coLastName].filter(Boolean).join(" "),
+        entityName: asString(legacy?.entityName),
+        phone:
+          asString(legacy?.phone) ||
+          asString(getFieldValue(fields, `${prefix}_phone`)),
+        email:
+          asString(legacy?.email) ||
+          asString(getFieldValue(fields, `${prefix}_email`)),
+        employer: asString(legacy?.employer),
+        dob: asString(legacy?.dob),
+        ssn:
+          asString(legacy?.ssn) ||
+          asString(getFieldValue(fields, `${prefix}_ssn`)),
+        creditScore:
+          asString(legacy?.creditScore) ||
+          asString(getFieldValue(fields, `${prefix}_creditScore`)),
+        address: asString(legacy?.address),
+        city: asString(legacy?.city),
+        state: asString(legacy?.state),
+        mailingAddress: asString(legacy?.mailingAddress),
+        currentMarketValue: asString(legacy?.currentMarketValue),
+        purchasePrice: asString(legacy?.purchasePrice),
+        interestRate: asString(legacy?.interestRate),
+        noi: asString(legacy?.noi),
+        totalAssets: asString(legacy?.totalAssets),
+        totalLiabilities: asString(legacy?.totalLiabilities),
+      };
+    });
 
   fields.forEach((field) => {
     if (!field.fieldId) return;

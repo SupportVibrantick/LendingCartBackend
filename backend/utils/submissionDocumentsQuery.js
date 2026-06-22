@@ -41,11 +41,24 @@ function buildDocumentFilterLenders(lenderRequests) {
   );
 }
 
+function normalizeSourceFilter(sourceFilter) {
+  const value =
+    typeof sourceFilter === "string" ? sourceFilter.trim().toLowerCase() : "all";
+
+  if (value === "broker" || value === "lender" || value === "sub_broker") {
+    return value;
+  }
+
+  return "all";
+}
+
 function buildSubmissionDocumentsWhere({
   loanApplicationId,
   search,
   applicationLenderId,
   lenderRequests,
+  sourceFilter = "all",
+  documentCategory = "upload",
 }) {
   const searchFilter = search
     ? {
@@ -57,6 +70,33 @@ function buildSubmissionDocumentsWhere({
         },
       }
     : {};
+
+  const normalizedSourceFilter = normalizeSourceFilter(sourceFilter);
+  const normalizedCategory =
+    documentCategory === "signable" ? "signable" : "upload";
+  const signatureFilter =
+    normalizedCategory === "signable"
+      ? { requiresClientSignature: true }
+      : { requiresClientSignature: false };
+
+  if (normalizedSourceFilter === "broker") {
+    return {
+      loanApplicationId,
+      source: "BROKER_ADDED",
+      ...signatureFilter,
+      ...searchFilter,
+    };
+  }
+
+  if (normalizedSourceFilter === "sub_broker") {
+    return {
+      loanApplicationId,
+      source: "SUB_BROKER_ADDED",
+      isSentToBroker: true,
+      ...signatureFilter,
+      ...searchFilter,
+    };
+  }
 
   if (applicationLenderId) {
     const documentTypeIds = [
@@ -73,6 +113,16 @@ function buildSubmissionDocumentsWhere({
       documentTypeId: {
         in: documentTypeIds,
       },
+      ...signatureFilter,
+      ...searchFilter,
+    };
+  }
+
+  if (normalizedSourceFilter === "lender") {
+    return {
+      loanApplicationId,
+      source: "LENDER_ADDED",
+      ...signatureFilter,
       ...searchFilter,
     };
   }
@@ -87,6 +137,7 @@ function buildSubmissionDocumentsWhere({
       },
       { source: "LENDER_ADDED" },
     ],
+    ...signatureFilter,
     ...searchFilter,
   };
 }
@@ -95,20 +146,33 @@ function documentMatchesSentFilter(doc, sentFilter, applicationLenderId) {
   if (!sentFilter || sentFilter === "all") return true;
 
   const sentToLenders = doc.sentToLenders || [];
-  let isSent = false;
+  const uploadedCount = Number(doc.uploadedCount) || 0;
+  let hasSent = false;
+  let hasPending = false;
 
   if (applicationLenderId) {
-    isSent = Boolean(
-      sentToLenders.find(
-        (item) =>
-          item.applicationLenderId === applicationLenderId && item.isSent,
-      ),
+    const entry = sentToLenders.find(
+      (item) => item.applicationLenderId === applicationLenderId,
     );
+
+    const sentCount = entry?.sentCount ?? (entry?.isSent ? uploadedCount : 0);
+    const pendingCount =
+      entry?.pendingCount ?? Math.max(0, uploadedCount - sentCount);
+
+    hasSent = sentCount > 0;
+    hasPending = pendingCount > 0;
   } else {
-    isSent = Boolean(doc.isSentToAnyLender);
+    hasSent = sentToLenders.some((item) => item.isSent);
+    hasPending =
+      doc.hasPendingSendToLender ??
+      sentToLenders.some((item) => (item.pendingCount ?? 0) > 0);
   }
 
-  return sentFilter === "sent" ? isSent : !isSent;
+  if (sentFilter === "sent") {
+    return hasSent && !hasPending;
+  }
+
+  return !hasSent || hasPending;
 }
 
 function paginateDocuments(documents, pageNumber, pageSize) {
@@ -136,6 +200,7 @@ module.exports = {
   buildLenderRequestMap,
   buildDocumentFilterLenders,
   buildSubmissionDocumentsWhere,
+  normalizeSourceFilter,
   documentMatchesSentFilter,
   paginateDocuments,
   filterDocumentLenderContext,

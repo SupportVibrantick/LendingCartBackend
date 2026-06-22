@@ -1,4 +1,8 @@
 const { loadTemplate } = require("../utils/loadTemplate");
+const {
+  buildBrokerSignInUrl,
+  getEmailBranding,
+} = require("../utils/emailBranding");
 const sendMail = require("./mail");
 const { sendEmailUsingKafka } = require("./kafka/email/producer");
 const { commonLogs } = require("./logger/contextLogger");
@@ -8,12 +12,9 @@ async function sendBrokerPasswordResetEmail({
   email,
   resetToken,
 }) {
-  const brokerDashboardUrl =
-    process.env.VITE_BROKER_DASHBOARD_URL ||
-    process.env.BROKER_DASHBOARD_URL ||
-    "";
-
-  const baseUrl = brokerDashboardUrl.replace(/\/$/, "");
+  const { brokerDashboardUrl } = getEmailBranding();
+  const baseUrl =
+    buildBrokerSignInUrl().replace(/\/signin$/, "") || brokerDashboardUrl;
   const resetUrl = `${baseUrl}/reset-password?token=${encodeURIComponent(resetToken)}`;
   const expiryHours = process.env.PASSWORD_RESET_EXPIRY_HOURS || "1";
   const name = firstName || "there";

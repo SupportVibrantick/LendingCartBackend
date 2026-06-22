@@ -1,3 +1,17 @@
+const { mapSubmissionFieldResponse } = require("../../../services/staticSubmissionFields");
+const {
+  resolveClientDisplayNameFromData,
+} = require("../../../services/resolveClientDisplayName");
+const {
+  resolveLatestActiveSubmission,
+} = require("../../../utils/clientPortalSubmission");
+
+function findSubmissionFieldValue(fields, keys) {
+  const field = fields.find((item) => keys.includes(item.fieldKey));
+  if (!field) return null;
+  return field.value ?? null;
+}
+
 /**
  * @param {import("fastify").FastifyInstance} fastify
  */
@@ -21,9 +35,6 @@ async function getApplicationDetails(fastify) {
       const prisma = fastify.prisma;
 
       try {
-        // ----------------------------------
-        // 1️⃣ AUTH CHECK
-        // ----------------------------------
         if (
           !req.user ||
           req.user.orgType !== "LENDER" ||
@@ -38,9 +49,6 @@ async function getApplicationDetails(fastify) {
         const lenderOrgId = req.user.organizationId;
         const { applicationLenderId } = req.params;
 
-        // ----------------------------------
-        // 2️⃣ FETCH APPLICATION LENDER RECORD
-        // ----------------------------------
         const record = await prisma.applicationLender.findFirst({
           where: {
             id: applicationLenderId,
@@ -49,17 +57,21 @@ async function getApplicationDetails(fastify) {
           include: {
             loanApplication: {
               include: {
-                client: true,
+                client: {
+                  include: {
+                    contacts: {
+                      where: { isPrimary: true },
+                      take: 1,
+                    },
+                  },
+                },
                 brokerOrg: true,
-
                 financials: true,
                 collaterals: true,
-
                 documentUploads: true,
-
                 submissions: {
+                  where: { status: { not: "SUPERSEDED" } },
                   orderBy: { createdAt: "desc" },
-                  take: 1,
                   include: {
                     fields: {
                       include: {
@@ -72,7 +84,6 @@ async function getApplicationDetails(fastify) {
                     },
                   },
                 },
-
                 ruleEvaluations: {
                   include: {
                     results: true,
@@ -82,13 +93,13 @@ async function getApplicationDetails(fastify) {
             },
             lenderProduct: true,
             lenderReviews: {
-  orderBy: {
-    createdAt: "desc",
-  },
-  include: {
-    conditions: true,
-  },
-},
+              orderBy: {
+                createdAt: "desc",
+              },
+              include: {
+                conditions: true,
+              },
+            },
           },
         });
 
@@ -99,9 +110,75 @@ async function getApplicationDetails(fastify) {
           });
         }
 
+        const loanProduct = await prisma.loanProduct.findFirst({
+          where: {
+            code: record.loanApplication.loanProductCode,
+          },
+          select: {
+            id: true,
+            name: true,
+          },
+        });
+
+        const latestSubmission = resolveLatestActiveSubmission(
+          record.loanApplication.submissions || [],
+        );
+
+        const mappedFields = latestSubmission
+          ? latestSubmission.fields.map((field) => mapSubmissionFieldResponse(field))
+          : [];
+
+        const borrowerName = resolveClientDisplayNameFromData(
+          record.loanApplication.client,
+          latestSubmission
+            ? [
+                {
+                  fields: latestSubmission.fields.map((field) => ({
+                    fieldKey: field.builderField?.fieldKey || field.fieldKey,
+                    value: field.value,
+                    builderField: field.builderField,
+                  })),
+                },
+              ]
+            : [],
+        );
+
+        const creditScore = findSubmissionFieldValue(mappedFields, [
+          "creditScore",
+          "credit_score",
+        ]);
+
+        const amountRequested = findSubmissionFieldValue(mappedFields, [
+          "amountRequested",
+          "loan_amount",
+        ]);
+
+        const enrichedSubmission = latestSubmission
+          ? {
+              ...latestSubmission,
+              fields: mappedFields,
+            }
+          : null;
+
         return reply.send({
           success: true,
-          data: record,
+          data: {
+            ...record,
+            borrowerName,
+            creditScore,
+            amountRequested,
+            loanProduct: loanProduct
+              ? {
+                  id: loanProduct.id,
+                  name: loanProduct.name,
+                }
+              : null,
+            latestSubmission: enrichedSubmission,
+            loanApplication: {
+              ...record.loanApplication,
+              submissions: enrichedSubmission ? [enrichedSubmission] : [],
+            },
+          },
         });
       } catch (error) {
         fastify.log.error(error);
@@ -111,7 +188,7 @@ async function getApplicationDetails(fastify) {
           message: "Server error while fetching application details",
         });
       }
-    }
+    },
   );
 }
 

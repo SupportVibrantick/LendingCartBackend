@@ -4,6 +4,7 @@ const { pipeline } = require("stream/promises");
 const crypto = require("crypto");
 const clientAuthMiddleware = require("../../middleware/clientAuthMiddleware");
 const { loadTemplate } = require("../../utils/loadTemplate");
+const { buildDocumentUploadEmailData } = require("../../utils/emailTemplateData");
 const sendMail = require("../../services/mail");
 const { sendEmailUsingKafka } = require("../../services/kafka/email/producer");
 const {
@@ -263,15 +264,19 @@ async function uploadDocumentsRoute(fastify) {
         ============================ */
 
         if (brokerEmail && !autoForwardEnabled) {
-          const html = loadTemplate("clientPortal/documentUpload", {
-            clientName: "Client",
-            applicationNumber: loan.applicationNumber,
-            fileName: file.filename,
-            uploadedAt: new Date().toLocaleString(),
-            dashboardLink:
-              `${process.env.FRONTEND_URL}/broker/loan-pipeline/${loanApplicationId}`,
-            currentYear: new Date().getFullYear(),
-          });
+          const html = loadTemplate(
+            "clientPortal/documentUpload",
+            buildDocumentUploadEmailData({
+              clientName: loan.client?.legalName || "Client",
+              applicationNumber: loan.applicationNumber,
+              fileName: file.filename,
+              uploadedAt: new Date().toLocaleString("en-US", {
+                dateStyle: "medium",
+                timeStyle: "short",
+              }),
+              applicationId: loanApplicationId,
+            }),
+          );
 
           const subject =
             `Client Uploaded Document - Application #${loan.applicationNumber}`;

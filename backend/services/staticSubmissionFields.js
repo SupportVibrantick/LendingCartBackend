@@ -26,6 +26,12 @@ const STATIC_SUBMISSION_FIELDS = {
   propertyType: { label: "Property Type", fieldType: "SELECT" },
   subPropertyType: { label: "Sub Property Type", fieldType: "SELECT" },
   recourse: { label: "Recourse", fieldType: "SELECT" },
+  sellerFinancing: { label: "Seller Financing", fieldType: "TEXT" },
+  sellerNoteAmount: { label: "Seller Note Amount", fieldType: "NUMBER" },
+  estimatedClosingDate: { label: "Estimated Closing Date", fieldType: "DATE" },
+  rateType: { label: "Rate Type", fieldType: "SELECT" },
+  brokerPoints: { label: "Broker Points (%)", fieldType: "NUMBER" },
+  amortization: { label: "Amortization (Years)", fieldType: "NUMBER" },
 
   propertyAddress: { label: "Property Address", fieldType: "TEXT" },
   propertyCity: { label: "Property City", fieldType: "TEXT" },
@@ -41,6 +47,20 @@ const STATIC_SUBMISSION_FIELDS = {
   dba: { label: "DBA", fieldType: "TEXT" },
   formationDate: { label: "Formation Date", fieldType: "DATE" },
   yearsInBusiness: { label: "Years in Business", fieldType: "NUMBER" },
+  ebitda: { label: "EBITDA with NOI", fieldType: "NUMBER" },
+  naicsCode: { label: "Industry Code (NAICS)", fieldType: "TEXT" },
+  naics: { label: "Industry Code (NAICS)", fieldType: "TEXT" },
+  goodwillAmount: { label: "Goodwill Amount", fieldType: "NUMBER" },
+  inventoryIncluded: { label: "Inventory Included", fieldType: "TEXT" },
+  equipmentIncluded: { label: "Equipment Included", fieldType: "TEXT" },
+  inventoryValue: { label: "Inventory Value", fieldType: "NUMBER" },
+  equipmentValue: { label: "Equipment Value", fieldType: "NUMBER" },
+  businessIndustry: { label: "Business / Industry Type", fieldType: "TEXT" },
+  business_industry: { label: "Business / Industry Type", fieldType: "TEXT" },
+  numberOfUnits: { label: "Number of Units", fieldType: "NUMBER" },
+  constructionBudget: { label: "Construction Budget", fieldType: "NUMBER" },
+  rehabCost: { label: "Rehab Cost", fieldType: "NUMBER" },
+  entityOwnershipPercent: { label: "Entity Ownership %", fieldType: "NUMBER" },
 
   currentMarketValue: { label: "Current Market Value", fieldType: "NUMBER" },
   afterRepairValue: { label: "After Repair Value", fieldType: "NUMBER" },
@@ -135,6 +155,33 @@ function resolveSubmissionFieldMeta(fieldKey) {
     };
   }
 
+  const financialMatch = fieldKey.match(/^financial_(.+?)_(col\d+)$/);
+  if (financialMatch) {
+    const metric = humanizeFieldKey(financialMatch[1]);
+    const column = financialMatch[2].replace("col", "Year ");
+    return {
+      label: `${metric} (${column})`,
+      fieldType: "NUMBER",
+      options: null,
+    };
+  }
+
+  if (fieldKey.startsWith("financialYear_")) {
+    return {
+      label: `Financial Year ${fieldKey.replace("financialYear_", "")}`,
+      fieldType: "NUMBER",
+      options: null,
+    };
+  }
+
+  if (fieldKey === "financialReferenceYear") {
+    return {
+      label: "Financial Reference Year",
+      fieldType: "NUMBER",
+      options: null,
+    };
+  }
+
   const coBorrowerMatch = fieldKey.match(/^coBorrower_(\d+)_(.+)$/);
   if (coBorrowerMatch) {
     const index = coBorrowerMatch[1];
@@ -155,6 +202,20 @@ function resolveSubmissionFieldMeta(fieldKey) {
   };
 }
 
+function normalizeSubmissionFieldValue(value) {
+  if (value === undefined || value === null) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
 function mapSubmissionFieldResponse(field) {
   const fieldKey = field.builderField?.fieldKey ?? field.fieldKey;
   const fallback = resolveSubmissionFieldMeta(fieldKey);
@@ -165,7 +226,7 @@ function mapSubmissionFieldResponse(field) {
     label: field.builderField?.label ?? fallback?.label ?? "Deleted Field",
     type: field.builderField?.fieldType ?? fallback?.fieldType ?? null,
     options: field.builderField?.options ?? fallback?.options ?? null,
-    value: field.value,
+    value: normalizeSubmissionFieldValue(field.value),
     source: field.source,
     sectionName: field.builderField?.section?.name ?? null,
     sectionSortOrder: field.builderField?.section?.sortOrder ?? null,
