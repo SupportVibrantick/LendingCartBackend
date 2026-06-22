@@ -194,7 +194,7 @@ export const getCashFlowAfterDebt = (
 };
 
 export const getDisplayCalculatedValue = (
-  financials: ResidentialFinancials,
+  _financials: ResidentialFinancials,
   column: FinancialYearColumn,
   calculated: number,
   override: YearTriple,

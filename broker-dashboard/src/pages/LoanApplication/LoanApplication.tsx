@@ -48,12 +48,8 @@ import {
   appendResidentialBorrowerSubmission,
   sumBorrowerAssets,
   sumBorrowerLiabilities,
-  type BorrowerAssets,
-  type BorrowerDeclarations,
-  type BorrowerLiabilities,
   type RealEstateOwnedEntry,
   type ResidentialBorrowerFields,
-  type YesNo,
 } from "../../lib/residentialBorrower";
 
 export interface Borrower extends ResidentialBorrowerFields {
@@ -744,7 +740,6 @@ const RESIDENTIAL_1_4_PROPERTY_TYPES = [
   "Fourplex (4-Unit)",
 ] as const;
 
-const DSCR_LOAN_TYPES = new Set(["DSCR_LOAN_1_TO_4_UNITS"]);
 const RENTAL_PORTFOLIO_LOAN_TYPES = new Set(["RENTAL_PORTFOLIO"]);
 const RENTAL_UNDERWRITING_LOAN_TYPES = new Set([
   "DSCR_LOAN_1_TO_4_UNITS",
@@ -842,8 +837,6 @@ const showResidentialPropertyRehabCost = (product: string) =>
 
 const isFixAndFlipProduct = (product: string) =>
   FIX_AND_FLIP_LOAN_TYPES.has(product);
-
-const isDscrProduct = (product: string) => DSCR_LOAN_TYPES.has(product);
 
 const isRentalPortfolioProduct = (product: string) =>
   RENTAL_PORTFOLIO_LOAN_TYPES.has(product);
@@ -2670,7 +2663,7 @@ const LoanApplication = ({
   ) => {
     setFormData((prev) => {
       if (scope === "borrower") {
-        const current = prev.borrower[nestedKey] as T;
+        const current = prev.borrower[nestedKey] as unknown as T;
         return {
           ...prev,
           borrower: {
@@ -2684,7 +2677,7 @@ const LoanApplication = ({
       }
 
       const updated = [...prev.coBorrowers];
-      const current = updated[coIndex!][nestedKey] as T;
+      const current = updated[coIndex!][nestedKey] as unknown as T;
       updated[coIndex!] = {
         ...updated[coIndex!],
         [nestedKey]:

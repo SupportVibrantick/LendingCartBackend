@@ -13,7 +13,6 @@ import {
   isMezzanineProduct,
   isNoMinLoanCriteriaProduct,
   isSba504Product,
-  mapApiProductToCriteriaForm,
 } from "../../lib/loanProductCriteriaFields";
 
 type FormType = {

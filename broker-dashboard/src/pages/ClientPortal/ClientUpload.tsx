@@ -112,7 +112,7 @@ const API_BASE =
 
 const LOAN_AUTOMATION_LOGO = "/loanAutomation.jpeg";
 
-const getStatusStyles = (status: string) => {
+const getStatusStyles = (status?: string) => {
   switch (status) {
     case "SUBMITTED":
       return "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200";
@@ -1858,12 +1858,3 @@ export default function ClientUpload() {
     </div>
   );
 }
-
-const Input = ({ label, value }: { label: string; value: any }) => (
-  <div>
-    <p className="text-xs text-gray-400 mb-1">{label}</p>
-    <div className="bg-gray-100 px-3 py-2 rounded-md text-sm text-gray-800 break-words">
-      {value === undefined || value === null || value === "" ? "-" : value}
-    </div>
-  </div>
-);

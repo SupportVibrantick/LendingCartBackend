@@ -1324,7 +1324,7 @@ export default function SignDocumentsPanel({
             <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500 dark:bg-slate-800">
               <tr>
                 <th className="px-4 py-3">Document</th>
-                {mode !== "client" && <th className="px-4 py-3">Lender</th>}
+                <th className="px-4 py-3">Lender</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Files</th>
                 <th className="px-4 py-3 text-right">Actions</th>
@@ -1334,9 +1334,7 @@ export default function SignDocumentsPanel({
               {rows.map((row) => (
                 <tr key={row.requirementId}>
                   <td className="px-4 py-3 font-medium">{row.documentName}</td>
-                  {mode !== "client" && (
-                    <td className="px-4 py-3">{row.lenderName || "-"}</td>
-                  )}
+                  <td className="px-4 py-3">{row.lenderName || "-"}</td>
                   <td className="px-4 py-3">
                     <span
                       className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusClass(row.signStatus)}`}
@@ -1367,43 +1365,11 @@ export default function SignDocumentsPanel({
                     </div>
                   </td>
                   <td className="px-4 py-3 text-right">
-                    {mode === "broker" && row.signStatus === "AWAITING_BROKER" && (
-                      <button
-                        type="button"
-                        disabled={actionId === row.requirementId}
-                        onClick={() => sendToClient(row.requirementId)}
-                        className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white"
-                      >
-                        {actionId === row.requirementId ? (
-                          <Loader2 size={14} className="animate-spin" />
-                        ) : (
-                          <SendHorizonal size={14} />
-                        )}
-                        Send to client
-                      </button>
-                    )}
-                    {mode === "broker" && row.signStatus === "CLIENT_SIGNED" && (
-                      <button
-                        type="button"
-                        disabled={actionId === row.requirementId}
-                        onClick={() => forwardToLender(row.requirementId)}
-                        className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white"
-                      >
-                        {actionId === row.requirementId ? (
-                          <Loader2 size={14} className="animate-spin" />
-                        ) : (
-                          <SendHorizonal size={14} />
-                        )}
-                        Forward to lender
-                      </button>
-                    )}
-                    {mode === "lender" && (
-                      <span className="text-xs text-slate-500">
-                        {row.signStatus === "FORWARDED_TO_LENDER"
-                          ? "Received"
-                          : "In progress"}
-                      </span>
-                    )}
+                    <span className="text-xs text-slate-500">
+                      {row.signStatus === "FORWARDED_TO_LENDER"
+                        ? "Received"
+                        : "In progress"}
+                    </span>
                   </td>
                 </tr>
               ))}
