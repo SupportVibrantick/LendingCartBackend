@@ -2463,10 +2463,7 @@ dark:hover:bg-blue-500/10
         return <LoanPreviewChat applicationId={applicationId} />;
       case "fee-agreement":
         return (
-          <FeeAgreement
-            applicationId={applicationId}
-            getAuthHeaders={getAuthHeaders}
-          />
+          <FeeAgreement applicationId={applicationId} />
         );
       default:
         return renderViewDetails();

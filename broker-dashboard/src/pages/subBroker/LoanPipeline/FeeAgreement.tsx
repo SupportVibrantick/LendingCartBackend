@@ -9,7 +9,6 @@ const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
 interface Props {
   applicationId: string;
-  getAuthHeaders: () => HeadersInit;
 }
 
 export default function FeeAgreement({ applicationId }: Props) {
@@ -17,15 +16,6 @@ export default function FeeAgreement({ applicationId }: Props) {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
-
-  const getAuthHeaders = (): HeadersInit => {
-    const token = sessionStorage.getItem("sub_broker_token");
-
-    return {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    };
-  };
 
   const [form, setForm] = useState({
     brokerPoints: "",
@@ -177,12 +167,7 @@ bg-slate-50 dark:bg-slate-900 dark:border-slate-800"
 
         {/* UPDATE BUTTON */}
         <div className="flex items-center gap-2">
-          <FeeAgreementDownloadButton
-            data={data}
-            pdfRef={pdfRef}
-            downloadUrl={`${API_BASE}/subbroker/fee-agreement/${applicationId}/fee-agreement/download-pdf`}
-            getAuthHeaders={getAuthHeaders}
-          />
+          <FeeAgreementDownloadButton data={data} pdfRef={pdfRef} />
 
           {!data.clientSignature && !data.signedAt && (
             <button

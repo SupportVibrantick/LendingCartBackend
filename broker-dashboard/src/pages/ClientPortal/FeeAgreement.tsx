@@ -244,12 +244,7 @@ export default function FeeAgreement({
           </div>
         </div>
 
-        <FeeAgreementDownloadButton
-          data={data}
-          pdfRef={pdfRef}
-          downloadUrl={`${API_BASE}/client-portal/applications/${applicationId}/fee-agreement/download-pdf`}
-          getAuthHeaders={getAuthHeaders}
-        />
+        <FeeAgreementDownloadButton data={data} pdfRef={pdfRef} />
       </div>
 
       {/* CONTENT */}

@@ -19,16 +19,12 @@ type Props = {
     agreementHtml?: string | null;
   };
   pdfRef: RefObject<HTMLDivElement | null>;
-  downloadUrl?: string;
-  getAuthHeaders?: () => HeadersInit;
   className?: string;
 };
 
 export default function FeeAgreementDownloadButton({
   data,
   pdfRef,
-  downloadUrl,
-  getAuthHeaders,
   className = "",
 }: Props) {
   const [downloading, setDownloading] = useState(false);
@@ -45,8 +41,6 @@ export default function FeeAgreementDownloadButton({
         agreementHtml: data.agreementHtml,
         element: pdfRef.current,
         filename: buildFeeAgreementPdfFilename(data),
-        downloadUrl,
-        getAuthHeaders,
       });
 
       toast.success("Fee agreement downloaded");

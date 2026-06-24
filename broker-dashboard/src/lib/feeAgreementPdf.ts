@@ -2,6 +2,10 @@ import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
+const LOGO_MAX_WIDTH = 220;
+const LOGO_MAX_HEIGHT = 96;
+const SIGNATURE_MAX_WIDTH = 220;
+const SIGNATURE_MAX_HEIGHT = 80;
 
 function sanitizeFilenamePart(value: string): string {
   return value
@@ -46,13 +50,39 @@ function resolveImageUrl(src: string): string {
   return src;
 }
 
-async function blobToDataUrl(blob: Blob): Promise<string> {
+function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = reject;
+    image.src = src;
   });
+}
+
+function resizeImageDataUrl(
+  image: HTMLImageElement,
+  maxWidth: number,
+  maxHeight: number,
+): { dataUrl: string; width: number; height: number } {
+  const scale = Math.min(maxWidth / image.width, maxHeight / image.height, 1);
+  const width = Math.max(1, Math.round(image.width * scale));
+  const height = Math.max(1, Math.round(image.height * scale));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+
+  const context = canvas.getContext("2d");
+  if (!context) {
+    throw new Error("Canvas not supported");
+  }
+
+  context.drawImage(image, 0, 0, width, height);
+  return {
+    dataUrl: canvas.toDataURL("image/png"),
+    width,
+    height,
+  };
 }
 
 async function inlineImagesInHtml(html: string): Promise<string> {
@@ -64,13 +94,25 @@ async function inlineImagesInHtml(html: string): Promise<string> {
   await Promise.all(
     images.map(async (img) => {
       const src = img.getAttribute("src");
-      if (!src || src.startsWith("data:")) return;
+      if (!src) return;
+
+      const isSignature = /signature/i.test(
+        `${img.getAttribute("alt") || ""} ${src}`,
+      );
+      const maxWidth = isSignature ? SIGNATURE_MAX_WIDTH : LOGO_MAX_WIDTH;
+      const maxHeight = isSignature ? SIGNATURE_MAX_HEIGHT : LOGO_MAX_HEIGHT;
 
       try {
-        const response = await fetch(resolveImageUrl(src), { mode: "cors" });
-        if (!response.ok) throw new Error("Image fetch failed");
-        const blob = await response.blob();
-        img.setAttribute("src", await blobToDataUrl(blob));
+        const resolvedSrc = src.startsWith("data:")
+          ? src
+          : resolveImageUrl(src);
+        const loadedImage = await loadImage(resolvedSrc);
+        const resized = resizeImageDataUrl(loadedImage, maxWidth, maxHeight);
+
+        img.setAttribute("src", resized.dataUrl);
+        img.removeAttribute("style");
+        img.setAttribute("width", String(resized.width));
+        img.setAttribute("height", String(resized.height));
       } catch {
         img.remove();
       }
@@ -117,7 +159,32 @@ function buildPrintHost(html: string): HTMLDivElement {
     lineHeight: "1.5",
     boxSizing: "border-box",
   });
-  host.innerHTML = html;
+
+  const style = document.createElement("style");
+  style.textContent = `
+    [data-fee-agreement-pdf] img {
+      display: block;
+      margin: 8px auto;
+      object-fit: contain;
+    }
+    [data-fee-agreement-pdf] h2,
+    [data-fee-agreement-pdf] h3,
+    [data-fee-agreement-pdf] p {
+      color: #111827;
+    }
+    [data-fee-agreement-pdf] div {
+      border-color: #e2e8f0 !important;
+      border-radius: 0 !important;
+      background: #ffffff !important;
+    }
+  `;
+
+  host.appendChild(style);
+
+  const content = document.createElement("div");
+  content.innerHTML = html;
+  host.appendChild(content);
+
   return host;
 }
 
@@ -160,57 +227,12 @@ async function renderElementToPdf(
   pdf.save(filename);
 }
 
-function savePdfBlob(blob: Blob, filename: string): void {
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  link.click();
-  URL.revokeObjectURL(url);
-}
-
-export async function downloadFeeAgreementPdfFromApi(
-  downloadUrl: string,
-  headers: HeadersInit,
-  filename: string,
-): Promise<boolean> {
-  const response = await fetch(downloadUrl, { headers });
-
-  if (!response.ok) {
-    return false;
-  }
-
-  const blob = await response.blob();
-  if (!blob.size) {
-    return false;
-  }
-
-  savePdfBlob(blob, filename);
-  return true;
-}
-
 export async function downloadFeeAgreementPdf(options: {
   agreementHtml?: string | null;
   element?: HTMLElement | null;
   filename: string;
-  downloadUrl?: string;
-  getAuthHeaders?: () => HeadersInit;
 }): Promise<void> {
-  const { agreementHtml, element, filename, downloadUrl, getAuthHeaders } =
-    options;
-
-  if (downloadUrl && getAuthHeaders) {
-    try {
-      const downloaded = await downloadFeeAgreementPdfFromApi(
-        downloadUrl,
-        getAuthHeaders(),
-        filename,
-      );
-      if (downloaded) return;
-    } catch {
-      /* fall back to client-side generation */
-    }
-  }
+  const { agreementHtml, element, filename } = options;
 
   if (agreementHtml?.trim()) {
     const host = buildPrintHost(await inlineImagesInHtml(agreementHtml));

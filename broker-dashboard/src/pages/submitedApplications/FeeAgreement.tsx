@@ -184,12 +184,7 @@ bg-slate-50 dark:bg-slate-900 dark:border-slate-800"
 
         {/* UPDATE BUTTON */}
         <div className="flex items-center gap-2">
-          <FeeAgreementDownloadButton
-            data={data}
-            pdfRef={pdfRef}
-            downloadUrl={`${API_BASE}/broker/loan-pipeline/${applicationId}/fee-agreement/download-pdf`}
-            getAuthHeaders={getAuthHeaders}
-          />
+          <FeeAgreementDownloadButton data={data} pdfRef={pdfRef} />
 
           {!data.clientSignature && !data.signedAt && (
             <button
