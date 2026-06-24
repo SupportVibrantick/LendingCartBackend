@@ -142,37 +142,84 @@ function buildSubmissionDocumentsWhere({
   };
 }
 
-function documentMatchesSentFilter(doc, sentFilter, applicationLenderId) {
-  if (!sentFilter || sentFilter === "all") return true;
-
+function evaluateLenderSendState(doc, lenderId) {
   const sentToLenders = doc.sentToLenders || [];
   const uploadedCount = Number(doc.uploadedCount) || 0;
-  let hasSent = false;
-  let hasPending = false;
 
-  if (applicationLenderId) {
+  if (lenderId) {
     const entry = sentToLenders.find(
-      (item) => item.applicationLenderId === applicationLenderId,
+      (item) => item.applicationLenderId === lenderId,
     );
-
     const sentCount = entry?.sentCount ?? (entry?.isSent ? uploadedCount : 0);
     const pendingCount =
       entry?.pendingCount ?? Math.max(0, uploadedCount - sentCount);
 
-    hasSent = sentCount > 0;
-    hasPending = pendingCount > 0;
-  } else {
-    hasSent = sentToLenders.some((item) => item.isSent);
-    hasPending =
-      doc.hasPendingSendToLender ??
-      sentToLenders.some((item) => (item.pendingCount ?? 0) > 0);
+    return { uploadedCount, sentCount, pendingCount };
   }
 
-  if (sentFilter === "sent") {
-    return hasSent && !hasPending;
+  if (uploadedCount <= 0) {
+    return { uploadedCount, sentCount: 0, pendingCount: 0 };
   }
 
-  return !hasSent || hasPending;
+  if (sentToLenders.length === 0) {
+    return { uploadedCount, sentCount: 0, pendingCount: uploadedCount };
+  }
+
+  const sentCount = Math.max(
+    ...sentToLenders.map(
+      (item) => item.sentCount ?? (item.isSent ? uploadedCount : 0),
+    ),
+  );
+  const pendingCount = Math.max(
+    ...sentToLenders.map((item) => {
+      const itemSentCount =
+        item.sentCount ?? (item.isSent ? uploadedCount : 0);
+      return item.pendingCount ?? Math.max(0, uploadedCount - itemSentCount);
+    }),
+  );
+
+  return { uploadedCount, sentCount, pendingCount };
+}
+
+function isDocumentFullySentToLender(doc, lenderId) {
+  const { uploadedCount, sentCount, pendingCount } = evaluateLenderSendState(
+    doc,
+    lenderId,
+  );
+
+  return uploadedCount > 0 && sentCount >= uploadedCount && pendingCount === 0;
+}
+
+function getSentFilterLenderContexts(doc, applicationLenderId) {
+  if (applicationLenderId) return [applicationLenderId];
+
+  const lenders = (doc.requestedByLenders || [])
+    .map((item) => item.applicationLenderId)
+    .filter(Boolean);
+
+  if (doc.source === "LENDER_ADDED" && lenders.length > 0) {
+    return lenders;
+  }
+
+  return [null];
+}
+
+function rowMatchesSentFilter(doc, sentFilter, lenderId) {
+  const isFullySent = isDocumentFullySentToLender(doc, lenderId);
+
+  if (sentFilter === "sent") return isFullySent;
+
+  return !isFullySent;
+}
+
+function documentMatchesSentFilter(doc, sentFilter, applicationLenderId) {
+  if (!sentFilter || sentFilter === "all") return true;
+
+  const contexts = getSentFilterLenderContexts(doc, applicationLenderId);
+
+  return contexts.some((lenderId) =>
+    rowMatchesSentFilter(doc, sentFilter, lenderId),
+  );
 }
 
 function paginateDocuments(documents, pageNumber, pageSize) {

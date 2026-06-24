@@ -9,7 +9,9 @@ const { seedRolePermissions } = require("./admin/rolePermission.seed");
 const { seedPlatformOrg } = require("./admin/platformOrg.seed");
 const { seedAdminUser } = require("./admin/admin.seed");
 const { seedDocumentTypes } = require("./admin/documentTypes.seed");
-const { seedSubscriptionPackages } = require("./admin/subscriptionPackages.seed");
+const {
+  seedSubscriptionPackages,
+} = require("./admin/subscriptionPackages.seed");
 const { applySchemaPatches } = require("./applySchemaPatches");
 
 // Broker seeds
@@ -53,7 +55,6 @@ async function main() {
   await seedLenderOrg();
   await seedLenderUser();
   await seedLenderProfile();
-
 
   await seedDocumentTypes();
 

@@ -6,6 +6,15 @@ const SIGN_STATUS_LABELS = {
   LENDER_SEEN: "Seen by lender",
 };
 
+const REQUEST_APPLICATION_LENDER_INCLUDE = {
+  lender: { select: { id: true, name: true } },
+  lenderProduct: {
+    include: {
+      loanProduct: { select: { name: true, code: true } },
+    },
+  },
+};
+
 function getSignedUpload(requirement) {
   return (requirement.uploads || []).find((upload) => upload.isSignedOutput);
 }
@@ -34,6 +43,12 @@ function formatSignDocumentRequirement(requirement, options = {}) {
     requirement.requestApplicationLender?.lender?.name ||
     options.lenderName ||
     null;
+  const loanProductName =
+    requirement.requestApplicationLender?.lenderProduct?.loanProduct?.name ||
+    null;
+  const loanProductCode =
+    requirement.requestApplicationLender?.lenderProduct?.loanProduct?.code ||
+    null;
 
   return {
     requirementId: requirement.id,
@@ -54,7 +69,11 @@ function formatSignDocumentRequirement(requirement, options = {}) {
     clientSignedAt: requirement.clientSignedAt,
     lenderSeenAt: requirement.lenderSeenAt,
     requestApplicationLenderId: requirement.requestApplicationLenderId,
+    lenderOrgId: requirement.requestApplicationLender?.lenderOrgId || null,
     lenderName,
+    loanProductName,
+    loanProductCode,
+    requestedAt: requirement.lastRequestedAt || requirement.createdAt,
     signedUpload: signedUpload
       ? {
           uploadId: signedUpload.id,
@@ -72,6 +91,7 @@ function formatSignDocumentRequirement(requirement, options = {}) {
 
 module.exports = {
   SIGN_STATUS_LABELS,
+  REQUEST_APPLICATION_LENDER_INCLUDE,
   formatSignDocumentRequirement,
   getSignedUpload,
 };

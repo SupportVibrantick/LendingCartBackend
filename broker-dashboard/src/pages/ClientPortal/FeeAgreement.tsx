@@ -1,11 +1,10 @@
 import { useEffect, useState } from "react";
 import { FileText } from "lucide-react";
-// import html2canvas from "html2canvas";
-// import jsPDF from "jspdf";
 import { useRef } from "react";
 import toast from "react-hot-toast";
 import SignatureCanvas from "react-signature-canvas";
 import FeeAgreementDocument from "../../components/FeeAgreementDocument";
+import FeeAgreementDownloadButton from "../../components/FeeAgreementDownloadButton";
 import { canClientSignFeeAgreement } from "../../lib/feeAgreementDisplayUtils";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
@@ -244,6 +243,13 @@ export default function FeeAgreement({
             </div>
           </div>
         </div>
+
+        <FeeAgreementDownloadButton
+          data={data}
+          pdfRef={pdfRef}
+          downloadUrl={`${API_BASE}/client-portal/applications/${applicationId}/fee-agreement/download-pdf`}
+          getAuthHeaders={getAuthHeaders}
+        />
       </div>
 
       {/* CONTENT */}

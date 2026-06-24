@@ -6,23 +6,14 @@ import { ThemeToggleButton } from "../components/common/ThemeToggleButton";
 import NotificationDropdown from "../components/header/NotificationDropdown";
 import { UserDropdown } from "../components/header/UserDropdown";
 import { jwtDecode } from "jwt-decode";
+import { LENDER_API_BASE, getLenderAuthHeaders } from "../lib/lenderApi";
+import { handleLenderUnauthorized } from "../lib/lenderSession";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
+const API_BASE = LENDER_API_BASE;
 const ADMIN_URI = import.meta.env.VITE_ADMIN_URI || "http://localhost:5173";
 
 function getAuthHeaders(): Record<string, string> {
-  try {
-    const token = sessionStorage.getItem("lender_token");
-    if (token) {
-      return {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      };
-    }
-  } catch {
-    /* ignore */
-  }
-  return { "Content-Type": "application/json" };
+  return getLenderAuthHeaders(true);
 }
 
 const AppHeader: React.FC = () => {
@@ -60,12 +51,19 @@ const AppHeader: React.FC = () => {
         headers: getAuthHeaders(),
       });
 
+      const json = await res.json().catch(() => ({}));
+
+      if (res.status === 401) {
+        handleLenderUnauthorized(
+          typeof json.message === "string" ? json.message : undefined,
+        );
+        return;
+      }
+
       if (!res.ok) {
         console.error("Failed to load user:", res.status);
         return;
       }
-
-      const json = await res.json();
 
       if (json?.success === false) {
         console.error("Failed to load user:", json.message);
@@ -146,11 +144,10 @@ const AppHeader: React.FC = () => {
         throw new Error("Failed to stop impersonation");
       }
 
-      // Clear broker session
       sessionStorage.removeItem("lender_token");
       sessionStorage.removeItem("lender_user");
-
-      // Save new admin token
+      sessionStorage.removeItem("roles");
+      sessionStorage.removeItem("permissions");
       sessionStorage.setItem("admin_token", json.token);
 
       // Redirect to admin dashboard

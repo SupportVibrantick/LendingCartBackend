@@ -4,9 +4,11 @@ import toast from "react-hot-toast";
 import { ArrowRight, LockKeyhole, Mail } from "lucide-react";
 import { EyeCloseIcon, EyeIcon } from "../../icons";
 import { canAccessPath } from "../../lib/adminPermissions";
+import { ADMIN_API_BASE } from "../../lib/adminApi";
+import { clearAdminSession } from "../../lib/adminSession";
 import Checkbox from "../form/input/Checkbox";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "";
+const API_BASE = ADMIN_API_BASE;
 
 export default function SignInForm() {
   const [showPassword, setShowPassword] = useState(false);
@@ -49,6 +51,8 @@ export default function SignInForm() {
     const toastId = toast.loading("Signing in...");
 
     try {
+      clearAdminSession();
+
       const res = await fetch(`${API_BASE}/admin/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -88,6 +92,15 @@ export default function SignInForm() {
           "admin_full_access",
           String(json.user.hasFullAccess ?? false),
         );
+      }
+
+      const meRes = await fetch(`${API_BASE}/admin/auth/me`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+
+      if (!meRes.ok) {
+        clearAdminSession();
+        throw new Error("Login succeeded but session could not be verified");
       }
 
       const perms = Array.isArray(json?.user?.permissions) ? json.user.permissions : [];

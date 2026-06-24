@@ -2,13 +2,15 @@ import { useState } from "react";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
 import { Dropdown } from "../ui/dropdown/Dropdown";
 import { useNavigate } from "react-router-dom";
+import { clearBrokerSession } from "../../lib/brokerSession";
+import { BROKER_API_BASE } from "../../lib/brokerApi";
+
+const API_BASE = BROKER_API_BASE;
 
 interface UserDropdownProps {
   user: any;
   compact?: boolean;
 }
-
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
 export default function UserDropdown({ user, compact = false }: UserDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -35,15 +37,8 @@ export default function UserDropdown({ user, compact = false }: UserDropdownProp
 
   function handleLogout() {
     try {
-      // remove specific keys
-      sessionStorage.removeItem("broker_token");
-      sessionStorage.removeItem("broker_refresh");
-      sessionStorage.removeItem("broker_user");
-      sessionStorage.removeItem("broker_user_name");
-      sessionStorage.removeItem("broker_user_email");
-      // optional: clear everything in session storage
-      // sessionStorage.clear();
-    } catch (e) {
+      clearBrokerSession();
+    } catch {
       // ignore storage errors
     } finally {
       closeDropdown();

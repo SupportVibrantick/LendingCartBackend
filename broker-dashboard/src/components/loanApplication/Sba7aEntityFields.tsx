@@ -1,5 +1,5 @@
 import {
-  FINANCIAL_YEAR_COLUMNS,
+  getFinancialYearColumnKeys,
   formatCurrencyInput,
   getFinancialYearColumns,
   type FinancialYearColumn,
@@ -70,7 +70,13 @@ export default function Sba7aEntityFields({
   errors,
   formatCurrency,
 }: Sba7aEntityFieldsProps) {
-  const yearColumns = getFinancialYearColumns();
+  const yearColumns = getFinancialYearColumns(
+    undefined,
+    financials.financialYearColumnCount,
+  );
+  const columnKeys = getFinancialYearColumnKeys(
+    financials.financialYearColumnCount,
+  );
 
   const patchYearValue = (
     key: "grossRevenue" | "noiOverride",
@@ -278,10 +284,10 @@ export default function Sba7aEntityFields({
               <td className="px-4 py-2 font-medium text-slate-700 dark:text-slate-200">
                 Annual Gross Revenue
               </td>
-              {FINANCIAL_YEAR_COLUMNS.map((column) => (
+              {columnKeys.map((column) => (
                 <td key={column} className="px-4 py-2">
                   <CurrencyInput
-                    value={financials.grossRevenue[column]}
+                    value={financials.grossRevenue[column] ?? ""}
                     onChange={(value) => patchYearValue("grossRevenue", column, value)}
                   />
                 </td>
@@ -291,10 +297,10 @@ export default function Sba7aEntityFields({
               <td className="px-4 py-2 font-medium text-slate-700 dark:text-slate-200">
                 Annual Net Income
               </td>
-              {FINANCIAL_YEAR_COLUMNS.map((column) => (
+              {columnKeys.map((column) => (
                 <td key={column} className="px-4 py-2">
                   <CurrencyInput
-                    value={financials.noiOverride[column]}
+                    value={financials.noiOverride[column] ?? ""}
                     onChange={(value) => patchYearValue("noiOverride", column, value)}
                   />
                 </td>

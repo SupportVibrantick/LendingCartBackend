@@ -1,4 +1,5 @@
 const jwt = require("jsonwebtoken");
+const jwtSecret = require("../../../utils/jwtSecret");
 const { adminLogs } = require("../../../services/logger/contextLogger");
 
 /**
@@ -144,7 +145,7 @@ async function impersonateRoute(fastify) {
             roles: roleNames,
             impersonatedBy: adminUserId,
           },
-          process.env.JWT_SECRET,
+          jwtSecret,
           {
             expiresIn: "2h",
             issuer: "lending-platform",

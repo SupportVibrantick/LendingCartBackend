@@ -5,10 +5,16 @@
  * Usage: node prisma/applySchemaPatches.js
  */
 const { PrismaClient } = require("@prisma/client");
-const { applySubscriptionBillingMigration } = require("./applySubscriptionBillingMigration");
-const { applyPasswordResetTokenMigration } = require("./applyPasswordResetTokenMigration");
+const {
+  applySubscriptionBillingMigration,
+} = require("./applySubscriptionBillingMigration");
+const {
+  applyPasswordResetTokenMigration,
+} = require("./applyPasswordResetTokenMigration");
 const { applyLoanAiUserMigration } = require("./applyLoanAiUserMigration");
-const { applyLenderProductCriteriaMigration } = require("./applyLenderProductCriteriaMigration");
+const {
+  applyLenderProductCriteriaMigration,
+} = require("./applyLenderProductCriteriaMigration");
 
 const COLUMN_PATCHES = [
   `ALTER TABLE "loan_applications"
@@ -109,11 +115,10 @@ async function applySchemaPatches(existingPrisma) {
 }
 
 if (require.main === module) {
-  applySchemaPatches()
-    .catch((err) => {
-      console.error("❌ Schema patch failed:", err);
-      process.exit(1);
-    });
+  applySchemaPatches().catch((err) => {
+    console.error("❌ Schema patch failed:", err);
+    process.exit(1);
+  });
 }
 
 module.exports = { applySchemaPatches };

@@ -1,8 +1,9 @@
 module.exports = async function (fastify) {
   const { normalizeFeeAgreement } = require("../../../../services/feeAgreementEnrichment");
   const {
-    getBrokerWhiteLabelBranding,
-  } = require("../../../../services/brokerBranding");
+    buildResolvedFeeAgreementContext,
+    refreshDraftFeeAgreementIfNeeded,
+  } = require("../../../../services/refreshDraftFeeAgreement");
   fastify.get(
     "/:loanId/fee-agreement",
     {
@@ -142,6 +143,19 @@ module.exports = async function (fastify) {
           });
         }
 
+        const loanApplication = agreement.loanApplication;
+        const refreshedAgreement = await refreshDraftFeeAgreementIfNeeded(
+          prisma,
+          agreement,
+          loanApplication,
+        );
+        const { merged, whiteLabelBranding, resolvedSnapshot } =
+          await buildResolvedFeeAgreementContext(
+            prisma,
+            refreshedAgreement,
+            loanApplication,
+          );
+
         /* ===============================
            LOAN OFFICER
         =============================== */
@@ -195,9 +209,7 @@ module.exports = async function (fastify) {
         /* ===============================
            BORROWER NAME
         =============================== */
-        const primaryContact =
-          agreement.loanApplication?.client
-            ?.contacts?.[0] || null;
+        const primaryContact = loanApplication?.client?.contacts?.[0] || null;
 
         const borrowerName = primaryContact
           ? `${primaryContact.firstName ?? ""} ${
@@ -210,12 +222,13 @@ module.exports = async function (fastify) {
         =============================== */
         const responseData = normalizeFeeAgreement(
           {
-            ...agreement,
+            ...refreshedAgreement,
+            ...merged,
             borrowerName,
             assignedLoanOfficer,
             assignedSubBrokers,
             lenders:
-              agreement.loanApplication?.applicationLenders
+              loanApplication?.applicationLenders
                 ?.filter((l) => l.sentAt)
                 ?.map((l) => ({
                   applicationLenderId: l.id,
@@ -250,8 +263,9 @@ module.exports = async function (fastify) {
                   })),
                 })) || [],
           },
-          agreement.loanApplication,
-          await getBrokerWhiteLabelBranding(prisma, agreement.brokerOrgId),
+          loanApplication,
+          whiteLabelBranding,
+          resolvedSnapshot,
         );
 
         /* ===============================

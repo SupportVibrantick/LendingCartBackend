@@ -1,5 +1,10 @@
 import { useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import {
+  clearBrokerSession,
+  saveBrokerSession,
+  verifyBrokerSession,
+} from "../lib/brokerSession";
 
 const ImpersonateLogin = () => {
   const [searchParams] = useSearchParams();
@@ -14,26 +19,31 @@ const ImpersonateLogin = () => {
       return;
     }
 
-    try {
-      // Clear old session
-      sessionStorage.removeItem("broker_token");
-      sessionStorage.removeItem("broker_user");
+    void (async () => {
+      try {
+        clearBrokerSession();
 
-      // Save token
-      sessionStorage.setItem("broker_token", token);
+        let user: Record<string, unknown> | null = null;
+        if (userParam) {
+          user = JSON.parse(decodeURIComponent(userParam));
+        }
 
-      // Save user if exists
-      if (userParam) {
-        const decodedUser = JSON.parse(decodeURIComponent(userParam));
+        saveBrokerSession(token, user);
 
-        sessionStorage.setItem("broker_user", JSON.stringify(decodedUser));
+        const verified = await verifyBrokerSession(token);
+        if (!verified) {
+          clearBrokerSession();
+          navigate("/signin", { replace: true });
+          return;
+        }
+
+        navigate("/", { replace: true });
+      } catch (err) {
+        console.error("Impersonation error", err);
+        clearBrokerSession();
+        navigate("/signin", { replace: true });
       }
-
-      navigate("/", { replace: true });
-    } catch (err) {
-      console.error("Impersonation error", err);
-      navigate("/signin", { replace: true });
-    }
+    })();
   }, [navigate, searchParams]);
 
   return (

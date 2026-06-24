@@ -1,5 +1,6 @@
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const jwtSecret = require("../../../utils/jwtSecret");
 
 async function brokerLoginRoutes(fastify) {
   fastify.post(
@@ -132,9 +133,9 @@ async function brokerLoginRoutes(fastify) {
             userType,
             parentBrokerOrgId, // 🔥 FIXED
           },
-          process.env.JWT_SECRET,
+          jwtSecret,
           {
-            expiresIn: "24h",
+            expiresIn: "7d",
             issuer: "lendingcart",
             audience: "broker-app",
           }

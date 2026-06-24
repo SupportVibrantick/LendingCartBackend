@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
 import { Dropdown } from "../ui/dropdown/Dropdown";
 import { useNavigate } from "react-router-dom";
+import { clearAdminSession } from "../../lib/adminSession";
 
 export default function UserDropdown() {
   const [isOpen, setIsOpen] = useState(false);
@@ -58,17 +59,8 @@ export default function UserDropdown() {
 
   function handleLogout() {
     try {
-      // remove specific keys
-      sessionStorage.removeItem("admin_token");
-      sessionStorage.removeItem("admin_refresh");
-      sessionStorage.removeItem("admin_user");
-      sessionStorage.removeItem("admin_user_name");
-      sessionStorage.removeItem("admin_user_email");
-      sessionStorage.removeItem("admin_permissions");
-      sessionStorage.removeItem("admin_full_access");
-      // optional: clear everything in session storage
-      // sessionStorage.clear();
-    } catch (e) {
+      clearAdminSession();
+    } catch {
       // ignore storage errors
     } finally {
       closeDropdown();

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import SignatureCanvas from "react-signature-canvas";
 import toast from "react-hot-toast";
 import {
@@ -51,6 +51,11 @@ export type SignDocumentRow = {
   templateFileUrl?: string | null;
   templateMimeType?: string | null;
   lenderName?: string | null;
+  lenderOrgId?: string | null;
+  requestApplicationLenderId?: string | null;
+  loanProductName?: string | null;
+  loanProductCode?: string | null;
+  requestedAt?: string | null;
   signedUpload?: {
     uploadId: string;
     fileName: string;
@@ -115,6 +120,7 @@ export default function SignDocumentsPanel({
   const [activeTemplateViewDoc, setActiveTemplateViewDoc] =
     useState<SignDocumentRow | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [selectedLenderKey, setSelectedLenderKey] = useState<string>("all");
   const [isSubmittingSignature, setIsSubmittingSignature] = useState(false);
   const sigRef = useRef<SignatureCanvas | null>(null);
 
@@ -420,6 +426,204 @@ export default function SignDocumentsPanel({
             File: {row.templateFileName}
           </p>
         )}
+      </div>
+    );
+  };
+
+  const getLenderGroupKey = (row: SignDocumentRow) =>
+    row.requestApplicationLenderId ||
+    row.lenderOrgId ||
+    row.lenderName ||
+    "unknown";
+
+  const sortSignDocumentRows = (items: SignDocumentRow[]) =>
+    [...items].sort((left, right) => {
+      const statusRank = (row: SignDocumentRow) =>
+        row.signStatus === "AWAITING_BROKER" ? 0 : 1;
+      const statusDiff = statusRank(left) - statusRank(right);
+      if (statusDiff !== 0) return statusDiff;
+
+      const leftTime = left.requestedAt ? Date.parse(left.requestedAt) : 0;
+      const rightTime = right.requestedAt ? Date.parse(right.requestedAt) : 0;
+      return rightTime - leftTime;
+    });
+
+  const lenderGroups = useMemo(() => {
+    const map = new Map<
+      string,
+      {
+        key: string;
+        lenderName: string;
+        loanProductName?: string | null;
+        rows: SignDocumentRow[];
+      }
+    >();
+
+    for (const row of rows) {
+      const key = getLenderGroupKey(row);
+      const existing = map.get(key);
+
+      if (existing) {
+        existing.rows.push(row);
+        continue;
+      }
+
+      map.set(key, {
+        key,
+        lenderName: row.lenderName || "Unknown lender",
+        loanProductName: row.loanProductName,
+        rows: sortSignDocumentRows([row]),
+      });
+    }
+
+    return Array.from(map.values())
+      .map((group) => ({
+        ...group,
+        rows: sortSignDocumentRows(group.rows),
+      }))
+      .sort((left, right) => left.lenderName.localeCompare(right.lenderName));
+  }, [rows]);
+
+  const visibleBrokerRows = useMemo(() => {
+    const filtered =
+      selectedLenderKey === "all"
+        ? rows
+        : rows.filter((row) => getLenderGroupKey(row) === selectedLenderKey);
+
+    return sortSignDocumentRows(filtered);
+  }, [rows, selectedLenderKey]);
+
+  const renderLenderAttribution = (
+    row: SignDocumentRow,
+    options: { prominent?: boolean } = {},
+  ) => {
+    const lenderLabel = row.lenderName || "Unknown lender";
+    const productLabel = row.loanProductName || row.loanProductCode;
+
+    if (options.prominent) {
+      return (
+        <div className="mb-3 inline-flex max-w-full flex-wrap items-center gap-2 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-xs font-semibold text-violet-900 dark:border-violet-900/50 dark:bg-violet-950/30 dark:text-violet-200">
+          <Building2 size={14} className="shrink-0" />
+          <span className="truncate">Requested by {lenderLabel}</span>
+          {productLabel ? (
+            <span className="rounded-full bg-white/80 px-2 py-0.5 text-[10px] font-medium text-violet-700 dark:bg-slate-900/60 dark:text-violet-300">
+              {productLabel}
+            </span>
+          ) : null}
+        </div>
+      );
+    }
+
+    return (
+      <p className="mt-1 flex flex-wrap items-center gap-1 text-xs text-slate-500">
+        <Building2 size={12} className="shrink-0" />
+        <span>Requested by {lenderLabel}</span>
+        {productLabel ? <span>· {productLabel}</span> : null}
+      </p>
+    );
+  };
+
+  const renderBrokerDocumentCard = (row: SignDocumentRow) => {
+    const isActionLoading = actionId === row.requirementId;
+    const showProminentLender = lenderGroups.length > 1;
+
+    return (
+      <div
+        key={row.requirementId}
+        className="flex flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md dark:border-slate-700 dark:bg-slate-900"
+      >
+        {showProminentLender
+          ? renderLenderAttribution(row, { prominent: true })
+          : row.lenderName
+            ? renderLenderAttribution(row)
+            : null}
+
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div className="flex min-w-0 items-start gap-3">
+            <div
+              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${
+                row.signStatus === "FORWARDED_TO_LENDER"
+                  ? "bg-violet-100 text-violet-700"
+                  : row.signStatus === "LENDER_SEEN"
+                    ? "bg-teal-100 text-teal-700"
+                    : row.signStatus === "CLIENT_SIGNED"
+                      ? "bg-emerald-100 text-emerald-700"
+                      : row.signStatus === "SENT_TO_CLIENT"
+                        ? "bg-blue-100 text-blue-700"
+                        : "bg-amber-100 text-amber-700"
+              }`}
+            >
+              {isImageTemplate(row.templateMimeType, row.templateFileUrl) ? (
+                <FileImage size={20} />
+              ) : (
+                <FileText size={20} />
+              )}
+            </div>
+            <div className="min-w-0">{renderDocumentTitle(row)}</div>
+          </div>
+          <span
+            className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${statusClass(row.signStatus)}`}
+          >
+            {row.signStatusLabel || row.signStatus || "-"}
+          </span>
+        </div>
+
+        {renderInlineDocumentActions(row)}
+
+        <div className="mt-auto border-t border-slate-100 pt-4 dark:border-slate-800">
+          {row.signStatus === "AWAITING_BROKER" && (
+            <button
+              type="button"
+              disabled={isActionLoading}
+              onClick={() => sendToClient(row.requirementId)}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:shadow-md disabled:opacity-60"
+            >
+              {isActionLoading ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <SendHorizonal size={16} />
+              )}
+              Send to client
+            </button>
+          )}
+
+          {row.signStatus === "SENT_TO_CLIENT" && (
+            <div className="flex items-center gap-2 rounded-xl bg-blue-50 px-3 py-2.5 text-sm text-blue-800 dark:bg-blue-950/40 dark:text-blue-200">
+              <Clock size={16} className="shrink-0" />
+              Waiting for client signature
+            </div>
+          )}
+
+          {row.signStatus === "CLIENT_SIGNED" && (
+            <button
+              type="button"
+              disabled={isActionLoading}
+              onClick={() => forwardToLender(row.requirementId)}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:shadow-md disabled:opacity-60"
+            >
+              {isActionLoading ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <SendHorizonal size={16} />
+              )}
+              Forward to {row.lenderName || "lender"}
+            </button>
+          )}
+
+          {row.signStatus === "FORWARDED_TO_LENDER" && (
+            <div className="flex items-center gap-2 rounded-xl bg-violet-50 px-3 py-2.5 text-sm text-violet-800 dark:bg-violet-950/40 dark:text-violet-200">
+              <CheckCircle2 size={16} className="shrink-0" />
+              Forwarded to {row.lenderName || "lender"}
+            </div>
+          )}
+
+          {row.signStatus === "LENDER_SEEN" && (
+            <div className="flex items-center gap-2 rounded-xl bg-teal-50 px-3 py-2.5 text-sm text-teal-800 dark:bg-teal-950/40 dark:text-teal-200">
+              <CheckCircle2 size={16} className="shrink-0" />
+              Seen by {row.lenderName || "lender"}
+            </div>
+          )}
+        </div>
       </div>
     );
   };
@@ -955,8 +1159,15 @@ export default function SignDocumentsPanel({
               </h2>
               <p className="mt-1 max-w-2xl text-sm text-slate-600 dark:text-slate-400">
                 Send lender forms to the client for signing, then forward the
-                signed copies back to the lender.
+                signed copies back to the lender who requested each document.
               </p>
+              {lenderGroups.length > 0 && (
+                <p className="mt-2 text-sm font-medium text-slate-700 dark:text-slate-300">
+                  {lenderGroups.length} lender
+                  {lenderGroups.length === 1 ? "" : "s"} · {rows.length} document
+                  {rows.length === 1 ? "" : "s"}
+                </p>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -991,115 +1202,47 @@ export default function SignDocumentsPanel({
             </p>
           </div>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {rows.map((row) => {
-              const isActionLoading = actionId === row.requirementId;
-
-              return (
-                <div
-                  key={row.requirementId}
-                  className="flex flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md dark:border-slate-700 dark:bg-slate-900"
-                >
-                  <div className="mb-4 flex items-start justify-between gap-3">
-                    <div className="flex min-w-0 items-start gap-3">
-                      <div
-                        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${
-                          row.signStatus === "FORWARDED_TO_LENDER"
-                            ? "bg-violet-100 text-violet-700"
-                            : row.signStatus === "LENDER_SEEN"
-                              ? "bg-teal-100 text-teal-700"
-                              : row.signStatus === "CLIENT_SIGNED"
-                              ? "bg-emerald-100 text-emerald-700"
-                              : row.signStatus === "SENT_TO_CLIENT"
-                                ? "bg-blue-100 text-blue-700"
-                                : "bg-amber-100 text-amber-700"
-                        }`}
-                      >
-                        {isImageTemplate(
-                          row.templateMimeType,
-                          row.templateFileUrl,
-                        ) ? (
-                          <FileImage size={20} />
-                        ) : (
-                          <FileText size={20} />
-                        )}
-                      </div>
-                      <div className="min-w-0">
-                        {renderDocumentTitle(row)}
-                        {row.lenderName && (
-                          <p className="mt-1 flex items-center gap-1 text-xs text-slate-500">
-                            <Building2 size={12} />
-                            {row.lenderName}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    <span
-                      className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${statusClass(row.signStatus)}`}
+          <div className="space-y-6">
+            {lenderGroups.length > 1 && (
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Filter by requesting lender
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedLenderKey("all")}
+                    className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                      selectedLenderKey === "all"
+                        ? "bg-violet-600 text-white"
+                        : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200"
+                    }`}
+                  >
+                    All lenders ({rows.length})
+                  </button>
+                  {lenderGroups.map((group) => (
+                    <button
+                      key={group.key}
+                      type="button"
+                      onClick={() => setSelectedLenderKey(group.key)}
+                      className={`inline-flex max-w-full items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                        selectedLenderKey === group.key
+                          ? "bg-violet-600 text-white"
+                          : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200"
+                      }`}
                     >
-                      {row.signStatusLabel || row.signStatus || "-"}
-                    </span>
-                  </div>
-
-                  {renderInlineDocumentActions(row)}
-
-                  <div className="mt-auto border-t border-slate-100 pt-4 dark:border-slate-800">
-                    {row.signStatus === "AWAITING_BROKER" && (
-                      <button
-                        type="button"
-                        disabled={isActionLoading}
-                        onClick={() => sendToClient(row.requirementId)}
-                        className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:shadow-md disabled:opacity-60"
-                      >
-                        {isActionLoading ? (
-                          <Loader2 size={16} className="animate-spin" />
-                        ) : (
-                          <SendHorizonal size={16} />
-                        )}
-                        Send to client
-                      </button>
-                    )}
-
-                    {row.signStatus === "SENT_TO_CLIENT" && (
-                      <div className="flex items-center gap-2 rounded-xl bg-blue-50 px-3 py-2.5 text-sm text-blue-800 dark:bg-blue-950/40 dark:text-blue-200">
-                        <Clock size={16} className="shrink-0" />
-                        Waiting for client signature
-                      </div>
-                    )}
-
-                    {row.signStatus === "CLIENT_SIGNED" && (
-                      <button
-                        type="button"
-                        disabled={isActionLoading}
-                        onClick={() => forwardToLender(row.requirementId)}
-                        className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:shadow-md disabled:opacity-60"
-                      >
-                        {isActionLoading ? (
-                          <Loader2 size={16} className="animate-spin" />
-                        ) : (
-                          <SendHorizonal size={16} />
-                        )}
-                        Forward to lender
-                      </button>
-                    )}
-
-                    {row.signStatus === "FORWARDED_TO_LENDER" && (
-                      <div className="flex items-center gap-2 rounded-xl bg-violet-50 px-3 py-2.5 text-sm text-violet-800 dark:bg-violet-950/40 dark:text-violet-200">
-                        <CheckCircle2 size={16} className="shrink-0" />
-                        Forwarded to lender
-                      </div>
-                    )}
-
-                    {row.signStatus === "LENDER_SEEN" && (
-                      <div className="flex items-center gap-2 rounded-xl bg-teal-50 px-3 py-2.5 text-sm text-teal-800 dark:bg-teal-950/40 dark:text-teal-200">
-                        <CheckCircle2 size={16} className="shrink-0" />
-                        Seen by lender
-                      </div>
-                    )}
-                  </div>
+                      <Building2 size={12} className="shrink-0" />
+                      <span className="truncate">{group.lenderName}</span>
+                      <span>({group.rows.length})</span>
+                    </button>
+                  ))}
                 </div>
-              );
-            })}
+              </div>
+            )}
+
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {visibleBrokerRows.map((row) => renderBrokerDocumentCard(row))}
+            </div>
           </div>
         )}
 

@@ -1,3 +1,8 @@
+const {
+  mergeMissingFeeAgreementFields,
+  resolveFeeAgreementSnapshot,
+} = require("./feeAgreementFieldResolver");
+
 function isBlank(value) {
   if (value === null || value === undefined) return true;
   const text = String(value).trim();
@@ -101,6 +106,7 @@ function normalizeFeeAgreement(
   feeAgreement,
   loanApplication = null,
   whiteLabelBranding = null,
+  resolvedSnapshot = null,
 ) {
   if (!feeAgreement) return null;
 
@@ -119,13 +125,39 @@ function normalizeFeeAgreement(
     ? `${brokerUser.firstName || ""} ${brokerUser.lastName || ""}`.trim()
     : null;
 
+  let resolved = resolvedSnapshot;
+  if (!resolved && loanApplication) {
+    const submission =
+      loanApplication.submissions?.[0] ||
+      loanApplication.applicationSubmissions?.[0] ||
+      null;
+
+    if (submission) {
+      resolved = resolveFeeAgreementSnapshot({
+        loanApplication,
+        submission,
+        primaryContact: loanApplication.client?.contacts?.[0] || null,
+        orgBrokerUser: loanApplication.orgBrokerUser || null,
+      });
+    }
+  }
+
+  const mergedAgreement = resolved
+    ? mergeMissingFeeAgreementFields(feeAgreement, resolved)
+    : feeAgreement;
+
   const brokerName = coalesce(
-    isBlank(feeAgreement.brokerName) ? null : feeAgreement.brokerName,
+    isBlank(mergedAgreement.brokerName) ? null : mergedAgreement.brokerName,
     brokerUserName,
     brokerOrg?.name,
   );
 
   const branding = resolveAgreementBranding(feeAgreement, whiteLabelBranding);
+
+  const clientAddress = coalesce(
+    mergedAgreement.clientAddress,
+    mergedAgreement.subjectAddress,
+  );
 
   return {
     ...feeAgreement,
@@ -134,37 +166,33 @@ function normalizeFeeAgreement(
       : {}),
     brokerLogoUrl: branding.brokerLogoUrl,
     brokerBrandName: branding.brokerBrandName,
-    clientName: resolveStoredClientName(feeAgreement, loanApplication),
-    clientEntityName: resolveStoredClientEntityName(feeAgreement, loanApplication),
+    clientName: resolveStoredClientName(mergedAgreement, loanApplication),
+    clientEntityName: resolveStoredClientEntityName(mergedAgreement, loanApplication),
     clientEmail: coalesce(
-      feeAgreement.clientEmail,
+      mergedAgreement.clientEmail,
       loanApplication?.client?.contacts?.[0]?.email,
     ),
     clientPhone: coalesce(
-      feeAgreement.clientPhone,
+      mergedAgreement.clientPhone,
       loanApplication?.client?.contacts?.[0]?.phone,
     ),
     brokerName,
-    brokerCompany: coalesce(feeAgreement.brokerCompany, brokerOrg?.name),
+    brokerCompany: coalesce(mergedAgreement.brokerCompany, brokerOrg?.name),
     brokerEmail: coalesce(
-      feeAgreement.brokerEmail,
+      mergedAgreement.brokerEmail,
       brokerUser?.email,
       brokerOrg?.email,
     ),
     brokerPhone: coalesce(
-      feeAgreement.brokerPhone,
+      mergedAgreement.brokerPhone,
       brokerUser?.phone,
       brokerOrg?.phone,
     ),
-    brokerAddress: isBlank(feeAgreement.brokerAddress) ? null : feeAgreement.brokerAddress,
-    brokerState: isBlank(feeAgreement.brokerState) ? null : feeAgreement.brokerState,
-    brokerCounty: isBlank(feeAgreement.brokerCounty) ? null : feeAgreement.brokerCounty,
-    subjectAddress: isBlank(feeAgreement.subjectAddress)
-      ? null
-      : feeAgreement.subjectAddress,
-    clientAddress: isBlank(feeAgreement.clientAddress)
-      ? null
-      : feeAgreement.clientAddress,
+    brokerAddress: coalesce(mergedAgreement.brokerAddress),
+    brokerState: coalesce(mergedAgreement.brokerState),
+    brokerCounty: coalesce(mergedAgreement.brokerCounty),
+    subjectAddress: coalesce(mergedAgreement.subjectAddress),
+    clientAddress: coalesce(clientAddress),
     brokerPoints:
       feeAgreement.brokerPoints === null || feeAgreement.brokerPoints === undefined
         ? null
@@ -181,10 +209,92 @@ function normalizeFeeAgreement(
   };
 }
 
+const BROKER_POINTS_MAX = 100;
+const UPFRONT_FEE_MAX = 99_999_999.99;
+const EXCLUSIVITY_MONTHS_MAX = 360;
+
+function parseFeeNumber(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return null;
+  return numeric;
+}
+
+function validateFeeAgreementTerms({ brokerPoints, upfrontFee, exclusivityMonths }) {
+  const errors = [];
+
+  if (brokerPoints !== undefined && brokerPoints !== null && brokerPoints !== "") {
+    const numeric = parseFeeNumber(brokerPoints);
+    if (numeric === null) {
+      errors.push("Broker fee must be a valid percentage.");
+    } else if (numeric < 0 || numeric > BROKER_POINTS_MAX) {
+      errors.push(
+        `Broker fee must be between 0 and ${BROKER_POINTS_MAX} percent.`,
+      );
+    }
+  }
+
+  if (upfrontFee !== undefined && upfrontFee !== null && upfrontFee !== "") {
+    const numeric = parseFeeNumber(upfrontFee);
+    if (numeric === null) {
+      errors.push("Upfront fee must be a valid amount.");
+    } else if (numeric < 0 || numeric > UPFRONT_FEE_MAX) {
+      errors.push(
+        `Upfront fee must be between 0 and ${UPFRONT_FEE_MAX.toLocaleString("en-US")}.`,
+      );
+    }
+  }
+
+  if (
+    exclusivityMonths !== undefined &&
+    exclusivityMonths !== null &&
+    exclusivityMonths !== ""
+  ) {
+    const numeric = parseFeeNumber(exclusivityMonths);
+    if (numeric === null || !Number.isInteger(numeric)) {
+      errors.push("Exclusivity months must be a whole number.");
+    } else if (numeric <= 0 || numeric > EXCLUSIVITY_MONTHS_MAX) {
+      errors.push(
+        `Exclusivity months must be between 1 and ${EXCLUSIVITY_MONTHS_MAX}.`,
+      );
+    }
+  }
+
+  return errors;
+}
+
+function normalizeFeeAgreementTerms({ brokerPoints, upfrontFee, exclusivityMonths }) {
+  return {
+    brokerPoints:
+      brokerPoints === undefined
+        ? undefined
+        : brokerPoints === null
+          ? null
+          : Math.round(parseFeeNumber(brokerPoints) * 100) / 100,
+    upfrontFee:
+      upfrontFee === undefined
+        ? undefined
+        : upfrontFee === null
+          ? null
+          : Math.round(parseFeeNumber(upfrontFee) * 100) / 100,
+    exclusivityMonths:
+      exclusivityMonths === undefined
+        ? undefined
+        : exclusivityMonths === null
+          ? null
+          : Math.trunc(parseFeeNumber(exclusivityMonths)),
+  };
+}
+
 module.exports = {
   isBlank,
   coalesce,
   isFeeTermConfigured,
   canClientSignFeeAgreement,
   normalizeFeeAgreement,
+  validateFeeAgreementTerms,
+  normalizeFeeAgreementTerms,
+  BROKER_POINTS_MAX,
+  UPFRONT_FEE_MAX,
+  EXCLUSIVITY_MONTHS_MAX,
 };

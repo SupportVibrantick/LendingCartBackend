@@ -1,21 +1,26 @@
-// src/components/auth/RequireAuth.tsx
 import React from "react";
 import { Navigate, useLocation } from "react-router-dom";
+import {
+  clearLenderSession,
+  isLenderTokenExpired,
+} from "../../lib/lenderSession";
 
 type Props = {
   children: React.ReactElement;
 };
 
 /**
- * Protects routes by checking sessionStorage for the admin token.
- * If not present, redirects to /signin and preserves attempted location.
+ * Protects routes by checking sessionStorage for a valid, non-expired lender token.
  */
 export default function RequireAuth({ children }: Props) {
   const location = useLocation();
-  const token = typeof window !== "undefined" ? sessionStorage.getItem("lender_token") : null;
+  const token =
+    typeof window !== "undefined" ? sessionStorage.getItem("lender_token") : null;
 
-  if (!token) {
-    // redirect to signin and remember where user wanted to go
+  if (!token || isLenderTokenExpired(token)) {
+    if (token) {
+      clearLenderSession();
+    }
     return <Navigate to="/signin" state={{ from: location }} replace />;
   }
 

@@ -1,4 +1,5 @@
 const jwt = require("jsonwebtoken");
+const jwtSecret = require("../../../utils/jwtSecret");
 const { adminLogs } = require("../../../services/logger/contextLogger");
 
 async function stopImpersonationRoute(fastify) {
@@ -57,8 +58,8 @@ async function stopImpersonationRoute(fastify) {
             orgId: platformAdmin.organizationId,
             roles: roleNames,
           },
-          process.env.JWT_SECRET,
-          { expiresIn: "24h" },
+          jwtSecret,
+          { expiresIn: "7d" },
         );
 
         adminLogs.info("Impersonation stopped", {

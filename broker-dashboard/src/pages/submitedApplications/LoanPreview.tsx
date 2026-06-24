@@ -34,6 +34,7 @@ import {
   getDocumentSentDisplay,
   getDocumentSourceDisplay,
   getUploadFileSentLabel,
+  matchesDocumentSentFilter,
   type DocumentSentFilter,
   type DocumentSourceFilter,
   summarizeSendFromDisplayRows,
@@ -338,20 +339,29 @@ const LoanPreview = () => {
   // const [debouncedLenderSearch, setDebouncedLenderSearch] = useState("");
   // const itemsPerPage = 9;
 
-  const displayDocuments = useMemo(
-    () =>
-      expandDocumentsForDisplay(documentsData?.documents || [], {
-        applicationLenderId:
-          documentLenderFilter ||
-          documentsData?.activeFilters?.applicationLenderId ||
-          undefined,
-      }),
-    [
-      documentsData?.documents,
-      documentsData?.activeFilters?.applicationLenderId,
-      documentLenderFilter,
-    ],
-  );
+  const displayDocuments = useMemo(() => {
+    const expanded = expandDocumentsForDisplay(documentsData?.documents || [], {
+      applicationLenderId:
+        documentLenderFilter ||
+        documentsData?.activeFilters?.applicationLenderId ||
+        undefined,
+    });
+
+    const sentFilter =
+      documentSentFilter ||
+      documentsData?.activeFilters?.sentFilter ||
+      "all";
+
+    if (sentFilter === "all") return expanded;
+
+    return expanded.filter((doc) => matchesDocumentSentFilter(doc, sentFilter));
+  }, [
+    documentsData?.documents,
+    documentsData?.activeFilters?.applicationLenderId,
+    documentsData?.activeFilters?.sentFilter,
+    documentLenderFilter,
+    documentSentFilter,
+  ]);
 
   const documentFilterLenders = documentsData?.documentFilterLenders || [];
 

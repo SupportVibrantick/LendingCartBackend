@@ -23,6 +23,41 @@ async function ensureLenderProfileFields() {
     ALTER TABLE "lender_profiles"
     ADD COLUMN IF NOT EXISTS "propertyRequirements" TEXT
   `);
+
+  await prisma.$executeRawUnsafe(`
+    ALTER TABLE "lender_profiles"
+    ADD COLUMN IF NOT EXISTS "website" TEXT
+  `);
+
+  await prisma.$executeRawUnsafe(`
+    ALTER TABLE "lender_profiles"
+    ADD COLUMN IF NOT EXISTS "nmls" TEXT
+  `);
+
+  await prisma.$executeRawUnsafe(`
+    ALTER TABLE "lender_profiles"
+    ADD COLUMN IF NOT EXISTS "address" TEXT
+  `);
+
+  await prisma.$executeRawUnsafe(`
+    ALTER TABLE "lender_profiles"
+    ADD COLUMN IF NOT EXISTS "city" TEXT
+  `);
+
+  await prisma.$executeRawUnsafe(`
+    ALTER TABLE "lender_profiles"
+    ADD COLUMN IF NOT EXISTS "state" TEXT
+  `);
+
+  await prisma.$executeRawUnsafe(`
+    ALTER TABLE "lender_profiles"
+    ADD COLUMN IF NOT EXISTS "zip" TEXT
+  `);
+
+  await prisma.$executeRawUnsafe(`
+    ALTER TABLE "lender_profiles"
+    ADD COLUMN IF NOT EXISTS "lenderType" TEXT
+  `);
 }
 
 module.exports = { ensureLenderProfileFields };

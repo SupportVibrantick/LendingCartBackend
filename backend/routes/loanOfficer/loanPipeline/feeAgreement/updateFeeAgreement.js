@@ -1,4 +1,15 @@
 const generateAgreementHtml = require("./generateAgreementHtml");
+const {
+  getBrokerWhiteLabelBranding,
+  buildBrandingSnapshot,
+} = require("../../../../services/brokerBranding");
+const {
+  buildResolvedFeeAgreementContext,
+} = require("../../../../services/refreshDraftFeeAgreement");
+const {
+  validateFeeAgreementTerms,
+  normalizeFeeAgreementTerms,
+} = require("../../../../services/feeAgreementEnrichment");
 
 module.exports = async function (fastify) {
   fastify.patch(
@@ -30,7 +41,6 @@ module.exports = async function (fastify) {
         const { id } = req.params;
         const { brokerPoints, upfrontFee, exclusivityMonths } = req.body;
 
-        // 🔐 AUTH CHECK
         if (!req.user) {
           return reply.code(401).send({
             ok: false,
@@ -48,7 +58,6 @@ module.exports = async function (fastify) {
           });
         }
 
-        // 📥 Fetch agreement
         const agreement = await prisma.feeAgreement.findUnique({
           where: { id },
         });
@@ -60,7 +69,6 @@ module.exports = async function (fastify) {
           });
         }
 
-        // ❌ Prevent edit if signed
         if (agreement.status === "SIGNED") {
           return reply.code(400).send({
             ok: false,
@@ -68,36 +76,80 @@ module.exports = async function (fastify) {
           });
         }
 
-        // 🧠 Merge updated fields with existing snapshot
+        const validationErrors = validateFeeAgreementTerms({
+          brokerPoints,
+          upfrontFee,
+          exclusivityMonths,
+        });
+
+        if (validationErrors.length > 0) {
+          return reply.code(400).send({
+            ok: false,
+            message: validationErrors.join(" "),
+          });
+        }
+
+        const normalizedTerms = normalizeFeeAgreementTerms({
+          brokerPoints,
+          upfrontFee,
+          exclusivityMonths,
+        });
+
+        const whiteLabelBranding = await getBrokerWhiteLabelBranding(
+          prisma,
+          agreement.brokerOrgId,
+        );
+        const brandingSnapshot = buildBrandingSnapshot(whiteLabelBranding);
+
+        const loanApplication = await prisma.loanApplication.findUnique({
+          where: { id: agreement.loanApplicationId },
+          include: {
+            brokerOrg: true,
+            brokerUser: { include: { brokerProfile: true } },
+            client: { include: { contacts: true } },
+          },
+        });
+
+        const { merged: resolvedMerged } = await buildResolvedFeeAgreementContext(
+          prisma,
+          agreement,
+          loanApplication,
+        );
+
         const updatedData = {
           ...agreement,
-
+          ...resolvedMerged,
+          ...brandingSnapshot,
           brokerPoints:
-            brokerPoints !== undefined
-              ? brokerPoints
+            normalizedTerms.brokerPoints !== undefined
+              ? normalizedTerms.brokerPoints
               : agreement.brokerPoints,
-
           upfrontFee:
-            upfrontFee !== undefined
-              ? upfrontFee
+            normalizedTerms.upfrontFee !== undefined
+              ? normalizedTerms.upfrontFee
               : agreement.upfrontFee,
-
           exclusivityMonths:
-            exclusivityMonths !== undefined
-              ? exclusivityMonths
+            normalizedTerms.exclusivityMonths !== undefined
+              ? normalizedTerms.exclusivityMonths
               : agreement.exclusivityMonths,
         };
 
-        // 🧾 Regenerate HTML
         const agreementHtml = generateAgreementHtml(updatedData);
 
-        // 💾 Update DB
         const updatedAgreement = await prisma.feeAgreement.update({
           where: { id },
           data: {
             brokerPoints: updatedData.brokerPoints,
             upfrontFee: updatedData.upfrontFee,
             exclusivityMonths: updatedData.exclusivityMonths,
+            brokerLogoUrl: brandingSnapshot.brokerLogoUrl,
+            brokerBrandName: brandingSnapshot.brokerBrandName,
+            clientAddress: updatedData.clientAddress,
+            subjectAddress: updatedData.subjectAddress,
+            brokerAddress: updatedData.brokerAddress,
+            brokerState: updatedData.brokerState,
+            brokerEmail: updatedData.brokerEmail,
+            brokerPhone: updatedData.brokerPhone,
             agreementHtml,
           },
         });
@@ -115,6 +167,6 @@ module.exports = async function (fastify) {
           message: "Failed to update Fee Agreement",
         });
       }
-    }
+    },
   );
 };

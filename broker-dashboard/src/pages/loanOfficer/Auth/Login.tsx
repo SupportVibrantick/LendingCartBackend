@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { ArrowRight, Eye, EyeOff, LockKeyhole, Mail } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
-import { LO_API_BASE, LO_TOKEN_KEY, LO_USER_KEY } from "../../../lib/loanOfficerApi";
+import { LO_API_BASE, LO_TOKEN_KEY, LO_USER_KEY, clearLoanOfficerSession, isLoanOfficerTokenExpired, verifyLoanOfficerSession } from "../../../lib/loanOfficerApi";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -33,6 +33,8 @@ export default function Login() {
 
     try {
       setLoading(true);
+      clearLoanOfficerSession();
+
       const res = await fetch(`${LO_API_BASE}/loanofficer/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -58,6 +60,13 @@ export default function Login() {
       if (json.permissions)
         sessionStorage.setItem("permissions", JSON.stringify(json.permissions));
 
+      const verified = await verifyLoanOfficerSession(json.token);
+      if (!verified) {
+        clearLoanOfficerSession();
+        toast.error("Login succeeded but session could not be verified");
+        return;
+      }
+
       toast.success("Login successful");
       navigate("/loan-officer/dashboard");
     } catch (err: unknown) {
@@ -69,8 +78,11 @@ export default function Login() {
   };
 
   useEffect(() => {
-    if (sessionStorage.getItem(LO_TOKEN_KEY)) {
+    const token = sessionStorage.getItem(LO_TOKEN_KEY);
+    if (token && !isLoanOfficerTokenExpired(token)) {
       navigate("/loan-officer/dashboard");
+    } else if (token) {
+      clearLoanOfficerSession();
     }
   }, [navigate]);
 

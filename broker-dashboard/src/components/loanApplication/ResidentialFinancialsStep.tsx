@@ -2,13 +2,16 @@ import { Plus, X } from "lucide-react";
 import {
   ANNUAL_FINANCIAL_CALCULATED_ROWS,
   ANNUAL_FINANCIAL_EDITABLE_ROWS,
-  FINANCIAL_YEAR_COLUMNS,
+  addFinancialYearColumn,
   calcCashFlowAfterDebt,
   calcEffectiveGrossIncome,
   calcNoi,
   formatCurrencyInput,
   getDisplayCalculatedValue,
+  getFinancialYearColumnKeys,
   getFinancialYearColumns,
+  MIN_FINANCIAL_YEAR_COLUMN_COUNT,
+  removeLastFinancialYearColumn,
   type FinancialYearColumn,
   type ResidentialFinancials,
 } from "../../lib/residentialFinancials";
@@ -83,7 +86,13 @@ export default function ResidentialFinancialsStep({
   financials,
   onChange,
 }: ResidentialFinancialsStepProps) {
-  const yearColumns = getFinancialYearColumns();
+  const yearColumns = getFinancialYearColumns(
+    undefined,
+    financials.financialYearColumnCount,
+  );
+  const columnKeys = getFinancialYearColumnKeys(
+    financials.financialYearColumnCount,
+  );
 
   const patch = (partial: Partial<ResidentialFinancials>) =>
     onChange({ ...financials, ...partial });
@@ -182,12 +191,27 @@ export default function ResidentialFinancialsStep({
                 <th className="px-4 py-3 text-left font-semibold text-slate-600 dark:text-slate-300">
                   Metric
                 </th>
-                {yearColumns.map(({ column, label }) => (
+                {yearColumns.map(({ column, label }, index) => (
                   <th
                     key={column}
                     className="min-w-[120px] px-3 py-3 text-left font-semibold text-slate-600 dark:text-slate-300"
                   >
-                    {label}
+                    <div className="flex items-center gap-1">
+                      <span>{label}</span>
+                      {index >= MIN_FINANCIAL_YEAR_COLUMN_COUNT &&
+                        index === yearColumns.length - 1 && (
+                          <button
+                            type="button"
+                            title={`Remove ${label}`}
+                            onClick={() =>
+                              onChange(removeLastFinancialYearColumn(financials))
+                            }
+                            className="rounded p-0.5 text-slate-400 hover:bg-slate-200 hover:text-red-500 dark:hover:bg-slate-700"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                    </div>
                   </th>
                 ))}
               </tr>
@@ -201,10 +225,10 @@ export default function ResidentialFinancialsStep({
                   <td className="px-4 py-2 text-slate-700 dark:text-slate-300">
                     {label}
                   </td>
-                  {FINANCIAL_YEAR_COLUMNS.map((column) => (
+                  {columnKeys.map((column) => (
                     <td key={column} className="px-3 py-2">
                       <CurrencyInput
-                        value={financials[key][column]}
+                        value={financials[key][column] ?? ""}
                         onChange={(value) => patchYearTriple(key, column, value)}
                       />
                     </td>
@@ -221,7 +245,7 @@ export default function ResidentialFinancialsStep({
                     <td className="px-4 py-2 italic text-slate-600 dark:text-slate-400">
                       {label}
                     </td>
-                    {FINANCIAL_YEAR_COLUMNS.map((column) => {
+                    {columnKeys.map((column) => {
                       const calculated =
                         key === "effectiveGrossIncome"
                           ? calcEffectiveGrossIncome(financials, column)
@@ -253,6 +277,15 @@ export default function ResidentialFinancialsStep({
             </tbody>
           </table>
         </div>
+
+        <button
+          type="button"
+          onClick={() => onChange(addFinancialYearColumn(financials))}
+          className="mt-3 flex items-center gap-1 text-sm font-medium text-[#2C92D5] hover:underline"
+        >
+          <Plus className="h-4 w-4" />
+          Add Year
+        </button>
 
         <p className="mt-2 text-xs italic text-slate-500">
           Shaded rows are auto-calculated but can be overridden.

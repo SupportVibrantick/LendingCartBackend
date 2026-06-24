@@ -17,7 +17,7 @@ import {
   X,
   RefreshCw,
   Building2,
-  MessageCircle,
+  // MessageCircle,
   SearchX,
   Clock3,
 } from "lucide-react";
@@ -791,16 +791,16 @@ useEffect(() => {
                         onClick={(event) => event.stopPropagation()}
                       >
                         <div className="relative flex items-center justify-end gap-1">
-                          <button
+                          {/* <button
                             type="button"
                             title="View application"
                             onClick={() => openApplicationPreview(row)}
                             className="inline-flex shrink-0 items-center justify-center rounded-lg border border-slate-200 p-1.5 text-[#18B6B4] transition hover:bg-[#18B6B4]/10 dark:border-slate-700"
                           >
                             <Eye size={15} />
-                          </button>
+                          </button> */}
 
-                          <button
+                          {/* <button
                             type="button"
                             title="Open chat"
                             onClick={() =>
@@ -814,7 +814,7 @@ useEffect(() => {
                             className="inline-flex shrink-0 items-center justify-center rounded-lg border border-slate-200 p-1.5 text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
                           >
                             <MessageCircle size={15} />
-                          </button>
+                          </button> */}
 
                           <button
                             type="button"
@@ -1577,7 +1577,7 @@ transition rounded-lg mx-1"
                                             Required
                                           </span>
                                         )} */}
-                                      </div>
+                                      </div> 
                                     </div>
 
                                     {/* CHECKBOX */}

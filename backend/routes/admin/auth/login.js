@@ -2,6 +2,7 @@
 const { loginSchema } = require("../../../schemas/admin/login/login.schema.js");
 const { getUserRolesFromFGA } = require("../../../services/fgaService.js");
 const jwt = require("jsonwebtoken");
+const jwtSecret = require("../../../utils/jwtSecret");
 // const prisma = require("../config/prisma.js");
 const { comparePassword } = require("../../../utils/password.js");
 
@@ -97,8 +98,8 @@ module.exports = async function adminLoginRoute(fastify, opts) {
             roles: dbRoles,
             permissions,
           },
-          process.env.JWT_SECRET,
-          { expiresIn: "24h" }
+          jwtSecret,
+          { expiresIn: "7d" }
         );
 
         const customPermCount = await prisma.userPermission.count({

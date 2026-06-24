@@ -1,4 +1,8 @@
-// broker/lenderDiscovery/findEligible.js
+// loanOfficer/lenderDiscovery/findEligible.js
+
+const {
+  evaluateLenderProductEligibility,
+} = require("../../../utils/evaluateLenderEligibility");
 
 module.exports = async function findEligibleLenders(fastify) {
   fastify.get(
@@ -252,97 +256,30 @@ module.exports = async function findEligibleLenders(fastify) {
            6️⃣ ELIGIBILITY EVALUATION
         ===================================================== */
 
+        const applicant = {
+          loanAmount,
+          termMonths,
+          creditScore,
+          ltv,
+          ltc,
+          arv,
+          dscr,
+          propertyType,
+          propertyState,
+          businessIndustry,
+          yearsInBusiness,
+        };
+
         const evaluatedLenders = lenderProducts.map((lp) => {
-          const reasons = [];
-
           const isAlreadySent = sentProductIds.has(lp.id);
-
-          const minLoan = lp.minLoanAmount ? Number(lp.minLoanAmount) : null;
-
-          const maxLoan = lp.maxLoanAmount ? Number(lp.maxLoanAmount) : null;
-
-          if (loanAmount !== null) {
-            if (minLoan && loanAmount < minLoan)
-              reasons.push(`Loan below minimum (${minLoan})`);
-
-            if (maxLoan && loanAmount > maxLoan)
-              reasons.push(`Loan exceeds maximum (${maxLoan})`);
-          }
-
-          if (termMonths !== null) {
-            if (lp.minTermMonths && termMonths < lp.minTermMonths)
-              reasons.push(`Term below minimum (${lp.minTermMonths} months)`);
-
-            if (lp.maxTermMonths && termMonths > lp.maxTermMonths)
-              reasons.push(`Term exceeds maximum (${lp.maxTermMonths} months)`);
-          }
-
-          if (creditScore !== null && lp.minCreditScore) {
-            if (creditScore < lp.minCreditScore)
-              reasons.push(`Credit score below minimum (${lp.minCreditScore})`);
-          }
-
-          if (
-            ltv !== null &&
-            lp.maxLtvPercent &&
-            ltv > Number(lp.maxLtvPercent)
-          ) {
-            reasons.push(`LTV exceeds maximum (${lp.maxLtvPercent}%)`);
-          }
-
-          if (
-            ltc !== null &&
-            lp.maxLtcPercent &&
-            ltc > Number(lp.maxLtcPercent)
-          ) {
-            reasons.push(`LTC exceeds maximum (${lp.maxLtcPercent}%)`);
-          }
-
-          if (
-            arv !== null &&
-            lp.maxArvPercent &&
-            arv > Number(lp.maxArvPercent)
-          ) {
-            reasons.push(`ARV exceeds maximum (${lp.maxArvPercent}%)`);
-          }
-
-          if (propertyState && lp.statesSupported) {
-            const supportedStates = lp.statesSupported
-              .split(",")
-              .map((s) => s.trim().toLowerCase());
-
-            if (!supportedStates.includes(propertyState.toLowerCase())) {
-              reasons.push("Property state not supported");
-            }
-          }
-
-          if (
-            propertyType &&
-            Array.isArray(lp.propertyTypes) &&
-            lp.propertyTypes.length > 0
-          ) {
-            const lenderPropertyTypes = lp.propertyTypes.map((p) =>
-              String(p?.value ?? p).toLowerCase(),
-            );
-
-            if (
-              !lenderPropertyTypes.includes(String(propertyType).toLowerCase())
-            ) {
-              reasons.push("Property type not supported");
-            }
-          }
-
-          const minExp = Number(lp.minExperience);
-
-          if (
-            yearsInBusiness !== null &&
-            !isNaN(minExp) &&
-            yearsInBusiness < minExp
-          ) {
-            reasons.push(`Minimum experience required (${minExp} years)`);
-          }
-
           const lender = lp.lender;
+          const lenderProfile = lender.lenderProfile ?? null;
+
+          const { reasons, minLoan, maxLoan } = evaluateLenderProductEligibility(
+            lp,
+            applicant,
+            lenderProfile,
+          );
 
           return {
             lenderOrgId: lender.id,

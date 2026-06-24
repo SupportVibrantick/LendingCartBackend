@@ -3,6 +3,7 @@ const { loadTemplate } = require("../../../utils/loadTemplate");
 const { buildClientLinkEmailData } = require("../../../utils/emailTemplateData");
 const {
   formatSignDocumentRequirement,
+  REQUEST_APPLICATION_LENDER_INCLUDE,
 } = require("../../../utils/formatSignDocument");
 const {
   notifyClient,
@@ -59,7 +60,7 @@ module.exports = async function brokerSignDocuments(fastify) {
                 orderBy: { uploadedAt: "desc" },
               },
               requestApplicationLender: {
-                include: { lender: { select: { name: true } } },
+                include: REQUEST_APPLICATION_LENDER_INCLUDE,
               },
             },
             orderBy: { createdAt: "desc" },
@@ -124,7 +125,7 @@ module.exports = async function brokerSignDocuments(fastify) {
               documentType: true,
               uploads: { where: { isSignedOutput: true } },
               requestApplicationLender: {
-                include: { lender: { select: { name: true } } },
+                include: REQUEST_APPLICATION_LENDER_INCLUDE,
               },
             },
           });
@@ -164,7 +165,7 @@ module.exports = async function brokerSignDocuments(fastify) {
             documentType: true,
             uploads: { where: { isSignedOutput: true } },
             requestApplicationLender: {
-              include: { lender: { select: { name: true } } },
+              include: REQUEST_APPLICATION_LENDER_INCLUDE,
             },
           },
         });
@@ -346,7 +347,7 @@ module.exports = async function brokerSignDocuments(fastify) {
             documentType: true,
             uploads: { where: { isSignedOutput: true } },
             requestApplicationLender: {
-              include: { lender: { select: { name: true } } },
+              include: REQUEST_APPLICATION_LENDER_INCLUDE,
             },
           },
         });

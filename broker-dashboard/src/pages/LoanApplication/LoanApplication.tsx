@@ -10,6 +10,7 @@ import ResidentialBorrowerPanel from "../../components/loanApplication/Residenti
 import ResidentialFinancialsStep from "../../components/loanApplication/ResidentialFinancialsStep";
 import ResidentialDocumentsStep from "../../components/loanApplication/ResidentialDocumentsStep";
 import ResidentialReviewStep from "../../components/loanApplication/ResidentialReviewStep";
+import LoanApplicationStepper from "../../components/loanApplication/LoanApplicationStepper";
 import Sba7aEntityFields from "../../components/loanApplication/Sba7aEntityFields";
 import AblEntityFields from "../../components/loanApplication/AblEntityFields";
 import {
@@ -763,6 +764,22 @@ const RESIDENTIAL_MARKET_VALUE_PURPOSES = new Set([
 const isResidential14Category = (category: LoanCategory) =>
   category === "RESIDENTIAL_1_4";
 
+/** CRE & Multifamily products that share the same field rules as 1-4 residential. */
+const CRE_RESIDENTIAL_LIKE_LOAN_TYPES = new Set([
+  "BRIDGE_LOAN",
+  "FIX_AND_FLIP_LOAN_1_TO_4_UNITS",
+  "DSCR_LOAN_1_TO_4_UNITS",
+  "CONSTRUCTION_LOAN",
+  "RENTAL_PORTFOLIO",
+]);
+
+const isCreResidentialLikeCategoryProduct = (
+  category: LoanCategory,
+  product: string,
+) =>
+  category === "CRE_MULTIFAMILY" &&
+  CRE_RESIDENTIAL_LIKE_LOAN_TYPES.has(product);
+
 const isBridgeProduct = (product: string) => BRIDGE_LOAN_TYPES.has(product);
 
 const CRE_PERMANENT_LOAN_TYPE = "CRE_PERMANENT_LOAN";
@@ -795,6 +812,10 @@ const isCreBase44Product = (product: string) =>
 const showCreBase44EntityEbitda = (product: string) =>
   CRE_BASE44_EBITDA_LOAN_TYPES.has(product);
 
+const isConstructionLoanProduct = (product: string) =>
+  product === "CONSTRUCTION_LOAN_1_TO_4_UNITS" ||
+  product === "CONSTRUCTION_LOAN";
+
 const showResidentialPropertyPurchasePrice = (
   product: string,
   purpose: string,
@@ -802,7 +823,7 @@ const showResidentialPropertyPurchasePrice = (
   RESIDENTIAL_PURCHASE_PRICE_PURPOSES.has(purpose) ||
   isBridgePurchaseAcquisition(product, purpose) ||
   isFixAndFlipPurchaseRehab(product, purpose) ||
-  product === "CONSTRUCTION_LOAN_1_TO_4_UNITS" ||
+  isConstructionLoanProduct(product) ||
   isMezzanineLoanType(product) ||
   isSba7aAcquisitionProduct(product) ||
   showAblBase44PurchasePrice(product, purpose) ||
@@ -810,7 +831,7 @@ const showResidentialPropertyPurchasePrice = (
   (isCreBase44Product(product) && purpose === "Purchase/Acquisition");
 
 const showResidentialPropertyConstructionCost = (product: string) =>
-  product === "CONSTRUCTION_LOAN_1_TO_4_UNITS";
+  isConstructionLoanProduct(product);
 
 const showResidentialPropertyMarketValue = (product: string, purpose: string) =>
   RESIDENTIAL_MARKET_VALUE_PURPOSES.has(purpose) ||
@@ -830,7 +851,7 @@ const showResidentialPropertyMarketValue = (product: string, purpose: string) =>
 
 const showResidentialPropertyArv = (product: string) =>
   FIX_AND_FLIP_LOAN_TYPES.has(product) ||
-  product === "CONSTRUCTION_LOAN_1_TO_4_UNITS";
+  isConstructionLoanProduct(product);
 
 const showResidentialPropertyRehabCost = (product: string) =>
   FIX_AND_FLIP_LOAN_TYPES.has(product);
@@ -845,7 +866,7 @@ const isRentalUnderwritingProduct = (product: string) =>
   RENTAL_UNDERWRITING_LOAN_TYPES.has(product);
 
 const isConstruction14Product = (product: string) =>
-  product === "CONSTRUCTION_LOAN_1_TO_4_UNITS";
+  isConstructionLoanProduct(product);
 
 export type LoanApplicationMode = "create" | "update";
 
@@ -898,6 +919,10 @@ const LoanApplication = ({
   const navigate = useNavigate();
 
   const isResidentialFlow = isResidential14Category(selectedCategory);
+  const isCreResidentialLikeFlow = isCreResidentialLikeCategoryProduct(
+    selectedCategory,
+    selectedProduct,
+  );
   const isCreBase44Flow =
     selectedCategory === "CRE_MULTIFAMILY" &&
     isCreBase44Product(selectedProduct);
@@ -907,27 +932,52 @@ const LoanApplication = ({
     selectedCategory === "ABL" && isAblBase44Product(selectedProduct);
   const isBase44CollateralStep =
     isResidential14Category(selectedCategory) ||
+    isCreResidentialLikeFlow ||
     isCreBase44Flow ||
     isSba7aBase44Flow ||
     isAblBase44Flow;
   const isBase44Flow =
     isResidentialFlow ||
+    isCreResidentialLikeFlow ||
     isCreBase44Flow ||
     isSba7aBase44Flow ||
     isAblBase44Flow;
-  const usesBase44Financials = isBase44Flow;
 
-  const baseSteps = [
-    "Loan Request",
-    "Entity Info",
-    "Property Info",
-    "Borrower Info",
-    isBase44Flow ? "Financials" : "Loan Term & Income",
-    ...(isBase44Flow ? ["Documents"] : []),
-    ...(isBase44Flow ? ["Review & Submit"] : []),
-  ];
+  /** Show the standard 7-step stepper until category + loan type are both chosen. */
+  const useStandardSevenStepFlow =
+    isBase44Flow || !selectedCategory || !selectedProduct;
 
-  const reviewStepIndex = isBase44Flow ? baseSteps.length - 1 : -1;
+  const showDefaultEntityInfoFields =
+    !selectedCategory || !selectedProduct;
+
+  const showDefaultPropertyInfoFields = showDefaultEntityInfoFields;
+
+  const showDefaultBorrowerInfoFields = showDefaultEntityInfoFields;
+
+  const useResidentialBorrowerPanel =
+    isBase44CollateralStep || showDefaultBorrowerInfoFields;
+
+  const usesBase44Financials = useStandardSevenStepFlow;
+
+  const baseSteps = useStandardSevenStepFlow
+    ? [
+        "Loan Request",
+        "Entity Info",
+        "Property Info",
+        "Borrower Info",
+        "Financials",
+        "Documents",
+        "Review & Submit",
+      ]
+    : [
+        "Loan Request",
+        "Entity Info",
+        "Property Info",
+        "Borrower Info",
+        "Loan Term & Income",
+      ];
+
+  const reviewStepIndex = useStandardSevenStepFlow ? baseSteps.length - 1 : -1;
 
   const formatUSPhone = (value?: string | null) => {
     // Remove non-digits
@@ -1003,7 +1053,7 @@ const LoanApplication = ({
       .join(" ");
   };
 
-  const allSteps = isBase44Flow
+  const allSteps = useStandardSevenStepFlow
     ? baseSteps
     : [
         ...baseSteps,
@@ -1275,8 +1325,12 @@ const LoanApplication = ({
     return "";
   };
 
-  const validateCurrentStep = () => {
+  const collectStepValidationErrors = (stepIndex: number) => {
     const newErrors: Record<string, string> = {};
+    const purpose = formData.loanRequest.purpose;
+    const propertyPurchaseDateVisible =
+      !!selectedProduct &&
+      !shouldHidePropertyPurchaseDate(selectedProduct, purpose);
 
     const checkObject = (obj: Record<string, any>, prefix: string) => {
       Object.entries(obj).forEach(([key, value]) => {
@@ -1303,8 +1357,7 @@ const LoanApplication = ({
       });
     };
 
-    /* ================= STEP 0 ================= */
-    if (currentStep === 0) {
+    if (stepIndex === 0) {
       if (!selectedCategory) {
         newErrors["category"] = "Category is required";
       }
@@ -1325,24 +1378,40 @@ const LoanApplication = ({
         }
 
         if (
-          isLoanRequestPurchaseDateField(
-            selectedProduct,
-            formData.loanRequest.purpose,
-          ) &&
+          isLoanRequestPurchaseDateField(selectedProduct, purpose) &&
           !formData.loanRequest.purchaseDate?.trim()
         ) {
-          newErrors["loanRequest.purchaseDate"] = isLoanRequestOriginalPurchaseDate(
-            selectedProduct,
-            formData.loanRequest.purpose,
-          )
-            ? "Original purchase date is required"
-            : "Purchase date is required";
+          newErrors["loanRequest.purchaseDate"] =
+            isLoanRequestOriginalPurchaseDate(selectedProduct, purpose)
+              ? "Original purchase date is required"
+              : "Purchase date is required";
         }
       }
     }
 
-    /* ================= STEP 1 — Entity Info ================= */
-    if (currentStep === 1) {
+    if (stepIndex === 1) {
+      if (showDefaultEntityInfoFields) {
+        if (!formData.entity.legalName?.trim()) {
+          newErrors["entity.legalName"] =
+            "Legal business / entity name is required";
+        }
+        if (!formData.entity.entityType?.trim()) {
+          newErrors["entity.entityType"] = "Entity type is required";
+        }
+        if (!formData.entity.formationDate?.trim()) {
+          newErrors["entity.formationDate"] = "Formation date is required";
+        }
+        if (!formData.entity.yearsInBusiness?.trim()) {
+          newErrors["entity.yearsInBusiness"] =
+            "Years in business is required";
+        } else {
+          const years = Number(formData.entity.yearsInBusiness);
+          if (years < 0) {
+            newErrors["entity.yearsInBusiness"] =
+              "Years in business cannot be negative";
+          }
+        }
+      } else {
       checkObject(formData.entity, "entity");
 
       const years = Number(formData.entity.yearsInBusiness);
@@ -1369,19 +1438,38 @@ const LoanApplication = ({
         newErrors["entity.equipmentValue"] =
           "Equipment value must be greater than 0";
       }
+      }
     }
 
-    /* ================= STEP 2 — Property Info ================= */
-    if (currentStep === 2) {
-      if (isBase44CollateralStep) {
-        const purpose = formData.loanRequest.purpose;
-
+    if (stepIndex === 2) {
+      if (showDefaultPropertyInfoFields) {
+        if (!formData.loanRequest.businessAddress?.trim()) {
+          newErrors["loanRequest.businessAddress"] =
+            "Property address is required";
+        }
+        if (!formData.loanRequest.city?.trim()) {
+          newErrors["loanRequest.city"] = "City is required";
+        }
+        if (!formData.loanRequest.state?.trim()) {
+          newErrors["loanRequest.state"] = "State is required";
+        }
+        if (!formData.loanRequest.zip?.trim()) {
+          newErrors["loanRequest.zip"] = "ZIP is required";
+        }
+      } else if (isBase44CollateralStep) {
         if (!formData.loanRequest.propertyType?.trim()) {
-          newErrors["loanRequest.propertyType"] = isBase44BusinessCollateralProduct(
-            selectedProduct,
-          )
-            ? "Business / industry type is required"
-            : "Property type is required";
+          newErrors["loanRequest.propertyType"] =
+            isBase44BusinessCollateralProduct(selectedProduct)
+              ? "Business / industry type is required"
+              : "Property type is required";
+        }
+
+        if (
+          isCreResidentialLikeFlow &&
+          !formData.loanRequest.subPropertyType?.trim()
+        ) {
+          newErrors["loanRequest.subPropertyType"] =
+            "Sub property type is required";
         }
 
         if (!formData.loanRequest.businessAddress?.trim()) {
@@ -1442,64 +1530,60 @@ const LoanApplication = ({
         }
 
         if (
-          showPropertyPurchaseDate &&
+          propertyPurchaseDateVisible &&
           !formData.loanRequest.purchaseDate?.trim()
         ) {
           newErrors["loanRequest.purchaseDate"] = "Purchase date is required";
         }
       } else {
-      Object.entries(formData.loanRequest).forEach(([key, value]) => {
-        if (OPTIONAL_LOAN_REQUEST_KEYS.has(key)) return;
-        if (
-          shouldHidePropertyPurchaseDate(
-            selectedProduct,
-            formData.loanRequest.purpose,
-          ) &&
-          key === "purchaseDate"
-        ) {
-          return;
+        Object.entries(formData.loanRequest).forEach(([key, value]) => {
+          if (OPTIONAL_LOAN_REQUEST_KEYS.has(key)) return;
+          if (
+            shouldHidePropertyPurchaseDate(selectedProduct, purpose) &&
+            key === "purchaseDate"
+          ) {
+            return;
+          }
+
+          const error = validateFieldValue(key, value, true);
+          if (error) {
+            newErrors[`loanRequest.${key}`] = error;
+          }
+        });
+
+        const assets = toNumber(formData.loanRequest.totalAssets);
+        const liabilities = toNumber(formData.loanRequest.totalLiabilities);
+
+        if (assets <= 0) {
+          newErrors["loanRequest.totalAssets"] =
+            "Total Assets must be greater than 0";
         }
 
-        const error = validateFieldValue(key, value, true);
-        if (error) {
-          newErrors[`loanRequest.${key}`] = error;
+        if (liabilities < 0) {
+          newErrors["loanRequest.totalLiabilities"] =
+            "Liabilities cannot be negative";
         }
-      });
 
-      const assets = toNumber(formData.loanRequest.totalAssets);
-      const liabilities = toNumber(formData.loanRequest.totalLiabilities);
+        if (!formData.loanRequest.businessAddress) {
+          newErrors["loanRequest.businessAddress"] = "Address is required";
+        }
 
-      if (assets <= 0) {
-        newErrors["loanRequest.totalAssets"] =
-          "Total Assets must be greater than 0";
-      }
+        if (!formData.loanRequest.city) {
+          newErrors["loanRequest.city"] = "City is required";
+        }
 
-      if (liabilities < 0) {
-        newErrors["loanRequest.totalLiabilities"] =
-          "Liabilities cannot be negative";
-      }
+        if (!formData.loanRequest.state) {
+          newErrors["loanRequest.state"] = "State is required";
+        }
 
-      if (!formData.loanRequest.businessAddress) {
-        newErrors["loanRequest.businessAddress"] = "Address is required";
-      }
-
-      if (!formData.loanRequest.city) {
-        newErrors["loanRequest.city"] = "City is required";
-      }
-
-      if (!formData.loanRequest.state) {
-        newErrors["loanRequest.state"] = "State is required";
-      }
-
-      if (!formData.loanRequest.zip) {
-        newErrors["loanRequest.zip"] = "ZIP is required";
-      }
+        if (!formData.loanRequest.zip) {
+          newErrors["loanRequest.zip"] = "ZIP is required";
+        }
       }
     }
 
-    /* ================= STEP 3 — Borrower Info ================= */
-    if (currentStep === 3) {
-      if (isBase44CollateralStep) {
+    if (stepIndex === 3) {
+      if (useResidentialBorrowerPanel) {
         if (!formData.borrower.firstName?.trim()) {
           newErrors["borrower.firstName"] = "First name is required";
         }
@@ -1526,7 +1610,11 @@ const LoanApplication = ({
         }
 
         if (formData.borrower.ssn?.trim()) {
-          const ssnError = validateFieldValue("ssn", formData.borrower.ssn, false);
+          const ssnError = validateFieldValue(
+            "ssn",
+            formData.borrower.ssn,
+            false,
+          );
           if (ssnError) newErrors["borrower.ssn"] = ssnError;
         }
 
@@ -1541,52 +1629,48 @@ const LoanApplication = ({
           }
         });
       } else {
-      checkObject(formData.borrower, "borrower");
+        checkObject(formData.borrower, "borrower");
 
-      formData.coBorrowers.forEach((b, index) => {
-        // Personal Details
-        checkObject(
-          {
-            name: b.name,
-            entityName: b.entityName,
-            phone: b.phone,
-            email: b.email,
-            employer: b.employer,
-            dob: b.dob,
-            ssn: b.ssn,
-            creditScore: b.creditScore,
-            address: b.address,
-            city: b.city,
-            state: b.state,
-          },
-          `coBorrowers.${index}`,
-        );
+        formData.coBorrowers.forEach((b, index) => {
+          checkObject(
+            {
+              name: b.name,
+              entityName: b.entityName,
+              phone: b.phone,
+              email: b.email,
+              employer: b.employer,
+              dob: b.dob,
+              ssn: b.ssn,
+              creditScore: b.creditScore,
+              address: b.address,
+              city: b.city,
+              state: b.state,
+            },
+            `coBorrowers.${index}`,
+          );
 
-        // Financial Details
-        const financialFields = [
-          "currentMarketValue",
-          "purchasePrice",
-          "interestRate",
-          "noi",
-          "totalAssets",
-          "totalLiabilities",
-        ];
+          const financialFields = [
+            "currentMarketValue",
+            "purchasePrice",
+            "interestRate",
+            "noi",
+            "totalAssets",
+            "totalLiabilities",
+          ];
 
-        financialFields.forEach((field) => {
-          const value = (b as any)[field];
-          const error = validateFieldValue(field, value, true);
+          financialFields.forEach((field) => {
+            const value = (b as any)[field];
+            const error = validateFieldValue(field, value, true);
 
-          if (error) {
-            newErrors[`coBorrowers.${index}.${field}`] = error;
-          }
+            if (error) {
+              newErrors[`coBorrowers.${index}.${field}`] = error;
+            }
+          });
         });
-      });
       }
     }
 
-    /* ================= STEP 4 — Financials / Loan Term ================= */
-    if (currentStep === 4) {
-      if (!usesBase44Financials) {
+    if (stepIndex === 4 && !usesBase44Financials) {
       checkObject(formData.loanTermIncome, "loanTermIncome");
 
       const loanTerm = Number(formData.loanTermIncome.loanTerm);
@@ -1599,49 +1683,63 @@ const LoanApplication = ({
       if (noi && noi < 0) {
         newErrors["loanTermIncome.noiActual"] = "NOI cannot be negative";
       }
-      }
     }
 
-    /* ================= STEP 5 — Documents (residential) ================= */
-    if (currentStep === 5 && isBase44Flow) {
-      // Documents are optional at this step.
-    }
+    return newErrors;
+  };
 
-    /* ================= DYNAMIC STEP ================= */
-    if (activeSectionIndex !== null && dynamicSections[activeSectionIndex]) {
-      const visibleFields = dynamicSections[activeSectionIndex]?.fields.filter(
-        (field: any) => {
-          const normalized = (field.fieldKey || field.label || "")
-            .toLowerCase()
-            .replace(/\s+/g, "");
+  const collectDynamicSectionErrors = (sectionIndex: number) => {
+    const newErrors: Record<string, string> = {};
+    const section = dynamicSections[sectionIndex];
+    if (!section) return newErrors;
 
-          return !STATIC_FIELD_KEYS.map((k) =>
-            k.toLowerCase().replace(/\s+/g, ""),
-          ).includes(normalized);
-        },
+    const visibleFields = section.fields.filter((field: any) => {
+      const normalized = (field.fieldKey || field.label || "")
+        .toLowerCase()
+        .replace(/\s+/g, "");
+
+      return !STATIC_FIELD_KEYS.map((k) =>
+        k.toLowerCase().replace(/\s+/g, ""),
+      ).includes(normalized);
+    });
+
+    visibleFields.forEach((field: any) => {
+      const value = dynamicFormData[field.fieldId];
+
+      const error = validateFieldValue(
+        field.label || field.fieldKey,
+        value,
+        field.required,
       );
 
-      visibleFields.forEach((field: any) => {
-        const value = dynamicFormData[field.fieldId];
+      if (error) {
+        newErrors[`dynamic.${field.fieldId}`] = error;
+      }
+    });
 
-        const error = validateFieldValue(
-          field.label || field.fieldKey,
-          value,
-          field.required,
-        );
+    return newErrors;
+  };
 
-        if (error) {
-          newErrors[`dynamic.${field.fieldId}`] = error;
-        }
-      });
+  const validateAllStepsBeforeSubmit = () => {
+    let newErrors: Record<string, string> = {};
+
+    for (let i = 0; i < baseSteps.length; i++) {
+      newErrors = { ...newErrors, ...collectStepValidationErrors(i) };
     }
+
+    dynamicSections.forEach((_, sectionIndex) => {
+      newErrors = {
+        ...newErrors,
+        ...collectDynamicSectionErrors(sectionIndex),
+      };
+    });
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const getReviewValidationIssues = (): ReviewValidationIssue[] => {
-    if (!isBase44Flow) return [];
+    if (!useStandardSevenStepFlow) return [];
 
     const issues: ReviewValidationIssue[] = [];
     const add = (label: string, stepIndex: number, missing: boolean) => {
@@ -1684,6 +1782,13 @@ const LoanApplication = ({
     add("Years in Business", 1, !formData.entity.yearsInBusiness?.trim());
 
     const purpose = formData.loanRequest.purpose;
+
+    if (showDefaultPropertyInfoFields) {
+      add("Property Address", 2, !formData.loanRequest.businessAddress?.trim());
+      add("City", 2, !formData.loanRequest.city?.trim());
+      add("State", 2, !formData.loanRequest.state?.trim());
+      add("ZIP", 2, !formData.loanRequest.zip?.trim());
+    } else {
     add(
       isBase44BusinessCollateralProduct(selectedProduct)
         ? "Business / Industry Type"
@@ -1701,6 +1806,21 @@ const LoanApplication = ({
     add("City", 2, !formData.loanRequest.city?.trim());
     add("State", 2, !formData.loanRequest.state?.trim());
     add("ZIP", 2, !formData.loanRequest.zip?.trim());
+
+    if (
+      isCreResidentialLikeFlow &&
+      !formData.loanRequest.subPropertyType?.trim()
+    ) {
+      add("Sub Property Type", 2, true);
+    }
+
+    if (
+      selectedProduct &&
+      !shouldHidePropertyPurchaseDate(selectedProduct, purpose) &&
+      !formData.loanRequest.purchaseDate?.trim()
+    ) {
+      add("Purchase Date", 2, true);
+    }
 
     if (
       showResidentialPropertyPurchasePrice(selectedProduct, purpose) &&
@@ -1736,12 +1856,16 @@ const LoanApplication = ({
     ) {
       add("After Repair Value (ARV)", 2, true);
     }
+    }
 
     add("Borrower First Name", 3, !formData.borrower.firstName?.trim());
     add("Borrower Last Name", 3, !formData.borrower.lastName?.trim());
+
+    if (!showDefaultBorrowerInfoFields) {
     add("Borrower Email", 3, !formData.borrower.email?.trim());
     add("Borrower Phone", 3, !formData.borrower.phone?.trim());
     add("Borrower Credit Score", 3, !formData.borrower.creditScore?.trim());
+    }
 
     formData.coBorrowers.forEach((borrower, index) => {
       add(
@@ -1774,6 +1898,38 @@ const LoanApplication = ({
       if (phoneError) add("Borrower Phone", 3, true);
     }
 
+    if (formData.borrower.creditScore?.trim()) {
+      const creditError = validateFieldValue(
+        "creditScore",
+        formData.borrower.creditScore,
+        false,
+      );
+      if (creditError) add("Borrower Credit Score", 3, true);
+    }
+
+    if (
+      !showDefaultEntityInfoFields &&
+      isSba7aBase44Flow &&
+      formData.entity.inventoryIncluded &&
+      toNumber(formData.entity.inventoryValue) <= 0
+    ) {
+      add("Inventory Value", 1, true);
+    }
+
+    if (
+      !showDefaultEntityInfoFields &&
+      isSba7aBase44Flow &&
+      formData.entity.equipmentIncluded &&
+      toNumber(formData.entity.equipmentValue) <= 0
+    ) {
+      add("Equipment Value", 1, true);
+    }
+
+    const yearsInBusiness = Number(formData.entity.yearsInBusiness);
+    if (formData.entity.yearsInBusiness?.trim() && yearsInBusiness < 0) {
+      add("Years in Business", 1, true);
+    }
+
     return issues;
   };
 
@@ -1804,7 +1960,7 @@ const LoanApplication = ({
 
   const handleSubmitApplication = async () => {
     try {
-      if (isBase44Flow && getReviewValidationIssues().length > 0) {
+      if (useStandardSevenStepFlow && getReviewValidationIssues().length > 0) {
         toast.error("Please complete all required fields before submitting");
         return;
       }
@@ -2297,7 +2453,7 @@ const LoanApplication = ({
   const ltc =
     isFixAndFlipProduct(selectedProduct) && totalFlipCost > 0
       ? ((loanAmount / totalFlipCost) * 100).toFixed(2)
-      : isConstruction14Product(selectedProduct) && totalConstructionCost > 0
+      : isConstructionLoanProduct(selectedProduct) && totalConstructionCost > 0
         ? ((loanAmount / totalConstructionCost) * 100).toFixed(2)
         : purchasePrice > 0
           ? ((loanAmount / purchasePrice) * 100).toFixed(2)
@@ -2550,6 +2706,7 @@ const LoanApplication = ({
   };
 
   const goToStep = (stepIndex: number) => {
+    setErrors({});
     setCurrentStep(stepIndex);
 
     if (stepIndex >= baseSteps.length) {
@@ -2561,12 +2718,6 @@ const LoanApplication = ({
 
   const handleStepClick = (index: number) => {
     if (index === currentStep) return;
-
-    if (mode === "create" && index > currentStep) {
-      const isValid = validateCurrentStep();
-      if (!isValid) return;
-    }
-
     goToStep(index);
   };
 
@@ -3075,7 +3226,7 @@ const LoanApplication = ({
   const reviewValidationIssues = useMemo(
     () => getReviewValidationIssues(),
     [
-      isBase44Flow,
+      useStandardSevenStepFlow,
       selectedCategory,
       selectedProduct,
       formData,
@@ -3084,7 +3235,7 @@ const LoanApplication = ({
 
   const reviewSections = useMemo(
     () =>
-      isBase44Flow
+      useStandardSevenStepFlow
         ? buildResidentialReviewSections({
             loanRequest: formData.loanRequest,
             entity: formData.entity,
@@ -3096,7 +3247,7 @@ const LoanApplication = ({
           })
         : [],
     [
-      isBase44Flow,
+      useStandardSevenStepFlow,
       formData.loanRequest,
       formData.entity,
       formData.borrower,
@@ -3107,7 +3258,8 @@ const LoanApplication = ({
     ],
   );
 
-  const isReviewStep = isBase44Flow && currentStep === reviewStepIndex;
+  const isReviewStep =
+    useStandardSevenStepFlow && currentStep === reviewStepIndex;
 
   const selectionBannerText =
     selectedCategory && selectedProduct
@@ -3199,25 +3351,11 @@ const LoanApplication = ({
             )}
           </div>
           {/* STEPPER */}
-          <div className="mb-2 flex flex-wrap gap-1.5">
-            {allSteps.map((step, index) => (
-              <button
-                key={step}
-                type="button"
-                onClick={() => handleStepClick(index)}
-                className={`cursor-pointer rounded-full px-3 py-1 text-xs font-medium transition
-        ${
-          index === currentStep
-            ? "bg-[#2C92D5] text-white shadow"
-            : index < currentStep
-              ? "bg-green-500 text-white hover:bg-green-600"
-              : "bg-slate-200 text-slate-600 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600"
-        }`}
-              >
-                {step}
-              </button>
-            ))}
-          </div>
+          <LoanApplicationStepper
+            steps={allSteps}
+            currentStep={currentStep}
+            onStepClick={handleStepClick}
+          />
 
           {/* STATS BOX */}
           <div
@@ -3304,7 +3442,7 @@ rounded-2xl p-6 shadow-sm
                   </label>
                   <select
                     value={selectedProduct}
-                    disabled={mode === "update"}
+                    disabled={mode === "update" || !selectedCategory}
                     onChange={(e) => {
                       setSelectedProduct(e.target.value);
                       updateLoanRequest("purpose", "");
@@ -3324,7 +3462,11 @@ focus:border-blue-500 outline-none text-sm disabled:cursor-not-allowed disabled:
   bg-white focus:ring-2 focus:ring-blue-500/20 
   focus:border-blue-500 outline-none transition text-sm`}
                   >
-                    <option value="">Select loan type</option>
+                    <option value="">
+                      {selectedCategory
+                        ? "Select loan type"
+                        : "Select a loan category first"}
+                    </option>
 
                     {loadingProducts ? (
                       <option disabled>Loading...</option>
@@ -3410,64 +3552,74 @@ focus:border-blue-500 outline-none text-sm ${
                     </div>
 
                     {/* Seller Financing */}
-                    <div className="md:col-span-2 flex items-center justify-between rounded-lg border border-slate-200 dark:border-slate-700 px-4 py-3">
-                      <span className="text-sm font-medium text-slate-600 dark:text-slate-300">
-                        Seller Financing?
-                      </span>
-                      <button
-                        type="button"
-                        role="switch"
-                        aria-checked={formData.loanRequest.sellerFinancing === "yes"}
-                        onClick={() => {
-                          const enabling =
-                            formData.loanRequest.sellerFinancing !== "yes";
-                          updateLoanRequest(
-                            "sellerFinancing",
-                            enabling ? "yes" : "no",
-                          );
-                          if (!enabling) {
-                            updateLoanRequest("sellerNoteAmount", "");
-                          }
-                        }}
-                        className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition ${
-                          formData.loanRequest.sellerFinancing === "yes"
-                            ? "bg-[#2C92D5]"
-                            : "bg-slate-200 dark:bg-slate-700"
-                        }`}
-                      >
-                        <span
-                          className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition ${
+                    <div
+                      className={`md:col-span-2 ${
+                        formData.loanRequest.sellerFinancing === "yes"
+                          ? "grid grid-cols-1 md:grid-cols-2 gap-4 items-end"
+                          : ""
+                      }`}
+                    >
+                      <div className="flex items-center justify-between rounded-lg border border-slate-200 dark:border-slate-700 px-4 py-3">
+                        <span className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                          Seller Financing?
+                        </span>
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={
                             formData.loanRequest.sellerFinancing === "yes"
-                              ? "translate-x-5"
-                              : "translate-x-0"
+                          }
+                          onClick={() => {
+                            const enabling =
+                              formData.loanRequest.sellerFinancing !== "yes";
+                            updateLoanRequest(
+                              "sellerFinancing",
+                              enabling ? "yes" : "no",
+                            );
+                            if (!enabling) {
+                              updateLoanRequest("sellerNoteAmount", "");
+                            }
+                          }}
+                          className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition ${
+                            formData.loanRequest.sellerFinancing === "yes"
+                              ? "bg-[#2C92D5]"
+                              : "bg-slate-200 dark:bg-slate-700"
                           }`}
-                        />
-                      </button>
-                    </div>
-
-                    {formData.loanRequest.sellerFinancing === "yes" && (
-                      <div className="md:col-span-2">
-                        <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
-                          Seller Note Amount ($)
-                        </label>
-                        <div className="relative">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">
-                            $
-                          </span>
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            value={formData.loanRequest.sellerNoteAmount}
-                            onChange={(e) => {
-                              const formatted = formatCurrency(e.target.value);
-                              updateLoanRequest("sellerNoteAmount", formatted);
-                            }}
-                            placeholder="0"
-                            className="w-full pl-7 pr-4 py-1 rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 dark:text-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm"
+                        >
+                          <span
+                            className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition ${
+                              formData.loanRequest.sellerFinancing === "yes"
+                                ? "translate-x-5"
+                                : "translate-x-0"
+                            }`}
                           />
-                        </div>
+                        </button>
                       </div>
-                    )}
+
+                      {formData.loanRequest.sellerFinancing === "yes" && (
+                        <div>
+                          <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
+                            Seller Note Amount ($)
+                          </label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">
+                              $
+                            </span>
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={formData.loanRequest.sellerNoteAmount}
+                              onChange={(e) => {
+                                const formatted = formatCurrency(e.target.value);
+                                updateLoanRequest("sellerNoteAmount", formatted);
+                              }}
+                              placeholder="0"
+                              className="w-full pl-7 pr-4 py-1 rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 dark:text-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
 
                     {/* Requested Loan Amount */}
                     <div>
@@ -3800,7 +3952,7 @@ focus:border-blue-500 outline-none text-sm ${
                 </div>
               </div>
 
-              {isSba7aBase44Flow && (
+              {!showDefaultEntityInfoFields && isSba7aBase44Flow && (
                 <Sba7aEntityFields
                   entity={formData.entity}
                   financials={formData.financials}
@@ -3811,7 +3963,7 @@ focus:border-blue-500 outline-none text-sm ${
                 />
               )}
 
-              {isAblBase44Flow && (
+              {!showDefaultEntityInfoFields && isAblBase44Flow && (
                 <AblEntityFields
                   ebitdaWithNoi={formData.entity.ebitdaWithNoi}
                   financials={formData.financials}
@@ -3821,7 +3973,9 @@ focus:border-blue-500 outline-none text-sm ${
                 />
               )}
 
-              {isCreBase44Flow && showCreBase44EntityEbitda(selectedProduct) && (
+              {!showDefaultEntityInfoFields &&
+                isCreBase44Flow &&
+                showCreBase44EntityEbitda(selectedProduct) && (
                 <>
                   <p className="mb-3 mt-6 text-xs font-semibold uppercase tracking-wide text-slate-500">
                     EBITDA / NOI
@@ -3863,7 +4017,158 @@ focus:border-blue-500 outline-none text-sm ${
                 Step 3: Property Info
               </h3>
 
-              {isBase44CollateralStep ? (
+              {showDefaultPropertyInfoFields ? (
+                <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div className="md:col-span-2">
+                    <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                      Property Address <span className="text-red-500">*</span>
+                    </label>
+
+                    <input
+                      value={formData.loanRequest.businessAddress}
+                      onChange={(e) =>
+                        updateLoanRequest("businessAddress", e.target.value)
+                      }
+                      placeholder="123 Main Street"
+                      className={`mt-1 w-full rounded-md border px-4 py-1 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
+                        errors["loanRequest.businessAddress"]
+                          ? "border-red-500 bg-red-50"
+                          : "border-slate-300"
+                      }`}
+                    />
+
+                    {errors["loanRequest.businessAddress"] && (
+                      <p className="mt-1 text-xs text-red-500">
+                        {errors["loanRequest.businessAddress"]}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                      City <span className="text-red-500">*</span>
+                    </label>
+
+                    <input
+                      value={formData.loanRequest.city}
+                      onChange={(e) =>
+                        updateLoanRequest("city", e.target.value)
+                      }
+                      className={`mt-1 w-full rounded-md border px-4 py-1 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
+                        errors["loanRequest.city"]
+                          ? "border-red-500 bg-red-50"
+                          : "border-slate-300"
+                      }`}
+                    />
+
+                    {errors["loanRequest.city"] && (
+                      <p className="mt-1 text-xs text-red-500">
+                        {errors["loanRequest.city"]}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                      State <span className="text-red-500">*</span>
+                    </label>
+
+                    <select
+                      value={formData.loanRequest.state}
+                      onChange={(e) =>
+                        updateLoanRequest("state", e.target.value)
+                      }
+                      className={`mt-1 w-full rounded-md border px-4 py-1 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
+                        errors["loanRequest.state"]
+                          ? "border-red-500 bg-red-50"
+                          : "border-slate-300"
+                      }`}
+                    >
+                      <option value="">Select state</option>
+                      {US_STATES.map((state) => (
+                        <option key={state} value={state}>
+                          {state}
+                        </option>
+                      ))}
+                    </select>
+
+                    {errors["loanRequest.state"] && (
+                      <p className="mt-1 text-xs text-red-500">
+                        {errors["loanRequest.state"]}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                      ZIP <span className="text-red-500">*</span>
+                    </label>
+
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={formData.loanRequest.zip}
+                      onChange={(e) => {
+                        const value = e.target.value
+                          .replace(/[^\d-]/g, "")
+                          .slice(0, 10);
+                        updateLoanRequest("zip", value);
+                      }}
+                      className={`mt-1 w-full rounded-md border px-4 py-1 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
+                        errors["loanRequest.zip"]
+                          ? "border-red-500 bg-red-50"
+                          : "border-slate-300"
+                      }`}
+                    />
+
+                    {errors["loanRequest.zip"] && (
+                      <p className="mt-1 text-xs text-red-500">
+                        {errors["loanRequest.zip"]}
+                      </p>
+                    )}
+                  </div>
+
+                  <p className="md:col-span-2 mt-2 text-sm font-semibold text-slate-800 dark:text-slate-100">
+                    Valuation &amp; Costs
+                  </p>
+
+                  <div>
+                    <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                      Purchase Price ($)
+                    </label>
+
+                    <div className="relative mt-1">
+                      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">
+                        $
+                      </span>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={formData.loanRequest.purchasePrice}
+                        onChange={(e) =>
+                          handleAmountChange(
+                            "loanRequest",
+                            "purchasePrice",
+                            e.target.value,
+                          )
+                        }
+                        placeholder="0"
+                        className={`w-full rounded-md border py-1 pl-7 pr-4 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
+                          errors["loanRequest.purchasePrice"]
+                            ? "border-red-500 bg-red-50"
+                            : "border-slate-300"
+                        }`}
+                      />
+                    </div>
+
+                    {errors["loanRequest.purchasePrice"] && (
+                      <p className="mt-1 text-xs text-red-500">
+                        {errors["loanRequest.purchasePrice"]}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ) : isBase44CollateralStep ? (
                 <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
                   <div className="md:col-span-2">
                     <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
@@ -3875,9 +4180,12 @@ focus:border-blue-500 outline-none text-sm ${
 
                     <select
                       value={formData.loanRequest.propertyType}
-                      onChange={(e) =>
-                        updateLoanRequest("propertyType", e.target.value)
-                      }
+                      onChange={(e) => {
+                        updateLoanRequest("propertyType", e.target.value);
+                        if (isCreResidentialLikeFlow) {
+                          updateLoanRequest("subPropertyType", "");
+                        }
+                      }}
                       className={`mt-1 w-full rounded-md border px-4 py-1 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
                         errors["loanRequest.propertyType"]
                           ? "border-red-500 bg-red-50"
@@ -3910,6 +4218,44 @@ focus:border-blue-500 outline-none text-sm ${
                       </p>
                     )}
                   </div>
+
+                  {isCreResidentialLikeFlow && (
+                    <div className="md:col-span-2">
+                      <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                        Sub Property Type <span className="text-red-500">*</span>
+                      </label>
+
+                      <select
+                        value={formData.loanRequest.subPropertyType}
+                        onChange={(e) =>
+                          updateLoanRequest("subPropertyType", e.target.value)
+                        }
+                        disabled={!formData.loanRequest.propertyType}
+                        className={`mt-1 w-full rounded-md border px-4 py-1 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
+                          errors["loanRequest.subPropertyType"]
+                            ? "border-red-500 bg-red-50"
+                            : "border-slate-300"
+                        }`}
+                      >
+                        <option value="">
+                          {formData.loanRequest.propertyType
+                            ? "Select sub property type"
+                            : "Select property type first"}
+                        </option>
+                        {subPropertyOptions.map((sub) => (
+                          <option key={sub} value={sub}>
+                            {sub}
+                          </option>
+                        ))}
+                      </select>
+
+                      {errors["loanRequest.subPropertyType"] && (
+                        <p className="mt-1 text-xs text-red-500">
+                          {errors["loanRequest.subPropertyType"]}
+                        </p>
+                      )}
+                    </div>
+                  )}
 
                   <div className="md:col-span-2">
                     <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
@@ -4024,6 +4370,7 @@ focus:border-blue-500 outline-none text-sm ${
                   </div>
 
                   {(isResidential14Category(selectedCategory) ||
+                    isCreResidentialLikeFlow ||
                     isCreBase44Flow ||
                     isSbaRealEstateCollateralProduct(selectedProduct)) && (
                   <div>
@@ -4699,7 +5046,7 @@ focus:border-blue-500 outline-none text-sm ${
           {/* step-3 — Borrower Info */}
           {currentStep === 3 && (
             <>
-              {isBase44CollateralStep ? (
+              {useResidentialBorrowerPanel ? (
                 <div className="mt-6 relative z-10 rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-800">
                   <h3 className="mb-1 inline-block border-b-2 border-[#2C92D5] pb-2 text-lg font-semibold dark:text-white">
                     Step 4: Borrower Info
@@ -5705,7 +6052,7 @@ focus:border-blue-500 outline-none text-sm ${
 
           {/* step-4 — Financials / Loan Term */}
           {currentStep === 4 && (
-            isBase44Flow ? (
+            useStandardSevenStepFlow ? (
               <div className="mt-6 relative z-10 rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-800">
                 <h3 className="mb-1 inline-block border-b-2 border-[#2C92D5] pb-2 text-lg font-semibold dark:text-white">
                   Step 5: Financials
@@ -6075,7 +6422,7 @@ focus:border-blue-500 outline-none text-sm ${
           )}
 
           {/* step-5 — Documents */}
-          {currentStep === 5 && isBase44Flow && (
+          {currentStep === 5 && useStandardSevenStepFlow && (
             <div className="mt-6 relative z-10 rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-800">
               <h3 className="mb-1 inline-block border-b-2 border-[#2C92D5] pb-2 text-lg font-semibold dark:text-white">
                 Step 6: Documents
@@ -6107,7 +6454,7 @@ focus:border-blue-500 outline-none text-sm ${
             </div>
           )}
 
-          {!isBase44Flow &&
+          {!useStandardSevenStepFlow &&
             activeSectionIndex !== null &&
             dynamicSections[activeSectionIndex] && (
               <div
@@ -6177,10 +6524,13 @@ focus:border-blue-500 outline-none text-sm ${
             {!isReviewStep && (
             <button
               onClick={() => {
-                const isValid = validateCurrentStep();
-                if (!isValid) return;
-
                 if (currentStep === allSteps.length - 1) {
+                  if (!validateAllStepsBeforeSubmit()) {
+                    toast.error(
+                      "Please complete all required fields before submitting",
+                    );
+                    return;
+                  }
                   handleSubmitApplication();
                   return;
                 }
@@ -6189,7 +6539,7 @@ focus:border-blue-500 outline-none text-sm ${
                   currentStep === 2 &&
                   selectedProduct &&
                   dynamicSections.length === 0 &&
-                  !isBase44Flow
+                  !useStandardSevenStepFlow
                 ) {
                   fetchSectionsByProduct(selectedProduct);
                 }
@@ -6208,7 +6558,7 @@ focus:border-blue-500 outline-none text-sm ${
                   : mode === "update"
                     ? "Update Application"
                     : "Submit"
-                : "Save & Next"}
+                : "Next"}
             </button>
             )}
           </div>

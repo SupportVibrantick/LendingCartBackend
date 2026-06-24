@@ -8,7 +8,18 @@ const EXTENDED_FIELD_NAMES = [
   "lendingGuidelines",
   "creditRequirements",
   "propertyRequirements",
+  "website",
+  "nmls",
+  "address",
+  "city",
+  "state",
+  "zip",
+  "lenderType",
 ];
+
+const EMPTY_EXTENDED_FIELDS = Object.fromEntries(
+  EXTENDED_FIELD_NAMES.map((name) => [name, null]),
+);
 
 function pickExtendedFields(source = {}) {
   const fields = {};
@@ -22,6 +33,14 @@ function pickExtendedFields(source = {}) {
   return fields;
 }
 
+async function ensureLenderProfileRow(lenderOrgId) {
+  await prisma.lenderProfile.upsert({
+    where: { lenderOrgId },
+    create: { lenderOrgId },
+    update: {},
+  });
+}
+
 async function readExtendedLenderProfileFields(lenderOrgId) {
   await ensureLenderProfileFields();
 
@@ -30,7 +49,14 @@ async function readExtendedLenderProfileFields(lenderOrgId) {
       "lendingCriteria",
       "lendingGuidelines",
       "creditRequirements",
-      "propertyRequirements"
+      "propertyRequirements",
+      "website",
+      "nmls",
+      "address",
+      "city",
+      "state",
+      "zip",
+      "lenderType"
     FROM "lender_profiles"
     WHERE "lenderOrgId" = ${lenderOrgId}::uuid
     LIMIT 1
@@ -39,12 +65,7 @@ async function readExtendedLenderProfileFields(lenderOrgId) {
   const row = rows?.[0];
 
   if (!row) {
-    return {
-      lendingCriteria: null,
-      lendingGuidelines: null,
-      creditRequirements: null,
-      propertyRequirements: null,
-    };
+    return { ...EMPTY_EXTENDED_FIELDS };
   }
 
   return {
@@ -52,6 +73,13 @@ async function readExtendedLenderProfileFields(lenderOrgId) {
     lendingGuidelines: row.lendingGuidelines ?? null,
     creditRequirements: row.creditRequirements ?? null,
     propertyRequirements: row.propertyRequirements ?? null,
+    website: row.website ?? null,
+    nmls: row.nmls ?? null,
+    address: row.address ?? null,
+    city: row.city ?? null,
+    state: row.state ?? null,
+    zip: row.zip ?? null,
+    lenderType: row.lenderType ?? null,
   };
 }
 
@@ -63,16 +91,15 @@ async function writeExtendedLenderProfileFields(lenderOrgId, fields) {
   }
 
   await ensureLenderProfileFields();
+  await ensureLenderProfileRow(lenderOrgId);
 
-  await prisma.$executeRaw`
-    UPDATE "lender_profiles"
-    SET
-      "lendingCriteria" = COALESCE(${payload.lendingCriteria ?? null}, "lendingCriteria"),
-      "lendingGuidelines" = COALESCE(${payload.lendingGuidelines ?? null}, "lendingGuidelines"),
-      "creditRequirements" = COALESCE(${payload.creditRequirements ?? null}, "creditRequirements"),
-      "propertyRequirements" = COALESCE(${payload.propertyRequirements ?? null}, "propertyRequirements")
-    WHERE "lenderOrgId" = ${lenderOrgId}::uuid
-  `;
+  for (const [key, value] of Object.entries(payload)) {
+    await prisma.$executeRawUnsafe(
+      `UPDATE "lender_profiles" SET "${key}" = $1 WHERE "lenderOrgId" = $2::uuid`,
+      value,
+      lenderOrgId,
+    );
+  }
 }
 
 module.exports = {
@@ -80,4 +107,5 @@ module.exports = {
   pickExtendedFields,
   readExtendedLenderProfileFields,
   writeExtendedLenderProfileFields,
+  ensureLenderProfileRow,
 };

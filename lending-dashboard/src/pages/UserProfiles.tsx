@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
+  ArrowLeft,
   BookOpen,
   Briefcase,
   Building2,
@@ -972,10 +973,19 @@ export default function EditLenderProfile() {
         {/* Header */}
         <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <div className="relative bg-gradient-to-r from-[#134E4A] to-[#0f766e] px-6 pb-16 pt-5">
+            <div className="mb-4">
+              <Link
+                to="/profile"
+                className="inline-flex items-center gap-1.5 text-xs font-medium text-teal-100/90 hover:text-white"
+              >
+                <ArrowLeft size={14} />
+                Back to profile
+              </Link>
+            </div>
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <p className="text-xs font-medium uppercase tracking-wider text-teal-100/80">
-                  Lender Profile
+                  Lending Guidelines
                 </p>
                 <h1 className="mt-1 text-xl font-semibold text-white">
                   {orgName}

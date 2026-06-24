@@ -47,7 +47,7 @@ const navItems: NavItem[] = [
     name: "Profile",
     description: "Lender information",
     path: "/profile",
-    matchPaths: ["/profile"],
+    matchPaths: ["/profile", "/profile/edit", "/profile/guidelines"],
   },
 ];
 

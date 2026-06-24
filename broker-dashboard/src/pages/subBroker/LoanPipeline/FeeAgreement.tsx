@@ -3,6 +3,7 @@ import { FileText, Pencil } from "lucide-react";
 import { useRef } from "react";
 import toast from "react-hot-toast";
 import FeeAgreementDocument from "../../../components/FeeAgreementDocument";
+import FeeAgreementDownloadButton from "../../../components/FeeAgreementDownloadButton";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
@@ -16,6 +17,15 @@ export default function FeeAgreement({ applicationId }: Props) {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const getAuthHeaders = (): HeadersInit => {
+    const token = sessionStorage.getItem("sub_broker_token");
+
+    return {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
+  };
 
   const [form, setForm] = useState({
     brokerPoints: "",
@@ -166,16 +176,25 @@ bg-slate-50 dark:bg-slate-900 dark:border-slate-800"
         </div>
 
         {/* UPDATE BUTTON */}
-        {!data.clientSignature && !data.signedAt && (
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 text-xs rounded-lg 
+        <div className="flex items-center gap-2">
+          <FeeAgreementDownloadButton
+            data={data}
+            pdfRef={pdfRef}
+            downloadUrl={`${API_BASE}/subbroker/fee-agreement/${applicationId}/fee-agreement/download-pdf`}
+            getAuthHeaders={getAuthHeaders}
+          />
+
+          {!data.clientSignature && !data.signedAt && (
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 text-xs rounded-lg 
     bg-[#2C92D5] text-white hover:bg-indigo-500 transition"
-          >
-            <Pencil size={14} />
-            Update
-          </button>
-        )}
+            >
+              <Pencil size={14} />
+              Update
+            </button>
+          )}
+        </div>
       </div>
 
       <FeeAgreementDocument data={data} pdfRef={pdfRef}>

@@ -1,12 +1,11 @@
-export type FinancialYearColumn = "col0" | "col1" | "col2";
+export type FinancialYearColumn = string;
+
+export type YearValues = Record<FinancialYearColumn, string>;
+
+/** @deprecated Use YearValues — kept for gradual migration references */
+export type YearTriple = YearValues;
 
 export type DscrCalculationMethod = "noi" | "proForma";
-
-export interface YearTriple {
-  col0: string;
-  col1: string;
-  col2: string;
-}
 
 export interface ProFormaNoiYear {
   id: number;
@@ -14,17 +13,19 @@ export interface ProFormaNoiYear {
 }
 
 export interface ResidentialFinancials {
+  /** Number of annual financial columns (min 3: current YTD + 2 prior years). */
+  financialYearColumnCount: number;
   rentalProperty: boolean;
   hasRentalIncome: boolean;
   monthlyRent: string;
-  grossRevenue: YearTriple;
-  grossRentalIncome: YearTriple;
-  vacancyCreditLoss: YearTriple;
-  operatingExpenses: YearTriple;
-  mortgageDebtService: YearTriple;
-  effectiveGrossIncomeOverride: YearTriple;
-  noiOverride: YearTriple;
-  cashFlowAfterDebtOverride: YearTriple;
+  grossRevenue: YearValues;
+  grossRentalIncome: YearValues;
+  vacancyCreditLoss: YearValues;
+  operatingExpenses: YearValues;
+  mortgageDebtService: YearValues;
+  effectiveGrossIncomeOverride: YearValues;
+  noiOverride: YearValues;
+  cashFlowAfterDebtOverride: YearValues;
   proFormaNoiYears: ProFormaNoiYear[];
   dscrCalculationMethod: DscrCalculationMethod;
   annualPropertyTaxes: string;
@@ -35,11 +36,19 @@ export interface ResidentialFinancials {
   exitStrategy: string;
 }
 
-export const FINANCIAL_YEAR_COLUMNS: FinancialYearColumn[] = [
-  "col0",
-  "col1",
-  "col2",
-];
+export const DEFAULT_FINANCIAL_YEAR_COLUMN_COUNT = 3;
+export const MIN_FINANCIAL_YEAR_COLUMN_COUNT = 3;
+
+export function getFinancialYearColumnKeys(
+  count = DEFAULT_FINANCIAL_YEAR_COLUMN_COUNT,
+): FinancialYearColumn[] {
+  const safeCount = Math.max(MIN_FINANCIAL_YEAR_COLUMN_COUNT, count);
+  return Array.from({ length: safeCount }, (_, index) => `col${index}`);
+}
+
+/** Default three columns — use getFinancialYearColumnKeys(count) for dynamic tables. */
+export const FINANCIAL_YEAR_COLUMNS: FinancialYearColumn[] =
+  getFinancialYearColumnKeys(DEFAULT_FINANCIAL_YEAR_COLUMN_COUNT);
 
 export const ANNUAL_FINANCIAL_EDITABLE_ROWS = [
   { key: "grossRevenue" as const, label: "Gross Revenue ($)" },
@@ -67,11 +76,18 @@ export const ANNUAL_FINANCIAL_CALCULATED_ROWS = [
   },
 ];
 
-export const createEmptyYearTriple = (): YearTriple => ({
-  col0: "",
-  col1: "",
-  col2: "",
-});
+export const createEmptyYearValues = (
+  count = DEFAULT_FINANCIAL_YEAR_COLUMN_COUNT,
+): YearValues => {
+  const values: YearValues = {};
+  getFinancialYearColumnKeys(count).forEach((column) => {
+    values[column] = "";
+  });
+  return values;
+};
+
+/** @deprecated Use createEmptyYearValues */
+export const createEmptyYearTriple = createEmptyYearValues;
 
 export const createDefaultProFormaYears = (): ProFormaNoiYear[] =>
   [1, 2, 3].map((year) => ({
@@ -80,17 +96,18 @@ export const createDefaultProFormaYears = (): ProFormaNoiYear[] =>
   }));
 
 export const createResidentialFinancialsDefaults = (): ResidentialFinancials => ({
+  financialYearColumnCount: DEFAULT_FINANCIAL_YEAR_COLUMN_COUNT,
   rentalProperty: false,
   hasRentalIncome: false,
   monthlyRent: "",
-  grossRevenue: createEmptyYearTriple(),
-  grossRentalIncome: createEmptyYearTriple(),
-  vacancyCreditLoss: createEmptyYearTriple(),
-  operatingExpenses: createEmptyYearTriple(),
-  mortgageDebtService: createEmptyYearTriple(),
-  effectiveGrossIncomeOverride: createEmptyYearTriple(),
-  noiOverride: createEmptyYearTriple(),
-  cashFlowAfterDebtOverride: createEmptyYearTriple(),
+  grossRevenue: createEmptyYearValues(),
+  grossRentalIncome: createEmptyYearValues(),
+  vacancyCreditLoss: createEmptyYearValues(),
+  operatingExpenses: createEmptyYearValues(),
+  mortgageDebtService: createEmptyYearValues(),
+  effectiveGrossIncomeOverride: createEmptyYearValues(),
+  noiOverride: createEmptyYearValues(),
+  cashFlowAfterDebtOverride: createEmptyYearValues(),
   proFormaNoiYears: createDefaultProFormaYears(),
   dscrCalculationMethod: "noi",
   annualPropertyTaxes: "",
@@ -101,6 +118,81 @@ export const createResidentialFinancialsDefaults = (): ResidentialFinancials => 
   exitStrategy: "",
 });
 
+const appendYearColumn = (
+  financials: ResidentialFinancials,
+  column: FinancialYearColumn,
+): ResidentialFinancials => {
+  const withColumn = (values: YearValues) => ({ ...values, [column]: "" });
+  return {
+    ...financials,
+    grossRevenue: withColumn(financials.grossRevenue),
+    grossRentalIncome: withColumn(financials.grossRentalIncome),
+    vacancyCreditLoss: withColumn(financials.vacancyCreditLoss),
+    operatingExpenses: withColumn(financials.operatingExpenses),
+    mortgageDebtService: withColumn(financials.mortgageDebtService),
+    effectiveGrossIncomeOverride: withColumn(
+      financials.effectiveGrossIncomeOverride,
+    ),
+    noiOverride: withColumn(financials.noiOverride),
+    cashFlowAfterDebtOverride: withColumn(financials.cashFlowAfterDebtOverride),
+  };
+};
+
+const stripYearColumn = (
+  financials: ResidentialFinancials,
+  column: FinancialYearColumn,
+): ResidentialFinancials => {
+  const withoutColumn = (values: YearValues) => {
+    const next = { ...values };
+    delete next[column];
+    return next;
+  };
+  return {
+    ...financials,
+    grossRevenue: withoutColumn(financials.grossRevenue),
+    grossRentalIncome: withoutColumn(financials.grossRentalIncome),
+    vacancyCreditLoss: withoutColumn(financials.vacancyCreditLoss),
+    operatingExpenses: withoutColumn(financials.operatingExpenses),
+    mortgageDebtService: withoutColumn(financials.mortgageDebtService),
+    effectiveGrossIncomeOverride: withoutColumn(
+      financials.effectiveGrossIncomeOverride,
+    ),
+    noiOverride: withoutColumn(financials.noiOverride),
+    cashFlowAfterDebtOverride: withoutColumn(
+      financials.cashFlowAfterDebtOverride,
+    ),
+  };
+};
+
+/** Adds the next historical year column (e.g. 2023 after 2026/2025/2024). */
+export const addFinancialYearColumn = (
+  financials: ResidentialFinancials,
+): ResidentialFinancials => {
+  const nextCount = financials.financialYearColumnCount + 1;
+  const newColumn = `col${nextCount - 1}`;
+  return appendYearColumn(
+    { ...financials, financialYearColumnCount: nextCount },
+    newColumn,
+  );
+};
+
+/** Removes the oldest added year column (rightmost). No-op when only 3 columns remain. */
+export const removeLastFinancialYearColumn = (
+  financials: ResidentialFinancials,
+): ResidentialFinancials => {
+  if (financials.financialYearColumnCount <= MIN_FINANCIAL_YEAR_COLUMN_COUNT) {
+    return financials;
+  }
+  const lastColumn = `col${financials.financialYearColumnCount - 1}`;
+  return stripYearColumn(
+    {
+      ...financials,
+      financialYearColumnCount: financials.financialYearColumnCount - 1,
+    },
+    lastColumn,
+  );
+};
+
 /** Calendar year used as the current (YTD) column — always derived from the system date. */
 export const getCurrentFinancialReferenceYear = () => new Date().getFullYear();
 
@@ -110,11 +202,11 @@ export type FinancialYearColumnMeta = {
   label: string;
 };
 
-/** Three annual columns: current year (YTD), prior year, two years ago. */
 export const getFinancialYearColumns = (
   referenceYear = getCurrentFinancialReferenceYear(),
+  columnCount = DEFAULT_FINANCIAL_YEAR_COLUMN_COUNT,
 ): FinancialYearColumnMeta[] =>
-  FINANCIAL_YEAR_COLUMNS.map((column, index) => {
+  getFinancialYearColumnKeys(columnCount).map((column, index) => {
     const year = referenceYear - index;
     return {
       column,
@@ -125,7 +217,9 @@ export const getFinancialYearColumns = (
 
 export const getFinancialYearLabels = (
   referenceYear = getCurrentFinancialReferenceYear(),
-) => getFinancialYearColumns(referenceYear).map(({ label }) => label);
+  columnCount = DEFAULT_FINANCIAL_YEAR_COLUMN_COUNT,
+) =>
+  getFinancialYearColumns(referenceYear, columnCount).map(({ label }) => label);
 
 const parseAmount = (value: string) => {
   const cleaned = (value || "").replace(/,/g, "");
@@ -156,7 +250,10 @@ export const calcEffectiveGrossIncome = (
   parseAmount(financials.grossRentalIncome[column]) -
   parseAmount(financials.vacancyCreditLoss[column]);
 
-export const calcNoi = (financials: ResidentialFinancials, column: FinancialYearColumn) => {
+export const calcNoi = (
+  financials: ResidentialFinancials,
+  column: FinancialYearColumn,
+) => {
   const egi = getEffectiveGrossIncome(financials, column);
   return egi - parseAmount(financials.operatingExpenses[column]);
 };
@@ -178,7 +275,10 @@ export const getEffectiveGrossIncome = (
   return calcEffectiveGrossIncome(financials, column);
 };
 
-export const getNoi = (financials: ResidentialFinancials, column: FinancialYearColumn) => {
+export const getNoi = (
+  financials: ResidentialFinancials,
+  column: FinancialYearColumn,
+) => {
   const override = financials.noiOverride[column];
   if (override?.trim()) return parseAmount(override);
   return calcNoi(financials, column);
@@ -197,7 +297,7 @@ export const getDisplayCalculatedValue = (
   _financials: ResidentialFinancials,
   column: FinancialYearColumn,
   calculated: number,
-  override: YearTriple,
+  override: YearValues,
 ) => {
   const overrideValue = override[column];
   if (overrideValue?.trim()) return overrideValue;
@@ -219,8 +319,9 @@ export const getResidentialNoiForDscr = (financials: ResidentialFinancials) => {
   return getNoi(financials, "col0");
 };
 
-export const getResidentialDebtServiceForDscr = (financials: ResidentialFinancials) =>
-  parseAmount(financials.mortgageDebtService.col0);
+export const getResidentialDebtServiceForDscr = (
+  financials: ResidentialFinancials,
+) => parseAmount(financials.mortgageDebtService.col0);
 
 type AddFieldFn = (key: string, value: unknown) => void;
 
@@ -229,8 +330,16 @@ export const appendResidentialFinancialsSubmission = (
   financials: ResidentialFinancials,
 ) => {
   const referenceYear = getCurrentFinancialReferenceYear();
+  const columnKeys = getFinancialYearColumnKeys(
+    financials.financialYearColumnCount,
+  );
+
   addField("financialReferenceYear", referenceYear);
-  getFinancialYearColumns(referenceYear).forEach(({ column, year }) => {
+  addField("financialYearColumnCount", financials.financialYearColumnCount);
+  getFinancialYearColumns(
+    referenceYear,
+    financials.financialYearColumnCount,
+  ).forEach(({ column, year }) => {
     addField(`financialYear_${column}`, year);
   });
 
@@ -240,7 +349,7 @@ export const appendResidentialFinancialsSubmission = (
   addField("dscrCalculationMethod", financials.dscrCalculationMethod);
 
   ANNUAL_FINANCIAL_EDITABLE_ROWS.forEach(({ key }) => {
-    FINANCIAL_YEAR_COLUMNS.forEach((column) => {
+    columnKeys.forEach((column) => {
       addField(
         `financial_${key}_${column}`,
         parseAmount(financials[key][column]),
@@ -249,7 +358,7 @@ export const appendResidentialFinancialsSubmission = (
   });
 
   ANNUAL_FINANCIAL_CALCULATED_ROWS.forEach(({ overrideKey }) => {
-    FINANCIAL_YEAR_COLUMNS.forEach((column) => {
+    columnKeys.forEach((column) => {
       addField(
         `financial_${overrideKey}_${column}`,
         parseAmount(financials[overrideKey][column]),
@@ -278,12 +387,43 @@ export const appendResidentialFinancialsSubmission = (
   addField("exitStrategy", financials.exitStrategy);
 
   addField("noiActual", getNoi(financials, "col0"));
-  addField(
-    "grossRevenueActual",
-    parseAmount(financials.grossRevenue.col0),
-  );
+  addField("grossRevenueActual", parseAmount(financials.grossRevenue.col0));
   addField("annualTaxes", parseAmount(financials.annualPropertyTaxes));
   addField("insurancePremium", parseAmount(financials.annualInsurance));
   addField("floodZone", financials.inFloodZone ? "yes" : "no");
   addField("noiProforma", getProFormaNoiAverage(financials));
+};
+
+export const detectFinancialYearColumnCount = (
+  fields: { fieldKey?: string | null; value?: unknown }[],
+): number => {
+  const stored = fields.find((f) => f.fieldKey === "financialYearColumnCount");
+  if (stored?.value != null && stored.value !== "") {
+    const parsed = Number(stored.value);
+    if (parsed >= MIN_FINANCIAL_YEAR_COLUMN_COUNT) return parsed;
+  }
+
+  let maxIndex = MIN_FINANCIAL_YEAR_COLUMN_COUNT - 1;
+  fields.forEach((field) => {
+    const key = field.fieldKey || "";
+    const match = key.match(/_col(\d+)$/);
+    if (match) {
+      maxIndex = Math.max(maxIndex, Number(match[1]));
+    }
+  });
+
+  return maxIndex + 1;
+};
+
+export const loadFinancialYearValues = (
+  getFieldValue: (key: string) => unknown,
+  prefix: string,
+  columnCount: number,
+  asFormNumber: (val: unknown) => string,
+): YearValues => {
+  const values: YearValues = {};
+  getFinancialYearColumnKeys(columnCount).forEach((column) => {
+    values[column] = asFormNumber(getFieldValue(`${prefix}_${column}`));
+  });
+  return values;
 };

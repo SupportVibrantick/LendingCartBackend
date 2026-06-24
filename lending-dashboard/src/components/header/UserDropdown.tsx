@@ -2,12 +2,14 @@ import { useState } from "react";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
 import { Dropdown } from "../ui/dropdown/Dropdown";
 import { useNavigate } from "react-router-dom";
+import { clearLenderSession } from "../../lib/lenderSession";
+import { LENDER_API_BASE } from "../../lib/lenderApi";
 
 interface UserDropdownProps {
   user: any;
 }
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
+const API_BASE = LENDER_API_BASE;
 
 export const UserDropdown: React.FC<UserDropdownProps> = ({ user }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -42,11 +44,8 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user }) => {
 
   function handleLogout() {
     try {
-      // remove specific keys
-      sessionStorage.removeItem("lender_token");
-      sessionStorage.removeItem("lender_user");
-      // sessionStorage.clear();
-    } catch (e) {
+      clearLenderSession();
+    } catch {
       // ignore storage errors
     } finally {
       closeDropdown();

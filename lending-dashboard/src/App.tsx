@@ -2,6 +2,8 @@ import { BrowserRouter as Router, Routes, Route } from "react-router";
 import SignIn from "./pages/AuthPages/SignIn";
 // import SignUp from "./pages/AuthPages/SignUp";
 import NotFound from "./pages/OtherPage/NotFound";
+import LenderProfileView from "./pages/Profile/LenderProfileView";
+import EditFullProfile from "./pages/Profile/EditFullProfile";
 import UserProfiles from "./pages/UserProfiles";
 import Videos from "./pages/UiElements/Videos";
 import Images from "./pages/UiElements/Images";
@@ -76,7 +78,9 @@ export default function App() {
             <Route index path="/loan-pipeline" element={<LoanPipeline />} />
             <Route index path="/loan-preview" element={<LoanPreview />} />
             <Route index path="/loi-preview" element={<LoiPreview />} />
-            <Route path="/profile" element={<UserProfiles />} />
+            <Route path="/profile" element={<LenderProfileView />} />
+            <Route path="/profile/edit" element={<EditFullProfile />} />
+            <Route path="/profile/guidelines" element={<UserProfiles />} />
             <Route path="/calendar" element={<Calendar />} />
             <Route path="/blank" element={<Blank />} />
             <Route path="/form-elements" element={<FormElements />} />

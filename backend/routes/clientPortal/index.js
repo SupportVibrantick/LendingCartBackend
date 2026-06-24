@@ -25,6 +25,7 @@ fastify.register(require("./getClientProfile"));
 
 fastify.register(require("./getSingleApplication"));
 fastify.register(require("./getClientFeeAgreement"));
+fastify.register(require("./downloadFeeAgreementPdf"));
 fastify.register(require("./notifications"), { prefix: "/notifications" });
   //  Future APIs (you will add later)
   // fastify.register(require("./uploadDocuments"), { prefix: "/upload" });

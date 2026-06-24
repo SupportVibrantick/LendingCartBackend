@@ -1,8 +1,9 @@
 const jwt = require("jsonwebtoken");
 const { normalizeFeeAgreement } = require("../../services/feeAgreementEnrichment");
 const {
-  getBrokerWhiteLabelBranding,
-} = require("../../services/brokerBranding");
+  buildResolvedFeeAgreementContext,
+  refreshDraftFeeAgreementIfNeeded,
+} = require("../../services/refreshDraftFeeAgreement");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
@@ -121,15 +122,28 @@ module.exports = async function getClientFeeAgreement(fastify) {
           });
         }
 
+        const refreshedAgreement = await refreshDraftFeeAgreementIfNeeded(
+          prisma,
+          feeAgreement,
+          application,
+        );
+        const { merged, whiteLabelBranding, resolvedSnapshot } =
+          await buildResolvedFeeAgreementContext(
+            prisma,
+            refreshedAgreement,
+            application,
+          );
+
         /* ===============================
            RESPONSE
         =============================== */
         return reply.send({
           ok: true,
           data: normalizeFeeAgreement(
-            feeAgreement,
+            { ...refreshedAgreement, ...merged },
             application,
-            await getBrokerWhiteLabelBranding(prisma, application.brokerOrgId),
+            whiteLabelBranding,
+            resolvedSnapshot,
           ),
         });
 

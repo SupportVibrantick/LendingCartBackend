@@ -1,5 +1,9 @@
 import { Navigate } from "react-router-dom";
-import { LO_TOKEN_KEY } from "../../lib/loanOfficerApi";
+import {
+  LO_TOKEN_KEY,
+  clearLoanOfficerSession,
+  isLoanOfficerTokenExpired,
+} from "../../lib/loanOfficerApi";
 
 export default function LoanOfficerProtected({
   children,
@@ -8,7 +12,10 @@ export default function LoanOfficerProtected({
 }) {
   const token = sessionStorage.getItem(LO_TOKEN_KEY);
 
-  if (!token) {
+  if (!token || isLoanOfficerTokenExpired(token)) {
+    if (token) {
+      clearLoanOfficerSession();
+    }
     return <Navigate to="/loan-officer/login" replace />;
   }
 

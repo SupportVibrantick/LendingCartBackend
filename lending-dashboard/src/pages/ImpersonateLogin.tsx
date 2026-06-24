@@ -1,5 +1,10 @@
 import { useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import {
+  clearLenderSession,
+  saveLenderSession,
+  verifyLenderSession,
+} from "../lib/lenderSession";
 
 const ImpersonateLogin = () => {
   const [searchParams] = useSearchParams();
@@ -14,32 +19,31 @@ const ImpersonateLogin = () => {
       return;
     }
 
-    try {
-      // Clear old session
-      sessionStorage.removeItem("lender_token");
-      sessionStorage.removeItem("lender_user");
+    void (async () => {
+      try {
+        clearLenderSession();
 
-      // Save token
-      sessionStorage.setItem("lender_token", token);
+        let user: Record<string, unknown> | null = null;
+        if (userParam) {
+          user = JSON.parse(decodeURIComponent(userParam));
+        }
 
-      // Save user if exists
-      if (userParam) {
-        const decodedUser = JSON.parse(
-          decodeURIComponent(userParam)
-        );
+        saveLenderSession(token, user);
 
-        sessionStorage.setItem(
-          "lender_user",
-          JSON.stringify(decodedUser)
-        );
+        const verified = await verifyLenderSession(token);
+        if (!verified) {
+          clearLenderSession();
+          navigate("/signin", { replace: true });
+          return;
+        }
+
+        navigate("/", { replace: true });
+      } catch (err) {
+        console.error("Impersonation error", err);
+        clearLenderSession();
+        navigate("/signin", { replace: true });
       }
-
-      navigate("/", { replace: true });
-
-    } catch (err) {
-      console.error("Impersonation error", err);
-      navigate("/signin", { replace: true });
-    }
+    })();
   }, [navigate, searchParams]);
 
   return (

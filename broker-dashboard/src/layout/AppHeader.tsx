@@ -10,23 +10,16 @@ import {
 } from "../components/header/GlobalSearch";
 import { jwtDecode } from "jwt-decode";
 import { CalendarDays, Menu, Search, X } from "lucide-react";
+import { BROKER_API_BASE, getBrokerAuthHeaders } from "../lib/brokerApi";
+import {
+  handleBrokerUnauthorized,
+} from "../lib/brokerSession";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
+const API_BASE = BROKER_API_BASE;
 const ADMIN_URI = import.meta.env.VITE_ADMIN_URI || "http://localhost:5174";
 
 function getAuthHeaders(): Record<string, string> {
-  try {
-    const token = sessionStorage.getItem("broker_token");
-    if (token) {
-      return {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      };
-    }
-  } catch {
-    /* ignore */
-  }
-  return { "Content-Type": "application/json" };
+  return getBrokerAuthHeaders(true);
 }
 
 const AppHeader: React.FC = () => {
@@ -59,6 +52,12 @@ const AppHeader: React.FC = () => {
       });
 
       const json = await res.json();
+      if (res.status === 401) {
+        handleBrokerUnauthorized(
+          typeof json.message === "string" ? json.message : undefined,
+        );
+        return;
+      }
       if (!res.ok || json.ok !== true) return;
 
       setUser(json.data);
@@ -137,6 +136,8 @@ const AppHeader: React.FC = () => {
 
       sessionStorage.removeItem("broker_token");
       sessionStorage.removeItem("broker_user");
+      sessionStorage.removeItem("roles");
+      sessionStorage.removeItem("permissions");
       sessionStorage.setItem("admin_token", json.token);
       window.location.href = `${ADMIN_URI}`;
     } catch (err) {

@@ -161,7 +161,7 @@ async function sendClientLinkRoute(fastify) {
           throw new Error("FRONTEND_URL not configured");
         }
 
-        const uploadLink = `${process.env.FRONTEND_URL}/client-upload/${tokenRecord.token}`;
+        const uploadLink = `${process.env.FRONTEND_URL}/client-portal/${tokenRecord.token}`;
 
         /* ===============================
            EMAIL TEMPLATE

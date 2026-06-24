@@ -5,8 +5,14 @@ import { ArrowRight, LockKeyhole, Mail } from "lucide-react";
 import { EyeCloseIcon, EyeIcon } from "../../icons";
 import toast from "react-hot-toast";
 import Checkbox from "../form/input/Checkbox";
+import { LENDER_API_BASE } from "../../lib/lenderApi";
+import {
+  clearLenderSession,
+  saveLenderSession,
+  verifyLenderSession,
+} from "../../lib/lenderSession";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
+const API_BASE = LENDER_API_BASE;
 
 export default function SignInForm() {
   const [showPassword, setShowPassword] = useState(false);
@@ -49,6 +55,8 @@ export default function SignInForm() {
     const toastId = toast.loading("Signing in...");
 
     try {
+      clearLenderSession();
+
       const res = await fetch(`${API_BASE}/lender/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -74,10 +82,12 @@ export default function SignInForm() {
         throw new Error("Login succeeded but no access token received");
       }
 
-      sessionStorage.setItem("lender_token", accessToken);
+      saveLenderSession(accessToken, json?.data?.user);
 
-      if (json?.data?.user) {
-        sessionStorage.setItem("lender_user", JSON.stringify(json.data.user));
+      const verified = await verifyLenderSession(accessToken);
+      if (!verified) {
+        clearLenderSession();
+        throw new Error("Login succeeded but session could not be verified");
       }
 
       toast.success("Welcome back!", { id: toastId });

@@ -4,8 +4,14 @@ import { motion } from "framer-motion";
 import { ArrowRight, Eye, EyeOff, LockKeyhole, Mail } from "lucide-react";
 import toast from "react-hot-toast";
 import Checkbox from "../form/input/Checkbox";
+import { BROKER_API_BASE } from "../../lib/brokerApi";
+import {
+  clearBrokerSession,
+  saveBrokerSession,
+  verifyBrokerSession,
+} from "../../lib/brokerSession";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
+const API_BASE = BROKER_API_BASE;
 
 export default function SignInForm() {
   const [showPassword, setShowPassword] = useState(false);
@@ -24,21 +30,38 @@ export default function SignInForm() {
     const token = searchParams.get("token");
     if (!token) return;
 
-    sessionStorage.setItem("broker_token", token);
-
     const rawUser = searchParams.get("user");
-    if (rawUser) {
-      try {
-        const user = JSON.parse(decodeURIComponent(rawUser));
-        sessionStorage.setItem("broker_user", JSON.stringify(user));
-        sessionStorage.setItem("roles", JSON.stringify(user.roles || []));
-      } catch {
-        /* ignore malformed user payload */
-      }
-    }
 
-    toast.success("Signed in successfully");
-    navigate("/", { replace: true });
+    void (async () => {
+      try {
+        clearBrokerSession();
+
+        let user: Record<string, unknown> | null = null;
+        if (rawUser) {
+          try {
+            user = JSON.parse(decodeURIComponent(rawUser));
+          } catch {
+            /* ignore malformed user payload */
+          }
+        }
+
+        saveBrokerSession(token, user);
+        const verified = await verifyBrokerSession(token);
+        if (!verified) {
+          clearBrokerSession();
+          toast.error("Sign-in link is invalid or expired");
+          navigate("/signin", { replace: true });
+          return;
+        }
+
+        toast.success("Signed in successfully");
+        navigate("/", { replace: true });
+      } catch {
+        clearBrokerSession();
+        toast.error("Sign-in failed");
+        navigate("/signin", { replace: true });
+      }
+    })();
   }, [navigate, searchParams]);
 
   const validate = () => {
@@ -73,6 +96,8 @@ export default function SignInForm() {
     const toastId = toast.loading("Signing in...");
 
     try {
+      clearBrokerSession();
+
       const res = await fetch(`${API_BASE}/broker/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -98,16 +123,12 @@ export default function SignInForm() {
         throw new Error("Login succeeded but token missing");
       }
 
-      sessionStorage.setItem("broker_token", token);
+      saveBrokerSession(token, json.data?.user);
 
-      if (json.data?.user) {
-        const user = json.data.user;
-        sessionStorage.setItem("broker_user", JSON.stringify(user));
-        sessionStorage.setItem("roles", JSON.stringify(user.roles || []));
-        sessionStorage.setItem(
-          "permissions",
-          JSON.stringify(user.permissions || []),
-        );
+      const verified = await verifyBrokerSession(token);
+      if (!verified) {
+        clearBrokerSession();
+        throw new Error("Login succeeded but session could not be verified");
       }
 
       toast.success("Welcome back!", { id: toastId });

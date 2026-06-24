@@ -1,5 +1,6 @@
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const jwtSecret = require("../../../utils/jwtSecret");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
@@ -100,9 +101,9 @@ if (!isValid) {
             orgType: "LENDER",
             roles,
           },
-          process.env.JWT_SECRET,
+          jwtSecret,
           {
-            expiresIn: "24h",
+            expiresIn: "7d",
             issuer: "lendingcart",
             audience: "lender-app",
           }

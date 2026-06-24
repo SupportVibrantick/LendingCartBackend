@@ -44,9 +44,9 @@ async function lenderMeRoutes(fastify) {
         }
 
         const lenderProfile = user.organization?.lenderProfile || null;
-        const extendedProfileFields = lenderProfile
-          ? await readExtendedLenderProfileFields(user.organizationId)
-          : null;
+        const extendedProfileFields = await readExtendedLenderProfileFields(
+          user.organizationId,
+        );
 
         return reply.send({
           ok: true,
@@ -87,6 +87,13 @@ async function lenderMeRoutes(fastify) {
                     extendedProfileFields?.creditRequirements ?? null,
                   propertyRequirements:
                     extendedProfileFields?.propertyRequirements ?? null,
+                  website: extendedProfileFields?.website ?? null,
+                  nmls: extendedProfileFields?.nmls ?? null,
+                  address: extendedProfileFields?.address ?? null,
+                  city: extendedProfileFields?.city ?? null,
+                  state: extendedProfileFields?.state ?? null,
+                  zip: extendedProfileFields?.zip ?? null,
+                  lenderType: extendedProfileFields?.lenderType ?? null,
                   profileStatus: lenderProfile.profileStatus,
                   isVisible: lenderProfile.isVisible,
                   updatedAt: lenderProfile.updatedAt,
@@ -94,6 +101,17 @@ async function lenderMeRoutes(fastify) {
               : {
                   profileStatus: "DRAFT",
                   isVisible: false,
+                  lendingCriteria: extendedProfileFields.lendingCriteria,
+                  lendingGuidelines: extendedProfileFields.lendingGuidelines,
+                  creditRequirements: extendedProfileFields.creditRequirements,
+                  propertyRequirements: extendedProfileFields.propertyRequirements,
+                  website: extendedProfileFields.website,
+                  nmls: extendedProfileFields.nmls,
+                  address: extendedProfileFields.address,
+                  city: extendedProfileFields.city,
+                  state: extendedProfileFields.state,
+                  zip: extendedProfileFields.zip,
+                  lenderType: extendedProfileFields.lenderType,
                 },
           },
         });

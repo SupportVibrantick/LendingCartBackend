@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { FileText, Pencil } from "lucide-react";
-// import html2canvas from "html2canvas";
-// import jsPDF from "jspdf";
 import { useRef } from "react";
 import toast from "react-hot-toast";
 import FeeAgreementDocument from "../../components/FeeAgreementDocument";
+import FeeAgreementDownloadButton from "../../components/FeeAgreementDownloadButton";
+import { validateFeeAgreementForm } from "../../lib/feeAgreementDisplayUtils";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
@@ -73,38 +73,22 @@ export default function FeeAgreement({ applicationId, getAuthHeaders }: Props) {
 
   const handleUpdate = async () => {
     try {
-      const newErrors = {
-  brokerPoints: "",
-  upfrontFee: "",
-  exclusivityMonths: "",
-};
+      const newErrors = validateFeeAgreementForm(form);
 
-if (!form.brokerPoints?.toString().trim()) {
-  newErrors.brokerPoints = "Broker Points is required";
-}
+      if (
+        newErrors.brokerPoints ||
+        newErrors.upfrontFee ||
+        newErrors.exclusivityMonths
+      ) {
+        setErrors(newErrors);
+        return;
+      }
 
-if (!form.upfrontFee?.toString().trim()) {
-  newErrors.upfrontFee = "Upfront Fee is required";
-}
-
-if (!form.exclusivityMonths?.toString().trim()) {
-  newErrors.exclusivityMonths = "Exclusivity Months is required";
-}
-
-if (
-  newErrors.brokerPoints ||
-  newErrors.upfrontFee ||
-  newErrors.exclusivityMonths
-) {
-  setErrors(newErrors);
-  return;
-}
-
-setErrors({
-  brokerPoints: "",
-  upfrontFee: "",
-  exclusivityMonths: "",
-});
+      setErrors({
+        brokerPoints: "",
+        upfrontFee: "",
+        exclusivityMonths: "",
+      });
 
       setUpdating(true);
 
@@ -112,7 +96,10 @@ setErrors({
         `${API_BASE}/broker/loan-pipeline/${data.id}/fee-agreement`,
         {
           method: "PATCH",
-          headers: getAuthHeaders(),
+          headers: {
+            ...getAuthHeaders(),
+            "Content-Type": "application/json",
+          },
           body: JSON.stringify({
             brokerPoints: Number(form.brokerPoints),
             upfrontFee: Number(form.upfrontFee),
@@ -124,7 +111,7 @@ setErrors({
       const json = await res.json();
 
       if (!res.ok || !json.ok) {
-        throw new Error("Failed to update agreement");
+        throw new Error(json.message || "Failed to update agreement");
       }
 
       toast.success("Fee Agreement updated successfully");
@@ -196,16 +183,25 @@ bg-slate-50 dark:bg-slate-900 dark:border-slate-800"
         </div>
 
         {/* UPDATE BUTTON */}
-        {!data.clientSignature && !data.signedAt && (
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 text-xs rounded-lg 
+        <div className="flex items-center gap-2">
+          <FeeAgreementDownloadButton
+            data={data}
+            pdfRef={pdfRef}
+            downloadUrl={`${API_BASE}/broker/loan-pipeline/${applicationId}/fee-agreement/download-pdf`}
+            getAuthHeaders={getAuthHeaders}
+          />
+
+          {!data.clientSignature && !data.signedAt && (
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 text-xs rounded-lg 
     bg-[#2C92D5] text-white hover:bg-indigo-500 transition"
-          >
-            <Pencil size={14} />
-            Update
-          </button>
-        )}
+            >
+              <Pencil size={14} />
+              Update
+            </button>
+          )}
+        </div>
       </div>
 
       {/* CONTENT */}
@@ -256,9 +252,12 @@ dark:border-slate-700 dark:bg-slate-800"
                 <label className="text-sm font-medium text-gray-600">
                   Broker Points (%)
                 </label>
-<input
-  type="number"
-  value={form.brokerPoints}
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  step="0.01"
+                  value={form.brokerPoints}
   onChange={(e) => {
     setForm({ ...form, brokerPoints: e.target.value });
 
@@ -291,6 +290,9 @@ dark:border-slate-700 dark:bg-slate-800"
                 </label>
                 <input
                   type="number"
+                  min={0}
+                  max={99999999.99}
+                  step="0.01"
                   value={form.upfrontFee}
                    onChange={(e) => {
     setForm({ ...form, upfrontFee: e.target.value });

@@ -1,3 +1,5 @@
+import { handleAdminUnauthorized } from "./adminSession";
+
 export const ADMIN_API_BASE =
   import.meta.env.VITE_API_BASE?.replace(/\/$/, "") || "http://localhost:4000";
 
@@ -7,6 +9,16 @@ export function getAdminAuthHeaders(json = false): Record<string, string> {
     ...(json ? { "Content-Type": "application/json" } : {}),
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
+}
+
+function handleAuthFailure(res: Response, json: Record<string, unknown>) {
+  if (res.status === 401) {
+    throw handleAdminUnauthorized(
+      typeof json.message === "string"
+        ? json.message
+        : "Session expired. Please sign in again.",
+    );
+  }
 }
 
 export async function adminFetch<T = unknown>(
@@ -22,10 +34,17 @@ export async function adminFetch<T = unknown>(
     },
   });
 
-  const json = await res.json().catch(() => ({}));
+  const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+
+  if (res.status === 401) {
+    handleAuthFailure(res, json);
+  }
 
   if (!res.ok || json.success === false) {
-    throw new Error(json.message || `Request failed (${res.status})`);
+    throw new Error(
+      (typeof json.message === "string" ? json.message : undefined) ||
+        `Request failed (${res.status})`,
+    );
   }
 
   return json as T;
@@ -45,10 +64,17 @@ export async function adminFetchMultipart<T = unknown>(
     body: formData,
   });
 
-  const json = await res.json().catch(() => ({}));
+  const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+
+  if (res.status === 401) {
+    handleAuthFailure(res, json);
+  }
 
   if (!res.ok || json.success === false) {
-    throw new Error(json.message || `Request failed (${res.status})`);
+    throw new Error(
+      (typeof json.message === "string" ? json.message : undefined) ||
+        `Request failed (${res.status})`,
+    );
   }
 
   return json as T;

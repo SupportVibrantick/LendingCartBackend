@@ -64,7 +64,7 @@ const quickActions = [
   {
     label: "New Application",
     desc: "Start a loan file",
-    path: "/active-application",
+    path: "/loan-application",
     icon: FilePlus,
   },
   {

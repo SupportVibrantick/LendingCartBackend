@@ -9,10 +9,9 @@ import {
   ANNUAL_FINANCIAL_CALCULATED_ROWS,
   ANNUAL_FINANCIAL_EDITABLE_ROWS,
   createResidentialFinancialsDefaults,
-  FINANCIAL_YEAR_COLUMNS,
-  type FinancialYearColumn,
+  detectFinancialYearColumnCount,
+  loadFinancialYearValues,
   type ResidentialFinancials,
-  type YearTriple,
 } from "./residentialFinancials";
 
 type SubmissionField = {
@@ -142,23 +141,12 @@ const normalizeYesNo = (val: unknown): boolean => {
   return ["yes", "y", "true", "1"].includes(normalized);
 };
 
-const loadFinancialYearTriple = (
-  fields: SubmissionField[],
-  prefix: string,
-): YearTriple => {
-  const triple = {} as YearTriple;
-  FINANCIAL_YEAR_COLUMNS.forEach((column: FinancialYearColumn) => {
-    triple[column] = asFormNumber(
-      getFieldValue(fields, `${prefix}_${column}`),
-    );
-  });
-  return triple;
-};
-
 const mapResidentialFinancialsFromFields = (
   fields: SubmissionField[],
 ): ResidentialFinancials => {
   const financials = createResidentialFinancialsDefaults();
+  const columnCount = detectFinancialYearColumnCount(fields);
+  financials.financialYearColumnCount = columnCount;
 
   financials.rentalProperty = normalizeYesNo(getFieldValue(fields, "rentalProperty"));
   financials.hasRentalIncome = normalizeYesNo(
@@ -183,13 +171,20 @@ const mapResidentialFinancialsFromFields = (
   financials.exitStrategy = asString(getFieldValue(fields, "exitStrategy"));
 
   ANNUAL_FINANCIAL_EDITABLE_ROWS.forEach(({ key }) => {
-    financials[key] = loadFinancialYearTriple(fields, `financial_${key}`);
+    financials[key] = loadFinancialYearValues(
+      (fieldKey) => getFieldValue(fields, fieldKey),
+      `financial_${key}`,
+      columnCount,
+      asFormNumber,
+    );
   });
 
   ANNUAL_FINANCIAL_CALCULATED_ROWS.forEach(({ overrideKey }) => {
-    financials[overrideKey] = loadFinancialYearTriple(
-      fields,
+    financials[overrideKey] = loadFinancialYearValues(
+      (fieldKey) => getFieldValue(fields, fieldKey),
       `financial_${overrideKey}`,
+      columnCount,
+      asFormNumber,
     );
   });
 
@@ -199,6 +194,17 @@ const mapResidentialFinancialsFromFields = (
       getFieldValue(fields, `proFormaNoi_year_${yearIndex}`),
     ),
   }));
+
+  let extraProFormaIndex = 4;
+  while (extraProFormaIndex <= 20) {
+    const raw = getFieldValue(fields, `proFormaNoi_year_${extraProFormaIndex}`);
+    if (raw === undefined || raw === null || raw === "") break;
+    proFormaYears.push({
+      id: extraProFormaIndex,
+      amount: asFormNumber(raw),
+    });
+    extraProFormaIndex += 1;
+  }
 
   if (proFormaYears.some((year) => year.amount)) {
     financials.proFormaNoiYears = proFormaYears;

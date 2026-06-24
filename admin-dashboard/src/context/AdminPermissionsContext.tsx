@@ -7,8 +7,12 @@ import {
   saveAdminPermissionSession,
   type PermissionKey,
 } from "../lib/adminPermissions";
-
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
+import { ADMIN_API_BASE } from "../lib/adminApi";
+import {
+  clearAdminSession,
+  handleAdminUnauthorized,
+  isAdminTokenExpired,
+} from "../lib/adminSession";
 
 type AdminPermissionsContextValue = {
   permissions: PermissionKey[];
@@ -34,16 +38,24 @@ export function AdminPermissionsProvider({ children }: { children: React.ReactNo
 
   const refreshPermissions = useCallback(async () => {
     const token = sessionStorage.getItem("admin_token");
-    if (!token) {
+    if (!token || isAdminTokenExpired(token)) {
+      if (token) clearAdminSession();
       applySession([], false);
       setLoading(false);
       return;
     }
 
     try {
-      const res = await fetch(`${API_BASE}/admin/auth/me`, {
+      const res = await fetch(`${ADMIN_API_BASE}/admin/auth/me`, {
         headers: { Authorization: `Bearer ${token}` },
       });
+
+      if (res.status === 401) {
+        handleAdminUnauthorized();
+        applySession([], false);
+        return;
+      }
+
       if (!res.ok) {
         const cached = loadAdminPermissionSession();
         applySession(cached.permissions, cached.hasFullAccess);
@@ -61,7 +73,7 @@ export function AdminPermissionsProvider({ children }: { children: React.ReactNo
         const existing = existingRaw ? JSON.parse(existingRaw) : {};
         sessionStorage.setItem(
           "admin_user",
-          JSON.stringify({ ...existing, ...user, permissions: perms, hasFullAccess: full })
+          JSON.stringify({ ...existing, ...user, permissions: perms, hasFullAccess: full }),
         );
       }
     } catch {
@@ -88,7 +100,7 @@ export function AdminPermissionsProvider({ children }: { children: React.ReactNo
       can: (permission) => hasPermission(permissions, permission, hasFullAccess),
       refreshPermissions,
     }),
-    [permissions, hasFullAccess, loading, refreshPermissions]
+    [permissions, hasFullAccess, loading, refreshPermissions],
   );
 
   return (
