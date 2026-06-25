@@ -201,7 +201,7 @@ export default function SubBroker() {
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
-        toast.error(json.message || "Failed to fetch sub brokers");
+        toast.error(json.message || "Failed to fetch Co Brokers");
         return;
       }
       setOfficers(json.data || []);
@@ -392,7 +392,7 @@ export default function SubBroker() {
         return;
       }
 
-      toast.success(`Sub broker ${newStatus === "ACTIVE" ? "activated" : "disabled"}`);
+      toast.success(`Co Brokers ${newStatus === "ACTIVE" ? "activated" : "disabled"}`);
       closeRowMenu();
       fetchOfficers();
     } catch {
@@ -415,7 +415,7 @@ export default function SubBroker() {
       const json = await res.json();
 
       if (!res.ok || !json.success) {
-        toast.error(json.message || "Failed to fetch sub broker details");
+        toast.error(json.message || "Failed to fetch Co Brokers details");
         return null;
       }
 
@@ -452,8 +452,8 @@ export default function SubBroker() {
     const isDark = document.documentElement.classList.contains("dark");
 
     const result = await Swal.fire({
-      title: "Delete sub broker?",
-      text: "This sub broker will be removed and will no longer be able to sign in.",
+      title: "Delete Co Brokers?",
+      text: "This Co Brokers will be removed and will no longer be able to sign in.",
       icon: "warning",
       showCancelButton: true,
       confirmButtonColor: "#dc2626",
@@ -479,7 +479,7 @@ export default function SubBroker() {
       const json = await res.json();
 
       if (!res.ok || !json.success) {
-        toast.error(json.message || "Failed to delete sub broker");
+        toast.error(json.message || "Failed to delete Co Brokers");
         return;
       }
 
@@ -488,7 +488,7 @@ export default function SubBroker() {
 
       await Swal.fire({
         title: "Deleted",
-        text: "Sub broker has been deleted successfully.",
+        text: "Co Brokers has been deleted successfully.",
         icon: "success",
         timer: 1500,
         showConfirmButton: false,
@@ -570,11 +570,11 @@ export default function SubBroker() {
         if (json.message?.toLowerCase().includes("email")) {
           setErrors((prev) => ({ ...prev, email: "Email already exists" }));
         }
-        toast.error(json.message || "Failed to create sub broker");
+        toast.error(json.message || "Failed to create Co Brokers");
         return;
       }
 
-      toast.success("Sub broker created successfully");
+      toast.success("Co Brokers created successfully");
       closeModal();
       fetchOfficers();
     } catch {
@@ -611,11 +611,11 @@ export default function SubBroker() {
 
       const json = await res.json();
       if (!res.ok || !json.success) {
-        toast.error(json.message || "Failed to update sub broker");
+        toast.error(json.message || "Failed to update Co Brokers");
         return;
       }
 
-      toast.success("Sub broker updated successfully");
+      toast.success("Co Brokers updated successfully");
       closeModal();
       fetchOfficers();
     } catch {
@@ -643,7 +643,7 @@ export default function SubBroker() {
 
   return (
     <>
-      <PageMeta title="Sub Brokers | Broker Dashboard" description="Manage sub brokers" />
+      <PageMeta title="Co Brokers | Broker Dashboard" description="Manage Co Brokers" />
 
       <div className="space-y-4 pb-6">
         {/* Hero */}
@@ -654,9 +654,9 @@ export default function SubBroker() {
                 <Users className="h-3 w-3" />
                 CRM · Team
               </div>
-              <h1 className="text-xl font-semibold tracking-tight">Sub Brokers</h1>
+              <h1 className="text-xl font-semibold tracking-tight">Co Brokers</h1>
               <p className="mt-1 max-w-2xl text-xs text-white/80">
-                Manage sub brokers, control access, and monitor their activity from one place.
+                Manage Co Brokers, control access, and monitor their activity from one place. 
               </p>
             </div>
 
@@ -720,7 +720,7 @@ export default function SubBroker() {
                 className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-[#13538A] px-3 text-xs font-medium text-white shadow-sm hover:bg-[#1a6aad]"
               >
                 <Plus className="h-3.5 w-3.5" />
-                Create Sub Broker
+                Create Co Brokers
               </button>
             </div>
           </div>
@@ -764,12 +764,12 @@ export default function SubBroker() {
                 <Users size={24} />
               </div>
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                {search || statusFilter ? "No matching sub brokers" : "No sub brokers yet"}
+                {search || statusFilter ? "No matching Co Brokers" : "No Co Brokers yet"}
               </h3>
               <p className="mt-1 max-w-md text-sm text-gray-500">
                 {search || statusFilter
                   ? "Try adjusting your search or status filter."
-                  : "Create your first sub broker to delegate loan pipeline work."}
+                  : "Create your first Co Brokers to delegate loan pipeline work."}
               </p>
               {!search && !statusFilter && (
                 <button
@@ -778,7 +778,7 @@ export default function SubBroker() {
                   className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[#13538A] px-4 py-2 text-sm font-medium text-white hover:bg-[#1a6aad]"
                 >
                   <Plus className="h-4 w-4" />
-                  Create Sub Broker
+                  Create Co Brokers
                 </button>
               )}
             </div>
@@ -880,7 +880,7 @@ export default function SubBroker() {
                               <p className="truncate text-xs font-semibold text-gray-900 dark:text-gray-100">
                                 {fullName}
                               </p>
-                              <p className="truncate text-[10px] text-gray-400">Sub Broker</p>
+                              <p className="truncate text-[10px] text-gray-400">Co Brokers</p>
                             </div>
                           </div>
                         </td>
@@ -973,7 +973,7 @@ export default function SubBroker() {
                 <span className="font-semibold text-gray-800 dark:text-gray-200">
                   {officers.length}
                 </span>{" "}
-                sub broker(s)
+                Co Brokers(s)
                 {statusFilter ? (
                   <>
                     {" "}
@@ -1077,12 +1077,12 @@ export default function SubBroker() {
               <div className="flex shrink-0 items-start justify-between border-b px-6 py-4 dark:border-gray-800">
                 <div>
                   <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                    {editOfficer ? "Edit Sub Broker" : "Create Sub Broker"}
+                    {editOfficer ? "Edit Co Brokers" : "Create Co Brokers"}
                   </h2>
                   <p className="text-sm text-gray-500">
                     {editOfficer
-                      ? "Update contact details for this sub broker."
-                      : "Add a new sub broker to your organization."}
+                      ? "Update contact details for this Co Brokers."
+                      : "Add a new Co Brokers to your organization."}
                   </p>
                 </div>
                 <button
@@ -1210,8 +1210,8 @@ export default function SubBroker() {
                         ? "Updating..."
                         : "Creating..."
                       : editOfficer
-                        ? "Update Sub Broker"
-                        : "Create Sub Broker"}
+                        ? "Update Co Brokers"
+                        : "Create Co Brokers"}
                   </button>
                 </div>
               </form>
@@ -1235,9 +1235,9 @@ export default function SubBroker() {
               <div className="flex shrink-0 items-start justify-between border-b px-6 py-4 dark:border-gray-800">
                 <div>
                   <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                    Sub Broker Profile
+                    Co Brokers Profile
                   </h2>
-                  <p className="text-sm text-gray-500">Read-only view of sub broker details.</p>
+                  <p className="text-sm text-gray-500">Read-only view of Co Brokers details.</p>
                 </div>
                 <button
                   type="button"
@@ -1304,7 +1304,7 @@ export default function SubBroker() {
                   }}
                   className="rounded-xl bg-[#13538A] px-5 py-2 text-sm font-semibold text-white hover:bg-[#1a6aad]"
                 >
-                  Edit Sub Broker
+                  Edit Co Brokers
                 </button>
               </div>
             </div>

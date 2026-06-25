@@ -12,6 +12,12 @@ const dashboardRoutes = require("./dashboard/index");
 // const brokerRoutes = require("./broker");
 // const commonRoutes = require("./common");
 
+const { LENDER_PORTAL_ROLES } = require("../../utils/lenderTeamRoles");
+const {
+  canLenderMutate,
+  denyLenderMutation,
+} = require("../../utils/lenderAccess");
+
 module.exports = async function lenderRoutes(fastify, opts) {
   // -------------------------
   // Public auth routes
@@ -40,11 +46,16 @@ module.exports = async function lenderRoutes(fastify, opts) {
       await instance.authenticate(req, reply);
 
       // Role guard
-      const roleChecker = instance.requireRole([
-        "LENDER_ADMIN",
-        "LENDER_UNDERWRITER",
-      ]);
+      const roleChecker = instance.requireRole(LENDER_PORTAL_ROLES);
       await roleChecker(req, reply);
+
+      if (!canLenderMutate(req)) {
+        return denyLenderMutation(reply);
+      }
+    });
+
+    instance.register(require("./users"), {
+      prefix: "/users",
     });
 
     // -------------------------

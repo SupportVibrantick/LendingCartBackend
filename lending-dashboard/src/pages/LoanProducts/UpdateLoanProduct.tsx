@@ -103,9 +103,9 @@ export default function UpdateLoanProduct() {
         return `${product.name}: Select at least one state`;
       }
 
-      if (!data.documents || data.documents.length === 0) {
-        return `${product.name}: Select at least one required document`;
-      }
+      // if (!data.documents || data.documents.length === 0) {
+      //   return `${product.name}: Select at least one required document`;
+      // }
     }
 
     return null;
@@ -392,7 +392,7 @@ loanCriteria: {
   }, [updatedLoanProduct]);
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50">
+    <div className="h-[calc(100vh-80px)] flex flex-col bg-gray-50">
       <div className="sticky top-0 z-30 bg-gray-50">
         <div className="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
           <div className="flex items-center gap-3">
@@ -457,7 +457,7 @@ loanCriteria: {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 min-h-0 overflow-y-auto">
         <div className="max-w-6xl mx-auto p-6">{getStepContent()}</div>
       </div>
 

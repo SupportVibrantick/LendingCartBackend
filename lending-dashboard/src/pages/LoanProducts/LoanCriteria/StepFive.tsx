@@ -665,7 +665,7 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
                       <FileText size={16} className="text-indigo-600" />
 
                       <h3 className="text-sm font-semibold">
-                        What documents do you need in this program?
+                        What documents do you need in this program? (optional)
                       </h3>
 
                       {!!value?.[product.id]?.documents?.length && (

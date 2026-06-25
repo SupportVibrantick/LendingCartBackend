@@ -14,6 +14,7 @@ import {
   Upload,
   X,
 } from "lucide-react";
+import { canMarkSignSeen } from "../../lib/lenderPermissions";
 
 const SigCanvas = SignatureCanvas as unknown as React.FC<any>;
 
@@ -67,6 +68,7 @@ type SignDocumentsPanelProps = {
   submissionId?: string;
   loanApplicationId?: string;
   onUpdated?: () => void;
+  readOnly?: boolean;
 };
 
 const statusClass = (status?: string | null) => {
@@ -94,6 +96,7 @@ export default function SignDocumentsPanel({
   submissionId,
   loanApplicationId,
   onUpdated,
+  readOnly = false,
 }: SignDocumentsPanelProps) {
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState<SignDocumentRow[]>([]);
@@ -382,6 +385,7 @@ export default function SignDocumentsPanel({
 
   const openSignedCopy = async (row: SignDocumentRow) => {
     if (
+      canMarkSignSeen() &&
       mode === "lender" &&
       applicationLenderId &&
       row.signStatus === "FORWARDED_TO_LENDER"
@@ -870,8 +874,9 @@ export default function SignDocumentsPanel({
                 Sign Documents
               </h2>
               <p className="mt-1 max-w-2xl text-sm text-slate-600">
-                Upload PDF or image forms for the client to sign. The broker
-                manages delivery and returns signed copies to you.
+                {readOnly
+                  ? "View signature requests and signed copies returned by the broker. You cannot upload or request new signatures."
+                  : "Upload PDF or image forms for the client to sign. The broker manages delivery and returns signed copies to you."}
               </p>
             </div>
 
@@ -896,6 +901,14 @@ export default function SignDocumentsPanel({
           </div>
         </div>
 
+        {readOnly && (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            Read-only access. You can review templates and signed copies but
+            cannot request new signatures.
+          </div>
+        )}
+
+        {!readOnly && (
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="mb-4 flex items-start gap-3">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-teal-100 text-teal-700">
@@ -947,6 +960,7 @@ export default function SignDocumentsPanel({
             Request signature
           </button>
         </div>
+        )}
 
         {rows.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center">
@@ -957,7 +971,9 @@ export default function SignDocumentsPanel({
               No sign documents yet
             </p>
             <p className="mt-2 text-sm text-slate-500">
-              Upload a form above to start the client e-signature workflow.
+              {readOnly
+                ? "No signature documents have been requested for this application yet."
+                : "Upload a form above to start the client e-signature workflow."}
             </p>
           </div>
         ) : (

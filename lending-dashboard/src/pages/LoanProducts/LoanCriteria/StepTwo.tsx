@@ -114,8 +114,6 @@ const StepTwo = ({
         createdAt: p.createdAt ?? undefined,
       }));
 
-      console.log(mapped);
-
       setProducts(mapped);
       onProductsLoad?.(mapped);
     } catch (err) {
@@ -187,7 +185,7 @@ const StepTwo = ({
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 max-h-[600px] overflow-y-auto pr-2">
         {products.map((item) => {
           const isChecked = safeValue.includes(item.id);
 

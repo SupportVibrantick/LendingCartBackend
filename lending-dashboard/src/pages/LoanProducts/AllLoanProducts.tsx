@@ -16,6 +16,7 @@ import {
   getMinAmountLabel,
   shouldShowMaxAmount,
 } from "../../lib/loanProductListDisplay";
+import { canManageLoanProducts } from "../../lib/lenderPermissions";
 
 type LoanProductList = {
   id: string;
@@ -177,6 +178,7 @@ function statusClass(status?: string) {
 
 export default function AlloanProducts() {
   const navigate = useNavigate();
+  const canManageProducts = canManageLoanProducts();
   const [lenders, setLenders] = useState<LoanProductList[]>([]);
   const [loading, setLoading] = useState(false);
   const [rowLoadingId, setRowLoadingId] = useState<string | null>(null);
@@ -506,15 +508,17 @@ export default function AlloanProducts() {
             </select>
           </div>
 
-          <button
-            onClick={() => navigate("/add-loan-product")}
-            className="inline-flex items-center whitespace-nowrap px-4 py-2 bg-[#18B6B4] text-white rounded-md hover:bg-[#159e9c] transition"
-            type="button"
-            aria-label="Add Loan"
-          >
-            <TiPlus className="mr-2" />
-            Add Loan
-          </button>
+          {canManageProducts && (
+            <button
+              onClick={() => navigate("/add-loan-product")}
+              className="inline-flex items-center whitespace-nowrap px-4 py-2 bg-[#18B6B4] text-white rounded-md hover:bg-[#159e9c] transition"
+              type="button"
+              aria-label="Add Loan"
+            >
+              <TiPlus className="mr-2" />
+              Add Loan
+            </button>
+          )}
         </div>
       </div>
 
@@ -555,38 +559,48 @@ export default function AlloanProducts() {
                           {formatListKeyCriteria(item, formatAmount)}
                         </td>
                         <td className="py-3 pr-4 whitespace-nowrap">
-                          <button
-                            onClick={() => !isLoading && changeStatusFor(item)}
-                            disabled={isLoading}
-                            className={`inline-flex items-center gap-2 px-3 py-1 text-xs font-medium rounded-full border ${statusClass(
-                              item.isActive ? "ACTIVE" : "INACTIVE",
-                            )} disabled:opacity-60`}
-                            title="Click to change status"
-                            aria-label={`Change status for ${item.isActive}`}
-                          >
-                            {isLoading ? (
-                              <svg
-                                className="h-3 w-3 animate-spin"
-                                viewBox="0 0 24 24"
-                              >
-                                <circle
-                                  cx="12"
-                                  cy="12"
-                                  r="10"
-                                  stroke="currentColor"
-                                  strokeWidth="3"
-                                  fill="none"
-                                  className="opacity-25"
-                                />
-                                <path
-                                  fill="currentColor"
-                                  className="opacity-75"
-                                  d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
-                                />
-                              </svg>
-                            ) : null}
-                            <span>{item.isActive ? "ACTIVE" : "INACTIVE"}</span>
-                          </button>
+                          {canManageProducts ? (
+                            <button
+                              onClick={() => !isLoading && changeStatusFor(item)}
+                              disabled={isLoading}
+                              className={`inline-flex items-center gap-2 px-3 py-1 text-xs font-medium rounded-full border ${statusClass(
+                                item.isActive ? "ACTIVE" : "INACTIVE",
+                              )} disabled:opacity-60`}
+                              title="Click to change status"
+                              aria-label={`Change status for ${item.isActive}`}
+                            >
+                              {isLoading ? (
+                                <svg
+                                  className="h-3 w-3 animate-spin"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <circle
+                                    cx="12"
+                                    cy="12"
+                                    r="10"
+                                    stroke="currentColor"
+                                    strokeWidth="3"
+                                    fill="none"
+                                    className="opacity-25"
+                                  />
+                                  <path
+                                    fill="currentColor"
+                                    className="opacity-75"
+                                    d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                                  />
+                                </svg>
+                              ) : null}
+                              <span>{item.isActive ? "ACTIVE" : "INACTIVE"}</span>
+                            </button>
+                          ) : (
+                            <span
+                              className={`inline-flex items-center gap-2 px-3 py-1 text-xs font-medium rounded-full border ${statusClass(
+                                item.isActive ? "ACTIVE" : "INACTIVE",
+                              )}`}
+                            >
+                              <span>{item.isActive ? "ACTIVE" : "INACTIVE"}</span>
+                            </span>
+                          )}
                         </td>
                         <td className="py-3 pr-4 relative overflow-visible">
                           <div
@@ -629,19 +643,21 @@ export default function AlloanProducts() {
                                 </button>
 
                                 {/* UPDATE */}
-                                <button
-                                  onClick={() =>
-                                    navigate("/update-loan-product", {
-                                      state: { loanProduct: item },
-                                    })
-                                  }
-                                  className="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-blue-600 
+                                {canManageProducts && (
+                                  <button
+                                    onClick={() =>
+                                      navigate("/update-loan-product", {
+                                        state: { loanProduct: item },
+                                      })
+                                    }
+                                    className="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-blue-600 
                      hover:bg-blue-50 hover:text-blue-600 transition
                      dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-blue-400"
-                                >
-                                  <MdModeEdit size={16} />
-                                  Update
-                                </button>
+                                  >
+                                    <MdModeEdit size={16} />
+                                    Update
+                                  </button>
+                                )}
                               </div>
                             )}
                           </div>

@@ -1,29 +1,22 @@
-import React from "react";
+import type { ReactNode } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
-
 import GetLoanPage from "./pages/GetLoanPage";
 
-/* Optional: Simple layout wrapper */
-function AppLayout({ children }) {
+function AppLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
-      {children}
-    </div>
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">{children}</div>
   );
 }
 
 export default function App() {
   return (
     <BrowserRouter>
-      {/* Toast global */}
       <Toaster position="top-right" />
 
       <Routes>
-        {/* Default redirect */}
         <Route path="/" element={<Navigate to="/get-loan" replace />} />
 
-        {/* Public Loan Form */}
         <Route
           path="/get-loan"
           element={
@@ -33,11 +26,10 @@ export default function App() {
           }
         />
 
-        {/* 404 */}
         <Route
           path="*"
           element={
-            <div className="h-screen flex items-center justify-center text-xl font-semibold">
+            <div className="flex h-screen items-center justify-center text-xl font-semibold">
               404 - Page Not Found
             </div>
           }

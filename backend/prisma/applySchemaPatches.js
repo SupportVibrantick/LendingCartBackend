@@ -16,6 +16,20 @@ const {
   applyLenderProductCriteriaMigration,
 } = require("./applyLenderProductCriteriaMigration");
 
+const ENUM_PATCHES = [
+  `DO $$ BEGIN
+    ALTER TYPE "RoleName" ADD VALUE 'LENDER_ANALYST';
+  EXCEPTION
+    WHEN duplicate_object THEN null;
+  END $$`,
+
+  `DO $$ BEGIN
+    ALTER TYPE "RoleName" ADD VALUE 'LENDER_VIEWER';
+  EXCEPTION
+    WHEN duplicate_object THEN null;
+  END $$`,
+];
+
 const COLUMN_PATCHES = [
   `ALTER TABLE "loan_applications"
     ADD COLUMN IF NOT EXISTS "auto_forward_documents_to_lender" BOOLEAN NOT NULL DEFAULT false`,
@@ -95,6 +109,26 @@ async function applySchemaPatches(existingPrisma) {
   const shouldDisconnect = !existingPrisma;
 
   console.log("🔧 Applying schema patches...");
+
+  for (const sql of ENUM_PATCHES) {
+    await prisma.$executeRawUnsafe(sql);
+  }
+
+  const lenderTeamRoles = ["LENDER_ANALYST", "LENDER_VIEWER"];
+  for (const roleName of lenderTeamRoles) {
+    const existingRole = await prisma.role.findFirst({
+      where: { name: roleName },
+    });
+
+    if (!existingRole) {
+      await prisma.role.create({
+        data: {
+          name: roleName,
+          description: roleName.replaceAll("_", " "),
+        },
+      });
+    }
+  }
 
   for (const sql of COLUMN_PATCHES) {
     await prisma.$executeRawUnsafe(sql);

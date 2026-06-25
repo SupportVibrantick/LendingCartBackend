@@ -89,9 +89,21 @@ async function submitApplication(fastify) {
 
     const result = await fastify.prisma.$transaction(async (tx) => {
       // Extract required fields
-      const emailField = fields.find((f) => f.fieldKey === "email");
-      const firstNameField = fields.find((f) => f.fieldKey === "first_name");
-      const lastNameField = fields.find((f) => f.fieldKey === "last_name");
+      const emailField = fields.find(
+        (f) => f.fieldKey === "email" || f.fieldKey === "borrowerEmail",
+      );
+      const firstNameField = fields.find(
+        (f) =>
+          f.fieldKey === "first_name" ||
+          f.fieldKey === "borrowerFirstName" ||
+          f.fieldKey === "firstName",
+      );
+      const lastNameField = fields.find(
+        (f) =>
+          f.fieldKey === "last_name" ||
+          f.fieldKey === "borrowerLastName" ||
+          f.fieldKey === "lastName",
+      );
 
       if (!emailField?.value) {
         throw new Error("Email is required");

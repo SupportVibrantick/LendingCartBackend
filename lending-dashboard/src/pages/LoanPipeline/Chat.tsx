@@ -10,6 +10,7 @@ import {
   isPlaceholderConversation,
   type ChatConversationListItem,
 } from "../../lib/chatConversation";
+import { canSendChat } from "../../lib/lenderPermissions";
 import {
   FiMessageCircle,
   FiMoreVertical,
@@ -165,6 +166,7 @@ const Chat = ({ applicationId }: LoanPreviewChatProps) => {
   const [typingUser, setTypingUser] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const isReadOnlyChat = !canSendChat();
 
   const getToken = useCallback(() => sessionStorage.getItem("lender_token"), []);
   const getLenderOrgId = useCallback(() => {
@@ -775,15 +777,19 @@ const Chat = ({ applicationId }: LoanPreviewChatProps) => {
               </div>
 
               <div className="flex items-center gap-1.5 text-slate-500">
-                <button className="rounded-full p-2 hover:bg-slate-100">
-                  <FiVideo size={16} />
-                </button>
-                <button className="rounded-full p-2 hover:bg-slate-100">
-                  <FiPhone size={16} />
-                </button>
-                <button className="rounded-full p-2 hover:bg-slate-100">
-                  <FiMoreVertical size={16} />
-                </button>
+                {!isReadOnlyChat && (
+                  <>
+                    <button className="rounded-full p-2 hover:bg-slate-100">
+                      <FiVideo size={16} />
+                    </button>
+                    <button className="rounded-full p-2 hover:bg-slate-100">
+                      <FiPhone size={16} />
+                    </button>
+                    <button className="rounded-full p-2 hover:bg-slate-100">
+                      <FiMoreVertical size={16} />
+                    </button>
+                  </>
+                )}
               </div>
             </div>
 
@@ -807,7 +813,9 @@ const Chat = ({ applicationId }: LoanPreviewChatProps) => {
                       Beginning of your conversation
                     </p>
                     <p className="mt-2 text-xs text-slate-400">
-                      Send a message to start chatting.
+                      {isReadOnlyChat
+                        ? "Messages from your team will appear here."
+                        : "Send a message to start chatting."}
                     </p>
                   </div>
                 </div>
@@ -913,85 +921,92 @@ const Chat = ({ applicationId }: LoanPreviewChatProps) => {
               )}
             </div>
 
-            <div className="relative border-t border-slate-200 bg-[#fbfbfa] px-4 py-3 sm:px-5">
-              {showEmojiPicker && (
-                <div
-                  ref={emojiPickerRef}
-                  className="absolute bottom-full left-3 mb-3 z-50 overflow-hidden rounded-2xl border border-slate-200 bg-white sm:left-4"
-                >
-                  <EmojiPicker
-                    onEmojiClick={handleEmojiClick}
-                    height={380}
-                    width={320}
-                  />
-                </div>
-              )}
-
-              {selectedFile && (
-                <div className="mb-3 flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <div className="rounded-full border border-slate-200 bg-slate-50 p-2 text-slate-500">
-                      <FiPaperclip size={15} />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-slate-700">
-                        {selectedFile.name}
-                      </p>
-                      <p className="text-xs text-slate-400">
-                        {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
-                      </p>
-                    </div>
+            {isReadOnlyChat ? (
+              <div className="border-t border-slate-200 bg-amber-50 px-4 py-3 text-center text-sm text-amber-800 sm:px-5">
+                Read-only access. You can view chat history but cannot send
+                messages.
+              </div>
+            ) : (
+              <div className="relative border-t border-slate-200 bg-[#fbfbfa] px-4 py-3 sm:px-5">
+                {showEmojiPicker && (
+                  <div
+                    ref={emojiPickerRef}
+                    className="absolute bottom-full left-3 mb-3 z-50 overflow-hidden rounded-2xl border border-slate-200 bg-white sm:left-4"
+                  >
+                    <EmojiPicker
+                      onEmojiClick={handleEmojiClick}
+                      height={380}
+                      width={320}
+                    />
                   </div>
+                )}
+
+                {selectedFile && (
+                  <div className="mb-3 flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div className="rounded-full border border-slate-200 bg-slate-50 p-2 text-slate-500">
+                        <FiPaperclip size={15} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-slate-700">
+                          {selectedFile.name}
+                        </p>
+                        <p className="text-xs text-slate-400">
+                          {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={removeSelectedFile}
+                      className="rounded-full p-2 text-slate-500 hover:bg-slate-100"
+                    >
+                      <FiX size={16} />
+                    </button>
+                  </div>
+                )}
+
+                <div className="flex items-center gap-2 border border-slate-200 bg-white px-3 py-2.5">
                   <button
-                    onClick={removeSelectedFile}
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
                     className="rounded-full p-2 text-slate-500 hover:bg-slate-100"
                   >
-                    <FiX size={16} />
+                    <FiPaperclip size={17} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowEmojiPicker((prev) => !prev)}
+                    className="rounded-full p-2 text-slate-500 hover:bg-slate-100"
+                  >
+                    <FiSmile size={17} />
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    hidden
+                    onChange={handleFileSelect}
+                  />
+                  <input
+                    value={messageText}
+                    onChange={(e) => setMessageText(e.target.value)}
+                    onKeyDown={handleMessageInputKeyDown}
+                    placeholder="Write a message..."
+                    className="min-w-0 flex-1 border-none bg-transparent px-2 text-sm text-slate-700 outline-none placeholder:text-slate-400"
+                  />
+                  <button
+                    onClick={handleSendMessage}
+                    disabled={
+                      !selectedConversation ||
+                      (!messageText.trim() && !selectedFile) ||
+                      sendingMessage
+                    }
+                    className="rounded-full border border-slate-200 p-2 text-slate-600 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <FiSend size={17} />
                   </button>
                 </div>
-              )}
-
-              <div className="flex items-center gap-2 border border-slate-200 bg-white px-3 py-2.5">
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="rounded-full p-2 text-slate-500 hover:bg-slate-100"
-                >
-                  <FiPaperclip size={17} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowEmojiPicker((prev) => !prev)}
-                  className="rounded-full p-2 text-slate-500 hover:bg-slate-100"
-                >
-                  <FiSmile size={17} />
-                </button>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  hidden
-                  onChange={handleFileSelect}
-                />
-                <input
-                  value={messageText}
-                  onChange={(e) => setMessageText(e.target.value)}
-                  onKeyDown={handleMessageInputKeyDown}
-                  placeholder="Write a message..."
-                  className="min-w-0 flex-1 border-none bg-transparent px-2 text-sm text-slate-700 outline-none placeholder:text-slate-400"
-                />
-                <button
-                  onClick={handleSendMessage}
-                  disabled={
-                    !selectedConversation ||
-                    (!messageText.trim() && !selectedFile) ||
-                    sendingMessage
-                  }
-                  className="rounded-full border border-slate-200 p-2 text-slate-600 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  <FiSend size={17} />
-                </button>
               </div>
-            </div>
+            )}
           </>
         )}
       </section>

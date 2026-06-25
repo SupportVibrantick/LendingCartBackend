@@ -51,6 +51,7 @@ import LoanOfficerActivityPage from "./pages/UserManagement/LoanOfficerActivity"
 import ImpersonateLogin from "./pages/ImpersonateLogin";
 import LoanApplication from "./pages/LoanApplication/LoanApplication";
 import ContactPage from "./pages/Contacts/ContactPage";
+import BorrowersPage from "./pages/CRM/Borrowers";
 import ClientUpload from "./pages/ClientPortal/ClientUpload";
 import ClientProtected from "./pages/ClientPortal/ClientProtected";
 import ClientAuth from "./pages/ClientPortal/ClientAuth";
@@ -217,6 +218,17 @@ export default function App() {
                   <Navigate to="/" replace />
                 ) : (
                   <LoanOfficerActivityPage />
+                )
+              }
+            />
+
+            <Route
+              path="/borrowers"
+              element={
+                isSubBrokerUser() ? (
+                  <Navigate to="/" replace />
+                ) : (
+                  <BorrowersPage />
                 )
               }
             />

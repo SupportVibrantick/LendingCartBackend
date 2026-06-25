@@ -80,6 +80,26 @@ async function seedRolePermissions() {
       "VIEW_DASHBOARD",
       "VIEW_APPLICATIONS",
       "VIEW_DOCUMENTS",
+      "DECIDE_APPLICATION",
+      "REQUEST_DOCUMENTS",
+      "GENERATE_LOI",
+      "UPLOAD_SIGN_DOCUMENTS",
+      "MARK_SIGN_SEEN",
+      "SEND_CHAT",
+    ],
+
+    LENDER_ANALYST: [
+      "VIEW_DASHBOARD",
+      "VIEW_APPLICATIONS",
+      "VIEW_DOCUMENTS",
+      "REQUEST_DOCUMENTS",
+      "SEND_CHAT",
+    ],
+
+    LENDER_VIEWER: [
+      "VIEW_DASHBOARD",
+      "VIEW_APPLICATIONS",
+      "VIEW_DOCUMENTS",
     ],
 
     CLIENT_USER: [

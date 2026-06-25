@@ -28,6 +28,10 @@ import {
   canLenderRequestDocuments,
   getLenderRequestDocumentsDisabledReason,
 } from "../../lib/loanPipelineUtils";
+import {
+  canRequestDocuments,
+  canUploadSignDocuments,
+} from "../../lib/lenderPermissions";
 import LenderSubmissionDetailsView from "../../components/submissions/LenderSubmissionDetailsView";
 import SignDocumentsPanel from "../../components/documents/SignDocumentsPanel";
 import {
@@ -132,9 +136,31 @@ const tabMeta: Array<{ id: PreviewTab; label: string }> = [
   { id: "chat", label: "Chat" },
 ];
 
+function getVisibleTabs() {
+  return tabMeta
+    .filter((tab) => {
+      if (tab.id === "requestDocs") {
+        return canRequestDocuments();
+      }
+      return true;
+    })
+    .map((tab) => {
+      if (tab.id === "documents" && !canRequestDocuments()) {
+        return { ...tab, label: "View Documents" };
+      }
+
+      if (tab.id === "signDocuments" && !canUploadSignDocuments()) {
+        return { ...tab, label: "View Sign Documents" };
+      }
+
+      return tab;
+    });
+}
+
 export default function LoanPreview() {
   const navigate = useNavigate();
   const location = useLocation();
+  const visibleTabs = useMemo(() => getVisibleTabs(), []);
   const searchParams = useMemo(
     () => new URLSearchParams(location.search),
     [location.search],
@@ -152,16 +178,13 @@ export default function LoanPreview() {
 
   const isLoi = location.state?.isLoi;
 
-  const initialTab: PreviewTab = [
-    "details",
-    "documents",
-    "signDocuments",
-    "requestDocs",
-    "loi",
-    "chat",
-  ].includes(requestedTab)
-    ? (requestedTab as PreviewTab)
-    : "details";
+  const initialTab: PreviewTab = (() => {
+    const allowedTabs = getVisibleTabs().map((tab) => tab.id);
+    if (allowedTabs.includes(requestedTab as PreviewTab)) {
+      return requestedTab as PreviewTab;
+    }
+    return "details";
+  })();
 
   const [activeTab, setActiveTab] = useState<PreviewTab>(initialTab);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -1700,7 +1723,7 @@ export default function LoanPreview() {
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden">
           <div className="border-b border-slate-200 dark:border-slate-800 px-4 md:px-6 pt-4">
             <div className="flex flex-wrap gap-2">
-              {tabMeta
+              {visibleTabs
                 .filter((tab) => tab.id !== "loi" || isLoi)
                 .map((tab) => {
                   const isRequestDocsTab = tab.id === "requestDocs";
@@ -1740,6 +1763,7 @@ export default function LoanPreview() {
               <SignDocumentsPanel
                 mode="lender"
                 apiBase={API_BASE}
+                readOnly={!canUploadSignDocuments()}
                 getAuthHeaders={() =>
                   Object.fromEntries(
                     Object.entries(getAuthHeaders() as Record<string, string>),

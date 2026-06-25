@@ -1,3 +1,5 @@
+import { canRequestDocuments } from "./lenderPermissions";
+
 export const PRODUCT_LABELS: Record<string, string> = {
   FIX_AND_FLIP_LOAN_1_TO_4_UNITS: "Fix & Flip",
   DSCR_LOAN_1_TO_4_UNITS: "DSCR",
@@ -168,6 +170,10 @@ export function canLenderRequestDocuments(
   lenderStatus?: string | null,
   latestReviewStatus?: string | null,
 ) {
+  if (!canRequestDocuments()) {
+    return false;
+  }
+
   const status = (lenderStatus || "").toUpperCase().trim();
   const review = (latestReviewStatus || "").toUpperCase().trim();
 
@@ -181,6 +187,10 @@ export function getLenderRequestDocumentsDisabledReason(
   lenderStatus?: string | null,
   latestReviewStatus?: string | null,
 ) {
+  if (!canRequestDocuments()) {
+    return "You do not have permission to request documents.";
+  }
+
   const status = (lenderStatus || "").toUpperCase().trim();
   const review = (latestReviewStatus || "").toUpperCase().trim();
 

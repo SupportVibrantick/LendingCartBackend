@@ -9,6 +9,8 @@ async function seedRoles() {
     "SUB_BROKER",
     "LENDER_ADMIN",
     "LENDER_UNDERWRITER",
+    "LENDER_ANALYST",
+    "LENDER_VIEWER",
     "CLIENT_USER",
   ];
 

@@ -684,12 +684,12 @@ if (!data.maxArv) {
       </div>
 
       {/* CONTENT */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 min-h-0 overflow-y-auto">
         <div className="max-w-6xl mx-auto p-6">{getStepContent()}</div>
       </div>
 
       {/* FOOTER */}
-      <div className="sticky bottom-0 z-30 bg-white/80 backdrop-blur border-t shadow-[0_-2px_10px_rgba(0,0,0,0.04)]">
+      <div className="shrink-0 border-t bg-white bg-white/80 backdrop-blur border-t shadow-[0_-2px_10px_rgba(0,0,0,0.04)]">
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
           {/* LEFT - STEP INFO */}
           <div className="text-xs text-gray-500">

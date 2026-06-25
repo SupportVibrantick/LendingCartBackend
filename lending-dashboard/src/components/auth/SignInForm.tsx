@@ -50,7 +50,7 @@ export default function SignInForm() {
     setErrors({});
     if (!validate()) return;
 
-    const cleanEmail = email.trim();
+    const cleanEmail = email.trim().toLowerCase();
     setIsSubmitting(true);
     const toastId = toast.loading("Signing in...");
 

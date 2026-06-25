@@ -4,6 +4,7 @@ import { ArrowLeft, Loader2, Pencil } from "lucide-react";
 import toast from "react-hot-toast";
 import { API_BASE, getLenderAuthHeaders } from "../../lib/lenderApi";
 import { formatCompactAmount } from "../../lib/loanPipelineUtils";
+import { canManageLenderProfile } from "../../lib/lenderPermissions";
 
 type LoanProductRow = {
   id: string;
@@ -47,6 +48,7 @@ function parseRateRange(value?: string | null) {
 
 export default function LenderProfileView() {
   const location = useLocation();
+  const canManageProfile = canManageLenderProfile();
   const [loading, setLoading] = useState(true);
   const [orgName, setOrgName] = useState("");
   const [profileStatus, setProfileStatus] = useState("DRAFT");
@@ -176,13 +178,15 @@ export default function LenderProfileView() {
           >
             {profileStatus.replace("_", " ")}
           </span>
-          <Link
-            to="/profile/edit"
-            className="inline-flex items-center gap-2 rounded-xl bg-[#134E4A] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0f3f3c]"
-          >
-            <Pencil size={16} />
-            Edit Full Profile
-          </Link>
+          {canManageProfile && (
+            <Link
+              to="/profile/edit"
+              className="inline-flex items-center gap-2 rounded-xl bg-[#134E4A] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0f3f3c]"
+            >
+              <Pencil size={16} />
+              Edit Full Profile
+            </Link>
+          )}
         </div>
       </div>
 
@@ -239,13 +243,19 @@ export default function LenderProfileView() {
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <Link
-          to="/profile/guidelines"
-          className="inline-flex items-center gap-2 text-sm font-medium text-[#134E4A] hover:underline"
-        >
-          Manage lending guidelines & discovery details
-          <ArrowLeft size={14} className="rotate-180" />
-        </Link>
+        {canManageProfile ? (
+          <Link
+            to="/profile/guidelines"
+            className="inline-flex items-center gap-2 text-sm font-medium text-[#134E4A] hover:underline"
+          >
+            Manage lending guidelines & discovery details
+            <ArrowLeft size={14} className="rotate-180" />
+          </Link>
+        ) : (
+          <p className="text-sm text-slate-500">
+            Read-only profile view. Contact your lender admin to make changes.
+          </p>
+        )}
       </div>
     </div>
   );

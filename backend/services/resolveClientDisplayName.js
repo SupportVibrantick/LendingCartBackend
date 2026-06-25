@@ -228,6 +228,28 @@ function resolveClientIndustryFromData(client, submissions = []) {
   return null;
 }
 
+function resolveClientEmailFromData(client, submissions = []) {
+  const primaryContact =
+    client?.contacts?.find((contact) => contact.isPrimary) || client?.contacts?.[0];
+
+  if (primaryContact?.email?.trim()) {
+    return primaryContact.email.trim();
+  }
+
+  for (const contact of client?.contacts || []) {
+    if (contact.email?.trim()) {
+      return contact.email.trim();
+    }
+  }
+
+  return getSubmissionFieldValues(submissions, [
+    "email",
+    "borrowerEmail",
+    "clientEmail",
+    "contactEmail",
+  ]);
+}
+
 function resolveClientPhoneFromData(client, submissions = []) {
   const primaryContact =
     client?.contacts?.find((contact) => contact.isPrimary) || client?.contacts?.[0];
@@ -348,6 +370,7 @@ module.exports = {
   resolveClientEntityLabelFromData,
   resolveClientEntityTypeFromData,
   resolveClientIndustryFromData,
+  resolveClientEmailFromData,
   resolveClientPhoneFromData,
   resolveClientPrimaryContactFromData,
   isPlaceholderName,

@@ -1,1 +1,14 @@
+@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap");
+@import "flatpickr/dist/flatpickr.css";
+
 @import "tailwindcss";
+
+@source "./**/*.{js,jsx,ts,tsx}";
+
+:root {
+  --primary-color: #2c92d5;
+}
+
+body {
+  font-family: Outfit, system-ui, sans-serif;
+}

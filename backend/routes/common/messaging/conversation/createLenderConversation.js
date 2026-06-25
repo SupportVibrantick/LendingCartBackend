@@ -3,6 +3,7 @@ const {
   getOrganizationId,
   isLenderUser,
 } = require("../../../../services/messagingAccess");
+const { hasLenderPermission, LENDER_PERMISSION } = require("../../../../utils/lenderPermissions");
 const {
   LENDER_CHAT_CATEGORIES,
   createLenderBrokerChannelConversation,
@@ -38,6 +39,14 @@ module.exports = async function createLenderConversation(fastify) {
           return reply.code(403).send({
             success: false,
             message: "Lender access only",
+          });
+        }
+
+        if (!hasLenderPermission(req.user, LENDER_PERMISSION.SEND_CHAT)) {
+          return reply.code(403).send({
+            success: false,
+            message:
+              "You do not have permission to start lender conversations.",
           });
         }
 

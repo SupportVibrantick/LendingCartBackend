@@ -26,19 +26,21 @@ async function lenderLoginRoutes(fastify) {
     async (req, reply) => {
       const prisma = fastify.prisma;
       try {
-        const { email, password } = req.body;
+        const email = String(req.body.email || "")
+          .trim()
+          .toLowerCase();
+        const { password } = req.body;
 
         // ---------------------------
         // Find active lender user
         // ---------------------------
         const user = await prisma.userAccount.findFirst({
           where: {
-            email,
-            status: "ACTIVE",
-            organization: {
-              type: "LENDER",
-              status: "ACTIVE",
+            email: {
+              equals: email,
+              mode: "insensitive",
             },
+            isDeleted: { not: true },
           },
           include: {
             organization: true,
@@ -55,12 +57,35 @@ async function lenderLoginRoutes(fastify) {
           });
         }
 
+        if (user.status !== "ACTIVE") {
+          return reply.status(401).send({
+            success: false,
+            message: "Invalid email or password",
+          });
+        }
+
+        if (
+          !user.organization ||
+          user.organization.type !== "LENDER" ||
+          user.organization.status !== "ACTIVE"
+        ) {
+          return reply.status(401).send({
+            success: false,
+            message: "Invalid email or password",
+          });
+        }
+
         // ---------------------------
         // Role validation
         // ---------------------------
         const roles = user.roles.map((r) => r.role.name);
 
-        const allowedRoles = ["LENDER_ADMIN", "LENDER_UNDERWRITER"];
+        const allowedRoles = [
+          "LENDER_ADMIN",
+          "LENDER_UNDERWRITER",
+          "LENDER_ANALYST",
+          "LENDER_VIEWER",
+        ];
         const hasAccess = roles.some((r) => allowedRoles.includes(r));
 
         if (!hasAccess) {
@@ -70,26 +95,19 @@ async function lenderLoginRoutes(fastify) {
           });
         }
 
-        // ---------------------------
-        // Password verification
-        // ---------------------------
-       console.log("LOGIN EMAIL:", email);
-console.log("LOGIN PASSWORD:", password);
-console.log("DB HASH:", user.passwordHash);
+        const isValid = await bcrypt.compare(password, user.passwordHash);
 
-const isValid = await bcrypt.compare(
-  password,
-  user.passwordHash
-);
+        if (!isValid) {
+          return reply.status(401).send({
+            success: false,
+            message: "Invalid email or password",
+          });
+        }
 
-console.log("PASSWORD MATCH:", isValid);
-
-if (!isValid) {
-  return reply.status(401).send({
-    success: false,
-    message: "Invalid email or password",
-  });
-}
+        await prisma.userAccount.update({
+          where: { id: user.id },
+          data: { lastLoginAt: new Date() },
+        });
 
         // ---------------------------
         // Issue JWT (STANDARD PAYLOAD)

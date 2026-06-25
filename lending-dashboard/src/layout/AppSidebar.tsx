@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router";
 import type { LucideIcon } from "lucide-react";
-import { ChevronDown, LayoutDashboard, Layers, TrendingUp, UserCircle } from "lucide-react";
+import { ChevronDown, LayoutDashboard, Layers, TrendingUp, UserCircle, Users } from "lucide-react";
 import { HorizontaLDots } from "../icons";
 import { useSidebar } from "../context/SidebarContext";
+import { isLenderAdminUser } from "../lib/lenderTeamMembers";
 
 type NavItem = {
   name: string;
@@ -51,6 +52,26 @@ const navItems: NavItem[] = [
   },
 ];
 
+const adminNavItems: NavItem[] = [
+  {
+    icon: Users,
+    name: "Users",
+    description: "Team members & access",
+    path: "/team-members",
+    matchPaths: ["/team-members"],
+  },
+];
+
+function getNavItems() {
+  return isLenderAdminUser()
+    ? [
+        ...navItems.slice(0, 3),
+        adminNavItems[0],
+        ...navItems.slice(3),
+      ]
+    : navItems;
+}
+
 function isNavItemActive(pathname: string, item: NavItem) {
   if (item.subItems?.length) {
     return item.subItems.some((subItem) => pathname === subItem.path);
@@ -80,10 +101,12 @@ const AppSidebar: React.FC = () => {
     [location.pathname],
   );
 
+  const menuItems = getNavItems();
+
   useEffect(() => {
     let matchedIndex: number | null = null;
 
-    navItems.forEach((nav, index) => {
+    menuItems.forEach((nav, index) => {
       if (nav.subItems?.some((subItem) => location.pathname === subItem.path)) {
         matchedIndex = index;
       }
@@ -153,7 +176,7 @@ const AppSidebar: React.FC = () => {
 
   const renderMenuItems = () => (
     <ul className="space-y-1">
-      {navItems.map((nav, index) => {
+      {menuItems.map((nav, index) => {
         const active = isActive(nav);
         const Icon = nav.icon;
         const isOpen = openSubmenu === index;

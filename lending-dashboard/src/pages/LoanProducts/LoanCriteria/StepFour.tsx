@@ -237,7 +237,7 @@ const StepFour = ({ value, setValue }: any) => {
       </div>
 
       {/* LIST */}
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-4 max-h-[500px] overflow-y-auto pr-2">
         {data.map((item, index) => {
           const isSelected = value[item.name];
           const isOpen = openIndexes.includes(index);

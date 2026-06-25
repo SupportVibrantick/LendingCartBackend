@@ -35,6 +35,10 @@ import {
   getPaginationWindow,
   type DecisionFilterValue,
 } from "../../lib/loanPipelineUtils";
+import {
+  canDecideApplications,
+  canGenerateLoi,
+} from "../../lib/lenderPermissions";
 
 /* ================= TYPES ================= */
 type TableRow = {
@@ -73,6 +77,8 @@ const normalizeStatus = (status?: string) => status?.toUpperCase().trim();
 /* ================= COMPONENT ================= */
 export default function LoanPipeline() {
   const navigate = useNavigate();
+  const canDecide = canDecideApplications();
+  const canCreateLoi = canGenerateLoi();
   const [rows, setRows] = useState<TableRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [statsLoading, setStatsLoading] = useState(false);
@@ -714,7 +720,8 @@ useEffect(() => {
                 ))
               ) : rows.length > 0 ? (
                 rows.map((row) => {
-                  const isActionAllowed = canTakeDecision(row.applicationStatus);
+                  const isActionAllowed =
+                    canDecide && canTakeDecision(row.applicationStatus);
 
                   return (
                     <tr
@@ -909,7 +916,7 @@ transition rounded-lg mx-1"
                                     <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
 
                                     {/* Generate LOI (only if NOT generated) */}
-                                    {!row.loiGenerated && (
+                                    {canCreateLoi && !row.loiGenerated && (
                                       <button
                                         onClick={() => {
                                           handleGenerateLOI(

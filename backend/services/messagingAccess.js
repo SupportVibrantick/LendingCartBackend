@@ -89,7 +89,9 @@ function normalizeAuthUser(decoded) {
   if (
     !orgType &&
     (hasRole({ roles }, "LENDER_ADMIN") ||
-      hasRole({ roles }, "LENDER_UNDERWRITER"))
+      hasRole({ roles }, "LENDER_UNDERWRITER") ||
+      hasRole({ roles }, "LENDER_ANALYST") ||
+      hasRole({ roles }, "LENDER_VIEWER"))
   ) {
     orgType = "LENDER";
   }
@@ -289,11 +291,15 @@ function isClientUser(req) {
   );
 }
 
+const {
+  LENDER_PORTAL_ROLES,
+} = require("../utils/lenderTeamRoles");
+const { hasLenderPermission, LENDER_PERMISSION } = require("../utils/lenderPermissions");
+
 function isLenderUser(req) {
   return (
     req.user?.orgType === "LENDER" ||
-    hasRole(req.user, "LENDER_ADMIN") ||
-    hasRole(req.user, "LENDER_UNDERWRITER")
+    LENDER_PORTAL_ROLES.some((role) => hasRole(req.user, role))
   );
 }
 
@@ -437,6 +443,14 @@ function assertCanSendMessage(req, conversationType) {
       code: 403,
       message:
         "Lenders cannot message clients directly. All communication routes through the broker.",
+    };
+  }
+
+  if (isLenderUser(req) && !hasLenderPermission(req.user, LENDER_PERMISSION.SEND_CHAT)) {
+    return {
+      code: 403,
+      message:
+        "You do not have permission to send messages in this portal.",
     };
   }
 

@@ -12,6 +12,7 @@ const {
 const {
   syncProfileFundingToProducts,
 } = require("../../../utils/evaluateLenderEligibility");
+const { hasLenderPermission, LENDER_PERMISSION } = require("../../../utils/lenderPermissions");
 
 async function readFieldValue(part) {
   if (part.value === undefined || part.value === null) {
@@ -82,6 +83,14 @@ async function lenderUpdateProfileRoutes(fastify) {
           return reply.code(403).send({
             success: false,
             message: "Lender access only",
+          });
+        }
+
+        if (!hasLenderPermission(req.user, LENDER_PERMISSION.MANAGE_LENDER_PROFILE)) {
+          return reply.code(403).send({
+            success: false,
+            message:
+              "You do not have permission to update the lender profile.",
           });
         }
 
