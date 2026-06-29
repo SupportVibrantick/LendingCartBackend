@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { MdModeEdit, MdDelete } from "react-icons/md";
 import { TiPlus } from "react-icons/ti";
 import EditLenderModal from "./EditLenderModal";
+import LenderDetailsModal from "./LenderDetailsModal";
 import { useNavigate } from "react-router-dom";
 
 import {
@@ -99,6 +100,7 @@ export default function AllLendersPage() {
   const [submitting, setSubmitting] = useState(false);
 
   const [editingLender, setEditingLender] = useState<Lender | null>(null);
+  const [viewingLender, setViewingLender] = useState<Lender | null>(null);
 
   const [query, setQuery] = useState("");
   const [pageSize, setPageSize] = useState<number>(6);
@@ -1152,12 +1154,24 @@ export default function AllLendersPage() {
             {paginated.map((l) => (
               <div
                 key={l.id}
-                className="group relative bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5 transition-all duration-300 hover:shadow-md"
+                role="button"
+                tabIndex={0}
+                onClick={() => setViewingLender(l)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setViewingLender(l);
+                  }
+                }}
+                className="group relative cursor-pointer rounded-xl border border-slate-200 bg-white p-5 transition-all duration-300 hover:border-[#13538A]/35 hover:shadow-md dark:border-slate-800 dark:bg-slate-900 dark:hover:border-blue-500/40"
               >
                 {/* STATUS */}
                 <div className="absolute top-4 right-4">
                   <button
-                    onClick={() => !rowLoadingId && changeStatusFor(l)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (!rowLoadingId) changeStatusFor(l);
+                    }}
                     disabled={!!rowLoadingId}
                     className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border uppercase tracking-wider ${statusClass(
                       l.status,
@@ -1195,10 +1209,7 @@ export default function AllLendersPage() {
                   {/* Info */}
                   <div className="flex-1 min-w-0 pr-16">
                     <div>
-                      <h3
-                        className="text-base font-bold text-[#13538A] dark:text-white truncate group-hover:text-blue-600 transition-colors cursor-pointer"
-                        // onClick={() => openAdminsFor(l)}
-                      >
+                      <h3 className="truncate text-base font-bold text-[#13538A] transition-colors group-hover:text-blue-600 dark:text-white">
                         {l.name}
                       </h3>
                     </div>
@@ -1221,27 +1232,38 @@ export default function AllLendersPage() {
                 </div>
 
                 {/* Actions Footer */}
-                <div className="mt-5 pt-4 border-t border-slate-100 dark:border-slate-800/50 flex items-center justify-between gap-2">
-                  <span className="text-[10px] uppercase font-bold text-slate-400">
+                <div className="mt-5 flex items-center justify-between gap-2 border-t border-slate-100 pt-4 dark:border-slate-800/50">
+                  <span className="text-[10px] font-bold uppercase text-slate-400">
                     Created:{" "}
                     {l.createdAt
                       ? new Date(l.createdAt).toLocaleDateString()
                       : "-"}
                   </span>
 
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#13538A] opacity-0 transition-opacity group-hover:opacity-100 dark:text-blue-400">
+                      View details
+                      <ChevronRight size={12} />
+                    </span>
+
                     <button
                       disabled={!!rowLoadingId}
-                      onClick={() => navigate(`/update-lender/${l.id}`)}
-                      className="p-2 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/update-lender/${l.id}`);
+                      }}
+                      className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-500/10"
                       title="Edit Lender"
                     >
                       <MdModeEdit size={16} />
                     </button>
                     <button
                       disabled={!!rowLoadingId}
-                      onClick={() => handleDelete(l)}
-                      className="p-2 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDelete(l);
+                      }}
+                      className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10"
                       title="Delete Lender"
                     >
                       {rowLoadingId === l.id ? (
@@ -1615,6 +1637,13 @@ dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100`}
             </div>
           </div>
         )}
+
+        {/* Lender Details Modal */}
+        <LenderDetailsModal
+          lender={viewingLender}
+          apiBase={API_BASE}
+          onClose={() => setViewingLender(null)}
+        />
 
         {/* Edit Lender Modal */}
         {editingLender && (

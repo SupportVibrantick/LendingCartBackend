@@ -2,6 +2,10 @@ const prisma = require("../../../config/prisma");
 const {
   resolveClientDisplayNameFromData,
 } = require("../../../services/resolveClientDisplayName");
+const {
+  buildBrokerPipelineApplicationStatusWhere,
+  resolveBrokerPipelineDisplayStatus,
+} = require("../../../utils/resolveApplicationStatus");
 
 async function getApplicationsRoute(fastify, options) {
   fastify.get(
@@ -24,6 +28,10 @@ async function getApplicationsRoute(fastify, options) {
 
         const search = String(request.query.search || "").trim();
 
+        const statusFilter = String(request.query.status || "")
+          .trim()
+          .toUpperCase();
+
         const skip = Math.max(0, (page - 1) * limit);
 
         /* ===============================
@@ -44,20 +52,28 @@ async function getApplicationsRoute(fastify, options) {
           "LINE_OF_CREDIT",
         ];
 
-        const validStatuses = [
+        const validLoanApplicationStatuses = [
           "DRAFT",
-
           "SUBMITTED",
-
           "IN_REVIEW",
-
+          "AUTO_APPROVED",
+          "AUTO_DECLINED",
+          "LENDER_SELECTED",
+          "LENDER_APPROVED",
+          "LENDER_DECLINED",
+          "FUNDED",
+          "WITHDRAWN",
           "CLIENT_PENDING",
+          "SUSPENDED",
+        ];
 
+        const pipelineStatusFilters = [
+          "DRAFT",
+          "SUBMITTED",
+          "IN_REVIEW",
+          "CLIENT_PENDING",
           "APPROVED",
-
           "DECLINED",
-
-          "COMPLETED",
         ];
 
         /* ===============================
@@ -105,10 +121,14 @@ async function getApplicationsRoute(fastify, options) {
           }
 
           /* STATUS ENUM */
-          if (validStatuses.includes(upperSearch)) {
+          if (validLoanApplicationStatuses.includes(upperSearch)) {
             OR.push({
               status: upperSearch,
             });
+          }
+
+          if (upperSearch === "APPROVED" || upperSearch === "DECLINED") {
+            OR.push(buildBrokerPipelineApplicationStatusWhere(upperSearch));
           }
 
           /* SEARCH INSIDE FIELD KEYS */
@@ -132,12 +152,18 @@ async function getApplicationsRoute(fastify, options) {
            WHERE
         =============================== */
 
+        const pipelineStatusWhere = buildBrokerPipelineApplicationStatusWhere(
+          pipelineStatusFilters.includes(statusFilter) ? statusFilter : undefined,
+        );
+
         const where = {
           subBrokerAssignments: {
             some: {
               subBrokerId: userId,
             },
           },
+
+          ...pipelineStatusWhere,
 
           ...(OR.length > 0 && {
             OR,
@@ -359,7 +385,7 @@ async function getApplicationsRoute(fastify, options) {
             termMonthsRequested:
               fieldsMap.termMonthsRequested || item.termMonthsRequested || null,
 
-            status: item.status,
+            status: resolveBrokerPipelineDisplayStatus(item),
 
             submittedOn: item.submittedAt || item.createdAt,
 

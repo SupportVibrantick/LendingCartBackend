@@ -223,12 +223,15 @@ app.register(indexRoutes, { prefix: "/" });
 
 const campaignScheduler = require("./scheduler/campaign.scheduler");
 const subscriptionScheduler = require("./scheduler/subscription.scheduler");
+const documentReminderScheduler = require("./scheduler/documentReminder.scheduler");
 
 app.ready().then(() => {
   campaignScheduler(app);
   subscriptionScheduler(app);
+  documentReminderScheduler(app);
   console.log("🚀 Campaign Scheduler Started");
   console.log("📋 Subscription Billing Scheduler Started");
+  console.log("📧 Document Reminder Scheduler Started");
 });
 
 // app.ready(() => {

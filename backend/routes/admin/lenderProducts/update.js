@@ -1,7 +1,12 @@
 // routes/admin/lenderProducts/update.js
 
-const { Prisma } = require("@prisma/client");
 const { adminLogs } = require("../../../services/logger/contextLogger");
+const {
+  buildLenderProductPrismaFields,
+} = require("../../../utils/buildLenderProductPrismaFields");
+const {
+  syncLenderProductDocuments,
+} = require("../../../utils/syncLenderProductDocuments");
 
 async function updateLenderProductRoutes(fastify) {
   fastify.patch("/", async (request, reply) => {
@@ -50,17 +55,8 @@ async function updateLenderProductRoutes(fastify) {
       });
 
       // ---------------------------
-      // HELPERS (FIXED)
+      // HELPERS
       // ---------------------------
-      const toDecimal = (val) =>
-        val !== undefined && val !== null && val !== ""
-          ? new Prisma.Decimal(val)
-          : null;
-
-      const toCsv = (arr) =>
-        Array.isArray(arr) && arr.length
-          ? arr.map((v) => String(v).trim()).filter(Boolean).join(",")
-          : null;
 
       // ---------------------------
       // TRANSACTION
@@ -121,87 +117,15 @@ async function updateLenderProductRoutes(fastify) {
             }
           }
 
-          const isEquipmentFinance =
-            (existing?.loanProductCode ||
-              item.loanProductCode) === "EQUIPMENT_FINANCE";
+          const productCode =
+            existing?.loanProductCode || item.loanProductCode;
 
-          // =========================
-          // BUILD SAFE PAYLOAD
-          // =========================
-          const payload = {
-            ...(item.businessTypes !== undefined && {
-              businessTypes: item.businessTypes,
-            }),
+          const { documents, ...productInput } = item;
 
-            ...(item.propertyTypes !== undefined && {
-              propertyTypes: item.propertyTypes,
-            }),
-
-            ...(item.minLoanAmount !== undefined && {
-              minLoanAmount: toDecimal(item.minLoanAmount),
-            }),
-
-            ...(item.maxLoanAmount !== undefined && {
-              maxLoanAmount: toDecimal(item.maxLoanAmount),
-            }),
-
-            ...(item.minTermMonths !== undefined && {
-              minTermMonths: item.minTermMonths ?? null,
-            }),
-
-            ...(item.maxTermMonths !== undefined && {
-              maxTermMonths: item.maxTermMonths ?? null,
-            }),
-
-            ...(item.maxLtvPercent !== undefined && {
-              maxLtvPercent: toDecimal(item.maxLtvPercent),
-            }),
-
-            ...(item.maxArvPercent !== undefined && {
-  maxArvPercent: toDecimal(item.maxArvPercent),
-}),
-
-...(item.maxLtcPercent !== undefined && {
-  maxLtcPercent: toDecimal(item.maxLtcPercent),
-}),
-
-            ...(item.minCreditScore !== undefined && {
-              minCreditScore: item.minCreditScore ?? null,
-            }),
-
-            // ✅ FIXED (STRING)
-            ...(item.minExperience !== undefined && {
-              minExperience:
-                item.minExperience === null
-                  ? null
-                  : String(item.minExperience),
-            }),
-
-            ...(item.interestRateRange !== undefined && {
-              interestRateRange:
-                item.interestRateRange?.trim() || null,
-            }),
-
-            ...(item.statesSupported !== undefined && {
-              statesSupported: toCsv(item.statesSupported),
-            }),
-
-            // ✅ EQUIPMENT SAFE
-            ...(isEquipmentFinance &&
-              item.equipmentTypes !== undefined && {
-                equipmentTypes: toCsv(item.equipmentTypes),
-              }),
-
-            ...(isEquipmentFinance &&
-              item.otherEquipmentExplanation !== undefined && {
-                otherEquipmentExplanation:
-                  item.otherEquipmentExplanation?.trim() || null,
-              }),
-
-            ...(typeof item.isActive === "boolean" && {
-              isActive: item.isActive,
-            }),
-          };
+          const payload = buildLenderProductPrismaFields({
+            ...productInput,
+            loanProductCode: productCode,
+          });
 
           let final;
 
@@ -224,6 +148,10 @@ async function updateLenderProductRoutes(fastify) {
               },
               include: { loanProduct: true },
             });
+          }
+
+          if (Array.isArray(documents)) {
+            await syncLenderProductDocuments(tx, final.id, documents);
           }
 
           finalProducts.push(final);

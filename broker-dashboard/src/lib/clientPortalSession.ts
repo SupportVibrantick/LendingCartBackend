@@ -97,3 +97,33 @@ export function clearClientPortalSession() {
   sessionStorage.removeItem("client_token");
   sessionStorage.removeItem("client_user");
 }
+
+export function isClientPortalImpersonationSession() {
+  const token = sessionStorage.getItem("client_token");
+  if (!token) return false;
+  const payload = decodeJwtPayload(token);
+  return Boolean(payload?.impersonatedBy);
+}
+
+export async function verifyClientPortalSession(
+  token: string,
+): Promise<boolean> {
+  const apiBase =
+    import.meta.env.VITE_API_BASE?.replace(/\/$/, "") || "http://localhost:4000";
+
+  const res = await fetch(
+    `${apiBase}/client-portal/applications?page=1&limit=1`,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    },
+  );
+  return res.ok;
+}
+
+export function exitClientPortalImpersonation() {
+  clearClientPortalSession();
+  window.close();
+  window.setTimeout(() => {
+    window.location.href = "/client-upload";
+  }, 150);
+}

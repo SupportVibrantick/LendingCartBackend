@@ -1,3 +1,7 @@
+const {
+  resolveCoBrokerDocumentSourceName,
+} = require("./resolveCoBrokerDocumentSourceName");
+
 function formatUserName(user) {
   if (!user) return null;
 
@@ -6,19 +10,28 @@ function formatUserName(user) {
 }
 
 function resolveLenderDocumentSourceLabel(reqDoc, context) {
-  const { brokerOrgName, brokerUserName, lenderName, uploads = [] } = context;
+  const {
+    brokerOrgName,
+    brokerUserName,
+    lenderName,
+    uploads = [],
+    assignmentNamesBySubBrokerId,
+  } = context;
 
   if (reqDoc.source === "BROKER_ADDED") {
     return brokerOrgName || brokerUserName || "Broker";
   }
 
   if (reqDoc.source === "SUB_BROKER_ADDED") {
-    for (const upload of uploads) {
-      const uploaderName = formatUserName(upload.uploadedByUser);
-      if (uploaderName) return uploaderName;
-    }
-
-    return "Sub Broker";
+    return (
+      resolveCoBrokerDocumentSourceName(
+        { ...reqDoc, uploads },
+        {
+          assignmentNamesBySubBrokerId,
+          fallbackName: "Co-Broker",
+        },
+      ) || "Co-Broker"
+    );
   }
 
   if (reqDoc.source === "LENDER_ADDED") {

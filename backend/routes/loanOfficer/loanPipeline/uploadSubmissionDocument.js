@@ -200,6 +200,16 @@ module.exports = async function uploadSubmissionDocument(fastify) {
             data: { status: newStatus },
           });
 
+          if (requirement.source === "SUB_BROKER_ADDED") {
+            await tx.subBrokerSubmission.updateMany({
+              where: {
+                documentUpload: { documentRequirementId: requirementId },
+                status: "PENDING",
+              },
+              data: { status: "REVIEWED", reviewedAt: new Date() },
+            });
+          }
+
           return upload;
         });
 

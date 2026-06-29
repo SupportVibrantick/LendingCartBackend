@@ -7,6 +7,8 @@ async function subBrokerRoutes(fastify) {
     prefix: "/list",
   });
 
+  fastify.register(require("./formOptions"));
+
   fastify.register(require("./status"), {});
 
   fastify.register(require("./update"), {});
@@ -16,6 +18,8 @@ async function subBrokerRoutes(fastify) {
   fastify.register(require("./deleteSubBroker"), {});
 
   fastify.register(require("./assignApplication"));
+
+  fastify.register(require("./impersonate"), {});
 }
 
 module.exports = subBrokerRoutes;

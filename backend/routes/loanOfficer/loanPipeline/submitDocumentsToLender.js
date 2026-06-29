@@ -229,6 +229,17 @@ module.exports = async function submitDocumentsToLender(fastify) {
             skipDuplicates: true,
           });
 
+          await fastify.prisma.subBrokerSubmission.updateMany({
+            where: {
+              documentUploadId: { in: uploadIds },
+              status: { in: ["PENDING", "REVIEWED"] },
+            },
+            data: {
+              status: "SENT_TO_LENDER",
+              sentToLenderAt: new Date(),
+            },
+          });
+
           totalSubmitted += uploadIds.length;
           successfulApplicationLenderIds.push(applicationLenderId);
 

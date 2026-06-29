@@ -8,6 +8,7 @@
   FileText,
   FolderOpen,
   Loader2,
+  Mail,
   MoreVertical,
   Pencil,
   Search,
@@ -45,6 +46,7 @@ import {
 } from "../../lib/documentStatus";
 import DocumentControlsBar from "../../components/documents/DocumentControlsBar";
 import SignDocumentsPanel from "../../components/documents/SignDocumentsPanel";
+import DocumentReminderPanel from "../../components/loanPipeline/DocumentReminderPanel";
 import BrokerLoiPanel from "../../components/loi/BrokerLoiPanel";
 import SubmissionDetailsView from "../../components/submissions/SubmissionDetailsView";
 import {
@@ -100,6 +102,7 @@ type TabKey =
   | "update-application"
   | "find-lenders"
   | "request-document"
+  | "email-reminders"
   | "view-loi"
   | "documents"
   | "sign-documents"
@@ -1123,6 +1126,12 @@ const LoanPreview = () => {
       label: "Request Document",
       icon: Send,
       color: "text-emerald-600",
+    },
+    {
+      key: "email-reminders" as const,
+      label: "Email Reminders",
+      icon: Mail,
+      color: "text-sky-600",
     },
     {
       key: "view-loi" as const,
@@ -2352,6 +2361,10 @@ dark:bg-red-900/20 dark:text-red-400"
         return renderFindLenders();
       case "request-document":
         return renderRequestDocument();
+      case "email-reminders":
+        return (
+          <DocumentReminderPanel loanApplicationId={applicationId} />
+        );
       case "view-loi":
         return renderViewLoi();
       case "documents":

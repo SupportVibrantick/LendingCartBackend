@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 import {
   ChevronDown,
   ChevronUp,
@@ -19,9 +19,6 @@ type ResidentialReviewStepProps = {
   onEditStep: (stepIndex: number) => void;
   onSubmit: () => void;
   submitting: boolean;
-  captchaSlot?: ReactNode;
-  requireCaptcha?: boolean;
-  captchaVerified?: boolean;
 };
 
 const ReviewAccordion = ({
@@ -128,12 +125,8 @@ export default function ResidentialReviewStep({
   onEditStep,
   onSubmit,
   submitting,
-  captchaSlot = null,
-  requireCaptcha = false,
-  captchaVerified = false,
 }: ResidentialReviewStepProps) {
-  const canSubmit =
-    issues.length === 0 && (!requireCaptcha || captchaVerified);
+  const canSubmit = issues.length === 0;
 
   return (
     <div className="mt-5 space-y-5">
@@ -187,19 +180,11 @@ export default function ResidentialReviewStep({
         ))}
       </div>
 
-      {!canSubmit && issues.length > 0 && (
+      {!canSubmit && (
         <p className="text-center text-sm text-slate-500">
           Please complete all required fields to enable submission.
         </p>
       )}
-
-      {!canSubmit && issues.length === 0 && requireCaptcha && (
-        <p className="text-center text-sm text-slate-500">
-          Please complete the reCAPTCHA verification to enable submission.
-        </p>
-      )}
-
-      {captchaSlot}
 
       <button
         type="button"

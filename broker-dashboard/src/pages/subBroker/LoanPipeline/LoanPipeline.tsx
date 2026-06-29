@@ -4,26 +4,25 @@ import { createPortal } from "react-dom";
 import { useNavigate } from "react-router";
 import {
   MapPin,
-  // Eye,
   Search,
-  FileText,
-  DollarSign,
   Loader2,
-  // TrendingUp,
-  // RefreshCcw,
-  // Building2,
-  // SearchX,
-  // ChevronLeft,
-  // ChevronRight,
-  CheckCircle,
   MoreVertical,
-  // Send,
-  // Mail,
-  // UserPlus,
+  RefreshCw,
+  X,
+  TrendingUp,
+  SearchX,
+  Eye,
+  Users,
+  FileText,
 } from "lucide-react";
 
-import { MdOutlinePreview } from "react-icons/md";
+import PageMeta from "../../../components/common/PageMeta";
 import { formatDocumentStatusLabel } from "../../../lib/documentStatus";
+import {
+  CO_BROKER_API_BASE,
+  CO_BROKER_TOKEN_KEY,
+  getCoBrokerAuthHeaders,
+} from "../../../lib/coBrokerPortal";
 
 /* ================= TYPES ================= */
 
@@ -53,7 +52,87 @@ type TableRow = {
 };
 
 /* ================= HELPERS ================= */
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
+const API_BASE = CO_BROKER_API_BASE;
+
+const STATUS_FILTERS = [
+  { value: "", label: "All", statKey: "totalApplications" as const },
+  {
+    value: "CLIENT_PENDING",
+    label: "Client Pending",
+    statKey: "clientPending" as const,
+  },
+  { value: "DRAFT", label: "Draft", statKey: "draft" as const },
+  { value: "SUBMITTED", label: "Submitted", statKey: "submitted" as const },
+  { value: "IN_REVIEW", label: "In Review", statKey: "inReview" as const },
+  { value: "APPROVED", label: "Approved", statKey: "approved" as const },
+  { value: "DECLINED", label: "Rejected", statKey: "rejected" as const },
+];
+
+function formatStatusLabel(status?: string) {
+  if (!status) return "Unknown";
+  if (status === "DECLINED") return "Rejected";
+  if (status === "CLIENT_PENDING") return "Client Pending";
+  if (status === "IN_REVIEW") return "In Review";
+  return status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function getInitials(name?: string) {
+  if (!name) return "?";
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() || "")
+    .join("");
+}
+
+function formatShortDate(value?: string) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function getStatusColor(status?: string) {
+  const s = status?.toLowerCase();
+
+  switch (s) {
+    case "new":
+      return "bg-blue-500/10 border-blue-500/20 text-blue-600 dark:text-blue-400";
+    case "pending":
+      return "bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400";
+    case "client_pending":
+      return "bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400";
+    case "submitted":
+      return "bg-violet-500/10 border-violet-500/20 text-violet-600 dark:text-violet-400";
+    case "sent":
+      return "bg-indigo-500/10 border-indigo-500/20 text-indigo-600 dark:text-indigo-400";
+    case "updated":
+      return "bg-cyan-500/10 border-cyan-500/20 text-cyan-600 dark:text-cyan-400";
+    case "approved":
+      return "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400";
+    case "lender_approved":
+      return "bg-green-500/10 border-green-500/20 text-green-600 dark:text-green-400";
+    case "declined":
+      return "bg-red-500/10 border-red-500/20 text-red-600 dark:text-red-400";
+    case "lender_declined":
+      return "bg-rose-600/10 border-rose-600/20 text-rose-700 dark:text-rose-500";
+    case "in_review":
+      return "bg-sky-500/10 border-sky-500/20 text-sky-600 dark:text-sky-400";
+    case "draft":
+      return "bg-gray-400/10 border-gray-400/20 text-gray-600 dark:text-gray-400";
+    case "completed":
+      return "bg-teal-500/10 border-teal-500/20 text-teal-600 dark:text-teal-400";
+    case "superseded":
+      return "bg-orange-400/10 border-orange-400/20 text-orange-600 dark:text-orange-400";
+    default:
+      return "bg-slate-500/10 border-slate-500/20 text-slate-600 dark:text-slate-400";
+  }
+}
 
 const parseValue = (val: string): any => {
   try {
@@ -69,15 +148,7 @@ const getFieldValue = (fields: SubmissionField[], key: string): any => {
 };
 
 function getAuthHeaders(): HeadersInit {
-  const token = sessionStorage.getItem("sub_broker_token");
-
-  return {
-    "Content-Type": "application/json",
-
-    ...(token && {
-      Authorization: `Bearer ${token}`,
-    }),
-  };
+  return getCoBrokerAuthHeaders();
 }
 
 /* ================= COMPONENT ================= */
@@ -86,6 +157,18 @@ export default function LoanApplicationsPage() {
   const [rows, setRows] = useState<TableRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [pipelineStats, setPipelineStats] = useState({
+    totalVolume: 0,
+    totalApplications: 0,
+    newApplications: 0,
+    submitted: 0,
+    clientPending: 0,
+    approved: 0,
+    rejected: 0,
+    inReview: 0,
+    draft: 0,
+  });
   const [viewSubmissionId, setViewSubmissionId] = useState<string | null>(null);
   const [submissionDetail, setSubmissionDetail] = useState<any>(null);
   const [detailLoading] = useState<boolean>(false);
@@ -146,6 +229,17 @@ export default function LoanApplicationsPage() {
 
   const navigate = useNavigate();
 
+  const openPreview = (submissionId: string, row?: TableRow) => {
+    const target = row || rows.find((r) => r.submissionId === submissionId);
+    navigate("/sub-broker/loan-pipeline-preview", {
+      state: {
+        submissionId,
+        applicationId: target?.applicationId,
+        application: target,
+      },
+    });
+  };
+
   const formatFieldKey = (key: string | null | undefined) => {
     if (!key) return "";
 
@@ -164,71 +258,6 @@ export default function LoanApplicationsPage() {
 
     return cleaned;
   };
-
-  const getStatusColor = (status?: string) => {
-    const s = status?.toLowerCase();
-
-    switch (s) {
-      case "new":
-        return "bg-blue-500/10 border-blue-500/20 text-blue-600 dark:text-blue-400";
-
-      case "pending":
-        return "bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400";
-
-      case "client_pending":
-        return "bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400";
-
-      case "submitted":
-        return "bg-violet-500/10 border-violet-500/20 text-violet-600 dark:text-violet-400"; // 🟣 unique
-
-      case "sent":
-        return "bg-indigo-500/10 border-indigo-500/20 text-indigo-600 dark:text-indigo-400"; // 🔵
-
-      case "updated":
-        return "bg-cyan-500/10 border-cyan-500/20 text-cyan-600 dark:text-cyan-400";
-
-      case "approved":
-        return "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400";
-
-      case "lender_approved":
-        return "bg-green-500/10 border-green-500/20 text-green-600 dark:text-green-400"; // 🟢 different from approved
-
-      case "declined":
-        return "bg-red-500/10 border-red-500/20 text-red-600 dark:text-red-400";
-
-      case "lender_declined":
-        return "bg-rose-600/10 border-rose-600/20 text-rose-700 dark:text-rose-500"; // 🔴 slightly darker
-
-      case "in_review":
-        return "bg-sky-500/10 border-sky-500/20 text-sky-600 dark:text-sky-400"; // 🌊 unique
-
-      case "draft":
-        return "bg-gray-400/10 border-gray-400/20 text-gray-600 dark:text-gray-400";
-
-      case "completed":
-        return "bg-teal-500/10 border-teal-500/20 text-teal-600 dark:text-teal-400"; // 🟩 different from approved
-
-      case "superseded":
-        return "bg-orange-400/10 border-orange-400/20 text-orange-600 dark:text-orange-400";
-
-      default:
-        return "bg-slate-500/10 border-slate-500/20 text-slate-600 dark:text-slate-400";
-    }
-  };
-
-  const newCount = rows.filter(
-    (r) => r.status === "NEW" || r.status === "SUBMITTED",
-  ).length;
-
-  const approvedCount = rows.filter((r) => r.status === "APPROVED").length;
-
-  const totalVolume = rows.reduce((sum, r) => {
-    const amount = Number(r.amount);
-
-    if (!isFinite(amount)) return sum; // skip bad values
-
-    return sum + amount;
-  }, 0);
 
   // const fetchSubmissionDetail = async (submissionId: string) => {
   //   try {
@@ -270,7 +299,7 @@ export default function LoanApplicationsPage() {
       setDocumentModalOpen(true);
 
       const res = await fetch(
-        `${API_BASE}/broker/loan-pipeline/submissions/${submissionId}/documents`,
+        `${API_BASE}/subbroker/documents/submissions/${submissionId}/documents`,
         {
           method: "GET",
           headers: getAuthHeaders(),
@@ -303,6 +332,10 @@ export default function LoanApplicationsPage() {
 
       if (debouncedSearch.trim()) {
         url.searchParams.set("search", debouncedSearch);
+      }
+
+      if (statusFilter) {
+        url.searchParams.set("status", statusFilter);
       }
 
       const res = await fetch(url.toString(), {
@@ -399,6 +432,30 @@ export default function LoanApplicationsPage() {
       setLoading(false);
     }
   };
+
+  const fetchPipelineStats = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/subbroker/loan-pipeline/pipeline-stats`, {
+        headers: getAuthHeaders(),
+      });
+
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Failed to fetch stats");
+      }
+
+      setPipelineStats(json.data);
+    } catch (err: any) {
+      console.error(err);
+    }
+  };
+
+  const handleRefresh = () => {
+    loadSubmissions();
+    fetchPipelineStats();
+  };
+
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(searchTerm);
@@ -422,14 +479,14 @@ export default function LoanApplicationsPage() {
     try {
       setUploadingDocId(requirementId);
 
-      const token = sessionStorage.getItem("sub_broker_token");
+      const token = sessionStorage.getItem(CO_BROKER_TOKEN_KEY);
 
       for (const file of files) {
         const formData = new FormData();
         formData.append("file", file);
 
         const res = await fetch(
-          `${API_BASE}/broker/loan-pipeline/submissions/${submissionId}/documents/${requirementId}/upload`,
+          `${API_BASE}/subbroker/documents/submissions/${submissionId}/documents/${requirementId}/upload`,
           {
             method: "POST",
             headers: {
@@ -509,7 +566,8 @@ export default function LoanApplicationsPage() {
 
   useEffect(() => {
     loadSubmissions();
-  }, [currentPage, debouncedSearch]);
+    fetchPipelineStats();
+  }, [currentPage, debouncedSearch, statusFilter]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -617,7 +675,7 @@ export default function LoanApplicationsPage() {
 
   const handleRequestDocuments = async () => {
     try {
-      const brokerToken = sessionStorage.getItem("sub_broker_token");
+      const brokerToken = sessionStorage.getItem(CO_BROKER_TOKEN_KEY);
 
       if (!brokerToken) {
         toast.error("Unauthorized");
@@ -629,7 +687,7 @@ export default function LoanApplicationsPage() {
         return;
       }
 
-      const url = `${API_BASE}/broker/loan-pipeline/${docSelectModal.applicationId}/request-documents`;
+      const url = `${API_BASE}/subbroker/documents/${docSelectModal.applicationId}/request-documents`;
 
       const res = await fetch(url, {
         method: "POST",
@@ -668,554 +726,299 @@ export default function LoanApplicationsPage() {
   };
 
   return (
-    <div className="min-w-full bg-slate-50 dark:bg-[#0b1120] p-3 text-slate-900 dark:text-slate-100 selection:bg-blue-100 dark:selection:bg-blue-900/30">
-      {/* Header Area */}
-      <header className="max-w-ful mx-auto mb-10">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-          <div className="space-y-1">
-            <h2
-              className="text-3xl font-bold"
-              style={{
-                color: "#00B8DB",
-              }}
-            >
-              Loan Pipeline
-            </h2>
-          </div>
+    <>
+      <PageMeta
+        title="Loan Pipeline | Co-Broker Portal"
+        description="Track and manage assigned loan applications"
+      />
 
-          <div className="flex flex-col md:flex-row md:items-center gap-3">
-            {/* Search + Reload Section */}
-            <div className="flex items-center gap-3 flex-1">
-              <div className="relative group flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
-                <input
-                  value={searchTerm}
-                  placeholder="Search by name, company, or app no..."
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 pr-4 py-2.5 w-full md:w-80 rounded-xl text-sm 
-                   bg-white dark:bg-slate-900 
-                   border border-slate-200 dark:border-slate-800 
-                   focus:ring-2 focus:ring-blue-500/20 
-                   focus:border-blue-500 transition-all outline-none"
-                />
+      <div className="mx-auto w-full min-w-0 max-w-[1400px] space-y-6">
+        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-gradient-to-br from-[#13538A] via-[#1a6aad] to-[#2C92D5] p-6 text-white shadow-sm dark:border-gray-800 lg:p-8">
+          <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:gap-10">
+            <div className="min-w-0 flex-1">
+              <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-medium backdrop-blur-sm">
+                <TrendingUp className="h-3.5 w-3.5" />
+                Pipeline Management
               </div>
+              <h1 className="text-2xl font-semibold tracking-tight">Loan Pipeline</h1>
+              <p className="mt-1 max-w-2xl text-sm text-white/80">
+                {pipelineStats.totalApplications} total application
+                {pipelineStats.totalApplications === 1 ? "" : "s"} ·{" "}
+                {formatCompactAmount(pipelineStats.totalVolume)} pipeline volume
+              </p>
+            </div>
+
+            <div className="grid w-full grid-cols-2 gap-3 sm:grid-cols-4 xl:w-[min(100%,520px)] xl:shrink-0">
+              {[
+                { label: "Total Apps", value: pipelineStats.totalApplications },
+                { label: "Submitted", value: pipelineStats.submitted },
+                { label: "In Review", value: pipelineStats.inReview },
+                { label: "Approved", value: pipelineStats.approved },
+              ].map(({ label, value }) => (
+                <div
+                  key={label}
+                  className="rounded-xl bg-white/10 px-4 py-3 ring-1 ring-white/20 backdrop-blur-sm"
+                >
+                  <p className="text-xs text-white/70">{label}</p>
+                  <p className="mt-1 text-2xl font-semibold">{value}</p>
+                </div>
+              ))}
             </div>
           </div>
         </div>
 
-        {/* Quick Status Cards */}
-        <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {/* TOTAL VOLUME */}
-          <div
-            className="
-group rounded-2xl border border-slate-200
-bg-white p-5
-transition-all duration-300
-hover:border-indigo-200
-"
-          >
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-xs font-medium text-slate-500">
-                  Total Volume
-                </p>
-
-                <h3 className="mt-2 text-xl font-bold text-slate-900">
-                  {formatCompactAmount(totalVolume)}
-                </h3>
+        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900 lg:p-5">
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+              <div className="relative min-w-0 flex-1">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                <input
+                  placeholder="Search borrower, app no., officer..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="h-10 w-full rounded-xl border border-gray-200 bg-gray-50 pl-10 pr-10 text-sm outline-none focus:border-[#13538A]/40 focus:ring-2 focus:ring-[#13538A]/10 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
+                />
+                {searchTerm && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchTerm("")}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
               </div>
 
-              <div
-                className="
-flex h-10 w-10 items-center justify-center
-rounded-xl
-bg-indigo-50
-text-indigo-600
-"
+              <button
+                type="button"
+                onClick={handleRefresh}
+                disabled={loading}
+                className="inline-flex h-10 items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-60 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-200"
               >
-                <DollarSign className="h-4 w-4" />
-              </div>
+                <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+                Refresh
+              </button>
             </div>
 
-            <div className="mt-4 flex items-center gap-2">
-              <div className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
-
-              <p className="text-[11px] text-slate-400">Total funded volume</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-medium text-gray-500">Status:</span>
+              {STATUS_FILTERS.map((filter) => {
+                const count = pipelineStats[filter.statKey] ?? 0;
+                const active = statusFilter === filter.value;
+                return (
+                  <button
+                    key={filter.value || "all"}
+                    type="button"
+                    onClick={() => {
+                      setStatusFilter(filter.value);
+                      setCurrentPage(1);
+                    }}
+                    className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition ${
+                      active
+                        ? "bg-[#13538A] text-white"
+                        : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300"
+                    }`}
+                  >
+                    {filter.label}
+                    <span
+                      className={`rounded-full px-1.5 py-0.5 text-[10px] ${
+                        active ? "bg-white/20" : "bg-white dark:bg-gray-900"
+                      }`}
+                    >
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </div>
+        </div>
 
-          {/* NEW APPLICATIONS */}
-          <div
-            className="
-group rounded-2xl border border-slate-200
-bg-white p-5
-transition-all duration-300
-hover:border-blue-200
-"
-          >
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-xs font-medium text-slate-500">
-                  New Applications
-                </p>
-
-                <h3 className="mt-2 text-xl font-bold text-slate-900">
-                  {newCount}
-                </h3>
-              </div>
-
-              <div
-                className="
-flex h-10 w-10 items-center justify-center
-rounded-xl
-bg-blue-50
-text-blue-600
-"
-              >
-                <FileText className="h-4 w-4" />
-              </div>
-            </div>
-
-            <div className="mt-4 flex items-center gap-2">
-              <div className="h-1.5 w-1.5 rounded-full bg-blue-500" />
-
-              <p className="text-[11px] text-slate-400">Recently submitted</p>
-            </div>
-          </div>
-
-          {/* APPROVED */}
-          <div
-            className="
-group rounded-2xl border border-slate-200
-bg-white p-5
-transition-all duration-300
-hover:border-emerald-200
-"
-          >
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-xs font-medium text-slate-500">Approved</p>
-
-                <h3 className="mt-2 text-xl font-bold text-slate-900">
-                  {approvedCount}
-                </h3>
-              </div>
-
-              <div
-                className="
-flex h-10 w-10 items-center justify-center
-rounded-xl
-bg-emerald-50
-text-emerald-600
-"
-              >
-                <CheckCircle className="h-4 w-4" />
-              </div>
-            </div>
-
-            <div className="mt-4 flex items-center gap-2">
-              <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-
-              <p className="text-[11px] text-slate-400">
-                Successfully approved
+        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
+          <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4 dark:border-gray-800 lg:px-8">
+            <div>
+              <h2 className="text-sm font-semibold text-gray-900 dark:text-white">
+                Applications
+              </h2>
+              <p className="text-xs text-gray-500">
+                {loading && rows.length === 0
+                  ? "Loading..."
+                  : `${rows.length} shown`}
+                {pagination.total > rows.length ? "+" : ""}
+                {statusFilter ? ` · ${formatStatusLabel(statusFilter)}` : ""}
               </p>
             </div>
           </div>
-        </div>
-      </header>
 
-      {/* Main Table Container */}
-      <div className="w-full mx-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-x-auto scrollbar-hide">
-        <div
-          className="
-w-full overflow-hidden
-rounded-[24px]
-border border-slate-200
-bg-white
-"
-        >
-          <div className="w-full overflow-x-hidden">
-            <table className="w-full table-fixed border-separate border-spacing-0">
-              {/* HEADER */}
-              <thead className="bg-slate-50">
+          <div className="min-w-0">
+            <table className="w-full table-fixed text-left">
+              <colgroup>
+                <col className="w-[20%]" />
+                <col className="w-[16%]" />
+                <col className="w-[14%]" />
+                <col className="w-[8%]" />
+                <col className="w-[10%]" />
+                <col className="w-[12%]" />
+                <col className="w-[14%]" />
+                <col className="w-[6%]" />
+              </colgroup>
+              <thead className="bg-gray-50/80 dark:bg-gray-800/50">
                 <tr>
                   {[
-                    {
-                      label: "Borrower",
-                      width: "w-[16%]",
-                    },
-
-                    {
-                      label: "Application No.",
-                      width: "w-[15%]",
-                    },
-
-                    {
-                      label: "Loan Type",
-                      width: "w-[14%]",
-                    },
-
-                    {
-                      label: "Location",
-                      width: "w-[15%]",
-                    },
-
-                    {
-                      label: "Amount",
-                      width: "w-[10%]",
-                    },
-
-                    {
-                      label: "Submitted",
-                      width: "w-[11%]",
-                    },
-
-                    {
-                      label: "Status",
-                      width: "w-[12%]",
-                    },
-
-                    {
-                      label: "Loan Officer",
-                      width: "w-[14%]",
-                    },
-
-                    {
-                      label: "Action",
-                      width: "w-[6%]",
-                    },
-                  ].map((h) => (
+                    "Borrower",
+                    "Application",
+                    "Location",
+                    "Amount",
+                    "Submitted",
+                    "Status",
+                    "Loan Officer",
+                    "",
+                  ].map((label) => (
                     <th
-                      key={h.label}
-                      className={`
-${h.width}
-border-b border-slate-200
-px-4 py-3
-text-left
-text-[10px]
-font-bold
-uppercase
-tracking-[0.16em]
-text-slate-500
-whitespace-nowrap
-`}
+                      key={label || "actions"}
+                      className="overflow-hidden px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 first:pl-6 last:pr-6 lg:first:pl-8 lg:last:pr-8"
                     >
-                      {h.label}
+                      <span className="block truncate">{label}</span>
                     </th>
                   ))}
                 </tr>
               </thead>
 
-              {/* BODY */}
-              {/* BODY */}
-              <tbody className="divide-y divide-slate-100">
-                {loading ? (
-                  <tr>
-                    <td colSpan={8} className="h-[420px]">
-                      <div className="flex h-full flex-col items-center justify-center">
-                        <div
-                          className="
-mb-4 flex h-14 w-14 items-center justify-center
-rounded-2xl
-bg-slate-100
-"
-                        >
-                          <Loader2 className="h-6 w-6 animate-spin text-slate-500" />
-                        </div>
-
-                        <h3 className="text-sm font-semibold text-slate-700">
-                          Loading applications...
-                        </h3>
-
-                        <p className="mt-1 text-xs text-slate-400">
-                          Please wait while we fetch data
-                        </p>
-                      </div>
-                    </td>
-                  </tr>
-                ) : rows.length === 0 ? (
-                  <tr>
-                    <td colSpan={8} className="h-[420px]">
-                      <div className="flex h-full flex-col items-center justify-center px-4 text-center">
-                        {/* ICON */}
-                        <div
-                          className="
-mb-5 flex h-16 w-16 items-center justify-center
-rounded-2xl
-border border-slate-200
-bg-slate-50
-"
-                        >
-                          <FileText className="h-7 w-7 text-slate-400" />
-                        </div>
-
-                        {/* TITLE */}
-                        <h3 className="text-base font-semibold text-slate-800">
-                          {debouncedSearch
-                            ? "No matching applications found"
-                            : "No applications available"}
-                        </h3>
-
-                        {/* DESC */}
-                        <p className="mt-2 max-w-sm text-sm leading-relaxed text-slate-400">
-                          {debouncedSearch
-                            ? `No results found for "${debouncedSearch}". Try another keyword.`
-                            : "Applications will appear here once submitted."}
-                        </p>
-
-                        {/* CLEAR SEARCH */}
-                        {debouncedSearch && (
-                          <button
-                            onClick={() => {
-                              setSearchTerm("");
-                              setDebouncedSearch("");
-                              setCurrentPage(1);
-                            }}
-                            className="
-mt-5 rounded-xl
-border border-slate-200
-bg-white
-px-4 py-2
-text-xs font-semibold
-text-slate-700
-transition-all duration-200
-
-hover:bg-slate-50
-"
-                          >
-                            Clear Search
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ) : (
+              <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                {loading && rows.length === 0 ? (
+                  Array.from({ length: 4 }).map((_, i) => (
+                    <tr key={i}>
+                      <td
+                        colSpan={8}
+                        className="px-4 py-4 first:pl-6 last:pr-6 lg:px-5 lg:first:pl-8 lg:last:pr-8"
+                      >
+                        <div className="h-10 animate-pulse rounded-lg bg-gray-100 dark:bg-gray-800" />
+                      </td>
+                    </tr>
+                  ))
+                ) : rows.length > 0 ? (
                   rows.map((row) => (
                     <tr
                       key={row.submissionId}
-                      className="transition-colors hover:bg-slate-50"
+                      className="group cursor-pointer transition hover:bg-[#13538A]/[0.03] dark:hover:bg-gray-800/50"
                     >
-                      {/* BORROWER */}
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <div
-                            className="
-flex h-8 w-8 shrink-0 items-center justify-center
-rounded-xl
-bg-slate-100
-text-[11px]
-font-bold
-text-slate-700
-"
-                          >
-                            {row.borrowerName?.charAt(0)?.toUpperCase()}
+                      <td
+                        onClick={() => openPreview(row.submissionId, row)}
+                        className="overflow-hidden px-3 py-3 align-middle first:pl-6 lg:first:pl-8"
+                        title={row.borrowerName}
+                      >
+                        <div className="flex min-w-0 items-center gap-2">
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#13538A]/10 text-xs font-semibold text-[#13538A]">
+                            {getInitials(row.borrowerName)}
                           </div>
-
-                          <div className="min-w-0">
-                            <p className="truncate text-[12px] font-semibold text-slate-800">
-                              {row.borrowerName}
-                            </p>
-
-                            <p className="text-[10px] text-slate-400">
-                              Borrower
-                            </p>
-                          </div>
+                          <span className="truncate text-sm font-medium text-gray-900 dark:text-white">
+                            {row.borrowerName || "Untitled"}
+                          </span>
                         </div>
                       </td>
 
-                      {/* APP NUMBER */}
-                      <td className="px-4 py-3">
-                        <div
-                          className="
-truncate rounded-xl
-bg-slate-100
-px-2.5 py-1.5
-text-[10px]
-font-semibold
-text-slate-700
-"
-                        >
-                          {row.applicationNumber}
+                      <td
+                        onClick={() => openPreview(row.submissionId, row)}
+                        className="overflow-hidden px-3 py-3 align-middle"
+                        title={row.applicationNumber}
+                      >
+                        <div className="flex min-w-0 items-center gap-1.5">
+                          <span className="truncate text-sm text-gray-800 dark:text-gray-200">
+                            {row.applicationNumber || "—"}
+                          </span>
+                          {row.pendingDocumentsCount ? (
+                            <span className="shrink-0 rounded bg-amber-50 px-1 py-0.5 text-[10px] font-medium text-amber-700">
+                              {row.pendingDocumentsCount}
+                            </span>
+                          ) : null}
                         </div>
                       </td>
 
-                      {/* LOAN TYPE */}
-                      <td className="px-4 py-3">
-                        <span
-                          className="
-inline-flex max-w-full truncate
-rounded-xl
-border border-slate-200
-bg-slate-50
-px-2.5 py-1
-text-[9px]
-font-semibold
-uppercase
-tracking-wide
-text-slate-600
-"
-                        >
-                          {row.loanType}
-                        </span>
-                      </td>
-
-                      {/* LOCATION */}
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <div
-                            className="
-flex h-6 w-6 shrink-0 items-center justify-center
-rounded-lg
-bg-slate-100
-"
-                          >
-                            <MapPin className="h-3 w-3 text-slate-500" />
-                          </div>
-
-                          <div className="min-w-0">
-                            <p className="truncate text-[11px] font-medium text-slate-700">
-                              {row.cityState}
-                            </p>
-
-                            {row.country && (
-                              <span
-                                className="
-inline-flex rounded-full
-bg-slate-100
-px-1.5 py-0.5
-text-[9px]
-font-semibold
-uppercase
-text-slate-500
-"
-                              >
-                                {row.country}
-                              </span>
-                            )}
-                          </div>
+                      <td
+                        onClick={() => openPreview(row.submissionId, row)}
+                        className="overflow-hidden px-3 py-3 align-middle"
+                        title={[row.cityState, row.country].filter(Boolean).join(", ")}
+                      >
+                        <div className="flex min-w-0 items-center gap-1 text-sm text-gray-700 dark:text-gray-300">
+                          <MapPin className="h-3.5 w-3.5 shrink-0 text-gray-400" />
+                          <span className="truncate">
+                            {[row.cityState, row.country].filter(Boolean).join(", ") || "—"}
+                          </span>
                         </div>
                       </td>
 
-                      {/* AMOUNT */}
-                      <td className="px-4 py-3">
-                        <span className="text-[12px] font-bold text-slate-800">
+                      <td
+                        onClick={() => openPreview(row.submissionId, row)}
+                        className="overflow-hidden px-3 py-3 align-middle font-mono text-sm text-gray-800 dark:text-gray-200"
+                      >
+                        <span className="block truncate">
                           {formatCompactAmount(Number(row.amount || 0))}
                         </span>
                       </td>
 
-                      {/* DATE */}
-                      <td className="px-4 py-3">
-                        <div className="leading-tight">
-                          <p className="text-[11px] font-medium text-slate-700">
-                            {new Date(row.date).toLocaleDateString()}
-                          </p>
-
-                          <p className="text-[9px] text-slate-400">
-                            {new Date(row.date).toLocaleTimeString()}
-                          </p>
-                        </div>
+                      <td
+                        onClick={() => openPreview(row.submissionId, row)}
+                        className="overflow-hidden px-3 py-3 align-middle text-sm text-gray-600 dark:text-gray-400"
+                      >
+                        <span className="block truncate">{formatShortDate(row.date)}</span>
                       </td>
 
-                      {/* STATUS */}
-                      <td className="px-4 py-3">
+                      <td
+                        onClick={() => openPreview(row.submissionId, row)}
+                        className="overflow-hidden px-3 py-3 align-middle"
+                      >
                         <span
-                          className={`
-inline-flex items-center gap-1
-rounded-full
-px-2.5 py-1
-text-[9px]
-font-bold
-uppercase
-tracking-wide
-border
-${getStatusColor(row.status)}
-`}
+                          className={`inline-flex max-w-full items-center truncate rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${getStatusColor(row.status)}`}
+                          title={formatStatusLabel(row.status)}
                         >
-                          <span className="h-1.5 w-1.5 rounded-full bg-current" />
-
-                          {row.status}
+                          {formatStatusLabel(row.status)}
                         </span>
                       </td>
 
-                      {/* LOAN OFFICER */}
-                      <td className="px-4 py-3">
+                      <td
+                        onClick={() => openPreview(row.submissionId, row)}
+                        className="overflow-hidden px-3 py-3 align-middle"
+                        title={row.assignedOfficerName || undefined}
+                      >
                         {row.assignedOfficerName ? (
-                          <div className="flex items-center gap-2 min-w-0">
-                            {/* TEXT */}
-                            <div className="min-w-0">
-                              <p
-                                className="
-truncate
-text-[11px]
-font-semibold
-text-slate-700
-"
-                              >
-                                {row.assignedOfficerName}
-                              </p>
-
-                              <p className="text-[9px] text-slate-400">
-                                Loan Officer
-                              </p>
-                            </div>
-                          </div>
+                          <span className="inline-flex max-w-full truncate rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300">
+                            {row.assignedOfficerName}
+                          </span>
                         ) : (
-                          <div
-                            className="
-inline-flex items-center
-rounded-full
-bg-slate-100
-px-2.5 py-1
-text-[9px]
-font-semibold
-uppercase
-tracking-wide
-text-slate-500
-"
-                          >
-                            Not Assigned
+                          <div className="flex items-center gap-1 text-xs text-gray-400">
+                            <Users className="h-3 w-3" />
+                            Unassigned
                           </div>
                         )}
                       </td>
 
-                      {/* ACTION */}
-                      <td className="relative px-4 py-3 text-center">
-                        {/* THREE DOTS BUTTON */}
-                        <button
-                          data-id={row.submissionId}
-                          onClick={(e) => {
-                            e.stopPropagation();
+                      <td
+                        className="overflow-hidden px-2 py-3 pr-6 text-right align-middle lg:pr-8"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="inline-flex items-center justify-end">
+                          <button
+                            type="button"
+                            title="More actions"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const rect = e.currentTarget.getBoundingClientRect();
+                              setDropdownPos({
+                                top: rect.top - 8,
+                                left: rect.right - 192,
+                              });
+                              setActiveDropdown(
+                                activeDropdown === row.submissionId
+                                  ? null
+                                  : row.submissionId,
+                              );
+                            }}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
+                          >
+                            <MoreVertical size={16} />
+                          </button>
+                        </div>
 
-                            const rect =
-                              e.currentTarget.getBoundingClientRect();
-
-                            setDropdownPos({
-                              top: rect.bottom + 6,
-                              left: rect.right - 170,
-                            });
-
-                            setActiveDropdown(
-                              activeDropdown === row.submissionId
-                                ? null
-                                : row.submissionId,
-                            );
-                          }}
-                          className={`
-flex h-8 w-8 items-center justify-center
-rounded-xl
-transition-all duration-200
-
-${
-  activeDropdown === row.submissionId
-    ? "bg-slate-200 text-slate-800"
-    : "text-slate-500 hover:bg-slate-100 hover:text-slate-700"
-}
-`}
-                        >
-                          <MoreVertical size={15} />
-                        </button>
-
-                        {/* DROPDOWN */}
                         {activeDropdown === row.submissionId &&
                           createPortal(
                             <div
@@ -1225,49 +1028,21 @@ ${
                                 top: dropdownPos.top,
                                 left: dropdownPos.left,
                               }}
-                              className="
-z-[9999]
-w-44
-overflow-hidden
-rounded-2xl
-border border-slate-200
-bg-white
-"
+                              onMouseDown={(e) => e.stopPropagation()}
+                              className="z-[9999] w-48 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl dark:border-gray-800 dark:bg-gray-900"
                             >
-                              {/* APP PREVIEW */}
                               <button
-                                onClick={() => {
-                                  navigate(
-                                    "/sub-broker/loan-pipeline-preview",
-                                    {
-                                      state: {
-                                        submissionId: row.submissionId,
-
-                                        applicationId: row.applicationId,
-
-                                        application: row,
-                                      },
-                                    },
-                                  );
-
+                                type="button"
+                                onMouseDown={(e) => e.preventDefault()}
+                                onClick={(e) => {
+                                  e.stopPropagation();
                                   setActiveDropdown(null);
+                                  openPreview(row.submissionId, row);
                                 }}
-                                className="
-flex w-full items-center gap-3
-px-4 py-3
-text-[13px]
-font-medium
-text-slate-700
-transition-all duration-200
-
-hover:bg-slate-50
-"
+                                className="flex w-full items-center gap-3 px-4 py-3 text-sm text-[#13538A] hover:bg-gray-50 dark:hover:bg-gray-800"
                               >
-                                <MdOutlinePreview
-                                  size={16}
-                                  className="text-slate-500"
-                                />
-                                App Preview
+                                <Eye size={14} />
+                                Open Application
                               </button>
                             </div>,
                             document.body,
@@ -1275,117 +1050,62 @@ hover:bg-slate-50
                       </td>
                     </tr>
                   ))
+                ) : (
+                  <tr>
+                    <td colSpan={8} className="px-6 py-20 text-center">
+                      <div className="mx-auto flex max-w-sm flex-col items-center">
+                        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gray-100 text-gray-400 dark:bg-gray-800">
+                          <SearchX className="h-6 w-6" />
+                        </div>
+                        <h3 className="text-base font-semibold text-gray-900 dark:text-white">
+                          {searchTerm || statusFilter
+                            ? "No matching applications"
+                            : "No applications yet"}
+                        </h3>
+                        <p className="mt-2 text-sm text-gray-500">
+                          {searchTerm || statusFilter
+                            ? "Try a different search or clear your filters."
+                            : "Assigned applications will appear here once available."}
+                        </p>
+                      </div>
+                    </td>
+                  </tr>
                 )}
               </tbody>
             </table>
-          </div>
-          {/* PAGINATION */}
-          <div className="border-t border-slate-200 bg-white px-4 py-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              {/* LEFT */}
-              <div className="flex items-center gap-3">
-                <div
-                  className="
-flex h-8 w-8 items-center justify-center
-rounded-xl
-bg-slate-100
-text-[11px]
-font-bold
-text-slate-700
-"
-                >
-                  {pagination?.page || 1}
-                </div>
 
-                <div className="leading-tight">
-                  <p className="text-[12px] font-semibold text-slate-800">
-                    Page {pagination?.page || 1}
-                    <span className="mx-1 text-slate-400">/</span>
-                    {pagination?.totalPages || 1}
-                  </p>
-                </div>
-              </div>
-
-              {/* RIGHT */}
+            <div className="flex flex-col gap-3 border-t border-gray-100 px-6 py-4 sm:flex-row sm:items-center sm:justify-between dark:border-gray-800 lg:px-8">
+              <p className="text-xs text-gray-500">
+                Page {pagination.page} of {pagination.totalPages} · {pagination.total} total
+              </p>
               <div className="flex items-center gap-2">
-                {/* PREVIOUS */}
                 <button
-                  disabled={!pagination?.hasPreviousPage}
+                  type="button"
+                  disabled={!pagination.hasPreviousPage || loading}
                   onClick={() => setCurrentPage((prev) => prev - 1)}
-                  className="
-flex h-9 items-center gap-1.5
-rounded-xl
-border border-slate-200
-bg-white
-px-4
-text-[12px]
-font-medium
-text-slate-700
-transition-all duration-200
-
-hover:bg-slate-50
-
-disabled:cursor-not-allowed
-disabled:opacity-40
-"
+                  className="inline-flex h-9 items-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-200"
                 >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-3.5 w-3.5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M15 19l-7-7 7-7"
-                    />
-                  </svg>
                   Previous
                 </button>
-
-                {/* NEXT */}
                 <button
-                  disabled={!pagination?.hasNextPage}
+                  type="button"
+                  disabled={!pagination.hasNextPage || loading}
                   onClick={() => setCurrentPage((prev) => prev + 1)}
-                  className="
-flex h-9 items-center gap-1.5
-rounded-xl
-bg-slate-900
-px-4
-text-[12px]
-font-semibold
-text-white
-transition-all duration-200
-
-hover:bg-slate-800
-
-disabled:cursor-not-allowed
-disabled:opacity-40
-"
+                  className="inline-flex h-9 items-center rounded-xl bg-[#13538A] px-4 text-xs font-semibold text-white transition hover:bg-[#0f4370] disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   Next
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-3.5 w-3.5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M9 5l7 7-7 7"
-                    />
-                  </svg>
                 </button>
               </div>
             </div>
+
+            {loading && rows.length > 0 && (
+              <div className="border-t border-gray-100 px-6 py-4 text-center dark:border-gray-800">
+                <Loader2 className="mx-auto h-5 w-5 animate-spin text-[#13538A]" />
+              </div>
+            )}
           </div>
         </div>
+      </div>
 
         {viewSubmissionId &&
           createPortal(
@@ -2592,7 +2312,6 @@ dark:scrollbar-thumb-slate-700 w-full
             </div>,
             document.body,
           )}
-      </div>
-    </div>
+    </>
   );
 }

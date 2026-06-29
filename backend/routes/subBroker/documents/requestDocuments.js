@@ -207,6 +207,8 @@ async function subBrokerRequestDocumentsRoute(fastify) {
 
                   lastRequestedAt: new Date(),
 
+                  requestedBySubBrokerId: userId,
+
                   updatedAt: new Date(),
                 },
               });
@@ -226,6 +228,8 @@ async function subBrokerRequestDocumentsRoute(fastify) {
                   status: "PENDING",
 
                   lastRequestedAt: new Date(),
+
+                  requestedBySubBrokerId: userId,
                 },
               });
             }

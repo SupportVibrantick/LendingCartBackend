@@ -6,8 +6,6 @@ const {
 } = require("../../../services/documentAutoForwardSetting");
 const {
   buildDocumentSentToLenderMap,
-  formatSentToLenders,
-  formatUploadSentToLenders,
 } = require("../../../utils/buildDocumentSentToLenderMap");
 const {
   buildLenderRequestMap,
@@ -16,8 +14,12 @@ const {
   normalizeSourceFilter,
   documentMatchesSentFilter,
   paginateDocuments,
-  filterDocumentLenderContext,
 } = require("../../../utils/submissionDocumentsQuery");
+const {
+  submissionDocumentRequirementInclude,
+  loadSubBrokerAssignmentNameMap,
+  mapSubmissionDocumentRow,
+} = require("../../../utils/mapSubmissionDocumentRow");
 
 module.exports = async function submissionDocuments(fastify) {
   fastify.get("/submissions/:submissionId/documents", async (req, reply) => {
@@ -135,72 +137,27 @@ module.exports = async function submissionDocuments(fastify) {
         await fastify.prisma.applicationDocumentRequirement.findMany({
           where: whereCondition,
           ...(useInMemoryPagination ? {} : { skip, take: pageSize }),
-          include: {
-            documentType: true,
-            uploads: {
-              orderBy: { uploadedAt: "desc" },
-              include: { subBrokerSubmissions: true },
-            },
-          },
+          include: submissionDocumentRequirementInclude,
         });
 
       const { byRequirement, byUpload, lenderNameById } =
         await buildDocumentSentToLenderMap(fastify.prisma, loanApplicationId);
 
-      let documents = documentRequirements.map((d) => {
-        const matchedSubmission = d.uploads.find(
-          (upload) => upload.subBrokerSubmissions?.length,
-        );
-        const uploadedCount = d.uploads.length;
-        let requestedBy = lenderMap.get(d.documentTypeId) || [];
+      const assignmentNamesBySubBrokerId = await loadSubBrokerAssignmentNameMap(
+        fastify.prisma,
+        loanApplicationId,
+      );
 
-        if (lenderFilterId) {
-          requestedBy = filterDocumentLenderContext(requestedBy, lenderFilterId);
-        }
-
-        const sentInfo = formatSentToLenders(
-          d.id,
-          requestedBy,
+      let documents = documentRequirements.map((d) =>
+        mapSubmissionDocumentRow(d, {
+          lenderMap,
+          lenderFilterId,
           byRequirement,
+          byUpload,
           lenderNameById,
-          uploadedCount,
-        );
-
-        const sentToLenders = lenderFilterId
-          ? filterDocumentLenderContext(sentInfo.sentToLenders, lenderFilterId)
-          : sentInfo.sentToLenders;
-
-        return {
-          requirementId: d.id,
-          documentTypeId: d.documentTypeId,
-          documentName: d.documentType?.name ?? null,
-          source: d.source,
-          isRequired: d.isRequired,
-          status:
-            matchedSubmission?.subBrokerSubmissions?.[0]?.status || d.status,
-          requestedByLenders: requestedBy,
-          requestedByCount: requestedBy.length,
-          sentToLenders,
-          isSentToAnyLender: sentInfo.isSentToAnyLender,
-          hasPendingSendToLender: sentInfo.hasPendingSendToLender,
-          uploadedCount,
-          uploadedFiles: d.uploads.map((upload) => ({
-            uploadId: upload.id,
-            fileName: upload.fileName,
-            fileUrl: upload.fileUrl,
-            fileMimeType: upload.fileMimeType,
-            uploadedAt: upload.uploadedAt,
-            sentToLenders: formatUploadSentToLenders(
-              upload.id,
-              byUpload,
-              lenderNameById,
-            ),
-            isSentToAnyLender: byUpload.has(upload.id),
-          })),
-          subBrokerSubmissionId:
-            matchedSubmission?.subBrokerSubmissions?.[0]?.id || null,
-        };
-      });
+          assignmentNamesBySubBrokerId,
+        }),
+      );
 
       if (useInMemoryPagination) {
         documents = documents.filter((doc) =>

@@ -870,8 +870,11 @@ const isConstruction14Product = (product: string) =>
 
 export type LoanApplicationMode = "create" | "update";
 
+export type LoanApplicationPortal = "broker" | "loanOfficer";
+
 export type LoanApplicationProps = {
   mode?: LoanApplicationMode;
+  portal?: LoanApplicationPortal;
   embedded?: boolean;
   publicEmbed?: boolean;
   editApplicationId?: string;
@@ -885,8 +888,91 @@ export type LoanApplicationProps = {
   recaptchaToken?: string | null;
 };
 
+function getPortalConfig(portal: LoanApplicationPortal, apiBase: string) {
+  if (portal === "loanOfficer") {
+    return {
+      tokenKey: "loan_officer_token",
+      submitUrl: `${apiBase}/loanofficer/applications/submit`,
+      editUrl: (applicationId: string) =>
+        `${apiBase}/loanofficer/applications/${applicationId}/edit`,
+      activeProductsUrl: `${apiBase}/loanofficer/applications/active`,
+      activeProductsAuth: true,
+      successPath: "/loan-officer/loan-pipeline",
+      backLabel: "Back to Loan Pipeline",
+    };
+  }
+
+  return {
+    tokenKey: "broker_token",
+    submitUrl: `${apiBase}/broker/applications/submit`,
+    editUrl: (applicationId: string) =>
+      `${apiBase}/broker/applications/${applicationId}/edit`,
+    activeProductsUrl: `${apiBase}/broker/applications/active`,
+    activeProductsAuth: true,
+    successPath: "/submit-applications",
+    backLabel: "Back to Submit Applications",
+  };
+}
+
+function normalizeBrokerActiveApplication(data: any) {
+  if (!data) return data;
+
+  const mapField = (field: any) => ({
+    fieldId: field.fieldId || field.id,
+    fieldKey: field.fieldKey,
+    label: field.label,
+    type: field.type || field.fieldType,
+    placeholder: field.placeholder,
+    required: field.required ?? field.isRequired,
+    options: field.options,
+    validation: field.validation,
+    sortOrder: field.sortOrder,
+  });
+
+  return {
+    ...data,
+    products: (data.products || []).map((product: any) => ({
+      ...product,
+      sections: (product.sections || []).map((section: any) => ({
+        sectionId: section.sectionId || section.id,
+        sectionName: section.sectionName || section.name,
+        description: section.description,
+        sortOrder: section.sortOrder,
+        fields: (section.fields || []).map(mapField),
+      })),
+      unsectionedFields: (product.unsectionedFields || []).map(mapField),
+    })),
+  };
+}
+
+async function fetchActiveApplicationCatalog(
+  portalConfig: ReturnType<typeof getPortalConfig>,
+  portal: LoanApplicationPortal,
+) {
+  const headers: Record<string, string> = {};
+
+  if (portalConfig.activeProductsAuth) {
+    const token = sessionStorage.getItem(portalConfig.tokenKey);
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+  }
+
+  const response = await fetch(portalConfig.activeProductsUrl, { headers });
+  const result = await response.json();
+
+  if (!response.ok || result.success === false) {
+    throw new Error(result.message || "Failed to load loan products");
+  }
+
+  return portal === "broker"
+    ? normalizeBrokerActiveApplication(result.data)
+    : result.data;
+}
+
 const LoanApplication = ({
   mode = "create",
+  portal = "broker",
   embedded = false,
   publicEmbed = false,
   editApplicationId,
@@ -925,6 +1011,10 @@ const LoanApplication = ({
     initialSelectedCategory,
   );
   const navigate = useNavigate();
+  const portalConfig = useMemo(
+    () => getPortalConfig(portal, API_BASE),
+    [portal],
+  );
 
   const isResidentialFlow = isResidential14Category(selectedCategory);
   const isCreResidentialLikeFlow = isCreResidentialLikeCategoryProduct(
@@ -2240,11 +2330,11 @@ const LoanApplication = ({
         ),
       };
 
-      const token = sessionStorage.getItem("broker_token");
+      const token = sessionStorage.getItem(portalConfig.tokenKey);
 
       if (mode === "update" && editApplicationId) {
         const response = await fetch(
-          `${API_BASE}/broker/applications/${editApplicationId}/edit`,
+          portalConfig.editUrl(editApplicationId),
           {
             method: "PUT",
             headers: {
@@ -2264,7 +2354,7 @@ const LoanApplication = ({
         toast.success("Application Updated Successfully");
         onUpdateSuccess?.(result.data?.submissionId);
         if (!embedded) {
-          navigate("/submit-applications");
+          navigate(portalConfig.successPath);
         }
         return;
       }
@@ -2335,7 +2425,7 @@ const LoanApplication = ({
 
       console.log("Submitting Payload:", payload);
 
-      const response = await fetch(`${API_BASE}/broker/applications/submit`, {
+      const response = await fetch(portalConfig.submitUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -2371,13 +2461,13 @@ const LoanApplication = ({
             uploadError.message ||
               "Application saved but some documents failed to upload",
           );
-          navigate("/submit-applications");
+          navigate(portalConfig.successPath);
           return;
         }
       }
 
       toast.success("Application Submitted Successfully");
-      navigate("/submit-applications");
+      navigate(portalConfig.successPath);
     } catch (error: any) {
       toast.error(error.message || "Something went wrong");
     } finally {
@@ -2390,40 +2480,27 @@ const LoanApplication = ({
       try {
         setLoadingProducts(true);
 
-        const response = await fetch(
-          `${API_BASE}/api/public/broker/applications/active`,
-        );
+        const data = await fetchActiveApplicationCatalog(portalConfig, portal);
 
-        const result = await response.json();
-
-        const products = result?.data?.products || [];
-
-        setProductsMeta(products);
-        setApplicationId(result?.data?.applicationId || "");
-        // const productCodes = products.map(
-        //   (product: any) => product.loanProductCode,
-        // );
-
+        setProductsMeta(data?.products || []);
+        setApplicationId(data?.applicationId || "");
         setLoanProducts([]);
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error fetching loan products:", error);
+        toast.error(error.message || "Failed to load loan products");
       } finally {
         setLoadingProducts(false);
       }
     };
 
     fetchLoanProducts();
-  }, []);
+  }, [portal, portalConfig]);
 
   const fetchSectionsByProduct = async (productCode: string) => {
     try {
-      const response = await fetch(
-        `${API_BASE}/api/public/broker/applications/active`,
-      );
+      const data = await fetchActiveApplicationCatalog(portalConfig, portal);
 
-      const result = await response.json();
-
-      const products = result?.data?.products || [];
+      const products = data?.products || [];
 
       const matchedProduct = products.find(
         (p: any) => p.loanProductCode === productCode,
@@ -3405,7 +3482,7 @@ const LoanApplication = ({
     "
               >
                 <IoArrowBack size={16} />
-                Back to Submit Applications
+                {portalConfig.backLabel}
               </button>
             )}
 
@@ -3635,42 +3712,42 @@ focus:border-blue-500 outline-none text-sm ${
                           : ""
                       }`}
                     >
-                      <div className="flex items-center justify-between rounded-lg border border-slate-200 dark:border-slate-700 px-4 py-3">
-                        <span className="text-sm font-medium text-slate-600 dark:text-slate-300">
-                          Seller Financing?
-                        </span>
-                        <button
-                          type="button"
-                          role="switch"
-                          aria-checked={
-                            formData.loanRequest.sellerFinancing === "yes"
-                          }
-                          onClick={() => {
-                            const enabling =
-                              formData.loanRequest.sellerFinancing !== "yes";
-                            updateLoanRequest(
-                              "sellerFinancing",
-                              enabling ? "yes" : "no",
-                            );
-                            if (!enabling) {
-                              updateLoanRequest("sellerNoteAmount", "");
-                            }
-                          }}
-                          className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition ${
-                            formData.loanRequest.sellerFinancing === "yes"
-                              ? "bg-[#2C92D5]"
-                              : "bg-slate-200 dark:bg-slate-700"
-                          }`}
-                        >
-                          <span
-                            className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition ${
-                              formData.loanRequest.sellerFinancing === "yes"
-                                ? "translate-x-5"
-                                : "translate-x-0"
-                            }`}
-                          />
-                        </button>
-                      </div>
+           <div className="flex items-center gap-3 rounded-lg border border-slate-200 dark:border-slate-700 px-4 py-3">
+  <span className="text-sm font-medium text-slate-600 dark:text-slate-300">
+    Seller Financing?
+  </span>
+
+  <button
+    type="button"
+    role="switch"
+    aria-checked={formData.loanRequest.sellerFinancing === "yes"}
+    onClick={() => {
+      const enabling =
+        formData.loanRequest.sellerFinancing !== "yes";
+      updateLoanRequest(
+        "sellerFinancing",
+        enabling ? "yes" : "no"
+      );
+
+      if (!enabling) {
+        updateLoanRequest("sellerNoteAmount", "");
+      }
+    }}
+    className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition ${
+      formData.loanRequest.sellerFinancing === "yes"
+        ? "bg-[#2C92D5]"
+        : "bg-slate-200 dark:bg-slate-700"
+    }`}
+  >
+    <span
+      className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition ${
+        formData.loanRequest.sellerFinancing === "yes"
+          ? "translate-x-5"
+          : "translate-x-0"
+      }`}
+    />
+  </button>
+</div>
 
                       {formData.loanRequest.sellerFinancing === "yes" && (
                         <div>

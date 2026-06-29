@@ -55,6 +55,7 @@ import BorrowersPage from "./pages/CRM/Borrowers";
 import ClientUpload from "./pages/ClientPortal/ClientUpload";
 import ClientProtected from "./pages/ClientPortal/ClientProtected";
 import ClientAuth from "./pages/ClientPortal/ClientAuth";
+import ClientImpersonateLogin from "./pages/ClientPortal/ClientImpersonateLogin";
 // import CustomerLogin from "./pages/ClientPortal/CustomerLogin";
 import LoanPreview from "./pages/submitedApplications/LoanPreview";
 // import { ReactNode } from "react";
@@ -62,6 +63,7 @@ import EmailMarketing from "./pages/EmailMarketing/EmailMarketing";
 import SubBroker from "./pages/UserManagement/SubBroker";
 import SubBrokerLayout from "./layout/SubBrokerLayout";
 import Login from "./pages/subBroker/Auth/Login";
+import CoBrokerImpersonateLogin from "./pages/subBroker/Auth/ImpersonateLogin";
 // import Dashboard from "./pages/subBroker/Dashboard/Dashboard";
 import LoanPipeline from "./pages/subBroker/LoanPipeline/LoanPipeline";
 import SubBrokerLoanPreview from "./pages/subBroker/LoanPipeline/SubBrokerLoanPreview";
@@ -69,6 +71,7 @@ import SubBrokerProtected from "./components/auth/SubBrokerProtected";
 import SubBrokerProfile from "./pages/subBroker/Auth/Profile";
 import LoanOfficerLayout from "./layout/LoanOfficerLayout";
 import LoanOfficerLogin from "./pages/loanOfficer/Auth/Login";
+import LoanOfficerImpersonateLogin from "./pages/loanOfficer/Auth/ImpersonateLogin";
 import LoanOfficerProtected from "./components/auth/LoanOfficerProtected";
 import LoanOfficerSubmitApplications from "./pages/loanOfficer/LoanPipeline/SubmitApplication";
 import LoanOfficerLoanPreview from "./pages/loanOfficer/LoanPipeline/LoanPreview";
@@ -318,6 +321,10 @@ export default function App() {
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/client-upload" element={<ClientAuth />} />
           <Route path="/client-upload/:token" element={<ClientAuth />} />
+          <Route
+            path="/client-portal/impersonate"
+            element={<ClientImpersonateLogin />}
+          />
 
           <Route
             path="/client-portal"
@@ -340,6 +347,10 @@ export default function App() {
           {/* SUB BROKER PORTAL */}
 
           <Route path="/sub-broker/login" element={<Login />} />
+          <Route
+            path="/sub-broker/impersonate"
+            element={<CoBrokerImpersonateLogin />}
+          />
 
           <Route
             path="/sub-broker"
@@ -365,6 +376,10 @@ export default function App() {
           {/* LOAN OFFICER PORTAL */}
 
           <Route path="/loan-officer/login" element={<LoanOfficerLogin />} />
+          <Route
+            path="/loan-officer/impersonate"
+            element={<LoanOfficerImpersonateLogin />}
+          />
 
           <Route
             path="/loan-officer"

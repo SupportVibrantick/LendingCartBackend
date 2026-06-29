@@ -56,6 +56,18 @@ const CLIENT_LINK_PRESETS = {
       "Contact your broker with any questions",
     ],
   },
+  lenderReview: {
+    emailTitle: "Documents Awaiting Review",
+    headline: "Documents need your review",
+    intro:
+      "The following documents have been submitted and are awaiting your review.",
+    ctaLabel: "Review Documents",
+    bulletItems: [
+      "Open the lender dashboard",
+      "Review submitted documents",
+      "Update the application status",
+    ],
+  },
 };
 
 const buildClientLinkEmailData = ({
@@ -149,6 +161,37 @@ const buildBrokerWelcomeEmailData = ({
   loginUrl: loginUrl || buildBrokerSignInUrl(),
 });
 
+const buildDocumentReminderEmailData = ({
+  recipientName,
+  applicationNumber,
+  brokerName,
+  portalLink,
+  customMessage,
+  reminderTypeLabel,
+  pendingDocuments = [],
+  preset = "documentsRequested",
+  intervalLabel,
+} = {}) => {
+  const presetValues =
+    CLIENT_LINK_PRESETS[preset] || CLIENT_LINK_PRESETS.documentsRequested;
+
+  return {
+    recipientName: asDisplayText(recipientName, "there"),
+    applicationNumber: asDisplayText(applicationNumber, "—"),
+    brokerName: asDisplayText(brokerName, "Your Broker"),
+    portalLink: asDisplayText(portalLink, buildClientPortalUrl()),
+    customMessage: asDisplayText(customMessage, ""),
+    reminderTypeLabel: asDisplayText(reminderTypeLabel, "Document reminder"),
+    pendingDocuments: Array.isArray(pendingDocuments) ? pendingDocuments : [],
+    intervalLabel: asDisplayText(intervalLabel, ""),
+    emailTitle: presetValues.emailTitle,
+    headline: presetValues.headline,
+    intro: presetValues.intro,
+    ctaLabel: presetValues.ctaLabel,
+    bulletItems: presetValues.bulletItems,
+  };
+};
+
 module.exports = {
   CLIENT_LINK_PRESETS,
   buildClientLinkEmailData,
@@ -156,4 +199,5 @@ module.exports = {
   buildLenderInviteEmailData,
   buildLenderWelcomeEmailData,
   buildBrokerWelcomeEmailData,
+  buildDocumentReminderEmailData,
 };

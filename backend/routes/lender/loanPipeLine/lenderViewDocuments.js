@@ -6,6 +6,9 @@ const {
   resolveLenderDocumentSourceLabel,
   matchesLenderDocumentSourceFilter,
 } = require("../../../utils/resolveLenderDocumentSourceLabel");
+const {
+  loadSubBrokerAssignmentNameMap,
+} = require("../../../utils/mapSubmissionDocumentRow");
 const { paginateDocuments } = require("../../../utils/submissionDocumentsQuery");
 
 module.exports = async function lenderViewDocuments(fastify) {
@@ -106,6 +109,12 @@ module.exports = async function lenderViewDocuments(fastify) {
         );
         const lenderName = applicationLender.lender?.name || null;
 
+        const assignmentNamesBySubBrokerId =
+          await loadSubBrokerAssignmentNameMap(
+            fastify.prisma,
+            loanApplicationId,
+          );
+
         /* ===============================
            THIS LENDER'S DOCUMENT REQUESTS
         =============================== */
@@ -132,6 +141,9 @@ module.exports = async function lenderViewDocuments(fastify) {
             },
             include: {
               documentType: true,
+              requestedBySubBroker: {
+                select: { id: true, firstName: true, lastName: true },
+              },
             },
           });
 
@@ -195,6 +207,13 @@ module.exports = async function lenderViewDocuments(fastify) {
               email: true,
             },
           },
+          subBrokerSubmissions: {
+            include: {
+              submittedBy: {
+                select: { id: true, firstName: true, lastName: true },
+              },
+            },
+          },
         };
 
         const uploadsByRequirement = new Map();
@@ -221,30 +240,48 @@ module.exports = async function lenderViewDocuments(fastify) {
           }
         }
 
-        const formatUploadedFile = (upload, reqDoc) => ({
-          uploadId: upload.id,
-          fileName: upload.fileName,
-          fileUrl: upload.fileUrl,
-          fileMimeType: upload.fileMimeType,
-          uploadedAt: upload.uploadedAt,
-          uploadedBy: upload.uploadedByUser
-            ? {
-                type:
-                  reqDoc.source === "SUB_BROKER_ADDED" ? "SUB_BROKER" : "BROKER",
-                userId: upload.uploadedByUser.id,
-                name: `${upload.uploadedByUser.firstName ?? ""} ${
-                  upload.uploadedByUser.lastName ?? ""
-                }`.trim(),
-                email: upload.uploadedByUser.email,
-              }
-            : upload.uploadedByClientUser
-              ? {
-                  type: "CLIENT",
-                  userId: upload.uploadedByClientUser.id,
-                  email: upload.uploadedByClientUser.email,
-                }
-              : null,
-        });
+        const formatUploadedFile = (upload, reqDoc, coBrokerSourceName) => {
+          const submissionSubmitter = upload.subBrokerSubmissions?.[0]?.submittedBy;
+          const submitterName = formatUserName(submissionSubmitter);
+          const uploaderName = formatUserName(upload.uploadedByUser);
+
+          let uploadedBy = null;
+
+          if (reqDoc.source === "SUB_BROKER_ADDED") {
+            const displayName = submitterName || coBrokerSourceName || uploaderName;
+            if (displayName) {
+              uploadedBy = {
+                type: "SUB_BROKER",
+                userId:
+                  submissionSubmitter?.id || upload.uploadedByUser?.id || null,
+                name: displayName,
+                email: upload.uploadedByUser?.email || null,
+              };
+            }
+          } else if (upload.uploadedByUser) {
+            uploadedBy = {
+              type: "BROKER",
+              userId: upload.uploadedByUser.id,
+              name: uploaderName || "Broker",
+              email: upload.uploadedByUser.email,
+            };
+          } else if (upload.uploadedByClientUser) {
+            uploadedBy = {
+              type: "CLIENT",
+              userId: upload.uploadedByClientUser.id,
+              email: upload.uploadedByClientUser.email,
+            };
+          }
+
+          return {
+            uploadId: upload.id,
+            fileName: upload.fileName,
+            fileUrl: upload.fileUrl,
+            fileMimeType: upload.fileMimeType,
+            uploadedAt: upload.uploadedAt,
+            uploadedBy,
+          };
+        };
 
         /* ===============================
            FORMAT DOCUMENTS
@@ -254,18 +291,20 @@ module.exports = async function lenderViewDocuments(fastify) {
           .map((reqDoc) => {
           const uploads = uploadsByRequirement.get(reqDoc.id) || [];
           const uploadedCount = uploads.length;
+          const sourceLabel = resolveLenderDocumentSourceLabel(reqDoc, {
+            brokerOrgName,
+            brokerUserName,
+            lenderName,
+            uploads,
+            assignmentNamesBySubBrokerId,
+          });
 
           return {
             requirementId: reqDoc.id,
             documentTypeId: reqDoc.documentTypeId,
             documentName: reqDoc.documentType?.name ?? null,
             source: reqDoc.source,
-            sourceLabel: resolveLenderDocumentSourceLabel(reqDoc, {
-              brokerOrgName,
-              brokerUserName,
-              lenderName,
-              uploads,
-            }),
+            sourceLabel,
             isRequired: reqDoc.isRequired,
 
             status:
@@ -280,7 +319,7 @@ module.exports = async function lenderViewDocuments(fastify) {
             uploadedCount,
 
             uploadedFiles: uploads.map((upload) =>
-              formatUploadedFile(upload, reqDoc),
+              formatUploadedFile(upload, reqDoc, sourceLabel),
             ),
           };
         });

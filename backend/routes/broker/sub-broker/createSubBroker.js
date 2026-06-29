@@ -1,7 +1,16 @@
 const bcrypt = require("bcrypt");
+const crypto = require("crypto");
 const {
   sendSubBrokerCredentialsEmail,
 } = require("../../../services/subBrokerCredentialsEmail");
+const {
+  buildProfileDataFromFields,
+  parseMultipartRequest,
+  syncSubBrokerLoanOfficers,
+  formatSubBrokerDetail,
+  parseJsonField,
+  validatePrimaryContactFields,
+} = require("../../../utils/subBrokerProfileHelpers");
 
 function buildFreedDeletedEmail(user) {
   const at = user.email.lastIndexOf("@");
@@ -51,34 +60,53 @@ async function sendSubBrokerWelcomeEmail(fastify, prisma, {
   }
 }
 
+function validateCreateFields(fields) {
+  if (!fields.agentType) return { error: "Agent type is required" };
+
+  const contactValidation = validatePrimaryContactFields(fields);
+  if (contactValidation.error) {
+    return { error: contactValidation.error };
+  }
+
+  const allowedToLogin =
+    fields.allowedToLogin === true ||
+    fields.allowedToLogin === "true" ||
+    fields.allowedToLogin === "1";
+  const password = String(fields.password || "");
+  const confirmPassword = String(fields.confirmPassword || password);
+
+  if (allowedToLogin) {
+    if (!password) return { error: "Password is required when login is enabled" };
+    if (password.length < 8) return { error: "Password must be at least 8 characters" };
+    if (password !== confirmPassword) return { error: "Passwords do not match" };
+  }
+
+  const { account } = contactValidation;
+
+  return {
+    email: account.email,
+    firstName: account.firstName,
+    lastName: account.lastName,
+    phone: account.phone,
+    password: allowedToLogin ? password : crypto.randomBytes(16).toString("hex"),
+    allowedToLogin,
+  };
+}
+
 async function createSubBrokerRoutes(fastify) {
   fastify.post(
     "/",
     {
       schema: {
         tags: ["Broker -> Sub Broker"],
-        summary: "Create Sub Broker",
-
-        body: {
-          type: "object",
-          required: ["email", "password", "firstName"],
-          properties: {
-            email: { type: "string", format: "email" },
-            password: { type: "string", minLength: 8 },
-            firstName: { type: "string" },
-            lastName: { type: "string" },
-            phone: { type: "string" },
-          },
-        },
+        summary: "Create Sub Broker with full profile",
+        consumes: ["multipart/form-data", "application/json"],
       },
     },
     async (req, reply) => {
       const prisma = fastify.prisma;
 
       try {
-        /* ===============================
-           AUTH CHECK (MATCH YOUR STYLE)
-        =============================== */
         if (!req.user) {
           return reply.code(401).send({
             success: false,
@@ -86,10 +114,7 @@ async function createSubBrokerRoutes(fastify) {
           });
         }
 
-        if (
-          !req.user.organizationId ||
-          req.user.orgType !== "BROKER"
-        ) {
+        if (!req.user.organizationId || req.user.orgType !== "BROKER") {
           return reply.code(403).send({
             success: false,
             message: "Broker access only",
@@ -97,12 +122,8 @@ async function createSubBrokerRoutes(fastify) {
         }
 
         const roles = req.user.roles || [];
-
         const allowedRoles = ["BROKER_ADMIN", "BROKER_OFFICER"];
-
-        const hasAccess = roles.some((role) =>
-          allowedRoles.includes(role)
-        );
+        const hasAccess = roles.some((role) => allowedRoles.includes(role));
 
         if (!hasAccess) {
           return reply.code(403).send({
@@ -114,15 +135,30 @@ async function createSubBrokerRoutes(fastify) {
         const brokerOrgId = req.user.organizationId;
         const userId = req.user.id;
 
-        /* ===============================
-           INPUT
-        =============================== */
-        const email = req.body.email.trim().toLowerCase();
-        const { password, firstName, lastName, phone } = req.body;
+        const { fields, logoUrl, w9Url } = await parseMultipartRequest(req);
+        const validation = validateCreateFields(fields);
 
-        /* ===============================
-           CHECK EXISTING USER
-        =============================== */
+        if (validation.error) {
+          return reply.code(400).send({
+            success: false,
+            message: validation.error,
+          });
+        }
+
+        const {
+          email,
+          firstName,
+          lastName,
+          phone,
+          password,
+          allowedToLogin,
+        } = validation;
+
+        const assignedLoanOfficerIds = parseJsonField(
+          fields.assignedLoanOfficerIds,
+          [],
+        );
+
         const existingUser = await prisma.userAccount.findFirst({
           where: {
             email: {
@@ -179,11 +215,6 @@ async function createSubBrokerRoutes(fastify) {
                 deletedAt: null,
                 status: "ACTIVE",
               },
-              include: {
-                roles: {
-                  include: { role: true },
-                },
-              },
             });
           } else {
             await prisma.userAccount.update({
@@ -208,11 +239,6 @@ async function createSubBrokerRoutes(fastify) {
                   },
                 },
               },
-              include: {
-                roles: {
-                  include: { role: true },
-                },
-              },
             });
           }
         } else {
@@ -231,54 +257,98 @@ async function createSubBrokerRoutes(fastify) {
                 },
               },
             },
-            include: {
-              roles: {
-                include: { role: true },
-              },
-            },
           });
         }
 
-        await sendSubBrokerWelcomeEmail(fastify, prisma, {
-          brokerOrgId,
-          firstName,
-          email,
-          password,
-          subBrokerId: user.id,
-        });
+        const profileData = buildProfileDataFromFields(fields);
+        profileData.allowedToLogin = allowedToLogin;
 
-        /* ===============================
-           RESPONSE
-        =============================== */
-        return reply.send({
-          success: true,
-          message: "Sub broker created successfully",
-          data: {
-            id: user.id,
-            email: user.email,
-            firstName: user.firstName,
-            lastName: user.lastName,
-            roles: user.roles.map((r) => r.role.name),
+        await prisma.subBrokerProfile.upsert({
+          where: { userId: user.id },
+          create: {
+            userId: user.id,
+            profileData,
+            logoUrl,
+            w9Url,
+          },
+          update: {
+            profileData,
+            ...(logoUrl ? { logoUrl } : {}),
+            ...(w9Url ? { w9Url } : {}),
           },
         });
 
+        await syncSubBrokerLoanOfficers(
+          prisma,
+          user.id,
+          assignedLoanOfficerIds,
+          brokerOrgId,
+        );
+
+        if (allowedToLogin) {
+          await sendSubBrokerWelcomeEmail(fastify, prisma, {
+            brokerOrgId,
+            firstName,
+            email,
+            password,
+            subBrokerId: user.id,
+          });
+        }
+
+        const detail = await prisma.userAccount.findUnique({
+          where: { id: user.id },
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+            phone: true,
+            status: true,
+            createdAt: true,
+            updatedAt: true,
+            createdById: true,
+            subBrokerProfile: true,
+            subBrokerLoanOfficers: {
+              include: {
+                loanOfficer: {
+                  select: {
+                    id: true,
+                    firstName: true,
+                    lastName: true,
+                    email: true,
+                    profileImage: true,
+                  },
+                },
+              },
+            },
+          },
+        });
+
+        return reply.send({
+          success: true,
+          message: "Sub broker created successfully",
+          data: formatSubBrokerDetail(
+            detail,
+            detail.subBrokerProfile,
+            detail.subBrokerLoanOfficers,
+          ),
+        });
       } catch (error) {
         fastify.log.error(
           {
             error: error.message,
             stack: error.stack,
-            body: req.body,
             user: req.user,
           },
-          "❌ Create sub broker failed"
+          "Create sub broker failed",
         );
 
         return reply.code(500).send({
           success: false,
-          message: "Internal server error",
+          message: error.message || "Internal server error",
         });
       }
-    }
+    },
   );
 }
 

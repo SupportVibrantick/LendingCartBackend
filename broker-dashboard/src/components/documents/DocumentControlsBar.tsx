@@ -34,6 +34,10 @@ type DocumentControlsBarProps = {
   onSearchInputChange: (value: string) => void;
   onResetPage: () => void;
   manualSendSlot?: React.ReactNode;
+  showAutoForward?: boolean;
+  showSentFilter?: boolean;
+  brokerSourceFilterLabel?: string;
+  coBrokerSourceFilterLabel?: string;
 };
 
 const selectClass =
@@ -57,6 +61,10 @@ export default function DocumentControlsBar({
   onSearchInputChange,
   onResetPage,
   manualSendSlot,
+  showAutoForward = true,
+  showSentFilter = true,
+  brokerSourceFilterLabel = "My documents",
+  coBrokerSourceFilterLabel = "Co broker",
 }: DocumentControlsBarProps) {
   const hasActiveFilters =
     Boolean(documentLenderFilter) ||
@@ -75,6 +83,7 @@ export default function DocumentControlsBar({
   return (
     <div className="mb-5 space-y-3">
       {/* Auto-forward */}
+      {showAutoForward && (
       <div
         className={`flex flex-col gap-3 rounded-2xl border px-4 py-3.5 shadow-sm transition sm:flex-row sm:items-center sm:justify-between ${
           autoForwardEnabled
@@ -138,6 +147,7 @@ export default function DocumentControlsBar({
           </button>
         </div>
       </div>
+      )}
 
       {/* Filters & search */}
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
@@ -234,9 +244,9 @@ export default function DocumentControlsBar({
                 className={selectClass}
               >
                 <option value="all">All sources</option>
-                <option value="broker">My documents</option>
+                <option value="broker">{brokerSourceFilterLabel}</option>
                 <option value="lender">Lender requested</option>
-                <option value="sub_broker">Sub broker</option>
+                <option value="sub_broker">{coBrokerSourceFilterLabel}</option>
               </select>
               <ChevronDown
                 size={16}
@@ -284,6 +294,7 @@ export default function DocumentControlsBar({
           )}
 
           {/* Sent filter */}
+          {showSentFilter && (
           <div
             className={
               documentFilterLenders.length > 0
@@ -320,6 +331,7 @@ export default function DocumentControlsBar({
               />
             </div>
           </div>
+          )}
         </div>
       </div>
     </div>

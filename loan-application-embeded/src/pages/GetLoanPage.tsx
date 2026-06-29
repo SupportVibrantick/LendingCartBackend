@@ -1,13 +1,16 @@
-import { useState } from "react";
-import { CheckCircle2 } from "lucide-react";
-import ReCAPTCHA from "react-google-recaptcha";
+import { useMemo, useState } from "react";
+import { AlertCircle, CheckCircle2 } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
 import LoanApplication from "../pages/LoanApplication/LoanApplication";
 
-const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
-
 export default function GetLoanPage() {
+  const [searchParams] = useSearchParams();
   const [submitted, setSubmitted] = useState(false);
-  const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null);
+
+  const brokerOrgId = useMemo(() => {
+    const broker = searchParams.get("broker")?.trim();
+    return broker || null;
+  }, [searchParams]);
 
   if (submitted) {
     return (
@@ -25,14 +28,30 @@ export default function GetLoanPage() {
           </p>
           <button
             type="button"
-            onClick={() => {
-              setSubmitted(false);
-              setRecaptchaToken(null);
-            }}
+            onClick={() => setSubmitted(false)}
             className="mt-6 rounded-lg bg-[#2C92D5] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#19679b]"
           >
             Submit Another Application
           </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!brokerOrgId) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-12">
+        <div className="w-full max-w-lg rounded-2xl border border-amber-200 bg-white p-8 text-center shadow-sm">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-amber-100 text-amber-600">
+            <AlertCircle className="h-8 w-8" />
+          </div>
+          <h1 className="text-xl font-semibold text-slate-900">
+            Invalid Application Link
+          </h1>
+          <p className="mt-2 text-sm text-slate-600">
+            This page requires a valid broker link. Please use the link your
+            broker sent you, or contact them for a new one.
+          </p>
         </div>
       </div>
     );
@@ -44,19 +63,8 @@ export default function GetLoanPage() {
         <LoanApplication
           embedded
           publicEmbed
-          recaptchaToken={recaptchaToken}
+          brokerOrgId={brokerOrgId}
           onPublicSubmitSuccess={() => setSubmitted(true)}
-          reviewCaptchaSlot={
-            RECAPTCHA_SITE_KEY ? (
-              <div className="flex justify-center">
-                <ReCAPTCHA
-                  sitekey={RECAPTCHA_SITE_KEY}
-                  onChange={(token) => setRecaptchaToken(token)}
-                  onExpired={() => setRecaptchaToken(null)}
-                />
-              </div>
-            ) : null
-          }
         />
       </div>
     </div>

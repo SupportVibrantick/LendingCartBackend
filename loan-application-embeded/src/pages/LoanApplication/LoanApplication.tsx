@@ -358,6 +358,15 @@ const PRODUCT_LABELS: Record<string, string> = {
 /* ================= HELPERS ================= */
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
+function getPublicActiveApplicationUrl(brokerOrgId?: string | null) {
+  const params = new URLSearchParams();
+  if (brokerOrgId) {
+    params.set("broker", brokerOrgId);
+  }
+  const query = params.toString();
+  return `${API_BASE}/api/public/broker/applications/active${query ? `?${query}` : ""}`;
+}
+
 const OPTIONAL_LOAN_REQUEST_KEYS = new Set([
   "sellerFinancing",
   "sellerNoteAmount",
@@ -881,8 +890,8 @@ export type LoanApplicationProps = {
   initialDynamicFormData?: Record<string, any>;
   onUpdateSuccess?: (submissionId?: string) => void;
   onPublicSubmitSuccess?: (submissionId?: string) => void;
-  reviewCaptchaSlot?: ReactNode;
-  recaptchaToken?: string | null;
+  onPublicSubmitError?: (message: string) => void;
+  brokerOrgId?: string | null;
 };
 
 const LoanApplication = ({
@@ -896,8 +905,8 @@ const LoanApplication = ({
   initialDynamicFormData,
   onUpdateSuccess,
   onPublicSubmitSuccess,
-  reviewCaptchaSlot,
-  recaptchaToken = null,
+  onPublicSubmitError,
+  brokerOrgId = null,
 }: LoanApplicationProps = {}) => {
   const coBorrowerRefs = useRef<Record<number, HTMLDivElement | null>>({});
   const [lastAddedId, setLastAddedId] = useState<number | null>(null);
@@ -1947,10 +1956,6 @@ const LoanApplication = ({
       toast.error("Please complete all required fields before submitting");
       return;
     }
-    if (publicEmbed && !recaptchaToken) {
-      toast.error("Please verify reCAPTCHA before submitting");
-      return;
-    }
     handleSubmitApplication();
   };
 
@@ -2270,10 +2275,6 @@ const LoanApplication = ({
       }
 
       if (publicEmbed) {
-        if (!recaptchaToken) {
-          throw new Error("Please verify reCAPTCHA before submitting");
-        }
-
         const publicFields = [...payload.fields];
         const hasFirstName = publicFields.some((f) => f.fieldKey === "first_name");
         const hasLastName = publicFields.some((f) => f.fieldKey === "last_name");
@@ -2309,7 +2310,6 @@ const LoanApplication = ({
             body: JSON.stringify({
               ...payload,
               fields: publicFields,
-              captchaToken: recaptchaToken,
             }),
           },
         );
@@ -2379,7 +2379,11 @@ const LoanApplication = ({
       toast.success("Application Submitted Successfully");
       navigate("/submit-applications");
     } catch (error: any) {
-      toast.error(error.message || "Something went wrong");
+      const message = error.message || "Something went wrong";
+      toast.error(message);
+      if (publicEmbed) {
+        onPublicSubmitError?.(message);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -2387,38 +2391,61 @@ const LoanApplication = ({
 
   useEffect(() => {
     const fetchLoanProducts = async () => {
+      if (publicEmbed && !brokerOrgId) {
+        return;
+      }
+
       try {
         setLoadingProducts(true);
 
         const response = await fetch(
-          `${API_BASE}/api/public/broker/applications/active`,
+          publicEmbed
+            ? getPublicActiveApplicationUrl(brokerOrgId)
+            : `${API_BASE}/broker/applications/active`,
+          publicEmbed
+            ? undefined
+            : {
+                headers: {
+                  Authorization: `Bearer ${sessionStorage.getItem("broker_token") || ""}`,
+                },
+              },
         );
 
         const result = await response.json();
+
+        if (!response.ok || !result.success) {
+          throw new Error(result.message || "Failed to load loan application");
+        }
 
         const products = result?.data?.products || [];
 
         setProductsMeta(products);
         setApplicationId(result?.data?.applicationId || "");
-        // const productCodes = products.map(
-        //   (product: any) => product.loanProductCode,
-        // );
-
         setLoanProducts([]);
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error fetching loan products:", error);
+        toast.error(error.message || "Failed to load loan application");
       } finally {
         setLoadingProducts(false);
       }
     };
 
     fetchLoanProducts();
-  }, []);
+  }, [publicEmbed, brokerOrgId]);
 
   const fetchSectionsByProduct = async (productCode: string) => {
     try {
       const response = await fetch(
-        `${API_BASE}/api/public/broker/applications/active`,
+        publicEmbed
+          ? getPublicActiveApplicationUrl(brokerOrgId)
+          : `${API_BASE}/broker/applications/active`,
+        publicEmbed
+          ? undefined
+          : {
+              headers: {
+                Authorization: `Bearer ${sessionStorage.getItem("broker_token") || ""}`,
+              },
+            },
       );
 
       const result = await response.json();
@@ -3635,42 +3662,42 @@ focus:border-blue-500 outline-none text-sm ${
                           : ""
                       }`}
                     >
-                      <div className="flex items-center justify-between rounded-lg border border-slate-200 dark:border-slate-700 px-4 py-3">
-                        <span className="text-sm font-medium text-slate-600 dark:text-slate-300">
-                          Seller Financing?
-                        </span>
-                        <button
-                          type="button"
-                          role="switch"
-                          aria-checked={
-                            formData.loanRequest.sellerFinancing === "yes"
-                          }
-                          onClick={() => {
-                            const enabling =
-                              formData.loanRequest.sellerFinancing !== "yes";
-                            updateLoanRequest(
-                              "sellerFinancing",
-                              enabling ? "yes" : "no",
-                            );
-                            if (!enabling) {
-                              updateLoanRequest("sellerNoteAmount", "");
-                            }
-                          }}
-                          className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition ${
-                            formData.loanRequest.sellerFinancing === "yes"
-                              ? "bg-[#2C92D5]"
-                              : "bg-slate-200 dark:bg-slate-700"
-                          }`}
-                        >
-                          <span
-                            className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition ${
-                              formData.loanRequest.sellerFinancing === "yes"
-                                ? "translate-x-5"
-                                : "translate-x-0"
-                            }`}
-                          />
-                        </button>
-                      </div>
+                  <div className="flex items-center gap-3 rounded-lg border border-slate-200 dark:border-slate-700 px-4 py-3">
+  <span className="text-sm font-medium text-slate-600 dark:text-slate-300">
+    Seller Financing?
+  </span>
+
+  <button
+    type="button"
+    role="switch"
+    aria-checked={formData.loanRequest.sellerFinancing === "yes"}
+    onClick={() => {
+      const enabling =
+        formData.loanRequest.sellerFinancing !== "yes";
+      updateLoanRequest(
+        "sellerFinancing",
+        enabling ? "yes" : "no"
+      );
+
+      if (!enabling) {
+        updateLoanRequest("sellerNoteAmount", "");
+      }
+    }} 
+    className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition ${
+      formData.loanRequest.sellerFinancing === "yes"
+        ? "bg-[#2C92D5]"
+        : "bg-slate-200 dark:bg-slate-700"
+    }`}
+  >
+    <span
+      className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition ${
+        formData.loanRequest.sellerFinancing === "yes"
+          ? "translate-x-5"
+          : "translate-x-0"
+      }`}
+    />
+  </button>
+</div>
 
                       {formData.loanRequest.sellerFinancing === "yes" && (
                         <div>
@@ -6526,9 +6553,6 @@ focus:border-blue-500 outline-none text-sm ${
                 onEditStep={goToStep}
                 onSubmit={handleReviewSubmit}
                 submitting={submitting}
-                requireCaptcha={publicEmbed}
-                captchaVerified={Boolean(recaptchaToken)}
-                captchaSlot={publicEmbed ? reviewCaptchaSlot : null}
               />
             </div>
           )}

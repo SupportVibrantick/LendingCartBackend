@@ -59,6 +59,7 @@ function buildSubmissionDocumentsWhere({
   lenderRequests,
   sourceFilter = "all",
   documentCategory = "upload",
+  viewerRole = "broker",
 }) {
   const searchFilter = search
     ? {
@@ -79,6 +80,11 @@ function buildSubmissionDocumentsWhere({
       ? { requiresClientSignature: true }
       : { requiresClientSignature: false };
 
+  const subBrokerVisibility =
+    viewerRole === "sub_broker"
+      ? { source: "SUB_BROKER_ADDED" }
+      : { source: "SUB_BROKER_ADDED", isSentToBroker: true };
+
   if (normalizedSourceFilter === "broker") {
     return {
       loanApplicationId,
@@ -91,8 +97,9 @@ function buildSubmissionDocumentsWhere({
   if (normalizedSourceFilter === "sub_broker") {
     return {
       loanApplicationId,
-      source: "SUB_BROKER_ADDED",
-      isSentToBroker: true,
+      ...(viewerRole === "sub_broker"
+        ? { source: "SUB_BROKER_ADDED" }
+        : { source: "SUB_BROKER_ADDED", isSentToBroker: true }),
       ...signatureFilter,
       ...searchFilter,
     };
@@ -131,10 +138,7 @@ function buildSubmissionDocumentsWhere({
     loanApplicationId,
     OR: [
       { source: "BROKER_ADDED" },
-      {
-        source: "SUB_BROKER_ADDED",
-        isSentToBroker: true,
-      },
+      subBrokerVisibility,
       { source: "LENDER_ADDED" },
     ],
     ...signatureFilter,

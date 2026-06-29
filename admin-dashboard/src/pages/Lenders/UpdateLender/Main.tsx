@@ -1,39 +1,35 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import StepTwo from "./StepTwo";
-import StepThree from "./StepThree";
-import StepFour from "./StepFour";
-import StepFive from "./StepFive";
-import {
-  ChevronRight,
-  ChevronLeft,
-  ArrowLeft,
-  Eye,
-  EyeOff,
-} from "lucide-react";
+import StepTwo from "../AddLender/LoanCriteria/StepTwo";
+import StepThree from "../AddLender/LoanCriteria/StepThree";
+import StepFour from "../AddLender/LoanCriteria/StepFour";
+import StepFive from "../AddLender/LoanCriteria/StepFive";
+import EquipmentFinancingStep from "../AddLender/LoanCriteria/EquipmentFinancingStep";
+import { ChevronRight, ChevronLeft, ArrowLeft } from "lucide-react";
 import toast from "react-hot-toast";
-import EquipmentFinancingStep from "./EquipmentFinancingStep";
+import {
+  getRequiredCriteriaKeysForProduct,
+  isMezzanineProduct,
+  isNoMinLoanCriteriaProduct,
+  isSba504Product,
+  mapApiProductToCriteriaForm,
+} from "../../../lib/loanProductCriteriaFields";
+import { mapToAdminProductPayload } from "../../../lib/lenderProductAdminPayload";
 
 type FormType = {
   lenderId: string;
   loanPrograms: string[];
-
   organizationName: string;
   organizationEmail: string;
   organizationPhone: string;
-
   firstName: string;
   lastName: string;
   adminEmail: string;
-
   brokerId: string;
-
-  propertyTypes: any;
-  businessTypes: Record<string, any>;
+  propertyTypes: Record<string, string[]>;
+  businessTypes: Record<string, string[]>;
   loanCriteria: Record<string, any>;
   equipmentFinance: string[];
-  otherEquipmentExplanation: string;
-
   productIdMap: Record<string, string>;
 };
 
@@ -47,99 +43,57 @@ type InputFieldProps = {
   label: string;
   value: string;
   onChange: (value: string) => void;
-  type?: string;
   required?: boolean;
-  isPassword?: boolean;
-  showPassword?: boolean;
-  togglePassword?: () => void;
 };
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
+
+function getAuthHeaders(): Record<string, string> {
+  const token = sessionStorage.getItem("admin_token");
+  return token
+    ? {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      }
+    : { "Content-Type": "application/json" };
+}
 
 export default function Main() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const [products, setProducts] = useState<Product[]>([]);
-  const [brokers, setBrokers] = useState<any[]>([]);
-  // const [loadingBrokers, setLoadingBrokers] = useState(false);
-  const [createdLenderId, setCreatedLenderId] = useState<string | null>(null);
+  const [lenderOrgId, setLenderOrgId] = useState<string | null>(null);
   const [hasStep5Errors, setHasStep5Errors] = useState(false);
-  const [updating, setUpdating] = useState(false);
-  const [lenderProductId, setLenderProductId] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const [form, setForm] = useState<FormType>({
     lenderId: "",
     loanPrograms: [],
-
     organizationName: "",
     organizationEmail: "",
     organizationPhone: "",
-
     firstName: "",
     lastName: "",
     adminEmail: "",
-
     brokerId: "",
-
     propertyTypes: {},
     businessTypes: {},
     loanCriteria: {},
     equipmentFinance: [],
-    otherEquipmentExplanation: "",
-
     productIdMap: {},
   });
 
-  const validateStep0 = () => {
-    if (!form.organizationName?.trim()) return "Organization name is required";
-
-    if (!form.organizationEmail?.trim())
-      return "Organization email is required";
-
-    if (!isValidEmail(form.organizationEmail))
-      return "Invalid organization email";
-
-    if (!form.organizationPhone?.trim()) return "Phone number is required";
-
-    if (cleanPhone(form.organizationPhone).length !== 10)
-      return "Phone must be 10 digits (USA format)";
-
-    if (!form.firstName?.trim()) return "First name is required";
-    if (!form.lastName?.trim()) return "Last name is required";
-
-    if (!form.adminEmail?.trim()) return "Admin email is required";
-
-    if (!isValidEmail(form.adminEmail)) return "Invalid admin email";
-
-    return null;
-  };
-
-  const isValidEmail = (email: string) => {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-  };
-
-  const formatPhone = (value: string) => {
-    const digits = value.replace(/\D/g, "").slice(0, 10);
-
-    const parts = [];
-    if (digits.length > 0) parts.push(digits.slice(0, 3));
-    if (digits.length >= 4) parts.push(digits.slice(3, 6));
-    if (digits.length >= 7) parts.push(digits.slice(6, 10));
-
-    return parts.join("-");
-  };
-
-  const cleanPhone = (value: string) => {
-    return value.replace(/\D/g, "");
-  };
-
-  // Equipment check
-  const isEquipmentSelected = products.some(
-    (p) => p.code === "EQUIPMENT_FINANCE" && form.loanPrograms.includes(p.id),
+  const selectedProducts = useMemo(
+    () => products.filter((p) => form.loanPrograms.includes(p.id)),
+    [products, form.loanPrograms],
   );
 
-  // Dynamic Steps
+  const isEquipmentSelected = selectedProducts.some(
+    (p) => p.code === "EQUIPMENT_FINANCE",
+  );
+
   const steps = [
     "Update Lender",
     "Loan Programs",
@@ -149,206 +103,352 @@ export default function Main() {
     "Loan Criteria",
   ];
 
-  const fetchBrokers = async () => {
-    // setLoadingBrokers(true);
+  const loanCriteriaStepIndex = steps.length - 1;
+  const isLastStep = step === steps.length - 1;
 
-    try {
-      const res = await fetch(`${API_BASE}/admin/brokers/read`, {
-        headers: {
-          Authorization: `Bearer ${sessionStorage.getItem("admin_token")}`,
-        },
-      });
+  const isValidEmail = (email: string) =>
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
-      const json = await res.json();
+  const formatPhone = (value: string) => {
+    const digits = value.replace(/\D/g, "").slice(0, 10);
+    const parts = [];
+    if (digits.length > 0) parts.push(digits.slice(0, 3));
+    if (digits.length >= 4) parts.push(digits.slice(3, 6));
+    if (digits.length >= 7) parts.push(digits.slice(6, 10));
+    return parts.join("-");
+  };
 
-      if (json?.success) {
-        setBrokers(json.data || []);
+  const cleanPhone = (value: string) => value.replace(/\D/g, "");
+
+  const validateStep0 = () => {
+    if (!form.organizationName?.trim()) return "Organization name is required";
+    if (!form.organizationEmail?.trim())
+      return "Organization email is required";
+    if (!isValidEmail(form.organizationEmail))
+      return "Please enter a valid organization email";
+    if (!form.organizationPhone?.trim()) return "Phone number is required";
+    if (cleanPhone(form.organizationPhone).length !== 10)
+      return "Phone must be 10 digits (USA format)";
+    if (!form.firstName?.trim()) return "First name is required";
+    if (!form.lastName?.trim()) return "Last name is required";
+    if (!form.adminEmail?.trim()) return "Admin email is required";
+    if (!isValidEmail(form.adminEmail))
+      return "Please enter a valid admin email";
+    return null;
+  };
+
+  const validateStep5 = () => {
+    for (const product of selectedProducts) {
+      const data = form.loanCriteria?.[product.id];
+
+      if (!data) {
+        return `Please fill details for ${product.name}`;
       }
-    } catch (err) {
-      console.error("Failed to fetch brokers", err);
+
+      const requiredFields = getRequiredCriteriaKeysForProduct(product.code);
+
+      for (const field of requiredFields) {
+        if (!data[field] && data[field] !== 0) {
+          return `${product.name}: ${field} is required`;
+        }
+      }
+
+      if (!data.states || data.states.length === 0) {
+        return `${product.name}: Select at least one state`;
+      }
+
+      if (isSba504Product(product.code)) {
+        const total = Number(data.maxTotalProject);
+        const debenture = Number(data.maxSba504Debenture);
+        if (
+          data.maxTotalProject &&
+          data.maxSba504Debenture &&
+          debenture > total
+        ) {
+          return `${product.name}: SBA 504 debenture cannot exceed total project amount`;
+        }
+      } else if (
+        !isNoMinLoanCriteriaProduct(product.code) &&
+        !isMezzanineProduct(product.code)
+      ) {
+        const minAmount = Number(
+          data.minFacilitySize ?? data.minProgramSize ?? data.minLoan,
+        );
+        const maxAmount = Number(
+          data.maxFacilitySize ?? data.maxProgramSize ?? data.maxLoan,
+        );
+
+        if (
+          Number.isFinite(minAmount) &&
+          Number.isFinite(maxAmount) &&
+          minAmount > maxAmount
+        ) {
+          return `${product.name}: Minimum amount cannot exceed maximum amount`;
+        }
+      }
+    }
+
+    return null;
+  };
+
+  const updateLender = async (orgId: string) => {
+    const payload: Record<string, string> = {
+      organizationName: form.organizationName.trim(),
+      organizationEmail: form.organizationEmail.trim(),
+      organizationPhone: cleanPhone(form.organizationPhone),
+      adminFirstName: form.firstName.trim(),
+      adminLastName: form.lastName.trim(),
+      adminEmail: form.adminEmail.trim(),
+    };
+
+    if (form.brokerId) {
+      payload.brokerOrgId = form.brokerId;
+    }
+
+    const res = await fetch(`${API_BASE}/admin/lenders/update/${orgId}`, {
+      method: "PATCH",
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload),
+    });
+
+    const json = await res.json();
+
+    if (!res.ok) {
+      throw new Error(json?.message || "Failed to update lender");
     }
   };
 
-  useEffect(() => {
-    fetchBrokers();
-  }, []);
+  const handleSubmit = async () => {
+    const step5Error = validateStep5();
+    if (step5Error) {
+      toast.error(step5Error);
+      return;
+    }
 
-  // Fetch Products
+    if (!lenderOrgId) {
+      toast.error("Lender not found");
+      return;
+    }
+
+    if (!selectedProducts.length) {
+      toast.error("Please select at least one loan program");
+      return;
+    }
+
+    setSubmitting(true);
+
+    try {
+      await updateLender(lenderOrgId);
+
+      const mappedProducts = selectedProducts.map((product) =>
+        mapToAdminProductPayload(
+          product,
+          form,
+          form.loanCriteria?.[product.id] || {},
+          form.productIdMap?.[product.id],
+        ),
+      );
+
+      const res = await fetch(`${API_BASE}/admin/lender-products/update`, {
+        method: "PATCH",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          lenderOrgId,
+          products: mappedProducts,
+        }),
+      });
+
+      const json = await res.json().catch(() => ({}));
+
+      if (!res.ok || !json.success) {
+        throw new Error(json?.message || "Failed to update lender products");
+      }
+
+      toast.success("Lender updated successfully");
+      navigate("/all-lenders-Organization");
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err?.message || "Failed to update");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleNext = () => {
+    if (step === 0) {
+      const error = validateStep0();
+      if (error) {
+        toast.error(error);
+        return;
+      }
+      setStep(1);
+      return;
+    }
+
+    if (isLastStep) {
+      handleSubmit();
+      return;
+    }
+
+    setStep((prev) => prev + 1);
+  };
+
+  const fetchLenderById = async (lenderId: string) => {
+    const res = await fetch(
+      `${API_BASE}/admin/lenders/read?search=${lenderId}`,
+      { headers: getAuthHeaders() },
+    );
+    const json = await res.json();
+
+    if (!json?.success || !json?.data?.results?.length) {
+      throw new Error("Lender not found");
+    }
+
+    const lender = json.data.results[0];
+
+    setForm((prev) => ({
+      ...prev,
+      lenderId: lender.id,
+      organizationName: lender.organizationName || "",
+      organizationEmail: lender.organizationEmail || "",
+      organizationPhone: lender.organizationPhone
+        ? formatPhone(lender.organizationPhone)
+        : "",
+      firstName: lender.adminFirstName || "",
+      lastName: lender.adminLastName || "",
+      adminEmail: lender.adminEmail || "",
+      brokerId: lender.brokerOrgId || "",
+    }));
+
+    setLenderOrgId(lender.id);
+  };
+
+  const fetchLenderProducts = async (orgId: string) => {
+    const res = await fetch(
+      `${API_BASE}/admin/lender-products/lender/${orgId}`,
+      { headers: getAuthHeaders() },
+    );
+    const json = await res.json();
+
+    if (!json?.success) return;
+
+    const data = json.data || [];
+    const productIdMap: Record<string, string> = {};
+    const propertyTypes: Record<string, string[]> = {};
+    const businessTypes: Record<string, string[]> = {};
+    const loanCriteria: Record<string, any> = {};
+    let equipmentFinance: string[] = [];
+
+    data.forEach((item: any) => {
+      const loanProductId = item.loanProductId;
+      productIdMap[loanProductId] = item.id;
+
+      item.propertyTypes?.forEach((p: any) => {
+        propertyTypes[p.type] = [
+          ...new Set([
+            ...(propertyTypes[p.type] || []),
+            ...(p.subTypes || []),
+          ]),
+        ];
+      });
+
+      item.businessTypes?.forEach((b: any) => {
+        businessTypes[b.name] = [
+          ...new Set([
+            ...(businessTypes[b.name] || []),
+            ...(b.subTypes || []),
+          ]),
+        ];
+      });
+
+      loanCriteria[loanProductId] = mapApiProductToCriteriaForm(item);
+
+      if (item.loanProductCode === "EQUIPMENT_FINANCE") {
+        equipmentFinance = Array.isArray(item.equipmentTypes)
+          ? item.equipmentTypes
+          : [];
+      }
+    });
+
+    setForm((prev) => ({
+      ...prev,
+      loanPrograms: data.map((item: any) => item.loanProductId),
+      propertyTypes,
+      businessTypes,
+      loanCriteria,
+      equipmentFinance,
+      productIdMap,
+    }));
+  };
+
   useEffect(() => {
-    const fetchProducts = async () => {
+    if (!id) return;
+
+    const load = async () => {
+      setLoading(true);
       try {
-        const res = await fetch(`${API_BASE}/admin/loan-products/list`, {
-          headers: {
-            Authorization: `Bearer ${sessionStorage.getItem("admin_token")}`,
-          },
-        });
-
-        const json = await res.json();
-        if (json?.success) {
-          setProducts(json.data || []);
-        }
-      } catch (err) {
+        await fetchLenderById(id);
+        await fetchLenderProducts(id);
+      } catch (err: any) {
         console.error(err);
+        toast.error(err?.message || "Failed to load lender");
+      } finally {
+        setLoading(false);
       }
     };
 
-    fetchProducts();
-  }, []);
-
-  const fetchLenderProductId = async () => {
-    try {
-      if (!id) return;
-
-      const res = await fetch(
-        `${API_BASE}/admin/lender-products/read?search=${id}`,
-        {
-          headers: {
-            Authorization: `Bearer ${sessionStorage.getItem("admin_token")}`,
-          },
-        },
-      );
-
-      const json = await res.json();
-
-      if (!json?.success) return;
-
-      const data = json.data || [];
-
-      // ✅ FIND CORRECT PRODUCT
-      const matched = data.find((item: any) => item.lenderOrgId === id);
-
-      if (!matched) {
-        toast.error("No lender product found");
-        return;
-      }
-
-      // ✅ SET UPDATE ID
-      setLenderProductId(matched.id);
-
-      // ✅ OPTIONAL PREFILL
-      console.log("Selected Product 👉", matched);
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to fetch lender product");
-    }
-  };
-
-  useEffect(() => {
-    if (id) {
-      fetchLenderProductId();
-    }
+    load();
   }, [id]);
 
-  const handleUpdateLender = async () => {
-    const error = validateStep0();
-
-    if (error) {
-      toast.error(error);
-      return;
+  useEffect(() => {
+    if (!isEquipmentSelected) {
+      setForm((p) => ({ ...p, equipmentFinance: [] }));
     }
+  }, [isEquipmentSelected]);
 
-    if (!createdLenderId) {
-      toast.error("Lender ID missing");
-      return;
-    }
-
-    setUpdating(true);
-
-    try {
-      const payload = {
-        organizationName: form.organizationName.trim(),
-        organizationEmail: form.organizationEmail.trim(),
-        organizationPhone: cleanPhone(form.organizationPhone),
-
-        adminFirstName: form.firstName.trim(),
-        adminLastName: form.lastName.trim(),
-        adminEmail: form.adminEmail.trim(),
-
-        ...(form.brokerId && { brokerOrgId: form.brokerId }),
-      };
-
-      const res = await fetch(
-        `${API_BASE}/admin/lenders/update/${createdLenderId}`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${sessionStorage.getItem("admin_token")}`,
-          },
-          body: JSON.stringify(payload),
-        },
-      );
-
-      const json = await res.json();
-
-      if (!res.ok) {
-        toast.error(json?.message || "Update failed");
-        return;
-      }
-
-      setUpdating(false);
-      toast.success("Lender updated successfully");
-    } catch (err) {
-      console.error(err);
-      toast.error("Something went wrong");
-    }
-  };
-
-  // Step Mapping (IMPORTANT)
   const getStepContent = () => {
-    // ✅ STEP 0 (FORM)
+    if (loading) {
+      return (
+        <div className="flex items-center justify-center py-20 text-sm text-gray-500">
+          Loading lender details...
+        </div>
+      );
+    }
+
     if (step === 0) {
       return (
         <div className="max-w-6xl mx-auto">
           <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-8">
-            {/* HEADER */}
-            <div className="mb-8 flex items-start justify-between">
-              {/* LEFT */}
-              <div>
-                <h2 className="text-xl font-semibold text-gray-900">
-                  Update Lender
-                </h2>
-                <p className="text-sm text-gray-500">
-                  Enter organization and admin details
-                </p>
-              </div>
-
-              {/* RIGHT BUTTON */}
-              <button
-                onClick={handleUpdateLender}
-                disabled={updating}
-                className="bg-black text-white px-4 py-2 rounded-lg text-sm font-medium 
-  shadow hover:scale-[1.03] active:scale-[0.97] transition disabled:opacity-50"
-              >
-                {updating ? "Updating..." : "Update Lender"}
-              </button>
+            <div className="mb-8">
+              <h2 className="text-xl font-semibold text-gray-900">
+                Update Lender
+              </h2>
+              <p className="text-sm text-gray-500">
+                Enter organization and admin details
+              </p>
             </div>
 
-            {/* ORGANIZATION */}
             <div className="mb-8">
               <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">
                 Organization Details
               </h3>
-
               <div className="grid grid-cols-2 gap-4">
                 <InputField
                   label="Organization Name"
-                  required={true}
+                  required
                   value={form.organizationName}
                   onChange={(v) =>
                     setForm((p) => ({ ...p, organizationName: v }))
                   }
                 />
-
                 <InputField
                   label="Organization Email"
-                  required={true}
+                  required
                   value={form.organizationEmail}
                   onChange={(v) =>
                     setForm((p) => ({ ...p, organizationEmail: v }))
                   }
                 />
-
                 <div className="col-span-2">
                   <InputField
                     label="Phone Number"
@@ -365,122 +465,115 @@ export default function Main() {
               </div>
             </div>
 
-            {/* ADMIN */}
             <div className="mb-8">
               <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">
                 Admin Details
               </h3>
-
               <div className="grid grid-cols-2 gap-4">
                 <InputField
                   label="First Name"
-                  required={true}
+                  required
                   value={form.firstName}
                   onChange={(v) => setForm((p) => ({ ...p, firstName: v }))}
                 />
-
                 <InputField
                   label="Last Name"
-                  required={true}
+                  required
                   value={form.lastName}
                   onChange={(v) => setForm((p) => ({ ...p, lastName: v }))}
                 />
-
                 <InputField
                   label="Email Address"
-                  required={true}
+                  required
                   value={form.adminEmail}
                   onChange={(v) => setForm((p) => ({ ...p, adminEmail: v }))}
                 />
               </div>
             </div>
 
-            {/* BROKER */}
-            <div>
+            {/* <div>
               <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">
                 Broker (Optional)
               </h3>
-
-              <div className="relative">
-                <select
-                  value={form.brokerId || ""}
-                  onChange={(e) =>
-                    setForm((p) => ({ ...p, brokerId: e.target.value }))
-                  }
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm
-            focus:ring-2 focus:ring-black focus:border-black outline-none
-            transition"
-                >
-                  <option value="">Select broker</option>
-
-                  {brokers.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.name} — {b.email}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
+              <select
+                value={form.brokerId || ""}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, brokerId: e.target.value }))
+                }
+                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-black focus:border-black outline-none transition"
+              >
+                <option value="">Select broker</option>
+                {brokers.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name} — {b.email}
+                  </option>
+                ))}
+              </select>
+            </div> */}
           </div>
         </div>
       );
     }
 
-    // ✅ STEP 1
     if (step === 1) {
       return (
         <StepTwo
+          mode="admin"
           value={form.loanPrograms}
-          setValue={(val: any) => setForm((p) => ({ ...p, loanPrograms: val }))}
+          setValue={(val) =>
+            setForm((p) => ({ ...p, loanPrograms: val }))
+          }
+          onProductsLoad={setProducts}
         />
       );
     }
 
-    // ✅ STEP 2
-    if (step === 2) {
+    const propertyStepIndex = 2;
+    const businessStepIndex = 3;
+    const equipmentStepIndex = isEquipmentSelected ? 4 : -1;
+
+    if (step === propertyStepIndex) {
       return (
         <StepThree
           value={form.propertyTypes}
-          setValue={(val: any) =>
+          setValue={(val: Record<string, string[]>) =>
             setForm((p) => ({ ...p, propertyTypes: val }))
           }
         />
       );
     }
 
-    // ✅ STEP 3
-    if (step === 3) {
+    if (step === businessStepIndex) {
       return (
         <StepFour
           value={form.businessTypes}
-          setValue={(val: any) =>
+          setValue={(val: Record<string, string[]>) =>
             setForm((p) => ({ ...p, businessTypes: val }))
           }
         />
       );
     }
 
-    // ✅ EQUIPMENT STEP
-    if (isEquipmentSelected && step === 4) {
+    if (isEquipmentSelected && step === equipmentStepIndex) {
       return (
         <EquipmentFinancingStep
           value={form.equipmentFinance}
-          setValue={(val: any) =>
+          setValue={(val: string[]) =>
             setForm((p) => ({ ...p, equipmentFinance: val }))
           }
         />
       );
     }
 
-    // ✅ STEP 5 (filtered products already correct)
-    const loanCriteriaStepIndex = isEquipmentSelected ? 5 : 4;
-
     if (step === loanCriteriaStepIndex) {
       return (
         <StepFive
+          authMode="admin"
           products={selectedProducts}
           value={form.loanCriteria}
-          setValue={(val: any) => setForm((p) => ({ ...p, loanCriteria: val }))}
+          setValue={(val: Record<string, any>) =>
+            setForm((p) => ({ ...p, loanCriteria: val }))
+          }
           setHasErrors={setHasStep5Errors}
         />
       );
@@ -489,445 +582,23 @@ export default function Main() {
     return null;
   };
 
-  const buildPayload = () => {
-    const mappedProducts = selectedProducts.map((product) => {
-      const criteria = form.loanCriteria?.[product.id] || {};
-      const existingId = form.productIdMap?.[product.id];
-
-      const base = {
-        // ✅ COMMON FIELDS
-        businessTypes: Object.entries(form.businessTypes || {}).map(
-          ([name, subTypes]: any) => ({
-            name,
-            subTypes,
-          }),
-        ),
-
-        propertyTypes: Object.entries(form.propertyTypes || {}).map(
-          ([type, subTypes]: any) => ({
-            type,
-            subTypes,
-          }),
-        ),
-
-        minLoanAmount: String(criteria.minLoan || ""),
-        maxLoanAmount: String(criteria.maxLoan || ""),
-
-        minTermMonths: Number(criteria.minTerm) || 0,
-        maxTermMonths: Number(criteria.maxTerm) || 0,
-
-       maxLtvPercent: Number(criteria.maxLtv || ""),
-
-maxArvPercent:
-  criteria.maxArv !== ""
-    ? Number(criteria.maxArv)
-    : null,
-
-maxLtcPercent:
-  criteria.maxLtc !== ""
-    ? Number(criteria.maxLtc)
-    : null,
-
-        minCreditScore: Number(criteria.fico) || 0,
-        minExperience: String(criteria.experience || 0),
-
-        interestRateRange: `${criteria.minRate || 0}-${criteria.maxRate || 0}%`,
-
-        statesSupported: criteria.states || [],
-
-        isActive: true,
-      };
-
-      return {
-        // ✅ EXISTING PRODUCT → ID
-        ...(existingId
-          ? { id: existingId }
-          : { loanProductCode: product.code }),
-
-        ...base,
-
-        // ✅ EQUIPMENT ONLY WHEN NEEDED
-        ...(product.code === "EQUIPMENT_FINANCE" &&
-          form.equipmentFinance?.length > 0 && {
-            equipmentTypes: form.equipmentFinance,
-            otherEquipmentExplanation: form.otherEquipmentExplanation || "",
-          }),
-      };
-    });
-
-    return {
-      lenderOrgId: createdLenderId,
-      products: mappedProducts,
-    };
-  };
-
-  const validateStep5 = () => {
-    for (const product of selectedProducts) {
-      const data = form.loanCriteria?.[product.id];
-
-      if (!data) {
-        return `Please fill details for ${product.name}`;
-      }
-
-const requiredFields = [
-  "minLoan",
-  "maxLoan",
-  "minRate",
-  "maxRate",
-  "maxLtv",
-  "maxArv",
-  "fico",
-  "experience",
-  "minTerm",
-  "maxTerm",
-];
-
-for (const field of requiredFields) {
-  if (!data[field] && data[field] !== 0) {
-    return `${product.name}: ${field} is required`;
-  }
-}
-
-if (
-  [
-    "MEZZ_FINANCE_PREF_EQUITY",
-    "MEZZ_FINANCE",
-    "MEZZANINE_FINANCE",
-    "FIX_AND_FLIP",
-    "CONSTRUCTION_LOAN",
-    "CONSTRUCTION_LOAN_1_TO_4_UNITS",
-    "FIX_AND_FLIP_LOAN_1_TO_4_UNITS",
-  ].includes(product.code)
-) {
-  if (
-    data.maxLtc === undefined ||
-    data.maxLtc === null ||
-    data.maxLtc === ""
-  ) {
-    return `${product.name}: maxLtc is required`;
-  }
-}
-
-      for (const field of requiredFields) {
-        if (!data[field] && data[field] !== 0) {
-          return `${product.name}: ${field} is required`;
-        }
-      }
-
-      if (!data.states || data.states.length === 0) {
-        return `${product.name}: Select at least one state`;
-      }
-    }
-
-    return null;
-  };
-
-  const handleSubmit = async () => {
-    try {
-      if (!createdLenderId) {
-        toast.error("Lender not found");
-        return;
-      }
-
-      const step5Error = validateStep5();
-      if (step5Error) {
-        toast.error(step5Error);
-        return;
-      }
-
-      setUpdating(true);
-
-      const payload = buildPayload();
-
-      console.log("UPDATE PAYLOAD 👉", payload);
-
-      const res = await updateLenderProducts(payload);
-
-      const updated = res?.updatedProduct;
-
-      if (updated) {
-        const [minRate, maxRateRaw] =
-          updated.interestRateRange?.split("-") || [];
-
-        const maxRate = maxRateRaw?.replace("%", "") || "";
-
-        // ✅ HANDLE STATES (STRING + ARRAY)
-        const states = Array.isArray(updated.statesSupported)
-          ? updated.statesSupported
-          : updated.statesSupported
-            ? updated.statesSupported.split(",")
-            : [];
-
-        // ✅ HANDLE EQUIPMENT (STRING + ARRAY)
-        const equipment = Array.isArray(updated.equipmentTypes)
-          ? updated.equipmentTypes
-          : updated.equipmentTypes
-            ? updated.equipmentTypes.split(",")
-            : [];
-
-        setForm((prev) => ({
-          ...prev,
-
-          loanPrograms: [updated.loanProductId],
-
-          propertyTypes: Object.fromEntries(
-            (updated.propertyTypes || []).map((p: any) => [
-              p.type,
-              p.subTypes || [],
-            ]),
-          ),
-
-          businessTypes: Object.fromEntries(
-            (updated.businessTypes || []).map((b: any) => [
-              b.name,
-              b.subTypes || [],
-            ]),
-          ),
-
-          loanCriteria: {
-            [updated.loanProductId]: {
-              minLoan: updated.minLoanAmount || "",
-              maxLoan: updated.maxLoanAmount || "",
-
-              minRate: minRate || "",
-              maxRate: maxRate || "",
-
-              minTerm: updated.minTermMonths || "",
-              maxTerm: updated.maxTermMonths || "",
-
-              maxLtv: updated.maxLtvPercent || "",
-maxArv: updated.maxArvPercent || "",
-maxLtc: updated.maxLtcPercent || "",
-
-              fico: updated.minCreditScore || "",
-              experience: updated.minExperience || "",
-
-              states, // ✅ FIXED
-            },
-          },
-
-          equipmentFinance: equipment,
-        }));
-      }
-
-      toast.success("Lender product updated successfully");
-
-      navigate("/all-lenders-Organization");
-    } catch (err: any) {
-      console.error(err);
-      toast.error(err.message || "Failed to update");
-    } finally {
-      setUpdating(false);
-    }
-  };
-
-  const isLastStep = step === steps.length - 1;
-
-  const selectedProducts = products.filter((p) =>
-    form.loanPrograms.includes(p.id),
-  );
-
-  const isStep5Valid = () => {
-    return validateStep5() === null;
-  };
-
-  const fetchLenderById = async () => {
-    try {
-      if (!id) return;
-
-      const res = await fetch(`${API_BASE}/admin/lenders/read?search=${id}`, {
-        headers: {
-          Authorization: `Bearer ${sessionStorage.getItem("admin_token")}`,
-        },
-      });
-
-      const json = await res.json();
-
-      if (json?.success && json?.data?.results?.length > 0) {
-        const lender = json.data.results[0];
-
-        setForm((prev) => ({
-          ...prev,
-          lenderId: lender.id,
-
-          organizationName: lender.organizationName || "",
-          organizationEmail: lender.organizationEmail || "",
-          organizationPhone: lender.organizationPhone
-            ? formatPhone(lender.organizationPhone)
-            : "",
-
-          firstName: lender.adminFirstName || "",
-          lastName: lender.adminLastName || "",
-          adminEmail: lender.adminEmail || "",
-
-          brokerId: lender.brokerOrgId || "",
-        }));
-
-        setCreatedLenderId(lender.id);
-      }
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to load lender");
-    }
-  };
-
-  useEffect(() => {
-    if (id) {
-      fetchLenderById();
-    }
-  }, [id]);
-
-  const fetchLenderProducts = async () => {
-    try {
-      if (!id) return;
-
-      const res = await fetch(
-        `${API_BASE}/admin/lender-products/lender/${id}`,
-        {
-          headers: {
-            Authorization: `Bearer ${sessionStorage.getItem("admin_token")}`,
-          },
-        },
-      );
-
-      const json = await res.json();
-      if (!json?.success) return;
-
-      const data = json.data || [];
-
-      if (data.length > 0) {
-        setLenderProductId(data[0].id);
-      }
-
-      const productIdMap: any = {};
-
-      data.forEach((item: any) => {
-        productIdMap[item.loanProductId] = item.id;
-      });
-
-      let equipmentFinance: string[] = [];
-
-      data.forEach((item: any) => {
-        if (item.loanProductCode === "EQUIPMENT_FINANCE") {
-          equipmentFinance = item.equipmentTypes || [];
-        }
-      });
-
-      // ✅ STEP 1: Loan Programs
-      const loanPrograms = data.map((item: any) => item.loanProductId);
-
-      // ✅ STEP 2: Property Types
-      const propertyTypes: any = {};
-      data.forEach((item: any) => {
-        item.propertyTypes?.forEach((p: any) => {
-          if (!propertyTypes[p.type]) {
-            propertyTypes[p.type] = [];
-          }
-
-          propertyTypes[p.type] = [
-            ...new Set([...propertyTypes[p.type], ...(p.subTypes || [])]),
-          ];
-        });
-      });
-
-      // ✅ STEP 3: Business Types
-      const businessTypes: any = {};
-      data.forEach((item: any) => {
-        item.businessTypes?.forEach((b: any) => {
-          if (!businessTypes[b.name]) {
-            businessTypes[b.name] = [];
-          }
-
-          businessTypes[b.name] = [
-            ...new Set([...businessTypes[b.name], ...(b.subTypes || [])]),
-          ];
-        });
-      });
-
-      // ✅ STEP 4: Loan Criteria (FIXED)
-      const loanCriteria: any = {};
-
-      data.forEach((item: any) => {
-        const [minRate, maxRateRaw] = item.interestRateRange?.split("-") || [];
-
-        const maxRate = maxRateRaw?.replace("%", "") || "";
-
-        loanCriteria[item.loanProductId] = {
-          minLoan: item.minLoanAmount || "",
-          maxLoan: item.maxLoanAmount || "",
-
-          minRate: minRate || "",
-          maxRate: maxRate || "",
-
-          minTerm: item.minTermMonths || "",
-          maxTerm: item.maxTermMonths || "",
-
-          // ✅ IMPORTANT FIELDS
-          minLtv: item.minLtvPercent || "",
-          maxLtv: item.maxLtvPercent || "",
-maxArv: item.maxArvPercent || "",
-maxLtc: item.maxLtcPercent || "",
-          fico: item.minCreditScore || "",
-          experience: item.minExperience || "",
-
-          states: Array.isArray(item.statesSupported)
-            ? item.statesSupported
-            : [],
-        };
-      });
-
-      // FINAL SET FORM (OUTSIDE LOOP)
-      setForm((prev) => ({
-        ...prev,
-        loanPrograms,
-        propertyTypes,
-        businessTypes,
-        loanCriteria,
-        equipmentFinance,
-        productIdMap,
-      }));
-    } catch (err) {
-      console.error("Failed to fetch lender products", err);
-    }
-  };
-
-  useEffect(() => {
-    if (createdLenderId) {
-      fetchLenderProducts();
-    }
-  }, [createdLenderId]);
-
-  const updateLenderProducts = async (payload: any) => {
-    if (!lenderProductId) {
-      throw new Error("Lender product ID missing");
-    }
-
-    console.log(lenderProductId);
-    const res = await fetch(`${API_BASE}/admin/lender-products/update`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${sessionStorage.getItem("admin_token")}`,
-      },
-      body: JSON.stringify(payload),
-    });
-
-    const json = await res.json();
-
-    if (!res.ok || !json.success) {
-      throw new Error(json.message || "Failed to update lender products");
-    }
-
-    return json;
-  };
+  const step0Invalid = Boolean(validateStep0());
+
+  const step5ValidationMessage =
+    step === loanCriteriaStepIndex ? validateStep5() : null;
+
+  const nextDisabled =
+    loading ||
+    submitting ||
+    (step === 0 && step0Invalid) ||
+    (step === 1 && form.loanPrograms.length === 0) ||
+    (step === loanCriteriaStepIndex && hasStep5Errors) ||
+    (isLastStep && step5ValidationMessage !== null);
 
   return (
     <div className="h-screen flex flex-col bg-gray-50">
-      {/* HEADER */}
       <div className="sticky top-0 z-30">
-        {/* TOP BAR */}
         <div className="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
-          {/* LEFT */}
           <div className="flex items-center gap-3">
             <button
               onClick={() => navigate("/all-lenders-Organization")}
@@ -935,7 +606,6 @@ maxLtc: item.maxLtcPercent || "",
             >
               <ArrowLeft size={18} />
             </button>
-
             <div>
               <h1 className="text-lg font-semibold leading-tight">
                 {steps[step]}
@@ -945,52 +615,37 @@ maxLtc: item.maxLtcPercent || "",
               </p>
             </div>
           </div>
-
-          {/* RIGHT */}
-          {/* <button
-            onClick={handleSubmit}
-            className="bg-gradient-to-r from-black to-gray-800 text-white px-5 py-2 rounded-lg text-sm font-medium shadow hover:scale-[1.03] active:scale-[0.97] transition"
-          >
-            Save Profile
-          </button> */}
         </div>
 
-        {/* PROGRESS BAR */}
         <div className="max-w-6xl mx-auto px-6">
           <div className="w-full h-[3px] bg-gray-100 rounded-full overflow-hidden">
             <div
               className="h-full bg-black transition-all duration-300"
-              style={{
-                width: `${((step + 1) / steps.length) * 100}%`,
-              }}
+              style={{ width: `${((step + 1) / steps.length) * 100}%` }}
             />
           </div>
         </div>
 
-        {/* STEPPER */}
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center gap-3 flex-wrap">
-          {steps.map((s, i) => {
+          {steps.map((label, i) => {
             const isActive = step === i;
             const isCompleted = step > i;
 
             return (
-              <div key={i} className="flex items-center gap-2">
-                {/* STEP CHIP */}
+              <div key={label} className="flex items-center gap-2">
                 <div
                   className={`flex items-center gap-1 px-4 py-1.5 rounded-full text-xs font-medium transition-all duration-200
-            ${
-              isActive
-                ? "bg-black text-white shadow"
-                : isCompleted
-                  ? "bg-green-500 text-white"
-                  : "bg-gray-100 text-gray-400"
-            }`}
+                    ${
+                      isActive
+                        ? "bg-black text-white shadow"
+                        : isCompleted
+                          ? "bg-green-500 text-white"
+                          : "bg-gray-100 text-gray-400"
+                    }`}
                 >
                   {isCompleted ? "✓" : i + 1}
-                  <span className="ml-1">{s}</span>
+                  <span className="ml-1">{label}</span>
                 </div>
-
-                {/* CONNECTOR */}
                 {i < steps.length - 1 && (
                   <div
                     className={`w-6 h-[2px] transition-all ${
@@ -1004,67 +659,42 @@ maxLtc: item.maxLtcPercent || "",
         </div>
       </div>
 
-      {/* CONTENT */}
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-6xl mx-auto p-6">{getStepContent()}</div>
       </div>
 
-      {/* FOOTER */}
       <div className="sticky bottom-0 z-30 bg-white/80 backdrop-blur border-t shadow-[0_-2px_10px_rgba(0,0,0,0.04)]">
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-          {/* LEFT - STEP INFO */}
           <div className="text-xs text-gray-500">
             Step <span className="font-semibold text-gray-700">{step + 1}</span>{" "}
             of{" "}
             <span className="font-semibold text-gray-700">{steps.length}</span>
+            {isLastStep && step5ValidationMessage && (
+              <p className="mt-1 text-red-600">{step5ValidationMessage}</p>
+            )}
           </div>
 
-          {/* RIGHT - ACTIONS */}
           <div className="flex items-center gap-3">
-            {/* PREVIOUS */}
             <button
-              disabled={step === 0 || (!!createdLenderId && step === 1)}
-              onClick={() => {
-                // if (step === 2) return;
-                if (createdLenderId && step === 1) return;
-
-                setStep((p) => p - 1);
-              }}
+              disabled={step === 0 || submitting || loading}
+              onClick={() => setStep((p) => p - 1)}
               className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm border border-gray-300 bg-white hover:bg-gray-50 transition disabled:opacity-40"
             >
               <ChevronLeft size={16} />
               Previous
             </button>
 
-            {/* NEXT */}
             <button
-              onClick={() => {
-                if (step === 0) {
-                  setStep(1);
-                } else if (isLastStep) {
-                  handleSubmit();
-                } else {
-                  setStep((p) => p + 1);
-                }
-              }}
-              disabled={
-                (step === 0 && !!validateStep0()) ||
-                (step === 1 && form.loanPrograms.length === 0) ||
-                // (step === 2 && Object.keys(form.propertyTypes).length === 0) ||
-                // (step === 3 && Object.keys(form.businessTypes).length === 0) ||
-                // ✅ NEW
-                (step === 4 &&
-                  isEquipmentSelected &&
-                  form.equipmentFinance.length === 0) ||
-                (isLastStep && (!isStep5Valid() || hasStep5Errors))
-              }
-              className="flex items-center gap-2 px-6 py-2 rounded-lg text-sm font-medium 
-  bg-gradient-to-r from-black to-gray-800 text-white shadow 
-  hover:scale-[1.03] active:scale-[0.98] transition disabled:opacity-40"
+              onClick={handleNext}
+              disabled={nextDisabled}
+              className="flex items-center gap-2 px-6 py-2 rounded-lg text-sm font-medium bg-gradient-to-r from-black to-gray-800 text-white shadow hover:scale-[1.03] active:scale-[0.98] transition disabled:opacity-40"
             >
-              {isLastStep ? (updating ? "Updating..." : "Submit") : "Next Step"}
-
-              {step !== 0 && !isLastStep && <ChevronRight size={16} />}
+              {isLastStep
+                ? submitting
+                  ? "Submitting..."
+                  : "Submit"
+                : "Next Step"}
+              {!isLastStep && <ChevronRight size={16} />}
             </button>
           </div>
         </div>
@@ -1077,11 +707,7 @@ const InputField = ({
   label,
   value,
   onChange,
-  type = "text",
   required = false,
-  isPassword = false,
-  showPassword = false,
-  togglePassword,
 }: InputFieldProps) => {
   return (
     <div className="flex flex-col gap-1.5">
@@ -1089,27 +715,12 @@ const InputField = ({
         {label}
         {required && <span className="text-red-500 ml-1">*</span>}
       </label>
-
-      <div className="relative">
-        <input
-          type={isPassword ? (showPassword ? "text" : "password") : type}
-          value={value || ""}
-          onChange={(e) => onChange(e.target.value)}
-          className="w-full border border-gray-300 rounded-lg px-3 py-2.5 pr-10 text-sm
-          focus:ring-2 focus:ring-black focus:border-black outline-none transition"
-        />
-
-        {/* 👁 Eye Toggle */}
-        {isPassword && (
-          <button
-            type="button"
-            onClick={togglePassword}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-black"
-          >
-            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-          </button>
-        )}
-      </div>
+      <input
+        type="text"
+        value={value || ""}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-black focus:border-black outline-none transition"
+      />
     </div>
   );
 };

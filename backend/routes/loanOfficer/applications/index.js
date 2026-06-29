@@ -6,6 +6,7 @@ async function loanOfficerApplicationsRoutes(fastify) {
   }
 
   fastify.register(require("./submit"));
+  fastify.register(require("./activeApplication"));
   fastify.register(require("./editSubmittedApplication"));
   fastify.register(require("./viewSubmission"));
 }

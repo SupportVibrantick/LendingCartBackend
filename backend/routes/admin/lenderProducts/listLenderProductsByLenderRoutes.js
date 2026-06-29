@@ -1,4 +1,7 @@
 async function listLenderProductsByLenderRoutes(fastify) {
+  const {
+    mapLenderDocumentRequirements,
+  } = require("../../../utils/syncLenderProductDocuments");
   fastify.get(
     "/lender/:lenderOrgId",
     {
@@ -52,6 +55,19 @@ async function listLenderProductsByLenderRoutes(fastify) {
                 code: true,
               },
             },
+            lenderDocumentRequirements: {
+              include: {
+                documentType: {
+                  select: {
+                    id: true,
+                    name: true,
+                    code: true,
+                    isCustom: true,
+                  },
+                },
+              },
+              orderBy: { sortOrder: "asc" },
+            },
           },
           orderBy: {
             createdAt: "desc",
@@ -81,6 +97,17 @@ async function listLenderProductsByLenderRoutes(fastify) {
           propertyTypes: Array.isArray(item.propertyTypes)
             ? item.propertyTypes
             : [],
+
+          originationPointsPercent: item.originationPointsPercent?.toString() ?? null,
+          minLoanAmount: item.minLoanAmount?.toString() ?? null,
+          maxLoanAmount: item.maxLoanAmount?.toString() ?? null,
+          maxLtvPercent: item.maxLtvPercent?.toString() ?? null,
+          maxArvPercent: item.maxArvPercent?.toString() ?? null,
+          maxLtcPercent: item.maxLtcPercent?.toString() ?? null,
+
+          documents: mapLenderDocumentRequirements(
+            item.lenderDocumentRequirements,
+          ),
         }));
 
         // ---------------------------

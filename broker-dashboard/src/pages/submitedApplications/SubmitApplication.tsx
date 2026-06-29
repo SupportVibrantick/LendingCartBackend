@@ -28,6 +28,7 @@ import {
   canBrokerReassignApplication,
   getBrokerReassignmentBlockedReason,
 } from "../../lib/brokerApplicationAssignment";
+import ShareClientApplicationLink from "../../components/loanPipeline/ShareClientApplicationLink";
 
 /* ================= TYPES ================= */
 // type SubmissionListItem = {
@@ -1291,6 +1292,8 @@ export default function LoanApplicationsPage() {
             </div>
           </div>
         </div>
+
+        <ShareClientApplicationLink />
 
         {/* Toolbar */}
         <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900 lg:p-5">

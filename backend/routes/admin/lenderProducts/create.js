@@ -1,10 +1,15 @@
 // routes/admin/lenderProducts/create.js
 
-const { Prisma } = require("@prisma/client");
 const { adminLogs } = require("../../../services/logger/contextLogger");
 const {
   createLenderProductSchema,
 } = require("../../../schemas/admin/lenderProducts/create.schema");
+const {
+  buildLenderProductPrismaFields,
+} = require("../../../utils/buildLenderProductPrismaFields");
+const {
+  syncLenderProductDocuments,
+} = require("../../../utils/syncLenderProductDocuments");
 
 async function createLenderProductRoutes(fastify) {
   fastify.post(
@@ -160,62 +165,21 @@ async function createLenderProductRoutes(fastify) {
             const isEquipmentFinance =
               item.loanProductCode === "EQUIPMENT_FINANCE";
 
+            const { documents, ...rest } = item;
+
             return {
               lenderOrgId: data.lenderOrgId,
               loanProductId: product.id,
               loanProductCode: product.code,
-
-              // ✅ PER PRODUCT TYPES (FINAL FIX)
-              businessTypes: item.businessTypes ?? null,
-              propertyTypes: item.propertyTypes ?? null,
-
-              // financial fields
-              minLoanAmount: item.minLoanAmount
-                ? new Prisma.Decimal(item.minLoanAmount)
-                : null,
-
-              maxLoanAmount: item.maxLoanAmount
-                ? new Prisma.Decimal(item.maxLoanAmount)
-                : null,
-
-              minTermMonths: item.minTermMonths ?? null,
-              maxTermMonths: item.maxTermMonths ?? null,
-
-              maxLtvPercent: item.maxLtvPercent
-                ? new Prisma.Decimal(item.maxLtvPercent)
-                : null,
-
-                maxArvPercent:
-  item.maxArvPercent !== undefined &&
-  item.maxArvPercent !== null
-    ? new Prisma.Decimal(item.maxArvPercent)
-    : null,
-
-maxLtcPercent:
-  item.maxLtcPercent !== undefined &&
-  item.maxLtcPercent !== null
-    ? new Prisma.Decimal(item.maxLtcPercent)
-    : null,
-              minCreditScore: item.minCreditScore ?? null,
-              minExperience: item.minExperience ?? null,
-
-              interestRateRange: item.interestRateRange ?? null,
-
-              statesSupported:
-                item.statesSupported?.join(",") ?? null,
-
-              // equipment
-              equipmentTypes:
-                isEquipmentFinance && item.equipmentTypes?.length
-                  ? item.equipmentTypes.join(",")
-                  : null,
-
-              otherEquipmentExplanation:
-                isEquipmentFinance
-                  ? item.otherEquipmentExplanation ?? null
-                  : null,
-
-              isActive: item.isActive ?? true,
+              documents: Array.isArray(documents) ? documents : [],
+              ...buildLenderProductPrismaFields({
+                ...rest,
+                loanProductCode: product.code,
+                equipmentTypes:
+                  isEquipmentFinance && item.equipmentTypes?.length
+                    ? item.equipmentTypes
+                    : item.equipmentTypes,
+              }),
             };
           });
 
@@ -230,11 +194,28 @@ maxLtcPercent:
         // ---------------------------
         // Transaction
         // ---------------------------
-        const created = await prisma.$transaction(
-          createPayload.map((d) =>
-            prisma.lenderProduct.create({ data: d })
-          )
-        );
+        const created = await prisma.$transaction(async (tx) => {
+          const results = [];
+
+          for (const item of createPayload) {
+            const { documents, ...productData } = item;
+            const createdProduct = await tx.lenderProduct.create({
+              data: productData,
+            });
+
+            if (Array.isArray(documents) && documents.length > 0) {
+              await syncLenderProductDocuments(
+                tx,
+                createdProduct.id,
+                documents,
+              );
+            }
+
+            results.push(createdProduct);
+          }
+
+          return results;
+        });
 
         return reply.status(201).send({
           success: true,

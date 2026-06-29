@@ -2,13 +2,23 @@
  * @param {import("fastify").FastifyInstance} fastify
  */
 module.exports = async function updateSubBrokerRoutes(fastify) {
+  const bcrypt = require("bcrypt");
+  const {
+    buildProfileDataFromFields,
+    parseMultipartRequest,
+    syncSubBrokerLoanOfficers,
+    formatSubBrokerDetail,
+    parseJsonField,
+    validatePrimaryContactFields,
+  } = require("../../../utils/subBrokerProfileHelpers");
+
   fastify.patch(
     "/:id/update",
     {
       schema: {
         tags: ["Broker -> Sub Broker"],
-        summary: "Update Sub Broker",
-
+        summary: "Update Sub Broker profile",
+        consumes: ["multipart/form-data", "application/json"],
         params: {
           type: "object",
           required: ["id"],
@@ -16,26 +26,12 @@ module.exports = async function updateSubBrokerRoutes(fastify) {
             id: { type: "string", minLength: 1 },
           },
         },
-
-        body: {
-          type: "object",
-          properties: {
-            firstName: { type: "string" },
-            lastName: { type: "string" },
-            phone: { type: "string" },
-            password: { type: "string", minLength: 8 },
-          },
-        },
       },
     },
     async (req, reply) => {
       const prisma = fastify.prisma;
-      const bcrypt = require("bcrypt");
 
       try {
-        /* ===============================
-           AUTH CHECK (MATCH YOUR STYLE)
-        =============================== */
         if (!req.user) {
           return reply.code(401).send({
             success: false,
@@ -43,10 +39,7 @@ module.exports = async function updateSubBrokerRoutes(fastify) {
           });
         }
 
-        if (
-          !req.user.organizationId ||
-          req.user.orgType !== "BROKER"
-        ) {
+        if (!req.user.organizationId || req.user.orgType !== "BROKER") {
           return reply.code(403).send({
             success: false,
             message: "Broker access only",
@@ -54,12 +47,8 @@ module.exports = async function updateSubBrokerRoutes(fastify) {
         }
 
         const roles = req.user.roles || [];
-
         const allowedRoles = ["BROKER_ADMIN", "BROKER_OFFICER"];
-
-        const hasAccess = roles.some((role) =>
-          allowedRoles.includes(role)
-        );
+        const hasAccess = roles.some((role) => allowedRoles.includes(role));
 
         if (!hasAccess) {
           return reply.code(403).send({
@@ -69,16 +58,9 @@ module.exports = async function updateSubBrokerRoutes(fastify) {
         }
 
         const brokerOrgId = req.user.organizationId;
-
-        /* ===============================
-           PARAMS & BODY
-        =============================== */
         const { id } = req.params;
-        const { firstName, lastName, phone, password } = req.body;
+        const { fields, logoUrl, w9Url } = await parseMultipartRequest(req);
 
-        /* ===============================
-           FIND SUB BROKER
-        =============================== */
         const existingUser = await prisma.userAccount.findFirst({
           where: {
             id,
@@ -86,11 +68,12 @@ module.exports = async function updateSubBrokerRoutes(fastify) {
             isDeleted: false,
             roles: {
               some: {
-                role: {
-                  name: "SUB_BROKER",
-                },
+                role: { name: "SUB_BROKER" },
               },
             },
+          },
+          include: {
+            subBrokerProfile: true,
           },
         });
 
@@ -101,26 +84,74 @@ module.exports = async function updateSubBrokerRoutes(fastify) {
           });
         }
 
-        /* ===============================
-           PREPARE UPDATE DATA
-        =============================== */
         const updateData = {};
+        const contactValidation = validatePrimaryContactFields(fields);
 
-        if (firstName !== undefined) updateData.firstName = firstName;
-        if (lastName !== undefined) updateData.lastName = lastName;
-        if (phone !== undefined) updateData.phone = phone;
-
-        // Password update (optional)
-        if (password) {
-          updateData.passwordHash = await bcrypt.hash(password, 10);
+        if (contactValidation.error) {
+          return reply.code(400).send({
+            success: false,
+            message: contactValidation.error,
+          });
         }
 
-        /* ===============================
-           UPDATE USER
-        =============================== */
-        const updatedUser = await prisma.userAccount.update({
+        const { account } = contactValidation;
+        updateData.firstName = account.firstName;
+        updateData.lastName = account.lastName;
+        updateData.phone = account.phone;
+
+        if (fields.password) {
+          if (String(fields.password).length < 8) {
+            return reply.code(400).send({
+              success: false,
+              message: "Password must be at least 8 characters",
+            });
+          }
+          updateData.passwordHash = await bcrypt.hash(fields.password, 10);
+        }
+
+        if (Object.keys(updateData).length > 0) {
+          await prisma.userAccount.update({
+            where: { id },
+            data: updateData,
+          });
+        }
+
+        const profileData = buildProfileDataFromFields(fields);
+        const mergedProfileData = {
+          ...(existingUser.subBrokerProfile?.profileData || {}),
+          ...profileData,
+        };
+
+        await prisma.subBrokerProfile.upsert({
+          where: { userId: id },
+          create: {
+            userId: id,
+            profileData: mergedProfileData,
+            logoUrl,
+            w9Url,
+          },
+          update: {
+            profileData: mergedProfileData,
+            ...(logoUrl ? { logoUrl } : {}),
+            ...(w9Url ? { w9Url } : {}),
+          },
+        });
+
+        if (fields.assignedLoanOfficerIds !== undefined) {
+          const assignedLoanOfficerIds = parseJsonField(
+            fields.assignedLoanOfficerIds,
+            [],
+          );
+          await syncSubBrokerLoanOfficers(
+            prisma,
+            id,
+            assignedLoanOfficerIds,
+            brokerOrgId,
+          );
+        }
+
+        const detail = await prisma.userAccount.findUnique({
           where: { id },
-          data: updateData,
           select: {
             id: true,
             email: true,
@@ -128,36 +159,51 @@ module.exports = async function updateSubBrokerRoutes(fastify) {
             lastName: true,
             phone: true,
             status: true,
+            createdAt: true,
             updatedAt: true,
+            createdById: true,
+            subBrokerProfile: true,
+            subBrokerLoanOfficers: {
+              include: {
+                loanOfficer: {
+                  select: {
+                    id: true,
+                    firstName: true,
+                    lastName: true,
+                    email: true,
+                    profileImage: true,
+                  },
+                },
+              },
+            },
           },
         });
 
-        /* ===============================
-           SUCCESS RESPONSE
-        =============================== */
         return reply.send({
           success: true,
           message: "Sub broker updated successfully",
-          data: updatedUser,
+          data: formatSubBrokerDetail(
+            detail,
+            detail.subBrokerProfile,
+            detail.subBrokerLoanOfficers,
+          ),
         });
-
       } catch (error) {
         fastify.log.error(
           {
             error: error.message,
             stack: error.stack,
             params: req.params,
-            body: req.body,
             user: req.user,
           },
-          "❌ Update sub broker failed"
+          "Update sub broker failed",
         );
 
         return reply.code(500).send({
           success: false,
-          message: "Internal server error",
+          message: error.message || "Internal server error",
         });
       }
-    }
+    },
   );
 };

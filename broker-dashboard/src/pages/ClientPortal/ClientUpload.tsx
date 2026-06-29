@@ -33,6 +33,8 @@ import {
 import ClientSubmissionDetailsView from "../../components/submissions/ClientSubmissionDetailsView";
 import {
   clearClientPortalSession,
+  exitClientPortalImpersonation,
+  isClientPortalImpersonationSession,
   isPlaceholderClientName,
   resolveClientProfileFromSession,
   saveClientPortalSession,
@@ -852,8 +854,13 @@ export default function ClientUpload() {
   };
 
   const handleLogout = () => {
+    if (isClientPortalImpersonationSession()) {
+      exitClientPortalImpersonation();
+      return;
+    }
+
     clearClientPortalSession();
-    window.location.href = "/client-portal";
+    window.location.href = "/client-upload";
   };
 
   useEffect(() => {
@@ -892,9 +899,22 @@ export default function ClientUpload() {
     applicationData?.borrower?.email || clientEmail || "-";
   const clientInitials = getClientInitials(displayName);
   const isClientLoggedIn = Boolean(sessionStorage.getItem("client_token"));
+  const isImpersonation = isClientPortalImpersonationSession();
 
   return (
     <div className="min-h-screen bg-slate-50 p-4 sm:p-6">
+      {isImpersonation && (
+        <div className="mx-auto mb-4 flex max-w-8xl flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900">
+          <span>You are viewing this client portal as a broker admin.</span>
+          <button
+            type="button"
+            onClick={exitClientPortalImpersonation}
+            className="rounded-lg bg-amber-900 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-amber-800"
+          >
+            Close portal tab
+          </button>
+        </div>
+      )}
       <div className="max-w-8xl mx-auto">
         {/* TOP HEADER */}
         {(applicationData || clientName || isClientLoggedIn) && (
@@ -934,7 +954,9 @@ export default function ClientUpload() {
                     className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-medium text-slate-700 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
                   >
                     <FiLogOut size={16} />
-                    <span className="hidden sm:inline">Logout</span>
+                    <span className="hidden sm:inline">
+                      {isImpersonation ? "Close tab" : "Logout"}
+                    </span>
                   </button>
                 </div>
               </div>

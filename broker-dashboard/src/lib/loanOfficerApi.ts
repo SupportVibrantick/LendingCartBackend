@@ -92,3 +92,35 @@ export async function verifyLoanOfficerSession(token: string): Promise<boolean> 
   });
   return res.ok;
 }
+
+type LoanOfficerTokenPayload = {
+  impersonatedBy?: string;
+};
+
+export function decodeLoanOfficerToken(
+  token: string,
+): LoanOfficerTokenPayload | null {
+  try {
+    const base64 = token.split(".")[1];
+    if (!base64) return null;
+    return JSON.parse(
+      atob(base64.replace(/-/g, "+").replace(/_/g, "/")),
+    ) as LoanOfficerTokenPayload;
+  } catch {
+    return null;
+  }
+}
+
+export function isLoanOfficerImpersonationSession() {
+  const token = sessionStorage.getItem(LO_TOKEN_KEY);
+  if (!token) return false;
+  return Boolean(decodeLoanOfficerToken(token)?.impersonatedBy);
+}
+
+export function exitLoanOfficerImpersonation() {
+  clearLoanOfficerSession();
+  window.close();
+  window.setTimeout(() => {
+    window.location.href = "/loan-officer/login";
+  }, 150);
+}

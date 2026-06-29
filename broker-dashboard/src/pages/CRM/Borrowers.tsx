@@ -5,6 +5,7 @@ import {
   ChevronRight,
   ChevronUp,
   Eye,
+  ExternalLink,
   FileText,
   Mail,
   Phone,
@@ -54,9 +55,12 @@ const AVATAR_TONES = [
   "bg-violet-100 text-violet-700",
 ];
 
-function getAuthHeaders(): Record<string, string> {
+function getAuthHeaders(json = false): Record<string, string> {
   const token = sessionStorage.getItem("broker_token");
-  return token ? { Authorization: `Bearer ${token}` } : {};
+  return {
+    ...(json ? { "Content-Type": "application/json" } : {}),
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
 }
 
 function getInitials(name?: string) {
@@ -137,6 +141,7 @@ export default function BorrowersPage() {
   const [totalCount, setTotalCount] = useState(0);
   const [sortKey, setSortKey] = useState<SortKey>("createdAt");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [impersonatingId, setImpersonatingId] = useState<string | null>(null);
 
   const fetchBorrowers = useCallback(async () => {
     try {
@@ -224,6 +229,54 @@ export default function BorrowersPage() {
     navigate("/loan-preview", { state: { submissionId: row.submissionId } });
   };
 
+  const handleImpersonate = async (row: BorrowerRow) => {
+    if (!row.clientId) {
+      toast.error("This borrower does not have a linked client record");
+      return;
+    }
+
+    try {
+      setImpersonatingId(row.clientId);
+
+      const res = await fetch(
+        `${API_BASE}/broker/borrowers/${row.clientId}/impersonate`,
+        {
+          method: "POST",
+          headers: getAuthHeaders(true),
+          body: JSON.stringify({}),
+        },
+      );
+
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Failed to access client portal");
+      }
+
+      const query = new URLSearchParams({
+        token: json.token,
+        user: JSON.stringify(json.user),
+        redirectTo: json.redirectTo || "/client-portal",
+      });
+
+      const portalUrl = `/client-portal/impersonate?${query.toString()}`;
+      const newTab = window.open(portalUrl, "_blank", "noopener,noreferrer");
+
+      if (!newTab) {
+        toast.error("Pop-up blocked. Allow pop-ups to open the client portal.");
+        return;
+      }
+
+      toast.success(`Opened client portal for ${row.name || row.email}`);
+    } catch (err: unknown) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to open client portal",
+      );
+    } finally {
+      setImpersonatingId(null);
+    }
+  };
+
   return (
     <>
       <PageMeta title="Borrowers | Broker Dashboard" description="Borrowers from loan applications" />
@@ -233,7 +286,7 @@ export default function BorrowersPage() {
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <div className="mb-1.5 inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-0.5 text-[10px] font-medium backdrop-blur-sm">
-                <UserRound className="h-3 w-3" />
+                <UserRound className="h-3 w-3" /> 
                 CRM · Borrowers
               </div>
               <h1 className="text-xl font-semibold tracking-tight">Borrowers List</h1>
@@ -325,7 +378,7 @@ export default function BorrowersPage() {
                   <col className="w-[18%]" />
                   <col className="w-[16%]" />
                   <col className="w-[12%]" />
-                  <col className="w-14" />
+                  <col className="w-20" />
                 </colgroup>
                 <thead className="sticky top-0 z-10 border-b border-gray-200 bg-gray-50/95 backdrop-blur dark:border-gray-700 dark:bg-gray-800/95">
                   <tr>
@@ -339,7 +392,7 @@ export default function BorrowersPage() {
                         direction={sortDir}
                         onClick={() => toggleSort("name")}
                       />
-                    </th>
+                    </th>       
                     <th className="px-4 py-2">
                       <SortHeader
                         label="Email"
@@ -374,7 +427,7 @@ export default function BorrowersPage() {
                     </th>
                     <th className="px-4 py-2 text-right">
                       <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">
-                        View
+                        Actions
                       </span>
                     </th>
                   </tr>
@@ -446,18 +499,38 @@ export default function BorrowersPage() {
                       </td>
 
                       <td className="px-2 py-2.5 text-right">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openApplication(row);
-                          }}
-                          disabled={!row.submissionId}
-                          className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-transparent text-gray-500 transition hover:border-gray-200 hover:bg-gray-100 hover:text-gray-800 disabled:cursor-not-allowed disabled:opacity-40 dark:hover:border-gray-700 dark:hover:bg-gray-800 dark:hover:text-white"
-                          title="View application"
-                        >
-                          <Eye className="h-3.5 w-3.5" />
-                        </button>
+                        <div className="inline-flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openApplication(row);
+                            }}
+                            disabled={!row.submissionId}
+                            className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-transparent text-gray-500 transition hover:border-gray-200 hover:bg-gray-100 hover:text-gray-800 disabled:cursor-not-allowed disabled:opacity-40 dark:hover:border-gray-700 dark:hover:bg-gray-800 dark:hover:text-white"
+                            title="View application"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void handleImpersonate(row);
+                            }}
+                            disabled={
+                              !row.clientId || impersonatingId === row.clientId
+                            }
+                            className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-transparent text-gray-500 transition hover:border-gray-200 hover:bg-gray-100 hover:text-cyan-700 disabled:cursor-not-allowed disabled:opacity-40 dark:hover:border-gray-700 dark:hover:bg-gray-800 dark:hover:text-cyan-400"
+                            title={
+                              impersonatingId === row.clientId
+                                ? "Opening portal..."
+                                : "Access client portal"
+                            }
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -480,7 +553,7 @@ export default function BorrowersPage() {
               Page{" "}
               <span className="font-semibold text-gray-800 dark:text-gray-200">{page}</span> of{" "}
               <span className="font-semibold text-gray-800 dark:text-gray-200">{totalPages}</span>
-            </p>
+            </p>       
 
             <div className="flex gap-2">
               <button
@@ -494,7 +567,7 @@ export default function BorrowersPage() {
               </button>
               <button
                 type="button"
-                disabled={page === totalPages || loading}
+                disabled={page === totalPages || loading} 
                 onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
                 className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
               >

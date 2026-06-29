@@ -86,7 +86,7 @@ export default function Dashboard() {
                 <div className="h-1.5 w-1.5 rounded-full bg-cyan-500" />
 
                 <span className="text-[10px] font-semibold uppercase tracking-wider text-cyan-700">
-                  Sub Broker Portal
+                  Co-Broker Portal
                 </span>
               </div>
 
@@ -143,7 +143,7 @@ export default function Dashboard() {
     {/* INFO */}
     <div>
       <h3 className="text-sm font-semibold leading-none text-slate-900">
-        Sub Broker
+        Co-Broker
       </h3>
 
       <p className="mt-1 text-xs text-slate-500">

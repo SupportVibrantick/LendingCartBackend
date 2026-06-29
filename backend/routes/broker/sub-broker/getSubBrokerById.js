@@ -2,6 +2,8 @@
  * @param {import("fastify").FastifyInstance} fastify
  */
 module.exports = async function getSubBrokerByIdRoutes(fastify) {
+  const { formatSubBrokerDetail } = require("../../../utils/subBrokerProfileHelpers");
+
   fastify.get(
     "/:id",
     {
@@ -21,9 +23,6 @@ module.exports = async function getSubBrokerByIdRoutes(fastify) {
       const prisma = fastify.prisma;
 
       try {
-        /* ===============================
-           AUTH CHECK (MATCH YOUR STYLE)
-        =============================== */
         if (!req.user) {
           return reply.code(401).send({
             success: false,
@@ -31,10 +30,7 @@ module.exports = async function getSubBrokerByIdRoutes(fastify) {
           });
         }
 
-        if (
-          !req.user.organizationId ||
-          req.user.orgType !== "BROKER"
-        ) {
+        if (!req.user.organizationId || req.user.orgType !== "BROKER") {
           return reply.code(403).send({
             success: false,
             message: "Broker access only",
@@ -42,12 +38,8 @@ module.exports = async function getSubBrokerByIdRoutes(fastify) {
         }
 
         const roles = req.user.roles || [];
-
         const allowedRoles = ["BROKER_ADMIN", "BROKER_OFFICER"];
-
-        const hasAccess = roles.some((role) =>
-          allowedRoles.includes(role)
-        );
+        const hasAccess = roles.some((role) => allowedRoles.includes(role));
 
         if (!hasAccess) {
           return reply.code(403).send({
@@ -57,24 +49,9 @@ module.exports = async function getSubBrokerByIdRoutes(fastify) {
         }
 
         const brokerOrgId = req.user.organizationId;
-
-        /* ===============================
-           PARAM VALIDATION
-        =============================== */
         let { id } = req.params;
-
-        if (!id || typeof id !== "string") {
-          return reply.code(400).send({
-            success: false,
-            message: "Invalid id",
-          });
-        }
-
         id = id.replace(/"/g, "").trim();
 
-        /* ===============================
-           FETCH SUB BROKER
-        =============================== */
         const user = await prisma.userAccount.findFirst({
           where: {
             id,
@@ -82,9 +59,7 @@ module.exports = async function getSubBrokerByIdRoutes(fastify) {
             isDeleted: false,
             roles: {
               some: {
-                role: {
-                  name: "SUB_BROKER",
-                },
+                role: { name: "SUB_BROKER" },
               },
             },
           },
@@ -98,12 +73,23 @@ module.exports = async function getSubBrokerByIdRoutes(fastify) {
             createdAt: true,
             updatedAt: true,
             createdById: true,
+            subBrokerProfile: true,
+            subBrokerLoanOfficers: {
+              include: {
+                loanOfficer: {
+                  select: {
+                    id: true,
+                    firstName: true,
+                    lastName: true,
+                    email: true,
+                    profileImage: true,
+                  },
+                },
+              },
+            },
           },
         });
 
-        /* ===============================
-           NOT FOUND
-        =============================== */
         if (!user) {
           return reply.code(404).send({
             success: false,
@@ -111,14 +97,14 @@ module.exports = async function getSubBrokerByIdRoutes(fastify) {
           });
         }
 
-        /* ===============================
-           SUCCESS RESPONSE
-        =============================== */
         return reply.send({
           success: true,
-          data: user,
+          data: formatSubBrokerDetail(
+            user,
+            user.subBrokerProfile,
+            user.subBrokerLoanOfficers,
+          ),
         });
-
       } catch (error) {
         fastify.log.error(
           {
@@ -127,7 +113,7 @@ module.exports = async function getSubBrokerByIdRoutes(fastify) {
             params: req.params,
             user: req.user,
           },
-          "❌ Get sub broker by id failed"
+          "Get sub broker by id failed",
         );
 
         return reply.code(500).send({
@@ -135,6 +121,6 @@ module.exports = async function getSubBrokerByIdRoutes(fastify) {
           message: "Internal server error",
         });
       }
-    }
+    },
   );
 };

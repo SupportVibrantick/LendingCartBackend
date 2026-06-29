@@ -158,6 +158,9 @@ module.exports = async function sendToPrincipalBroker(fastify) {
                 sentToBrokerAt: new Date(),
 
                 status: "PARTIAL",
+
+                requestedBySubBrokerId:
+                  requirement.requestedBySubBrokerId || req.user.userId,
               },
             });
 

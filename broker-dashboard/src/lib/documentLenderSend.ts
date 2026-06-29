@@ -4,6 +4,7 @@ export type DocumentSendRow = {
   status?: string;
   documentName?: string;
   isRequired?: boolean;
+  subBrokerSourceName?: string | null;
   requestedByLenders?: Array<{
     applicationLenderId?: string | null;
     lenderName?: string | null;
@@ -150,7 +151,7 @@ export function expandDocumentsForDisplay(
 
 export function getDocumentSourceDisplay(
   doc: DocumentDisplayRow,
-  options?: { brokerSourceLabel?: string },
+  options?: { brokerSourceLabel?: string; subBrokerSourceLabel?: string },
 ) {
   if (doc.source === "BROKER_ADDED") {
     return {
@@ -160,8 +161,13 @@ export function getDocumentSourceDisplay(
   }
 
   if (doc.source === "SUB_BROKER_ADDED") {
+    const resolvedName =
+      doc.subBrokerSourceName ||
+      options?.subBrokerSourceLabel ||
+      "Co-Broker";
+
     return {
-      label: "Sub Broker",
+      label: resolvedName,
       className: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-200",
     };
   }

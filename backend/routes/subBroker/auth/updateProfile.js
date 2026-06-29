@@ -1,301 +1,175 @@
 const path = require("path");
 const fs = require("fs");
+const { pipeline } = require("stream/promises");
+const {
+  resolveCoBrokerBranding,
+} = require("../../../utils/resolveCoBrokerBranding");
+const {
+  formatCoBrokerAuthResponse,
+  mergeSelfEditableProfileData,
+  subBrokerAuthInclude,
+} = require("../../../utils/subBrokerProfileHelpers");
 
-async function updateSubBrokerProfileRoutes(
-  fastify,
-) {
+async function updateSubBrokerProfileRoutes(fastify) {
   fastify.put(
     "/me",
     {
       preHandler: [
         fastify.authenticate,
-
-        fastify.requireRole([
-          "SUB_BROKER",
-        ]),
+        fastify.requireRole(["SUB_BROKER"]),
       ],
     },
-
     async (request, reply) => {
-      const prisma =
-        fastify.prisma;
+      const prisma = fastify.prisma;
 
       try {
-        const userId =
-          request.user.userId;
+        const userId = request.user.userId || request.user.id;
 
-        /* ===============================
-           GET CURRENT USER
-        =============================== */
-
-        const existingUser =
-          await prisma.userAccount.findUnique(
-            {
-              where: {
-                id: userId,
-              },
-            },
-          );
+        const existingUser = await prisma.userAccount.findUnique({
+          where: { id: userId },
+          include: { subBrokerProfile: true },
+        });
 
         if (!existingUser) {
-          return reply
-            .code(404)
-            .send({
-              success: false,
-
-              message:
-                "User not found",
-            });
+          return reply.code(404).send({
+            success: false,
+            message: "User not found",
+          });
         }
 
-        /* ===============================
-           MULTIPART FORM DATA
-        =============================== */
+        const parts = request.parts();
 
-        const parts =
-          request.parts();
-
-        let firstName =
-          existingUser.firstName;
-
-        let lastName =
-          existingUser.lastName;
-
-        let profileImage =
-          existingUser.profileImage;
+        let firstName = existingUser.firstName;
+        let lastName = existingUser.lastName;
+        let phone = existingUser.phone;
+        let profileImage = existingUser.profileImage;
+        const profileFields = {};
 
         for await (const part of parts) {
-          /* TEXT FIELDS */
+          if (part.type === "field") {
+            const value = String(part.value ?? "").trim();
 
-          if (
-            part.type ===
-            "field"
-          ) {
-            if (
-              part.fieldname ===
-              "firstName"
+            if (part.fieldname === "firstName") {
+              firstName = value;
+            } else if (part.fieldname === "lastName") {
+              lastName = value;
+            } else if (part.fieldname === "phone") {
+              phone = value.replace(/\D/g, "");
+            } else if (
+              [
+                "address",
+                "website",
+                "linkedinUrl",
+                "preferredComm",
+                "tollFree",
+              ].includes(part.fieldname)
             ) {
-              firstName =
-                String(
-                  part.value,
-                ).trim();
+              profileFields[part.fieldname] = value;
             }
 
-            if (
-              part.fieldname ===
-              "lastName"
-            ) {
-              lastName =
-                String(
-                  part.value,
-                ).trim();
-            }
+            continue;
           }
 
-          /* FILE */
+          if (part.type === "file" && part.fieldname === "profileImage") {
+            const uploadDir = path.join(
+              process.cwd(),
+              "public/uploads/profile",
+            );
 
-          if (
-            part.type ===
-              "file" &&
-            part.fieldname ===
-              "profileImage"
-          ) {
-            const uploadDir =
-              path.join(
-                process.cwd(),
-                "public/uploads/profile",
-              );
-
-            /* CREATE DIR */
-
-            if (
-              !fs.existsSync(
-                uploadDir,
-              )
-            ) {
-              fs.mkdirSync(
-                uploadDir,
-                {
-                  recursive: true,
-                },
-              );
+            if (!fs.existsSync(uploadDir)) {
+              fs.mkdirSync(uploadDir, { recursive: true });
             }
 
-            /* EXTENSION */
-
-            const ext =
-              path.extname(
-                part.filename,
-              ) || ".png";
-
+            const ext = path.extname(part.filename) || ".png";
             const fileName = `${userId}-${Date.now()}${ext}`;
+            const filePath = path.join(uploadDir, fileName);
 
-            const filePath =
-              path.join(
-                uploadDir,
-                fileName,
-              );
-
-            /* SAVE FILE */
-
-            await pump(
-              part.file,
-              fs.createWriteStream(
-                filePath,
-              ),
-            );
+            await pipeline(part.file, fs.createWriteStream(filePath));
 
             profileImage = `/public/uploads/profile/${fileName}`;
           }
         }
 
-        /* ===============================
-           VALIDATION
-        =============================== */
-
-        if (
-          !firstName ||
-          !firstName.trim()
-        ) {
-          return reply
-            .code(400)
-            .send({
-              success: false,
-
-              message:
-                "First name is required",
-            });
+        if (!firstName?.trim()) {
+          return reply.code(400).send({
+            success: false,
+            message: "First name is required",
+          });
         }
 
-        /* ===============================
-           UPDATE USER
-        =============================== */
+        if (phone && phone.length > 0 && phone.length < 10) {
+          return reply.code(400).send({
+            success: false,
+            message: "Enter a valid 10-digit phone number",
+          });
+        }
 
-        const updatedUser =
-          await prisma.userAccount.update(
-            {
-              where: {
-                id: userId,
-              },
+        const existingProfileData =
+          existingUser.subBrokerProfile?.profileData || {};
+        const nextProfileData = mergeSelfEditableProfileData(
+          existingProfileData,
+          profileFields,
+        );
 
-              data: {
-                firstName,
-
-                lastName,
-
-                profileImage,
-              },
-
-              include: {
-                organization: true,
-
-                roles: {
-                  include: {
-                    role: true,
-                  },
-                },
-
-                _count: {
-                  select: {
-                    assignedApplications:
-                      true,
-                  },
-                },
-              },
+        const updatedUser = await prisma.$transaction(async (tx) => {
+          await tx.userAccount.update({
+            where: { id: userId },
+            data: {
+              firstName: firstName.trim(),
+              lastName: lastName.trim(),
+              phone: phone || null,
+              profileImage,
             },
-          );
+          });
 
-        /* ===============================
-           RESPONSE
-        =============================== */
+          await tx.subBrokerProfile.upsert({
+            where: { userId },
+            create: {
+              userId,
+              profileData: nextProfileData,
+            },
+            update: {
+              profileData: nextProfileData,
+            },
+          });
+
+          return tx.userAccount.findUnique({
+            where: { id: userId },
+            include: subBrokerAuthInclude,
+          });
+        });
+
+        const [branding, assignedApplications] = await Promise.all([
+          resolveCoBrokerBranding(
+            prisma,
+            updatedUser.id,
+            updatedUser.organizationId,
+          ),
+          prisma.subBrokerApplication.count({
+            where: { subBrokerId: userId },
+          }),
+        ]);
 
         return reply.send({
+          ok: true,
           success: true,
-
-          message:
-            "Profile updated successfully",
-
-          data: {
-            id: updatedUser.id,
-
-            email:
-              updatedUser.email,
-
-            firstName:
-              updatedUser.firstName,
-
-            lastName:
-              updatedUser.lastName,
-
-            name:
-              `${updatedUser.firstName || ""} ${
-                updatedUser.lastName ||
-                ""
-              }`.trim(),
-
-            phone:
-              updatedUser.phone,
-
-            profileImage:
-              updatedUser.profileImage,
-
-            status:
-              updatedUser.status,
-
-            roles:
-              updatedUser.roles.map(
-                (r) =>
-                  r.role.name,
-              ),
-
-            assignedApplications:
-              updatedUser
-                ._count
-                .assignedApplications,
-
-            organization:
-              updatedUser
-                .organization
-                ? {
-                    id:
-                      updatedUser
-                        .organization
-                        .id,
-
-                    name:
-                      updatedUser
-                        .organization
-                        .name,
-
-                    type:
-                      updatedUser
-                        .organization
-                        .type,
-
-                    status:
-                      updatedUser
-                        .organization
-                        .status,
-                  }
-                : null,
-          },
+          message: "Profile updated successfully",
+          data: formatCoBrokerAuthResponse(
+            updatedUser,
+            branding,
+            assignedApplications,
+          ),
         });
       } catch (err) {
-        console.error(err);
+        request.log.error(err);
 
-        return reply
-          .code(500)
-          .send({
-            success: false,
-
-            message:
-              err.message ||
-              "Something went wrong",
-          });
+        return reply.code(500).send({
+          success: false,
+          message: err.message || "Something went wrong",
+        });
       }
     },
   );
 }
 
-module.exports =
-  updateSubBrokerProfileRoutes;
+module.exports = updateSubBrokerProfileRoutes;

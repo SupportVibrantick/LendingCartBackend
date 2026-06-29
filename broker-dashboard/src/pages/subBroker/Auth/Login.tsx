@@ -3,8 +3,17 @@ import { motion } from "framer-motion";
 import { ArrowRight, Eye, EyeOff, LockKeyhole, Mail } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
+import {
+  CO_BROKER_API_BASE,
+  CO_BROKER_PORTAL_LABEL,
+  CO_BROKER_TOKEN_KEY,
+  CO_BROKER_USER_KEY,
+  DEFAULT_CO_BROKER_LOGO,
+  resolveCoBrokerLogoUrl,
+  storeCoBrokerBranding,
+} from "../../../lib/coBrokerPortal";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
+const API_BASE = CO_BROKER_API_BASE;
 
 export default function Login() {
   const navigate = useNavigate();
@@ -96,10 +105,12 @@ export default function Login() {
       }
 
       // SAVE TOKEN
-      sessionStorage.setItem("sub_broker_token", json.token);
+      sessionStorage.setItem(CO_BROKER_TOKEN_KEY, json.token);
+      sessionStorage.setItem(CO_BROKER_USER_KEY, JSON.stringify(json.user));
 
-      // SAVE USER
-      sessionStorage.setItem("sub_broker_user", JSON.stringify(json.user));
+      if (json.branding) {
+        storeCoBrokerBranding(json.branding);
+      }
 
       toast.success("Login successful");
 
@@ -115,10 +126,10 @@ export default function Login() {
   };
 
   useEffect(() => {
-    const token = sessionStorage.getItem("sub_broker_token");
+    const token = sessionStorage.getItem(CO_BROKER_TOKEN_KEY);
 
     if (token) {
-      navigate("/sub-broker/dashboard");
+      navigate("/sub-broker/loan-pipeline");
     }
   }, [navigate]);
 
@@ -171,9 +182,11 @@ export default function Login() {
           <div className="rounded-[14px] border border-white bg-white/80 p-8  backdrop-blur-2xl">
             {/* LOGO */}
             <div className="mb-8 flex justify-center">
-              <div className="flex h-14 w-14 items-center justify-center rounded-3xl bg-gradient-to-br from-cyan-500 to-blue-600">
-                <LockKeyhole className="text-white" size={24} />
-              </div>
+              <img
+                src={resolveCoBrokerLogoUrl(DEFAULT_CO_BROKER_LOGO)}
+                alt="Portal logo"
+                className="h-16 w-16 rounded-2xl object-cover ring-2 ring-cyan-100"
+              />
             </div>
 
             {/* TITLE */}
@@ -183,7 +196,7 @@ export default function Login() {
               </h2>
 
               <p className="mt-2 text-sm text-slate-500">
-                Login to access your Sub Broker Portal
+                Login to access your {CO_BROKER_PORTAL_LABEL}
               </p>
             </div>
 

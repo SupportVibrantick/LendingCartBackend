@@ -3,7 +3,6 @@ const {
   buildSubmissionFieldsPayload,
   loadProductFieldIdMap,
 } = require("../../../../services/staticSubmissionFields");
-const axios = require("axios");
 const { randomUUID } = require("crypto");
 const {
   notifyBroker,
@@ -16,42 +15,7 @@ async function submitApplication(fastify) {
       applicationId: brokerApplicationId,
       applicationProductId,
       fields,
-      captchaToken,
     } = req.body;
-
-    if (!captchaToken) {
-      return reply.code(400).send({
-        success: false,
-        message: "Captcha token is required",
-      });
-    }
-
-    // CAPTCHA
-    try {
-      const captchaRes = await axios.post(
-        "https://www.google.com/recaptcha/api/siteverify",
-        null,
-        {
-          params: {
-            secret: process.env.RECAPTCHA_SECRET_KEY,
-            response: captchaToken,
-          },
-        }
-      );
-
-      if (!captchaRes.data.success) {
-        return reply.code(403).send({
-          success: false,
-          message: "Captcha verification failed",
-        });
-      }
-    } catch (err) {
-      fastify.log.error(err);
-      return reply.code(500).send({
-        success: false,
-        message: "Captcha verification failed",
-      });
-    }
 
     if (!brokerApplicationId || !applicationProductId || !Array.isArray(fields)) {
       return reply.code(400).send({

@@ -51,6 +51,9 @@ propertyTypes: Array.isArray(item.propertyTypes)
   maxLtvPercent: item.maxLtvPercent?.toString() ?? null,
   maxArvPercent: item.maxArvPercent?.toString() ?? null,
   maxLtcPercent: item.maxLtcPercent?.toString() ?? null,
+  originationPointsPercent: item.originationPointsPercent?.toString() ?? null,
+  minDscr: item.minDscr?.toString() ?? null,
+  minDebtYieldPercent: item.minDebtYieldPercent?.toString() ?? null,
 
   minLoanAmount: item.minLoanAmount?.toString() ?? null,
   maxLoanAmount: item.maxLoanAmount?.toString() ?? null,

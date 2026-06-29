@@ -3,8 +3,8 @@ import {
   Calendar,
   ChevronDown,
   ChevronUp,
+  ExternalLink,
   Eye,
-  EyeOff,
   Mail,
   Pencil,
   Phone,
@@ -25,30 +25,15 @@ import { createPortal } from "react-dom";
 import toast from "react-hot-toast";
 import Swal from "sweetalert2";
 import PageMeta from "../../components/common/PageMeta";
+import CoBrokerFormModal from "../../components/coBroker/CoBrokerFormModal";
+import CoBrokerDetailsModal from "../../components/coBroker/CoBrokerDetailsModal";
+import type { CoBrokerDetail } from "../../lib/coBrokerForm";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
-interface SubBrokerUser {
-  id: string;
-  email: string;
-  firstName: string;
-  lastName: string;
-  phone: string | null;
-  status: string;
-  createdAt: string;
-  updatedAt?: string;
+interface SubBrokerUser extends CoBrokerDetail {
   createdById: string | null;
 }
-
-const initialFormState = {
-  email: "",
-  password: "",
-  firstName: "",
-  lastName: "",
-  phone: "",
-};
-
-type FormState = typeof initialFormState;
 
 const AVATAR_TONES = [
   "bg-blue-100 text-blue-700",
@@ -94,7 +79,7 @@ type SortKey = "name" | "email" | "phone" | "status" | "createdAt";
 type SortDir = "asc" | "desc";
 
 const ACTION_MENU_WIDTH = 168;
-const ACTION_MENU_HEIGHT = 196;
+const ACTION_MENU_HEIGHT = 236;
 
 function computeActionMenuPosition(rect: DOMRect) {
   const padding = 8;
@@ -155,8 +140,6 @@ function SortHeader({
   );
 }
 
-const inputClass =
-  "w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-800 outline-none transition focus:border-[#13538A]/40 focus:bg-white focus:ring-2 focus:ring-[#13538A]/10 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100";
 
 export default function SubBroker() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -166,32 +149,19 @@ export default function SubBroker() {
   const [search, setSearch] = useState(initialQuery);
   const [debouncedSearch, setDebouncedSearch] = useState(initialQuery);
   const [statusFilter, setStatusFilter] = useState<"" | "ACTIVE" | "DISABLED">("");
-  const [showModal, setShowModal] = useState(false);
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [formModalOpen, setFormModalOpen] = useState(false);
+  const [formModalMode, setFormModalMode] = useState<"create" | "edit">("create");
+  const [editSubBrokerId, setEditSubBrokerId] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
-  const [form, setForm] = useState(initialFormState);
-  const [creating, setCreating] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [editOfficer, setEditOfficer] = useState<SubBrokerUser | null>(null);
   const [viewSubBroker, setViewSubBroker] = useState<SubBrokerUser | null>(null);
   const [viewLoading, setViewLoading] = useState(false);
+  const [impersonatingId, setImpersonatingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
   const menuRef = useRef<HTMLDivElement | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("createdAt");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
-
-  const updateField = (key: keyof FormState, value: string) => {
-    setForm((prev) => ({ ...prev, [key]: value }));
-    if (errors[key]) {
-      setErrors((prev) => {
-        const copy = { ...prev };
-        delete copy[key];
-        return copy;
-      });
-    }
-  };
 
   const fetchOfficers = useCallback(async () => {
     try {
@@ -286,10 +256,10 @@ export default function SubBroker() {
   const closeRowMenu = () => setActiveMenuId(null);
 
   useEffect(() => {
-    if (!showModal) return;
+    if (!formModalOpen) return;
 
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") closeModal();
+      if (event.key === "Escape") closeFormModal();
     };
 
     const previousOverflow = document.body.style.overflow;
@@ -300,7 +270,7 @@ export default function SubBroker() {
       document.body.style.overflow = previousOverflow;
       document.removeEventListener("keydown", onKeyDown);
     };
-  }, [showModal]);
+  }, [formModalOpen]);
 
   const filteredOfficers = useMemo(() => {
     let list = officers;
@@ -375,6 +345,59 @@ export default function SubBroker() {
     [officers]
   );
 
+  const handleImpersonate = async (officer: SubBrokerUser) => {
+    if (officer.status !== "ACTIVE") {
+      toast.error("Only active co-brokers can be accessed");
+      return;
+    }
+
+    try {
+      setImpersonatingId(officer.id);
+      closeRowMenu();
+
+      const res = await fetch(
+        `${API_BASE}/broker/sub-broker/${officer.id}/impersonate`,
+        {
+          method: "POST",
+          headers: getAuthHeaders({ json: true }),
+          body: JSON.stringify({}),
+        },
+      );
+
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Failed to access co-broker portal");
+      }
+
+      const query = new URLSearchParams({
+        token: json.token,
+        user: JSON.stringify(json.user),
+        redirectTo: json.redirectTo || "/sub-broker/loan-pipeline",
+      });
+      if (json.branding) {
+        query.set("branding", JSON.stringify(json.branding));
+      }
+
+      const portalUrl = `/sub-broker/impersonate?${query.toString()}`;
+      const newTab = window.open(portalUrl, "_blank", "noopener,noreferrer");
+
+      if (!newTab) {
+        toast.error("Pop-up blocked. Allow pop-ups to open the co-broker portal.");
+        return;
+      }
+
+      const displayName =
+        `${officer.firstName || ""} ${officer.lastName || ""}`.trim() ||
+        officer.email;
+      toast.success(`Opened portal for ${displayName}`);
+    } catch (error: any) {
+      toast.error(error.message || "Failed to access co-broker portal");
+    } finally {
+      setImpersonatingId(null);
+    }
+  };
+
   const toggleStatus = async (id: string, currentStatus: string) => {
     try {
       setTogglingId(id);
@@ -429,23 +452,17 @@ export default function SubBroker() {
   };
 
   const openViewSubBroker = async (id: string) => {
+    setViewSubBroker(null);
+    setViewLoading(true);
     const data = await fetchSubBrokerDetails(id, "view");
     if (data) setViewSubBroker(data);
+    else setViewLoading(false);
   };
 
   const openEditSubBroker = async (id: string) => {
-    const data = await fetchSubBrokerDetails(id, "edit");
-    if (!data) return;
-
-    setForm({
-      email: data.email || "",
-      password: "",
-      firstName: data.firstName || "",
-      lastName: data.lastName || "",
-      phone: data.phone || "",
-    });
-    setEditOfficer(data);
-    setShowModal(true);
+    setFormModalMode("edit");
+    setEditSubBrokerId(id);
+    setFormModalOpen(true);
   };
 
   const handleDelete = async (id: string) => {
@@ -508,137 +525,15 @@ export default function SubBroker() {
     }
   };
 
-  const InfoItem = ({ label, value }: { label: string; value?: string | null }) => (
-    <div className="space-y-1">
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-        {label}
-      </p>
-      <div className="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-800 dark:border-slate-600 dark:bg-slate-900/50 dark:text-slate-200">
-        {value || "—"}
-      </div>
-    </div>
-  );
-
-  const validateForm = (): Record<string, string> => {
-    const next: Record<string, string> = {};
-
-    if (!form.firstName.trim()) next.firstName = "First name is required";
-    else if (form.firstName.length < 2) next.firstName = "Minimum 2 characters";
-
-    if (!form.lastName.trim()) next.lastName = "Last name is required";
-
-    if (!form.email) next.email = "Email is required";
-    else if (!/^\S+@\S+\.\S+$/.test(form.email)) next.email = "Invalid email format";
-
-    if (!editOfficer) {
-      if (!form.password) next.password = "Password is required";
-      else if (form.password.length < 6) next.password = "Minimum 6 characters";
-    }
-
-    const cleanPhone = form.phone.replace(/\D/g, "");
-    if (!cleanPhone) next.phone = "Phone is required";
-    else if (cleanPhone.length < 10) next.phone = "Enter 10-digit phone number";
-
-    return next;
-  };
-
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const validationErrors = validateForm();
-    setErrors(validationErrors);
-    if (Object.keys(validationErrors).length > 0) {
-      toast.error("Please fix form errors");
-      return;
-    }
-
-    setCreating(true);
-    try {
-      const res = await fetch(`${API_BASE}/broker/sub-broker/create`, {
-        method: "POST",
-        headers: getAuthHeaders({ json: true }),
-        body: JSON.stringify({
-          email: form.email,
-          password: form.password,
-          firstName: form.firstName,
-          lastName: form.lastName,
-          phone: form.phone.replace(/\D/g, ""),
-        }),
-      });
-
-      const json = await res.json();
-      if (!res.ok) {
-        if (json.message?.toLowerCase().includes("email")) {
-          setErrors((prev) => ({ ...prev, email: "Email already exists" }));
-        }
-        toast.error(json.message || "Failed to create Co Brokers");
-        return;
-      }
-
-      toast.success("Co Brokers created successfully");
-      closeModal();
-      fetchOfficers();
-    } catch {
-      toast.error("Something went wrong");
-    } finally {
-      setCreating(false);
-    }
-  };
-
-  const handleUpdate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editOfficer) return;
-
-    const validationErrors = validateForm();
-    setErrors(validationErrors);
-    if (Object.keys(validationErrors).length > 0) {
-      toast.error("Please fix form errors");
-      return;
-    }
-
-    setCreating(true);
-    try {
-      const res = await fetch(`${API_BASE}/broker/sub-broker/${editOfficer.id}/update`, {
-        method: "PATCH",
-        headers: getAuthHeaders({ json: true }),
-        body: JSON.stringify({
-          email: form.email,
-          firstName: form.firstName,
-          lastName: form.lastName,
-          phone: form.phone.replace(/\D/g, ""),
-          ...(form.password ? { password: form.password } : {}),
-        }),
-      });
-
-      const json = await res.json();
-      if (!res.ok || !json.success) {
-        toast.error(json.message || "Failed to update Co Brokers");
-        return;
-      }
-
-      toast.success("Co Brokers updated successfully");
-      closeModal();
-      fetchOfficers();
-    } catch {
-      toast.error("Something went wrong");
-    } finally {
-      setCreating(false);
-    }
-  };
-
   const openCreateModal = () => {
-    setErrors({});
-    setEditOfficer(null);
-    setForm(initialFormState);
-    setShowPassword(false);
-    setShowModal(true);
+    setFormModalMode("create");
+    setEditSubBrokerId(null);
+    setFormModalOpen(true);
   };
 
-  const closeModal = () => {
-    setShowModal(false);
-    setEditOfficer(null);
-    setForm(initialFormState);
-    setErrors({});
-    setShowPassword(false);
+  const closeFormModal = () => {
+    setFormModalOpen(false);
+    setEditSubBrokerId(null);
   };
 
   return (
@@ -1022,9 +917,22 @@ export default function SubBroker() {
               </button>
               <button
                 type="button"
+                disabled={
+                  impersonatingId === activeMenuUser.id ||
+                  activeMenuUser.status !== "ACTIVE"
+                }
+                onClick={() => handleImpersonate(activeMenuUser)}
+                className="flex w-full items-center gap-2 px-3 py-2 text-xs text-gray-700 transition hover:bg-gray-50 disabled:opacity-50 dark:text-gray-200 dark:hover:bg-gray-800"
+              >
+                <ExternalLink className="h-3.5 w-3.5 text-cyan-600" />
+                {impersonatingId === activeMenuUser.id
+                  ? "Opening portal..."
+                  : "Access portal"}
+              </button>
+              <button
+                type="button"
                 onClick={() => {
                   closeRowMenu();
-                  setErrors({});
                   openEditSubBroker(activeMenuUser.id);
                 }}
                 className="flex w-full items-center gap-2 px-3 py-2 text-xs text-gray-700 transition hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-800"
@@ -1062,255 +970,28 @@ export default function SubBroker() {
           document.body,
         )}
 
-      {showModal &&
-        createPortal(
-          <div
-            className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
-            onClick={closeModal}
-            role="dialog"
-            aria-modal="true"
-          >
-            <div
-              className="flex max-h-[min(90vh,640px)] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-900"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex shrink-0 items-start justify-between border-b px-6 py-4 dark:border-gray-800">
-                <div>
-                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                    {editOfficer ? "Edit Co Brokers" : "Create Co Brokers"}
-                  </h2>
-                  <p className="text-sm text-gray-500">
-                    {editOfficer
-                      ? "Update contact details for this Co Brokers."
-                      : "Add a new Co Brokers to your organization."}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={closeModal}
-                  className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-red-500 dark:hover:bg-gray-800"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
+      <CoBrokerFormModal
+        isOpen={formModalOpen}
+        mode={formModalMode}
+        subBrokerId={editSubBrokerId}
+        onClose={closeFormModal}
+        onSaved={fetchOfficers}
+      />
 
-              <form
-                onSubmit={editOfficer ? handleUpdate : handleCreate}
-                className="flex min-h-0 flex-1 flex-col"
-              >
-                <div className="space-y-4 overflow-y-auto p-6">
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <div>
-                      <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                        First Name
-                      </label>
-                      <input
-                        className={`${inputClass} ${errors.firstName ? "border-red-400" : ""}`}
-                        value={form.firstName}
-                        onChange={(e) => updateField("firstName", e.target.value)}
-                        placeholder="First name"
-                      />
-                      {errors.firstName && (
-                        <p className="mt-1 text-xs text-red-500">{errors.firstName}</p>
-                      )}
-                    </div>
+      <CoBrokerDetailsModal
+        isOpen={viewLoading || !!viewSubBroker}
+        coBroker={viewSubBroker}
+        loading={viewLoading}
+        onClose={() => {
+          setViewSubBroker(null);
+          setViewLoading(false);
+        }}
+        onEdit={(id) => {
+          setViewSubBroker(null);
+          openEditSubBroker(id);
+        }}
+      />
 
-                    <div>
-                      <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                        Last Name
-                      </label>
-                      <input
-                        className={`${inputClass} ${errors.lastName ? "border-red-400" : ""}`}
-                        value={form.lastName}
-                        onChange={(e) => updateField("lastName", e.target.value)}
-                        placeholder="Last name"
-                      />
-                      {errors.lastName && (
-                        <p className="mt-1 text-xs text-red-500">{errors.lastName}</p>
-                      )}
-                    </div>
-
-                    <div className="sm:col-span-2">
-                      <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                        Email
-                      </label>
-                      <input
-                        type="email"
-                        className={`${inputClass} ${errors.email ? "border-red-400" : ""}`}
-                        value={form.email}
-                        onChange={(e) => updateField("email", e.target.value)}
-                        placeholder="email@example.com"
-                      />
-                      {errors.email && (
-                        <p className="mt-1 text-xs text-red-500">{errors.email}</p>
-                      )}
-                    </div>
-
-                    {!editOfficer && (
-                      <div className="sm:col-span-2">
-                        <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                          Password
-                        </label>
-                        <div className="relative">
-                          <input
-                            type={showPassword ? "text" : "password"}
-                            className={`${inputClass} pr-11 ${errors.password ? "border-red-400" : ""}`}
-                            value={form.password}
-                            onChange={(e) => updateField("password", e.target.value)}
-                            placeholder="Minimum 6 characters"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowPassword((v) => !v)}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#13538A]"
-                          >
-                            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                          </button>
-                        </div>
-                        {errors.password && (
-                          <p className="mt-1 text-xs text-red-500">{errors.password}</p>
-                        )}
-                      </div>
-                    )}
-
-                    <div className="sm:col-span-2">
-                      <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                        Phone
-                      </label>
-                      <input
-                        className={`${inputClass} ${errors.phone ? "border-red-400" : ""}`}
-                        value={formatPhone(form.phone)}
-                        onChange={(e) =>
-                          updateField("phone", e.target.value.replace(/\D/g, "").slice(0, 10))
-                        }
-                        placeholder="555-123-4567"
-                      />
-                      {errors.phone && (
-                        <p className="mt-1 text-xs text-red-500">{errors.phone}</p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex shrink-0 justify-end gap-3 border-t px-6 py-4 dark:border-gray-800">
-                  <button
-                    type="button"
-                    onClick={closeModal}
-                    className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={creating}
-                    className="rounded-xl bg-[#13538A] px-5 py-2 text-sm font-semibold text-white hover:bg-[#1a6aad] disabled:opacity-60"
-                  >
-                    {creating
-                      ? editOfficer
-                        ? "Updating..."
-                        : "Creating..."
-                      : editOfficer
-                        ? "Update Co Brokers"
-                        : "Create Co Brokers"}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>,
-          document.body
-        )}
-
-      {viewSubBroker &&
-        createPortal(
-          <div
-            className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
-            onClick={() => setViewSubBroker(null)}
-            role="dialog"
-            aria-modal="true"
-          >
-            <div
-              className="flex max-h-[min(90vh,640px)] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-900"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex shrink-0 items-start justify-between border-b px-6 py-4 dark:border-gray-800">
-                <div>
-                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                    Co Brokers Profile
-                  </h2>
-                  <p className="text-sm text-gray-500">Read-only view of Co Brokers details.</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setViewSubBroker(null)}
-                  className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-red-500 dark:hover:bg-gray-800"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-
-              <div className="space-y-6 overflow-y-auto p-6">
-                <div className="flex flex-col items-center text-center">
-                  <span
-                    className={`flex h-16 w-16 items-center justify-center rounded-2xl text-lg font-bold ${getAvatarTone(
-                      `${viewSubBroker.firstName} ${viewSubBroker.lastName}`,
-                    )}`}
-                  >
-                    {getInitials(viewSubBroker.firstName, viewSubBroker.lastName)}
-                  </span>
-                  <h3 className="mt-4 text-xl font-semibold text-gray-900 dark:text-white">
-                    {viewSubBroker.firstName} {viewSubBroker.lastName}
-                  </h3>
-                  <p className="text-sm text-gray-500">{viewSubBroker.email}</p>
-                  <span
-                    className={`mt-2 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${
-                      viewSubBroker.status === "ACTIVE"
-                        ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300"
-                        : "bg-gray-100 text-gray-600 ring-1 ring-gray-200 dark:bg-gray-800 dark:text-gray-300"
-                    }`}
-                  >
-                    {viewSubBroker.status === "ACTIVE" ? "Active" : "Disabled"}
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <InfoItem label="Email" value={viewSubBroker.email} />
-                  <InfoItem
-                    label="Phone"
-                    value={viewSubBroker.phone ? formatPhone(viewSubBroker.phone) : "—"}
-                  />
-                  <InfoItem label="Status" value={viewSubBroker.status} />
-                  <InfoItem label="Created" value={formatDate(viewSubBroker.createdAt)} />
-                  {viewSubBroker.updatedAt && (
-                    <InfoItem label="Last Updated" value={formatDate(viewSubBroker.updatedAt)} />
-                  )}
-                </div>
-              </div>
-
-              <div className="flex shrink-0 justify-end gap-3 border-t px-6 py-4 dark:border-gray-800">
-                <button
-                  type="button"
-                  onClick={() => setViewSubBroker(null)}
-                  className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300"
-                >
-                  Close
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const id = viewSubBroker.id;
-                    setViewSubBroker(null);
-                    setErrors({});
-                    openEditSubBroker(id);
-                  }}
-                  className="rounded-xl bg-[#13538A] px-5 py-2 text-sm font-semibold text-white hover:bg-[#1a6aad]"
-                >
-                  Edit Co Brokers
-                </button>
-              </div>
-            </div>
-          </div>,
-          document.body,
-        )}
     </>
   );
 }

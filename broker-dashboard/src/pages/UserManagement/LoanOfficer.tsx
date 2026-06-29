@@ -20,6 +20,7 @@ import {
   Users,
   UserX,
   Activity,
+  ExternalLink,
   X,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -242,6 +243,7 @@ export default function LoanOfficersPage() {
   const [sortKey, setSortKey] = useState<SortKey>("createdAt");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+  const [impersonatingId, setImpersonatingId] = useState<string | null>(null);
   const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
   const menuRef = useRef<HTMLDivElement | null>(null);
 
@@ -325,6 +327,59 @@ export default function LoanOfficersPage() {
       "Content-Type": "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     };
+  };
+
+  const handleImpersonate = async (officer: LoanOfficer) => {
+    if (officer.status !== "ACTIVE") {
+      toast.error("Only active loan officers can be accessed");
+      return;
+    }
+
+    try {
+      setImpersonatingId(officer.id);
+      closeRowMenu();
+
+      const res = await fetch(
+        `${API_BASE}/broker/users/${officer.id}/impersonate`,
+        {
+          method: "POST",
+          headers: getHeaders(),
+          body: JSON.stringify({}),
+        },
+      );
+
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Failed to access loan officer portal");
+      }
+
+      const query = new URLSearchParams({
+        token: json.token,
+        user: JSON.stringify(json.user),
+      });
+      if (json.permissions?.length) {
+        query.set("permissions", JSON.stringify(json.permissions));
+      }
+
+      const portalUrl = `/loan-officer/impersonate?${query.toString()}`;
+      const newTab = window.open(portalUrl, "_blank", "noopener,noreferrer");
+
+      if (!newTab) {
+        toast.error("Pop-up blocked. Allow pop-ups to open the loan officer portal.");
+        return;
+      }
+
+      toast.success(
+        `Opened portal for ${officer.firstName} ${officer.lastName}`,
+      );
+    } catch (err: unknown) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to open loan officer portal",
+      );
+    } finally {
+      setImpersonatingId(null);
+    }
   };
 
   /* ================= FETCH ================= */
@@ -1397,6 +1452,20 @@ export default function LoanOfficersPage() {
               >
                 <Eye className="h-3.5 w-3.5 text-[#13538A]" />
                 View details
+              </button>
+              <button
+                type="button"
+                disabled={
+                  impersonatingId === activeMenuUser.id ||
+                  activeMenuUser.status !== "ACTIVE"
+                }
+                onClick={() => handleImpersonate(activeMenuUser)}
+                className="flex w-full items-center gap-2 px-3 py-2 text-xs text-gray-700 transition hover:bg-gray-50 disabled:opacity-50 dark:text-gray-200 dark:hover:bg-gray-800"
+              >
+                <ExternalLink className="h-3.5 w-3.5 text-cyan-600" />
+                {impersonatingId === activeMenuUser.id
+                  ? "Opening portal..."
+                  : "Access portal"}
               </button>
               <button
                 type="button"

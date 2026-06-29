@@ -59,6 +59,11 @@ const navItems: NavItem[] = [
     name: "Broker Database",
     path: "/all-brokers-database",
   },
+  {
+    icon: <AccountBalanceOutlinedIcon />,
+    name: "Lender Database",
+    path: "/all-lenders-Organization",
+  },
   // {
   //   icon: <GroupsOutlinedIcon />,
   //   name: "Broker Organizations",
@@ -88,11 +93,6 @@ const navItems: NavItem[] = [
   //   name: "Manage User",
   //   subItems: [{ name: "Add User", path: "/add-user" },{ name: "All User", path: "/all-user" }],
   // },
-  {
-    icon: <AccountBalanceOutlinedIcon />,
-    name: "Lender Database",
-    path: "/all-lenders-Organization",
-  },
 
   // {
   //   icon: <BarChart3 />,

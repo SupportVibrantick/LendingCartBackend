@@ -19,6 +19,8 @@ async function loanPipelineRoutes(fastify) {
   fastify.register(require("./skipSubBrokerSubmission.js"));
   fastify.register(require("./stats.js"));
   fastify.register(require("./signDocuments.js"));
+  fastify.register(require("./getClientApplicationLink.js"));
+  fastify.register(require("./documentReminders.js"));
 
   // fastify.register(require("./submitDocumentsToBroker"));
   // fastify.register(require("./listSubBrokerSubmissions"));

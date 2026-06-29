@@ -8,6 +8,9 @@ const {
 const {
   canBrokerReassignApplication,
 } = require("../../../utils/resolveApplicationStatus");
+const {
+  autoAssignSubBrokerLoanOfficers,
+} = require("../../../services/autoAssignSubBrokerLoanOfficers");
 
 const SUBBROKER_CHAT_DB_TYPE = "CLIENT_BROKER";
 
@@ -567,6 +570,43 @@ async function assignApplicationRoute(fastify, options) {
           },
           recipientUserId: subBrokerId,
         });
+
+        const autoAssignedOfficerIds =
+          await autoAssignSubBrokerLoanOfficers(prisma, fastify, {
+            loanApplicationId,
+            subBrokerId,
+            brokerOrgId,
+            assignedByUserId: brokerUserId,
+          });
+
+        if (autoAssignedOfficerIds.length > 0) {
+          const refreshedApplication = await prisma.loanApplication.findFirst({
+            where: { id: loanApplicationId, brokerOrgId },
+            select: {
+              brokerUser: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  email: true,
+                  profileImage: true,
+                },
+              },
+            },
+          });
+
+          if (refreshedApplication?.brokerUser) {
+            responseData.application.assignedLoanOfficer = {
+              id: refreshedApplication.brokerUser.id,
+              firstName: refreshedApplication.brokerUser.firstName,
+              lastName: refreshedApplication.brokerUser.lastName,
+              email: refreshedApplication.brokerUser.email,
+              profileImage: refreshedApplication.brokerUser.profileImage,
+            };
+          }
+
+          responseData.autoAssignedLoanOfficerIds = autoAssignedOfficerIds;
+        }
 
         /* ===============================
            SUCCESS RESPONSE

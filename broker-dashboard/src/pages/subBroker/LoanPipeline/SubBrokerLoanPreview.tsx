@@ -2,7 +2,6 @@ import {
   ArrowLeft,
   Download,
   Eye,
-  FileSearch,
   FileText,
   FolderOpen,
   // Loader2,
@@ -24,11 +23,23 @@ import { FaRegCreditCard } from "react-icons/fa6";
 import LoanPreviewChat from "./LoanPreviewChat";
 import FeeAgreement from "./FeeAgreement";
 import SubmissionDetailsView from "../../../components/submissions/SubmissionDetailsView";
+import DocumentControlsBar from "../../../components/documents/DocumentControlsBar";
 import {
   formatDocumentStatusLabel,
   getDocumentStatusChipClass,
 } from "../../../lib/documentStatus";
 import { getBorrowerDisplayNameFromFields } from "../../../lib/submissionFieldUtils";
+import {
+  CO_BROKER_TOKEN_KEY,
+  CO_BROKER_USER_KEY,
+} from "../../../lib/coBrokerPortal";
+import {
+  expandDocumentsForDisplay,
+  getDocumentSentDisplay,
+  getDocumentSourceDisplay,
+  type DocumentSentFilter,
+  type DocumentSourceFilter,
+} from "../../../lib/documentLenderSend";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
@@ -159,7 +170,7 @@ const getFieldValue = (fields: SubmissionField[], key: string) => {
 };
 
 function getAuthHeaders(): HeadersInit {
-  const token = sessionStorage.getItem("sub_broker_token");
+  const token = sessionStorage.getItem(CO_BROKER_TOKEN_KEY);
   return {
     "Content-Type": "application/json",
     ...(token && { Authorization: `Bearer ${token}` }),
@@ -167,44 +178,6 @@ function getAuthHeaders(): HeadersInit {
 }
 
 const getDocumentStatusChip = getDocumentStatusChipClass;
-
-const getSourceChip = (source?: string) => {
-  switch (source) {
-    case "SUB_BROKER_ADDED":
-      return "bg-cyan-100 text-cyan-700";
-
-    case "BROKER_ADDED":
-      return "bg-blue-100 text-blue-700";
-
-    case "LENDER_ADDED":
-      return "bg-purple-100 text-purple-700";
-
-    case "PRODUCT_DEFAULT":
-      return "bg-slate-100 text-slate-700";
-
-    default:
-      return "bg-gray-100 text-gray-600";
-  }
-};
-
-const formatSource = (source?: string) => {
-  switch (source) {
-    case "SUB_BROKER_ADDED":
-      return "Sub Broker";
-
-    case "BROKER_ADDED":
-      return "Principal Broker";
-
-    case "LENDER_ADDED":
-      return "Lender";
-
-    case "PRODUCT_DEFAULT":
-      return "System";
-
-    default:
-      return source || "-";
-  }
-};
 
 // const formatFieldKey = (key: string | null | undefined) => {
 //   if (!key) return "";
@@ -336,6 +309,11 @@ const LoanPreview = () => {
   // );
   const [searchInput, setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [documentSentFilter, setDocumentSentFilter] =
+    useState<DocumentSentFilter>("all");
+  const [documentSourceFilter, setDocumentSourceFilter] =
+    useState<DocumentSourceFilter>("all");
+  const [documentLenderFilter, setDocumentLenderFilter] = useState("");
 
   const [previewFiles, setPreviewFiles] = useState<any[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -409,6 +387,35 @@ const LoanPreview = () => {
     }
     return getBorrowerDisplayNameFromFields(fields) || resolved || "—";
   }, [submissionDetail?.borrowerName, fields]);
+
+  const coBrokerDisplayName = useMemo(() => {
+    const storedUser = JSON.parse(
+      sessionStorage.getItem(CO_BROKER_USER_KEY) || "{}",
+    );
+    const name =
+      storedUser?.name ||
+      `${storedUser?.firstName || ""} ${storedUser?.lastName || ""}`.trim();
+    return name || "Me";
+  }, []);
+
+  const documentFilterLenders = documentsData?.documentFilterLenders || [];
+
+  const displayDocuments = useMemo(() => {
+    return expandDocumentsForDisplay(documentsData?.documents || [], {
+      applicationLenderId:
+        documentLenderFilter ||
+        documentsData?.activeFilters?.applicationLenderId ||
+        undefined,
+    });
+  }, [
+    documentsData?.documents,
+    documentsData?.activeFilters?.applicationLenderId,
+    documentLenderFilter,
+  ]);
+
+  const brokerSourceLabel =
+    documentsData?.brokerOrgName || "Principal Broker";
+
   const submissionId = Location.state?.submissionId;
 
   // const formatPhoneNumber = (value: string) => {
@@ -466,13 +473,29 @@ const LoanPreview = () => {
     submissionId: string,
     pageNo = 1,
     searchQuery = "",
+    lenderFilter = documentLenderFilter,
+    sentFilter: DocumentSentFilter = documentSentFilter,
+    sourceFilter: DocumentSourceFilter = documentSourceFilter,
   ) => {
     try {
       setDocumentsLoading(true);
-      const token = sessionStorage.getItem("sub_broker_token");
+      const token = sessionStorage.getItem(CO_BROKER_TOKEN_KEY);
+
+      const params = new URLSearchParams({
+        page: String(pageNo),
+        limit: String(limit),
+        search: searchQuery,
+        sentFilter,
+        sourceFilter,
+        documentCategory: "upload",
+      });
+
+      if (lenderFilter) {
+        params.set("applicationLenderId", lenderFilter);
+      }
 
       const res = await fetch(
-        `${API_BASE}/subbroker/documents/submissions/${submissionId}/documents?page=${pageNo}&limit=${limit}&search=${searchQuery}`,
+        `${API_BASE}/subbroker/documents/submissions/${submissionId}/documents?${params.toString()}`,
         {
           headers: {
             ...(token && { Authorization: `Bearer ${token}` }),
@@ -502,7 +525,7 @@ const LoanPreview = () => {
     try {
       setLoiLoading(true);
 
-      const token = sessionStorage.getItem("sub_broker_token");
+      const token = sessionStorage.getItem(CO_BROKER_TOKEN_KEY);
 
       const applicationId =
         submissionDetail?.applicationId || submissionDetail?.id;
@@ -570,7 +593,10 @@ const LoanPreview = () => {
       setSelectedRequestDocs([]);
       setRequestMessage("");
       if (submissionId) {
-        fetchSubmissionDocuments(submissionId);
+        setPage(1);
+        setDocumentsLoadedFor(null);
+        setActiveTab("documents");
+        fetchSubmissionDocuments(submissionId, 1, debouncedSearch);
       }
     } catch (err: any) {
       toast.error(err.message || "Something went wrong");
@@ -739,7 +765,7 @@ const LoanPreview = () => {
   //   try {
   //     setUploadingDocId(requirementId);
 
-  //     const token = sessionStorage.getItem("sub_broker_token");
+  //     const token = sessionStorage.getItem(CO_BROKER_TOKEN_KEY);
 
   //     for (const file of filesForRequirement) {
   //       const formData = new FormData();
@@ -855,9 +881,23 @@ const LoanPreview = () => {
 
   useEffect(() => {
     if (submissionId) {
-      fetchSubmissionDocuments(submissionId, page, debouncedSearch);
+      fetchSubmissionDocuments(
+        submissionId,
+        page,
+        debouncedSearch,
+        documentLenderFilter,
+        documentSentFilter,
+        documentSourceFilter,
+      );
     }
-  }, [page, debouncedSearch, submissionId]);
+  }, [
+    page,
+    debouncedSearch,
+    documentLenderFilter,
+    documentSentFilter,
+    documentSourceFilter,
+    submissionId,
+  ]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -1988,49 +2028,42 @@ dark:bg-red-900/20 dark:text-red-400"
   // };
 
   const renderDocuments = () => (
-    <div className="min-h-screen h-[90vh] rounded-3xl  p-6">
-      {/* HEADER */}
-      <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        {/* LEFT */}
-        <div>
-          <h2 className="text-xl font-bold text-slate-800 dark:text-white">
-            Requested Documents
-          </h2>
-          <p className="text-sm text-slate-500">
-            Upload and manage submission documents
-          </p>
-        </div>
-
-        <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
-          {/* SEARCH */}
-          <div className="relative w-full md:w-80">
-            <input
-              type="text"
-              placeholder="Search documents..."
-              value={searchInput}
-              onChange={(e) => {
-                setSearchInput(e.target.value);
-                setPage(1);
-              }}
-              className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 pr-10 text-sm outline-none transition
-      focus:border-blue-500 focus:ring-2 focus:ring-blue-200
-      dark:border-slate-700 dark:bg-slate-900 dark:text-white"
-            />
-
-            <FileSearch
-              size={18}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
-            />
-          </div>
-        </div>
+    <div className="min-h-screen h-[90vh] rounded-3xl p-6">
+      <div className="mb-2">
+        <h2 className="text-xl font-bold text-slate-800 dark:text-white">
+          Requested Documents
+        </h2>
+        <p className="mt-1 text-sm text-slate-500">
+          Upload, filter, and manage documents for this application.
+        </p>
       </div>
+
+      <DocumentControlsBar
+        showAutoForward={false}
+        showSentFilter={false}
+        autoForwardEnabled={false}
+        autoForwardSaving={false}
+        onToggleAutoForward={() => undefined}
+        documentFilterLenders={documentFilterLenders}
+        documentLenderFilter={documentLenderFilter}
+        onDocumentLenderFilterChange={setDocumentLenderFilter}
+        documentSentFilter={documentSentFilter}
+        onDocumentSentFilterChange={setDocumentSentFilter}
+        documentSourceFilter={documentSourceFilter}
+        onDocumentSourceFilterChange={setDocumentSourceFilter}
+        searchInput={searchInput}
+        onSearchInputChange={setSearchInput}
+        onResetPage={() => setPage(1)}
+        brokerSourceFilterLabel="Principal broker"
+        coBrokerSourceFilterLabel="My documents"
+      />
 
       {documentsLoading ? (
         <div className="flex flex-col items-center justify-center py-16">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-500 border-t-transparent"></div>
           <p className="mt-3 text-sm text-slate-500">Loading documents...</p>
         </div>
-      ) : documentsData?.documents?.length > 0 ? (
+      ) : displayDocuments.length > 0 ? (
         <div className="h-[85vh] my-4 flex flex-col rounded-2xl border border-slate-200 dark:border-slate-800">
           {/* TABLE */}
           <div className="h-full overflow-y-auto">
@@ -2056,12 +2089,18 @@ dark:bg-red-900/20 dark:text-red-400"
 
               {/* BODY */}
               <tbody className="divide-y dark:divide-slate-800">
-                {documentsData.documents.map((doc: any) => {
-                  const isOpen = activeAction === doc.requirementId;
+                {displayDocuments.map((doc) => {
+                  const isOpen = activeAction === doc.rowKey;
+                  const { label: sourceLabel, className: sourceClass } =
+                    getDocumentSourceDisplay(doc, {
+                      brokerSourceLabel,
+                      subBrokerSourceLabel: coBrokerDisplayName,
+                    });
+                  const sentDisplay = getDocumentSentDisplay(doc);
 
                   return (
                     <tr
-                      key={doc.requirementId}
+                      key={doc.rowKey}
                       className="group hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-all hover:shadow-sm"
                     >
                       {/* <td className="px-5 py-4">
@@ -2087,13 +2126,11 @@ dark:bg-red-900/20 dark:text-red-400"
                       </td>
 
                       {/* SOURCE */}
-                      <td className="px-4 py-3">
+                      <td className="px-5 py-4 text-center">
                         <span
-                          className={`rounded-full px-2 py-1 text-xs font-semibold ${getSourceChip(
-                            doc.source,
-                          )}`}
+                          className={`rounded-full px-3 py-1 text-xs font-medium ${sourceClass}`}
                         >
-                          {formatSource(doc.source)}
+                          {sourceLabel}
                         </span>
                       </td>
 
@@ -2102,11 +2139,25 @@ dark:bg-red-900/20 dark:text-red-400"
 <div className="relative flex flex-col items-center justify-center gap-1">
     <span
       className={`px-3 py-1 rounded-full text-xs font-semibold ${getDocumentStatusChip(
-        doc.status,
+        doc.status ?? "",
       )}`}
     >
       {formatDocumentStatusLabel(doc.status)}
     </span>
+
+    {sentDisplay && (
+      <span
+        className={`max-w-[220px] px-2 py-0.5 text-center text-[10px] font-semibold rounded-full ${
+          sentDisplay.isPartial
+            ? "bg-amber-50 text-amber-700"
+            : sentDisplay.isSent
+              ? "bg-emerald-50 text-emerald-700"
+              : "bg-orange-50 text-orange-700"
+        }`}
+      >
+        {sentDisplay.detail}
+      </span>
+    )}
 
     {doc.status === "SKIPPED" && (
       <span className="max-w-[180px] text-center text-[10px] font-medium text-red-500 break-words">
@@ -2114,14 +2165,14 @@ dark:bg-red-900/20 dark:text-red-400"
       </span>
     )}
 
-    {doc.isSentToBroker &&
+    {(doc as any).isSentToBroker &&
       doc.status !== "SKIPPED" && (
         <span className="text-[10px] font-medium text-blue-600 text-center">
           SENT TO PRINCIPAL BROKER
         </span>
       )}
 
-    {doc.skipReason &&
+    {(doc as any).skipReason &&
       doc.status === "SKIPPED" && (
 <div className="group/review relative flex justify-center">
   <span
@@ -2134,7 +2185,7 @@ text-slate-500
 cursor-pointer
 "
   >
-    {doc.skipReason}
+    {(doc as any).skipReason}
   </span>
 
   <div
@@ -2172,7 +2223,7 @@ dark:text-slate-200
     </p>
 
     <p className="break-words whitespace-pre-wrap">
-      {doc.skipReason}
+      {(doc as any).skipReason}
     </p>
   </div>
 </div>
@@ -2182,9 +2233,9 @@ dark:text-slate-200
 
                       {/* FILES */}
                       <td className="px-5 py-4 text-center">
-                        {doc.uploadedCount > 0 ? (
+                        {Number(doc.uploadedCount) > 0 ? (
                           <div className="flex justify-center items-center gap-2">
-                            {doc.isSentToBroker && (
+                            {(doc as any).isSentToBroker && (
                               <span className="px-2 py-1 text-[10px] rounded-full bg-blue-100 text-blue-700 font-semibold">
                                 Sent To PB
                               </span>
@@ -2195,7 +2246,9 @@ dark:text-slate-200
 
                             <button
                               onClick={() => {
-                                setPreviewFiles(doc.uploadedFiles);
+                                setPreviewFiles(
+                                  ((doc.uploadedFiles as any[]) || []),
+                                );
                                 setActiveIndex(0);
                               }}
                               className="p-2 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition-all"
@@ -2215,7 +2268,7 @@ dark:text-slate-200
                     <button
   disabled={doc.status === "SKIPPED"}
   onClick={() =>
-    setActiveAction(isOpen ? null : doc.requirementId)
+    setActiveAction(isOpen ? null : doc.rowKey)
   }
   className={`
 rounded-xl
@@ -2272,9 +2325,7 @@ dark:hover:bg-amber-500/10
                                   try {
                                     // ✅ SUB BROKER TOKEN
                                     const token =
-                                      sessionStorage.getItem(
-                                        "sub_broker_token",
-                                      );
+                                      sessionStorage.getItem(CO_BROKER_TOKEN_KEY);
 
                                     for (const file of Array.from(files)) {
                                       const formData = new FormData();
@@ -2323,13 +2374,13 @@ dark:hover:bg-amber-500/10
                               />
                             </label>
                             {doc.source === "SUB_BROKER_ADDED" &&
-  doc.uploadedCount > 0 &&
-  !doc.isSentToBroker &&
+  Number(doc.uploadedCount) > 0 &&
+  !(doc as any).isSentToBroker &&
   doc.status !== "SKIPPED" && (
                             <button
   onClick={async () => {
     try {
-      const token = sessionStorage.getItem("sub_broker_token");
+      const token = sessionStorage.getItem(CO_BROKER_TOKEN_KEY);
 
       const res = await fetch(
         `${API_BASE}/subbroker/documents/${doc.requirementId}/send-to-broker`,
@@ -2437,7 +2488,11 @@ dark:hover:bg-blue-500/10
 
           {/* DESCRIPTION */}
           <p className="mt-2 max-w-sm text-sm text-slate-500 dark:text-slate-400">
-            You haven’t requested documents yet.
+            {searchInput ||
+            documentSourceFilter !== "all" ||
+            documentLenderFilter
+              ? "Try adjusting your search or filters."
+              : "You haven’t requested documents yet."}
           </p>
         </div>
       )}

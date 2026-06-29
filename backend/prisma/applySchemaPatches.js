@@ -35,7 +35,7 @@ const COLUMN_PATCHES = [
     ADD COLUMN IF NOT EXISTS "auto_forward_documents_to_lender" BOOLEAN NOT NULL DEFAULT false`,
 
   `ALTER TABLE "loan_applications"
-    ADD COLUMN IF NOT EXISTS "amount_requested" DECIMAL(20,2)`,
+    DROP COLUMN IF EXISTS "amount_requested"`,
 
   `ALTER TABLE "clients"
     ADD COLUMN IF NOT EXISTS "is_deleted" BOOLEAN DEFAULT false`,

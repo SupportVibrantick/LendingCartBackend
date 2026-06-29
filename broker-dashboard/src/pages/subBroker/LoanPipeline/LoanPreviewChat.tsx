@@ -811,14 +811,14 @@ bg-[#f8f8f6] dark:bg-slate-950 px-4 py-5 sm:px-7"
                             <div
                               className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold ${getAvatarTone(
                                 isOwnMessage
-                                  ? "Sub Broker"
+                                  ? "Co-Broker"
                                   : msg.senderName ||
                                       selectedConversation?.title,
                               )}`}
                             >
                               {getInitials(
                                 isOwnMessage
-                                  ? "Sub Broker"
+                                  ? "Co-Broker"
                                   : msg.senderName ||
                                       selectedConversation?.title,
                               )}

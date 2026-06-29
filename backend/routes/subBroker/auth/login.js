@@ -4,6 +4,9 @@ const { loginSchema } = require("../../../schemas/subBroker/auth/login.schema");
 
 const prisma = require("../../../config/prisma");
 const { ZodError } = require("zod");
+const {
+  resolveCoBrokerBranding,
+} = require("../../../utils/resolveCoBrokerBranding");
 
 const jwtSecret = process.env.JWT_SECRET || "SecretKey";
 
@@ -83,6 +86,12 @@ async function loginRoute(fastify, options) {
           },
         );
 
+        const branding = await resolveCoBrokerBranding(
+          prisma,
+          user.id,
+          user.organizationId || null,
+        );
+
         return reply.code(200).send({
           success: true,
 
@@ -95,6 +104,8 @@ async function loginRoute(fastify, options) {
             email: user.email,
             organizationId: user.organizationId || null,
           },
+
+          branding,
         });
       } catch (err) {
         // ZOD VALIDATION ERROR
