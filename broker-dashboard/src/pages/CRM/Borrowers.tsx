@@ -18,6 +18,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import toast from "react-hot-toast";
 import PageMeta from "../../components/common/PageMeta";
+import { buildImpersonatePortalUrl } from "../../lib/impersonateUrl";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
@@ -253,13 +254,11 @@ export default function BorrowersPage() {
         throw new Error(json.message || "Failed to access client portal");
       }
 
-      const query = new URLSearchParams({
+      const portalUrl = buildImpersonatePortalUrl("/client-portal/impersonate", {
         token: json.token,
         user: JSON.stringify(json.user),
         redirectTo: json.redirectTo || "/client-portal",
       });
-
-      const portalUrl = `/client-portal/impersonate?${query.toString()}`;
       const newTab = window.open(portalUrl, "_blank", "noopener,noreferrer");
 
       if (!newTab) {

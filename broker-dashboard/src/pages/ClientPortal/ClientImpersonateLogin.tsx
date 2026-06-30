@@ -1,5 +1,6 @@
 import { useEffect } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import { readImpersonateParams } from "../../lib/impersonateUrl";
 import {
   clearClientPortalSession,
   saveClientPortalSession,
@@ -7,13 +8,13 @@ import {
 } from "../../lib/clientPortalSession";
 
 export default function ClientImpersonateLogin() {
-  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
   useEffect(() => {
-    const token = searchParams.get("token");
-    const userParam = searchParams.get("user");
-    const redirectTo = searchParams.get("redirectTo") || "/client-portal";
+    const params = readImpersonateParams();
+    const token = params.get("token");
+    const userParam = params.get("user");
+    const redirectTo = params.get("redirectTo") || "/client-portal";
 
     if (!token) {
       navigate("/client-upload", { replace: true });
@@ -59,7 +60,7 @@ export default function ClientImpersonateLogin() {
         navigate("/client-upload", { replace: true });
       }
     })();
-  }, [navigate, searchParams]);
+  }, [navigate]);
 
   return (
     <div className="flex h-screen items-center justify-center">

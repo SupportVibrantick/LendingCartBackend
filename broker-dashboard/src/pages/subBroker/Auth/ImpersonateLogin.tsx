@@ -1,5 +1,6 @@
 import { useEffect } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import { readImpersonateParams } from "../../../lib/impersonateUrl";
 import {
   CO_BROKER_TOKEN_KEY,
   CO_BROKER_USER_KEY,
@@ -10,14 +11,14 @@ import {
 } from "../../../lib/coBrokerPortal";
 
 export default function CoBrokerImpersonateLogin() {
-  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
   useEffect(() => {
-    const token = searchParams.get("token");
-    const userParam = searchParams.get("user");
-    const brandingParam = searchParams.get("branding");
-    const redirectTo = searchParams.get("redirectTo") || "/sub-broker/loan-pipeline";
+    const params = readImpersonateParams();
+    const token = params.get("token");
+    const userParam = params.get("user");
+    const brandingParam = params.get("branding");
+    const redirectTo = params.get("redirectTo") || "/sub-broker/loan-pipeline";
 
     if (!token) {
       navigate("/sub-broker/login", { replace: true });
@@ -63,7 +64,7 @@ export default function CoBrokerImpersonateLogin() {
         navigate("/sub-broker/login", { replace: true });
       }
     })();
-  }, [navigate, searchParams]);
+  }, [navigate]);
 
   return (
     <div className="flex h-screen items-center justify-center">

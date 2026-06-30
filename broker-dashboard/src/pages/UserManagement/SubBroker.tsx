@@ -28,6 +28,7 @@ import PageMeta from "../../components/common/PageMeta";
 import CoBrokerFormModal from "../../components/coBroker/CoBrokerFormModal";
 import CoBrokerDetailsModal from "../../components/coBroker/CoBrokerDetailsModal";
 import type { CoBrokerDetail } from "../../lib/coBrokerForm";
+import { buildImpersonatePortalUrl } from "../../lib/impersonateUrl";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
@@ -370,16 +371,19 @@ export default function SubBroker() {
         throw new Error(json.message || "Failed to access co-broker portal");
       }
 
-      const query = new URLSearchParams({
+      const impersonateParams: Record<string, string> = {
         token: json.token,
         user: JSON.stringify(json.user),
         redirectTo: json.redirectTo || "/sub-broker/loan-pipeline",
-      });
+      };
       if (json.branding) {
-        query.set("branding", JSON.stringify(json.branding));
+        impersonateParams.branding = JSON.stringify(json.branding);
       }
 
-      const portalUrl = `/sub-broker/impersonate?${query.toString()}`;
+      const portalUrl = buildImpersonatePortalUrl(
+        "/sub-broker/impersonate",
+        impersonateParams,
+      );
       const newTab = window.open(portalUrl, "_blank", "noopener,noreferrer");
 
       if (!newTab) {

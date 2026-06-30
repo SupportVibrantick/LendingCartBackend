@@ -1,5 +1,6 @@
 import { useEffect } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import { readImpersonateParams } from "../../../lib/impersonateUrl";
 import {
   LO_TOKEN_KEY,
   LO_USER_KEY,
@@ -8,13 +9,14 @@ import {
 } from "../../../lib/loanOfficerApi";
 
 export default function LoanOfficerImpersonateLogin() {
-  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
   useEffect(() => {
-    const token = searchParams.get("token");
-    const userParam = searchParams.get("user");
-    const permissionsParam = searchParams.get("permissions");
+    const params = readImpersonateParams();
+    const token = params.get("token");
+    const userParam = params.get("user");
+    const permissionsParam = params.get("permissions");
+    const redirectTo = params.get("redirectTo") || "/loan-officer/dashboard";
 
     if (!token) {
       navigate("/loan-officer/login", { replace: true });
@@ -48,14 +50,14 @@ export default function LoanOfficerImpersonateLogin() {
           return;
         }
 
-        navigate("/loan-officer/dashboard", { replace: true });
+        navigate(redirectTo, { replace: true });
       } catch (err) {
         console.error("Loan officer impersonation error", err);
         clearLoanOfficerSession();
         navigate("/loan-officer/login", { replace: true });
       }
     })();
-  }, [navigate, searchParams]);
+  }, [navigate]);
 
   return (
     <div className="flex h-screen items-center justify-center">

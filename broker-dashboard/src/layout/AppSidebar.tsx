@@ -100,8 +100,8 @@ const AppSidebar: React.FC = () => {
               icon: <FaUserGroup />,
               name: "CRM",
               subItems: [
-                { name: "Co Brokers", path: "/sub-brokers" },
                 { name: "Loan Officers", path: "/loan-officers" },
+                { name: "Co Brokers", path: "/sub-brokers" },
                 { name: "Borrowers", path: "/borrowers" },
                 { name: "Contacts", path: "/contacts-list" },
                 { name: "LO Activity", path: "/loan-officer-activity" },

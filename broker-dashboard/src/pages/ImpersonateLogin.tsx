@@ -1,5 +1,6 @@
 import { useEffect } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import { readImpersonateParams } from "../lib/impersonateUrl";
 import {
   clearBrokerSession,
   saveBrokerSession,
@@ -7,12 +8,12 @@ import {
 } from "../lib/brokerSession";
 
 const ImpersonateLogin = () => {
-  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
   useEffect(() => {
-    const token = searchParams.get("token");
-    const userParam = searchParams.get("user");
+    const params = readImpersonateParams();
+    const token = params.get("token");
+    const userParam = params.get("user");
 
     if (!token) {
       navigate("/signin", { replace: true });
@@ -25,7 +26,7 @@ const ImpersonateLogin = () => {
 
         let user: Record<string, unknown> | null = null;
         if (userParam) {
-          user = JSON.parse(decodeURIComponent(userParam));
+          user = JSON.parse(userParam);
         }
 
         saveBrokerSession(token, user);
@@ -44,10 +45,10 @@ const ImpersonateLogin = () => {
         navigate("/signin", { replace: true });
       }
     })();
-  }, [navigate, searchParams]);
+  }, [navigate]);
 
   return (
-    <div className="flex items-center justify-center h-screen">
+    <div className="flex h-screen items-center justify-center">
       Logging you in...
     </div>
   );

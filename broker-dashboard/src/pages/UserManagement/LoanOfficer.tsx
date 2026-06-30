@@ -32,6 +32,7 @@ import Swal from "sweetalert2";
 import PageMeta from "../../components/common/PageMeta";
 import ViewLoanOfficerModal from "./ViewLoanOfficerModal";
 import { US_STATES, formatPhone } from "./loanOfficerShared";
+import { buildImpersonatePortalUrl } from "../../lib/impersonateUrl";
 
 export { PERMISSIONS, US_STATES } from "./loanOfficerShared";
 
@@ -354,15 +355,19 @@ export default function LoanOfficersPage() {
         throw new Error(json.message || "Failed to access loan officer portal");
       }
 
-      const query = new URLSearchParams({
+      const impersonateParams: Record<string, string> = {
         token: json.token,
         user: JSON.stringify(json.user),
-      });
+        redirectTo: json.redirectTo || "/loan-officer/dashboard",
+      };
       if (json.permissions?.length) {
-        query.set("permissions", JSON.stringify(json.permissions));
+        impersonateParams.permissions = JSON.stringify(json.permissions);
       }
 
-      const portalUrl = `/loan-officer/impersonate?${query.toString()}`;
+      const portalUrl = buildImpersonatePortalUrl(
+        "/loan-officer/impersonate",
+        impersonateParams,
+      );
       const newTab = window.open(portalUrl, "_blank", "noopener,noreferrer");
 
       if (!newTab) {
