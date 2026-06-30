@@ -849,10 +849,12 @@ model ApplicationDocumentRequirement {
   documentType               DocumentType                @relation(fields: [documentTypeId], references: [id])
   loanApplication            LoanApplication             @relation(fields: [loanApplicationId], references: [id])
   requestedBySubBroker       UserAccount?                @relation("DocumentRequirementRequestedBySubBroker", fields: [requestedBySubBrokerId], references: [id], map: "application_document_requirements_requested_by_sub_broker_id_fk")
+  requestApplicationLender   ApplicationLender?          @relation(fields: [requestApplicationLenderId], references: [id])
   uploads                    ApplicationDocumentUpload[]
 
   @@index([loanApplicationId])
   @@index([documentTypeId])
+  @@index([requestApplicationLenderId])
   @@index([requestedBySubBrokerId], map: "application_document_requirements_requested_by_sub_broker_id_id")
   @@map("application_document_requirements")
 }
@@ -965,6 +967,7 @@ model ApplicationLender {
   documentReminderSchedules DocumentReminderSchedule[]
   lenderDocumentRequests    LenderDocumentRequest[]
   lenderReviews             LenderReview[]
+  signDocumentRequirements  ApplicationDocumentRequirement[]
 
   @@unique([loanApplicationId, lenderProductId])
   @@index([loanApplicationId])
