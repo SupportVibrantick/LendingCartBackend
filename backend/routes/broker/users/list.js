@@ -1,5 +1,7 @@
-
 // backend/routes/broker/users/list.js
+const {
+  mergeBrokerProfileResponse,
+} = require("../../../utils/brokerUserProfileHelpers");
 
 module.exports = async function listBrokerUsers(fastify) {
   fastify.get(
@@ -131,26 +133,7 @@ module.exports = async function listBrokerUsers(fastify) {
           // ✅ NEW: map permissions
           permissions: u.userPermissions.map((p) => p.permission.key),
 
-          profile: u.brokerProfile
-            ? {
-                company: u.brokerProfile.company,
-                tollFree: u.brokerProfile.tollFree,
-                tollFreeExt: u.brokerProfile.tollFreeExt,
-                serviceProvider: u.brokerProfile.serviceProvider,
-                address: u.brokerProfile.address,
-                suite: u.brokerProfile.suite,
-                city: u.brokerProfile.city,
-                state: u.brokerProfile.state,
-                zipCode: u.brokerProfile.zipCode,
-                agentType: u.brokerProfile.agentType,
-                licenseNumber: u.brokerProfile.licenseNumber,
-                preferredComm: u.brokerProfile.preferredComm,
-                website: u.brokerProfile.website,
-                avatarUrl: u.brokerProfile.avatarUrl,
-                createdAt: u.brokerProfile.createdAt,
-                updatedAt: u.brokerProfile.updatedAt,
-              }
-            : null,
+          profile: mergeBrokerProfileResponse(u.brokerProfile),
         }));
 
         /* =====================================================

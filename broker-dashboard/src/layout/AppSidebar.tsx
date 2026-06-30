@@ -38,8 +38,8 @@ const AppSidebar: React.FC = () => {
         setIsSubBroker(user?.userType === "SUB_BROKER");
         setDisplayName(
           user?.name ||
-            `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
-            "Broker Admin",
+          `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
+          "Broker Admin",
         );
         setUserEmail(user?.email || "");
       } catch {
@@ -73,99 +73,99 @@ const AppSidebar: React.FC = () => {
       // },
       ...(!isSubBroker
         ? [
-            {
-              icon: <MdWeb />,
-              name: "Website Builder",
-              subItems: [
-                {
-                  name: "Config Website",
-                  path: "/broker-website-dashboard/config-website",
-                },
-              ],
-            },
-          ]
+          {
+            icon: <MdWeb />,
+            name: "Website Builder",
+            subItems: [
+              {
+                name: "Config Website",
+                path: "/broker-website-dashboard/config-website",
+              },
+            ],
+          },
+        ]
         : []),
       ...(!isSubBroker
         ? [
-            {
-              icon: <MdOutlineDocumentScanner />,
-              name: "New Loan Application",
-              path: "/loan-application",
-            },
-          ]
+          {
+            icon: <MdOutlineDocumentScanner />,
+            name: "New Loan Application",
+            path: "/loan-application",
+          },
+        ]
         : []),
       ...(!isSubBroker
         ? [
-            {
-              icon: <FaUserGroup />,
-              name: "CRM",
-              subItems: [
-                { name: "Loan Officers", path: "/loan-officers" },
-                { name: "Co Brokers", path: "/sub-brokers" },
-                { name: "Borrowers", path: "/borrowers" },
-                { name: "Contacts", path: "/contacts-list" },
-                { name: "LO Activity", path: "/loan-officer-activity" },
-              ],
-            },
-          ]
+          {
+            icon: <FaUserGroup />,
+            name: "CRM",
+            subItems: [
+              { name: "Loan Officers", path: "/loan-officers" },
+              { name: "Co Brokers", path: "/sub-brokers" },
+              { name: "Borrowers", path: "/borrowers" },
+              { name: "Contacts", path: "/contacts-list" },
+              { name: "LO Activity", path: "/loan-officer-activity" },
+            ],
+          },
+        ]
         : []),
       ...(!isSubBroker
         ? [
-            {
-              icon: <FaUsersBetweenLines />,
-              name: "Lender Marketplace",
-              subItems: [
-                { name: "My Lenders", path: "/my-lenders" },
-                { name: "Invited Lenders", path: "/invited-lenders" },
-                { name: "Find Lenders", path: "/find-lenders" },
-              ],
-            },
-          ]
+          {
+            icon: <FaUsersBetweenLines />,
+            name: "Lender Marketplace",
+            subItems: [
+              { name: "My Lenders", path: "/my-lenders" },
+              { name: "Invited Lenders", path: "/invited-lenders" },
+              { name: "Find Lenders", path: "/find-lenders" },
+            ],
+          },
+        ]
         : []),
       ...(!isSubBroker
         ? [
-            {
-              icon: <MdEmail />,
-              name: "Email Marketing",
-              path: "/email-marketing",
-            },
-          ]
+          {
+            icon: <MdEmail />,
+            name: "Email Marketing",
+            path: "/email-marketing",
+          },
+        ]
         : []),
       ...(!isSubBroker
         ? [
-            {
-              icon: <MdSettings />,
-              name: "Settings",
-              subItems: [
-                {
-                  name: "Branding",
-                  path: "/settings/branding",
-                },
-                {
-                  icon: <FaAppStore />,
-                  name: "Application Builder",
-                  subItems: [
-                    { name: "Create Application", path: "/create-application" },
-                    {
-                      name: "Loan Application Config",
-                      path: "/application-config",
-                    },
-                    { name: "Add Sections", path: "/add-section" },
-                    { name: "Application Builder", path: "/application" },
-                  ],
-                },
-              ],
-            },
-          ]
+          {
+            icon: <MdSettings />,
+            name: "Settings",
+            subItems: [
+              {
+                name: "Branding",
+                path: "/settings/branding",
+              },
+              {
+                icon: <FaAppStore />,
+                name: "Application Builder",
+                subItems: [
+                  { name: "Create Application", path: "/create-application" },
+                  {
+                    name: "Loan Application Config",
+                    path: "/application-config",
+                  },
+                  { name: "Add Sections", path: "/add-section" },
+                  { name: "Application Builder", path: "/application" },
+                ],
+              },
+            ],
+          },
+        ]
         : []),
       ...(!isSubBroker
         ? [
-            {
-              icon: <PiSecurityCameraFill />,
-              name: "Dashboard Logs",
-              path: "/admin-logs",
-            },
-          ]
+          {
+            icon: <PiSecurityCameraFill />,
+            name: "Dashboard Logs",
+            path: "/admin-logs",
+          },
+        ]
         : []),
       {
         icon: <CgProfile />,
@@ -250,19 +250,17 @@ const AppSidebar: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => toggleMenu(key)}
-                  className={`menu-item group ${
-                    childActive || isOpen
+                  className={`menu-item group ${childActive || isOpen
                       ? "menu-item-active"
                       : "menu-item-inactive"
-                  }`}
+                    }`}
                 >
                   {nav.icon && (
                     <span
-                      className={`menu-item-icon-size ${
-                        childActive || isOpen
+                      className={`menu-item-icon-size ${childActive || isOpen
                           ? "menu-item-icon-active"
                           : "menu-item-icon-inactive"
-                      }`}
+                        }`}
                     >
                       {nav.icon}
                     </span>
@@ -274,20 +272,18 @@ const AppSidebar: React.FC = () => {
 
                   {(isExpanded || isHovered || isMobileOpen) && (
                     <ChevronDownIcon
-                      className={`ml-auto h-4 w-4 transition-all duration-200 ${
-                        isOpen
+                      className={`ml-auto h-4 w-4 transition-all duration-200 ${isOpen
                           ? "rotate-180 text-[#13538A]"
                           : "text-gray-400 group-hover:text-gray-600"
-                      }`}
+                        }`}
                     />
                   )}
                 </button>
 
                 {(isExpanded || isHovered || isMobileOpen) && (
                   <div
-                    className={`overflow-hidden transition-all duration-300 ${
-                      isOpen ? "mt-1 max-h-[1000px]" : "max-h-0"
-                    }`}
+                    className={`overflow-hidden transition-all duration-300 ${isOpen ? "mt-1 max-h-[1000px]" : "max-h-0"
+                      }`}
                   >
                     {renderMenuItems(nav.subItems, menuType, level + 1, key)}
                   </div>
@@ -297,26 +293,23 @@ const AppSidebar: React.FC = () => {
               nav.path && (
                 <Link
                   to={nav.path}
-                  className={`menu-item group ${
-                    linkActive ? "menu-item-active" : "menu-item-inactive"
-                  } ${level > 0 ? "menu-item-nested" : ""}`}
+                  className={`menu-item group ${linkActive ? "menu-item-active" : "menu-item-inactive"
+                    } ${level > 0 ? "menu-item-nested" : ""}`}
                 >
                   {nav.icon ? (
                     <span
-                      className={`menu-item-icon-size ${
-                        linkActive
+                      className={`menu-item-icon-size ${linkActive
                           ? "menu-item-icon-active"
                           : "menu-item-icon-inactive"
-                      }`}
+                        }`}
                     >
                       {nav.icon}
                     </span>
                   ) : (
                     level > 0 && (
                       <span
-                        className={`ml-1 h-1.5 w-1.5 shrink-0 rounded-full ${
-                          linkActive ? "bg-[#13538A]" : "bg-gray-300"
-                        }`}
+                        className={`ml-1 h-1.5 w-1.5 shrink-0 rounded-full ${linkActive ? "bg-[#13538A]" : "bg-gray-300"
+                          }`}
                       />
                     )
                   )}
@@ -336,12 +329,11 @@ const AppSidebar: React.FC = () => {
   return (
     <aside
       className={`fixed top-0 left-0 z-50 mt-16 flex h-[calc(100vh-4rem)] flex-col border-r border-gray-200 bg-white text-gray-800 shadow-[4px_0_24px_rgba(15,23,42,0.04)] transition-all duration-300 ease-in-out dark:border-gray-800 dark:bg-gray-950 dark:text-gray-100 dark:shadow-none lg:mt-0 lg:h-screen
-        ${
-          isExpanded || isMobileOpen
+        ${isExpanded || isMobileOpen
+          ? "w-[290px]"
+          : isHovered
             ? "w-[290px]"
-            : isHovered
-              ? "w-[290px]"
-              : "w-[90px]"
+            : "w-[90px]"
         }
         ${isMobileOpen ? "translate-x-0" : "-translate-x-full"}
         lg:translate-x-0`}
@@ -349,9 +341,8 @@ const AppSidebar: React.FC = () => {
       onMouseLeave={() => setIsHovered(false)}
     >
       <div
-        className={`relative shrink-0 overflow-hidden border-b border-gray-100 dark:border-gray-800 ${
-          !isExpanded && !isHovered ? "lg:flex lg:justify-center lg:px-2 lg:py-4" : "px-4 py-5"
-        }`}
+        className={`relative shrink-0 overflow-hidden border-b border-gray-100 dark:border-gray-800 ${!isExpanded && !isHovered ? "lg:flex lg:justify-center lg:px-2 lg:py-4" : "px-4 py-5"
+          }`}
       >
         <div className="absolute inset-0 bg-gradient-to-br from-[#13538A]/6 via-transparent to-[#2C92D5]/8 dark:from-[#13538A]/12 dark:to-[#2C92D5]/12" />
         <Link to="/" className="relative block">
@@ -413,9 +404,8 @@ const AppSidebar: React.FC = () => {
       <div className="sidebar-scrollbar-light min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 py-4">
         <nav className="pb-4">
           <h2
-            className={`mb-3 px-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-400 dark:text-gray-500 ${
-              !isExpanded && !isHovered ? "lg:text-center" : ""
-            }`}
+            className={`mb-3 px-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-400 dark:text-gray-500 ${!isExpanded && !isHovered ? "lg:text-center" : ""
+              }`}
           >
             {isExpanded || isHovered || isMobileOpen ? (
               "Navigation"

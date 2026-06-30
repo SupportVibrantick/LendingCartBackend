@@ -435,6 +435,7 @@ module.exports = {
   subBrokerInclude,
   subBrokerAuthInclude,
   parseJsonField,
+  parseBooleanField,
   resolvePrimaryContactFields,
   validatePrimaryContactFields,
 };

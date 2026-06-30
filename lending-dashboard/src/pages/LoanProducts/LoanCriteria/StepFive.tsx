@@ -89,30 +89,58 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
   const [errors, setErrors] = useState<any>({});
   const [documents, setDocuments] = useState<any[]>([]);
   const [loadingDocs, setLoadingDocs] = useState(false);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [documentSearch, setDocumentSearch] = useState("");
+  const [documentPage, setDocumentPage] = useState(1);
+  const [documentPagination, setDocumentPagination] = useState({
+    page: 1,
+    totalPages: 1,
+    total: 0,
+    hasNextPage: false,
+    hasPreviousPage: false,
+  });
 
-  const fetchDocuments = async () => {
+  const DOCUMENT_LIMIT = 12;
+
+  const fetchDocuments = async (
+    page = documentPage,
+    search = documentSearch,
+  ) => {
     try {
       setLoadingDocs(true);
 
       const token = sessionStorage.getItem("lender_token");
 
-      const res = await fetch(`${API_BASE}/document-types/active`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token && {
-            Authorization: `Bearer ${token}`,
-          }),
-        },
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: String(DOCUMENT_LIMIT),
       });
+
+      if (search.trim()) {
+        params.append("search", search.trim());
+      }
+
+      const res = await fetch(
+        `${API_BASE}/document-types/active?${params.toString()}`,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            ...(token && {
+              Authorization: `Bearer ${token}`,
+            }),
+          },
+        },
+      );
 
       const json = await res.json();
 
-      if (json?.success) {
+      if (json.success) {
         setDocuments(json.data || []);
+        setDocumentPagination(json.pagination);
+        setDocumentPage(page);
       }
     } catch (err) {
-      console.error("Failed to load documents", err);
+      console.error(err);
       toast.error("Failed to load documents");
     } finally {
       setLoadingDocs(false);
@@ -135,10 +163,45 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
     handleChange(productId, "documents", updated);
   };
 
-  const selectAllDocuments = (productId: string) => {
-    handleChange(productId, "documents", documents);
-  };
+  const selectAllDocuments = async (productId: string) => {
+    try {
+      setLoadingDocs(true);
 
+      const token = sessionStorage.getItem("lender_token");
+
+      const params = new URLSearchParams({
+        all: "true",
+      });
+
+      if (documentSearch.trim()) {
+        params.append("search", documentSearch.trim());
+      }
+
+      const res = await fetch(
+        `${API_BASE}/document-types/active?${params.toString()}`,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            ...(token && {
+              Authorization: `Bearer ${token}`,
+            }),
+          },
+        },
+      );
+
+      const json = await res.json();
+
+      if (json.success) {
+        handleChange(productId, "documents", json.data);
+        toast.success(`${json.data.length} documents selected`);
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to select documents");
+    } finally {
+      setLoadingDocs(false);
+    }
+  };
   const clearDocuments = (productId: string) => {
     handleChange(productId, "documents", []);
   };
@@ -362,10 +425,7 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
       return "Max invoice age must be between 1 and 365 days";
     }
 
-    if (
-      key === "paymentTermsExtensionDays" &&
-      (numVal <= 0 || numVal > 365)
-    ) {
+    if (key === "paymentTermsExtensionDays" && (numVal <= 0 || numVal > 365)) {
       return "Payment terms extension must be between 1 and 365 days";
     }
 
@@ -425,8 +485,13 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
 
     if (fieldType === "toggle") {
       return (
-        <div key={field.key} className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-3 py-3">
-          <label className="text-xs text-gray-700 font-medium">{field.label}</label>
+        <div
+          key={field.key}
+          className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-3 py-3"
+        >
+          <label className="text-xs text-gray-700 font-medium">
+            {field.label}
+          </label>
           <button
             type="button"
             onClick={() =>
@@ -449,10 +514,14 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
     if (fieldType === "textarea") {
       return (
         <div key={field.key} className="col-span-2">
-          <label className="text-xs text-gray-600 mb-1 block">{field.label}</label>
+          <label className="text-xs text-gray-600 mb-1 block">
+            {field.label}
+          </label>
           <textarea
             value={currentValue || ""}
-            onChange={(e) => handleChange(product.id, field.key, e.target.value)}
+            onChange={(e) =>
+              handleChange(product.id, field.key, e.target.value)
+            }
             rows={4}
             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
@@ -470,7 +539,9 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
           <input
             type="text"
             value={currentValue || ""}
-            onChange={(e) => handleChange(product.id, field.key, e.target.value)}
+            onChange={(e) =>
+              handleChange(product.id, field.key, e.target.value)
+            }
             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
@@ -518,8 +589,16 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
   };
 
   useEffect(() => {
-    fetchDocuments();
-  }, []);
+    const timeout = setTimeout(() => {
+      setDebouncedSearch(documentSearch);
+    }, 500);
+
+    return () => clearTimeout(timeout);
+  }, [documentSearch]);
+
+  useEffect(() => {
+    fetchDocuments(1, debouncedSearch);
+  }, [debouncedSearch]);
 
   useEffect(() => {
     const hasErr = Object.values(errors).some((product: any) =>
@@ -552,7 +631,7 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
           <Settings size={14} /> Loan Criteria
         </h2>
         <p className="text-sm text-gray-500">
-          Configure lending criteria for each selected loan program. 
+          Configure lending criteria for each selected loan program.
         </p>
       </div>
 
@@ -693,65 +772,136 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
                       </button>
                     </div>
                   </div>
-
+                  <div className="mb-4">
+                    <input
+                      type="text"
+                      placeholder="Search documents..."
+                      value={documentSearch}
+                      onChange={(e) => setDocumentSearch(e.target.value)}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+                    />
+                  </div>
                   {loadingDocs ? (
-                    <div className="text-sm text-gray-400">
+                    <div className="flex items-center justify-center py-12 text-sm text-gray-500">
                       Loading documents...
                     </div>
-                  ) : (
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                      {documents.map((doc) => {
-                        const checked = value?.[product.id]?.documents?.some(
-                          (d: any) =>
-                            d.id === doc.id || d.documentTypeId === doc.id,
-                        );
+                  ) : documents.length > 0 ? (
+                    <>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                        {documents.map((doc) => {
+                          const checked = value?.[product.id]?.documents?.some(
+                            (d: any) =>
+                              d.id === doc.id || d.documentTypeId === doc.id,
+                          );
 
-                        return (
-                          <label
-                            key={doc.id}
-                            className={`group relative flex items-start gap-3 rounded-2xl border px-4 py-3 cursor-pointer transition-all duration-200
-            ${
-              checked
-                ? "border-indigo-500 bg-indigo-50 shadow-sm scale-[1.01]"
-                : "border-gray-200 bg-white hover:border-indigo-300 hover:bg-gray-50"
-            }`}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={checked || false}
-                              onChange={() => toggleDocument(product.id, doc)}
-                              className="mt-1 accent-indigo-600 cursor-pointer"
-                            />
+                          return (
+                            <label
+                              key={doc.id}
+                              className={`group relative flex items-start gap-3 rounded-2xl border px-4 py-3 cursor-pointer transition-all duration-200
+              ${
+                checked
+                  ? "border-indigo-500 bg-indigo-50 shadow-sm scale-[1.01]"
+                  : "border-gray-200 bg-white hover:border-indigo-300 hover:bg-gray-50"
+              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={checked || false}
+                                onChange={() => toggleDocument(product.id, doc)}
+                                className="mt-1 accent-indigo-600 cursor-pointer"
+                              />
 
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
-                                <div
-                                  className={`w-2.5 h-2.5 rounded-full ${getColor(
-                                    doc.name,
-                                  )}`}
-                                />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <div
+                                    className={`w-2.5 h-2.5 rounded-full ${getColor(doc.name)}`}
+                                  />
 
-                                <p className="text-sm font-medium text-gray-800 leading-tight">
-                                  {doc.name}
-                                </p>
+                                  <p className="text-sm font-medium text-gray-800 leading-tight">
+                                    {doc.name}
+                                  </p>
+                                </div>
+
+                                {/* {doc.code && (
+                <p className="text-[11px] text-gray-500 mt-1 uppercase tracking-wide">
+                  {doc.code}
+                </p>
+              )} */}
                               </div>
 
-                              {/* {doc.code && (
-                                <p className="text-[11px] text-gray-500 mt-1 uppercase tracking-wide">
-                                  {doc.code}
-                                </p>
-                              )} */}
+                              {checked && (
+                                <CheckCircle2
+                                  size={18}
+                                  className="text-indigo-600 shrink-0"
+                                />
+                              )}
+                            </label>
+                          );
+                        })}
+                      </div>
+
+                      {documentPagination.total > 0 && (
+                        <div className="mt-6 flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="text-sm text-gray-500">
+                            Showing{" "}
+                            <span className="font-semibold text-gray-700">
+                              {(documentPagination.page - 1) * DOCUMENT_LIMIT +
+                                1}
+                            </span>
+                            {" - "}
+                            <span className="font-semibold text-gray-700">
+                              {Math.min(
+                                documentPagination.page * DOCUMENT_LIMIT,
+                                documentPagination.total,
+                              )}
+                            </span>{" "}
+                            of{" "}
+                            <span className="font-semibold text-gray-700">
+                              {documentPagination.total}
+                            </span>{" "}
+                            documents
+                          </div>
+
+                          <div className="flex items-center gap-3">
+                            <button
+                              type="button"
+                              disabled={!documentPagination.hasPreviousPage}
+                              onClick={() => fetchDocuments(documentPage - 1)}
+                              className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:border-indigo-500 hover:text-indigo-600 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              ← Previous
+                            </button>
+
+                            <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-2 text-sm font-medium text-gray-700">
+                              Page {documentPagination.page} of{" "}
+                              {documentPagination.totalPages}
                             </div>
 
-                            {checked && (
-                              <CheckCircle2
-                                size={18}
-                                className="text-indigo-600 shrink-0"
-                              />
-                            )}
-                          </label>
-                        );
-                      })}
+                            <button
+                              type="button"
+                              disabled={!documentPagination.hasNextPage}
+                              onClick={() => fetchDocuments(documentPage + 1)}
+                              className="rounded-lg border border-indigo-600 bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:border-gray-300 disabled:bg-gray-300"
+                            >
+                              Next →
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-gray-50 py-12">
+                      <FileText size={42} className="mb-3 text-gray-400" />
+
+                      <h3 className="text-base font-semibold text-gray-700">
+                        No documents found
+                      </h3>
+
+                      <p className="mt-1 text-sm text-gray-500 text-center">
+                        {documentSearch.trim()
+                          ? `No documents found for "${documentSearch}".`
+                          : "No document types are available."}
+                      </p>
                     </div>
                   )}
                 </div>

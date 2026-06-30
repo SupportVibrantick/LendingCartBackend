@@ -138,6 +138,8 @@ model BrokerUserProfile {
   preferredComm   String?
   website         String?
   avatarUrl       String?
+  w9Url           String?
+  profileData     Json?
   createdAt       DateTime    @default(now()) @db.Timestamptz(6)
   updatedAt       DateTime    @updatedAt @db.Timestamptz(6)
   user            UserAccount @relation(fields: [userId], references: [id])

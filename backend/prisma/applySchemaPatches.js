@@ -102,6 +102,12 @@ const COLUMN_PATCHES = [
 
   `ALTER TABLE "application_document_uploads"
     ADD COLUMN IF NOT EXISTS "client_signature_data" TEXT`,
+
+  `ALTER TABLE "broker_user_profiles"
+    ADD COLUMN IF NOT EXISTS "w9Url" TEXT`,
+
+  `ALTER TABLE "broker_user_profiles"
+    ADD COLUMN IF NOT EXISTS "profileData" JSONB`,
 ];
 
 async function applySchemaPatches(existingPrisma) {

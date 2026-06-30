@@ -1,3 +1,7 @@
+const {
+  mergeBrokerProfileResponse,
+} = require("../../../utils/brokerUserProfileHelpers");
+
 module.exports = async function getBrokerUserById(fastify) {
   fastify.get(
     "/:id",
@@ -81,26 +85,7 @@ module.exports = async function getBrokerUserById(fastify) {
             roles: user.roles.map((r) => r.role.name),
             permissions: user.userPermissions.map((p) => p.permission.key),
             assignedDeals: user._count.brokerLoanApplications,
-            profile: user.brokerProfile
-              ? {
-                  company: user.brokerProfile.company,
-                  tollFree: user.brokerProfile.tollFree,
-                  tollFreeExt: user.brokerProfile.tollFreeExt,
-                  serviceProvider: user.brokerProfile.serviceProvider,
-                  address: user.brokerProfile.address,
-                  suite: user.brokerProfile.suite,
-                  city: user.brokerProfile.city,
-                  state: user.brokerProfile.state,
-                  zipCode: user.brokerProfile.zipCode,
-                  agentType: user.brokerProfile.agentType,
-                  licenseNumber: user.brokerProfile.licenseNumber,
-                  preferredComm: user.brokerProfile.preferredComm,
-                  website: user.brokerProfile.website,
-                  avatarUrl: user.brokerProfile.avatarUrl,
-                  createdAt: user.brokerProfile.createdAt,
-                  updatedAt: user.brokerProfile.updatedAt,
-                }
-              : null,
+            profile: mergeBrokerProfileResponse(user.brokerProfile),
           },
         });
       } catch (error) {

@@ -1,8 +1,12 @@
 const bcrypt = require("bcrypt");
-const path = require("path");
-const fs = require("fs");
-const { pipeline } = require("stream/promises");
 const { logAudit } = require("../../../services/logger/auditLogger");
+const {
+  buildProfileDataFromFields,
+  parseBrokerUserMultipart,
+  syncUserPermissions,
+  parsePermissionsField,
+  deletePublicFileIfExists,
+} = require("../../../utils/brokerUserProfileHelpers");
 
 module.exports = async function updateBrokerUser(fastify) {
   fastify.put(
@@ -26,8 +30,6 @@ module.exports = async function updateBrokerUser(fastify) {
       const { id } = req.params;
 
       try {
-        /* ================= AUTHORIZATION ================= */
-
         if (!req.user || req.user.orgType !== "BROKER") {
           return reply.code(403).send({
             success: false,
@@ -43,8 +45,6 @@ module.exports = async function updateBrokerUser(fastify) {
         }
 
         const brokerOrgId = req.user.organizationId;
-
-        /* ================= FETCH EXISTING USER ================= */
 
         const existingUser = await prisma.userAccount.findUnique({
           where: { id },
@@ -67,51 +67,18 @@ module.exports = async function updateBrokerUser(fastify) {
           });
         }
 
-        /* ================= MULTIPART PARSE ================= */
+        let fields;
+        let avatarUrl;
+        let w9Url;
 
-        const parts = req.parts();
-        const fields = {};
-        let avatarPath = null;
-
-        for await (const part of parts) {
-          if (part.type === "file") {
-            if (part.fieldname === "avatar") {
-              const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
-
-              if (!allowedTypes.includes(part.mimetype)) {
-                return reply.code(400).send({
-                  success: false,
-                  message:
-                    "Invalid image type. Only jpg, png, webp allowed.",
-                });
-              }
-
-              const uploadDir = path.join(
-                process.cwd(),
-                "public/broker/loanofficer"
-              );
-
-              if (!fs.existsSync(uploadDir)) {
-                fs.mkdirSync(uploadDir, { recursive: true });
-              }
-
-              const fileName =
-                Date.now() +
-                "-" +
-                part.filename.replace(/\s+/g, "_");
-
-              const filePath = path.join(uploadDir, fileName);
-
-              await pipeline(part.file, fs.createWriteStream(filePath));
-
-              avatarPath = `/public/broker/loanofficer/${fileName}`;
-            }
-          } else {
-            fields[part.fieldname] = part.value;
-          }
+        try {
+          ({ fields, avatarUrl, w9Url } = await parseBrokerUserMultipart(req));
+        } catch (uploadErr) {
+          return reply.code(400).send({
+            success: false,
+            message: uploadErr.message || "Invalid upload",
+          });
         }
-
-        /* ================= EXTRACT FIELDS ================= */
 
         const {
           email,
@@ -121,21 +88,24 @@ module.exports = async function updateBrokerUser(fastify) {
           phone,
           allowedToLogin,
           company,
-          tollFree,
-          tollFreeExt,
-          serviceProvider,
           address,
-          suite,
-          city,
-          state,
-          zipCode,
           agentType,
           licenseNumber,
           preferredComm,
           website,
         } = fields;
 
-        /* ================= BUILD USER UPDATE ================= */
+        let parsedPermissions = null;
+        if (fields.permissions !== undefined) {
+          try {
+            parsedPermissions = parsePermissionsField(fields);
+          } catch {
+            return reply.code(400).send({
+              success: false,
+              message: "Invalid permissions format",
+            });
+          }
+        }
 
         const userUpdateData = {};
 
@@ -153,34 +123,26 @@ module.exports = async function updateBrokerUser(fastify) {
           userUpdateData.passwordHash = await bcrypt.hash(password, 10);
         }
 
-        /* ================= BUILD PROFILE UPDATE ================= */
-
         const profileUpdateData = {};
-
         if (company !== undefined) profileUpdateData.company = company;
-        if (tollFree !== undefined) profileUpdateData.tollFree = tollFree;
-        if (tollFreeExt !== undefined)
-          profileUpdateData.tollFreeExt = tollFreeExt;
-        if (serviceProvider !== undefined)
-          profileUpdateData.serviceProvider = serviceProvider;
         if (address !== undefined) profileUpdateData.address = address;
-        if (suite !== undefined) profileUpdateData.suite = suite;
-        if (city !== undefined) profileUpdateData.city = city;
-        if (state !== undefined) profileUpdateData.state = state;
-        if (zipCode !== undefined) profileUpdateData.zipCode = zipCode;
-        if (agentType !== undefined)
-          profileUpdateData.agentType = agentType;
-        if (licenseNumber !== undefined)
+        if (agentType !== undefined) profileUpdateData.agentType = agentType;
+        if (licenseNumber !== undefined) {
           profileUpdateData.licenseNumber = licenseNumber;
-        if (preferredComm !== undefined)
+        }
+        if (preferredComm !== undefined) {
           profileUpdateData.preferredComm = preferredComm;
+        }
         if (website !== undefined) profileUpdateData.website = website;
 
-        if (avatarPath !== null) {
-          profileUpdateData.avatarUrl = avatarPath;
-        }
+        if (avatarUrl !== null) profileUpdateData.avatarUrl = avatarUrl;
+        if (w9Url !== null) profileUpdateData.w9Url = w9Url;
 
-        /* ================= TRANSACTION ================= */
+        const existingProfileData = existingUser.brokerProfile?.profileData || {};
+        profileUpdateData.profileData = buildProfileDataFromFields(
+          fields,
+          existingProfileData,
+        );
 
         await prisma.$transaction(async (tx) => {
           if (Object.keys(userUpdateData).length > 0) {
@@ -196,22 +158,19 @@ module.exports = async function updateBrokerUser(fastify) {
               data: profileUpdateData,
             });
           }
+
+          if (parsedPermissions !== null) {
+            await syncUserPermissions(tx, id, parsedPermissions);
+          }
         });
 
-        /* ================= DELETE OLD AVATAR ================= */
-
-        if (avatarPath && existingUser.brokerProfile?.avatarUrl) {
-          const oldPath = path.join(
-            process.cwd(),
-            existingUser.brokerProfile.avatarUrl
-          );
-
-          if (fs.existsSync(oldPath)) {
-            fs.unlinkSync(oldPath);
-          }
+        if (avatarUrl && existingUser.brokerProfile?.avatarUrl) {
+          deletePublicFileIfExists(existingUser.brokerProfile.avatarUrl);
         }
 
-        /* ================= AUDIT LOG ================= */
+        if (w9Url && existingUser.brokerProfile?.w9Url) {
+          deletePublicFileIfExists(existingUser.brokerProfile.w9Url);
+        }
 
         await logAudit({
           prisma,
@@ -227,13 +186,10 @@ module.exports = async function updateBrokerUser(fastify) {
           },
         });
 
-        /* ================= SUCCESS ================= */
-
         return reply.send({
           success: true,
           message: "Loan Officer updated successfully",
         });
-
       } catch (error) {
         fastify.log.error(
           {
@@ -241,16 +197,14 @@ module.exports = async function updateBrokerUser(fastify) {
             stack: error.stack,
             userId: id,
           },
-          "Update broker user failed"
+          "Update broker user failed",
         );
-
-        console.log(error);
 
         return reply.code(500).send({
           success: false,
           message: "Internal server error while updating user",
         });
       }
-    }
+    },
   );
 };

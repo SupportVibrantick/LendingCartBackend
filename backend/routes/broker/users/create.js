@@ -1,11 +1,14 @@
 const bcrypt = require("bcrypt");
-const path = require("path");
-const fs = require("fs");
-const { pipeline } = require("stream/promises");
 const { logAudit } = require("../../../services/logger/auditLogger");
 const {
   sendLoanOfficerCredentialsEmail,
 } = require("../../../services/loanOfficerCredentialsEmail");
+const {
+  buildProfileDataFromFields,
+  parseBrokerUserMultipart,
+  syncUserPermissions,
+  parsePermissionsField,
+} = require("../../../utils/brokerUserProfileHelpers");
 
 module.exports = async function createBrokerUser(fastify) {
   fastify.post(
@@ -14,75 +17,41 @@ module.exports = async function createBrokerUser(fastify) {
       schema: {
         tags: ["Broker -> Users"],
         summary: "Create Loan Officer with full profile",
-        consumes: ["multipart/form-data"]
-      }
+        consumes: ["multipart/form-data"],
+      },
     },
     async (req, reply) => {
       const prisma = fastify.prisma;
 
       try {
-        /* ================= AUTHORIZATION ================= */
-
         if (!req.user || req.user.orgType !== "BROKER") {
           return reply.code(403).send({
             success: false,
-            message: "Broker access only"
+            message: "Broker access only",
           });
         }
 
         if (!req.user.roles?.includes("BROKER_ADMIN")) {
           return reply.code(403).send({
             success: false,
-            message: "Only Broker Admin can create users"
+            message: "Only Broker Admin can create users",
           });
         }
 
         const brokerOrgId = req.user.organizationId;
 
-        /* ================= MULTIPART PARSE ================= */
+        let fields;
+        let avatarUrl;
+        let w9Url;
 
-        const parts = req.parts();
-        const fields = {};
-        let avatarPath = null;
-
-        for await (const part of parts) {
-          if (part.type === "file") {
-            if (part.fieldname === "avatar") {
-              const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
-
-              if (!allowedTypes.includes(part.mimetype)) {
-                return reply.code(400).send({
-                  success: false,
-                  message: "Invalid image type. Only jpg, png, webp allowed."
-                });
-              }
-
-              const uploadDir = path.join(
-                process.cwd(),
-                "public/broker/loanofficer"
-              );
-
-              if (!fs.existsSync(uploadDir)) {
-                fs.mkdirSync(uploadDir, { recursive: true });
-              }
-
-              const fileName =
-                Date.now() +
-                "-" +
-                part.filename.replace(/\s+/g, "_");
-
-              const filePath = path.join(uploadDir, fileName);
-
-              await pipeline(part.file, fs.createWriteStream(filePath));
-
-              avatarPath = `/public/broker/loanofficer/${fileName}`;
-            }
-          } else {
-            fields[part.fieldname] = part.value;
-          }
+        try {
+          ({ fields, avatarUrl, w9Url } = await parseBrokerUserMultipart(req));
+        } catch (uploadErr) {
+          return reply.code(400).send({
+            success: false,
+            message: uploadErr.message || "Invalid upload",
+          });
         }
-
-        /* ================= VALIDATION ================= */
 
         const {
           email,
@@ -94,84 +63,87 @@ module.exports = async function createBrokerUser(fastify) {
           phone,
           allowedToLogin,
           company,
-          tollFree,
-          tollFreeExt,
-          serviceProvider,
           address,
-          suite,
-          city,
-          state,
-          zipCode,
           agentType,
           licenseNumber,
           preferredComm,
           website,
-          permissions // ✅ NEW
         } = fields;
 
-        // ✅ NEW: parse permissions safely
         let parsedPermissions = [];
-        if (permissions) {
-          try {
-            parsedPermissions = JSON.parse(permissions);
-          } catch (e) {
-            return reply.code(400).send({
-              success: false,
-              message: "Invalid permissions format"
-            });
-          }
-        }
-
-        if (!email || !confirmEmail || !password || !confirmPassword || !firstName || !lastName) {
+        try {
+          parsedPermissions = parsePermissionsField(fields);
+        } catch {
           return reply.code(400).send({
             success: false,
-            message: "Required fields missing"
+            message: "Invalid permissions format",
+          });
+        }
+
+        if (
+          !email ||
+          !confirmEmail ||
+          !firstName ||
+          !lastName
+        ) {
+          return reply.code(400).send({
+            success: false,
+            message: "Required fields missing",
+          });
+        }
+
+        const loginEnabled = allowedToLogin !== "false";
+
+        if (loginEnabled && (!password || !confirmPassword)) {
+          return reply.code(400).send({
+            success: false,
+            message: "Password is required when login is enabled",
           });
         }
 
         if (email !== confirmEmail) {
           return reply.code(400).send({
             success: false,
-            message: "Email and Confirm Email do not match"
+            message: "Email and Confirm Email do not match",
           });
         }
 
-        if (password !== confirmPassword) {
+        if (loginEnabled && password !== confirmPassword) {
           return reply.code(400).send({
             success: false,
-            message: "Password and Confirm Password do not match"
+            message: "Password and Confirm Password do not match",
           });
         }
 
         const existingUser = await prisma.userAccount.findUnique({
-          where: { email }
+          where: { email },
         });
 
         if (existingUser) {
           return reply.code(400).send({
             success: false,
-            message: "Email already registered"
+            message: "Email already registered",
           });
         }
 
-        /* ================= HASH PASSWORD ================= */
-
-        const passwordHash = await bcrypt.hash(password, 10);
-
-        /* ================= FETCH ROLE ================= */
+        const passwordHash = loginEnabled
+          ? await bcrypt.hash(password, 10)
+          : await bcrypt.hash(
+              `disabled-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+              10,
+            );
+        const profileData = buildProfileDataFromFields(fields);
 
         const roleRecord = await prisma.role.findFirst({
-          where: { name: "BROKER_OFFICER" }
+          where: { name: "BROKER_OFFICER" },
         });
 
         if (!roleRecord) {
           return reply.code(500).send({
             success: false,
-            message: "Role configuration error"
+            message: "Role configuration error",
           });
         }
-
-        /* ================= TRANSACTION ================= */
 
         const newUser = await prisma.$transaction(async (tx) => {
           const user = await tx.userAccount.create({
@@ -182,61 +154,36 @@ module.exports = async function createBrokerUser(fastify) {
               lastName,
               phone,
               organizationId: brokerOrgId,
-              status: allowedToLogin === "false" ? "DISABLED" : "ACTIVE"
-            }
+              status: allowedToLogin === "false" ? "DISABLED" : "ACTIVE",
+            },
           });
 
           await tx.userRole.create({
             data: {
               userId: user.id,
-              roleId: roleRecord.id
-            }
+              roleId: roleRecord.id,
+            },
           });
 
           await tx.brokerUserProfile.create({
             data: {
               userId: user.id,
               company,
-              tollFree,
-              tollFreeExt,
-              serviceProvider,
               address,
-              suite,
-              city,
-              state,
-              zipCode,
-              agentType,
+              agentType: agentType || "Loan Officer",
               licenseNumber,
               preferredComm,
               website,
-              avatarUrl: avatarPath
-            }
+              avatarUrl,
+              w9Url,
+              profileData,
+            },
           });
 
-          /* ================= NEW: SAVE PERMISSIONS ================= */
-
-          if (parsedPermissions.length > 0) {
-            const permissionRecords = await tx.permission.findMany({
-              where: {
-                key: { in: parsedPermissions }
-              }
-            });
-
-            if (permissionRecords.length > 0) {
-              await tx.userPermission.createMany({
-                data: permissionRecords.map((perm) => ({
-                  userId: user.id,
-                  permissionId: perm.id,
-                  isAllowed: true
-                }))
-              });
-            }
-          }
+          await syncUserPermissions(tx, user.id, parsedPermissions);
 
           return user;
         });
-
-        /* ================= AUDIT LOG ================= */
 
         await logAudit({
           prisma,
@@ -249,11 +196,11 @@ module.exports = async function createBrokerUser(fastify) {
           newValue: {
             email,
             firstName,
-            lastName
-          }
+            lastName,
+          },
         });
 
-        if (newUser.status === "ACTIVE") {
+        if (newUser.status === "ACTIVE" && loginEnabled) {
           try {
             const organization = await prisma.organization.findUnique({
               where: { id: brokerOrgId },
@@ -266,16 +213,10 @@ module.exports = async function createBrokerUser(fastify) {
               password,
               organizationName: organization?.name,
             });
-
-            fastify.log.info(
-              { to: email, loanOfficerId: newUser.id },
-              "Loan officer welcome email sent",
-            );
           } catch (mailErr) {
             fastify.log.error(
               {
                 error: mailErr.message,
-                stack: mailErr.stack,
                 to: email,
                 loanOfficerId: newUser.id,
               },
@@ -283,8 +224,6 @@ module.exports = async function createBrokerUser(fastify) {
             );
           }
         }
-
-        /* ================= SUCCESS ================= */
 
         return reply.code(201).send({
           success: true,
@@ -294,22 +233,20 @@ module.exports = async function createBrokerUser(fastify) {
             email: newUser.email,
             firstName: newUser.firstName,
             lastName: newUser.lastName,
-            status: newUser.status
-          }
+            status: newUser.status,
+          },
         });
-
       } catch (error) {
         fastify.log.error({
           error: error.message,
-          stack: error.stack
+          stack: error.stack,
         });
 
         return reply.code(500).send({
           success: false,
-          message: "Internal server error while creating user"
+          message: error.message ||"Internal server error while creating user",
         });
       }
-    }
+    },
   );
 };
-
