@@ -356,7 +356,7 @@ const PRODUCT_LABELS: Record<string, string> = {
 };
 
 /* ================= HELPERS ================= */
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
+const API_BASE = "https://api-lendingcart.vibrantick.org";
 
 function getPublicActiveApplicationUrl(brokerOrgId?: string | null) {
   const params = new URLSearchParams();
