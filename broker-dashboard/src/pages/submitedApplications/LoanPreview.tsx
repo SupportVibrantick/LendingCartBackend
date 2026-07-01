@@ -30,7 +30,7 @@ import LoanPreviewChat from "./LoanPreviewChat";
 import FeeAgreement from "./FeeAgreement";
 import LoanApplication from "../LoanApplication/LoanApplication";
 import { mapSubmissionToLoanApplication } from "../../lib/mapSubmissionToLoanApplication";
-import {
+import { 
   expandDocumentsForDisplay,
   getDocumentSentDisplay,
   getDocumentSourceDisplay,
@@ -91,9 +91,10 @@ type Lender = {
   lenderProductId: string;
 
   // NEW FIELDS (REQUIRED)
-  type: "eligible" | "rejected" | "sent";
+  type: "eligible" | "ineligible" | "rejected" | "sent";
   alreadySent: boolean;
   canSend: boolean;
+  applicationStatus?: string;
   rejectionReasons: string[];
 };
 
@@ -326,6 +327,8 @@ const LoanPreview = () => {
   const [lenderFilter, setLenderFilter] = useState<
     "all" | "eligible" | "rejected" | "sent"
   >("all");
+
+  const [markingFundedId, setMarkingFundedId] = useState<string | null>(null);
 
   const [page, setPage] = useState(1);
   const [limit] = useState(10);
@@ -647,6 +650,89 @@ const LoanPreview = () => {
     }
   };
 
+  const handleMarkFunded = async (applicationLenderId: string) => {
+    if (!applicationId) {
+      Swal.fire({
+        title: "Error",
+        text: "Application not found",
+        icon: "error",
+        confirmButtonColor: "#ef4444",
+      });
+      return;
+    }
+
+    const selectedLender = (submissionDetail?.lenders || []).find(
+      (lender: { applicationLenderId?: string }) =>
+        lender.applicationLenderId === applicationLenderId,
+    );
+    const lenderName = selectedLender?.lenderName || "this lender";
+
+    const result = await Swal.fire({
+      title: "Mark as Funded?",
+      html: `Confirm <strong>${lenderName}</strong> as the funded lender for this deal.<br/><br/>Other approved lenders will be withdrawn and this action cannot be undone.`,
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonText: "Yes, mark as funded",
+      cancelButtonText: "Cancel",
+      confirmButtonColor: "#059669",
+      cancelButtonColor: "#64748b",
+      reverseButtons: true,
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+      setMarkingFundedId(applicationLenderId);
+
+      Swal.fire({
+        title: "Marking as Funded...",
+        text: "Please wait while we update the application",
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        },
+      });
+
+      const res = await fetch(
+        `${API_BASE}/broker/loan-pipeline/${applicationId}/mark-funded`,
+        {
+          method: "POST",
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ applicationLenderId }),
+        },
+      );
+
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Failed to mark as funded");
+      }
+
+      const fundedLenderName =
+        json.data?.fundedLenderName || lenderName || "the selected lender";
+
+      await Swal.fire({
+        title: "Funded",
+        html: `Application marked as funded with <strong>${fundedLenderName}</strong>.`,
+        icon: "success",
+        confirmButtonColor: "#059669",
+      });
+
+      if (submissionId) {
+        await fetchSubmissionDetails(submissionId);
+      }
+    } catch (err: any) {
+      Swal.fire({
+        title: "Error",
+        text: err.message || "Failed to mark as funded",
+        icon: "error",
+        confirmButtonColor: "#ef4444",
+      });
+    } finally {
+      setMarkingFundedId(null);
+    }
+  };
+
   const fetchDocumentTypes = async (id: string) => {
     try {
       setRequestDocsLoading(true);
@@ -795,79 +881,53 @@ const LoanPreview = () => {
 
       setBorrowerSummary(data.borrowerData);
 
-      // Merge all lenders into one array
+      const mapLenderBase = (l: any) => ({
+        id: l.lenderOrgId,
+        name: l.lenderName,
+        email: l.lenderEmail,
+        phone: l.lenderPhone,
+        profileImage: l.profileImage
+          ? `${API_BASE}/public/${l.profileImage}`
+          : null,
+        lenderProductId: l.lenderProductId,
+        loanProductCode: l.loanProductCode,
+        minFunding: l.fundingRange?.min ?? 0,
+        maxFunding: l.fundingRange?.max ?? 0,
+        minMonths: l.terms?.minMonths ?? 0,
+        maxMonths: l.terms?.maxMonths ?? 0,
+        interestRateRange: l.interestRateRange,
+        fundingSpeedDays: l.lenderProfile?.fundingSpeedDays ?? 0,
+        summary: l.lenderProfile?.summary,
+        alreadySent: Boolean(l.alreadySent),
+        canSend: Boolean(l.canSend),
+        applicationStatus: l.applicationStatus,
+        rejectionReasons: l.rejectionReasons || [],
+      });
+
       const allLenders = [
         ...(data.eligibleLenders || []).map((l: any) => ({
-          id: l.lenderOrgId,
-          name: l.lenderName,
-          email: l.lenderEmail,
-          phone: l.lenderPhone,
-          profileImage: l.profileImage
-            ? `${API_BASE}/public/${l.profileImage}`
-            : null,
-          lenderProductId: l.lenderProductId,
-          loanProductCode: l.loanProductCode,
-          minFunding: l.fundingRange?.min ?? 0,
-          maxFunding: l.fundingRange?.max ?? 0,
-          minMonths: l.terms?.minMonths ?? 0,
-          maxMonths: l.terms?.maxMonths ?? 0,
-          interestRateRange: l.interestRateRange,
-          fundingSpeedDays: l.lenderProfile?.fundingSpeedDays ?? 0,
-          summary: l.lenderProfile?.summary,
+          ...mapLenderBase(l),
+          type: "eligible" as const,
+        })),
 
-          // IMPORTANT FLAGS
-          type: "eligible",
-          alreadySent: l.alreadySent,
-          canSend: l.canSend,
-          rejectionReasons: [],
+        ...(data.ineligibleLenders || []).map((l: any) => ({
+          ...mapLenderBase(l),
+          type: "ineligible" as const,
+          canSend: false,
         })),
 
         ...(data.rejectedLenders || []).map((l: any) => ({
-          id: l.lenderOrgId,
-          name: l.lenderName,
-          email: l.lenderEmail,
-          phone: l.lenderPhone,
-          profileImage: l.profileImage
-            ? `${API_BASE}/public/${l.profileImage}`
-            : null,
-          loanProductCode: l.loanProductCode,
-          lenderProductId: l.lenderProductId,
-          minFunding: l.fundingRange?.min ?? 0,
-          maxFunding: l.fundingRange?.max ?? 0,
-          minMonths: l.terms?.minMonths ?? 0,
-          maxMonths: l.terms?.maxMonths ?? 0,
-          interestRateRange: l.interestRateRange,
-          fundingSpeedDays: l.lenderProfile?.fundingSpeedDays ?? 0,
-          summary: l.lenderProfile?.summary,
-
-          type: "rejected",
-          alreadySent: l.alreadySent,
+          ...mapLenderBase(l),
+          type: "rejected" as const,
+          alreadySent: true,
           canSend: false,
-          rejectionReasons: l.rejectionReasons || [],
         })),
 
         ...(data.alreadySentLenders || []).map((l: any) => ({
-          id: l.lenderOrgId,
-          name: l.lenderName,
-          email: l.lenderEmail,
-          phone: l.lenderPhone,
-          profileImage: l.profileImage
-            ? `${API_BASE}/public/${l.profileImage}`
-            : null,
-          loanProductCode: l.loanProductCode,
-          lenderProductId: l.lenderProductId,
-          minFunding: l.fundingRange?.min ?? 0,
-          maxFunding: l.fundingRange?.max ?? 0,
-          minMonths: l.terms?.minMonths ?? 0,
-          maxMonths: l.terms?.maxMonths ?? 0,
-          interestRateRange: l.interestRateRange,
-          fundingSpeedDays: l.lenderProfile?.fundingSpeedDays ?? 0,
-          summary: l.lenderProfile?.summary,
-
-          type: "sent",
+          ...mapLenderBase(l),
+          type: "sent" as const,
           alreadySent: true,
           canSend: false,
-          rejectionReasons: [],
         })),
       ];
 
@@ -1188,6 +1248,9 @@ const LoanPreview = () => {
       netWorth={netWorth}
       submittedDate={submittedDate}
       showEditHint={submissionDetail?.canEdit !== false}
+      canMarkFunded
+      markingFundedId={markingFundedId}
+      onMarkFunded={handleMarkFunded}
     />
   );
 
@@ -1577,7 +1640,7 @@ dark:border-slate-800 dark:bg-slate-900"
               <div>
                 <b>Total Lenders:</b>
                 <div className="text-blue-400 font-semibold">
-                  {lenders.length}
+                  {lenderPagination?.total ?? lenders.length}
                 </div>
               </div>
             </div>
@@ -1654,15 +1717,19 @@ dark:border-slate-800 dark:bg-slate-900"
                       </div>
 
                       <span
-                        className={`px-2 py-1 text-xs rounded-full ${
+                        className={`px-2 py-1 text-xs rounded-full capitalize ${
                           lender.type === "eligible"
                             ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                            : lender.type === "ineligible"
+                              ? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400"
                             : lender.type === "rejected"
                               ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
                               : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
                         }`}
                       >
-                        {lender.type}
+                        {lender.type === "ineligible"
+                          ? "Not Eligible"
+                          : lender.type}
                       </span>
                     </div>
 
@@ -1686,18 +1753,33 @@ dark:border-slate-800 dark:bg-slate-900"
                       <div>Funding Speed: {lender.fundingSpeedDays} Days</div>
                     </div>
 
-                    {/* REJECTION */}
-                    {lender.type === "rejected" &&
-                      lender.rejectionReasons?.length > 0 && (
+                    {/* REJECTION / INELIGIBILITY */}
+                    {lender.type === "ineligible" &&
+                      lender.rejectionReasons.length > 0 && (
+                        <div
+                          className="mt-3 rounded bg-amber-50 p-2 text-xs text-amber-800
+dark:bg-amber-900/20 dark:text-amber-300"
+                        >
+                          <p className="mb-1 font-semibold">
+                            Does not meet criteria:
+                          </p>
+                          <ul className="list-disc space-y-0.5 pl-4">
+                            {lender.rejectionReasons.map((reason) => (
+                              <li key={reason}>{reason}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                    {lender.type === "rejected" && (
                         <div
                           className="mt-3 text-xs text-red-600 bg-red-50 p-2 rounded
 dark:bg-red-900/20 dark:text-red-400"
                         >
-                          {lender.rejectionReasons.map(
-                            (r: string, i: number) => (
-                              <div key={i}>â€¢ {r}</div>
-                            ),
-                          )}
+                          Lender declined this submission
+                          {lender.applicationStatus
+                            ? ` (${String(lender.applicationStatus).replace(/_/g, " ").toLowerCase()})`
+                            : ""}
                         </div>
                       )}
                   </div>
@@ -1722,6 +1804,8 @@ dark:bg-red-900/20 dark:text-red-400"
            ? "bg-blue-500 cursor-not-allowed"
            : lender.type === "rejected"
              ? "bg-red-500 cursor-not-allowed"
+             : lender.type === "ineligible"
+               ? "bg-amber-500 cursor-not-allowed"
              : "bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-indigo-600 hover:to-blue-500 shadow-md hover:shadow-lg"
      }
 
@@ -1733,7 +1817,9 @@ dark:bg-red-900/20 dark:text-red-400"
                         : lender.alreadySent
                           ? "Already Sent"
                           : lender.type === "rejected"
-                            ? "Not Eligible"
+                            ? "Rejected"
+                            : lender.type === "ineligible"
+                              ? "Not Eligible"
                             : "Send to Lender"}
                     </button>
                   </div>

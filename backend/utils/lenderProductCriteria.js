@@ -187,6 +187,108 @@ const isNoTermCriteriaProduct = (loanProductCode) =>
 const isSba7aRateSpreadProduct = (loanProductCode) =>
   isSba7aMaxLoanOnlyProduct(loanProductCode);
 
+const usesYearTerms = (loanProductCode) =>
+  isDscrRentalProduct(loanProductCode) ||
+  isRentalPortfolioProduct(loanProductCode) ||
+  isCrePermanentProduct(loanProductCode) ||
+  isCmbsProduct(loanProductCode) ||
+  isAgencyMultifamilyProduct(loanProductCode) ||
+  isSba7aBusinessAcquisitionProduct(loanProductCode) ||
+  isSba7aWorkingCapitalProduct(loanProductCode) ||
+  isSba7aEquipmentPurchaseProduct(loanProductCode) ||
+  isSba7aRealEstateProduct(loanProductCode) ||
+  isSba504Product(loanProductCode) ||
+  isUsdaBiProduct(loanProductCode);
+
+/**
+ * Mirrors lending-dashboard loanProductCriteriaFields.ts — which criteria
+ * apply per loan product when evaluating broker lender discovery.
+ */
+const getProductEligibilityRules = (productCode) => {
+  const code = String(productCode || "");
+  const noMinLoan = isNoMinLoanCriteriaProduct(code);
+  const noPropertyMetrics = isNoPropertyMetricsProduct(code);
+  const noTerm = isNoTermCriteriaProduct(code);
+
+  return {
+    checkMinLoanAmount:
+      !noMinLoan ||
+      isPurchaseOrderFinanceProduct(code) ||
+      isArFactoringProduct(code) ||
+      isApSupplyChainProduct(code),
+    checkMaxLoanAmount: !isSba504Product(code),
+    checkMaxTotalProjectAmount: isSba504Product(code),
+    checkMaxSba504DebentureAmount: isSba504Product(code),
+    checkTermMonths: !noTerm,
+    checkCreditScore:
+      !isPurchaseOrderFinanceProduct(code) &&
+      !isArFactoringProduct(code) &&
+      !isApSupplyChainProduct(code) &&
+      !isCmbsProduct(code) &&
+      !isAgencyMultifamilyProduct(code) &&
+      !isMezzanineProduct(code) &&
+      !isPreferredEquityProduct(code),
+    checkLtv:
+      !isMezzanineProduct(code) &&
+      !isPreferredEquityProduct(code) &&
+      !noPropertyMetrics,
+    checkMezzLtv: isMezzanineProduct(code),
+    checkLtc:
+      supportsLtcPercent(code) &&
+      !isDscrRentalProduct(code) &&
+      !isRentalPortfolioProduct(code) &&
+      !isCrePermanentProduct(code) &&
+      !isCmbsProduct(code) &&
+      !isAgencyMultifamilyProduct(code) &&
+      !isMezzanineProduct(code) &&
+      !isPreferredEquityProduct(code),
+    checkArv:
+      !isBridgeLoanProduct(code) &&
+      !isDscrRentalProduct(code) &&
+      !isRentalPortfolioProduct(code) &&
+      !isConstructionLoanProduct(code) &&
+      !isCrePermanentProduct(code) &&
+      !isCmbsProduct(code) &&
+      !isAgencyMultifamilyProduct(code) &&
+      !isMezzanineProduct(code) &&
+      !isPreferredEquityProduct(code) &&
+      !noPropertyMetrics,
+    checkDscr:
+      isDscrRentalProduct(code) ||
+      isRentalPortfolioProduct(code) ||
+      isCrePermanentProduct(code) ||
+      isCmbsProduct(code) ||
+      isAgencyMultifamilyProduct(code),
+    checkMinDebtYield: isCrePermanentProduct(code) || isCmbsProduct(code),
+    checkMinExperience:
+      !isBridgeLoanProduct(code) &&
+      !isFixAndFlipProduct(code) &&
+      !isDscrRentalProduct(code) &&
+      !isRentalPortfolioProduct(code) &&
+      !isConstructionLoanProduct(code) &&
+      !isCrePermanentProduct(code) &&
+      !isCmbsProduct(code) &&
+      !isAgencyMultifamilyProduct(code) &&
+      !isMezzanineProduct(code) &&
+      !isPreferredEquityProduct(code) &&
+      !noPropertyMetrics,
+    checkFirstTimeBorrowers: isFixAndFlipProduct(code),
+    checkMinUnits: isAgencyMultifamilyProduct(code),
+    checkPortfolioProperties: isRentalPortfolioProduct(code),
+    checkMinTimeInBusiness: isSba7aWorkingCapitalProduct(code),
+    checkPropertyType: true,
+    checkPropertyState: true,
+    checkBusinessIndustry: false,
+    checkInterestRate:
+      !isPreferredEquityProduct(code) &&
+      !noMinLoan &&
+      !isPurchaseOrderFinanceProduct(code) &&
+      !isArFactoringProduct(code) &&
+      !isApSupplyChainProduct(code),
+    usesYearTerms: usesYearTerms(code),
+  };
+};
+
 module.exports = {
   BRIDGE_LOAN_CODES,
   FIX_AND_FLIP_CODES,
@@ -239,4 +341,6 @@ module.exports = {
   isNoPropertyMetricsProduct,
   isNoTermCriteriaProduct,
   isSba7aRateSpreadProduct,
+  usesYearTerms,
+  getProductEligibilityRules,
 };

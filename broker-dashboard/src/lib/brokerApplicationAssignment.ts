@@ -19,14 +19,19 @@ export function canBrokerReassignApplication(
     .trim();
   const appStatus = (row.applicationStatus || "").toUpperCase().trim();
 
+  const blockedApplicationStatuses = [
+    "AUTO_APPROVED",
+    "LENDER_APPROVED",
+    "FUNDED",
+    "WITHDRAWN",
+    "SUSPENDED",
+  ];
+  
   if (
     displayStatus === "APPROVED" ||
-    ["LENDER_APPROVED", "AUTO_APPROVED"].includes(appStatus)
+    displayStatus === "FUNDED" ||
+    blockedApplicationStatuses.includes(appStatus)
   ) {
-    return false;
-  }
-
-  if (["FUNDED", "WITHDRAWN", "SUSPENDED"].includes(appStatus)) {
     return false;
   }
 

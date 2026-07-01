@@ -151,6 +151,7 @@ const STATUS_FILTERS = [
   { value: "SUBMITTED", label: "Submitted", statKey: "submitted" as const },
   { value: "IN_REVIEW", label: "In Review", statKey: "inReview" as const },
   { value: "APPROVED", label: "Approved", statKey: "approved" as const },
+  { value: "FUNDED", label: "Funded", statKey: "funded" as const },
   { value: "DECLINED", label: "Rejected", statKey: "rejected" as const },
 ];
 
@@ -220,6 +221,7 @@ export default function LoanApplicationsPage() {
     rejected: 0,
     inReview: 0,
     draft: 0,
+    funded: 0,
   });
 
   const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0 });
@@ -335,6 +337,9 @@ export default function LoanApplicationsPage() {
 
       case "superseded":
         return "bg-orange-400/10 border-orange-400/20 text-orange-600 dark:text-orange-400";
+
+      case "funded":
+        return "bg-emerald-100 border-emerald-200 text-emerald-700 dark:bg-emerald-500/10 dark:border-emerald-500/30 dark:text-emerald-400";
 
       default:
         return "bg-slate-500/10 border-slate-500/20 text-slate-600 dark:text-slate-400";
@@ -823,6 +828,9 @@ export default function LoanApplicationsPage() {
 
       case "DRAFT":
         return "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300";
+
+      case "FUNDED":
+        return "bg-teal-100 text-teal-800 dark:bg-teal-500/10 dark:text-teal-400";
 
       default:
         return "bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300";
@@ -1529,7 +1537,7 @@ export default function LoanApplicationsPage() {
                           className={`inline-flex max-w-full items-center truncate rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${getStatusColor(row.status)}`}
                           title={formatStatusLabel(row.status)}
                         >
-                          {formatStatusLabel(row.status)}
+                          {formatStatusLabel(row.status)} 
                         </span>
                       </td>
 

@@ -57,6 +57,8 @@ type StepTwoProps = {
   setValue: (value: string[]) => void;
   mode?: "admin" | "lender";
   onProductsLoad?: (products: LoanProduct[]) => void;
+  lockedIds?: string[];
+  description?: string;
 };
 
 const StepTwo = ({
@@ -64,18 +66,33 @@ const StepTwo = ({
   setValue,
   mode = "admin",
   onProductsLoad,
+  lockedIds = [],
+  description,
 }: StepTwoProps) => {
   const safeValue = Array.isArray(value) ? value : [];
+  const lockedSet = new Set(lockedIds);
   const [products, setProducts] = useState<LoanProduct[]>([]);
 
   const toggle = (id: string) => {
     const current = Array.isArray(value) ? value : [];
+
+    if (lockedSet.has(id) && current.includes(id)) {
+      return;
+    }
 
     const next = current.includes(id)
       ? current.filter((i: string) => i !== id)
       : [...current, id];
 
     setValue(next);
+  };
+
+  const handleClear = () => {
+    if (lockedIds.length > 0) {
+      setValue([...lockedIds]);
+      return;
+    }
+    setValue([]);
   };
 
   const fetchLoanProducts = async () => {
@@ -162,7 +179,10 @@ const StepTwo = ({
           </h2>
 
           <p className="text-sm text-gray-500 mt-1">
-            Select which loan programs you want to add.
+            {description ||
+              (lockedIds.length > 0
+                ? "Existing programs stay selected. You can add more programs, but cannot remove current ones."
+                : "Select which loan programs you want to add.")}
           </p>
         </div>
 
@@ -176,9 +196,9 @@ const StepTwo = ({
           </button>
 
           <button
-            onClick={() => setValue([])}
+            onClick={handleClear}
             className="text-red-500 font-medium hover:underline disabled:text-gray-300"
-            disabled={!value?.length}
+            disabled={!value?.length || value.length === lockedIds.length}
           >
             Clear
           </button>
@@ -188,22 +208,31 @@ const StepTwo = ({
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 max-h-[600px] overflow-y-auto pr-2">
         {products.map((item) => {
           const isChecked = safeValue.includes(item.id);
+          const isLocked = lockedSet.has(item.id) && isChecked;
 
           return (
             <label
               key={item.id}
-              className={`flex items-center gap-3 rounded-xl px-4 py-3 cursor-pointer transition-all duration-200 border
+              className={`flex items-center gap-3 rounded-xl px-4 py-3 transition-all duration-200 border
+  ${
+    isLocked
+      ? "cursor-not-allowed border-emerald-200 bg-emerald-50/80"
+      : "cursor-pointer"
+  }
   ${
     isChecked
-      ? "border-blue-500 bg-blue-50 shadow-sm scale-[1.01]"
+      ? isLocked
+        ? "shadow-sm"
+        : "border-blue-500 bg-blue-50 shadow-sm scale-[1.01]"
       : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
   }`}
             >
               <input
                 type="checkbox"
-                checked={safeValue.includes(item.id)}
+                checked={isChecked}
+                disabled={isLocked}
                 onChange={() => toggle(item.id)}
-                className="cursor-pointer"
+                className={`${isLocked ? "cursor-not-allowed opacity-70" : "cursor-pointer"}`}
               />
 
               <span
@@ -212,7 +241,13 @@ const StepTwo = ({
                 )} shadow-sm ring-2 ring-white`}
               />
 
-              <span className="text-xs">{item.name}</span>
+              <span className="flex-1 text-xs">{item.name}</span>
+
+              {isLocked ? (
+                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-emerald-700">
+                  Active
+                </span>
+              ) : null}
             </label>
           );
         })}

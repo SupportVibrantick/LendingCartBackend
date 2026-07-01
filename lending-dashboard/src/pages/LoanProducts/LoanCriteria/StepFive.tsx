@@ -5,6 +5,10 @@ import {
   getCriteriaFieldsForProduct,
   type CriteriaField,
 } from "../../../lib/loanProductCriteriaFields";
+import {
+  formatNumberInputValue,
+  sanitizeNumberInput,
+} from "../../../lib/numberInputFormat";
 
 const US_STATES = [
   "AL",
@@ -84,30 +88,70 @@ const getColor = (name: string) => {
   return colors[Math.abs(hash) % colors.length];
 };
 
-const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
-  const [openIndex, setOpenIndex] = useState<number | null>(0);
-  const [errors, setErrors] = useState<any>({});
-  const [documents, setDocuments] = useState<any[]>([]);
-  const [loadingDocs, setLoadingDocs] = useState(false);
-  const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [documentSearch, setDocumentSearch] = useState("");
-  const [documentPage, setDocumentPage] = useState(1);
-  const [documentPagination, setDocumentPagination] = useState({
+const DOCUMENT_LIMIT = 12;
+
+type DocumentPagination = {
+  page: number;
+  totalPages: number;
+  total: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+};
+
+type ProductDocumentState = {
+  search: string;
+  debouncedSearch: string;
+  page: number;
+  documents: any[];
+  pagination: DocumentPagination;
+  loading: boolean;
+};
+
+const createDefaultDocumentState = (): ProductDocumentState => ({
+  search: "",
+  debouncedSearch: "",
+  page: 1,
+  documents: [],
+  pagination: {
     page: 1,
     totalPages: 1,
     total: 0,
     hasNextPage: false,
     hasPreviousPage: false,
-  });
+  },
+  loading: false,
+});
 
-  const DOCUMENT_LIMIT = 12;
+const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
+  const [openIndex, setOpenIndex] = useState<number | null>(0);
+  const [errors, setErrors] = useState<any>({});
+  const [docStateByProduct, setDocStateByProduct] = useState<
+    Record<string, ProductDocumentState>
+  >({});
+
+  const getDocState = (productId: string): ProductDocumentState =>
+    docStateByProduct[productId] ?? createDefaultDocumentState();
+
+  const patchDocState = (
+    productId: string,
+    patch: Partial<ProductDocumentState>,
+  ) => {
+    setDocStateByProduct((prev) => ({
+      ...prev,
+      [productId]: {
+        ...(prev[productId] ?? createDefaultDocumentState()),
+        ...patch,
+      },
+    }));
+  };
 
   const fetchDocuments = async (
-    page = documentPage,
-    search = documentSearch,
+    productId: string,
+    page: number,
+    search: string,
   ) => {
     try {
-      setLoadingDocs(true);
+      patchDocState(productId, { loading: true });
 
       const token = sessionStorage.getItem("lender_token");
 
@@ -135,15 +179,19 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
       const json = await res.json();
 
       if (json.success) {
-        setDocuments(json.data || []);
-        setDocumentPagination(json.pagination);
-        setDocumentPage(page);
+        patchDocState(productId, {
+          documents: json.data || [],
+          pagination: json.pagination,
+          page,
+          loading: false,
+        });
+      } else {
+        patchDocState(productId, { loading: false });
       }
     } catch (err) {
       console.error(err);
+      patchDocState(productId, { loading: false });
       toast.error("Failed to load documents");
-    } finally {
-      setLoadingDocs(false);
     }
   };
 
@@ -164,8 +212,10 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
   };
 
   const selectAllDocuments = async (productId: string) => {
+    const { search } = getDocState(productId);
+
     try {
-      setLoadingDocs(true);
+      patchDocState(productId, { loading: true });
 
       const token = sessionStorage.getItem("lender_token");
 
@@ -173,8 +223,8 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
         all: "true",
       });
 
-      if (documentSearch.trim()) {
-        params.append("search", documentSearch.trim());
+      if (search.trim()) {
+        params.append("search", search.trim());
       }
 
       const res = await fetch(
@@ -199,9 +249,10 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
       console.error(err);
       toast.error("Failed to select documents");
     } finally {
-      setLoadingDocs(false);
+      patchDocState(productId, { loading: false });
     }
   };
+  
   const clearDocuments = (productId: string) => {
     handleChange(productId, "documents", []);
   };
@@ -266,12 +317,18 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
     }));
   };
 
-  const validateField = (productId: string, key: string, val: any) => {
+  const validateField = (
+    productId: string,
+    key: string,
+    val: any,
+    options?: { required?: boolean },
+  ) => {
     const current = value?.[productId] || {};
+    const isRequired = options?.required !== false;
 
     // ✅ EMPTY CHECK
     if (val === "" || val === null || val === undefined) {
-      return "This field is required";
+      return isRequired ? "This field is required" : "";
     }
 
     const numVal = Number(val);
@@ -555,12 +612,16 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
           {isRequired && <span className="text-red-500"> *</span>}
         </label>
         <input
-          type="number"
-          step={field.decimal ? "0.01" : "1"}
-          value={currentValue || ""}
+          type="text"
+          inputMode={field.decimal ? "decimal" : "numeric"}
+          value={formatNumberInputValue(currentValue, { decimal: field.decimal })}
           onChange={(e) => {
-            const val = e.target.value;
-            const err = validateField(product.id, field.key, val);
+            const val = sanitizeNumberInput(e.target.value, {
+              decimal: field.decimal,
+            });
+            const err = validateField(product.id, field.key, val, {
+              required: field.required !== false,
+            });
 
             handleChange(product.id, field.key, val);
 
@@ -588,17 +649,38 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
     );
   };
 
+  const openProductId =
+    openIndex !== null ? products[openIndex]?.id : undefined;
+  const openProductDocState = openProductId
+    ? getDocState(openProductId)
+    : null;
+
   useEffect(() => {
+    if (!openProductId) return;
+
+    const { search, debouncedSearch } = getDocState(openProductId);
+    if (search === debouncedSearch) return;
+
     const timeout = setTimeout(() => {
-      setDebouncedSearch(documentSearch);
+      patchDocState(openProductId, { debouncedSearch: search, page: 1 });
     }, 500);
 
     return () => clearTimeout(timeout);
-  }, [documentSearch]);
+  }, [openProductId, openProductDocState?.search]);
 
   useEffect(() => {
-    fetchDocuments(1, debouncedSearch);
-  }, [debouncedSearch]);
+    if (!openProductId || openProductDocState === null) return;
+
+    fetchDocuments(
+      openProductId,
+      openProductDocState.page,
+      openProductDocState.debouncedSearch,
+    );
+  }, [
+    openProductId,
+    openProductDocState?.debouncedSearch,
+    openProductDocState?.page,
+  ]);
 
   useEffect(() => {
     const hasErr = Object.values(errors).some((product: any) =>
@@ -638,6 +720,7 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
       {/* List */}
       {products.map((product: any, index: number) => {
         const isOpen = openIndex === index;
+        const docState = getDocState(product.id);
 
         return (
           <div
@@ -776,19 +859,23 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
                     <input
                       type="text"
                       placeholder="Search documents..."
-                      value={documentSearch}
-                      onChange={(e) => setDocumentSearch(e.target.value)}
+                      value={docState.search}
+                      onChange={(e) =>
+                        patchDocState(product.id, {
+                          search: e.target.value,
+                        })
+                      }
                       className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
                     />
                   </div>
-                  {loadingDocs ? (
+                  {isOpen && docState.loading ? (
                     <div className="flex items-center justify-center py-12 text-sm text-gray-500">
                       Loading documents...
                     </div>
-                  ) : documents.length > 0 ? (
+                  ) : docState.documents.length > 0 ? (
                     <>
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                        {documents.map((doc) => {
+                        {docState.documents.map((doc) => {
                           const checked = value?.[product.id]?.documents?.some(
                             (d: any) =>
                               d.id === doc.id || d.documentTypeId === doc.id,
@@ -840,24 +927,24 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
                         })}
                       </div>
 
-                      {documentPagination.total > 0 && (
+                      {docState.pagination.total > 0 && (
                         <div className="mt-6 flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
                           <div className="text-sm text-gray-500">
                             Showing{" "}
                             <span className="font-semibold text-gray-700">
-                              {(documentPagination.page - 1) * DOCUMENT_LIMIT +
+                              {(docState.pagination.page - 1) * DOCUMENT_LIMIT +
                                 1}
                             </span>
                             {" - "}
                             <span className="font-semibold text-gray-700">
                               {Math.min(
-                                documentPagination.page * DOCUMENT_LIMIT,
-                                documentPagination.total,
+                                docState.pagination.page * DOCUMENT_LIMIT,
+                                docState.pagination.total,
                               )}
                             </span>{" "}
                             of{" "}
                             <span className="font-semibold text-gray-700">
-                              {documentPagination.total}
+                              {docState.pagination.total}
                             </span>{" "}
                             documents
                           </div>
@@ -865,22 +952,30 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
                           <div className="flex items-center gap-3">
                             <button
                               type="button"
-                              disabled={!documentPagination.hasPreviousPage}
-                              onClick={() => fetchDocuments(documentPage - 1)}
+                              disabled={!docState.pagination.hasPreviousPage}
+                              onClick={() =>
+                                patchDocState(product.id, {
+                                  page: docState.page - 1,
+                                })
+                              }
                               className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:border-indigo-500 hover:text-indigo-600 disabled:cursor-not-allowed disabled:opacity-50"
                             >
                               ← Previous
                             </button>
 
                             <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-2 text-sm font-medium text-gray-700">
-                              Page {documentPagination.page} of{" "}
-                              {documentPagination.totalPages}
+                              Page {docState.pagination.page} of{" "}
+                              {docState.pagination.totalPages}
                             </div>
 
                             <button
                               type="button"
-                              disabled={!documentPagination.hasNextPage}
-                              onClick={() => fetchDocuments(documentPage + 1)}
+                              disabled={!docState.pagination.hasNextPage}
+                              onClick={() =>
+                                patchDocState(product.id, {
+                                  page: docState.page + 1,
+                                })
+                              }
                               className="rounded-lg border border-indigo-600 bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:border-gray-300 disabled:bg-gray-300"
                             >
                               Next →
@@ -898,8 +993,8 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
                       </h3>
 
                       <p className="mt-1 text-sm text-gray-500 text-center">
-                        {documentSearch.trim()
-                          ? `No documents found for "${documentSearch}".`
+                        {docState.search.trim()
+                          ? `No documents found for "${docState.search}".`
                           : "No document types are available."}
                       </p>
                     </div>

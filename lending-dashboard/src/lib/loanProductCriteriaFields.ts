@@ -309,7 +309,7 @@ const CRE_PERMANENT_CRITERIA_FIELDS: CriteriaField[] = [
   { label: "Max Rate (%)", key: "maxRate", required: true },
   { label: "Max LTV (%)", key: "maxLtv", required: true },
   { label: "Min DSCR", key: "minDscr", required: true, decimal: true },
-  { label: "Min Debt Yield (%)", key: "minDebtYield", required: true },
+  { label: "Min Debt Yield (%)", key: "minDebtYield", required: false },
   { label: "Min FICO Score", key: "fico", required: true },
   {
     label: "Min Term (years)",
@@ -339,7 +339,7 @@ const CMBS_CRITERIA_FIELDS: CriteriaField[] = [
   { label: "Max Rate (%)", key: "maxRate", required: true },
   { label: "Max LTV (%)", key: "maxLtv", required: true },
   { label: "Min DSCR", key: "minDscr", required: true, decimal: true },
-  { label: "Min Debt Yield (%)", key: "minDebtYield", required: true },
+  { label: "Min Debt Yield (%)", key: "minDebtYield", required: false },
   {
     label: "Min Term (years)",
     key: "minTerm",

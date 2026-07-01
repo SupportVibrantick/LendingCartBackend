@@ -25,8 +25,10 @@ type LenderReview = {
 };
 
 type LenderSummary = {
+  applicationLenderId?: string;
   lenderName?: string | null;
   lenderStatus?: string | null;
+  isFundedLender?: boolean;
   latestReview?: LenderReview | null;
   reviews?: LenderReview[];
 };
@@ -45,6 +47,9 @@ type SubmissionDetailsViewProps = {
   netWorth: number;
   submittedDate?: Date | null;
   showEditHint?: boolean;
+  canMarkFunded?: boolean;
+  markingFundedId?: string | null;
+  onMarkFunded?: (applicationLenderId: string) => void | Promise<void>;
 };
 
 function InfoCard({ label, value }: { label: string; value: ReactNode }) {
@@ -96,13 +101,23 @@ function FieldItem({ field }: { field: SubmissionDetailField }) {
 }
 
 function LenderDecisionCard({
+  applicationLenderId,
   lenderName,
   lenderStatus,
   review,
+  isFundedLender = false,
+  canMarkFunded = false,
+  markingFundedId,
+  onMarkFunded,
 }: {
+  applicationLenderId?: string;
   lenderName?: string | null;
   lenderStatus?: string | null;
   review: LenderReview;
+  isFundedLender?: boolean;
+  canMarkFunded?: boolean;
+  markingFundedId?: string | null;
+  onMarkFunded?: (applicationLenderId: string) => void | Promise<void>;
 }) {
   const reviewStatus = resolveLenderDecisionStatus(
     { lenderStatus, latestReview: review, reviews: [review] },
@@ -115,7 +130,7 @@ function LenderDecisionCard({
 
   return (
     <div
-      className={`relative overflow-hidden rounded-2xl border p-5 shadow-sm ${
+      className={`relative flex h-full flex-col overflow-hidden rounded-2xl border p-5 shadow-sm transition-all hover:-translate-y-1 hover:shadow-lg ${
         isApproved
           ? "border-emerald-400 bg-emerald-50/60 dark:bg-emerald-500/5"
           : isConditional
@@ -166,7 +181,7 @@ function LenderDecisionCard({
         </div>
       </div>
 
-      <div className="grid gap-4 text-sm sm:grid-cols-3">
+      <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
         {review.approvedAmount != null && review.approvedAmount !== "" && (
           <div>
             <p className="mb-1 text-xs text-slate-500">Approved Amount</p>
@@ -194,13 +209,40 @@ function LenderDecisionCard({
       </div>
 
       {review.notes && (
-        <div className="mt-4 border-t border-slate-200 pt-4 dark:border-slate-700">
+        <div className="mt-5 border-t border-slate-200 pt-4 dark:border-slate-700">
           <p className="mb-1 text-xs text-slate-500">Notes</p>
           <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-700 dark:text-slate-300">
             {review.notes}
           </p>
         </div>
       )}
+
+      {isFundedLender ? (
+        <div className="mt-4 border-t border-emerald-200 pt-4 dark:border-emerald-900/40">
+          <span className="inline-flex rounded-full bg-emerald-600 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white">
+            Funded Lender
+          </span>
+        </div>
+      ) : null}
+
+      {canMarkFunded &&
+      isApproved &&
+      applicationLenderId &&
+      onMarkFunded &&
+      !isFundedLender ? (
+        <div className="mt-auto border-t border-slate-200 pt-4 dark:border-slate-700">
+          <button
+            type="button"
+            onClick={() => onMarkFunded(applicationLenderId)}
+            disabled={markingFundedId === applicationLenderId}
+            className="w-full rounded-xl bg-gradient-to-r from-emerald-600 to-green-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:from-emerald-700 hover:to-green-700 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {markingFundedId === applicationLenderId
+              ? "Marking as Funded..."
+              : "Select & Mark as Funded"}
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -241,7 +283,14 @@ export default function SubmissionDetailsView({
   netWorth,
   submittedDate,
   showEditHint = true,
+  canMarkFunded = false,
+  markingFundedId = null,
+  onMarkFunded,
 }: SubmissionDetailsViewProps) {
+  const isApplicationFunded =
+    submissionDetail?.applicationStatus === "FUNDED" ||
+    submissionDetail?.status === "FUNDED";
+
   const { sections, signatureField } = groupSubmissionFieldsForDisplay(fields);
   const loanProductField = fields.find(
     (field) => field.fieldKey === "loanProductCode",
@@ -260,27 +309,42 @@ export default function SubmissionDetailsView({
       const review = resolveLatestLenderReview(lender);
       if (!review) return null;
       return {
+        applicationLenderId: lender.applicationLenderId,
         lenderName: lender.lenderName,
         lenderStatus: lender.lenderStatus,
+        isFundedLender: Boolean(lender.isFundedLender),
         review,
       };
     })
     .filter(Boolean) as Array<{
+    applicationLenderId?: string;
     lenderName?: string | null;
     lenderStatus?: string | null;
+    isFundedLender?: boolean;
     review: LenderReview;
   }>;
 
+  const showMarkFundedActions = canMarkFunded && !isApplicationFunded;
+
   return (
     <div className="space-y-6">
-      {lenderDecisions.map((item, index) => (
-        <LenderDecisionCard
-          key={`${item.lenderName}-${index}`}
-          lenderName={item.lenderName}
-          lenderStatus={item.lenderStatus}
-          review={item.review}
-        />
-      ))}
+       {lenderDecisions.length > 0 && (
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+        {lenderDecisions.map((item, index) => (
+          <LenderDecisionCard
+            key={`${item.applicationLenderId || item.lenderName}-${index}`}
+            applicationLenderId={item.applicationLenderId}
+            lenderName={item.lenderName}
+            lenderStatus={item.lenderStatus}
+            review={item.review}
+            isFundedLender={item.isFundedLender}
+            canMarkFunded={showMarkFundedActions}
+            markingFundedId={markingFundedId}
+            onMarkFunded={onMarkFunded}
+          />
+        ))}
+      </div>
+    )}
 
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950">
         <SectionBlock

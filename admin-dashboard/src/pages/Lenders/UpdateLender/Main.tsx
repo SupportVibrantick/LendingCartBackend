@@ -14,7 +14,11 @@ import {
   isSba504Product,
   mapApiProductToCriteriaForm,
 } from "../../../lib/loanProductCriteriaFields";
-import { mapToAdminProductPayload } from "../../../lib/lenderProductAdminPayload";
+import {
+  mapToAdminProductPayload,
+  mergeGroupedSelections,
+  normalizeGroupedSelectionFromApi,
+} from "../../../lib/lenderProductAdminPayload";
 
 type FormType = {
   lenderId: string;
@@ -67,6 +71,7 @@ export default function Main() {
   const [hasStep5Errors, setHasStep5Errors] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [lockedProgramIds, setLockedProgramIds] = useState<string[]>([]);
 
   const [form, setForm] = useState<FormType>({
     lenderId: "",
@@ -88,6 +93,11 @@ export default function Main() {
   const selectedProducts = useMemo(
     () => products.filter((p) => form.loanPrograms.includes(p.id)),
     [products, form.loanPrograms],
+  );
+
+  const newProgramIds = useMemo(
+    () => form.loanPrograms.filter((id) => !lockedProgramIds.includes(id)),
+    [form.loanPrograms, lockedProgramIds],
   );
 
   const isEquipmentSelected = selectedProducts.some(
@@ -334,8 +344,8 @@ export default function Main() {
 
     const data = json.data || [];
     const productIdMap: Record<string, string> = {};
-    const propertyTypes: Record<string, string[]> = {};
-    const businessTypes: Record<string, string[]> = {};
+    let propertyTypes: Record<string, string[]> = {};
+    let businessTypes: Record<string, string[]> = {};
     const loanCriteria: Record<string, any> = {};
     let equipmentFinance: string[] = [];
 
@@ -343,23 +353,15 @@ export default function Main() {
       const loanProductId = item.loanProductId;
       productIdMap[loanProductId] = item.id;
 
-      item.propertyTypes?.forEach((p: any) => {
-        propertyTypes[p.type] = [
-          ...new Set([
-            ...(propertyTypes[p.type] || []),
-            ...(p.subTypes || []),
-          ]),
-        ];
-      });
+      propertyTypes = mergeGroupedSelections(
+        propertyTypes,
+        normalizeGroupedSelectionFromApi(item.propertyTypes, "type"),
+      );
 
-      item.businessTypes?.forEach((b: any) => {
-        businessTypes[b.name] = [
-          ...new Set([
-            ...(businessTypes[b.name] || []),
-            ...(b.subTypes || []),
-          ]),
-        ];
-      });
+      businessTypes = mergeGroupedSelections(
+        businessTypes,
+        normalizeGroupedSelectionFromApi(item.businessTypes, "name"),
+      );
 
       loanCriteria[loanProductId] = mapApiProductToCriteriaForm(item);
 
@@ -379,6 +381,16 @@ export default function Main() {
       equipmentFinance,
       productIdMap,
     }));
+
+    setLockedProgramIds(
+      [
+        ...new Set(
+          data
+            .map((item: any) => String(item.loanProductId || ""))
+            .filter((id: string) => Boolean(id)),
+        ),
+      ] as string[],
+    );
   };
 
   useEffect(() => {
@@ -521,8 +533,17 @@ export default function Main() {
           mode="admin"
           value={form.loanPrograms}
           setValue={(val) =>
-            setForm((p) => ({ ...p, loanPrograms: val }))
+            setForm((p) => ({
+              ...p,
+              loanPrograms: [
+                ...new Set([
+                  ...lockedProgramIds,
+                  ...(Array.isArray(val) ? val : []),
+                ]),
+              ],
+            }))
           }
+          lockedIds={lockedProgramIds}
           onProductsLoad={setProducts}
         />
       );
@@ -669,6 +690,14 @@ export default function Main() {
             Step <span className="font-semibold text-gray-700">{step + 1}</span>{" "}
             of{" "}
             <span className="font-semibold text-gray-700">{steps.length}</span>
+            {step === 1 && lockedProgramIds.length > 0 ? (
+              <span className="ml-2 text-emerald-600">
+                {lockedProgramIds.length} active
+                {newProgramIds.length > 0
+                  ? `, ${newProgramIds.length} new selected`
+                  : ""}
+              </span>
+            ) : null}
             {isLastStep && step5ValidationMessage && (
               <p className="mt-1 text-red-600">{step5ValidationMessage}</p>
             )}

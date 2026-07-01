@@ -33,6 +33,8 @@ module.exports = async function viewSubmission(fastify) {
               applicationNumber: true,
               loanProductCode: true,
               status: true,
+              fundedApplicationLenderId: true,
+              fundedAt: true,
 
               // ❌ DO NOT TRUST THIS (kept only if needed later)
               amountRequested: true,
@@ -168,6 +170,8 @@ module.exports = async function viewSubmission(fastify) {
         applicationProductId: submission.applicationProductId,
         status: displayStatus,
         applicationStatus,
+        fundedApplicationLenderId: application.fundedApplicationLenderId,
+        fundedAt: application.fundedAt,
         submissionStatus: submission.status,
         canEdit: editCheck.allowed,
         editBlockedReason: editCheck.allowed ? null : editCheck.reason,
@@ -189,6 +193,8 @@ module.exports = async function viewSubmission(fastify) {
             lenderName: l.lender?.name ?? null,
             profileImage: l.lender?.users?.[0]?.profileImage || null,
             lenderStatus: l.status,
+            isFundedLender:
+              application.fundedApplicationLenderId === l.id,
             sentAt: l.sentAt,
             lastUpdatedAt: l.lastUpdatedAt,
 

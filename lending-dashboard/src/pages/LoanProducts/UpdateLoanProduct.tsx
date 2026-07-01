@@ -11,6 +11,9 @@ import EquipmentFinancingStep from "./LoanCriteria/EquipmentFinancingStep";
 import {
   buildLenderProductCriteriaPayload,
   getRequiredCriteriaKeysForProduct,
+  isMezzanineProduct,
+  isNoMinLoanCriteriaProduct,
+  isSba504Product,
   mapApiProductToCriteriaForm,
 } from "../../lib/loanProductCriteriaFields";
 
@@ -22,10 +25,17 @@ type FormType = {
   equipmentFinance: string[];
 };
 
-type Product = {
+type LenderProductRecord = {
   id: string;
-  name: string;
-  code: string;
+  loanProductId: string;
+  loanProductCode?: string;
+  code?: string;
+  name?: string;
+  documents?: any[];
+  propertyTypes?: Record<string, string[]>;
+  businessTypes?: Record<string, string[]>;
+  equipmentTypes?: string[];
+  [key: string]: any;
 };
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
@@ -46,6 +56,70 @@ function getAuthHeaders(): Record<string, string> {
   return { "Content-Type": "application/json" };
 }
 
+function getProgramId(record: LenderProductRecord) {
+  return String(record.loanProductId || record.loanProduct?.id || "");
+}
+
+async function syncDocumentConfigs(
+  lenderProductId: string,
+  selectedDocuments: any[],
+  existingDocuments: any[],
+) {
+  for (const existingDoc of existingDocuments) {
+    const stillSelected = selectedDocuments.some(
+      (d: any) =>
+        d.id === existingDoc.documentTypeId ||
+        d.documentTypeId === existingDoc.documentTypeId,
+    );
+
+    if (!stillSelected) {
+      try {
+        await fetch(`${API_BASE}/lender/document-config/delete/${existingDoc.id}`, {
+          method: "DELETE",
+          headers: getAuthHeaders(),
+        });
+      } catch (err) {
+        console.error("Delete document config failed", err);
+      }
+    }
+  }
+
+  for (const doc of selectedDocuments) {
+    const existingDoc = existingDocuments.find(
+      (d: any) =>
+        d.documentTypeId === doc.id || d.documentTypeId === doc.documentTypeId,
+    );
+
+    const documentTypeId = doc.documentTypeId || doc.id;
+
+    if (existingDoc?.id) {
+      await fetch(`${API_BASE}/lender/document-config/update/${existingDoc.id}`, {
+        method: "PUT",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          lenderProductId,
+          documentTypeId,
+        }),
+      });
+    } else {
+      await fetch(`${API_BASE}/lender/document-config/create`, {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          lenderProductId,
+          documentTypeId,
+        }),
+      });
+    }
+  }
+}
+
+type Product = {
+  id: string;
+  name: string;
+  code: string;
+};
+
 export default function UpdateLoanProduct() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -54,7 +128,11 @@ export default function UpdateLoanProduct() {
   const [step, setStep] = useState(0);
   const [hasStep5Errors, setHasStep5Errors] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [loadingExisting, setLoadingExisting] = useState(true);
   const [products, setProducts] = useState<Product[]>([]);
+  const [existingLenderProducts, setExistingLenderProducts] = useState<
+    LenderProductRecord[]
+  >([]);
   const [form, setForm] = useState<FormType>({
     loanPrograms: [],
     propertyTypes: {},
@@ -66,6 +144,32 @@ export default function UpdateLoanProduct() {
   const selectedProducts = useMemo(
     () => products.filter((p) => form.loanPrograms.includes(p.id)),
     [products, form.loanPrograms],
+  );
+
+  const lockedProgramIds = useMemo(
+    () =>
+      [
+        ...new Set(
+          existingLenderProducts.map((item) => getProgramId(item)).filter(Boolean),
+        ),
+      ],
+    [existingLenderProducts],
+  );
+
+  const lenderProductByProgramId = useMemo(() => {
+    const map: Record<string, LenderProductRecord> = {};
+    existingLenderProducts.forEach((item) => {
+      const programId = getProgramId(item);
+      if (programId) {
+        map[programId] = item;
+      }
+    });
+    return map;
+  }, [existingLenderProducts]);
+
+  const newProgramIds = useMemo(
+    () => form.loanPrograms.filter((id) => !lockedProgramIds.includes(id)),
+    [form.loanPrograms, lockedProgramIds],
   );
 
   const isEquipmentSelected = selectedProducts.some(
@@ -103,9 +207,35 @@ export default function UpdateLoanProduct() {
         return `${product.name}: Select at least one state`;
       }
 
-      // if (!data.documents || data.documents.length === 0) {
-      //   return `${product.name}: Select at least one required document`;
-      // }
+      if (isSba504Product(product.code)) {
+        const total = Number(data.maxTotalProject);
+        const debenture = Number(data.maxSba504Debenture);
+        if (
+          data.maxTotalProject &&
+          data.maxSba504Debenture &&
+          debenture > total
+        ) {
+          return `${product.name}: SBA 504 debenture cannot exceed total project amount`;
+        }
+      } else if (
+        !isNoMinLoanCriteriaProduct(product.code) &&
+        !isMezzanineProduct(product.code)
+      ) {
+        const minAmount = Number(
+          data.minFacilitySize ?? data.minProgramSize ?? data.minLoan,
+        );
+        const maxAmount = Number(
+          data.maxFacilitySize ?? data.maxProgramSize ?? data.maxLoan,
+        );
+
+        if (
+          Number.isFinite(minAmount) &&
+          Number.isFinite(maxAmount) &&
+          minAmount > maxAmount
+        ) {
+          return `${product.name}: Minimum amount cannot exceed maximum amount`;
+        }
+      }
     }
 
     return null;
@@ -124,189 +254,144 @@ export default function UpdateLoanProduct() {
       return;
     }
 
-    if (!updatedLoanProduct?.id) {
-      toast.error("Invalid loan product");
-      return;
-    }
-
     setSubmitting(true);
 
     try {
       const headers = getAuthHeaders();
+      let createdCount = 0;
+      let updatedCount = 0;
 
-      const product = selectedProducts[0];
+      for (const product of selectedProducts) {
+        const criteria = form.loanCriteria?.[product.id] || {};
+        const existing = lenderProductByProgramId[product.id];
 
-      const criteria = form.loanCriteria?.[product.id] || {};
+        const payload = {
+          businessTypes: form.businessTypes,
+          propertyTypes: form.propertyTypes,
+          ...buildLenderProductCriteriaPayload(criteria, product.code),
+          ...(product.code === "EQUIPMENT_FINANCE" &&
+            form.equipmentFinance?.length && {
+              equipmentTypes: form.equipmentFinance,
+            }),
+          isActive: true,
+        };
 
-      /**
-       * MAIN LOAN PRODUCT PAYLOAD
-       */
-      const payload = {
-        businessTypes: form.businessTypes,
-        propertyTypes: form.propertyTypes,
-        ...buildLenderProductCriteriaPayload(criteria, product.code),
-        ...(product.code === "EQUIPMENT_FINANCE" &&
-          form.equipmentFinance?.length && {
-            equipmentTypes: form.equipmentFinance,
-          }),
-        isActive: true,
-      };
-
-      /**
-       * UPDATE LOAN PRODUCT
-       */
-      const res = await fetch(
-        `${API_BASE}/lender/loan-products/update/${updatedLoanProduct.id}`,
-        {
-          method: "PUT",
-          headers,
-          body: JSON.stringify(payload),
-        },
-      );
-
-      const json = await res.json();
-
-      if (!res.ok) {
-        throw new Error(json?.message || "Update failed");
-      }
-
-      /**
-       * DOCUMENT CONFIG HANDLING
-       */
-      const selectedDocuments = criteria.documents || [];
-
-      const existingDocuments = updatedLoanProduct.documents || [];
-
-      /**
-       * DELETE REMOVED DOCUMENTS
-       */
-      for (const existingDoc of existingDocuments) {
-        const stillSelected = selectedDocuments.some(
-          (d: any) =>
-            d.id === existingDoc.documentTypeId ||
-            d.documentTypeId === existingDoc.documentTypeId,
-        );
-
-        /**
-         * REMOVE DOCUMENT
-         */
-        if (!stillSelected) {
-          try {
-            const deleteRes = await fetch(
-              `${API_BASE}/lender/document-config/delete/${existingDoc.id}`,
-              {
-                method: "DELETE",
-                headers: {
-                  Authorization: `Bearer ${sessionStorage.getItem(
-                    "lender_token",
-                  )}`,
-                },
-              },
-            );
-
-            const deleteJson = await deleteRes.json().catch(() => ({}));
-
-            if (!deleteRes.ok) {
-              console.error("Document delete failed", deleteJson);
-            }
-          } catch (err) {
-            console.error("Delete document config failed", err);
-          }
-        }
-      }
-
-      /**
-       * UPDATE / CREATE DOCUMENTS
-       */
-      for (const doc of selectedDocuments) {
-        const existingDoc = existingDocuments.find(
-          (d: any) =>
-            d.documentTypeId === doc.id ||
-            d.documentTypeId === doc.documentTypeId,
-        );
-
-        /**
-         * UPDATE EXISTING
-         */
-        if (existingDoc?.id) {
-          const updatePayload = {
-            lenderProductId: updatedLoanProduct.id,
-            documentTypeId: doc.documentTypeId || doc.id,
-          };
-
-          const updateRes = await fetch(
-            `${API_BASE}/lender/document-config/update/${existingDoc.id}`,
+        if (existing?.id) {
+          const res = await fetch(
+            `${API_BASE}/lender/loan-products/update/${existing.id}`,
             {
               method: "PUT",
-              headers: getAuthHeaders(),
-              body: JSON.stringify(updatePayload),
+              headers,
+              body: JSON.stringify(payload),
             },
           );
 
-          const updateJson = await updateRes.json().catch(() => ({}));
+          const json = await res.json().catch(() => ({}));
 
-          if (!updateRes.ok) {
-            console.error("Document update failed", updateJson);
+          if (!res.ok) {
+            throw new Error(
+              json?.message || `Failed to update ${product.name || product.code}`,
+            );
           }
-        } else {
-          /**
-           * CREATE NEW
-           */
-          const createPayload = {
-            lenderProductId: updatedLoanProduct.id,
 
-            documentTypeId: doc.documentTypeId || doc.id,
-          };
-
-          const createRes = await fetch(
-            `${API_BASE}/lender/document-config/create`,
-            {
-              method: "POST",
-              headers: getAuthHeaders(),
-              body: JSON.stringify(createPayload),
-            },
+          await syncDocumentConfigs(
+            existing.id,
+            criteria.documents || [],
+            existing.documents || [],
           );
 
-          const createJson = await createRes.json().catch(() => ({}));
-
-          if (!createRes.ok) {
-            console.error("Document create failed", createJson);
-          }
+          updatedCount += 1;
+          continue;
         }
+
+        const res = await fetch(`${API_BASE}/lender/loan-products/create`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            products: [
+              {
+                loanProductCode: product.code,
+                ...payload,
+              },
+            ],
+          }),
+        });
+
+        const json = await res.json().catch(() => ({}));
+
+        if (!res.ok) {
+          throw new Error(
+            json?.message || `Failed to add ${product.name || product.code}`,
+          );
+        }
+
+        const lenderProductId = json?.data?.[0]?.id;
+
+        if (lenderProductId) {
+          await syncDocumentConfigs(
+            lenderProductId,
+            criteria.documents || [],
+            [],
+          );
+        }
+
+        createdCount += 1;
       }
 
-      toast.success("Loan product updated successfully");
+      if (createdCount > 0 && updatedCount > 0) {
+        toast.success(
+          `Updated ${updatedCount} program(s) and added ${createdCount} new program(s)`,
+        );
+      } else if (createdCount > 0) {
+        toast.success(
+          createdCount === 1
+            ? "New loan program added successfully"
+            : `${createdCount} new loan programs added successfully`,
+        );
+      } else {
+        toast.success(
+          updatedCount === 1
+            ? "Loan product updated successfully"
+            : `${updatedCount} loan products updated successfully`,
+        );
+      }
 
       navigate("/all-loan-products");
     } catch (err: any) {
       console.error(err);
-
-      toast.error(err?.message || "Failed to update loan product");
+      toast.error(err?.message || "Failed to update loan products");
     } finally {
       setSubmitting(false);
     }
   };
 
   const getStepContent = () => {
+    if (loadingExisting && step === 0) {
+      return (
+        <div className="rounded-2xl border border-gray-200 bg-white p-10 text-center text-sm text-gray-500">
+          Loading your loan programs...
+        </div>
+      );
+    }
+
     if (step === 0) {
       return (
         <StepTwo
           mode="lender"
           value={form.loanPrograms}
           setValue={(val) =>
-            setForm((prev) => ({ ...prev, loanPrograms: val }))
+            setForm((prev) => ({
+              ...prev,
+              loanPrograms: [
+                ...new Set([
+                  ...lockedProgramIds,
+                  ...(Array.isArray(val) ? val : []),
+                ]),
+              ],
+            }))
           }
-          onProductsLoad={(data) => {
-            setProducts(data);
-
-            // ensure selected product stays selected
-            if (updatedLoanProduct) {
-              setForm((prev) => ({
-                ...prev,
-                loanPrograms: [updatedLoanProduct.loanProductId],
-              }));
-            }
-          }}
+          lockedIds={lockedProgramIds}
+          onProductsLoad={setProducts}
         />
       );
     }
@@ -366,29 +451,84 @@ export default function UpdateLoanProduct() {
   };
 
   const nextDisabled =
+    (loadingExisting && step === 0) ||
     (!isLastStep && step === 0 && form.loanPrograms.length === 0) ||
     (step === loanCriteriaStepIndex && hasStep5Errors) ||
     (isLastStep && validateStep5() !== null) ||
     submitting;
 
   useEffect(() => {
-    if (!updatedLoanProduct) return;
+    let cancelled = false;
 
-    setForm({
-      loanPrograms: [updatedLoanProduct.loanProductId],
+    (async () => {
+      try {
+        setLoadingExisting(true);
 
-      propertyTypes: updatedLoanProduct.propertyTypes || {},
+        const res = await fetch(
+          `${API_BASE}/lender/loan-products/list?limit=100`,
+          {
+            headers: getAuthHeaders(),
+          },
+        );
 
-      businessTypes: updatedLoanProduct.businessTypes || {},
+        const raw = await res.text();
+        let json: Record<string, unknown> = {};
 
-      equipmentFinance: updatedLoanProduct.equipmentTypes || [],
+        try {
+          json = raw ? JSON.parse(raw) : {};
+        } catch {
+          throw new Error(
+            "Could not load your loan programs. Please refresh and try again.",
+          );
+        }
 
-loanCriteria: {
-  [updatedLoanProduct.loanProductId]: mapApiProductToCriteriaForm(
-    updatedLoanProduct,
-  ),
-},
-    });
+        if (!res.ok || !json.success) {
+          throw new Error(
+            (typeof json.message === "string" ? json.message : undefined) ||
+              "Failed to load loan products",
+          );
+        }
+
+        if (cancelled) return;
+
+        const items = (json.data || []) as LenderProductRecord[];
+        setExistingLenderProducts(items);
+
+        const programIds = [
+          ...new Set(items.map((item) => getProgramId(item)).filter(Boolean)),
+        ];
+
+        const loanCriteria: Record<string, any> = {};
+        items.forEach((item) => {
+          const programId = getProgramId(item);
+          if (programId) {
+            loanCriteria[programId] = mapApiProductToCriteriaForm(item);
+          }
+        });
+
+        const seedProduct = updatedLoanProduct || items[0] || null;
+
+        setForm({
+          loanPrograms: programIds,
+          propertyTypes: seedProduct?.propertyTypes || {},
+          businessTypes: seedProduct?.businessTypes || {},
+          equipmentFinance: seedProduct?.equipmentTypes || [],
+          loanCriteria,
+        });
+      } catch (err: any) {
+        if (!cancelled) {
+          toast.error(err?.message || "Failed to load existing loan products");
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingExisting(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [updatedLoanProduct]);
 
   return (
@@ -467,6 +607,14 @@ loanCriteria: {
             Step <span className="font-semibold text-gray-700">{step + 1}</span>{" "}
             of{" "}
             <span className="font-semibold text-gray-700">{steps.length}</span>
+            {step === 0 && lockedProgramIds.length > 0 ? (
+              <span className="ml-2 text-emerald-600">
+                {lockedProgramIds.length} active
+                {newProgramIds.length > 0
+                  ? `, ${newProgramIds.length} new selected`
+                  : ""}
+              </span>
+            ) : null}
           </div>
 
           <div className="flex items-center gap-3">

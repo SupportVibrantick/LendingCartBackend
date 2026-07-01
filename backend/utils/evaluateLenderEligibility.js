@@ -1,3 +1,5 @@
+const { getProductEligibilityRules } = require("./lenderProductCriteria");
+
 const STATE_NAME_TO_CODE = {
   alabama: "AL",
   alaska: "AK",
@@ -194,6 +196,46 @@ const matchesSelection = (configuredValues, applicantValue) => {
   );
 };
 
+const PROPERTY_TYPE_APPLICANT_ALIASES = {
+  "single family (1-unit)": [
+    "single family (1-4 units)",
+    "single family detached",
+    "single family",
+    "1-unit",
+  ],
+  "duplex (2-unit)": ["duplex", "single family (1-4 units)", "2-unit"],
+  "triplex (3-unit)": ["triplex", "single family (1-4 units)", "3-unit"],
+  "fourplex (4-unit)": ["fourplex", "single family (1-4 units)", "4-unit"],
+  "condo / townhome": ["condo", "townhome", "townhouse"],
+};
+
+const expandApplicantSelectionTokens = (applicantValue) => {
+  const normalizedApplicant = normalizeToken(applicantValue);
+  if (!normalizedApplicant) {
+    return [];
+  }
+
+  const aliases = PROPERTY_TYPE_APPLICANT_ALIASES[normalizedApplicant] || [];
+  return [normalizedApplicant, ...aliases];
+};
+
+const matchesPropertyTypeSelection = (configuredValues, applicantValue) => {
+  if (!applicantValue || configuredValues.length === 0) {
+    return true;
+  }
+
+  const applicantTokens = expandApplicantSelectionTokens(applicantValue);
+
+  return applicantTokens.some((applicantToken) =>
+    configuredValues.some(
+      (configured) =>
+        configured === applicantToken ||
+        applicantToken.includes(configured) ||
+        configured.includes(applicantToken),
+    ),
+  );
+};
+
 const resolveFundingRange = (lenderProduct, lenderProfile) => {
   const minLoan =
     toPositiveNumber(lenderProduct?.minLoanAmount) ??
@@ -226,25 +268,89 @@ const resolveBusinessTypes = (lenderProduct, lenderProfile) => {
   return parseIndustries(lenderProfile?.industries);
 };
 
+const hasConfiguredNumber = (value) => {
+  if (value === null || value === undefined || value === "") {
+    return false;
+  }
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed);
+};
+
+const parseInterestRateRange = (rangeStr) => {
+  if (!rangeStr) {
+    return { min: null, max: null };
+  }
+
+  const match = String(rangeStr).match(/([\d.]+)\s*-\s*([\d.]+)/);
+  if (!match) {
+    return { min: null, max: null };
+  }
+
+  return {
+    min: Number(match[1]),
+    max: Number(match[2]),
+  };
+};
+
+const isFirstTimeBorrower = (similarProjectsCompleted) => {
+  if (similarProjectsCompleted === null || similarProjectsCompleted === undefined) {
+    return true;
+  }
+
+  const parsed = Number(similarProjectsCompleted);
+  if (Number.isFinite(parsed)) {
+    return parsed <= 0;
+  }
+
+  return String(similarProjectsCompleted).trim() === "0";
+};
+
 function evaluateLenderProductEligibility(lenderProduct, applicant, lenderProfile) {
   const reasons = [];
+  const productCode = lenderProduct?.loanProductCode;
+  const rules = getProductEligibilityRules(productCode);
 
   const { minLoan, maxLoan } = resolveFundingRange(
     lenderProduct,
     lenderProfile,
   );
 
-  if (applicant.loanAmount !== null) {
+  if (rules.checkMinLoanAmount && applicant.loanAmount !== null) {
     if (minLoan && applicant.loanAmount < minLoan) {
       reasons.push(`Loan below minimum (${minLoan})`);
     }
+  }
 
+  if (rules.checkMaxLoanAmount && applicant.loanAmount !== null) {
     if (maxLoan && applicant.loanAmount > maxLoan) {
       reasons.push(`Loan exceeds maximum (${maxLoan})`);
     }
   }
 
-  if (applicant.termMonths !== null) {
+  if (
+    rules.checkMaxTotalProjectAmount &&
+    applicant.loanAmount !== null &&
+    hasConfiguredNumber(lenderProduct.maxTotalProjectAmount)
+  ) {
+    const maxProject = Number(lenderProduct.maxTotalProjectAmount);
+    if (applicant.loanAmount > maxProject) {
+      reasons.push(`Total project amount exceeds maximum (${maxProject})`);
+    }
+  }
+
+  if (
+    rules.checkMaxSba504DebentureAmount &&
+    applicant.loanAmount !== null &&
+    hasConfiguredNumber(lenderProduct.maxSba504DebentureAmount)
+  ) {
+    const maxDebenture = Number(lenderProduct.maxSba504DebentureAmount);
+    if (applicant.loanAmount > maxDebenture) {
+      reasons.push(`SBA 504 debenture exceeds maximum (${maxDebenture})`);
+    }
+  }
+
+  if (rules.checkTermMonths && applicant.termMonths !== null) {
     if (
       lenderProduct.minTermMonths &&
       applicant.termMonths < lenderProduct.minTermMonths
@@ -264,7 +370,11 @@ function evaluateLenderProductEligibility(lenderProduct, applicant, lenderProfil
     }
   }
 
-  if (applicant.creditScore !== null && lenderProduct.minCreditScore) {
+  if (
+    rules.checkCreditScore &&
+    applicant.creditScore !== null &&
+    lenderProduct.minCreditScore
+  ) {
     if (applicant.creditScore < lenderProduct.minCreditScore) {
       reasons.push(
         `Credit score below minimum (${lenderProduct.minCreditScore})`,
@@ -273,37 +383,81 @@ function evaluateLenderProductEligibility(lenderProduct, applicant, lenderProfil
   }
 
   if (
+    rules.checkLtv &&
     applicant.ltv !== null &&
-    lenderProduct.maxLtvPercent &&
+    hasConfiguredNumber(lenderProduct.maxLtvPercent) &&
     applicant.ltv > Number(lenderProduct.maxLtvPercent)
   ) {
     reasons.push(`LTV exceeds maximum (${lenderProduct.maxLtvPercent}%)`);
   }
 
+  if (rules.checkMezzLtv && applicant.ltv !== null) {
+    if (
+      hasConfiguredNumber(lenderProduct.minMezzLtvPercent) &&
+      applicant.ltv < Number(lenderProduct.minMezzLtvPercent)
+    ) {
+      reasons.push(
+        `LTV below mezzanine minimum (${lenderProduct.minMezzLtvPercent}%)`,
+      );
+    }
+
+    if (
+      hasConfiguredNumber(lenderProduct.maxMezzLtvPercent) &&
+      applicant.ltv > Number(lenderProduct.maxMezzLtvPercent)
+    ) {
+      reasons.push(
+        `LTV exceeds mezzanine maximum (${lenderProduct.maxMezzLtvPercent}%)`,
+      );
+    }
+  }
+
   if (
+    rules.checkLtc &&
     applicant.ltc !== null &&
-    lenderProduct.maxLtcPercent &&
+    hasConfiguredNumber(lenderProduct.maxLtcPercent) &&
     applicant.ltc > Number(lenderProduct.maxLtcPercent)
   ) {
     reasons.push(`LTC exceeds maximum (${lenderProduct.maxLtcPercent}%)`);
   }
 
   if (
+    rules.checkArv &&
     applicant.arv !== null &&
-    lenderProduct.maxArvPercent &&
+    hasConfiguredNumber(lenderProduct.maxArvPercent) &&
     applicant.arv > Number(lenderProduct.maxArvPercent)
   ) {
     reasons.push(`ARV exceeds maximum (${lenderProduct.maxArvPercent}%)`);
   }
 
   if (
+    rules.checkDscr &&
     applicant.dscr !== null &&
-    lenderProduct.minDscr !== null &&
-    lenderProduct.minDscr !== undefined
+    hasConfiguredNumber(lenderProduct.minDscr) &&
+    applicant.dscr < Number(lenderProduct.minDscr)
   ) {
-    const minDscr = Number(lenderProduct.minDscr);
-    if (Number.isFinite(minDscr) && applicant.dscr < minDscr) {
-      reasons.push(`DSCR below minimum (${minDscr})`);
+    reasons.push(`DSCR below minimum (${lenderProduct.minDscr})`);
+  }
+
+  if (
+    rules.checkMinDebtYield &&
+    applicant.debtYield !== null &&
+    hasConfiguredNumber(lenderProduct.minDebtYieldPercent) &&
+    applicant.debtYield < Number(lenderProduct.minDebtYieldPercent)
+  ) {
+    reasons.push(
+      `Debt yield below minimum (${lenderProduct.minDebtYieldPercent}%)`,
+    );
+  }
+
+  if (rules.checkInterestRate && applicant.interestRate !== null) {
+    const { min, max } = parseInterestRateRange(lenderProduct.interestRateRange);
+
+    if (min !== null && applicant.interestRate < min) {
+      reasons.push(`Interest rate below lender minimum (${min}%)`);
+    }
+
+    if (max !== null && applicant.interestRate > max) {
+      reasons.push(`Interest rate exceeds lender maximum (${max}%)`);
     }
   }
 
@@ -312,7 +466,7 @@ function evaluateLenderProductEligibility(lenderProduct, applicant, lenderProfil
     lenderProfile,
   );
 
-  if (applicant.propertyState && supportedStates.length > 0) {
+  if (rules.checkPropertyState && applicant.propertyState && supportedStates.length > 0) {
     const normalizedApplicantState = normalizeStateToken(
       applicant.propertyState,
     );
@@ -329,9 +483,10 @@ function evaluateLenderProductEligibility(lenderProduct, applicant, lenderProfil
   );
 
   if (
+    rules.checkPropertyType &&
     applicant.propertyType &&
     lenderPropertyTypes.length > 0 &&
-    !matchesSelection(lenderPropertyTypes, applicant.propertyType)
+    !matchesPropertyTypeSelection(lenderPropertyTypes, applicant.propertyType)
   ) {
     reasons.push("Property type not supported");
   }
@@ -342,6 +497,7 @@ function evaluateLenderProductEligibility(lenderProduct, applicant, lenderProfil
   );
 
   if (
+    rules.checkBusinessIndustry &&
     applicant.businessIndustry &&
     lenderBusinessTypes.length > 0 &&
     !matchesSelection(lenderBusinessTypes, applicant.businessIndustry)
@@ -352,6 +508,7 @@ function evaluateLenderProductEligibility(lenderProduct, applicant, lenderProfil
   const minExp = Number(lenderProduct.minExperience);
 
   if (
+    rules.checkMinExperience &&
     applicant.yearsInBusiness !== null &&
     Number.isFinite(minExp) &&
     minExp > 0 &&
@@ -360,11 +517,67 @@ function evaluateLenderProductEligibility(lenderProduct, applicant, lenderProfil
     reasons.push(`Minimum experience required (${minExp} years)`);
   }
 
+  if (
+    rules.checkMinTimeInBusiness &&
+    applicant.yearsInBusiness !== null &&
+    hasConfiguredNumber(lenderProduct.minTimeInBusinessMonths)
+  ) {
+    const applicantMonths = applicant.yearsInBusiness * 12;
+    const requiredMonths = Number(lenderProduct.minTimeInBusinessMonths);
+
+    if (applicantMonths < requiredMonths) {
+      reasons.push(
+        `Minimum time in business required (${requiredMonths} months)`,
+      );
+    }
+  }
+
+  if (
+    rules.checkMinUnits &&
+    applicant.numberOfUnits !== null &&
+    hasConfiguredNumber(lenderProduct.minUnits) &&
+    applicant.numberOfUnits < Number(lenderProduct.minUnits)
+  ) {
+    reasons.push(`Minimum units required (${lenderProduct.minUnits})`);
+  }
+
+  if (rules.checkPortfolioProperties && applicant.portfolioPropertyCount !== null) {
+    if (
+      hasConfiguredNumber(lenderProduct.minPropertiesInPortfolio) &&
+      applicant.portfolioPropertyCount <
+        Number(lenderProduct.minPropertiesInPortfolio)
+    ) {
+      reasons.push(
+        `Portfolio below minimum properties (${lenderProduct.minPropertiesInPortfolio})`,
+      );
+    }
+
+    if (
+      hasConfiguredNumber(lenderProduct.maxPropertiesInPortfolio) &&
+      applicant.portfolioPropertyCount >
+        Number(lenderProduct.maxPropertiesInPortfolio)
+    ) {
+      reasons.push(
+        `Portfolio exceeds maximum properties (${lenderProduct.maxPropertiesInPortfolio})`,
+      );
+    }
+  }
+
+  if (
+    rules.checkFirstTimeBorrowers &&
+    lenderProduct.firstTimeBorrowersAllowed === false &&
+    isFirstTimeBorrower(applicant.similarProjectsCompleted)
+  ) {
+    reasons.push("First-time borrowers not allowed for this program");
+  }
+
   return {
     reasons,
     minLoan,
     maxLoan,
     supportedStates,
+    productCode,
+    rules,
   };
 }
 
@@ -426,6 +639,7 @@ async function syncProfileFundingToProducts(prisma, lenderOrgId, profile) {
 module.exports = {
   evaluateLenderProductEligibility,
   flattenGroupedSelections,
+  matchesPropertyTypeSelection,
   parseStatesSupported,
   resolveFundingRange,
   resolveSupportedStates,

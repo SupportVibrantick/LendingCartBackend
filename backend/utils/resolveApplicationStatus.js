@@ -46,6 +46,10 @@ function resolveBrokerPipelineDisplayStatus(application) {
 
   const lenders = application.applicationLenders || [];
 
+  if (application.status === "FUNDED") {
+    return "FUNDED";
+  }
+
   if (lenders.some((lender) => lender.status === "APPROVED")) {
     return "APPROVED";
   }
@@ -69,6 +73,7 @@ function countBrokerPipelineStats(submissions) {
     submitted: 0,
     clientPending: 0,
     newApplications: 0,
+    funded: 0,
   };
 
   for (const submission of submissions || []) {
@@ -79,6 +84,9 @@ function countBrokerPipelineStats(submissions) {
     switch (displayStatus) {
       case "APPROVED":
         counts.approved += 1;
+        break;
+      case "FUNDED":
+        counts.funded += 1;
         break;
       case "DECLINED":
         counts.rejected += 1;
@@ -113,10 +121,19 @@ function buildBrokerPipelineApplicationStatusWhere(status) {
 
   if (status === "APPROVED") {
     return {
-      applicationLenders: {
-        some: { status: "APPROVED" },
-      },
+      AND: [
+        { status: { not: "FUNDED" } },
+        {
+          applicationLenders: {
+            some: { status: "APPROVED" },
+          },
+        },
+      ],
     };
+  }
+
+  if (status === "FUNDED") {
+    return { status: "FUNDED" };
   }
 
   if (status === "DECLINED") {

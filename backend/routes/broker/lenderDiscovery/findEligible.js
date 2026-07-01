@@ -3,6 +3,9 @@
 const {
   evaluateLenderProductEligibility,
 } = require("../../../utils/evaluateLenderEligibility");
+const {
+  extractApplicantEligibilityData,
+} = require("../../../utils/extractApplicantEligibilityData");
 
 module.exports = async function findEligibleLenders(fastify) {
   fastify.get(
@@ -79,7 +82,11 @@ module.exports = async function findEligibleLenders(fastify) {
           where: { id: submissionId },
           include: {
             application: true,
-            fields: true,
+            fields: {
+              include: {
+                builderField: true,
+              },
+            },
           },
         });
 
@@ -128,65 +135,51 @@ module.exports = async function findEligibleLenders(fastify) {
            3️⃣ SAFE FIELD EXTRACTION
         ===================================================== */
 
-        const extractValue = (val) => {
-          if (!val) return null;
-          if (typeof val === "object") {
-            return val?.value || val?.text || val?.label || null;
-          }
-          return val;
+        const applicantData = extractApplicantEligibilityData(
+          submission,
+          application,
+        );
+
+        const {
+          loanAmount,
+          termMonths,
+          borrowerMinTerm,
+          borrowerMaxTerm,
+          creditScore,
+          ltv,
+          ltc,
+          arv,
+          dscr,
+          debtYield,
+          netWorth,
+          interestRate,
+          propertyType,
+          propertyState,
+          businessIndustry,
+          yearsInBusiness,
+          numberOfUnits,
+          similarProjectsCompleted,
+          portfolioPropertyCount,
+        } = applicantData;
+
+        const applicant = {
+          loanAmount,
+          termMonths,
+          creditScore,
+          ltv,
+          ltc,
+          arv,
+          dscr,
+          debtYield,
+          interestRate,
+          propertyType,
+          propertyState,
+          businessIndustry,
+          yearsInBusiness,
+          numberOfUnits,
+          similarProjectsCompleted,
+          portfolioPropertyCount,
         };
-
-        const getFieldValue = (key) => {
-          const field = submission.fields.find((f) => f.fieldKey === key);
-          return extractValue(field?.value);
-        };
-
-        const safeNumber = (value) => {
-          const n = Number(value);
-          return isNaN(n) ? null : n;
-        };
-
-        const loanAmount =
-          safeNumber(getFieldValue("amountRequested")) ??
-          safeNumber(application.amountRequested);
-
-        const termMonths =
-          safeNumber(getFieldValue("loanTerm")) ??
-          safeNumber(getFieldValue("requested_term_months"));
-
-        const borrowerMinTerm = safeNumber(getFieldValue("minTermMonths"));
-
-        const borrowerMaxTerm = safeNumber(getFieldValue("maxTermMonths"));
-
-        let creditScore =
-          safeNumber(getFieldValue("creditScore")) ??
-          safeNumber(getFieldValue("credit_score"));
-
-        if (creditScore === null) {
-          const range = getFieldValue("creditScoreRange");
-          if (range && typeof range === "string") {
-            const minRange = parseInt(range.split("-")[0]);
-            creditScore = isNaN(minRange) ? null : minRange;
-          }
-        }
-
-        const ltv = safeNumber(getFieldValue("ltvPercentage"));
-
-        const ltc = safeNumber(getFieldValue("ltcPercentage"));
-
-        const arv = safeNumber(getFieldValue("arvPercentage"));
-
-        const dscr = safeNumber(getFieldValue("dscr"));
-
-        const netWorth = safeNumber(getFieldValue("netWorth"));
-
-        const propertyType = getFieldValue("propertyType");
-
-        const propertyState = getFieldValue("propertyState");
-
-        const businessIndustry = getFieldValue("business_industry");
-
-        const yearsInBusiness = safeNumber(getFieldValue("yearsInBusiness"));
 
         const { loanProductCode } = application;
 
@@ -194,17 +187,25 @@ module.exports = async function findEligibleLenders(fastify) {
            4️⃣ FETCH ALREADY SENT LENDERS
         ===================================================== */
 
-        const alreadySent = await prisma.applicationLender.findMany({
+        const applicationLenders = await prisma.applicationLender.findMany({
           where: {
-            loanApplicationId: application.id,          },
+            loanApplicationId: application.id,
+          },
           select: {
             lenderProductId: true,
+            status: true,
           },
         });
 
-        const sentProductIds = new Set(
-          alreadySent.map((a) => a.lenderProductId).filter(Boolean),
+        const declinedStatuses = new Set(["DECLINED", "WITHDRAWN"]);
+
+        const applicationStatusByProductId = new Map(
+          applicationLenders
+            .filter((entry) => entry.lenderProductId)
+            .map((entry) => [entry.lenderProductId, entry.status]),
         );
+
+        const sentProductIds = new Set(applicationStatusByProductId.keys());
 
         /* =====================================================
            5️⃣ FETCH ALL ACTIVE LENDER PRODUCTS (NO EXCLUSION)
@@ -246,9 +247,11 @@ module.exports = async function findEligibleLenders(fastify) {
               submissionId,
               applicationId: application.id,
               totalEligibleLenders: 0,
+              totalIneligibleLenders: 0,
               totalRejectedLenders: 0,
               totalAlreadySentLenders: 0,
               eligibleLenders: [],
+              ineligibleLenders: [],
               rejectedLenders: [],
               alreadySentLenders: [],
             },
@@ -259,22 +262,14 @@ module.exports = async function findEligibleLenders(fastify) {
            6️⃣ ELIGIBILITY EVALUATION
         ===================================================== */
 
-        const applicant = {
-          loanAmount,
-          termMonths,
-          creditScore,
-          ltv,
-          ltc,
-          arv,
-          dscr,
-          propertyType,
-          propertyState,
-          businessIndustry,
-          yearsInBusiness,
-        };
-
         const evaluatedLenders = lenderProducts.map((lp) => {
+          const applicationStatus =
+            applicationStatusByProductId.get(lp.id) ?? null;
           const isAlreadySent = sentProductIds.has(lp.id);
+          const isDeclined =
+            isAlreadySent &&
+            applicationStatus &&
+            declinedStatuses.has(applicationStatus);
           const lender = lp.lender;
           const lenderProfile = lender.lenderProfile ?? null;
 
@@ -283,6 +278,8 @@ module.exports = async function findEligibleLenders(fastify) {
             applicant,
             lenderProfile,
           );
+
+          const isEligible = reasons.length === 0;
 
           return {
             lenderOrgId: lender.id,
@@ -304,12 +301,13 @@ module.exports = async function findEligibleLenders(fastify) {
             minCreditScore: lp.minCreditScore,
             interestRateRange: lp.interestRateRange,
 
-            // 🔥 FLAGS
             alreadySent: isAlreadySent,
-            eligible: reasons.length === 0,
-            canSend: !isAlreadySent && reasons.length === 0,
+            applicationStatus,
+            isDeclined,
+            eligible: isEligible,
+            canSend: !isAlreadySent && isEligible,
 
-            rejectionReasons: reasons,
+            rejectionReasons: isDeclined ? [] : reasons,
           };
         });
 
@@ -317,22 +315,29 @@ module.exports = async function findEligibleLenders(fastify) {
            7️⃣ SPLIT DATA
         ===================================================== */
 
-        const alreadySentLenders = evaluatedLenders.filter(
-          (l) => l.alreadySent,
-        );
-
         const eligibleLenders = evaluatedLenders.filter(
           (l) => l.eligible && !l.alreadySent,
         );
 
-        const rejectedLenders = evaluatedLenders.filter(
+        const ineligibleLenders = evaluatedLenders.filter(
           (l) => !l.eligible && !l.alreadySent,
+        );
+
+        const rejectedLenders = evaluatedLenders.filter((l) => l.isDeclined);
+
+        const alreadySentLenders = evaluatedLenders.filter(
+          (l) => l.alreadySent && !l.isDeclined,
         );
 
         const allLenders = [
           ...eligibleLenders.map((l) => ({
             ...l,
             type: "eligible",
+          })),
+
+          ...ineligibleLenders.map((l) => ({
+            ...l,
+            type: "ineligible",
           })),
 
           ...rejectedLenders.map((l) => ({
@@ -370,6 +375,10 @@ module.exports = async function findEligibleLenders(fastify) {
 
         const paginatedEligibleLenders = paginatedLenders.filter(
           (l) => l.type === "eligible",
+        );
+
+        const paginatedIneligibleLenders = paginatedLenders.filter(
+          (l) => l.type === "ineligible",
         );
 
         const paginatedRejectedLenders = paginatedLenders.filter(
@@ -410,10 +419,12 @@ module.exports = async function findEligibleLenders(fastify) {
             },
 
             totalEligibleLenders: eligibleLenders.length,
+            totalIneligibleLenders: ineligibleLenders.length,
             totalRejectedLenders: rejectedLenders.length,
             totalAlreadySentLenders: alreadySentLenders.length,
 
             eligibleLenders: paginatedEligibleLenders,
+            ineligibleLenders: paginatedIneligibleLenders,
             rejectedLenders: paginatedRejectedLenders,
             alreadySentLenders: paginatedAlreadySentLenders,
 

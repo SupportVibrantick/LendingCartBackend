@@ -149,10 +149,6 @@ export default function EditFullProfile() {
         return `${product.name}: Select at least one state`;
       }
 
-      if (!data.documents || data.documents.length === 0) {
-        return `${product.name}: Select at least one required document`;
-      }
-
       if (isSba504Product(product.code)) {
         const total = Number(data.maxTotalProject);
         const debenture = Number(data.maxSba504Debenture);

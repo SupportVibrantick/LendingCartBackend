@@ -3,6 +3,9 @@
 const {
   evaluateLenderProductEligibility,
 } = require("../../../utils/evaluateLenderEligibility");
+const {
+  extractApplicantEligibilityData,
+} = require("../../../utils/extractApplicantEligibilityData");
 
 module.exports = async function findEligibleLenders(fastify) {
   fastify.get(
@@ -79,7 +82,11 @@ module.exports = async function findEligibleLenders(fastify) {
           where: { id: submissionId },
           include: {
             application: true,
-            fields: true,
+            fields: {
+              include: {
+                builderField: true,
+              },
+            },
           },
         });
 
@@ -125,65 +132,32 @@ module.exports = async function findEligibleLenders(fastify) {
            3️⃣ SAFE FIELD EXTRACTION
         ===================================================== */
 
-        const extractValue = (val) => {
-          if (!val) return null;
-          if (typeof val === "object") {
-            return val?.value || val?.text || val?.label || null;
-          }
-          return val;
-        };
+        const applicantData = extractApplicantEligibilityData(
+          submission,
+          application,
+        );
 
-        const getFieldValue = (key) => {
-          const field = submission.fields.find((f) => f.fieldKey === key);
-          return extractValue(field?.value);
-        };
-
-        const safeNumber = (value) => {
-          const n = Number(value);
-          return isNaN(n) ? null : n;
-        };
-
-        const loanAmount =
-          safeNumber(getFieldValue("amountRequested")) ??
-          safeNumber(application.amountRequested);
-
-        const termMonths =
-          safeNumber(getFieldValue("loanTerm")) ??
-          safeNumber(getFieldValue("requested_term_months"));
-
-        const borrowerMinTerm = safeNumber(getFieldValue("minTermMonths"));
-
-        const borrowerMaxTerm = safeNumber(getFieldValue("maxTermMonths"));
-
-        let creditScore =
-          safeNumber(getFieldValue("creditScore")) ??
-          safeNumber(getFieldValue("credit_score"));
-
-        if (creditScore === null) {
-          const range = getFieldValue("creditScoreRange");
-          if (range && typeof range === "string") {
-            const minRange = parseInt(range.split("-")[0]);
-            creditScore = isNaN(minRange) ? null : minRange;
-          }
-        }
-
-        const ltv = safeNumber(getFieldValue("ltvPercentage"));
-
-        const ltc = safeNumber(getFieldValue("ltcPercentage"));
-
-        const arv = safeNumber(getFieldValue("arvPercentage"));
-
-        const dscr = safeNumber(getFieldValue("dscr"));
-
-        const netWorth = safeNumber(getFieldValue("netWorth"));
-
-        const propertyType = getFieldValue("propertyType");
-
-        const propertyState = getFieldValue("propertyState");
-
-        const businessIndustry = getFieldValue("business_industry");
-
-        const yearsInBusiness = safeNumber(getFieldValue("yearsInBusiness"));
+        const {
+          loanAmount,
+          termMonths,
+          borrowerMinTerm,
+          borrowerMaxTerm,
+          creditScore,
+          ltv,
+          ltc,
+          arv,
+          dscr,
+          netWorth,
+          propertyType,
+          propertyState,
+          businessIndustry,
+          yearsInBusiness,
+          debtYield,
+          interestRate,
+          numberOfUnits,
+          similarProjectsCompleted,
+          portfolioPropertyCount,
+        } = applicantData;
 
         const { loanProductCode } = application;
 
@@ -264,10 +238,15 @@ module.exports = async function findEligibleLenders(fastify) {
           ltc,
           arv,
           dscr,
+          debtYield,
+          interestRate,
           propertyType,
           propertyState,
           businessIndustry,
           yearsInBusiness,
+          numberOfUnits,
+          similarProjectsCompleted,
+          portfolioPropertyCount,
         };
 
         const evaluatedLenders = lenderProducts.map((lp) => {

@@ -70,6 +70,7 @@ model UserAccount {
   changedApplicationStatuses    ApplicationStatusHistory[]       @relation("ChangedByUser")
   applicationTemplates          ApplicationTemplate[]
   auditLogs                     AuditLog[]                       @relation("UserAuditLogs")
+  fundedApplications            LoanApplication[]                @relation("FundedByUser")
   brokerProfile                 BrokerUserProfile?
   campaigns                     Campaign[]                       @relation("UserCampaigns")
   createdContacts               Contact[]
@@ -685,6 +686,9 @@ model LoanApplication {
   updatedAt                    DateTime                         @updatedAt @db.Timestamptz(6)
   submittedAt                  DateTime?                        @db.Timestamptz(6)
   autoForwardDocumentsToLender Boolean                          @default(false) @map("auto_forward_documents_to_lender")
+  fundedApplicationLenderId  String?                          @unique @map("funded_application_lender_id") @db.Uuid
+  fundedAt                   DateTime?                        @map("funded_at") @db.Timestamptz(6)
+  fundedByUserId             String?                          @map("funded_by_user_id") @db.Uuid
   clientUploadTokens           ClientUploadToken?
   subBrokerSubmissions         SubBrokerSubmission[]
   collaterals                  ApplicationCollateral[]
@@ -702,11 +706,14 @@ model LoanApplication {
   brokerOrg                    Organization                     @relation("BrokerLoanApplications", fields: [brokerOrgId], references: [id])
   brokerUser                   UserAccount?                     @relation("BrokerUserLoanApplications", fields: [brokerUserId], references: [id])
   client                       Client                           @relation(fields: [clientId], references: [id])
+  fundedApplicationLender      ApplicationLender?               @relation("FundedLenderDeal", fields: [fundedApplicationLenderId], references: [id])
+  fundedByUser                 UserAccount?                     @relation("FundedByUser", fields: [fundedByUserId], references: [id])
   subBrokerAssignments         SubBrokerApplication[]
 
   @@index([brokerOrgId])
   @@index([clientId])
   @@index([loanProductCode])
+  @@index([fundedByUserId])
   @@map("loan_applications")
 }
 
@@ -968,6 +975,7 @@ model ApplicationLender {
   lenderDocumentRequests    LenderDocumentRequest[]
   lenderReviews             LenderReview[]
   signDocumentRequirements  ApplicationDocumentRequirement[]
+  fundedLoanApplication     LoanApplication?                 @relation("FundedLenderDeal")
 
   @@unique([loanApplicationId, lenderProductId])
   @@index([loanApplicationId])

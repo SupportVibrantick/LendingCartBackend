@@ -223,12 +223,18 @@ const StepFive = ({
     }));
   };
 
-  const validateField = (productId: string, key: string, val: any) => {
+  const validateField = (
+    productId: string,
+    key: string,
+    val: any,
+    options?: { required?: boolean },
+  ) => {
     const current = value?.[productId] || {};
+    const isRequired = options?.required !== false;
 
     // ✅ EMPTY CHECK
     if (val === "" || val === null || val === undefined) {
-      return "This field is required";
+      return isRequired ? "This field is required" : "";
     }
 
     const numVal = Number(val);
@@ -509,7 +515,9 @@ const StepFive = ({
           value={currentValue || ""}
           onChange={(e) => {
             const val = e.target.value;
-            const err = validateField(product.id, field.key, val);
+            const err = validateField(product.id, field.key, val, {
+              required: field.required !== false,
+            });
 
             handleChange(product.id, field.key, val);
 
