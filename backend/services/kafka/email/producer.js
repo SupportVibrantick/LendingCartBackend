@@ -72,23 +72,7 @@ const sendEmailUsingKafka = async (to, subject, text, html) => {
   }
 };
 
-// Initialize producer connection at startup (but sendEmailUsingKafka will also await it)
-const run = async () => {
-  try {
-    await ensureProducerConnected();
-  } catch (error) {
-    logger.kafkaLogs.error("Error during Kafka producer initialization", {
-      error,
-    });
-  }
-};
-run().catch((error) => {
-  logger.kafkaLogs.error("Error during Kafka producer initialization", {
-    error,
-  });
-});
-
-// Graceful shutdown
+// Connect lazily on first email send — avoids blocking server startup when Kafka is down.
 const shutdownProducer = async () => {
   try {
     if (producerConnected) {

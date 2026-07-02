@@ -182,13 +182,21 @@ jobs:
             pm2 startOrRestart ecosystem.config.cjs --update-env
             pm2 save
 
-            APP_PORT="$(grep -E '^PORT=' .env | tail -1 | cut -d= -f2- | tr -d ' \"' || true)"
+            APP_PORT="$(sed -n 's/^PORT=//p' .env 2>/dev/null | tail -1 | tr -d ' \"' || true)"
             APP_PORT="${APP_PORT:-4000}"
 
             echo "🩺 Health check on port ${APP_PORT}..."
-            sleep 3
+            HEALTH_OK=0
+            for attempt in $(seq 1 30); do
+              if curl -sf "http://127.0.0.1:${APP_PORT}/" -o /dev/null; then
+                HEALTH_OK=1
+                break
+              fi
+              echo "   waiting for backend... attempt ${attempt}/30"
+              sleep 2
+            done
 
-            if ! curl -sf "http://127.0.0.1:${APP_PORT}/" -o /dev/null; then
+            if [ "${HEALTH_OK}" -ne 1 ]; then
               echo "❌ Backend health check failed on port ${APP_PORT}"
               pm2 logs lendingcart-backend --lines 80 --nostream || true
               exit 1
