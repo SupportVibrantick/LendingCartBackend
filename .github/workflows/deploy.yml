@@ -21,7 +21,6 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      # Every push to main resets DB, applies migrations, and runs seed in production.
       RESET_DB: ${{ github.event_name == 'push' && 'true' || (github.event.inputs.reset_database == 'true' && 'true' || 'false') }}
       RUN_SEED: ${{ github.event_name == 'push' && 'true' || (github.event.inputs.run_seed == 'true' && 'true' || 'false') }}
 
@@ -85,15 +84,6 @@ jobs:
             else
               echo "⏭️ Skipping database seed"
             fi
-
-            echo "🔁 Restarting backend..."
-            if pm2 list | grep -q "lendingcart-backend"; then
-              pm2 restart lendingcart-backend
-            else
-              pm2 start bin/www --name lendingcart-backend
-            fi
-
-            pm2 save
 
             #################################################
             # Admin Dashboard
@@ -182,4 +172,28 @@ jobs:
             echo "🔄 Restarting Nginx..."
             sudo systemctl restart nginx
 
+            #################################################
+            # Backend (restart last — after builds free memory)
+            #################################################
+
+            cd /root/LendingCartBackend/backend || exit 1
+
+            echo "🔁 Restarting backend..."
+            pm2 startOrRestart ecosystem.config.cjs --update-env
+            pm2 save
+
+            APP_PORT="$(grep -E '^PORT=' .env | tail -1 | cut -d= -f2- | tr -d ' \"' || true)"
+            APP_PORT="${APP_PORT:-4000}"
+
+            echo "🩺 Health check on port ${APP_PORT}..."
+            sleep 3
+
+            if ! curl -sf "http://127.0.0.1:${APP_PORT}/" -o /dev/null; then
+              echo "❌ Backend health check failed on port ${APP_PORT}"
+              pm2 logs lendingcart-backend --lines 80 --nostream || true
+              exit 1
+            fi
+
+            echo "✅ Backend is responding on port ${APP_PORT}"
             echo "🎉 Deployment completed successfully!"
+
