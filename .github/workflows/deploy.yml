@@ -7,12 +7,12 @@ on:
   workflow_dispatch:
     inputs:
       reset_database:
-        description: "DANGER - wipe database and rebuild schema (manual only)"
+        description: "Wipe database and rebuild schema (default: on)"
         type: boolean
-        default: false
+        default: true
 
       run_seed:
-        description: "Run database seed after schema sync"
+        description: "Run database seed after schema sync (default: on)"
         type: boolean
         default: true
 
@@ -21,8 +21,9 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      RESET_DB: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.reset_database == true && 'true' || 'false' }}
-      RUN_SEED: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.run_seed == 'true' && 'true' || 'false' }}
+      # Every push to main resets DB, applies migrations, and runs seed in production.
+      RESET_DB: ${{ github.event_name == 'push' && 'true' || (github.event.inputs.reset_database == 'true' && 'true' || 'false') }}
+      RUN_SEED: ${{ github.event_name == 'push' && 'true' || (github.event.inputs.run_seed == 'true' && 'true' || 'false') }}
 
     steps:
       - name: Checkout Repository
