@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
+import { filterLenderCatalogProducts } from "../../../lib/lenderLoanProducts";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
@@ -131,8 +132,12 @@ const StepTwo = ({
         createdAt: p.createdAt ?? undefined,
       }));
 
-      setProducts(mapped);
-      onProductsLoad?.(mapped);
+      const finalProducts = isLenderMode
+        ? filterLenderCatalogProducts(mapped)
+        : mapped;
+
+      setProducts(finalProducts);
+      onProductsLoad?.(finalProducts);
     } catch (err) {
       console.error("Failed to load loan products", err);
       toast.error("Failed to load loan products");

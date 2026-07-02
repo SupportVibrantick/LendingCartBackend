@@ -3,58 +3,60 @@ const prisma = require("./client");
 /**
  * Adds extended lender profile text fields. Safe to run multiple times.
  */
-async function ensureLenderProfileFields() {
-  await prisma.$executeRawUnsafe(`
+async function ensureLenderProfileFields(existingPrisma) {
+  const db = existingPrisma || prisma;
+
+  await db.$executeRawUnsafe(`
     ALTER TABLE "lender_profiles"
     ADD COLUMN IF NOT EXISTS "lendingCriteria" TEXT
   `);
 
-  await prisma.$executeRawUnsafe(`
+  await db.$executeRawUnsafe(`
     ALTER TABLE "lender_profiles"
     ADD COLUMN IF NOT EXISTS "lendingGuidelines" TEXT
   `);
 
-  await prisma.$executeRawUnsafe(`
+  await db.$executeRawUnsafe(`
     ALTER TABLE "lender_profiles"
     ADD COLUMN IF NOT EXISTS "creditRequirements" TEXT
   `);
 
-  await prisma.$executeRawUnsafe(`
+  await db.$executeRawUnsafe(`
     ALTER TABLE "lender_profiles"
     ADD COLUMN IF NOT EXISTS "propertyRequirements" TEXT
   `);
 
-  await prisma.$executeRawUnsafe(`
+  await db.$executeRawUnsafe(`
     ALTER TABLE "lender_profiles"
     ADD COLUMN IF NOT EXISTS "website" TEXT
   `);
 
-  await prisma.$executeRawUnsafe(`
+  await db.$executeRawUnsafe(`
     ALTER TABLE "lender_profiles"
     ADD COLUMN IF NOT EXISTS "nmls" TEXT
   `);
 
-  await prisma.$executeRawUnsafe(`
+  await db.$executeRawUnsafe(`
     ALTER TABLE "lender_profiles"
     ADD COLUMN IF NOT EXISTS "address" TEXT
   `);
 
-  await prisma.$executeRawUnsafe(`
+  await db.$executeRawUnsafe(`
     ALTER TABLE "lender_profiles"
     ADD COLUMN IF NOT EXISTS "city" TEXT
   `);
 
-  await prisma.$executeRawUnsafe(`
+  await db.$executeRawUnsafe(`
     ALTER TABLE "lender_profiles"
     ADD COLUMN IF NOT EXISTS "state" TEXT
   `);
 
-  await prisma.$executeRawUnsafe(`
+  await db.$executeRawUnsafe(`
     ALTER TABLE "lender_profiles"
     ADD COLUMN IF NOT EXISTS "zip" TEXT
   `);
 
-  await prisma.$executeRawUnsafe(`
+  await db.$executeRawUnsafe(`
     ALTER TABLE "lender_profiles"
     ADD COLUMN IF NOT EXISTS "lenderType" TEXT
   `);

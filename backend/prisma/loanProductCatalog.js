@@ -26,7 +26,6 @@ const LOAN_PRODUCTS = [
   { code: "INVOICE_FACTORING", name: "AR Factoring" },
   { code: "ACCOUNTS_PAYABLE_FINANCE", name: "AP Supply Chain" },
   { code: "ACCOUNTS_RECEIVABLE", name: "Accounts Receivable" },
-  { code: "ASSET_BASED_LENDING", name: "Asset Based Lending" },
 ];
 
 const LOAN_PRODUCT_CODES = LOAN_PRODUCTS.map((product) => product.code);

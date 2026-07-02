@@ -2,6 +2,10 @@ import { useEffect, useState, FormEvent } from "react";
 import axios from "axios";
 import toast from "react-hot-toast";
 import { useParams } from "react-router-dom";
+import {
+  filterLenderCatalogProducts,
+  resolveLenderOfferedProductCode,
+} from "../../lib/canonicalLoanProducts";
 
 /* ================= API ================= */
 const api = axios.create({
@@ -355,7 +359,9 @@ export default function EditLenderAssignProduct({
 
         // loan products list
         const productsRes = await api.get("/admin/loan-products/list");
-        setLoanProducts(productsRes.data?.data ?? []);
+        setLoanProducts(
+          filterLenderCatalogProducts(productsRes.data?.data ?? []),
+        );
 
         // lender assigned products
         const res = await api.get(`/admin/lender-products/lender/${orgId}`);
@@ -366,7 +372,7 @@ export default function EditLenderAssignProduct({
         const ids: Record<string, string> = {};
 
         lenderProducts.forEach((p: any) => {
-          ids[p.loanProductCode] = p.id;
+          ids[resolveLenderOfferedProductCode(p.loanProductCode)] = p.id;
         });
 
         // setProductIds(ids);
@@ -378,9 +384,15 @@ export default function EditLenderAssignProduct({
           (p: any) => p.loanProductCode === "EQUIPMENT_FINANCE",
         );
 
-        const loanCodes = lenderProducts
-          .filter((p: any) => p.isActive)
-          .map((p: any) => p.loanProductCode);
+        const loanCodes = [
+          ...new Set(
+            lenderProducts
+              .filter((p: any) => p.isActive)
+              .map((p: any) =>
+                resolveLenderOfferedProductCode(p.loanProductCode),
+              ),
+          ),
+        ];
 
         // setInitialLoanTypes(loanCodes);
 

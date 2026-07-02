@@ -32,6 +32,7 @@ import {
   type ProfileSectionId,
 } from "../lib/lenderProfileConstants";
 import { formatCompactAmount } from "../lib/loanPipelineUtils";
+import { filterLenderCatalogProducts } from "../lib/lenderLoanProducts";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
@@ -345,10 +346,12 @@ export default function EditLenderProfile() {
       if (!response.ok || !json.success) return;
 
       setLoanTypeOptions(
-        json.data.map((item: { code: string; name: string }) => ({
-          value: item.code,
-          label: item.name,
-        })),
+        filterLenderCatalogProducts(json.data).map(
+          (item: { code: string; name: string }) => ({
+            value: item.code,
+            label: item.name,
+          }),
+        ),
       );
     } catch {
       /* ignore */

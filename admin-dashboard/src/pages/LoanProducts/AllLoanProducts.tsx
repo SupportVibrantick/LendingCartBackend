@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { MdModeEdit } from "react-icons/md";
+import { filterLenderCatalogProducts } from "../../lib/canonicalLoanProducts";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
@@ -123,7 +124,7 @@ const AllLoanProducts: React.FC = () => {
         createdAt: p.createdAt ?? undefined,
       }));
 
-      setProducts(mapped);
+      setProducts(filterLenderCatalogProducts(mapped));
       setCurrentPage(1);
     } catch (err) {
       console.error("Failed to load loan products", err);
@@ -141,7 +142,15 @@ const AllLoanProducts: React.FC = () => {
     const json = await res.json();
 
     if (json?.success) {
-      setLoanProductOptions(json.data || []);
+      setLoanProductOptions(
+        filterLenderCatalogProducts(
+          (json.data || []).map((item: { id: string; code: string; name: string }) => ({
+            id: String(item.id),
+            code: item.code,
+            name: item.name,
+          })),
+        ),
+      );
     }
   } catch (error) {
     console.error("Failed to load loan product codes", error);

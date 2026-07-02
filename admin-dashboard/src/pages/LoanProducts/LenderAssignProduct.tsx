@@ -2,6 +2,7 @@ import { useEffect, useState, FormEvent } from "react";
 import axios, { AxiosError } from "axios";
 import toast from "react-hot-toast";
 import { useParams } from "react-router-dom";
+import { filterLenderCatalogProducts } from "../../lib/canonicalLoanProducts";
 
 /* ================= API ================= */
 const api = axios.create({
@@ -331,7 +332,9 @@ export default function LenderProductAssign({ lenderId, onSuccess }: Props) {
     async function loadProducts() {
       try {
         const productsRes = await api.get("/admin/loan-products/list");
-        setLoanProducts(productsRes.data?.data ?? []);
+        setLoanProducts(
+          filterLenderCatalogProducts(productsRes.data?.data ?? []),
+        );
       } catch {
         setMessage({ type: "error", text: "Failed to load products" });
       }

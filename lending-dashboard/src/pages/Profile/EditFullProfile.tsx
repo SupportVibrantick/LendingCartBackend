@@ -25,6 +25,11 @@ import {
   mapApiProductToCriteriaForm,
 } from "../../lib/loanProductCriteriaFields";
 import { API_BASE, getLenderAuthHeaders } from "../../lib/lenderApi";
+import {
+  filterLenderCatalogProducts,
+  mapToCanonicalCatalogId,
+  resolveLenderOfferedProductCode,
+} from "../../lib/lenderLoanProducts";
 
 type Product = {
   id: string;
@@ -196,24 +201,38 @@ export default function EditFullProfile() {
     }
 
     const primary = activeProducts[0];
-    const loanProgramIds = activeProducts
-      .map((product) => product.loanProductId)
-      .filter((id): id is string => Boolean(id));
+    const loanProgramIds = [
+      ...new Set(
+        activeProducts
+          .map((product) =>
+            mapToCanonicalCatalogId(
+              catalogProducts,
+              product.code,
+              product.loanProductId,
+            ),
+          )
+          .filter((id): id is string => Boolean(id)),
+      ),
+    ];
 
     const loanCriteria: Record<string, any> = {};
 
     for (const lenderProduct of activeProducts) {
-      const catalogId = lenderProduct.loanProductId;
-      if (!catalogId) continue;
+      const canonicalId = mapToCanonicalCatalogId(
+        catalogProducts,
+        lenderProduct.code,
+        lenderProduct.loanProductId,
+      );
+      if (!canonicalId) continue;
 
-      const catalogProduct = catalogProducts.find(
-        (product) => product.id === catalogId,
+      const canonicalCode = resolveLenderOfferedProductCode(
+        lenderProduct.code || "",
       );
 
-      loanCriteria[catalogId] = mapApiProductToCriteriaForm({
+      loanCriteria[canonicalId] = mapApiProductToCriteriaForm({
         ...lenderProduct,
-        loanProductCode: catalogProduct?.code || lenderProduct.code,
-        code: catalogProduct?.code || lenderProduct.code,
+        loanProductCode: canonicalCode,
+        code: canonicalCode,
       });
     }
 
@@ -227,11 +246,21 @@ export default function EditFullProfile() {
   };
 
   const resolveExistingProduct = (catalogProduct: Product) =>
-    existingProducts.find(
-      (product) =>
+    existingProducts.find((product) => {
+      const canonicalId = mapToCanonicalCatalogId(
+        products,
+        product.code,
+        product.loanProductId,
+      );
+
+      return (
+        canonicalId === catalogProduct.id ||
         product.loanProductId === catalogProduct.id ||
-        product.code === catalogProduct.code,
-    );
+        product.code === catalogProduct.code ||
+        resolveLenderOfferedProductCode(product.code || "") ===
+          catalogProduct.code
+      );
+    });
 
   const loadProfileData = useCallback(async () => {
     const [profileRes, lenderProductsRes, catalogRes] = await Promise.all([
@@ -253,12 +282,14 @@ export default function EditFullProfile() {
     }
 
     const { user, lenderProfile, organization } = profileJson.data;
-    const catalogProducts: Product[] = (catalogJson.data || []).map(
-      (item: { id: string; code: string; name: string }) => ({
-        id: item.id,
-        code: item.code,
-        name: item.name,
-      }),
+    const catalogProducts: Product[] = filterLenderCatalogProducts(
+      (catalogJson.data || []).map(
+        (item: { id: string; code: string; name: string }) => ({
+          id: String(item.id),
+          code: item.code,
+          name: item.name,
+        }),
+      ),
     );
 
     setProducts(catalogProducts);
@@ -544,9 +575,15 @@ export default function EditFullProfile() {
       }
 
       for (const existing of existingProducts) {
+        const canonicalId = mapToCanonicalCatalogId(
+          products,
+          existing.code,
+          existing.loanProductId,
+        );
+
         if (
-          existing.loanProductId &&
-          !form.loanPrograms.includes(existing.loanProductId) &&
+          canonicalId &&
+          !form.loanPrograms.includes(canonicalId) &&
           existing.id
         ) {
           await fetch(

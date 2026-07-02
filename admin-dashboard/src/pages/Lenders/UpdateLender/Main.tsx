@@ -19,6 +19,11 @@ import {
   mergeGroupedSelections,
   normalizeGroupedSelectionFromApi,
 } from "../../../lib/lenderProductAdminPayload";
+import {
+  filterLenderCatalogProducts,
+  mapToCanonicalCatalogId,
+  resolveLenderOfferedProductCode,
+} from "../../../lib/canonicalLoanProducts";
 
 type FormType = {
   lenderId: string;
@@ -334,15 +339,35 @@ export default function Main() {
   };
 
   const fetchLenderProducts = async (orgId: string) => {
-    const res = await fetch(
-      `${API_BASE}/admin/lender-products/lender/${orgId}`,
-      { headers: getAuthHeaders() },
-    );
-    const json = await res.json();
+    const [lenderRes, catalogRes] = await Promise.all([
+      fetch(`${API_BASE}/admin/lender-products/lender/${orgId}`, {
+        headers: getAuthHeaders(),
+      }),
+      fetch(`${API_BASE}/admin/loan-products/list`, {
+        headers: getAuthHeaders(),
+      }),
+    ]);
+
+    const json = await lenderRes.json();
+    const catalogJson = await catalogRes.json();
 
     if (!json?.success) return;
 
     const data = json.data || [];
+    const catalogProducts: Product[] = filterLenderCatalogProducts(
+      ((catalogJson.data || []) as Array<{
+        id: string;
+        code: string;
+        name: string;
+      }>).map((item) => ({
+        id: String(item.id),
+        code: item.code,
+        name: item.name,
+      })),
+    );
+
+    setProducts(catalogProducts);
+
     const productIdMap: Record<string, string> = {};
     let propertyTypes: Record<string, string[]> = {};
     let businessTypes: Record<string, string[]> = {};
@@ -350,8 +375,15 @@ export default function Main() {
     let equipmentFinance: string[] = [];
 
     data.forEach((item: any) => {
-      const loanProductId = item.loanProductId;
-      productIdMap[loanProductId] = item.id;
+      const canonicalId = mapToCanonicalCatalogId(
+        catalogProducts,
+        item.loanProductCode,
+        item.loanProductId,
+      );
+
+      if (!canonicalId) return;
+
+      productIdMap[canonicalId] = item.id;
 
       propertyTypes = mergeGroupedSelections(
         propertyTypes,
@@ -363,18 +395,40 @@ export default function Main() {
         normalizeGroupedSelectionFromApi(item.businessTypes, "name"),
       );
 
-      loanCriteria[loanProductId] = mapApiProductToCriteriaForm(item);
+      const canonicalCode = resolveLenderOfferedProductCode(
+        item.loanProductCode || "",
+      );
 
-      if (item.loanProductCode === "EQUIPMENT_FINANCE") {
+      loanCriteria[canonicalId] = mapApiProductToCriteriaForm({
+        ...item,
+        loanProductCode: canonicalCode,
+        code: canonicalCode,
+      });
+
+      if (canonicalCode === "EQUIPMENT_FINANCE") {
         equipmentFinance = Array.isArray(item.equipmentTypes)
           ? item.equipmentTypes
           : [];
       }
     });
 
+    const loanPrograms = [
+      ...new Set(
+        data
+          .map((item: any) =>
+            mapToCanonicalCatalogId(
+              catalogProducts,
+              item.loanProductCode,
+              item.loanProductId,
+            ),
+          )
+          .filter((id: string | null): id is string => Boolean(id)),
+      ),
+    ];
+
     setForm((prev) => ({
       ...prev,
-      loanPrograms: data.map((item: any) => item.loanProductId),
+      loanPrograms,
       propertyTypes,
       businessTypes,
       loanCriteria,
@@ -382,15 +436,7 @@ export default function Main() {
       productIdMap,
     }));
 
-    setLockedProgramIds(
-      [
-        ...new Set(
-          data
-            .map((item: any) => String(item.loanProductId || ""))
-            .filter((id: string) => Boolean(id)),
-        ),
-      ] as string[],
-    );
+    setLockedProgramIds(loanPrograms);
   };
 
   useEffect(() => {

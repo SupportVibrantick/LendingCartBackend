@@ -2,6 +2,7 @@ import { useEffect, useState, FormEvent } from "react";
 import axios, { AxiosError } from "axios";
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
+import { filterLenderCatalogProducts } from "../../lib/canonicalLoanProducts";
 
 /* ================= API ================= */
 const api = axios.create({
@@ -336,7 +337,9 @@ export default function LenderAllProductAssign() {
         console.log(lenders);
 
         // PRODUCTS → direct array
-        setLoanProducts(productsRes.data?.data ?? []);
+        setLoanProducts(
+          filterLenderCatalogProducts(productsRes.data?.data ?? []),
+        );
       } catch (err) {
         setMessage({ type: "error", text: "Failed to load data" });
       }

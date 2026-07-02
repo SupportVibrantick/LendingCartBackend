@@ -16,6 +16,11 @@ import {
   isSba504Product,
   mapApiProductToCriteriaForm,
 } from "../../lib/loanProductCriteriaFields";
+import {
+  filterLenderCatalogProducts,
+  mapToCanonicalCatalogId,
+  resolveLenderOfferedProductCode,
+} from "../../lib/lenderLoanProducts";
 
 type FormType = {
   loanPrograms: string[];
@@ -150,22 +155,34 @@ export default function UpdateLoanProduct() {
     () =>
       [
         ...new Set(
-          existingLenderProducts.map((item) => getProgramId(item)).filter(Boolean),
+          existingLenderProducts
+            .map((item) =>
+              mapToCanonicalCatalogId(
+                products,
+                item.loanProductCode || item.code,
+                getProgramId(item),
+              ),
+            )
+            .filter(Boolean),
         ),
-      ],
-    [existingLenderProducts],
+      ] as string[],
+    [existingLenderProducts, products],
   );
 
   const lenderProductByProgramId = useMemo(() => {
     const map: Record<string, LenderProductRecord> = {};
     existingLenderProducts.forEach((item) => {
-      const programId = getProgramId(item);
+      const programId = mapToCanonicalCatalogId(
+        products,
+        item.loanProductCode || item.code,
+        getProgramId(item),
+      );
       if (programId) {
         map[programId] = item;
       }
     });
     return map;
-  }, [existingLenderProducts]);
+  }, [existingLenderProducts, products]);
 
   const newProgramIds = useMemo(
     () => form.loanPrograms.filter((id) => !lockedProgramIds.includes(id)),
@@ -464,14 +481,16 @@ export default function UpdateLoanProduct() {
       try {
         setLoadingExisting(true);
 
-        const res = await fetch(
-          `${API_BASE}/lender/loan-products/list?limit=100`,
-          {
+        const [lenderRes, catalogRes] = await Promise.all([
+          fetch(`${API_BASE}/lender/loan-products/list?limit=100`, {
             headers: getAuthHeaders(),
-          },
-        );
+          }),
+          fetch(`${API_BASE}/common/loan-products/loan-product-code`, {
+            headers: getAuthHeaders(),
+          }),
+        ]);
 
-        const raw = await res.text();
+        const raw = await lenderRes.text();
         let json: Record<string, unknown> = {};
 
         try {
@@ -482,28 +501,64 @@ export default function UpdateLoanProduct() {
           );
         }
 
-        if (!res.ok || !json.success) {
+        if (!lenderRes.ok || !json.success) {
           throw new Error(
             (typeof json.message === "string" ? json.message : undefined) ||
               "Failed to load loan products",
           );
         }
 
+        const catalogJson = await catalogRes.json().catch(() => ({}));
+        const catalogProducts: Product[] = filterLenderCatalogProducts(
+          ((catalogJson.data || []) as Array<{
+            id: string | number;
+            code: string;
+            name: string;
+          }>).map((item) => ({
+            id: String(item.id),
+            code: item.code,
+            name: item.name,
+          })),
+        );
+
         if (cancelled) return;
 
         const items = (json.data || []) as LenderProductRecord[];
         setExistingLenderProducts(items);
+        setProducts(catalogProducts);
 
         const programIds = [
-          ...new Set(items.map((item) => getProgramId(item)).filter(Boolean)),
-        ];
+          ...new Set(
+            items
+              .map((item) =>
+                mapToCanonicalCatalogId(
+                  catalogProducts,
+                  item.loanProductCode || item.code,
+                  getProgramId(item),
+                ),
+              )
+              .filter(Boolean),
+          ),
+        ] as string[];
 
         const loanCriteria: Record<string, any> = {};
         items.forEach((item) => {
-          const programId = getProgramId(item);
-          if (programId) {
-            loanCriteria[programId] = mapApiProductToCriteriaForm(item);
-          }
+          const programId = mapToCanonicalCatalogId(
+            catalogProducts,
+            item.loanProductCode || item.code,
+            getProgramId(item),
+          );
+          if (!programId) return;
+
+          const canonicalCode = resolveLenderOfferedProductCode(
+            item.loanProductCode || item.code || "",
+          );
+
+          loanCriteria[programId] = mapApiProductToCriteriaForm({
+            ...item,
+            loanProductCode: canonicalCode,
+            code: canonicalCode,
+          });
         });
 
         const seedProduct = updatedLoanProduct || items[0] || null;
