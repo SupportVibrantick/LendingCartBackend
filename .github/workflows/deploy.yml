@@ -56,6 +56,8 @@ jobs:
             echo "📥 Pulling latest code..."
             git fetch origin
             git reset --hard origin/main
+            # Remove orphan migration folders left on the server (e.g. from prisma migrate dev)
+            git clean -fd -- backend/prisma/migrations/
 
             #################################################
             # Backend
