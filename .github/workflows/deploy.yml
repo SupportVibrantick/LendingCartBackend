@@ -27,15 +27,17 @@ jobs:
 
       - name: Deploy on VPS
         uses: appleboy/ssh-action@v1.0.3
-        env:
-          RESET_DB: ${{ env.RESET_DB }}
-          RUN_SEED: ${{ env.RUN_SEED }}
+    env:
+      RESET_DB: ${{ env.RESET_DB }}
+      RUN_SEED: ${{ env.RUN_SEED }}
+      VITE_API_BASE: https://api-lendingcart.vibrantick.org
+      VITE_EMBED_APP_URL: https://embed-lendingcart.vibrantick.org
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY_LENDINGCART }}
           port: ${{ secrets.SSH_PORT }}
-          envs: RESET_DB,RUN_SEED
+          envs: RESET_DB,RUN_SEED,VITE_API_BASE,VITE_EMBED_APP_URL
           script: |
             set -euo pipefail
 

@@ -107,6 +107,10 @@ export default function SignDocumentsPanel({
   clientName,
   applicationNumber,
 }: SignDocumentsPanelProps) {
+  const isClientMode = mode === "client";
+  const isBrokerMode = mode === "broker";
+  const isLenderMode = mode === "lender";
+
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState<SignDocumentRow[]>([]);
   const [uploadName, setUploadName] = useState("");
@@ -129,11 +133,11 @@ export default function SignDocumentsPanel({
       setLoading(true);
       let url = "";
 
-      if (mode === "lender" && applicationLenderId) {
+      if (isLenderMode && applicationLenderId) {
         url = `${apiBase}/lender/loan-pipeline/${applicationLenderId}/sign-documents`;
-      } else if (mode === "broker" && submissionId) {
+      } else if (isBrokerMode && submissionId) {
         url = `${apiBase}/${apiRolePrefix}/loan-pipeline/submissions/${submissionId}/sign-documents`;
-      } else if (mode === "client" && loanApplicationId) {
+      } else if (isClientMode && loanApplicationId) {
         url = `${apiBase}/client-portal/applications/${loanApplicationId}/sign-documents`;
       } else {
         return;
@@ -1401,11 +1405,11 @@ export default function SignDocumentsPanel({
     );
   }
 
-  if (mode === "client") {
+  if (isClientMode) {
     return renderClientView();
   }
 
-  if (mode === "broker") {
+  if (isBrokerMode) {
     return renderBrokerView();
   }
 
@@ -1421,7 +1425,7 @@ export default function SignDocumentsPanel({
         </p>
       </div>
 
-      {mode === "lender" && (
+      {isLenderMode && (
         <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
           <h3 className="mb-3 text-sm font-semibold text-slate-800 dark:text-white">
             Upload signable form

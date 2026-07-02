@@ -98,6 +98,10 @@ export default function SignDocumentsPanel({
   onUpdated,
   readOnly = false,
 }: SignDocumentsPanelProps) {
+  const isClientMode = mode === "client";
+  const isBrokerMode = mode === "broker";
+  const isLenderMode = mode === "lender";
+
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState<SignDocumentRow[]>([]);
   const [uploadName, setUploadName] = useState("");
@@ -117,11 +121,11 @@ export default function SignDocumentsPanel({
       setLoading(true);
       let url = "";
 
-      if (mode === "lender" && applicationLenderId) {
+      if (isLenderMode && applicationLenderId) {
         url = `${apiBase}/lender/loan-pipeline/${applicationLenderId}/sign-documents`;
-      } else if (mode === "broker" && submissionId) {
+      } else if (isBrokerMode && submissionId) {
         url = `${apiBase}/broker/loan-pipeline/submissions/${submissionId}/sign-documents`;
-      } else if (mode === "client" && loanApplicationId) {
+      } else if (isClientMode && loanApplicationId) {
         url = `${apiBase}/client-portal/applications/${loanApplicationId}/sign-documents`;
       } else {
         return;
@@ -386,7 +390,7 @@ export default function SignDocumentsPanel({
   const openSignedCopy = async (row: SignDocumentRow) => {
     if (
       canMarkSignSeen() &&
-      mode === "lender" &&
+      isLenderMode &&
       applicationLenderId &&
       row.signStatus === "FORWARDED_TO_LENDER"
     ) {
@@ -1045,7 +1049,7 @@ export default function SignDocumentsPanel({
     );
   }
 
-  if (mode === "lender") {
+  if (isLenderMode) {
     return renderLenderView();
   }
 
@@ -1071,7 +1075,7 @@ export default function SignDocumentsPanel({
             <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500 dark:bg-slate-800">
               <tr>
                 <th className="px-4 py-3">Document</th>
-                {mode !== "client" && <th className="px-4 py-3">Lender</th>}
+                {!isClientMode && <th className="px-4 py-3">Lender</th>}
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Files</th>
                 <th className="px-4 py-3 text-right">Actions</th>
@@ -1081,7 +1085,7 @@ export default function SignDocumentsPanel({
               {rows.map((row) => (
                 <tr key={row.requirementId}>
                   <td className="px-4 py-3 font-medium">{row.documentName}</td>
-                  {mode !== "client" && (
+                  {!isClientMode && (
                     <td className="px-4 py-3">{row.lenderName || "-"}</td>
                   )}
                   <td className="px-4 py-3">
@@ -1114,7 +1118,7 @@ export default function SignDocumentsPanel({
                     </div>
                   </td>
                   <td className="px-4 py-3 text-right">
-                    {mode === "broker" && row.signStatus === "AWAITING_BROKER" && (
+                    {isBrokerMode && row.signStatus === "AWAITING_BROKER" && (
                       <button
                         type="button"
                         disabled={actionId === row.requirementId}
@@ -1129,7 +1133,7 @@ export default function SignDocumentsPanel({
                         Send to client
                       </button>
                     )}
-                    {mode === "broker" && row.signStatus === "CLIENT_SIGNED" && (
+                    {isBrokerMode && row.signStatus === "CLIENT_SIGNED" && (
                       <button
                         type="button"
                         disabled={actionId === row.requirementId}
@@ -1144,7 +1148,7 @@ export default function SignDocumentsPanel({
                         Forward to lender
                       </button>
                     )}
-                    {mode === "client" &&
+                    {isClientMode &&
                       row.signStatus === "SENT_TO_CLIENT" &&
                       signingId === row.requirementId && (
                         <div className="mt-2 rounded-xl border border-slate-200 p-3 text-left dark:border-slate-700">
@@ -1183,7 +1187,7 @@ export default function SignDocumentsPanel({
                           </div>
                         </div>
                       )}
-                    {mode === "client" &&
+                    {isClientMode &&
                       row.signStatus === "SENT_TO_CLIENT" &&
                       signingId !== row.requirementId && (
                         <button
@@ -1202,7 +1206,7 @@ export default function SignDocumentsPanel({
         </div>
       )}
 
-      {mode === "client" && signingId && (
+      {isClientMode && signingId && (
         <div className="rounded-xl border border-blue-200 bg-blue-50 p-3 text-xs text-blue-800">
           Review the template using the eye button, then sign the document below.
         </div>

@@ -142,8 +142,8 @@ const getStatusStyles = (status?: string) => {
   }
 };
 
-const getStatusDot = (status: string) => {
-  switch (status) {
+const getStatusDot = (status?: string) => {
+  switch (status ?? "") {
     case "SUBMITTED":
       return "bg-emerald-500";
 
