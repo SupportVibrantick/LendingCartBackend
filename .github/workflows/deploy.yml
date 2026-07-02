@@ -3,12 +3,14 @@ name: Deploy LendingCart Project
 on:
   push:
     branches: [main]
+
   workflow_dispatch:
     inputs:
       reset_database:
         description: "DANGER - wipe database and rebuild schema (manual only)"
         type: boolean
         default: false
+
       run_seed:
         description: "Run database seed after schema sync"
         type: boolean
@@ -17,6 +19,7 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
     env:
       RESET_DB: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.reset_database == true && 'true' || 'false' }}
       RUN_SEED: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.run_seed == 'true' && 'true' || 'false' }}
@@ -27,17 +30,19 @@ jobs:
 
       - name: Deploy on VPS
         uses: appleboy/ssh-action@v1.0.3
-    env:
-      RESET_DB: ${{ env.RESET_DB }}
-      RUN_SEED: ${{ env.RUN_SEED }}
-      VITE_API_BASE: https://api-lendingcart.vibrantick.org
-      VITE_EMBED_APP_URL: https://embed-lendingcart.vibrantick.org
+        env:
+          RESET_DB: ${{ env.RESET_DB }}
+          RUN_SEED: ${{ env.RUN_SEED }}
+          VITE_API_BASE: https://api-lendingcart.vibrantick.org
+          VITE_EMBED_APP_URL: https://embed-lendingcart.vibrantick.org
+
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY_LENDINGCART }}
           port: ${{ secrets.SSH_PORT }}
           envs: RESET_DB,RUN_SEED,VITE_API_BASE,VITE_EMBED_APP_URL
+
           script: |
             set -euo pipefail
 
@@ -168,9 +173,10 @@ jobs:
             cp -r dist/* /var/www/embed/
 
             #################################################
-            # Nginx
+            # Restart Nginx
             #################################################
 
-            systemctl restart nginx
+            echo "🔄 Restarting Nginx..."
+            sudo systemctl restart nginx
 
             echo "🎉 Deployment completed successfully!"
