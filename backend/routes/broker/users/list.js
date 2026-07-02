@@ -2,6 +2,9 @@
 const {
   mergeBrokerProfileResponse,
 } = require("../../../utils/brokerUserProfileHelpers");
+const {
+  formatAssignedSubBrokers,
+} = require("../../../utils/subBrokerProfileHelpers");
 
 module.exports = async function listBrokerUsers(fastify) {
   fastify.get(
@@ -108,6 +111,20 @@ module.exports = async function listBrokerUsers(fastify) {
               _count: {
                 select: { brokerLoanApplications: true },
               },
+              loanOfficerSubBrokers: {
+                include: {
+                  subBroker: {
+                    select: {
+                      id: true,
+                      firstName: true,
+                      lastName: true,
+                      email: true,
+                      profileImage: true,
+                    },
+                  },
+                },
+                orderBy: { createdAt: "asc" },
+              },
             },
           }),
           prisma.userAccount.count({ where }),
@@ -127,6 +144,7 @@ module.exports = async function listBrokerUsers(fastify) {
           lastLoginAt: u.lastLoginAt,
           createdAt: u.createdAt,
           assignedDeals: u._count.brokerLoanApplications,
+          assignedCoBrokers: formatAssignedSubBrokers(u.loanOfficerSubBrokers),
 
           roles: u.roles.map((r) => r.role.name),
 

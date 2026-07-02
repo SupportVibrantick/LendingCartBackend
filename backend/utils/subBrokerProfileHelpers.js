@@ -290,6 +290,57 @@ async function syncSubBrokerLoanOfficers(prisma, subBrokerId, loanOfficerIds, br
   return validIds;
 }
 
+async function validateSubBrokerIds(prisma, brokerOrgId, subBrokerIds = []) {
+  const uniqueIds = [...new Set((subBrokerIds || []).filter(Boolean))];
+  if (uniqueIds.length === 0) return [];
+
+  const subBrokers = await prisma.userAccount.findMany({
+    where: {
+      id: { in: uniqueIds },
+      organizationId: brokerOrgId,
+      isDeleted: false,
+      status: "ACTIVE",
+      roles: {
+        some: {
+          role: { name: "SUB_BROKER" },
+        },
+      },
+    },
+    select: { id: true },
+  });
+
+  if (subBrokers.length !== uniqueIds.length) {
+    throw new Error("One or more assigned co-brokers are invalid");
+  }
+
+  return uniqueIds;
+}
+
+async function syncLoanOfficerSubBrokers(
+  prisma,
+  loanOfficerId,
+  subBrokerIds,
+  brokerOrgId,
+) {
+  const validIds = await validateSubBrokerIds(prisma, brokerOrgId, subBrokerIds);
+
+  await prisma.subBrokerLoanOfficer.deleteMany({
+    where: { loanOfficerId },
+  });
+
+  if (validIds.length === 0) return [];
+
+  await prisma.subBrokerLoanOfficer.createMany({
+    data: validIds.map((subBrokerId) => ({
+      subBrokerId,
+      loanOfficerId,
+    })),
+    skipDuplicates: true,
+  });
+
+  return validIds;
+}
+
 function formatAssignedLoanOfficers(links = []) {
   return links.map((link) => ({
     id: link.loanOfficer.id,
@@ -297,6 +348,16 @@ function formatAssignedLoanOfficers(links = []) {
     lastName: link.loanOfficer.lastName,
     email: link.loanOfficer.email,
     profileImage: link.loanOfficer.profileImage,
+  }));
+}
+
+function formatAssignedSubBrokers(links = []) {
+  return links.map((link) => ({
+    id: link.subBroker.id,
+    firstName: link.subBroker.firstName,
+    lastName: link.subBroker.lastName,
+    email: link.subBroker.email,
+    profileImage: link.subBroker.profileImage,
   }));
 }
 
@@ -429,6 +490,10 @@ module.exports = {
   buildProfileDataFromFields,
   parseMultipartRequest,
   syncSubBrokerLoanOfficers,
+  syncLoanOfficerSubBrokers,
+  validateSubBrokerIds,
+  formatAssignedLoanOfficers,
+  formatAssignedSubBrokers,
   formatSubBrokerDetail,
   formatCoBrokerAuthResponse,
   mergeSelfEditableProfileData,

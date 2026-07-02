@@ -38,6 +38,10 @@ model Organization {
   lenderProfile               LenderProfile?
   loanAiUsers                 LoanAiUser?
   brokerLoanApplications      LoanApplication[]          @relation("BrokerLoanApplications")
+  dealCommissions             DealCommission[]
+  commissionInvoices          CommissionInvoice[]
+  commissionPayouts           CommissionPayout[]
+  commissionAuditEvents       CommissionAuditEvent[]
   organizationSubscriptions   OrganizationSubscription[]
   subscriptionInvoices        SubscriptionInvoice[]
   users                       UserAccount[]
@@ -71,6 +75,10 @@ model UserAccount {
   applicationTemplates          ApplicationTemplate[]
   auditLogs                     AuditLog[]                       @relation("UserAuditLogs")
   fundedApplications            LoanApplication[]                @relation("FundedByUser")
+  dealCommissionsReceived       DealCommission[]                 @relation("CommissionRecipient")
+  commissionInvoicesGenerated   CommissionInvoice[]              @relation("CommissionInvoiceGeneratedBy")
+  commissionPayoutsRecorded     CommissionPayout[]               @relation("CommissionPayoutRecordedBy")
+  commissionAuditEvents         CommissionAuditEvent[]           @relation("CommissionAuditActor")
   brokerProfile                 BrokerUserProfile?
   campaigns                     Campaign[]                       @relation("UserCampaigns")
   createdContacts               Contact[]
@@ -709,12 +717,134 @@ model LoanApplication {
   fundedApplicationLender      ApplicationLender?               @relation("FundedLenderDeal", fields: [fundedApplicationLenderId], references: [id])
   fundedByUser                 UserAccount?                     @relation("FundedByUser", fields: [fundedByUserId], references: [id])
   subBrokerAssignments         SubBrokerApplication[]
+  dealCommissions              DealCommission[]
+  commissionInvoices           CommissionInvoice[]
+  commissionPayouts            CommissionPayout[]
+  commissionAuditEvents        CommissionAuditEvent[]
 
   @@index([brokerOrgId])
   @@index([clientId])
   @@index([loanProductCode])
   @@index([fundedByUserId])
   @@map("loan_applications")
+}
+
+model DealCommission {
+  id                 String                  @id @default(uuid()) @db.Uuid
+  loanApplicationId  String                  @map("loan_application_id") @db.Uuid
+  brokerOrgId        String                  @map("broker_org_id") @db.Uuid
+  recipientUserId    String                  @map("recipient_user_id") @db.Uuid
+  recipientRole      CommissionRecipientRole @map("recipient_role")
+  loanAmount         Decimal                 @map("loan_amount") @db.Decimal(20, 2)
+  brokerPoints       Decimal?                @map("broker_points") @db.Decimal(5, 2)
+  upfrontFee         Decimal?                @map("upfront_fee") @db.Decimal(12, 2)
+  commissionPool     Decimal                 @map("commission_pool") @db.Decimal(20, 2)
+  findersFeePercent  Decimal                 @map("finders_fee_percent") @db.Decimal(5, 2)
+  commissionAmount   Decimal                 @map("commission_amount") @db.Decimal(20, 2)
+  status             CommissionLineStatus    @default(CALCULATED)
+  calculationVersion Int                     @default(1) @map("calculation_version")
+  calculatedAt       DateTime                @default(now()) @map("calculated_at") @db.Timestamptz(6)
+  createdAt          DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
+  loanApplication    LoanApplication         @relation(fields: [loanApplicationId], references: [id])
+  brokerOrg          Organization            @relation(fields: [brokerOrgId], references: [id])
+  recipientUser      UserAccount             @relation("CommissionRecipient", fields: [recipientUserId], references: [id])
+  invoices           CommissionInvoice[]
+  payouts            CommissionPayout[]
+  auditEvents        CommissionAuditEvent[]
+
+  @@unique([loanApplicationId, recipientUserId, recipientRole])
+  @@index([brokerOrgId])
+  @@index([recipientUserId])
+  @@index([status])
+  @@index([loanApplicationId])
+  @@map("deal_commissions")
+}
+
+model CommissionInvoice {
+  id                  String                  @id @default(uuid()) @db.Uuid
+  dealCommissionId    String                  @map("deal_commission_id") @db.Uuid
+  brokerOrgId         String                  @map("broker_org_id") @db.Uuid
+  loanApplicationId   String                  @map("loan_application_id") @db.Uuid
+  invoiceNumber       String                  @unique @map("invoice_number")
+  status              CommissionInvoiceStatus @default(GENERATED)
+  pdfUrl              String?                 @map("pdf_url")
+  paymentInstructions String?                 @map("payment_instructions")
+  generatedAt         DateTime                @default(now()) @map("generated_at") @db.Timestamptz(6)
+  generatedByUserId   String?                 @map("generated_by_user_id") @db.Uuid
+  sentAt              DateTime?               @map("sent_at") @db.Timestamptz(6)
+  viewedAt            DateTime?               @map("viewed_at") @db.Timestamptz(6)
+  downloadedAt        DateTime?               @map("downloaded_at") @db.Timestamptz(6)
+  createdAt           DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
+  dealCommission      DealCommission          @relation(fields: [dealCommissionId], references: [id])
+  brokerOrg           Organization            @relation(fields: [brokerOrgId], references: [id])
+  loanApplication     LoanApplication         @relation(fields: [loanApplicationId], references: [id])
+  generatedByUser     UserAccount?            @relation("CommissionInvoiceGeneratedBy", fields: [generatedByUserId], references: [id])
+  payouts             CommissionPayout[]
+  auditEvents         CommissionAuditEvent[]
+
+  @@index([dealCommissionId])
+  @@index([brokerOrgId])
+  @@index([loanApplicationId])
+  @@index([status])
+  @@map("commission_invoices")
+}
+
+model CommissionPayout {
+  id                  String                  @id @default(uuid()) @db.Uuid
+  dealCommissionId    String                  @map("deal_commission_id") @db.Uuid
+  commissionInvoiceId String?                 @map("commission_invoice_id") @db.Uuid
+  brokerOrgId         String                  @map("broker_org_id") @db.Uuid
+  loanApplicationId   String                  @map("loan_application_id") @db.Uuid
+  amount              Decimal                 @db.Decimal(20, 2)
+  paymentMethod       CommissionPaymentMethod @map("payment_method")
+  paymentReference    String?                 @map("payment_reference")
+  notes               String?
+  status              CommissionPayoutStatus  @default(COMPLETED)
+  paidAt              DateTime                @default(now()) @map("paid_at") @db.Timestamptz(6)
+  paidByUserId        String                  @map("paid_by_user_id") @db.Uuid
+  createdAt           DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  dealCommission      DealCommission          @relation(fields: [dealCommissionId], references: [id])
+  commissionInvoice   CommissionInvoice?      @relation(fields: [commissionInvoiceId], references: [id])
+  brokerOrg           Organization            @relation(fields: [brokerOrgId], references: [id])
+  loanApplication     LoanApplication         @relation(fields: [loanApplicationId], references: [id])
+  paidByUser          UserAccount             @relation("CommissionPayoutRecordedBy", fields: [paidByUserId], references: [id])
+  auditEvents         CommissionAuditEvent[]
+
+  @@index([dealCommissionId])
+  @@index([brokerOrgId])
+  @@index([loanApplicationId])
+  @@index([status])
+  @@index([paidAt])
+  @@map("commission_payouts")
+}
+
+model CommissionAuditEvent {
+  id                  String                   @id @default(uuid()) @db.Uuid
+  brokerOrgId         String                   @map("broker_org_id") @db.Uuid
+  loanApplicationId   String?                  @map("loan_application_id") @db.Uuid
+  dealCommissionId    String?                  @map("deal_commission_id") @db.Uuid
+  commissionInvoiceId String?                  @map("commission_invoice_id") @db.Uuid
+  commissionPayoutId  String?                  @map("commission_payout_id") @db.Uuid
+  eventType           CommissionAuditEventType @map("event_type")
+  actorUserId         String?                  @map("actor_user_id") @db.Uuid
+  actorType           CommissionAuditActorType @default(USER) @map("actor_type")
+  metadata            Json?
+  createdAt           DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  brokerOrg           Organization             @relation(fields: [brokerOrgId], references: [id])
+  loanApplication     LoanApplication?         @relation(fields: [loanApplicationId], references: [id])
+  dealCommission      DealCommission?          @relation(fields: [dealCommissionId], references: [id])
+  commissionInvoice   CommissionInvoice?       @relation(fields: [commissionInvoiceId], references: [id])
+  commissionPayout    CommissionPayout?        @relation(fields: [commissionPayoutId], references: [id])
+  actorUser           UserAccount?             @relation("CommissionAuditActor", fields: [actorUserId], references: [id])
+
+  @@index([brokerOrgId])
+  @@index([loanApplicationId])
+  @@index([dealCommissionId])
+  @@index([eventType])
+  @@index([createdAt])
+  @@map("commission_audit_events")
 }
 
 model BrokerApplication {
@@ -1878,6 +2008,55 @@ enum LoanApplicationStatus {
   WITHDRAWN
   CLIENT_PENDING
   SUSPENDED
+}
+
+enum CommissionRecipientRole {
+  BROKER
+  LOAN_OFFICER
+  CO_BROKER
+}
+
+enum CommissionLineStatus {
+  CALCULATED
+  VOID
+  SUPERSEDED
+}
+
+enum CommissionInvoiceStatus {
+  DRAFT
+  GENERATED
+  SENT
+  VIEWED
+  VOID
+}
+
+enum CommissionPayoutStatus {
+  COMPLETED
+  REVERSED
+}
+
+enum CommissionPaymentMethod {
+  ACH
+  WIRE
+  CHECK
+  CASH
+  MANUAL
+  STRIPE
+}
+
+enum CommissionAuditEventType {
+  COMMISSION_CALCULATED
+  INVOICE_GENERATED
+  INVOICE_SENT
+  INVOICE_VIEWED
+  INVOICE_DOWNLOADED
+  PAYOUT_RECORDED
+  PAYOUT_REVERSED
+}
+
+enum CommissionAuditActorType {
+  SYSTEM
+  USER
 }
 
 enum DocRequirementSource {

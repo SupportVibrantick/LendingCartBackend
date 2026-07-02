@@ -2,6 +2,7 @@
   ArrowLeft,
   ChevronLeft,
   ChevronRight,
+  DollarSign,
   Download,
   Eye,
   FileSearch,
@@ -27,6 +28,7 @@ import Swal from "sweetalert2";
 import { FaRegCreditCard } from "react-icons/fa6";
 import LoanPreviewChat from "./LoanPreviewChat";
 import FeeAgreement from "./FeeAgreement";
+import LoanCommissionPanel from "../../../components/commissions/LoanCommissionPanel";
 import LoanApplication from "../LoanApplication/LoanApplication";
 import { mapSubmissionToLoanApplication } from "../../../lib/mapSubmissionToLoanApplication";
 import {
@@ -105,7 +107,8 @@ type TabKey =
   | "sign-documents"
   // | "submitted-lenders"
   | "chat"
-  | "fee-agreement";
+  | "fee-agreement"
+  | "commissions";
 
 const parseValue = (val: string): any => {
   try {
@@ -1088,6 +1091,7 @@ const LoanPreview = () => {
   const submittedDate = submissionDetail?.submittedAt
     ? new Date(submissionDetail.submittedAt)
     : null;
+  const isFundedDeal = submissionDetail?.status === "FUNDED";
   const tabs = [
     {
       key: "view-details" as const,
@@ -1153,6 +1157,16 @@ const LoanPreview = () => {
       icon: FileText,
       color: "text-indigo-600",
     },
+    ...(isFundedDeal
+      ? [
+          {
+            key: "commissions" as const,
+            label: "Commissions",
+            icon: DollarSign,
+            color: "text-emerald-600",
+          },
+        ]
+      : []),
   ];
 
   const currentFile = previewFiles[activeIndex];
@@ -2287,6 +2301,14 @@ dark:bg-red-900/20 dark:text-red-400"
           <FeeAgreement
             applicationId={applicationId}
             getAuthHeaders={getAuthHeaders}
+          />
+        );
+      case "commissions":
+        return (
+          <LoanCommissionPanel
+            loanApplicationId={applicationId}
+            getAuthHeaders={getAuthHeaders}
+            portal="loanofficer"
           />
         );
       default:

@@ -48,6 +48,14 @@ export const PERMISSION_PRESETS: Record<PermissionLevel, string[]> = {
   ],
 };
 
+export interface LoanOfficerCoBroker {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email?: string;
+  profileImage?: string | null;
+}
+
 export interface LoanOfficerProfile {
   company?: string;
   tollFree?: string | null;
@@ -94,6 +102,8 @@ export interface LoanOfficerDetail {
   createdAt: string;
   lastLoginAt?: string | null;
   assignedDeals?: number;
+  assignedCoBrokers?: LoanOfficerCoBroker[];
+  assignedCoBrokerIds?: string[];
   roles?: string[];
   permissions?: string[];
   profile?: LoanOfficerProfile | null;
@@ -129,6 +139,7 @@ export interface LoanOfficerFormState {
   dre: string;
   branchIds: string[];
   permissionLevel: PermissionLevel | "";
+  assignedCoBrokerIds: string[];
   avatarFile: File | null;
   avatarPreview: string | null;
   w9File: File | null;
@@ -166,6 +177,7 @@ export const INITIAL_LOAN_OFFICER_FORM: LoanOfficerFormState = {
   dre: "",
   branchIds: [],
   permissionLevel: "",
+  assignedCoBrokerIds: [],
   avatarFile: null,
   avatarPreview: null,
   w9File: null,
@@ -221,6 +233,10 @@ export function mapDetailToLoanOfficerForm(detail: LoanOfficerDetail): LoanOffic
     permissionLevel:
       (profile.permissionLevel as PermissionLevel) ||
       inferPermissionLevel(detail.permissions),
+    assignedCoBrokerIds:
+      detail.assignedCoBrokerIds ||
+      detail.assignedCoBrokers?.map((broker) => broker.id) ||
+      [],
     avatarPreview: profile.avatarUrl || null,
   };
 }
@@ -324,6 +340,10 @@ export function buildLoanOfficerFormData(form: LoanOfficerFormState): FormData {
     JSON.stringify(form.personalStateLicenseStates),
   );
   formData.append("branchIds", JSON.stringify(form.branchIds));
+  formData.append(
+    "assignedCoBrokerIds",
+    JSON.stringify(form.assignedCoBrokerIds),
+  );
 
   const permissions =
     form.permissionLevel && form.permissionLevel in PERMISSION_PRESETS
@@ -341,4 +361,24 @@ export function buildLoanOfficerFormData(form: LoanOfficerFormState): FormData {
   if (form.w9File) formData.append("w9", form.w9File);
 
   return formData;
+}
+
+const BROKER_API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
+
+function getBrokerAuthHeaders(): Record<string, string> {
+  const token = sessionStorage.getItem("broker_token");
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+export async function fetchLoanOfficerCoBrokers(): Promise<LoanOfficerCoBroker[]> {
+  const res = await fetch(`${BROKER_API_BASE}/broker/users/co-brokers`, {
+    headers: getBrokerAuthHeaders(),
+  });
+  const json = await res.json();
+
+  if (!res.ok || !json.success) {
+    throw new Error(json.message || "Failed to load co-brokers");
+  }
+
+  return json.data || [];
 }

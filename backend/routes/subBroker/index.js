@@ -40,6 +40,10 @@ async function subBrokerRoutes(fastify, options) {
     fastify.register(messagingRoutes, {
     prefix: "/messaging",
   });
+
+  fastify.register(require("./commissions"), {
+    prefix: "/commissions",
+  });
 }
 
 module.exports = subBrokerRoutes;

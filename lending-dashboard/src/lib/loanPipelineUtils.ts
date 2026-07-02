@@ -166,6 +166,32 @@ export function formatEntityTypeLabel(value?: string) {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
+export function canLenderTakeDecision(input?: {
+  applicationStatus?: string | null;
+  lenderStatus?: string | null;
+  lenderDecision?: string | null;
+}) {
+  const applicationStatus = (input?.applicationStatus || "")
+    .toUpperCase()
+    .trim();
+  const lenderStatus = (input?.lenderStatus || "").toUpperCase().trim();
+  const lenderDecision = (input?.lenderDecision || "").toUpperCase().trim();
+
+  if (["FUNDED", "WITHDRAWN", "SUSPENDED"].includes(applicationStatus)) {
+    return false;
+  }
+
+  if (["APPROVED", "DECLINED"].includes(lenderDecision)) {
+    return false;
+  }
+
+  if (["APPROVED", "DECLINED"].includes(lenderStatus)) {
+    return false;
+  }
+
+  return true;
+}
+
 export function canLenderRequestDocuments(
   lenderStatus?: string | null,
   latestReviewStatus?: string | null,

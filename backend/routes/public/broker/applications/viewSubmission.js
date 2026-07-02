@@ -8,6 +8,7 @@ module.exports = async function viewSubmission(fastify) {
     canBrokerEditSubmittedApplication,
     canBrokerRequestDocuments,
   } = require("../../../../utils/resolveApplicationStatus");
+  const { getMarkFundedEligibility } = require("../../../../utils/markFundedHelpers");
 
   fastify.get("/submissions/:submissionId", async (req, reply) => {
     const { submissionId } = req.params;
@@ -68,6 +69,14 @@ module.exports = async function viewSubmission(fastify) {
                       conditions: true,
                     },
                   },
+                },
+              },
+              feeAgreement: {
+                select: {
+                  id: true,
+                  brokerPoints: true,
+                  upfrontFee: true,
+                  status: true,
                 },
               },
             },
@@ -143,6 +152,18 @@ module.exports = async function viewSubmission(fastify) {
     const displayStatus = resolveBrokerPipelineDisplayStatus(application);
     const editCheck = canBrokerEditSubmittedApplication(application);
     const documentRequestCheck = canBrokerRequestDocuments(application);
+    const fundingEligibility = getMarkFundedEligibility({
+      ...application,
+      submissions: [
+        {
+          status: submission.status,
+          createdAt: submission.createdAt,
+          fields: submission.fields,
+        },
+      ],
+    });
+    const canMarkFunded =
+      application.status !== "FUNDED" && fundingEligibility.canMarkFunded;
 
     /* ===============================
        RESPONSE
@@ -179,6 +200,19 @@ module.exports = async function viewSubmission(fastify) {
         documentRequestBlockedReason: documentRequestCheck.allowed
           ? null
           : documentRequestCheck.reason,
+        canMarkFunded,
+        markFundedBlockedReason:
+          application.status === "FUNDED" || canMarkFunded
+            ? null
+            : fundingEligibility.markFundedBlockedReason,
+        feeAgreement: application.feeAgreement
+          ? {
+              id: application.feeAgreement.id,
+              brokerPoints: application.feeAgreement.brokerPoints,
+              upfrontFee: application.feeAgreement.upfrontFee,
+              status: application.feeAgreement.status,
+            }
+          : null,
         submittedAt: submission.createdAt,
 
         /* ================= FIELDS ================= */

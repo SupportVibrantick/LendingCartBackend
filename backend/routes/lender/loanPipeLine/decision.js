@@ -320,12 +320,16 @@ async function lenderDecisionRoutes(fastify) {
 
           /* ===============================
              APPROVED FLOW
+             Keep application open for other lenders until broker marks funded.
           =============================== */
           if (decision === "APPROVED") {
-            await tx.loanApplication.update({
-              where: { id: record.loanApplication.id },
-              data: { status: "LENDER_APPROVED" },
-            });
+            const currentStatus = record.loanApplication.status;
+            if (!["FUNDED", "WITHDRAWN", "SUSPENDED"].includes(currentStatus)) {
+              await tx.loanApplication.update({
+                where: { id: record.loanApplication.id },
+                data: { status: "IN_REVIEW" },
+              });
+            }
           }
 
           /* ===============================

@@ -64,6 +64,9 @@ import SubBroker from "./pages/UserManagement/SubBroker";
 import SubBrokerLayout from "./layout/SubBrokerLayout";
 import Login from "./pages/subBroker/Auth/Login";
 import CoBrokerImpersonateLogin from "./pages/subBroker/Auth/ImpersonateLogin";
+import CoBrokerDashboard from "./pages/subBroker/Dashboard/CoBrokerDashboard";
+import CoBrokerInvoicesPage from "./pages/subBroker/Invoices/CoBrokerInvoicesPage";
+import CoBrokerCommissionsPage from "./pages/subBroker/Commissions/CoBrokerCommissionsPage";
 // import Dashboard from "./pages/subBroker/Dashboard/Dashboard";
 import LoanPipeline from "./pages/subBroker/LoanPipeline/LoanPipeline";
 import SubBrokerLoanPreview from "./pages/subBroker/LoanPipeline/SubBrokerLoanPreview";
@@ -77,10 +80,15 @@ import LoanOfficerSubmitApplications from "./pages/loanOfficer/LoanPipeline/Subm
 import LoanOfficerLoanPreview from "./pages/loanOfficer/LoanPipeline/LoanPreview";
 import LoanOfficerProfile from "./pages/loanOfficer/Auth/Profile";
 import LoanOfficerDashboard from "./pages/loanOfficer/Dashboard/LoanOfficerDashboard";
+import LoanOfficerInvoicesPage from "./pages/loanOfficer/Invoices/LoanOfficerInvoicesPage";
+import LoanOfficerCommissionsPage from "./pages/loanOfficer/Commissions/LoanOfficerCommissionsPage";
 import LoanOfficerMessagesPage from "./pages/loanOfficer/Messages/LoanOfficerMessagesPage";
 import LoanOfficerApplication from "./pages/loanOfficer/LoanApplication/LoanApplication";
 import LoanOfficerContacts from "./pages/loanOfficer/Contacts/ContactPage";
 import BrokerBranding from "./pages/Settings/BrokerBranding";
+import CommissionsPage from "./pages/Commissions/CommissionsPage";
+import PaymentsLayout from "./pages/Payments/PaymentsLayout";
+import InvoicesPage from "./pages/Payments/InvoicesPage";
 
 // type RequirePermissionProps = {
 //   children: ReactNode;
@@ -270,6 +278,16 @@ export default function App() {
 
             <Route index path="/loan-preview" element={<LoanPreview />} />
 
+            <Route path="/payments" element={<PaymentsLayout />}>
+              <Route index element={<Navigate to="invoices" replace />} />
+              <Route path="invoices" element={<InvoicesPage />} />
+              <Route path="commissions" element={<CommissionsPage />} />
+            </Route>
+            <Route
+              path="/commissions"
+              element={<Navigate to="/payments/commissions" replace />}
+            />
+
             <Route index path="/find-lenders" element={<FindLenders />} />
 
             <Route index path="/my-lenders" element={<MyLenders />} />
@@ -362,7 +380,11 @@ export default function App() {
           >
             <Route index element={<Navigate to="dashboard" replace />} />
 
-            {/* <Route path="dashboard" element={<Dashboard />} /> */}
+            <Route path="dashboard" element={<CoBrokerDashboard />} />
+
+            <Route path="invoices" element={<CoBrokerInvoicesPage />} />
+
+            <Route path="commissions" element={<CoBrokerCommissionsPage />} />
 
             <Route path="loan-pipeline" element={<LoanPipeline />} />
 
@@ -391,6 +413,8 @@ export default function App() {
           >
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<LoanOfficerDashboard />} />
+            <Route path="invoices" element={<LoanOfficerInvoicesPage />} />
+            <Route path="commissions" element={<LoanOfficerCommissionsPage />} />
             <Route
               path="loan-pipeline"
               element={<LoanOfficerSubmitApplications />}

@@ -9,6 +9,10 @@ const {
   syncUserPermissions,
   parsePermissionsField,
 } = require("../../../utils/brokerUserProfileHelpers");
+const {
+  parseJsonField,
+  syncLoanOfficerSubBrokers,
+} = require("../../../utils/subBrokerProfileHelpers");
 
 module.exports = async function createBrokerUser(fastify) {
   fastify.post(
@@ -133,6 +137,10 @@ module.exports = async function createBrokerUser(fastify) {
               10,
             );
         const profileData = buildProfileDataFromFields(fields);
+        const assignedCoBrokerIds = parseJsonField(
+          fields.assignedCoBrokerIds,
+          [],
+        );
 
         const roleRecord = await prisma.role.findFirst({
           where: { name: "BROKER_OFFICER" },
@@ -181,6 +189,13 @@ module.exports = async function createBrokerUser(fastify) {
           });
 
           await syncUserPermissions(tx, user.id, parsedPermissions);
+
+          await syncLoanOfficerSubBrokers(
+            tx,
+            user.id,
+            assignedCoBrokerIds,
+            brokerOrgId,
+          );
 
           return user;
         });

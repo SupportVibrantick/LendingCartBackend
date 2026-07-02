@@ -260,7 +260,7 @@ module.exports = async function findEligibleLenders(fastify) {
 
         /* =====================================================
            6️⃣ ELIGIBILITY EVALUATION
-        ===================================================== */
+        ===================================================== */ 
 
         const evaluatedLenders = lenderProducts.map((lp) => {
           const applicationStatus =

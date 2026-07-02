@@ -49,6 +49,12 @@ interface LoanOfficer {
   lastLoginAt: string | null;
   roles: string[];
   permissions?: string[];
+  assignedCoBrokers?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email?: string;
+  }[];
   profile: {
     company: string;
     tollFree: string;
@@ -90,6 +96,31 @@ function formatDate(value?: string) {
     day: "numeric",
     year: "numeric",
   });
+}
+
+function formatTeamAssignments(
+  members?: { firstName?: string; lastName?: string; email?: string }[],
+) {
+  if (!members?.length) return "—";
+  const names = members
+    .map((member) => `${member.firstName || ""} ${member.lastName || ""}`.trim())
+    .filter(Boolean);
+  if (!names.length) return "—";
+  if (names.length === 1) return names[0];
+  return `${names[0]} +${names.length - 1}`;
+}
+
+function getTeamAssignmentTitle(
+  members?: { firstName?: string; lastName?: string; email?: string }[],
+) {
+  if (!members?.length) return undefined;
+  return members
+    .map((member) => {
+      const name = `${member.firstName || ""} ${member.lastName || ""}`.trim();
+      return member.email ? `${name} (${member.email})` : name;
+    })
+    .filter(Boolean)
+    .join(", ");
 }
 
 type SortKey = "name" | "email" | "phone" | "status" | "createdAt";
@@ -757,7 +788,9 @@ export default function LoanOfficersPage() {
                   <col className="w-[30%]" />
                   <col className="w-[14%]" />
                   <col className="w-[12%]" />
-                  <col className="w-[12%]" />
+                  <col className="w-[14%]" />
+                  <col className="w-[10%]" />
+                  <col className="w-[10%]" />
                   <col className="w-14" />
                 </colgroup>
                 <thead className="sticky top-0 z-10 border-b border-gray-200 bg-gray-50/95 backdrop-blur dark:border-gray-700 dark:bg-gray-800/95">
@@ -796,6 +829,11 @@ export default function LoanOfficersPage() {
                         direction={sortDir}
                         onClick={() => toggleSort("status")}
                       />
+                    </th>
+                    <th className="px-4 py-2">
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                        Co-Brokers
+                      </span>
                     </th>
                     <th className="px-4 py-2">
                       <SortHeader
@@ -907,6 +945,13 @@ export default function LoanOfficersPage() {
                             />
                             {togglingId === o.id ? "..." : isActive ? "Active" : "Disabled"}
                           </button>
+                        </td>
+
+                        <td
+                          className="px-4 py-2.5 text-xs text-gray-600 dark:text-gray-300"
+                          title={getTeamAssignmentTitle(o.assignedCoBrokers)}
+                        >
+                          {formatTeamAssignments(o.assignedCoBrokers)}
                         </td>
 
                         <td className="px-4 py-2.5">

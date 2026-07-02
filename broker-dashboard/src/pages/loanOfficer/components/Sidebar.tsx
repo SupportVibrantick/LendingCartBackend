@@ -6,6 +6,8 @@ import {
   Users,
   X,
   LayoutDashboard,
+  FileText,
+  DollarSign,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { NavLink } from "react-router-dom";
@@ -27,6 +29,8 @@ const workspaceNav: NavItem[] = [
   { label: "Loan Pipeline", icon: BriefcaseBusiness, path: "/loan-officer/loan-pipeline" },
   { label: "New Loan Application", icon: FilePlus, path: "/loan-officer/loan-application" },
   { label: "My Contacts", icon: Users, path: "/loan-officer/contacts" },
+  { label: "Commissions", icon: DollarSign, path: "/loan-officer/commissions" },
+  { label: "Invoices", icon: FileText, path: "/loan-officer/invoices" },
 ];
 
 const accountNav: NavItem[] = [

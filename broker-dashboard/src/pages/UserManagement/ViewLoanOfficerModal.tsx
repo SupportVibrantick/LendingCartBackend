@@ -408,6 +408,24 @@ export default function ViewLoanOfficerModal({
             <Section title="Assignments">
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <Field
+                  label="Assigned Co-Broker(s)"
+                  value={
+                    data?.assignedCoBrokers?.length ? (
+                      <ul className="space-y-1">
+                        {data.assignedCoBrokers.map((broker) => (
+                          <li key={broker.id}>
+                            {broker.firstName} {broker.lastName}
+                            {broker.email ? ` (${broker.email})` : ""}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      "—"
+                    )
+                  }
+                  className="sm:col-span-2"
+                />
+                <Field
                   label="Assigned to Branch(s)"
                   value={
                     profile?.branchIds?.length

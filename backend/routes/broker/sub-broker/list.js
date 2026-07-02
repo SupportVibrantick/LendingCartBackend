@@ -1,3 +1,7 @@
+const {
+  formatAssignedLoanOfficers,
+} = require("../../../utils/subBrokerProfileHelpers");
+
 /**
  * @param {import("fastify").FastifyInstance} fastify
  */
@@ -75,6 +79,20 @@ module.exports = async function listSubBrokersRoutes(fastify) {
             status: true,
             createdAt: true,
             createdById: true,
+            subBrokerLoanOfficers: {
+              include: {
+                loanOfficer: {
+                  select: {
+                    id: true,
+                    firstName: true,
+                    lastName: true,
+                    email: true,
+                    profileImage: true,
+                  },
+                },
+              },
+              orderBy: { createdAt: "asc" },
+            },
           },
           orderBy: {
             createdAt: "desc",
@@ -104,6 +122,7 @@ module.exports = async function listSubBrokersRoutes(fastify) {
           status: u.status,
           createdAt: u.createdAt,
           createdById: u.createdById,
+          assignedLoanOfficers: formatAssignedLoanOfficers(u.subBrokerLoanOfficers),
         }));
 
         /* ===============================

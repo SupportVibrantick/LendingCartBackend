@@ -24,6 +24,7 @@ import {
 import { useNavigate } from "react-router";
 import {
   buildBorrowerDisplayName,
+  canLenderTakeDecision,
   DECISION_FILTERS,
   formatApplicationStatus,
   formatCompactAmount,
@@ -351,18 +352,6 @@ useEffect(() => {
   loadSubmissions();
   loadStats();
 }, [loadSubmissions, loadStats]);
-
-  const canTakeDecision = (status?: string) => {
-    const s = normalizeStatus(status);
-
-    return (
-      s === "PENDING" ||
-      s === "IN_REVIEW" ||
-      s === "SENT" ||
-      s === "CONDITIONAL" ||
-      s === "LENDER_CONDITIONAL"
-    );
-  };
 
   const openApplicationPreview = (row: TableRow) => {
     navigate("/loan-preview", {
@@ -721,7 +710,12 @@ useEffect(() => {
               ) : rows.length > 0 ? (
                 rows.map((row) => {
                   const isActionAllowed =
-                    canDecide && canTakeDecision(row.applicationStatus);
+                    canDecide &&
+                    canLenderTakeDecision({
+                      applicationStatus: row.applicationStatus,
+                      lenderStatus: row.lenderStatus,
+                      lenderDecision: row.lenderDecision,
+                    });
 
                   return (
                     <tr

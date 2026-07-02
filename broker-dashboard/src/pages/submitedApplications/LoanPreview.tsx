@@ -3,6 +3,7 @@
   ChevronLeft,
   ChevronRight,
   Download,
+  DollarSign,
   Eye,
   FileSearch,
   FileText,
@@ -49,6 +50,7 @@ import SignDocumentsPanel from "../../components/documents/SignDocumentsPanel";
 import DocumentReminderPanel from "../../components/loanPipeline/DocumentReminderPanel";
 import BrokerLoiPanel from "../../components/loi/BrokerLoiPanel";
 import SubmissionDetailsView from "../../components/submissions/SubmissionDetailsView";
+import LoanCommissionPanel from "../../components/commissions/LoanCommissionPanel";
 import {
   canLenderReceiveDocuments,
   getLenderStatusBadgeClass,
@@ -109,7 +111,8 @@ type TabKey =
   | "sign-documents"
   // | "submitted-lenders"
   | "chat"
-  | "fee-agreement";
+  | "fee-agreement"
+  | "commissions";
 
 const parseValue = (val: string): any => {
   try {
@@ -329,6 +332,17 @@ const LoanPreview = () => {
   >("all");
 
   const [markingFundedId, setMarkingFundedId] = useState<string | null>(null);
+
+  const isBrokerAdmin = useMemo(() => {
+    try {
+      const roles = JSON.parse(sessionStorage.getItem("roles") || "[]");
+      return roles.includes("BROKER_ADMIN");
+    } catch {
+      return false;
+    }
+  }, []);
+
+  const isFundedDeal = submissionDetail?.status === "FUNDED";
 
   const [page, setPage] = useState(1);
   const [limit] = useState(10);
@@ -711,9 +725,14 @@ const LoanPreview = () => {
       const fundedLenderName =
         json.data?.fundedLenderName || lenderName || "the selected lender";
 
+      const commissionCount = json.data?.commissions?.commissions?.length || 0;
+      const commissionHtml = commissionCount
+        ? `<br/><br/>${commissionCount} commission record(s) created.`
+        : "";
+
       await Swal.fire({
         title: "Funded",
-        html: `Application marked as funded with <strong>${fundedLenderName}</strong>.`,
+        html: `Application marked as funded with <strong>${fundedLenderName}</strong>.${commissionHtml}`,
         icon: "success",
         confirmButtonColor: "#059669",
       });
@@ -1229,6 +1248,16 @@ const LoanPreview = () => {
       icon: FileText,
       color: "text-indigo-600",
     },
+    ...(isFundedDeal
+      ? [
+          {
+            key: "commissions" as const,
+            label: "Commissions",
+            icon: DollarSign,
+            color: "text-emerald-600",
+          },
+        ]
+      : []),
   ];
 
   const currentFile = previewFiles[activeIndex];
@@ -1248,7 +1277,8 @@ const LoanPreview = () => {
       netWorth={netWorth}
       submittedDate={submittedDate}
       showEditHint={submissionDetail?.canEdit !== false}
-      canMarkFunded
+      canMarkFunded={Boolean(submissionDetail?.canMarkFunded)}
+      markFundedBlockedReason={submissionDetail?.markFundedBlockedReason}
       markingFundedId={markingFundedId}
       onMarkFunded={handleMarkFunded}
     />
@@ -2484,6 +2514,14 @@ dark:bg-red-900/20 dark:text-red-400"
           <FeeAgreement
             applicationId={applicationId}
             getAuthHeaders={getAuthHeaders}
+          />
+        );
+      case "commissions":
+        return (
+          <LoanCommissionPanel
+            loanApplicationId={applicationId}
+            getAuthHeaders={getAuthHeaders}
+            canMarkPaid={isBrokerAdmin}
           />
         );
       default:

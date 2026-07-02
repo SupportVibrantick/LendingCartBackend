@@ -1,6 +1,9 @@
 const {
   mergeBrokerProfileResponse,
 } = require("../../../utils/brokerUserProfileHelpers");
+const {
+  formatAssignedSubBrokers,
+} = require("../../../utils/subBrokerProfileHelpers");
 
 module.exports = async function getBrokerUserById(fastify) {
   fastify.get(
@@ -61,6 +64,20 @@ module.exports = async function getBrokerUserById(fastify) {
             _count: {
               select: { brokerLoanApplications: true },
             },
+            loanOfficerSubBrokers: {
+              include: {
+                subBroker: {
+                  select: {
+                    id: true,
+                    firstName: true,
+                    lastName: true,
+                    email: true,
+                    profileImage: true,
+                  },
+                },
+              },
+              orderBy: { createdAt: "asc" },
+            },
           },
         });
 
@@ -85,6 +102,10 @@ module.exports = async function getBrokerUserById(fastify) {
             roles: user.roles.map((r) => r.role.name),
             permissions: user.userPermissions.map((p) => p.permission.key),
             assignedDeals: user._count.brokerLoanApplications,
+            assignedCoBrokers: formatAssignedSubBrokers(user.loanOfficerSubBrokers),
+            assignedCoBrokerIds: formatAssignedSubBrokers(
+              user.loanOfficerSubBrokers,
+            ).map((item) => item.id),
             profile: mergeBrokerProfileResponse(user.brokerProfile),
           },
         });

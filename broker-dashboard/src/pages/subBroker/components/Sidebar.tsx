@@ -1,4 +1,4 @@
-import { BriefcaseBusiness, LogOut, UserPen, X } from "lucide-react";
+import { BriefcaseBusiness, LayoutDashboard, LogOut, UserPen, X, FileText, DollarSign } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
@@ -29,9 +29,24 @@ type NavItem = {
 
 const workspaceNav: NavItem[] = [
   {
+    label: "Dashboard",
+    icon: LayoutDashboard,
+    path: "/sub-broker/dashboard",
+  },
+  {
     label: "Loan Pipeline",
     icon: BriefcaseBusiness,
     path: "/sub-broker/loan-pipeline",
+  },
+  {
+    label: "Commissions",
+    icon: DollarSign,
+    path: "/sub-broker/commissions",
+  },
+  {
+    label: "Invoices",
+    icon: FileText,
+    path: "/sub-broker/invoices",
   },
 ];
 

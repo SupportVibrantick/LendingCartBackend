@@ -1,5 +1,6 @@
 import {
   ArrowLeft,
+  DollarSign,
   Download,
   Eye,
   FileText,
@@ -22,6 +23,7 @@ import { FiFolder, FiSend, FiTag, FiUser } from "react-icons/fi";
 import { FaRegCreditCard } from "react-icons/fa6";
 import LoanPreviewChat from "./LoanPreviewChat";
 import FeeAgreement from "./FeeAgreement";
+import LoanCommissionPanel from "../../../components/commissions/LoanCommissionPanel";
 import SubmissionDetailsView from "../../../components/submissions/SubmissionDetailsView";
 import DocumentControlsBar from "../../../components/documents/DocumentControlsBar";
 import {
@@ -100,7 +102,8 @@ type TabKey =
   | "documents"
   // | "submitted-lenders"
   | "chat"
-  | "fee-agreement";
+  | "fee-agreement"
+  | "commissions";
 
 const parseValue = (val: string): any => {
   try {
@@ -998,6 +1001,7 @@ const LoanPreview = () => {
   const submittedDate = submissionDetail?.submittedAt
     ? new Date(submissionDetail.submittedAt)
     : null;
+  const isFundedDeal = submissionDetail?.status === "FUNDED";
 
   const tabs = [
     {
@@ -1046,6 +1050,16 @@ const LoanPreview = () => {
       icon: FileText,
       color: "text-indigo-600",
     },
+    ...(isFundedDeal
+      ? [
+          {
+            key: "commissions" as const,
+            label: "Commissions",
+            icon: DollarSign,
+            color: "text-emerald-600",
+          },
+        ]
+      : []),
   ];
 
   // const handleEditableFieldChange = (fieldKey: string, nextValue: string) => {
@@ -2519,6 +2533,14 @@ dark:hover:bg-blue-500/10
       case "fee-agreement":
         return (
           <FeeAgreement applicationId={applicationId} />
+        );
+      case "commissions":
+        return (
+          <LoanCommissionPanel
+            loanApplicationId={applicationId}
+            getAuthHeaders={getAuthHeaders}
+            portal="subbroker"
+          />
         );
       default:
         return renderViewDetails();

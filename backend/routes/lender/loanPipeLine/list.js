@@ -303,14 +303,7 @@ async function listSubmittedApplications(fastify) {
               ).length || 0;
 
             const lenderDecision = latestReview?.reviewStatus ?? null;
-            let applicationStatus = app.status;
-
-            if (
-              applicationStatus === "IN_REVIEW" &&
-              lenderDecision === "APPROVED"
-            ) {
-              applicationStatus = "LENDER_APPROVED";
-            }
+            const applicationStatus = app.status;
 
             return {
               applicationLenderId: item.id,

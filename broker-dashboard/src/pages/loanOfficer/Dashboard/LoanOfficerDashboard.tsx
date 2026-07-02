@@ -10,6 +10,7 @@ import {
   Users,
 } from "lucide-react";
 import { LO_API_BASE, loAuthHeaders } from "../../../lib/loanOfficerApi";
+import StaffCommissionOverview from "../../../components/commissions/StaffCommissionOverview";
 
 type PipelineStats = {
   totalVolume: number;
@@ -194,6 +195,17 @@ export default function LoanOfficerDashboard() {
           </div>
         ))}
       </div>
+
+      <StaffCommissionOverview
+        apiBase={LO_API_BASE}
+        summaryPath="/loanofficer/commissions/summary"
+        listPath="/loanofficer/commissions"
+        getHeaders={() => loAuthHeaders(false)}
+        portal="loanofficer"
+        title="My Commission Earnings"
+        invoicesHref="/loan-officer/invoices"
+        commissionsHref="/loan-officer/commissions"
+      />
 
       <div>
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-500">

@@ -48,6 +48,7 @@ type SubmissionDetailsViewProps = {
   submittedDate?: Date | null;
   showEditHint?: boolean;
   canMarkFunded?: boolean;
+  markFundedBlockedReason?: string | null;
   markingFundedId?: string | null;
   onMarkFunded?: (applicationLenderId: string) => void | Promise<void>;
 };
@@ -284,6 +285,7 @@ export default function SubmissionDetailsView({
   submittedDate,
   showEditHint = true,
   canMarkFunded = false,
+  markFundedBlockedReason = null,
   markingFundedId = null,
   onMarkFunded,
 }: SubmissionDetailsViewProps) {
@@ -325,9 +327,26 @@ export default function SubmissionDetailsView({
   }>;
 
   const showMarkFundedActions = canMarkFunded && !isApplicationFunded;
+  const hasApprovedLender = lenderDecisions.some(
+    (item) =>
+      resolveLenderDecisionStatus(
+        { lenderStatus: item.lenderStatus, latestReview: item.review, reviews: [item.review] },
+        item.review,
+      ) === "APPROVED",
+  );
 
   return (
     <div className="space-y-6">
+      {!showMarkFundedActions &&
+      markFundedBlockedReason &&
+      hasApprovedLender &&
+      !isApplicationFunded ? (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-300">
+          <p className="font-semibold">Mark as Funded unavailable</p>
+          <p className="mt-1">{markFundedBlockedReason}</p>
+        </div>
+      ) : null}
+
        {lenderDecisions.length > 0 && (
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
         {lenderDecisions.map((item, index) => (

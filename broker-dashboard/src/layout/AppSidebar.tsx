@@ -12,6 +12,7 @@ import { PiSecurityCameraFill } from "react-icons/pi";
 import {
   TrendingUp,
   //  MessageSquare
+  Wallet,
 } from "lucide-react";
 import { MdSettings } from "react-icons/md";
 import { CgProfile } from "react-icons/cg";
@@ -28,6 +29,7 @@ const AppSidebar: React.FC = () => {
   const location = useLocation();
   const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({});
   const [isSubBroker, setIsSubBroker] = useState(false);
+  const [isBrokerAdmin, setIsBrokerAdmin] = useState(false);
   const [displayName, setDisplayName] = useState("Broker Admin");
   const [userEmail, setUserEmail] = useState("");
 
@@ -36,6 +38,12 @@ const AppSidebar: React.FC = () => {
       try {
         const user = JSON.parse(sessionStorage.getItem("broker_user") || "{}");
         setIsSubBroker(user?.userType === "SUB_BROKER");
+        try {
+          const roles = JSON.parse(sessionStorage.getItem("roles") || "[]");
+          setIsBrokerAdmin(roles.includes("BROKER_ADMIN"));
+        } catch {
+          setIsBrokerAdmin(false);
+        }
         setDisplayName(
           user?.name ||
           `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
@@ -131,6 +139,18 @@ const AppSidebar: React.FC = () => {
           },
         ]
         : []),
+        ...(!isSubBroker && isBrokerAdmin
+          ? [
+              {
+                icon: <Wallet />,
+                name: "Payments",
+                subItems: [
+                  { name: "Invoices", path: "/payments/invoices" },
+                  { name: "Commissions", path: "/payments/commissions" },
+                ],
+              },
+            ]
+          : []),
       ...(!isSubBroker
         ? [
           {
@@ -173,7 +193,7 @@ const AppSidebar: React.FC = () => {
         path: "/profile",
       },
     ],
-    [isSubBroker],
+    [isSubBroker, isBrokerAdmin],
   );
 
   const isActive = useCallback(

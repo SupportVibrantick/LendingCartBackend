@@ -14,6 +14,7 @@ async function loanOfficerRoutes(fastify) {
   fastify.register(loanOfficerLenderDiscoveryRoutes, { prefix: "/lender-discovery" });
   fastify.register(loanOfficerMessagingRoutes, { prefix: "/messaging" });
   fastify.register(loanOfficerNotificationRoutes, { prefix: "/notifications" });
+  fastify.register(require("./commissions"), { prefix: "/commissions" });
 }
 
 module.exports = loanOfficerRoutes;

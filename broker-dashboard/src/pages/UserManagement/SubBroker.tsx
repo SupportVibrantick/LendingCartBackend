@@ -76,6 +76,31 @@ function formatDate(value?: string) {
   });
 }
 
+function formatTeamAssignments(
+  members?: { firstName?: string; lastName?: string; email?: string }[],
+) {
+  if (!members?.length) return "—";
+  const names = members
+    .map((member) => `${member.firstName || ""} ${member.lastName || ""}`.trim())
+    .filter(Boolean);
+  if (!names.length) return "—";
+  if (names.length === 1) return names[0];
+  return `${names[0]} +${names.length - 1}`;
+}
+
+function getTeamAssignmentTitle(
+  members?: { firstName?: string; lastName?: string; email?: string }[],
+) {
+  if (!members?.length) return undefined;
+  return members
+    .map((member) => {
+      const name = `${member.firstName || ""} ${member.lastName || ""}`.trim();
+      return member.email ? `${name} (${member.email})` : name;
+    })
+    .filter(Boolean)
+    .join(", ");
+}
+
 type SortKey = "name" | "email" | "phone" | "status" | "createdAt";
 type SortDir = "asc" | "desc";
 
@@ -690,7 +715,9 @@ export default function SubBroker() {
                   <col className="w-[30%]" />
                   <col className="w-[14%]" />
                   <col className="w-[12%]" />
-                  <col className="w-[12%]" />
+                  <col className="w-[14%]" />
+                  <col className="w-[10%]" />
+                  <col className="w-[10%]" />
                   <col className="w-14" />
                 </colgroup>
                 <thead className="sticky top-0 z-10 border-b border-gray-200 bg-gray-50/95 backdrop-blur dark:border-gray-700 dark:bg-gray-800/95">
@@ -729,6 +756,11 @@ export default function SubBroker() {
                         direction={sortDir}
                         onClick={() => toggleSort("status")}
                       />
+                    </th>
+                    <th className="px-4 py-2">
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                        Loan Officers
+                      </span>
                     </th>
                     <th className="px-4 py-2">
                       <SortHeader
@@ -828,6 +860,13 @@ export default function SubBroker() {
                             />
                             {togglingId === o.id ? "..." : isActive ? "Active" : "Disabled"}
                           </button>
+                        </td>
+
+                        <td
+                          className="px-4 py-2.5 text-xs text-gray-600 dark:text-gray-300"
+                          title={getTeamAssignmentTitle(o.assignedLoanOfficers)}
+                        >
+                          {formatTeamAssignments(o.assignedLoanOfficers)}
                         </td>
 
                         <td className="px-4 py-2.5">

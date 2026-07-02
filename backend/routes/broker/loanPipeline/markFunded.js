@@ -1,3 +1,43 @@
+const { calculateDealCommissions } = require("../../../services/calculateDealCommissions");
+const { formatCommissionRecord } = require("../../../utils/commissionHelpers");
+const {
+  validateMarkFundedPrerequisites,
+} = require("../../../utils/markFundedHelpers");
+
+const loanIncludeForFunding = {
+  feeAgreement: true,
+  submissions: {
+    where: { status: { not: "SUPERSEDED" } },
+    orderBy: { createdAt: "desc" },
+    include: {
+      fields: {
+        include: { builderField: true },
+      },
+    },
+  },
+  fundedApplicationLender: {
+    include: {
+      lenderReviews: {
+        where: { reviewStatus: "APPROVED" },
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        select: { approvedAmount: true },
+      },
+    },
+  },
+};
+
+function formatCommissionResult(raw) {
+  return {
+    alreadyCalculated: raw.alreadyCalculated,
+    commissionPool: raw.commissionPool,
+    brokerRetained: raw.brokerRetained,
+    upfrontFee: raw.upfrontFee,
+    warnings: raw.warnings || [],
+    commissions: (raw.commissions || []).map((row) => formatCommissionRecord(row)),
+  };
+}
+
 /**
  * @param {import("fastify").FastifyInstance} fastify
  */
@@ -55,12 +95,7 @@ module.exports = async function markFundedRoute(fastify) {
 
         const loan = await prisma.loanApplication.findUnique({
           where: { id: loanId },
-          select: {
-            id: true,
-            brokerOrgId: true,
-            status: true,
-            fundedApplicationLenderId: true,
-          },
+          include: loanIncludeForFunding,
         });
 
         if (!loan) {
@@ -79,6 +114,17 @@ module.exports = async function markFundedRoute(fastify) {
 
         if (loan.status === "FUNDED") {
           if (loan.fundedApplicationLenderId === applicationLenderId) {
+            let commissionResult = null;
+            let commissionError = null;
+
+            try {
+              const raw = await calculateDealCommissions(prisma, loanId);
+              commissionResult = formatCommissionResult(raw);
+            } catch (commissionCalcError) {
+              commissionError =
+                commissionCalcError.message || "Failed to calculate commissions";
+            }
+
             return reply.send({
               success: true,
               message: "Application is already funded with this lender",
@@ -86,6 +132,8 @@ module.exports = async function markFundedRoute(fastify) {
                 applicationId: loan.id,
                 fundedApplicationLenderId: applicationLenderId,
                 status: "FUNDED",
+                commissions: commissionResult,
+                commissionError,
               },
             });
           }
@@ -100,6 +148,15 @@ module.exports = async function markFundedRoute(fastify) {
           return reply.code(400).send({
             success: false,
             message: `Cannot mark as funded for status: ${loan.status}`,
+          });
+        }
+
+        try {
+          validateMarkFundedPrerequisites(loan);
+        } catch (validationError) {
+          return reply.code(400).send({
+            success: false,
+            message: validationError.message,
           });
         }
 
@@ -134,47 +191,51 @@ module.exports = async function markFundedRoute(fastify) {
         const previousStatus = loan.status;
         const fundedAt = new Date();
 
-        const updated = await prisma.$transaction(async (tx) => {
-          const fundedLoan = await tx.loanApplication.update({
-            where: { id: loanId },
-            data: {
-              status: "FUNDED",
-              fundedApplicationLenderId: applicationLenderId,
-              fundedAt,
-              fundedByUserId: userId,
-            },
-            select: {
-              id: true,
-              status: true,
-              fundedApplicationLenderId: true,
-              fundedAt: true,
-            },
-          });
+        const { updated, commissionRaw } = await prisma.$transaction(
+          async (tx) => {
+            const fundedLoan = await tx.loanApplication.update({
+              where: { id: loanId },
+              data: {
+                status: "FUNDED",
+                fundedApplicationLenderId: applicationLenderId,
+                fundedAt,
+                fundedByUserId: userId,
+              },
+              select: {
+                id: true,
+                status: true,
+                fundedApplicationLenderId: true,
+                fundedAt: true,
+              },
+            });
 
-          await tx.applicationStatusHistory.create({
-            data: {
-              loanApplicationId: loanId,
-              fromStatus: previousStatus,
-              toStatus: "FUNDED",
-              changedByUserId: userId,
-              reason: `Funded with ${applicationLender.lender?.name || "lender"}`,
-            },
-          });
+            await tx.applicationStatusHistory.create({
+              data: {
+                loanApplicationId: loanId,
+                fromStatus: previousStatus,
+                toStatus: "FUNDED",
+                changedByUserId: userId,
+                reason: `Funded with ${applicationLender.lender?.name || "lender"}`,
+              },
+            });
 
-          await tx.applicationLender.updateMany({
-            where: {
-              loanApplicationId: loanId,
-              id: { not: applicationLenderId },
-              status: "APPROVED",
-            },
-            data: {
-              status: "WITHDRAWN",
-              lastUpdatedAt: fundedAt,
-            },
-          });
+            await tx.applicationLender.updateMany({
+              where: {
+                loanApplicationId: loanId,
+                id: { not: applicationLenderId },
+                status: "APPROVED",
+              },
+              data: {
+                status: "WITHDRAWN",
+                lastUpdatedAt: fundedAt,
+              },
+            });
 
-          return fundedLoan;
-        });
+            const raw = await calculateDealCommissions(tx, loanId);
+
+            return { updated: fundedLoan, commissionRaw: raw };
+          },
+        );
 
         return reply.send({
           success: true,
@@ -185,6 +246,7 @@ module.exports = async function markFundedRoute(fastify) {
             fundedApplicationLenderId: updated.fundedApplicationLenderId,
             fundedAt: updated.fundedAt,
             fundedLenderName: applicationLender.lender?.name || null,
+            commissions: formatCommissionResult(commissionRaw),
           },
         });
       } catch (error) {

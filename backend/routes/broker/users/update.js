@@ -7,6 +7,10 @@ const {
   parsePermissionsField,
   deletePublicFileIfExists,
 } = require("../../../utils/brokerUserProfileHelpers");
+const {
+  parseJsonField,
+  syncLoanOfficerSubBrokers,
+} = require("../../../utils/subBrokerProfileHelpers");
 
 module.exports = async function updateBrokerUser(fastify) {
   fastify.put(
@@ -144,6 +148,11 @@ module.exports = async function updateBrokerUser(fastify) {
           existingProfileData,
         );
 
+        const shouldSyncCoBrokers = fields.assignedCoBrokerIds !== undefined;
+        const assignedCoBrokerIds = shouldSyncCoBrokers
+          ? parseJsonField(fields.assignedCoBrokerIds, [])
+          : null;
+
         await prisma.$transaction(async (tx) => {
           if (Object.keys(userUpdateData).length > 0) {
             await tx.userAccount.update({
@@ -161,6 +170,15 @@ module.exports = async function updateBrokerUser(fastify) {
 
           if (parsedPermissions !== null) {
             await syncUserPermissions(tx, id, parsedPermissions);
+          }
+
+          if (shouldSyncCoBrokers) {
+            await syncLoanOfficerSubBrokers(
+              tx,
+              id,
+              assignedCoBrokerIds,
+              brokerOrgId,
+            );
           }
         });
 

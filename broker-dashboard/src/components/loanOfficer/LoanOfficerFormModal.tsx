@@ -12,6 +12,8 @@ import {
   PREFERRED_COMMUNICATION,
   STATE_OPTIONS,
   validateLoanOfficerForm,
+  fetchLoanOfficerCoBrokers,
+  type LoanOfficerCoBroker,
   type LoanOfficerDetail,
   type LoanOfficerFormErrors,
   type LoanOfficerFormState,
@@ -107,6 +109,35 @@ export default function LoanOfficerFormModal({
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [coBrokers, setCoBrokers] = useState<LoanOfficerCoBroker[]>([]);
+  const [loadingCoBrokers, setLoadingCoBrokers] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        setLoadingCoBrokers(true);
+        const options = await fetchLoanOfficerCoBrokers();
+        if (!cancelled) setCoBrokers(options);
+      } catch {
+        if (!cancelled) setCoBrokers([]);
+      } finally {
+        if (!cancelled) setLoadingCoBrokers(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen]);
+
+  const coBrokerOptions = coBrokers.map((broker) => ({
+    value: broker.id,
+    text: `${broker.firstName || ""} ${broker.lastName || ""}`.trim() || broker.email || broker.id,
+  }));
 
   useEffect(() => {
     if (!isOpen) return;
@@ -601,6 +632,26 @@ export default function LoanOfficerFormModal({
                   <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
                     You need to link this Loan Officer to at least 1 branch once branches are
                     configured.
+                  </p>
+                </div>
+
+                <div>
+                  <MultiSelect
+                    label="Assigned Co-Broker(s)"
+                    options={coBrokerOptions}
+                    value={form.assignedCoBrokerIds}
+                    onChange={(value) => updateField("assignedCoBrokerIds", value)}
+                    placeholder={
+                      coBrokerOptions.length
+                        ? "Select co-brokers"
+                        : "No co-brokers found"
+                    }
+                    loading={loadingCoBrokers}
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    {coBrokerOptions.length
+                      ? "Link co-brokers who work with this loan officer. Applications assigned to those co-brokers can auto-assign this officer."
+                      : "Create co-brokers under your broker organization to assign them here."}
                   </p>
                 </div>
 
