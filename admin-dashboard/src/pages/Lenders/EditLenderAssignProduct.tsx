@@ -384,15 +384,15 @@ export default function EditLenderAssignProduct({
           (p: any) => p.loanProductCode === "EQUIPMENT_FINANCE",
         );
 
-        const loanCodes = [
-          ...new Set(
+        const loanCodes = Array.from(
+          new Set<string>(
             lenderProducts
               .filter((p: any) => p.isActive)
               .map((p: any) =>
-                resolveLenderOfferedProductCode(p.loanProductCode),
+                resolveLenderOfferedProductCode(String(p.loanProductCode || "")),
               ),
           ),
-        ];
+        );
 
         // setInitialLoanTypes(loanCodes);
 

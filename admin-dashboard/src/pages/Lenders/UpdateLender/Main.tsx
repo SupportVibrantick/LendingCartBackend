@@ -412,8 +412,8 @@ export default function Main() {
       }
     });
 
-    const loanPrograms = [
-      ...new Set(
+    const loanPrograms = Array.from(
+      new Set<string>(
         data
           .map((item: any) =>
             mapToCanonicalCatalogId(
@@ -424,7 +424,7 @@ export default function Main() {
           )
           .filter((id: string | null): id is string => Boolean(id)),
       ),
-    ];
+    );
 
     setForm((prev) => ({
       ...prev,
