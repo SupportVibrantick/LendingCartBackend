@@ -7,12 +7,12 @@ on:
   workflow_dispatch:
     inputs:
       reset_database:
-        description: "Wipe database and rebuild schema (default: on)"
+        description: "DANGER - wipe database and rebuild schema (manual only)"
         type: boolean
-        default: true
+        default: false
 
       run_seed:
-        description: "Run database seed after schema sync (default: on)"
+        description: "Run database seed after schema sync"
         type: boolean
         default: true
 
@@ -21,8 +21,8 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      RESET_DB: ${{ github.event_name == 'push' && 'true' || (github.event.inputs.reset_database == 'true' && 'true' || 'false') }}
-      RUN_SEED: ${{ github.event_name == 'push' && 'true' || (github.event.inputs.run_seed == 'true' && 'true' || 'false') }}
+      RESET_DB: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.reset_database == true && 'true' || 'false' }}
+      RUN_SEED: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.run_seed == 'true' && 'true' || 'false' }}
 
     steps:
       - name: Checkout Repository
@@ -55,8 +55,6 @@ jobs:
             echo "📥 Pulling latest code..."
             git fetch origin
             git reset --hard origin/main
-            # Remove orphan migration folders left on the server (e.g. from prisma migrate dev)
-            git clean -fd -- backend/prisma/migrations/
 
             #################################################
             # Backend
@@ -84,6 +82,15 @@ jobs:
             else
               echo "⏭️ Skipping database seed"
             fi
+
+            echo "🔁 Restarting backend..."
+            if pm2 list | grep -q "lendingcart-backend"; then
+              pm2 restart lendingcart-backend
+            else
+              pm2 start bin/www --name lendingcart-backend
+            fi
+
+            pm2 save
 
             #################################################
             # Admin Dashboard
@@ -172,40 +179,5 @@ jobs:
             echo "🔄 Restarting Nginx..."
             sudo systemctl restart nginx
 
-            #################################################
-            # Backend (restart last — after builds free memory)
-            #################################################
-
-            cd /root/LendingCartBackend/backend || exit 1
-
-            echo "🔧 Regenerating Prisma client before restart..."
-            npx prisma generate
-
-            echo "🔁 Restarting backend..."
-            pm2 delete lendingcart-backend 2>/dev/null || true
-            pm2 start ecosystem.config.cjs --update-env
-            pm2 save
-
-            APP_PORT="$(sed -n 's/^PORT=//p' .env 2>/dev/null | tail -1 | tr -d ' \"' || true)"
-            APP_PORT="${APP_PORT:-4000}"
-
-            echo "🩺 Health check on port ${APP_PORT}..."
-            HEALTH_OK=0
-            for attempt in $(seq 1 30); do
-              if curl -sf "http://127.0.0.1:${APP_PORT}/" -o /dev/null; then
-                HEALTH_OK=1
-                break
-              fi
-              echo "   waiting for backend... attempt ${attempt}/30"
-              sleep 2
-            done
-
-            if [ "${HEALTH_OK}" -ne 1 ]; then
-              echo "❌ Backend health check failed on port ${APP_PORT}"
-              pm2 logs lendingcart-backend --lines 80 --nostream || true
-              exit 1
-            fi
-
-            echo "✅ Backend is responding on port ${APP_PORT}"
             echo "🎉 Deployment completed successfully!"
 
