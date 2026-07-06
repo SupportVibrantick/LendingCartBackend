@@ -2,27 +2,12 @@ name: Deploy LendingCart Project
 
 on:
   push:
-    branches: [main]
-
-  workflow_dispatch:
-    inputs:
-      reset_database:
-        description: "DANGER - wipe database and rebuild schema (manual only)"
-        type: boolean
-        default: false
-
-      run_seed:
-        description: "Run database seed after schema sync"
-        type: boolean
-        default: true
+    branches:
+      - main
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
-    env:
-      RESET_DB: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.reset_database == true && 'true' || 'false' }}
-      RUN_SEED: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.run_seed == 'true' && 'true' || 'false' }}
 
     steps:
       - name: Checkout Repository
@@ -30,27 +15,18 @@ jobs:
 
       - name: Deploy on VPS
         uses: appleboy/ssh-action@v1.0.3
-        env:
-          RESET_DB: ${{ env.RESET_DB }}
-          RUN_SEED: ${{ env.RUN_SEED }}
-          VITE_API_BASE: https://api-lendingcart.vibrantick.org
-          VITE_EMBED_APP_URL: https://embed-lendingcart.vibrantick.org
-
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY_LENDINGCART }}
           port: ${{ secrets.SSH_PORT }}
-          envs: RESET_DB,RUN_SEED,VITE_API_BASE,VITE_EMBED_APP_URL
 
           script: |
-            set -euo pipefail 
+            set -euo pipefail
 
             echo "🚀 Starting LendingCart deployment..."
-            echo "   reset_database=${RESET_DB}"
-            echo "   run_seed=${RUN_SEED}"
 
-            cd /root/LendingCartBackend || exit 1
+            cd /root/LendingCartBackend
 
             echo "📥 Pulling latest code..."
             git fetch origin
@@ -60,39 +36,24 @@ jobs:
             # Backend
             #################################################
 
-            cd backend || exit 1
+            cd backend
 
             echo "📦 Installing backend dependencies..."
             npm ci
 
-            if [ "${RESET_DB}" = "true" ]; then
-              echo "⚠️ Resetting database (ALL DATA WILL BE LOST)..."
-              npx prisma migrate reset --force --skip-seed
-            fi
-
-            echo "🗄️ Deploying database (migrate + patches)..."
-            npm run db:deploy
+            echo "🗄️ Running Prisma migrations..."
+            npx prisma migrate deploy
 
             echo "🔧 Generating Prisma client..."
             npx prisma generate
-
-            if [ "${RUN_SEED}" = "true" ]; then
-              echo "🌱 Running database seed..."
-              npm run db:seed
-            else
-              echo "⏭️ Skipping database seed"
-            fi
 
             #################################################
             # Admin Dashboard
             #################################################
 
-            cd ../admin-dashboard || exit 1
+            cd ../admin-dashboard
 
-            echo "📦 Installing admin dashboard dependencies..." 
             npm ci
-
-            echo "🏗️ Building admin dashboard..."
             npm run build
 
             mkdir -p /var/www/admin
@@ -103,12 +64,9 @@ jobs:
             # Broker Dashboard
             #################################################
 
-            cd ../broker-dashboard || exit 1
+            cd ../broker-dashboard
 
-            echo "📦 Installing broker dashboard dependencies..."
             npm ci
-
-            echo "🏗️ Building broker dashboard..."
             npm run build
 
             mkdir -p /var/www/broker
@@ -119,12 +77,9 @@ jobs:
             # Lending Dashboard
             #################################################
 
-            cd ../lending-dashboard || exit 1
+            cd ../lending-dashboard
 
-            echo "📦 Installing lending dashboard dependencies..."
             npm ci
-
-            echo "🏗️ Building lending dashboard..."
             npm run build
 
             mkdir -p /var/www/lending
@@ -135,12 +90,9 @@ jobs:
             # Loan AI
             #################################################
 
-            cd ../loan-ai || exit 1
+            cd ../loan-ai
 
-            echo "📦 Installing loan-ai dependencies..."
             npm ci
-
-            echo "🏗️ Building loan-ai..."
             npm run build
 
             mkdir -p /var/www/loan-ai
@@ -151,12 +103,9 @@ jobs:
             # Loan Application Embedded
             #################################################
 
-            cd ../loan-application-embeded || exit 1
+            cd ../loan-application-embeded
 
-            echo "📦 Installing loan application embedded dependencies..."
             npm ci
-
-            echo "🏗️ Building loan application embedded..."
             npm run build
 
             mkdir -p /var/www/embed
@@ -168,44 +117,42 @@ jobs:
             #################################################
 
             echo "🔄 Restarting Nginx..."
-            sudo systemctl restart nginx
+            systemctl restart nginx
 
             #################################################
-            # Backend + worker (restart after builds)
+            # Restart Backend
             #################################################
 
-            cd /root/LendingCartBackend/backend || exit 1
+            cd /root/LendingCartBackend/backend
 
-            echo "🔁 Restarting backend and worker..."
-            npx prisma generate
-            pm2 delete lendingcart-backend 2>/dev/null || true
-            pm2 delete lendingcart-worker 2>/dev/null || true
-            
-            pm2 start ecosystem.config.cjs --only lendingcart-backend --force
-            pm2 start ecosystem.config.cjs --only lendingcart-worker --force
-            
+            if pm2 describe lendingcart-backend >/dev/null 2>&1; then
+              echo "♻️ Restarting lendingcart-backend..."
+              pm2 restart lendingcart-backend --update-env
+            else
+              echo "🚀 Starting lendingcart-backend..."
+              pm2 start ecosystem.config.cjs --only lendingcart-backend
+            fi
+
+            #################################################
+            # Restart Worker
+            #################################################
+
+            if pm2 describe lendingcart-worker >/dev/null 2>&1; then
+              echo "♻️ Restarting lendingcart-worker..."
+              pm2 restart lendingcart-worker --update-env
+            else
+              echo "🚀 Starting lendingcart-worker..."
+              pm2 start ecosystem.config.cjs --only lendingcart-worker
+            fi
+
             pm2 save
 
-            APP_PORT="$(sed -n 's/^PORT=//p' .env 2>/dev/null | tail -1 | tr -d ' \"' || true)"
-            APP_PORT="${APP_PORT:-4000}"
+            sleep 5
 
-            echo "🩺 Health check on port ${APP_PORT}..."
-            HEALTH_OK=0
-            for attempt in $(seq 1 30); do
-              if curl -sf "http://127.0.0.1:${APP_PORT}/" -o /dev/null; then
-                HEALTH_OK=1
-                break
-              fi
-              echo "   waiting for backend... attempt ${attempt}/30"
-              sleep 2
-            done
-
-            if [ "${HEALTH_OK}" -ne 1 ]; then
-              echo "❌ Backend health check failed on port ${APP_PORT}"
-              pm2 logs lendingcart-backend --lines 80 --nostream || true
+            if ! curl -sf http://127.0.0.1:3008/ >/dev/null; then
+              echo "❌ Backend failed to start"
+              pm2 logs lendingcart-backend --lines 50 --nostream
               exit 1
             fi
 
-            echo "✅ Backend is responding on port ${APP_PORT}"
             echo "🎉 Deployment completed successfully!"
-

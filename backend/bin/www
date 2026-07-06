@@ -10,6 +10,7 @@ try {
   process.exit(1);
 }
 
+
 const app = require("../app");
 const socketPlugin = require("../plugins/socket");
 const debug = require("debug")("backend:server");
