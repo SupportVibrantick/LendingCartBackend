@@ -5,8 +5,9 @@ module.exports = {
     {
       name: "lendingcart-backend",
       script: path.join(__dirname, "bin/www"),
-      cwd: __dirname,
+      exec_mode: "fork",
       instances: 1,
+      cwd: __dirname,
       autorestart: true,
       max_memory_restart: "512M",
       env: {
@@ -17,8 +18,9 @@ module.exports = {
     {
       name: "lendingcart-worker",
       script: path.join(__dirname, "bin/worker.js"),
-      cwd: __dirname,
+      exec_mode: "fork",
       instances: 1,
+      cwd: __dirname,
       autorestart: true,
       max_memory_restart: "512M",
       env: {
