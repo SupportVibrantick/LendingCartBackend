@@ -180,7 +180,10 @@ jobs:
             npx prisma generate
             pm2 delete lendingcart-backend 2>/dev/null || true
             pm2 delete lendingcart-worker 2>/dev/null || true
-            pm2 start ecosystem.config.cjs --update-env
+            
+            pm2 start ecosystem.config.cjs --only lendingcart-backend --force
+            pm2 start ecosystem.config.cjs --only lendingcart-worker --force
+            
             pm2 save
 
             APP_PORT="$(sed -n 's/^PORT=//p' .env 2>/dev/null | tail -1 | tr -d ' \"' || true)"
