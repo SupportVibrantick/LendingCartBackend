@@ -9,14 +9,15 @@ const timezoned = () => {
 };
 
 // Ensure logs directory exists
-const logsDir = path.join(__dirname,  '..', '..', "public", "logs");
+const logsDir = path.join(process.cwd(), "storage/logs");
 if (!fs.existsSync(logsDir)) {
   fs.mkdirSync(logsDir, { recursive: true });
 }
 
 // Reusable function to create loggers for any context (admin, user, mail, etc.)
 const createCustomLogger = (logType, daysLimit) => {
-  const basePath = path.join(__dirname,  '..', '..', "public", "logs", logType);
+  const basePath = path.join(logsDir, logType);
+
 
   // Create directory if it doesn't exist
   if (!fs.existsSync(basePath)) {
