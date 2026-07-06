@@ -9,6 +9,8 @@
   "scripts": {
     "dev": "nodemon ./bin/www",
     "start": "node ./bin/www",
+    "worker": "node ./bin/worker.js",
+    "worker:dev": "nodemon ./bin/worker.js",
     "postinstall": "prisma generate",
     "db:migrations": "prisma migrate dev --name init",
     "db:migrate": "prisma migrate dev",
@@ -37,6 +39,8 @@
     "@fastify/swagger-ui": "^5.2.3",
     "@fastify/view": "^11.1.1",
     "@openfga/sdk": "^0.9.1",
+    "@prisma/client": "^6.19.2",
+    "@socket.io/redis-adapter": "^8.3.0",
     "axios": "^1.11.0",
     "bcrypt": "^6.0.0",
     "bcryptjs": "^3.0.3",
@@ -48,6 +52,7 @@
     "fs": "^0.0.1-security",
     "handlebars": "^4.7.8",
     "http-errors": "^2.0.0",
+    "ioredis": "^5.11.1",
     "jsonwebtoken": "^9.0.2",
     "kafkajs": "^2.2.4",
     "libreoffice-convert": "^1.8.1",
@@ -65,8 +70,7 @@
     "socket.io-client": "^4.8.3",
     "winston": "^3.17.0",
     "winston-daily-rotate-file": "^5.0.0",
-    "zod": "^4.1.5",
-    "@prisma/client": "^6.19.2"
+    "zod": "^4.1.5"
   },
   "devDependencies": {
     "i": "^0.3.7",

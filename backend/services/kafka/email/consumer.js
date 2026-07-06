@@ -1,29 +1,53 @@
-// services/kafka/consumer.js
 const { Kafka } = require("kafkajs");
 const logger = require("../../logger/contextLogger");
 const sendMail = require("../../mail");
+const {
+  isKafkaEnabled,
+  getKafkaBrokers,
+  getKafkaEmailTopic,
+} = require("../../../config/env");
 
-const kafka = new Kafka({
-  clientId: "email-processor",
-  brokers: ["localhost:9092"],
-});
+let kafka = null;
+let consumer = null;
 
-const consumer = kafka.consumer({ groupId: "lendingcart-email-group" });
+function getKafkaConsumer() {
+  if (!isKafkaEnabled()) {
+    return null;
+  }
+
+  if (!kafka) {
+    kafka = new Kafka({
+      clientId: "email-processor",
+      brokers: getKafkaBrokers(),
+    });
+
+    consumer = kafka.consumer({ groupId: "lendingcart-email-group" });
+  }
+
+  return consumer;
+}
 
 const runEmailConsumerKafka = async () => {
-  try {
-    await consumer.connect();
+  const activeConsumer = getKafkaConsumer();
+  if (!activeConsumer) {
+    logger.kafkaLogs.info("Kafka consumer disabled (KAFKA_ENABLED=false)");
+    return;
+  }
 
-    await consumer.subscribe({
-      topic: "email-sending",
+  try {
+    await activeConsumer.connect();
+
+    await activeConsumer.subscribe({
+      topic: getKafkaEmailTopic(),
       fromBeginning: true,
     });
 
-    logger.commonLogs.info("Kafka Consumer connected & subscribed to email topic.");
+    logger.commonLogs.info(
+      "Kafka Consumer connected & subscribed to email topic.",
+    );
 
-    await consumer.run({
+    await activeConsumer.run({
       eachMessage: async ({ topic, partition, message }) => {
-        // Each message handled inside try/catch to prevent crashes
         try {
           const raw = message.value.toString();
 
@@ -38,66 +62,51 @@ const runEmailConsumerKafka = async () => {
               raw,
               parseErr,
             });
-            return; // skip this message
+            return;
           }
 
-          // Optional: basic validation of required fields
-          if (!mailOptions || !mailOptions.to) {
-            logger.kafkaLogs.error("Invalid mailOptions (missing 'to')", {
+          const { to, subject, text, html } = mailOptions;
+
+          if (!to) {
+            logger.kafkaLogs.error("Kafka email message missing recipient", {
               topic,
               partition,
               offset: message.offset,
-              mailOptions,
             });
             return;
           }
 
-          // Attempt to send the email
-          await sendMail(mailOptions);
-          logger.kafkaLogs.info("Processed email message from Kafka", {
-            topic,
-            partition,
-            offset: message.offset,
-            to: mailOptions.to,
+          await sendMail({
+            to,
+            subject,
+            text,
+            html,
           });
-        } catch (error) {
-          // Log error while processing message (sendMail failure etc)
-          logger.kafkaLogs.error("Error processing message:", {
-            error,
-            topic,
-            partition,
-            offset: message?.offset,
+
+          logger.kafkaLogs.info("Email sent from Kafka consumer", {
+            to,
+            subject,
+          });
+        } catch (err) {
+          logger.kafkaLogs.error("Error processing Kafka email message", {
+            err,
           });
         }
       },
     });
-  } catch (error) {
-    // Log error while starting the consumer
-    logger.kafkaLogs.error("Error starting the consumer:", {
-      error,
-    });
+  } catch (err) {
+    logger.kafkaLogs.error("Kafka consumer failed to start", { err });
+    throw err;
   }
 };
 
-// Consumer event handlers
-consumer.on("consumer.crash", async (event) => {
-  logger.kafkaLogs.error(`Consumer crashed: ${JSON.stringify(event)}`);
-});
-
-consumer.on("consumer.stop", () => {
-  logger.kafkaLogs.info("Consumer has been stopped.");
-});
-
-consumer.on("consumer.group_join", async (event) => {
-  logger.kafkaLogs.info(`Consumer group joined: ${JSON.stringify(event)}`);
-});
-
-// Graceful shutdown for consumer
 const shutdownConsumer = async () => {
   try {
-    logger.kafkaLogs.info("Shutting down Kafka consumer...");
-    await consumer.disconnect();
-    logger.kafkaLogs.info("Kafka consumer disconnected.");
+    if (consumer) {
+      logger.kafkaLogs.info("Shutting down Kafka consumer...");
+      await consumer.disconnect();
+      logger.kafkaLogs.info("Kafka consumer disconnected.");
+    }
   } catch (err) {
     logger.kafkaLogs.error("Error during consumer shutdown:", { err });
   }

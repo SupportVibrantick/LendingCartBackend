@@ -385,7 +385,7 @@ const LoanPreview = () => {
 
   const documentFilterLenders = documentsData?.documentFilterLenders || [];
 
-  const selectableDocuments = displayDocuments.filter(
+  const selectableDocuments = displayDocuments.filter(       
     (doc) => doc.status !== "SKIPPED",
   );
 

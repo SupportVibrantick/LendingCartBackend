@@ -73,6 +73,7 @@ async function forgotPasswordRoutes(fastify) {
             firstName: user.firstName,
             email: user.email,
             resetToken: token,
+            prisma,
           });
         }
 

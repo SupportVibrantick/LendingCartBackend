@@ -156,6 +156,7 @@ module.exports = async function createLenderUser(fastify) {
             password: temporaryPassword,
             organizationName: organization?.name,
             roleName: role,
+            prisma,
           });
         } catch (mailErr) {
           if (isReinvite && existingUser) {

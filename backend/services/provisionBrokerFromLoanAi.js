@@ -167,6 +167,7 @@ async function provisionBrokerFromLoanAi(prisma, io, loanAiUser, payload) {
       adminEmail: loginEmail,
       temporaryPassword,
       organizationName,
+      prisma,
     });
 
     try {

@@ -7,7 +7,6 @@ const { loadTemplate } = require("../../../utils/loadTemplate");
 const { buildLenderSignInUrl } = require("../../../utils/emailBranding");
 const { buildLenderInviteEmailData } = require("../../../utils/emailTemplateData");
 const sendMail = require("../../../services/mail");
-const { sendEmailUsingKafka } = require("../../../services/kafka/email/producer.js");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
@@ -82,27 +81,19 @@ async function inviteLenderRoutes(fastify) {
         // ---------------------------
         // SEND EMAIL
         // ---------------------------
-        try {
-          await sendEmailUsingKafka(email, subject, text, html);
+        await sendMail({
+          prisma,
+          to: email,
+          subject,
+          text,
+          html,
+          idempotencyKey: `admin-lender-invite:${email}`,
+        });
 
-          adminLogs.info("Lender invitation email queued via Kafka", {
-            to: email,
-            invitedName: fullName,
-          });
-        } catch (kafkaErr) {
-          adminLogs.error("Kafka email failed, falling back to SMTP", kafkaErr);
-
-          await sendMail({
-            to: email,
-            subject,
-            text,
-            html,
-          });
-
-          adminLogs.info("SMTP fallback email sent for lender invite", {
-            to: email,
-          });
-        }
+        adminLogs.info("Lender invitation email enqueued", {
+          to: email,
+          invitedName: fullName,
+        });
 
         // ---------------------------
         // SUCCESS RESPONSE

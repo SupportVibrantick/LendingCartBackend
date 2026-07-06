@@ -227,6 +227,7 @@ module.exports = async function createBrokerUser(fastify) {
               email,
               password,
               organizationName: organization?.name,
+              prisma,
             });
           } catch (mailErr) {
             fastify.log.error(

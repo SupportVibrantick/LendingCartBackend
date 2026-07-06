@@ -1,14 +1,13 @@
 const { loadTemplate } = require("../utils/loadTemplate");
 const { getEmailBranding } = require("../utils/emailBranding");
-const sendMail = require("./mail");
-const { sendEmailUsingKafka } = require("./kafka/email/producer");
-const { commonLogs } = require("./logger/contextLogger");
+const { enqueueEmail } = require("./email");
 
 async function sendLoanOfficerCredentialsEmail({
   firstName,
   email,
   password,
   organizationName,
+  prisma,
 }) {
   const { brokerDashboardUrl } = getEmailBranding();
   const loginUrl = `${brokerDashboardUrl}/loan-officer/login`;
@@ -37,15 +36,15 @@ Please change your password after your first login. Do not share these credentia
 
 — LendingCart`;
 
-  try {
-    await sendEmailUsingKafka(email, subject, text, html);
-  } catch (kafkaErr) {
-    commonLogs.warn("Loan officer credentials email Kafka failed, using SMTP", {
-      to: email,
-      error: kafkaErr.message,
-    });
-    await sendMail({ to: email, subject, text, html });
-  }
+  return enqueueEmail({
+    prisma,
+    to: email,
+    subject,
+    text,
+    html,
+    idempotencyKey: `loan-officer-credentials:${email}`,
+    provider: "SMTP",
+  });
 }
 
 module.exports = { sendLoanOfficerCredentialsEmail };

@@ -1,8 +1,6 @@
 const { loadTemplate } = require("../utils/loadTemplate");
 const { buildLenderSignInUrl } = require("../utils/emailBranding");
-const sendMail = require("./mail");
-const { sendEmailUsingKafka } = require("./kafka/email/producer");
-const { commonLogs } = require("./logger/contextLogger");
+const { enqueueEmail } = require("./email");
 const { formatLenderRoleLabel } = require("../utils/lenderTeamRoles");
 
 async function sendLenderTeamCredentialsEmail({
@@ -11,6 +9,7 @@ async function sendLenderTeamCredentialsEmail({
   password,
   organizationName,
   roleName,
+  prisma,
 }) {
   const loginUrl = buildLenderSignInUrl();
   const name = firstName || "there";
@@ -40,39 +39,15 @@ Please change your password after your first login. Do not share these credentia
 
 — LendingCart`;
 
-  let smtpError = null;
-
-  try {
-    await sendMail({ to: email, subject, text, html });
-    commonLogs.info("Lender team invitation email sent via SMTP", { to: email });
-    return;
-  } catch (error) {
-    smtpError = error;
-    commonLogs.warn("Lender team invitation SMTP failed, trying Kafka", {
-      to: email,
-      error: error.message,
-    });
-  }
-
-  try {
-    await sendEmailUsingKafka(email, subject, text, html);
-    commonLogs.info("Lender team invitation email queued via Kafka", {
-      to: email,
-    });
-    return;
-  } catch (kafkaErr) {
-    commonLogs.error("Lender team invitation email failed on SMTP and Kafka", {
-      to: email,
-      smtpError: smtpError?.message,
-      kafkaError: kafkaErr.message,
-    });
-
-    const error = new Error(
-      "Failed to send invitation email. Check SMTP configuration.",
-    );
-    error.code = "EMAIL_SEND_FAILED";
-    throw error;
-  }
+  return enqueueEmail({
+    prisma,
+    to: email,
+    subject,
+    text,
+    html,
+    idempotencyKey: `lender-team-credentials:${email}`,
+    provider: "SMTP",
+  });
 }
 
 module.exports = { sendLenderTeamCredentialsEmail };

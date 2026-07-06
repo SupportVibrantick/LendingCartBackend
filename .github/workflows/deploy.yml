@@ -44,7 +44,7 @@ jobs:
           envs: RESET_DB,RUN_SEED,VITE_API_BASE,VITE_EMBED_APP_URL
 
           script: |
-            set -euo pipefail
+            set -euo pipefail 
 
             echo "🚀 Starting LendingCart deployment..."
             echo "   reset_database=${RESET_DB}"
@@ -83,22 +83,13 @@ jobs:
               echo "⏭️ Skipping database seed"
             fi
 
-            echo "🔁 Restarting backend..."
-            if pm2 list | grep -q "lendingcart-backend"; then
-              pm2 restart lendingcart-backend
-            else
-              pm2 start bin/www --name lendingcart-backend
-            fi
-
-            pm2 save
-
             #################################################
             # Admin Dashboard
             #################################################
 
             cd ../admin-dashboard || exit 1
 
-            echo "📦 Installing admin dashboard dependencies..."
+            echo "📦 Installing admin dashboard dependencies..." 
             npm ci
 
             echo "🏗️ Building admin dashboard..."
@@ -179,5 +170,39 @@ jobs:
             echo "🔄 Restarting Nginx..."
             sudo systemctl restart nginx
 
+            #################################################
+            # Backend + worker (restart after builds)
+            #################################################
+
+            cd /root/LendingCartBackend/backend || exit 1
+
+            echo "🔁 Restarting backend and worker..."
+            npx prisma generate
+            pm2 delete lendingcart-backend 2>/dev/null || true
+            pm2 delete lendingcart-worker 2>/dev/null || true
+            pm2 start ecosystem.config.cjs --update-env
+            pm2 save
+
+            APP_PORT="$(sed -n 's/^PORT=//p' .env 2>/dev/null | tail -1 | tr -d ' \"' || true)"
+            APP_PORT="${APP_PORT:-4000}"
+
+            echo "🩺 Health check on port ${APP_PORT}..."
+            HEALTH_OK=0
+            for attempt in $(seq 1 30); do
+              if curl -sf "http://127.0.0.1:${APP_PORT}/" -o /dev/null; then
+                HEALTH_OK=1
+                break
+              fi
+              echo "   waiting for backend... attempt ${attempt}/30"
+              sleep 2
+            done
+
+            if [ "${HEALTH_OK}" -ne 1 ]; then
+              echo "❌ Backend health check failed on port ${APP_PORT}"
+              pm2 logs lendingcart-backend --lines 80 --nostream || true
+              exit 1
+            fi
+
+            echo "✅ Backend is responding on port ${APP_PORT}"
             echo "🎉 Deployment completed successfully!"
 

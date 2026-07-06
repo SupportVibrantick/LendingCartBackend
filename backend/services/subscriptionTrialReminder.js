@@ -1,5 +1,4 @@
-const sendMail = require("./mail");
-const { sendEmailUsingKafka } = require("./kafka/email/producer");
+const { enqueueEmail } = require("./email");
 const { loadTemplate } = require("../utils/loadTemplate");
 const { buildBrokerSignInUrl } = require("../utils/emailBranding");
 const { commonLogs } = require("./logger/contextLogger");
@@ -64,7 +63,7 @@ async function resolveBrokerRecipient(prisma, organizationId) {
   return null;
 }
 
-async function sendTrialEndingReminderEmail(subscription, recipient) {
+async function sendTrialEndingReminderEmail(prisma, subscription, recipient) {
   const loginUrl = buildBrokerSignInUrl();
   const planPrice = getPackagePrice(subscription.package, subscription.billingCycle);
   const trialEndsAtFormatted = formatTrialEndDate(subscription.trialEndsAt);
@@ -82,15 +81,15 @@ async function sendTrialEndingReminderEmail(subscription, recipient) {
   const subject = `Your LendingCart trial ends tomorrow — ${subscription.package.name} plan`;
   const text = `Hi ${recipient.name}, your free trial for the ${subscription.package.name} plan ends on ${trialEndsAtFormatted}. After that, billing will begin at ${formatCurrency(planPrice, subscription.billingCycle)}. Log in at ${loginUrl}`;
 
-  try {
-    await sendEmailUsingKafka(recipient.email, subject, text, html);
-  } catch (kafkaErr) {
-    commonLogs.warn("Trial reminder Kafka queue failed, falling back to SMTP", {
-      email: recipient.email,
-      error: kafkaErr.message,
-    });
-    await sendMail({ to: recipient.email, subject, text, html });
-  }
+  await enqueueEmail({
+    prisma,
+    to: recipient.email,
+    subject,
+    text,
+    html,
+    idempotencyKey: `trial-ending:${subscription.id}:${subscription.trialEndsAt?.toISOString?.() || "unknown"}`,
+    provider: "SMTP",
+  });
 }
 
 async function sendTrialEndingReminderNotification(prisma, io, subscription, recipient) {
@@ -155,7 +154,7 @@ async function sendTrialEndingReminders(prisma, io = null) {
     }
 
     try {
-      await sendTrialEndingReminderEmail(subscription, recipient);
+      await sendTrialEndingReminderEmail(prisma, subscription, recipient);
 
       try {
         await sendTrialEndingReminderNotification(prisma, io, subscription, recipient);

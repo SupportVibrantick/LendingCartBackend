@@ -1,32 +1,55 @@
-// services/kafka/producer.js
 const { Kafka, Partitioners } = require("kafkajs");
 const logger = require("../../logger/contextLogger");
+const { enqueueEmail } = require("../email");
+const {
+  isKafkaEnabled,
+  getKafkaBrokers,
+  getKafkaEmailTopic,
+} = require("../../../config/env");
 
-const TOPIC_NAME = "email-sending";
+const TOPIC_NAME = getKafkaEmailTopic();
 
-const kafka = new Kafka({
-  clientId: "email-processor",
-  brokers: ["localhost:9092"],
-});
-
-// Use legacy partitioner to retain previous behaviour and silence warning
-const producer = kafka.producer({
-  createPartitioner: Partitioners.LegacyPartitioner,
-});
-
+let kafka = null;
+let producer = null;
 let producerConnected = false;
 let producerConnecting = null;
 
-// Ensure producer is connected (guard against race)
+function getKafkaProducer() {
+  if (!isKafkaEnabled()) {
+    return null;
+  }
+
+  if (!kafka) {
+    kafka = new Kafka({
+      clientId: "email-processor",
+      brokers: getKafkaBrokers(),
+    });
+
+    producer = kafka.producer({
+      createPartitioner: Partitioners.LegacyPartitioner,
+    });
+  }
+
+  return producer;
+}
+
 const ensureProducerConnected = async () => {
-  if (producerConnected) return;
+  const activeProducer = getKafkaProducer();
+  if (!activeProducer) {
+    throw new Error("Kafka email producer is disabled (KAFKA_ENABLED=false)");
+  }
+
+  if (producerConnected) {
+    return;
+  }
+
   if (producerConnecting) {
-    // if connection in progress, wait for it
     return producerConnecting;
   }
+
   producerConnecting = (async () => {
     try {
-      await producer.connect();
+      await activeProducer.connect();
       producerConnected = true;
       logger.kafkaLogs.info("Kafka Producer connected");
     } catch (err) {
@@ -40,42 +63,53 @@ const ensureProducerConnected = async () => {
   return producerConnecting;
 };
 
-const sendEmailUsingKafka = async (to, subject, text, html) => {
-  try {
-    await ensureProducerConnected();
+const sendEmailUsingKafka = async (to, subject, text, html, options = {}) => {
+  if (isKafkaEnabled()) {
+    try {
+      await ensureProducerConnected();
+      const activeProducer = getKafkaProducer();
 
-    await producer.send({
-      topic: TOPIC_NAME,
-      messages: [
-        {
-          value: JSON.stringify({
-            to,
-            subject,
-            text,
-            html,
-          }),
-        },
-      ],
-    });
+      await activeProducer.send({
+        topic: TOPIC_NAME,
+        messages: [
+          {
+            value: JSON.stringify({
+              to,
+              subject,
+              text,
+              html,
+            }),
+          },
+        ],
+      });
 
-    logger.kafkaLogs.info(`Email request sent to Kafka topic=${TOPIC_NAME}`, {
-      to,
-      subject,
-    });
-  } catch (error) {
-    logger.kafkaLogs.error("Error sending message to Kafka", {
-      error,
-      to,
-      subject,
-    });
-    throw error;
+      logger.kafkaLogs.info(`Email request sent to Kafka topic=${TOPIC_NAME}`, {
+        to,
+        subject,
+      });
+      return;
+    } catch (error) {
+      logger.kafkaLogs.error("Error sending message to Kafka", {
+        error,
+        to,
+        subject,
+      });
+    }
   }
+
+  return enqueueEmail({
+    to,
+    subject,
+    text,
+    html,
+    idempotencyKey: options.idempotencyKey,
+    provider: "SMTP",
+  });
 };
 
-// Connect lazily on first email send — avoids blocking server startup when Kafka is down.
 const shutdownProducer = async () => {
   try {
-    if (producerConnected) {
+    if (producerConnected && producer) {
       logger.kafkaLogs.info("Shutting down Kafka producer...");
       await producer.disconnect();
       producerConnected = false;
@@ -89,4 +123,4 @@ const shutdownProducer = async () => {
 process.on("SIGINT", shutdownProducer);
 process.on("SIGTERM", shutdownProducer);
 
-module.exports = { producer, sendEmailUsingKafka, shutdownProducer };
+module.exports = { producer: getKafkaProducer, sendEmailUsingKafka, shutdownProducer };

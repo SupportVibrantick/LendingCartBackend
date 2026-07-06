@@ -76,6 +76,7 @@ async function lenderForgotPasswordRoutes(fastify) {
               firstName: user.firstName,
               email: user.email,
               resetToken: token,
+              prisma,
             });
           } catch (mailErr) {
             fastify.log.error(

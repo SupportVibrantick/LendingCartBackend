@@ -12,8 +12,9 @@ const sendEmail = async (req, reply) => {
     }
 
     const result = await emailService.sendEmail({
+      prisma: req.server.prisma,
       to,
-      name,      // PASS name
+      name,
       subject,
       message,
     });

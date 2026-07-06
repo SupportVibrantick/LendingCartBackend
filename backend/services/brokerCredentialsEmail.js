@@ -1,14 +1,13 @@
 const { loadTemplate } = require("../utils/loadTemplate");
 const { buildBrokerSignInUrl } = require("../utils/emailBranding");
-const sendMail = require("./mail");
-const { sendEmailUsingKafka } = require("./kafka/email/producer");
-const { commonLogs } = require("./logger/contextLogger");
+const { enqueueEmail } = require("./email");
 
 async function sendBrokerCredentialsEmail({
   adminFirstName,
   adminEmail,
   temporaryPassword,
   organizationName,
+  prisma,
 }) {
   const loginUrl = buildBrokerSignInUrl();
 
@@ -35,15 +34,15 @@ Please change your password after your first login. This password is only for th
 
 — LendingCart`;
 
-  try {
-    await sendEmailUsingKafka(adminEmail, subject, text, html);
-  } catch (kafkaErr) {
-    commonLogs.warn("Broker credentials email Kafka failed, using SMTP", {
-      to: adminEmail,
-      error: kafkaErr.message,
-    });
-    await sendMail({ to: adminEmail, subject, text, html });
-  }
+  return enqueueEmail({
+    prisma,
+    to: adminEmail,
+    subject,
+    text,
+    html,
+    idempotencyKey: `broker-credentials:${adminEmail}`,
+    provider: "SMTP",
+  });
 }
 
 module.exports = { sendBrokerCredentialsEmail };

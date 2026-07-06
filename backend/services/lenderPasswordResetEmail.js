@@ -1,13 +1,12 @@
 const { loadTemplate } = require("../utils/loadTemplate");
 const { buildLenderSignInUrl } = require("../utils/emailBranding");
-const sendMail = require("./mail");
-const { sendEmailUsingKafka } = require("./kafka/email/producer");
-const { commonLogs } = require("./logger/contextLogger");
+const { enqueueEmail } = require("./email");
 
 async function sendLenderPasswordResetEmail({
   firstName,
   email,
   resetToken,
+  prisma,
 }) {
   const baseUrl = buildLenderSignInUrl().replace(/\/signin$/, "");
   const resetUrl = `${baseUrl}/reset-password?token=${encodeURIComponent(resetToken)}`;
@@ -34,27 +33,15 @@ If you did not request this, you can ignore this email.
 
 — LendingCart`;
 
-  try {
-    await sendMail({ to: email, subject, text, html });
-    commonLogs.info("Lender password reset email sent via SMTP", { to: email });
-    return;
-  } catch (smtpErr) {
-    commonLogs.warn("Lender password reset SMTP failed, trying Kafka", {
-      to: email,
-      error: smtpErr.message,
-    });
-  }
-
-  try {
-    await sendEmailUsingKafka(email, subject, text, html);
-    commonLogs.info("Lender password reset email queued via Kafka", { to: email });
-  } catch (kafkaErr) {
-    commonLogs.error("Lender password reset email failed", {
-      to: email,
-      error: kafkaErr.message,
-    });
-    throw kafkaErr;
-  }
+  return enqueueEmail({
+    prisma,
+    to: email,
+    subject,
+    text,
+    html,
+    idempotencyKey: `lender-password-reset:${resetToken}`,
+    provider: "SMTP",
+  });
 }
 
 module.exports = { sendLenderPasswordResetEmail };

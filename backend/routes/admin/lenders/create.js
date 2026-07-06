@@ -8,7 +8,6 @@ const { loadTemplate } = require("../../../utils/loadTemplate");
 const { buildLenderSignInUrl } = require("../../../utils/emailBranding");
 const { buildLenderWelcomeEmailData } = require("../../../utils/emailTemplateData");
 const sendMail = require("../../../services/mail");
-const { sendEmailUsingKafka } = require("../../../services/kafka/email/producer.js");
 const {
   notifyPlatform,
   PLATFORM_NOTIFICATION_EVENTS,
@@ -255,28 +254,18 @@ async function createLenderRoutes(fastify) {
           const subject = "Your Lender Account Has Been Created";
           const text = `Hello ${adminFirstName}, your lender account is ready.`;
 
-          try {
-            await sendEmailUsingKafka(adminEmail, subject, text, html);
-            adminLogs.info("Lender email queued via Kafka", {
-              to: adminEmail,
-            });
-          } catch (kafkaErr) {
-            adminLogs.error(
-              "Kafka failed, fallback to SMTP",
-              kafkaErr
-            );
+          await sendMail({
+            prisma,
+            to: adminEmail,
+            subject,
+            text,
+            html,
+            idempotencyKey: `admin-lender-create:${adminEmail}`,
+          });
 
-            await sendMail({
-              to: adminEmail,
-              subject,
-              text,
-              html,
-            });
-
-            adminLogs.info("SMTP fallback email sent", {
-              to: adminEmail,
-            });
-          }
+          adminLogs.info("Lender creation email enqueued", {
+            to: adminEmail,
+          });
         } catch (mailErr) {
           adminLogs.error("Email sending failed after lender creation", mailErr);
         }

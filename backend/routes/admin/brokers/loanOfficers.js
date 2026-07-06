@@ -413,6 +413,7 @@ async function brokerLoanOfficersRoutes(fastify) {
             email: user.email,
             password,
             organizationName: org.name,
+            prisma: fastify.prisma,
           });
         } catch (mailErr) {
           adminLogs.error("Loan officer welcome email failed", {

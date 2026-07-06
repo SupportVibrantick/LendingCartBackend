@@ -165,6 +165,7 @@ async function sendWelcomeEmail(fastify, prisma, { brokerOrgId, firstName, email
       email,
       password,
       organizationName: organization?.name,
+      prisma: fastify.prisma,
     });
 
     fastify.log.info({ to: email, subBrokerId }, "Sub broker welcome email sent (admin)");

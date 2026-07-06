@@ -6,7 +6,6 @@ const clientAuthMiddleware = require("../../middleware/clientAuthMiddleware");
 const { loadTemplate } = require("../../utils/loadTemplate");
 const { buildDocumentUploadEmailData } = require("../../utils/emailTemplateData");
 const sendMail = require("../../services/mail");
-const { sendEmailUsingKafka } = require("../../services/kafka/email/producer");
 const {
   notifyBroker,
   BROKER_NOTIFICATION_EVENTS,
@@ -285,32 +284,16 @@ async function uploadDocumentsRoute(fastify) {
             `Client uploaded a document for application ${loan.applicationNumber}`;
 
           try {
-            await sendEmailUsingKafka(
-              brokerEmail,
-              subject,
-              text,
-              html
-            );
-
             await sendMail({
+              prisma,
               to: brokerEmail,
               subject,
               text,
               html,
+              idempotencyKey: `client-upload:${upload.id}`,
             });
           } catch (err) {
-            fastify.log.error(err);
-
-            try {
-              await sendMail({
-                to: brokerEmail,
-                subject,
-                text,
-                html,
-              });
-            } catch (mailErr) {
-              fastify.log.error(mailErr);
-            }
+            fastify.log.error(err, "Failed to enqueue broker upload notification email");
           }
         }
 

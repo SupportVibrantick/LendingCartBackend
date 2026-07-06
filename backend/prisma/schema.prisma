@@ -567,6 +567,7 @@ model SubscriptionInvoice {
   stripeInvoiceId            String?
   externalPaymentRef         String?
   notes                      String?
+  idempotencyKey             String?                   @unique
   createdAt                  DateTime                  @default(now()) @db.Timestamptz(6)
   updatedAt                  DateTime                  @updatedAt @db.Timestamptz(6)
   organization               Organization              @relation(fields: [organizationId], references: [id])
@@ -1244,6 +1245,11 @@ model DocumentReminderSchedule {
   customMessage       String?
   lastSentAt          DateTime?                     @db.Timestamptz(6)
   nextRunAt           DateTime?                     @db.Timestamptz(6)
+  attempts            Int                           @default(0)
+  maxAttempts         Int                           @default(10)
+  lockedBy            String?
+  lockedUntil         DateTime?                     @db.Timestamptz(6)
+  lastError           String?
   createdByUserId     String?                       @db.Uuid
   createdAt           DateTime                      @default(now()) @db.Timestamptz(6)
   updatedAt           DateTime                      @updatedAt @db.Timestamptz(6)
@@ -2279,4 +2285,55 @@ enum SubBrokerSubmissionStatus {
 enum SubmissionSourceType {
   BROKER
   SUB_BROKER
+}
+
+enum EmailOutboxStatus {
+  PENDING
+  PROCESSING
+  SENT
+  FAILED
+  DEAD
+}
+
+enum EmailOutboxProvider {
+  SMTP
+  GHL
+}
+
+model EmailOutbox {
+  id              String              @id @default(uuid()) @db.Uuid
+  to              String
+  cc              String?
+  bcc             String?
+  subject         String
+  text            String?
+  html            String?
+  templateKey     String?
+  templateData    Json?
+  provider        EmailOutboxProvider @default(SMTP)
+  providerMeta    Json?
+  status          EmailOutboxStatus   @default(PENDING)
+  attempts        Int                 @default(0)
+  maxAttempts     Int                 @default(5)
+  nextAttemptAt   DateTime            @default(now()) @db.Timestamptz(6)
+  lockedBy        String?
+  lockedUntil     DateTime?           @db.Timestamptz(6)
+  idempotencyKey  String?             @unique
+  lastError       String?
+  sentAt          DateTime?           @db.Timestamptz(6)
+  createdAt       DateTime            @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime            @updatedAt @db.Timestamptz(6)
+
+  @@index([status, nextAttemptAt])
+  @@index([createdAt])
+  @@map("email_outbox")
+}
+
+model JobLock {
+  name        String    @id
+  lockedBy    String?
+  lockedUntil DateTime? @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @db.Timestamptz(6)
+
+  @@map("job_locks")
 }

@@ -9,7 +9,6 @@ const { loadTemplate } = require("../../../utils/loadTemplate");
 const { buildBrokerSignInUrl } = require("../../../utils/emailBranding");
 const { buildBrokerWelcomeEmailData } = require("../../../utils/emailTemplateData");
 const sendMail = require("../../../services/mail");
-const { sendEmailUsingKafka } = require("../../../services/kafka/email/producer.js");
 const {
   notifyPlatform,
   PLATFORM_NOTIFICATION_EVENTS,
@@ -227,33 +226,18 @@ async function createBrokerRoutes(fastify) {
           const subject = "Your Broker Account Has Been Created";
           const text = `Hello ${adminFirstName}, your broker account is ready.`;
 
-          //  Try via Kafka first
-          try {
-            await sendEmailUsingKafka(adminEmail, subject, text, html);
+          await sendMail({
+            prisma,
+            to: adminEmail,
+            subject,
+            text,
+            html,
+            idempotencyKey: `admin-broker-create:${adminEmail}`,
+          });
 
-            adminLogs.info("Broker creation email queued via Kafka", {
-              to: adminEmail,
-            });
-
-
-
-          } catch (kafkaErr) {
-            adminLogs.error(
-              "Kafka email queue failed, falling back to direct SMTP",
-              kafkaErr
-            );
-
-            await sendMail({
-              to: adminEmail,
-              subject,
-              text,
-              html,
-            });
-
-            adminLogs.info("Fallback SMTP email sent directly", {
-              to: adminEmail,
-            });
-          }
+          adminLogs.info("Broker creation email enqueued", {
+            to: adminEmail,
+          });
         } catch (mailErr) {
           adminLogs.error("Broker created but all email attempts failed", mailErr);
         }

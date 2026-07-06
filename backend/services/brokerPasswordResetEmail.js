@@ -3,14 +3,13 @@ const {
   buildBrokerSignInUrl,
   getEmailBranding,
 } = require("../utils/emailBranding");
-const sendMail = require("./mail");
-const { sendEmailUsingKafka } = require("./kafka/email/producer");
-const { commonLogs } = require("./logger/contextLogger");
+const { enqueueEmail } = require("./email");
 
 async function sendBrokerPasswordResetEmail({
   firstName,
   email,
   resetToken,
+  prisma,
 }) {
   const { brokerDashboardUrl } = getEmailBranding();
   const baseUrl =
@@ -39,15 +38,15 @@ If you did not request this, you can ignore this email.
 
 — LendingCart`;
 
-  try {
-    await sendEmailUsingKafka(email, subject, text, html);
-  } catch (kafkaErr) {
-    commonLogs.warn("Broker password reset email Kafka failed, using SMTP", {
-      to: email,
-      error: kafkaErr.message,
-    });
-    await sendMail({ to: email, subject, text, html });
-  }
+  return enqueueEmail({
+    prisma,
+    to: email,
+    subject,
+    text,
+    html,
+    idempotencyKey: `broker-password-reset:${resetToken}`,
+    provider: "SMTP",
+  });
 }
 
 module.exports = { sendBrokerPasswordResetEmail };

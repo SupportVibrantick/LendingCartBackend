@@ -1,139 +1,146 @@
 const cron = require("node-cron");
+const { runCronJob } = require("../services/jobs");
+const { enqueueGhlEmail } = require("../services/email");
 
-const runCampaignScheduler = (fastify) => {
-  console.log("🔥 Campaign Scheduler initialized");
+const JOB_NAME = "campaign-recurring";
+const LOCK_TTL_MS = 10 * 60 * 1000;
 
-  cron.schedule("* * * * *", async () => {
-    const now = new Date();
-    console.log("\n⏱ CRON TICK:", now.toISOString());
+function computeNextRun(campaign) {
+  const lastSent = campaign.lastSentAt || campaign.createdAt;
 
-    try {
-      const prisma = fastify.prisma;
+  if (campaign.intervalUnit === "minutes") {
+    return new Date(lastSent.getTime() + campaign.intervalValue * 60 * 1000);
+  }
 
-      // 1️⃣ Fetch campaigns
-      const campaigns = await prisma.campaign.findMany({
-        where: {
-          isRecurring: true,
-          status: "SENT",
-        },
-      });
+  if (campaign.intervalUnit === "hours") {
+    return new Date(lastSent.getTime() + campaign.intervalValue * 60 * 60 * 1000);
+  }
 
-      console.log(`📦 Found ${campaigns.length} recurring campaigns`);
+  if (campaign.intervalUnit === "days") {
+    return new Date(
+      lastSent.getTime() + campaign.intervalValue * 24 * 60 * 60 * 1000,
+    );
+  }
 
-      if (!campaigns.length) return;
+  return null;
+}
 
-      for (const campaign of campaigns) {
-        console.log("\n🔁 Checking campaign:", campaign.id);
+async function processRecurringCampaigns(prisma, log) {
+  const now = new Date();
 
-        const lastSent = campaign.lastSentAt || campaign.createdAt;
+  const campaigns = await prisma.campaign.findMany({
+    where: {
+      isRecurring: true,
+      status: "SENT",
+    },
+  });
 
-        let nextRun;
+  let campaignsRun = 0;
+  let emailsEnqueued = 0;
+  let emailsFailed = 0;
 
-        if (campaign.intervalUnit === "minutes") {
-          nextRun = new Date(
-            lastSent.getTime() + campaign.intervalValue * 60 * 1000
-          );
-        }
+  for (const campaign of campaigns) {
+    const nextRun = computeNextRun(campaign);
 
-        if (campaign.intervalUnit === "hours") {
-          nextRun = new Date(
-            lastSent.getTime() + campaign.intervalValue * 60 * 60 * 1000
-          );
-        }
+    if (!nextRun || now < nextRun) {
+      continue;
+    }
 
-        if (campaign.intervalUnit === "days") {
-          nextRun = new Date(
-            lastSent.getTime() + campaign.intervalValue * 24 * 60 * 60 * 1000
-          );
-        }
+    campaignsRun += 1;
 
-        console.log("🕒 Last Sent:", lastSent);
-        console.log("⏭ Next Run:", nextRun);
+    const recipients = await prisma.campaignRecipient.findMany({
+      where: { campaignId: campaign.id },
+      include: { contact: true },
+    });
 
-        // 2️⃣ Check if it's time
-        if (!nextRun || now < nextRun) {
-          console.log("⏳ Not time yet, skipping...");
-          continue;
-        }
-
-        console.log("🚀 Running campaign:", campaign.id);
-
-        // 3️⃣ Fetch recipients
-        const recipients = await prisma.campaignRecipient.findMany({
-          where: { campaignId: campaign.id },
-          include: { contact: true },
-        });
-
-        console.log(`👥 Found ${recipients.length} recipients`);
-
-        if (!recipients.length) {
-          console.log("⚠️ No recipients found, skipping...");
-          continue;
-        }
-
-        // 4️⃣ Send emails
-        for (const r of recipients) {
-          const email = r.contact?.email;
-
-          if (!email) {
-            console.log("⚠️ Missing email, skipping contact:", r.contact?.id);
-            continue;
-          }
-
-          try {
-            console.log("📤 Sending email to:", email);
-
-            const res = await fastify.ghlService.triggerWebhook({
-              email,
-              name: r.contact.firstName || "User",
-              subject: campaign.subject,
-              message: campaign.content,
-            });
-
-            console.log("✅ Email sent:", email);
-
-            await prisma.emailLog.create({
-              data: {
-                campaignId: campaign.id,
-                contactId: r.contact.id,
-                status: "SENT",
-                response: res || {},
-              },
-            });
-
-          } catch (err) {
-            console.error("❌ Email FAILED:", email, "| Error:", err.message);
-
-            try {
-              await prisma.emailLog.create({
-                data: {
-                  campaignId: campaign.id,
-                  contactId: r.contact.id,
-                  status: "FAILED",
-                  response: { error: err.message },
-                },
-              });
-            } catch (logErr) {
-              console.error("❌ Log failed:", logErr.message);
-            }
-          }
-        }
-
-        // 5️⃣ Update last run
-        await prisma.campaign.update({
-          where: { id: campaign.id },
-          data: {
-            lastSentAt: new Date(),
-          },
-        });
-
-        console.log("🔄 Campaign updated:", campaign.id);
+    for (const recipient of recipients) {
+      const email = recipient.contact?.email;
+      if (!email) {
+        continue;
       }
 
+      try {
+        await enqueueGhlEmail({
+          prisma,
+          to: email,
+          subject: campaign.subject,
+          text: campaign.content,
+          providerMeta: {
+            name: recipient.contact.firstName || "User",
+            message: campaign.content,
+          },
+          idempotencyKey: `campaign-recurring:${campaign.id}:${recipient.contact.id}:${nextRun.toISOString()}`,
+        });
+
+        emailsEnqueued += 1;
+
+        await prisma.emailLog.create({
+          data: {
+            campaignId: campaign.id,
+            contactId: recipient.contact.id,
+            status: "SENT",
+            response: { queued: true },
+          },
+        });
+      } catch (error) {
+        emailsFailed += 1;
+        log?.warn(
+          {
+            campaignId: campaign.id,
+            contactId: recipient.contact.id,
+            error: error.message,
+          },
+          "Recurring campaign email enqueue failed",
+        );
+
+        try {
+          await prisma.emailLog.create({
+            data: {
+              campaignId: campaign.id,
+              contactId: recipient.contact.id,
+              status: "FAILED",
+              response: { error: error.message },
+            },
+          });
+        } catch (logErr) {
+          log?.error(
+            { err: logErr, campaignId: campaign.id },
+            "Failed to write campaign email log",
+          );
+        }
+      }
+    }
+
+    await prisma.campaign.update({
+      where: { id: campaign.id },
+      data: { lastSentAt: new Date() },
+    });
+  }
+
+  return {
+    campaignsChecked: campaigns.length,
+    campaignsRun,
+    emailsEnqueued,
+    emailsFailed,
+  };
+}
+
+function runCampaignScheduler(fastify) {
+  fastify.log.info("Campaign scheduler initialized");
+
+  cron.schedule("* * * * *", async () => {
+    try {
+      await runCronJob({
+        prisma: fastify.prisma,
+        log: fastify.log,
+        jobName: JOB_NAME,
+        ttlMs: LOCK_TTL_MS,
+        handler: () => processRecurringCampaigns(fastify.prisma, fastify.log),
+      });
     } catch (error) {
-      console.error("❌ Campaign Scheduler Error:", error.message);
+      fastify.log.error({ err: error }, "Campaign scheduler failed");
     }
   });
-};
+}
 
 module.exports = runCampaignScheduler;

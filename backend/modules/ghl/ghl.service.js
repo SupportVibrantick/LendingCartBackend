@@ -1,21 +1,27 @@
 const axios = require("axios");
+const { isGhlEnabled } = require("../../config/env");
 
 const triggerWebhook = async ({ email, name, message, subject }) => {
+  if (!isGhlEnabled()) {
+    console.log("GHL_ENABLED=false — webhook email skipped", {
+      email,
+      subject: subject || "Default Subject",
+    });
+    return { skipped: true, provider: "GHL" };
+  }
+
   try {
-    // ✅ Basic validation
     if (!email) {
       throw new Error("Email is required for GHL webhook");
     }
 
-    // ✅ Prepare payload
     const payload = {
       email,
       name: name || "User",
       message: message || "",
-      subject: subject || "Default Subject 🚀", // ✅ ADD THIS
+      subject: subject || "Default Subject",
     };
 
-    // ✅ Call GHL webhook
     const res = await axios.post(process.env.GHL_WEBHOOK_URL, payload, {
       timeout: 10000,
       headers: {
@@ -30,7 +36,6 @@ const triggerWebhook = async ({ email, name, message, subject }) => {
     });
 
     return res.data;
-
   } catch (err) {
     console.error("❌ GHL Webhook Error:", {
       message: err.message,

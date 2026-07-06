@@ -20,7 +20,6 @@ const swaggerUi = require("@fastify/swagger-ui");
 const indexRoutes = require("./routes/index");
 const verifySuperAdmin = require("./plugins/verifySuperAdmin");
 const dbPlugin = require("./plugins/dbPlugin");
-const socketPlugin = require("./plugins/socket");
 const multipart = require("@fastify/multipart");
 // Configure Fastify with built-in logger
 const app = Fastify({
@@ -38,8 +37,6 @@ const app = Fastify({
           },
         },
 });
-
-
 
 // Start the Kafka consumer for sending emails
 // runEmailConsumerKafka().catch((error) => {
@@ -109,8 +106,7 @@ app.decorate("ghlService", ghlService);
 
 app.register(authMiddleware);
 app.register(fgaMiddleware);
-app.register(verifySuperAdmin);  
-app.register(socketPlugin);
+app.register(verifySuperAdmin);
 
 // Serve uploads (profile images)
 app.register(fastifyStatic, {
@@ -223,24 +219,5 @@ app.setErrorHandler((error, request, reply) => {
 
 // Register main route files only
 app.register(indexRoutes, { prefix: "/" });
-
-const campaignScheduler = require("./scheduler/campaign.scheduler");
-const subscriptionScheduler = require("./scheduler/subscription.scheduler");
-const documentReminderScheduler = require("./scheduler/documentReminder.scheduler");
-
-app.ready().then(() => {
-  campaignScheduler(app);
-  subscriptionScheduler(app);
-  documentReminderScheduler(app);
-  console.log("🚀 Campaign Scheduler Started");
-  console.log("📋 Subscription Billing Scheduler Started");
-  console.log("📧 Document Reminder Scheduler Started");
-});
-
-// app.ready(() => {
-//   console.log("\nRegistered Routes:");
-//   console.log(app.printRoutes());
-// });
-
 
 module.exports = app;

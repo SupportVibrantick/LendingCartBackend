@@ -16,6 +16,8 @@ const {
   applyLenderProductCriteriaMigration,
 } = require("./applyLenderProductCriteriaMigration");
 const { ensureLenderProfileFields } = require("./ensureLenderProfileFields");
+const { ensureEmailOutbox } = require("./ensureEmailOutbox");
+const { ensureSchedulerJobLocks } = require("./ensureSchedulerJobLocks");
 
 const ENUM_PATCHES = [
   `DO $$ BEGIN
@@ -148,6 +150,8 @@ async function applySchemaPatches(existingPrisma) {
   await applyLoanAiUserMigration();
   await applyLenderProductCriteriaMigration(prisma);
   await ensureLenderProfileFields(prisma);
+  await ensureEmailOutbox(prisma);
+  await ensureSchedulerJobLocks(prisma);
   console.log("✅ Lender profile columns patched");
 
   console.log("✅ All schema patches completed");

@@ -132,11 +132,11 @@ async function brokerRegisterRoutes(fastify) {
         try {
           await sendBrokerWelcomeEmail({
             adminFirstName: firstName,
-            adminLastName: lastName,
             adminEmail: email,
             organizationName,
             organizationEmail,
             organizationPhone: String(organizationPhone),
+            prisma,
           });
         } catch (mailErr) {
           commonLogs.error("Broker registered but welcome email failed", mailErr);

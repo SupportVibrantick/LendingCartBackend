@@ -3,9 +3,6 @@ const { buildClientLinkEmailData } = require("../../../utils/emailTemplateData")
 const { buildClientPortalUrl } = require("../../../utils/emailBranding");
 const sendMail = require("../../../services/mail");
 const {
-  sendEmailUsingKafka,
-} = require("../../../services/kafka/email/producer");
-const {
   notifyBroker,
   BROKER_NOTIFICATION_EVENTS,
 } = require("../../../services/brokerNotifications");
@@ -373,14 +370,16 @@ async function lenderDecisionRoutes(fastify) {
           const text = `Additional documents are required. Please contact your broker.`;
 
           try {
-            await sendEmailUsingKafka(clientEmail, subject, text, html);
-          } catch (err) {
             await sendMail({
+              prisma,
               to: clientEmail,
               subject,
               text,
               html,
+              idempotencyKey: `lender-conditional:${record.id}`,
             });
+          } catch (err) {
+            fastify.log.error(err, "Failed to enqueue conditional decision email");
           }
         }
 

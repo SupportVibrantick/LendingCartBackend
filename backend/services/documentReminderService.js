@@ -1,6 +1,7 @@
 const crypto = require("crypto");
 const sendMail = require("./mail");
 const { loadTemplate } = require("../utils/loadTemplate");
+const { getWorkerId } = require("./jobs/lock.service");
 const {
   buildDocumentReminderEmailData,
 } = require("../utils/emailTemplateData");
@@ -16,6 +17,14 @@ const { notifyLender, LENDER_NOTIFICATION_EVENTS } = require("./lenderNotificati
 const MS_PER_MINUTE = 60 * 1000;
 const MS_PER_HOUR = 60 * MS_PER_MINUTE;
 const MS_PER_DAY = 24 * MS_PER_HOUR;
+const REMINDER_LOCK_MS = 60_000;
+const REMINDER_BATCH_SIZE = 50;
+const WORKER_ID = getWorkerId();
+
+function computeReminderBackoff(attempts) {
+  const delaySeconds = Math.min(3600, Math.pow(2, Math.max(attempts, 1)) * 60);
+  return new Date(Date.now() + delaySeconds * 1000);
+}
 
 const REMINDER_TYPE_LABELS = {
   PENDING_UPLOAD: "Pending document uploads",
@@ -317,10 +326,12 @@ Open: ${portalLink}
 — ${brokerName}`;
 
   await sendMail({
+    prisma,
     to: recipientEmail,
     subject,
     text,
     html,
+    idempotencyKey: `doc-reminder:${schedule.id}:${schedule.nextRunAt?.toISOString?.() || "immediate"}`,
   });
 
   return { recipientEmail, subject };
@@ -338,7 +349,11 @@ async function processSingleReminder(prisma, io, schedule) {
   if (!loan) {
     await prisma.documentReminderSchedule.update({
       where: { id: schedule.id },
-      data: { status: "STOPPED" },
+      data: {
+        status: "STOPPED",
+        lockedBy: null,
+        lockedUntil: null,
+      },
     });
     return { id: schedule.id, action: "stopped", reason: "loan_not_found" };
   }
@@ -351,6 +366,10 @@ async function processSingleReminder(prisma, io, schedule) {
       data: {
         status: "COMPLETED",
         nextRunAt: null,
+        lockedBy: null,
+        lockedUntil: null,
+        attempts: 0,
+        lastError: null,
       },
     });
     return { id: schedule.id, action: "completed", reason: "no_pending_items" };
@@ -371,6 +390,10 @@ async function processSingleReminder(prisma, io, schedule) {
     data: {
       lastSentAt: now,
       nextRunAt,
+      attempts: 0,
+      lastError: null,
+      lockedBy: null,
+      lockedUntil: null,
     },
   });
 
@@ -453,23 +476,82 @@ async function processSingleReminder(prisma, io, schedule) {
   };
 }
 
-async function processDueDocumentReminders(prisma, io) {
+async function claimDueDocumentReminders(prisma) {
   const now = new Date();
-
-  const dueSchedules = await prisma.documentReminderSchedule.findMany({
+  const candidates = await prisma.documentReminderSchedule.findMany({
     where: {
       status: "ACTIVE",
       OR: [{ nextRunAt: null }, { nextRunAt: { lte: now } }],
+      AND: [
+        {
+          OR: [{ lockedUntil: null }, { lockedUntil: { lt: now } }],
+        },
+      ],
     },
-    take: 50,
+    take: REMINDER_BATCH_SIZE,
     orderBy: { nextRunAt: "asc" },
   });
+
+  const claimed = [];
+
+  for (const record of candidates) {
+    if (record.attempts >= record.maxAttempts) {
+      continue;
+    }
+
+    const lockUntil = new Date(Date.now() + REMINDER_LOCK_MS);
+    const updated = await prisma.documentReminderSchedule.updateMany({
+      where: {
+        id: record.id,
+        status: "ACTIVE",
+        OR: [{ lockedUntil: null }, { lockedUntil: { lt: now } }],
+      },
+      data: {
+        lockedBy: WORKER_ID,
+        lockedUntil: lockUntil,
+      },
+    });
+
+    if (updated.count === 1) {
+      claimed.push(
+        await prisma.documentReminderSchedule.findUnique({
+          where: { id: record.id },
+        }),
+      );
+    }
+  }
+
+  return claimed.filter(Boolean);
+}
+
+async function handleReminderFailure(prisma, schedule, error) {
+  const nextAttempts = (schedule.attempts || 0) + 1;
+  const isDead = nextAttempts >= (schedule.maxAttempts || 10);
+
+  await prisma.documentReminderSchedule.update({
+    where: { id: schedule.id },
+    data: {
+      attempts: nextAttempts,
+      lastError: error.message || String(error),
+      nextRunAt: isDead ? schedule.nextRunAt : computeReminderBackoff(nextAttempts),
+      status: isDead ? "STOPPED" : schedule.status,
+      lockedBy: null,
+      lockedUntil: null,
+    },
+  });
+
+  return { isDead, nextAttempts };
+}
+
+async function processDueDocumentReminders(prisma, io) {
+  const dueSchedules = await claimDueDocumentReminders(prisma);
 
   const results = {
     processed: 0,
     sent: 0,
     completed: 0,
     failed: 0,
+    stopped: 0,
     errors: [],
   };
 
@@ -479,11 +561,15 @@ async function processDueDocumentReminders(prisma, io) {
       const result = await processSingleReminder(prisma, io, schedule);
       if (result.action === "sent") results.sent += 1;
       if (result.action === "completed") results.completed += 1;
+      if (result.action === "stopped") results.stopped += 1;
     } catch (error) {
       results.failed += 1;
+      const failure = await handleReminderFailure(prisma, schedule, error);
       results.errors.push({
         reminderId: schedule.id,
         message: error.message,
+        attempts: failure.nextAttempts,
+        dead: failure.isDead,
       });
     }
   }

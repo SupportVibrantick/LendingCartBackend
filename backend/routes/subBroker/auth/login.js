@@ -8,7 +8,7 @@ const {
   resolveCoBrokerBranding,
 } = require("../../../utils/resolveCoBrokerBranding");
 
-const jwtSecret = process.env.JWT_SECRET || "SecretKey";
+const jwtSecret = require("../../../utils/jwtSecret");
 
 async function loginRoute(fastify, options) {
   fastify.post(

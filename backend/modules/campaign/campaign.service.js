@@ -1,6 +1,6 @@
 // modules/campaign/campaign.service.js
 
-const ghlService = require("../ghl/ghl.service");
+const { enqueueGhlEmail } = require("../../services/email");
 
 // 🔥 helper: chunk array (for batching)
 const chunkArray = (arr, size) => {
@@ -123,11 +123,16 @@ const sendCampaign = async ({
           }
 
           // 4️⃣ Send email
-          const res = await ghlService.triggerWebhook({
-            email: contact.email,
-            name: contact.name || "User",
+          const outbox = await enqueueGhlEmail({
+            prisma,
+            to: contact.email,
             subject,
-            message,
+            text: message,
+            providerMeta: {
+              name: contact.name || "User",
+              message,
+            },
+            idempotencyKey: `campaign:${campaign.id}:${contactId || contact.email}`,
           });
 
           // 5️⃣ Update recipient
@@ -154,7 +159,7 @@ const sendCampaign = async ({
                 campaignId: campaign.id,
                 contactId,
                 status: "SENT",
-                response: res || {},
+                response: { outboxId: outbox.id, status: outbox.status },
               },
             });
           }

@@ -1,32 +1,41 @@
 const cron = require("node-cron");
+const { runCronJob } = require("../services/jobs");
 const { runSubscriptionBillingCycle } = require("../services/subscriptionBilling");
 const { sendTrialEndingReminders } = require("../services/subscriptionTrialReminder");
+
+const JOB_NAME = "subscription-billing";
+const LOCK_TTL_MS = 14 * 60 * 1000;
 
 /**
  * Processes trial-ending reminders, expired trials, and overdue subscription invoices.
  * Runs every 15 minutes.
  */
 function runSubscriptionScheduler(fastify) {
-  console.log("📋 Subscription billing scheduler initialized");
+  fastify.log.info("Subscription billing scheduler initialized");
 
   cron.schedule("*/15 * * * *", async () => {
     try {
-      const reminders = await sendTrialEndingReminders(fastify.prisma, fastify.io);
-      const result = await runSubscriptionBillingCycle(fastify.prisma);
+      await runCronJob({
+        prisma: fastify.prisma,
+        log: fastify.log,
+        jobName: JOB_NAME,
+        ttlMs: LOCK_TTL_MS,
+        handler: async () => {
+          const reminders = await sendTrialEndingReminders(
+            fastify.prisma,
+            fastify.io,
+          );
+          const billing = await runSubscriptionBillingCycle(fastify.prisma);
 
-      if (reminders.sent > 0 || reminders.failed > 0) {
-        fastify.log.info(reminders, "Trial ending reminder cycle completed");
-      }
-
-      if (result.expiredTrials > 0 || result.pastDue > 0) {
-        fastify.log.info(
-          {
-            expiredTrials: result.expiredTrials,
-            pastDue: result.pastDue,
-          },
-          "Subscription billing cycle completed",
-        );
-      }
+          return {
+            trialRemindersSent: reminders.sent,
+            trialRemindersFailed: reminders.failed,
+            trialRemindersSkipped: reminders.skipped,
+            expiredTrials: billing.expiredTrials,
+            pastDue: billing.pastDue,
+          };
+        },
+      });
     } catch (error) {
       fastify.log.error({ err: error }, "Subscription billing scheduler failed");
     }

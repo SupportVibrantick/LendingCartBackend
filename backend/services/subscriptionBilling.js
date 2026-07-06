@@ -34,10 +34,24 @@ async function ensureSinglePopularPackage(prisma, packageId) {
   });
 }
 
-async function generateInvoiceNumber(prisma) {
+function advisoryLockKey(input) {
+  let hash = 0;
+  for (let i = 0; i < input.length; i += 1) {
+    hash = (hash << 5) - hash + input.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash);
+}
+
+async function generateInvoiceNumber(tx) {
   const year = new Date().getFullYear();
   const prefix = `INV-${year}-`;
-  const last = await prisma.subscriptionInvoice.findFirst({
+
+  await tx.$executeRawUnsafe(
+    `SELECT pg_advisory_xact_lock(${advisoryLockKey(prefix)})`,
+  );
+
+  const last = await tx.subscriptionInvoice.findFirst({
     where: { invoiceNumber: { startsWith: prefix } },
     orderBy: { invoiceNumber: "desc" },
     select: { invoiceNumber: true },
@@ -51,6 +65,52 @@ async function generateInvoiceNumber(prisma) {
   }
 
   return `${prefix}${String(seq).padStart(5, "0")}`;
+}
+
+async function createSubscriptionInvoice(tx, sub, options = {}) {
+  const amount = getPackagePrice(sub.package, sub.billingCycle);
+  const periodStart = options.periodStart || sub.currentPeriodStart;
+  const periodEnd = options.periodEnd || sub.currentPeriodEnd;
+  const dueDate = options.dueDate || new Date();
+  const idempotencyKey =
+    options.idempotencyKey ||
+    `subscription-invoice:${sub.id}:${new Date(periodStart).toISOString()}`;
+
+  if (idempotencyKey) {
+    const existing = await tx.subscriptionInvoice.findUnique({
+      where: { idempotencyKey },
+    });
+    if (existing) {
+      return existing;
+    }
+  }
+
+  const invoiceNumber = await generateInvoiceNumber(tx);
+
+  try {
+    return await tx.subscriptionInvoice.create({
+      data: {
+        organizationSubscriptionId: sub.id,
+        organizationId: sub.organizationId,
+        invoiceNumber,
+        amount,
+        billingCycle: sub.billingCycle,
+        status: options.status || "PENDING",
+        periodStart,
+        periodEnd,
+        dueDate,
+        notes: options.notes || null,
+        idempotencyKey,
+      },
+    });
+  } catch (error) {
+    if (idempotencyKey && error.code === "P2002") {
+      return tx.subscriptionInvoice.findUnique({
+        where: { idempotencyKey },
+      });
+    }
+    throw error;
+  }
 }
 
 async function countMetricUsage(prisma, organizationId, metric) {
@@ -146,24 +206,7 @@ async function generateInvoice(prisma, organizationSubscriptionId, options = {})
     throw new Error("Subscription not found");
   }
 
-  const amount = getPackagePrice(sub.package, sub.billingCycle);
-  const invoiceNumber = await generateInvoiceNumber(prisma);
-  const dueDate = options.dueDate || new Date();
-
-  return prisma.subscriptionInvoice.create({
-    data: {
-      organizationSubscriptionId: sub.id,
-      organizationId: sub.organizationId,
-      invoiceNumber,
-      amount,
-      billingCycle: sub.billingCycle,
-      status: options.status || "PENDING",
-      periodStart: sub.currentPeriodStart,
-      periodEnd: sub.currentPeriodEnd,
-      dueDate,
-      notes: options.notes || null,
-    },
-  });
+  return prisma.$transaction((tx) => createSubscriptionInvoice(tx, sub, options));
 }
 
 async function assignPlanToOrganization(prisma, payload) {
@@ -215,29 +258,39 @@ async function assignPlanToOrganization(prisma, payload) {
   const trialEndsAt =
     trialDays > 0 ? new Date(now.getTime() + trialDays * 24 * 60 * 60 * 1000) : null;
 
-  const subscription = await prisma.organizationSubscription.create({
-    data: {
-      organizationId,
-      packageId,
-      billingCycle,
-      status,
-      currentPeriodStart: now,
-      currentPeriodEnd: periodEnd,
-      trialEndsAt,
-      notes: notes || null,
-      assignedByAdminId: assignedByAdminId || null,
-    },
-    include: { package: true, organization: true },
+  const subscription = await prisma.$transaction(async (tx) => {
+    const created = await tx.organizationSubscription.create({
+      data: {
+        organizationId,
+        packageId,
+        billingCycle,
+        status,
+        currentPeriodStart: now,
+        currentPeriodEnd: periodEnd,
+        trialEndsAt,
+        notes: notes || null,
+        assignedByAdminId: assignedByAdminId || null,
+      },
+      include: { package: true, organization: true },
+    });
+
+    await refreshUsageForSubscription(tx, created.id);
+
+    let invoice = null;
+    if (shouldInvoice && status !== "TRIAL") {
+      invoice = await createSubscriptionInvoice(tx, created, {
+        idempotencyKey: `subscription-invoice:${created.id}:${now.toISOString()}`,
+        notes: "Initial subscription invoice",
+      });
+    }
+
+    return { subscription: created, invoice };
   });
 
-  await refreshUsageForSubscription(prisma, subscription.id);
-
-  let invoice = null;
-  if (shouldInvoice && status !== "TRIAL") {
-    invoice = await generateInvoice(prisma, subscription.id);
-  }
-
-  return { subscription, invoice };
+  return {
+    subscription: subscription.subscription,
+    invoice: subscription.invoice,
+  };
 }
 
 async function changePlan(prisma, payload) {
@@ -278,31 +331,38 @@ async function changePlan(prisma, payload) {
   const nextCycle = billingCycle || sub.billingCycle;
   const periodEnd = addPeriod(now, nextCycle);
 
-  const updated = await prisma.organizationSubscription.update({
-    where: { id: sub.id },
-    data: {
-      packageId,
-      billingCycle: nextCycle,
-      status: "ACTIVE",
-      currentPeriodStart: now,
-      currentPeriodEnd: periodEnd,
-      trialEndsAt: null,
-      cancelledAt: null,
-      cancelAtPeriodEnd: false,
-      notes: notes ?? sub.notes,
-      assignedByAdminId: assignedByAdminId || sub.assignedByAdminId,
-    },
-    include: { package: true, organization: true },
+  return prisma.$transaction(async (tx) => {
+    const updated = await tx.organizationSubscription.update({
+      where: { id: sub.id },
+      data: {
+        packageId,
+        billingCycle: nextCycle,
+        status: "ACTIVE",
+        currentPeriodStart: now,
+        currentPeriodEnd: periodEnd,
+        trialEndsAt: null,
+        cancelledAt: null,
+        cancelAtPeriodEnd: false,
+        notes: notes ?? sub.notes,
+        assignedByAdminId: assignedByAdminId || sub.assignedByAdminId,
+      },
+      include: { package: true, organization: true },
+    });
+
+    await refreshUsageForSubscription(tx, updated.id);
+
+    let invoice = null;
+    if (shouldInvoice) {
+      invoice = await createSubscriptionInvoice(tx, updated, {
+        periodStart: now,
+        periodEnd,
+        notes: "Plan change invoice",
+        idempotencyKey: `plan-change:${updated.id}:${now.toISOString()}`,
+      });
+    }
+
+    return { subscription: updated, invoice };
   });
-
-  await refreshUsageForSubscription(prisma, updated.id);
-
-  let invoice = null;
-  if (shouldInvoice) {
-    invoice = await generateInvoice(prisma, updated.id, { notes: "Plan change invoice" });
-  }
-
-  return { subscription: updated, invoice };
 }
 
 async function cancelSubscription(prisma, payload) {
@@ -341,34 +401,80 @@ async function cancelSubscription(prisma, payload) {
 }
 
 async function markInvoicePaid(prisma, invoiceId) {
-  const invoice = await prisma.subscriptionInvoice.findUnique({
-    where: { id: invoiceId },
-  });
-
-  if (!invoice) {
-    throw Object.assign(new Error("Invoice not found"), { statusCode: 404 });
-  }
-
-  const updatedInvoice = await prisma.subscriptionInvoice.update({
-    where: { id: invoiceId },
-    data: {
-      status: "PAID",
-      paidAt: new Date(),
-    },
-  });
-
-  const sub = await prisma.organizationSubscription.findUnique({
-    where: { id: invoice.organizationSubscriptionId },
-  });
-
-  if (sub?.status === "PAST_DUE") {
-    await prisma.organizationSubscription.update({
-      where: { id: sub.id },
-      data: { status: "ACTIVE" },
+  return prisma.$transaction(async (tx) => {
+    const invoice = await tx.subscriptionInvoice.findUnique({
+      where: { id: invoiceId },
     });
-  }
 
-  return updatedInvoice;
+    if (!invoice) {
+      throw Object.assign(new Error("Invoice not found"), { statusCode: 404 });
+    }
+
+    const updatedInvoice = await tx.subscriptionInvoice.update({
+      where: { id: invoiceId },
+      data: {
+        status: "PAID",
+        paidAt: new Date(),
+      },
+    });
+
+    const sub = await tx.organizationSubscription.findUnique({
+      where: { id: invoice.organizationSubscriptionId },
+    });
+
+    if (sub?.status === "PAST_DUE") {
+      await tx.organizationSubscription.update({
+        where: { id: sub.id },
+        data: { status: "ACTIVE" },
+      });
+    }
+
+    return updatedInvoice;
+  });
+}
+
+async function expireSingleTrial(prisma, sub, now) {
+  const periodStart = now;
+  const periodEnd = addPeriod(now, sub.billingCycle);
+  const idempotencyKey = `subscription-invoice:${sub.id}:${periodStart.toISOString()}`;
+
+  return prisma.$transaction(async (tx) => {
+    const current = await tx.organizationSubscription.findUnique({
+      where: { id: sub.id },
+      include: { package: true, organization: true },
+    });
+
+    if (
+      !current ||
+      current.status !== "TRIAL" ||
+      !current.trialEndsAt ||
+      current.trialEndsAt > now
+    ) {
+      return null;
+    }
+
+    const subscription = await tx.organizationSubscription.update({
+      where: { id: sub.id },
+      data: {
+        status: "ACTIVE",
+        trialEndsAt: null,
+        currentPeriodStart: periodStart,
+        currentPeriodEnd: periodEnd,
+      },
+      include: { package: true, organization: true },
+    });
+
+    const invoice = await createSubscriptionInvoice(tx, subscription, {
+      periodStart,
+      periodEnd,
+      notes: "Trial ended — first billing invoice",
+      idempotencyKey,
+    });
+
+    await refreshUsageForSubscription(tx, sub.id);
+
+    return { subscription, invoice };
+  });
 }
 
 /**
@@ -388,27 +494,10 @@ async function expireEndedTrials(prisma) {
   const results = [];
 
   for (const sub of expiredTrials) {
-    const periodStart = now;
-    const periodEnd = addPeriod(now, sub.billingCycle);
-
-    const subscription = await prisma.organizationSubscription.update({
-      where: { id: sub.id },
-      data: {
-        status: "ACTIVE",
-        trialEndsAt: null,
-        currentPeriodStart: periodStart,
-        currentPeriodEnd: periodEnd,
-      },
-      include: { package: true, organization: true },
-    });
-
-    const invoice = await generateInvoice(prisma, sub.id, {
-      notes: "Trial ended — first billing invoice",
-    });
-
-    await refreshUsageForSubscription(prisma, sub.id);
-
-    results.push({ subscription, invoice });
+    const result = await expireSingleTrial(prisma, sub, now);
+    if (result) {
+      results.push(result);
+    }
   }
 
   return results;

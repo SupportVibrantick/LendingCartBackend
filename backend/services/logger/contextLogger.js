@@ -57,6 +57,7 @@ const adminLogs = createCustomLogger("admin", 30);
 const userLogs = createCustomLogger("user", 20);
 const commonLogs = createCustomLogger("common", 10);
 const kafkaLogs = createCustomLogger("kafka", 10);
+const schedulerLogs = createCustomLogger("scheduler", 14);
 
 
-module.exports = { adminLogs, userLogs, commonLogs, kafkaLogs };
+module.exports = { adminLogs, userLogs, commonLogs, kafkaLogs, schedulerLogs };
