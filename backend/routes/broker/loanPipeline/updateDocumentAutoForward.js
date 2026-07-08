@@ -3,7 +3,7 @@
  */
 const {
   setAutoForwardDocumentsToLender,
-} = require("../../../services/documentAutoForwardSetting");
+} = require("../../../services/documents/documentAutoForwardSetting");
 
 module.exports = async function updateDocumentAutoForward(fastify) {
   fastify.patch(

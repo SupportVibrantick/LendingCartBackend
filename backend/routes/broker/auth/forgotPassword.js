@@ -1,9 +1,9 @@
 const crypto = require("crypto");
-const { findBrokerUserByEmail } = require("../../../utils/findBrokerUserByEmail");
+const { findBrokerUserByEmail } = require("../../../utils/auth/findBrokerUserByEmail");
 const {
   brokerForgotPasswordSchema,
 } = require("../../../schemas/broker/auth/resetPassword.schema");
-const { sendBrokerPasswordResetEmail } = require("../../../services/brokerPasswordResetEmail");
+const { sendBrokerPasswordResetEmail } = require("../../../services/emails/brokerPasswordResetEmail");
 
 const RESET_TOKEN_EXPIRY_MS =
   Number(process.env.PASSWORD_RESET_EXPIRY_HOURS || 1) * 60 * 60 * 1000;

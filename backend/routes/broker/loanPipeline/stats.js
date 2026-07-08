@@ -4,7 +4,7 @@
 
 const {
   countBrokerPipelineStats,
-} = require("../../../utils/resolveApplicationStatus");
+} = require("../../../utils/applications/resolveApplicationStatus");
 
 module.exports = async function loanPipelineStatsApi(fastify) {
   fastify.get(

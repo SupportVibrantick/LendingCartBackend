@@ -5,6 +5,7 @@ const loanOfficerContactsRoutes = require("./contacts");
 const loanOfficerLenderDiscoveryRoutes = require("./lenderDiscovery");
 const loanOfficerMessagingRoutes = require("./messaging");
 const loanOfficerNotificationRoutes = require("./notifications");
+const loanOfficerCommissionRoutes = require("./commissions");
 
 async function loanOfficerRoutes(fastify) {
   fastify.register(loanOfficerAuthRoutes, { prefix: "/auth" });
@@ -14,7 +15,7 @@ async function loanOfficerRoutes(fastify) {
   fastify.register(loanOfficerLenderDiscoveryRoutes, { prefix: "/lender-discovery" });
   fastify.register(loanOfficerMessagingRoutes, { prefix: "/messaging" });
   fastify.register(loanOfficerNotificationRoutes, { prefix: "/notifications" });
-  fastify.register(require("./commissions"), { prefix: "/commissions" });
+  fastify.register(loanOfficerCommissionRoutes, { prefix: "/commissions" });
 }
 
-module.exports = loanOfficerRoutes;
+module.exports = loanOfficerRoutes; 

@@ -1,13 +1,13 @@
-const { findBrokerAdmin } = require("../../../../services/brokerOfficerConversation");
+const { findBrokerAdmin } = require("../../../../services/messaging/brokerOfficerConversation");
 const {
   getOrganizationId,
   isLenderUser,
-} = require("../../../../services/messagingAccess");
-const { hasLenderPermission, LENDER_PERMISSION } = require("../../../../utils/lenderPermissions");
+} = require("../../../../services/messaging/messagingAccess");
+const { hasLenderPermission, LENDER_PERMISSION } = require("../../../../utils/lender/lenderPermissions");
 const {
   LENDER_CHAT_CATEGORIES,
   createLenderBrokerChannelConversation,
-} = require("../../../../services/lenderBrokerConversation");
+} = require("../../../../services/messaging/lenderBrokerConversation");
 
 module.exports = async function createLenderConversation(fastify) {
   fastify.post(

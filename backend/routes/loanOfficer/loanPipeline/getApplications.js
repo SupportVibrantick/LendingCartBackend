@@ -1,5 +1,5 @@
 const prisma = require("../../../config/prisma");
-const { officerPreHandler, getUserId } = require("../../../services/loanOfficerAccess");
+const { officerPreHandler, getUserId } = require("../../../services/broker/loanOfficerAccess");
 
 async function getApplicationsRoute(fastify) {
   fastify.get(

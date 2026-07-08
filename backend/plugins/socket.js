@@ -1,7 +1,7 @@
 const { Server } = require("socket.io");
 const jwt = require("jsonwebtoken");
 const registerChatGateway = require("../sockets/chat.gateway");
-const { normalizeAuthUser } = require("../services/messagingAccess");
+const { normalizeAuthUser } = require("../services/messaging/messagingAccess");
 const { getJwtSecret, getSocketCorsOrigins } = require("../config/env");
 const { attachRedisAdapter } = require("../config/redis");
 const { commonLogs } = require("../services/logger/contextLogger");

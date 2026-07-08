@@ -151,6 +151,32 @@ export const DECLARATION_QUESTIONS: {
   },
 ];
 
+export const isDeclarationAnswered = (value: YesNo) =>
+  value === "yes" || value === "no";
+
+export const countUnansweredDeclarations = (
+  declarations: BorrowerDeclarations,
+) =>
+  DECLARATION_QUESTIONS.filter(
+    ({ key }) => !isDeclarationAnswered(declarations[key]),
+  ).length;
+
+export const collectDeclarationErrors = (
+  declarations: BorrowerDeclarations,
+  errorPrefix: string,
+): Record<string, string> => {
+  const errors: Record<string, string> = {};
+
+  DECLARATION_QUESTIONS.forEach(({ key }) => {
+    if (!isDeclarationAnswered(declarations[key])) {
+      errors[`${errorPrefix}.declarations.${key}`] =
+        "Please select Yes or No";
+    }
+  });
+
+  return errors;
+};
+
 export const createEmptyAssets = (): BorrowerAssets => ({
   cashOnHand: "",
   savingsAccounts: "",

@@ -4,7 +4,7 @@ const { ZodError } = require("zod");
 const prisma = require("../../../config/prisma");
 const { loginSchema } = require("../../../schemas/loanOfficer/auth/login.schema");
 
-const jwtSecret = require("../../../utils/jwtSecret");
+const jwtSecret = require("../../../utils/auth/jwtSecret");
 
 async function loginRoute(fastify) {
   fastify.post("/login", async (request, reply) => {

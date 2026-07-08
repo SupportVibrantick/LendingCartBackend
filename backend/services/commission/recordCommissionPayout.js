@@ -3,7 +3,7 @@ const {
   decimalToNumber,
   roundMoney,
   derivePayoutStatus,
-} = require("../../utils/commissionHelpers");
+} = require("../../utils/commission/commissionHelpers");
 const { logCommissionAuditEvent } = require("./auditCommissionEvent");
 
 const payoutInclude = {

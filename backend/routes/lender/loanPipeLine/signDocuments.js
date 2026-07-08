@@ -4,11 +4,11 @@ const crypto = require("crypto");
 const { pipeline } = require("stream/promises");
 const {
   formatSignDocumentRequirement,
-} = require("../../../utils/formatSignDocument");
+} = require("../../../utils/documents/formatSignDocument");
 const {
   notifyBroker,
   BROKER_NOTIFICATION_EVENTS,
-} = require("../../../services/brokerNotifications");
+} = require("../../../services/notifications/brokerNotifications");
 
 const ALLOWED_MIME_TYPES = new Set([
   "application/pdf",

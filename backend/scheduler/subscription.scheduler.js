@@ -1,7 +1,7 @@
 const cron = require("node-cron");
 const { runCronJob } = require("../services/jobs");
-const { runSubscriptionBillingCycle } = require("../services/subscriptionBilling");
-const { sendTrialEndingReminders } = require("../services/subscriptionTrialReminder");
+const { runSubscriptionBillingCycle } = require("../services/subscription/subscriptionBilling");
+const { sendTrialEndingReminders } = require("../services/subscription/subscriptionTrialReminder");
 
 const JOB_NAME = "subscription-billing";
 const LOCK_TTL_MS = 14 * 60 * 1000;

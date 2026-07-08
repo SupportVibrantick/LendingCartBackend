@@ -4,7 +4,7 @@ const {
   isMinMaxLoanAmountRangeValid,
   getMinMaxLoanAmountRangeError,
   isMinMaxTermRangeValid,
-} = require("../../../utils/validateLenderProductRanges");
+} = require("../../../utils/lender/validateLenderProductRanges");
 
 // flexible object schema (category → subtypes)
 const nestedTypeSchema = z.record(

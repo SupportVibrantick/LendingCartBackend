@@ -1,4 +1,4 @@
-const { getClientFromRequest } = require("../../../utils/clientPortalAuth");
+const { getClientFromRequest } = require("../../../utils/auth/clientPortalAuth");
 
 async function markAllClientNotificationsRead(fastify) {
   fastify.patch("/read-all", async (req, reply) => {

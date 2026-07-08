@@ -1,6 +1,6 @@
 const jwt = require("jsonwebtoken");
-const { resolveApplicationStatus } = require("../../utils/resolveApplicationStatus");
-const { CLIENT_VISIBLE_DOC_SOURCES } = require("../../utils/mapClientPortalDocuments");
+const { resolveApplicationStatus } = require("../../utils/applications/resolveApplicationStatus");
+const { CLIENT_VISIBLE_DOC_SOURCES } = require("../../utils/documents/mapClientPortalDocuments");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify

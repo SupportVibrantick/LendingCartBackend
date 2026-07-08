@@ -47,6 +47,7 @@ const STATIC_SUBMIT_FIELD_KEYS = new Set([
   "totalAssets",
   "totalLiabilities",
   "monthlyRent",
+  "interimMonthsReported",
   "grossRevenueActual",
   "grossRevenueProforma",
   "noiProforma",
@@ -74,6 +75,7 @@ const FIELD_LABELS: Record<string, string> = {
   noiActual: "NOI Actual",
   noiProforma: "NOI Proforma",
   loanProductCode: "Loan Product",
+  interimMonthsReported: "Months Reported (Interim Year)",
 };
 
 export function getLatestSubmission(submissions: any[] = []) {
@@ -486,3 +488,5 @@ export function getNumericFieldValue(
   if (!field) return 0;
   return parseNumericValue(parseSubmissionFieldValue(field.value)) || 0;
 }
+
+

@@ -2,7 +2,7 @@
  * Get messages of a conversation
  */
 
-const { assertConversationTypeAccess } = require("../../../../services/messagingAccess");
+const { assertConversationTypeAccess } = require("../../../../services/messaging/messagingAccess");
 
 module.exports = async function getMessages(fastify) {
   fastify.get(

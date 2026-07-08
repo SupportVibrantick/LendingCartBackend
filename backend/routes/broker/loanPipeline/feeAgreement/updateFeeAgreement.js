@@ -2,14 +2,14 @@ const generateAgreementHtml = require("./generateAgreementHtml");
 const {
   getBrokerWhiteLabelBranding,
   buildBrandingSnapshot,
-} = require("../../../../services/brokerBranding");
+} = require("../../../../services/broker/brokerBranding");
 const {
   buildResolvedFeeAgreementContext,
-} = require("../../../../services/refreshDraftFeeAgreement");
+} = require("../../../../services/feeAgreement/refreshDraftFeeAgreement");
 const {
   validateFeeAgreementTerms,
   normalizeFeeAgreementTerms,
-} = require("../../../../services/feeAgreementEnrichment");
+} = require("../../../../services/feeAgreement/feeAgreementEnrichment");
 
 module.exports = async function (fastify) {
   fastify.patch(

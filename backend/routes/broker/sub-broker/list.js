@@ -1,6 +1,6 @@
 const {
   formatAssignedLoanOfficers,
-} = require("../../../utils/subBrokerProfileHelpers");
+} = require("../../../utils/broker/subBrokerProfileHelpers");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify

@@ -1,8 +1,8 @@
-const { officerPreHandler } = require("../../../services/loanOfficerAccess");
+const { officerPreHandler } = require("../../../services/broker/loanOfficerAccess");
 const {
   fetchActiveBrokerApplication,
   formatActiveApplicationResponse,
-} = require("../../../utils/activeBrokerApplication");
+} = require("../../../utils/broker/activeBrokerApplication");
 
 module.exports = async function loanOfficerActiveApplication(fastify) {
   fastify.get(

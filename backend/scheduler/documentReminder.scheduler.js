@@ -1,6 +1,6 @@
 const cron = require("node-cron");
 const { runCronJob } = require("../services/jobs");
-const { processDueDocumentReminders } = require("../services/documentReminderService");
+const { processDueDocumentReminders } = require("../services/documents/documentReminderService");
 
 const JOB_NAME = "document-reminders";
 const LOCK_TTL_MS = 5 * 60 * 1000;

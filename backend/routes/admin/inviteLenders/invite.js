@@ -3,10 +3,10 @@
 const { adminLogs } = require("../../../services/logger/contextLogger.js");
 
 // Mail + Kafka
-const { loadTemplate } = require("../../../utils/loadTemplate");
-const { buildLenderSignInUrl } = require("../../../utils/emailBranding");
-const { buildLenderInviteEmailData } = require("../../../utils/emailTemplateData");
-const sendMail = require("../../../services/mail");
+const { loadTemplate } = require("../../../utils/email/loadTemplate");
+const { buildLenderSignInUrl } = require("../../../utils/email/emailBranding");
+const { buildLenderInviteEmailData } = require("../../../utils/email/emailTemplateData");
+const sendMail = require("../../../services/emails/mail");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify

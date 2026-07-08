@@ -1,8 +1,8 @@
 const crypto = require("crypto");
 
-const { loadTemplate } = require("../../../utils/loadTemplate");
-const { buildClientLinkEmailData } = require("../../../utils/emailTemplateData");
-const sendMail = require("../../../services/mail");
+const { loadTemplate } = require("../../../utils/email/loadTemplate");
+const { buildClientLinkEmailData } = require("../../../utils/email/emailTemplateData");
+const sendMail = require("../../../services/emails/mail");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify

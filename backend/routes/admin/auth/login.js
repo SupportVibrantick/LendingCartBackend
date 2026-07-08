@@ -1,10 +1,10 @@
 // backend/routes/admin/auth/login.js
 const { loginSchema } = require("../../../schemas/admin/login/login.schema.js");
-const { getUserRolesFromFGA } = require("../../../services/fgaService.js");
+const { getUserRolesFromFGA } = require("../../../services/auth/fgaService.js");
 const jwt = require("jsonwebtoken");
-const jwtSecret = require("../../../utils/jwtSecret");
+const jwtSecret = require("../../../utils/auth/jwtSecret");
 // const prisma = require("../config/prisma.js");
-const { comparePassword } = require("../../../utils/password.js");
+const { comparePassword } = require("../../../utils/auth/password.js");
 
 module.exports = async function adminLoginRoute(fastify, opts) {
   fastify.post(
@@ -85,7 +85,7 @@ module.exports = async function adminLoginRoute(fastify, opts) {
 
         let permissions = [];
         try {
-          const { resolveUserPermissions } = require("../../../services/adminUserPermissions.js");
+          const { resolveUserPermissions } = require("../../../services/auth/adminUserPermissions.js");
           permissions = await resolveUserPermissions(prisma, user.id, dbRoles);
         } catch (permErr) {
           fastify.log.warn("Failed to resolve admin permissions:", permErr?.message || permErr);

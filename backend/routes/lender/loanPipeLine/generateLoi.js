@@ -7,10 +7,10 @@ const path = require("path");
 const PizZip = require("pizzip");
 const Docxtemplater = require("docxtemplater");
 
-const { loadDocxTemplate } = require("../../../utils/loadDocxTemplate");
-const { convertDocxToPdf } = require("../../../utils/convertDocxToPdf");
-const { generateLoiPdf } = require("../../../services/generateLoiPdf");
-const { buildLoiTemplateData } = require("../../../services/buildLoiTemplateData");
+const { loadDocxTemplate } = require("../../../utils/email/loadDocxTemplate");
+const { convertDocxToPdf } = require("../../../utils/pdf/convertDocxToPdf");
+const { generateLoiPdf } = require("../../../services/loi/generateLoiPdf");
+const { buildLoiTemplateData } = require("../../../services/loi/buildLoiTemplateData");
 const { logAudit } = require("../../../services/logger/auditLogger");
 
 async function generateLoiRoute(fastify) {
@@ -343,7 +343,7 @@ async function generateLoiRoute(fastify) {
            SOCKET
         =============================== */
         try {
-          const { emitBrokerNotification } = require("../../../services/notificationRealtime");
+          const { emitBrokerNotification } = require("../../../services/notifications/notificationRealtime");
           emitBrokerNotification(fastify.io, brokerOrgId, notification);
         } catch (e) {
           fastify.log.warn("Socket emit failed:", e);

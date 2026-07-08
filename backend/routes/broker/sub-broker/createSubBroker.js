@@ -2,7 +2,7 @@ const bcrypt = require("bcrypt");
 const crypto = require("crypto");
 const {
   sendSubBrokerCredentialsEmail,
-} = require("../../../services/subBrokerCredentialsEmail");
+} = require("../../../services/emails/subBrokerCredentialsEmail");
 const {
   buildProfileDataFromFields,
   parseMultipartRequest,
@@ -10,7 +10,7 @@ const {
   formatSubBrokerDetail,
   parseJsonField,
   validatePrimaryContactFields,
-} = require("../../../utils/subBrokerProfileHelpers");
+} = require("../../../utils/broker/subBrokerProfileHelpers");
 
 function buildFreedDeletedEmail(user) {
   const at = user.email.lastIndexOf("@");

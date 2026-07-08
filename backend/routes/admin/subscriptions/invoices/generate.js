@@ -1,6 +1,6 @@
 const { adminLogs } = require("../../../../services/logger/contextLogger");
 const { generateInvoiceSchema } = require("../../../../schemas/admin/subscriptions/assign.schema");
-const { generateInvoice } = require("../../../../services/subscriptionBilling");
+const { generateInvoice } = require("../../../../services/subscription/subscriptionBilling");
 
 async function generateInvoiceRoutes(fastify) {
   fastify.post(

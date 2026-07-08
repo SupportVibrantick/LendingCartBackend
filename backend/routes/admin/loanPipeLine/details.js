@@ -1,7 +1,7 @@
 const {
   resolveClientDisplayNameFromData,
   resolveClientEntityLabelFromData,
-} = require("../../../services/resolveClientDisplayName");
+} = require("../../../services/messaging/resolveClientDisplayName");
 
 function submissionFieldValue(fields, ...keys) {
   for (const field of fields || []) {

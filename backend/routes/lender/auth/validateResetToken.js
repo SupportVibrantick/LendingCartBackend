@@ -1,4 +1,4 @@
-const { LENDER_PORTAL_ROLES } = require("../../../utils/lenderTeamRoles");
+const { LENDER_PORTAL_ROLES } = require("../../../utils/lender/lenderTeamRoles");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify

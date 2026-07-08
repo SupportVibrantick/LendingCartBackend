@@ -1,7 +1,7 @@
 const {
   notifyPlatform,
   PLATFORM_NOTIFICATION_EVENTS,
-} = require("../../../../services/platformNotifications");
+} = require("../../../../services/notifications/platformNotifications");
 
 function splitFullName(fullName) {
   const trimmed = (fullName || "").trim();

@@ -1,6 +1,6 @@
 const { adminLogs } = require("../../../../services/logger/contextLogger");
 const { assignSubscriptionSchema } = require("../../../../schemas/admin/subscriptions/assign.schema");
-const { assignPlanToOrganization } = require("../../../../services/subscriptionBilling");
+const { assignPlanToOrganization } = require("../../../../services/subscription/subscriptionBilling");
 
 async function assignSubscriberRoutes(fastify) {
   fastify.post(

@@ -2,7 +2,7 @@ const { adminLogs } = require("../../../services/logger/contextLogger");
 const {
   updateSubscriptionPackageSchema,
 } = require("../../../schemas/admin/subscriptions/update.schema");
-const { ensureSinglePopularPackage } = require("../../../services/subscriptionBilling");
+const { ensureSinglePopularPackage } = require("../../../services/subscription/subscriptionBilling");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify

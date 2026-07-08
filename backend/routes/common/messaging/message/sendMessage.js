@@ -6,11 +6,11 @@ const { logAudit } = require("../../../../services/logger/auditLogger");
 const {
   notifyClient,
   CLIENT_NOTIFICATION_EVENTS,
-} = require("../../../../services/clientNotifications");
+} = require("../../../../services/notifications/clientNotifications");
 const {
   notifyLender,
   LENDER_NOTIFICATION_EVENTS,
-} = require("../../../../services/lenderNotifications");
+} = require("../../../../services/notifications/lenderNotifications");
 const {
   assertCanSendMessage,
   findLenderApplicationAccess,
@@ -19,8 +19,8 @@ const {
   isLenderUser,
   resolveAuditDashboard,
   emitRealtimeMessage,
-} = require("../../../../services/messagingAccess");
-const { resolveClientDisplayName } = require("../../../../services/resolveClientDisplayName");
+} = require("../../../../services/messaging/messagingAccess");
+const { resolveClientDisplayName } = require("../../../../services/messaging/resolveClientDisplayName");
 
 module.exports = async function sendMessage(fastify) {
   fastify.post(

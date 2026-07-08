@@ -5,11 +5,11 @@ const {
   formatUserName,
   resolveLenderDocumentSourceLabel,
   matchesLenderDocumentSourceFilter,
-} = require("../../../utils/resolveLenderDocumentSourceLabel");
+} = require("../../../utils/lender/resolveLenderDocumentSourceLabel");
 const {
   loadSubBrokerAssignmentNameMap,
-} = require("../../../utils/mapSubmissionDocumentRow");
-const { paginateDocuments } = require("../../../utils/submissionDocumentsQuery");
+} = require("../../../utils/documents/mapSubmissionDocumentRow");
+const { paginateDocuments } = require("../../../utils/documents/submissionDocumentsQuery");
 
 module.exports = async function lenderViewDocuments(fastify) {
   fastify.get(

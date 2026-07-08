@@ -1,6 +1,6 @@
 const { adminLogs } = require("../../../../services/logger/contextLogger");
 const { changePlanSchema } = require("../../../../schemas/admin/subscriptions/assign.schema");
-const { changePlan } = require("../../../../services/subscriptionBilling");
+const { changePlan } = require("../../../../services/subscription/subscriptionBilling");
 
 async function changePlanRoutes(fastify) {
   fastify.patch(

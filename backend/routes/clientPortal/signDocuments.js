@@ -4,14 +4,14 @@ const crypto = require("crypto");
 const clientAuthMiddleware = require("../../middleware/clientAuthMiddleware");
 const {
   formatSignDocumentRequirement,
-} = require("../../utils/formatSignDocument");
+} = require("../../utils/documents/formatSignDocument");
 const {
   createSignedDocumentFile,
-} = require("../../services/signDocumentMerge");
+} = require("../../services/documents/signDocumentMerge");
 const {
   notifyBroker,
   BROKER_NOTIFICATION_EVENTS,
-} = require("../../services/brokerNotifications");
+} = require("../../services/notifications/brokerNotifications");
 
 async function resolveClientFromRequest(req, prisma) {
   if (req.client?.clientId) {

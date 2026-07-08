@@ -1,9 +1,9 @@
 const {
   mergeBrokerProfileResponse,
-} = require("../../../utils/brokerUserProfileHelpers");
+} = require("../../../utils/broker/brokerUserProfileHelpers");
 const {
   formatAssignedSubBrokers,
-} = require("../../../utils/subBrokerProfileHelpers");
+} = require("../../../utils/broker/subBrokerProfileHelpers");
 
 module.exports = async function getBrokerUserById(fastify) {
   fastify.get(

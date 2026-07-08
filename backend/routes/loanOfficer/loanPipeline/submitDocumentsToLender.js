@@ -1,13 +1,13 @@
 const {
   filterRequirementIdsForLender,
-} = require("../../../utils/filterDocumentRequirementsForLender");
+} = require("../../../utils/lender/filterDocumentRequirementsForLender");
 const {
   canLenderReceiveDocuments,
   getLenderDocumentDeliveryBlockMessage,
-} = require("../../../utils/lenderDocumentDelivery");
+} = require("../../../utils/lender/lenderDocumentDelivery");
 const {
   applyDocumentSendStatusUpdates,
-} = require("../../../services/applyDocumentSendStatusUpdates");
+} = require("../../../services/documents/applyDocumentSendStatusUpdates");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify

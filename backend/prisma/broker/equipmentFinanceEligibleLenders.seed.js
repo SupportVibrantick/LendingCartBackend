@@ -2,7 +2,6 @@
 
 const { PrismaClient } = require("@prisma/client");
 const bcrypt = require("bcrypt");
-const { applySchemaPatches } = require("../applySchemaPatches");
 
 const prisma = new PrismaClient();
 
@@ -142,8 +141,6 @@ async function createLender({
 
 async function main() {
   console.log("🚀 Seeding Equipment Finance Eligible Lenders...");
-
-  await applySchemaPatches(prisma);
 
   await createLender({
     orgName: "Equipment Finance Prime",

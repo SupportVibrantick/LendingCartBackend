@@ -1,10 +1,10 @@
 const {
   resolvePublicBrokerOrgId,
-} = require("../../../../utils/resolvePublicBrokerOrgId");
+} = require("../../../../utils/broker/resolvePublicBrokerOrgId");
 const {
   fetchActiveBrokerApplication,
   formatActiveApplicationResponse,
-} = require("../../../../utils/activeBrokerApplication");
+} = require("../../../../utils/broker/activeBrokerApplication");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify

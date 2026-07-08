@@ -1,7 +1,7 @@
 const path = require("path");
 const fs = require("fs");
 const PDFDocument = require("pdfkit");
-const { decimalToNumber } = require("../../utils/commissionHelpers");
+const { decimalToNumber } = require("../../utils/commission/commissionHelpers");
 
 function formatCurrency(value) {
   const numeric = decimalToNumber(value) || 0;

@@ -2,17 +2,17 @@ const bcrypt = require("bcrypt");
 const { logAudit } = require("../../../services/logger/auditLogger");
 const {
   sendLoanOfficerCredentialsEmail,
-} = require("../../../services/loanOfficerCredentialsEmail");
+} = require("../../../services/emails/loanOfficerCredentialsEmail");
 const {
   buildProfileDataFromFields,
   parseBrokerUserMultipart,
   syncUserPermissions,
   parsePermissionsField,
-} = require("../../../utils/brokerUserProfileHelpers");
+} = require("../../../utils/broker/brokerUserProfileHelpers");
 const {
   parseJsonField,
   syncLoanOfficerSubBrokers,
-} = require("../../../utils/subBrokerProfileHelpers");
+} = require("../../../utils/broker/subBrokerProfileHelpers");
 
 module.exports = async function createBrokerUser(fastify) {
   fastify.post(

@@ -1,7 +1,7 @@
 // backend/routes/admin/auth/me.js
 const prisma = require("../../../config/prisma.js");
-const { getUserRolesFromFGA } = require("../../../services/fgaService.js");
-const { resolveUserPermissions } = require("../../../services/adminUserPermissions.js");
+const { getUserRolesFromFGA } = require("../../../services/auth/fgaService.js");
+const { resolveUserPermissions } = require("../../../services/auth/adminUserPermissions.js");
 
 module.exports = async function adminMeRoute(fastify, opts) {
   // safe wrapper that calls fastify.authenticate if available, otherwise returns 500

@@ -1,14 +1,14 @@
 const jwt = require("jsonwebtoken");
-const { mapSubmissionFieldResponse } = require("../../services/staticSubmissionFields");
+const { mapSubmissionFieldResponse } = require("../../services/applications/staticSubmissionFields");
 const {
   resolveClientDisplayNameFromData,
-} = require("../../services/resolveClientDisplayName");
-const { resolveApplicationStatus } = require("../../utils/resolveApplicationStatus");
-const { mapClientPortalDocuments } = require("../../utils/mapClientPortalDocuments");
+} = require("../../services/messaging/resolveClientDisplayName");
+const { resolveApplicationStatus } = require("../../utils/applications/resolveApplicationStatus");
+const { mapClientPortalDocuments } = require("../../utils/documents/mapClientPortalDocuments");
 const {
   canClientSignApplication,
   resolveLatestActiveSubmission,
-} = require("../../utils/clientPortalSubmission");
+} = require("../../utils/applications/clientPortalSubmission");
 
 function findSubmissionFieldValue(fields, keys) {
   const field = fields.find((item) => keys.includes(item.fieldKey));

@@ -2,10 +2,10 @@ const { logAudit } = require("../../../services/logger/auditLogger");
 const {
   isLenderAdmin,
   LENDER_TEAM_ASSIGNABLE_ROLES,
-} = require("../../../utils/lenderTeamRoles");
+} = require("../../../utils/lender/lenderTeamRoles");
 const {
   ensureLenderTeamRole,
-} = require("../../../services/ensureLenderTeamRole");
+} = require("../../../services/lender/ensureLenderTeamRole");
 
 module.exports = async function updateLenderUser(fastify) {
   fastify.put(

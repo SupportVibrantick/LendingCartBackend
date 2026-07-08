@@ -4,16 +4,16 @@ const { pipeline } = require("stream/promises");
 const crypto = require("crypto");
 const {
   autoForwardDocumentUpload,
-} = require("../../../services/autoForwardDocumentUpload");
+} = require("../../../services/documents/autoForwardDocumentUpload");
 const {
   notifyLendersForForwardedDocument,
-} = require("../../../services/lenderNotifications");
+} = require("../../../services/notifications/lenderNotifications");
 const {
   getAutoForwardDocumentsToLender,
-} = require("../../../services/documentAutoForwardSetting");
+} = require("../../../services/documents/documentAutoForwardSetting");
 const {
   syncUploadToExistingLenderSubmissions,
-} = require("../../../services/syncUploadToExistingLenderSubmissions");
+} = require("../../../services/documents/syncUploadToExistingLenderSubmissions");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify

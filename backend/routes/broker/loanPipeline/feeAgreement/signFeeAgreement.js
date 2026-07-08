@@ -2,7 +2,7 @@ const generateAgreementHtml = require("./generateAgreementHtml");
 const {
   getBrokerWhiteLabelBranding,
   lockAgreementBranding,
-} = require("../../../../services/brokerBranding");
+} = require("../../../../services/broker/brokerBranding");
 
 module.exports = async function (fastify) {
   fastify.post(

@@ -1,7 +1,7 @@
 // backend/routes/lender/auth/me.js
 const {
   readExtendedLenderProfileFields,
-} = require("../../../services/lenderProfileExtendedFields");
+} = require("../../../services/lender/lenderProfileExtendedFields");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify

@@ -2,7 +2,7 @@
 const fp = require("fastify-plugin");
 require("dotenv").config();
 const jwt = require("jsonwebtoken");
-const jwtSecret = require("../utils/jwtSecret");
+const jwtSecret = require("../utils/auth/jwtSecret");
 const logger = require("../services/logger/contextLogger");
 
 function registerAuthMiddleware(fastify, opts, done) {

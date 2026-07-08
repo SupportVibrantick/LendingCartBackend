@@ -1,6 +1,6 @@
 const { adminLogs } = require("../../../../services/logger/contextLogger");
-const { runSubscriptionBillingCycle } = require("../../../../services/subscriptionBilling");
-const { sendTrialEndingReminders } = require("../../../../services/subscriptionTrialReminder");
+const { runSubscriptionBillingCycle } = require("../../../../services/subscription/subscriptionBilling");
+const { sendTrialEndingReminders } = require("../../../../services/subscription/subscriptionTrialReminder");
 
 async function processBillingRoutes(fastify) {
   fastify.post(

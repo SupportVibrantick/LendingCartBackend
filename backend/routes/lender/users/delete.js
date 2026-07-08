@@ -1,5 +1,5 @@
 const { logAudit } = require("../../../services/logger/auditLogger");
-const { isLenderAdmin } = require("../../../utils/lenderTeamRoles");
+const { isLenderAdmin } = require("../../../utils/lender/lenderTeamRoles");
 
 module.exports = async function deleteLenderUser(fastify) {
   fastify.delete(

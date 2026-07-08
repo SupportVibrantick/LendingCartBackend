@@ -1,4 +1,4 @@
-const { assertBrokerSubscriptionAccess } = require("../services/subscriptionBilling");
+const { assertBrokerSubscriptionAccess } = require("../services/subscription/subscriptionBilling");
 
 /**
  * Blocks broker API access when subscription is PAST_DUE, CANCELLED, or EXPIRED.

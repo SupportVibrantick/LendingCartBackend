@@ -1,10 +1,10 @@
 // backend/routes/broker/users/list.js
 const {
   mergeBrokerProfileResponse,
-} = require("../../../utils/brokerUserProfileHelpers");
+} = require("../../../utils/broker/brokerUserProfileHelpers");
 const {
   formatAssignedSubBrokers,
-} = require("../../../utils/subBrokerProfileHelpers");
+} = require("../../../utils/broker/subBrokerProfileHelpers");
 
 module.exports = async function listBrokerUsers(fastify) {
   fastify.get(

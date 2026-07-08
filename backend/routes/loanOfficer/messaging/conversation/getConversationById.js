@@ -2,7 +2,7 @@
  * Get single conversation details (FINAL - SAFE + ENHANCED)
  */
 
-const { assertConversationTypeAccess } = require("../../../../services/messagingAccess");
+const { assertConversationTypeAccess } = require("../../../../services/messaging/messagingAccess");
 
 module.exports = async function getConversationById(fastify) {
   fastify.get(

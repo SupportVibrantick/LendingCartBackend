@@ -1,13 +1,13 @@
-const sendMail = require("../../../services/mail");
-const generateApplicationPDF = require("../../../services/generateApplicationPdf");
+const sendMail = require("../../../services/emails/mail");
+const generateApplicationPDF = require("../../../services/applications/generateApplicationPdf");
 const {
   notifyBroker,
   BROKER_NOTIFICATION_EVENTS,
-} = require("../../../services/brokerNotifications");
+} = require("../../../services/notifications/brokerNotifications");
 const {
   notifyLender,
   LENDER_NOTIFICATION_EVENTS,
-} = require("../../../services/lenderNotifications");
+} = require("../../../services/notifications/lenderNotifications");
 
 module.exports = async function sendToLenders(fastify) {
   fastify.post(

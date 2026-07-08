@@ -4,7 +4,7 @@ const {
   syncUserPermissions,
   ALL_ADMIN_PERMISSION_KEYS,
   resolveUserPermissions,
-} = require("../../../services/adminUserPermissions.js");
+} = require("../../../services/auth/adminUserPermissions.js");
 
 module.exports = fp(async function updateAdminUserRoutes(fastify) {
   fastify.put("/update/:id", {

@@ -1,4 +1,4 @@
-const { emitRealtimeMessage } = require("../messagingAccess");
+const { emitRealtimeMessage } = require("../messaging/messagingAccess");
 
 function publishConversationJoined(socket, conversationId) {
   socket.emit("joined", { conversationId });

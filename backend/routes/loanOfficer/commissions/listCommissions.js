@@ -1,6 +1,6 @@
-const { officerPreHandler, getUserId } = require("../../../services/loanOfficerAccess");
-const { formatCommissionRecord } = require("../../../utils/commissionHelpers");
-const { commissionInclude } = require("../../../utils/commissionQueryHelpers");
+const { officerPreHandler, getUserId } = require("../../../services/broker/loanOfficerAccess");
+const { formatCommissionRecord } = require("../../../utils/commission/commissionHelpers");
+const { commissionInclude } = require("../../../utils/commission/commissionQueryHelpers");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify

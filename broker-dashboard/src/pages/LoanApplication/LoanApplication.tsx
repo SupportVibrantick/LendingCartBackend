@@ -44,9 +44,13 @@ import {
   type ResidentialFinancials,
 } from "../../lib/residentialFinancials";
 import {
+  collectDeclarationErrors,
+  createEmptyDeclarations,
   createEmptyRealEstateProperty,
   createResidentialBorrowerDefaults,
   appendResidentialBorrowerSubmission,
+  DECLARATION_QUESTIONS,
+  isDeclarationAnswered,
   sumBorrowerAssets,
   sumBorrowerLiabilities,
   type RealEstateOwnedEntry,
@@ -1724,6 +1728,24 @@ const LoanApplication = ({
               "Last name is required";
           }
         });
+
+        Object.assign(
+          newErrors,
+          collectDeclarationErrors(
+            formData.borrower.declarations ?? createEmptyDeclarations(),
+            "borrower",
+          ),
+        );
+
+        formData.coBorrowers.forEach((b, index) => {
+          Object.assign(
+            newErrors,
+            collectDeclarationErrors(
+              b.declarations ?? createEmptyDeclarations(),
+              `coBorrowers.${index}`,
+            ),
+          );
+        });
       } else {
         checkObject(formData.borrower, "borrower");
 
@@ -1975,6 +1997,28 @@ const LoanApplication = ({
         !borrower.lastName?.trim(),
       );
     });
+
+    if (useResidentialBorrowerPanel) {
+      DECLARATION_QUESTIONS.forEach(({ key, label }) => {
+        add(
+          `Borrower: ${label}`,
+          3,
+          !isDeclarationAnswered(
+            formData.borrower.declarations?.[key] ?? "",
+          ),
+        );
+      });
+
+      formData.coBorrowers.forEach((borrower, index) => {
+        DECLARATION_QUESTIONS.forEach(({ key, label }) => {
+          add(
+            `Co-Borrower ${index + 1}: ${label}`,
+            3,
+            !isDeclarationAnswered(borrower.declarations?.[key] ?? ""),
+          );
+        });
+      });
+    }
 
     if (formData.borrower.email?.trim()) {
       const emailError = validateFieldValue(
@@ -2259,11 +2303,8 @@ const LoanApplication = ({
         const coLtc =
           coPurchasePrice > 0 ? (coLoanAmount / coPurchasePrice) * 100 : 0;
 
-        const coAnnualDebt = calculateAnnualDebtService(
-          coLoanAmount,
-          coInterest,
-          termMonths,
-        );
+        const coAnnualDebt =
+          calculateMonthlyPayment(coLoanAmount, coInterest, termMonths) * 12;
 
         const coDscr = coAnnualDebt > 0 && coNoi > 0 ? coNoi / coAnnualDebt : 0;
 
@@ -2294,7 +2335,7 @@ const LoanApplication = ({
 
         const key = fieldMeta?.fieldKey || fieldMeta?.label || fieldId;
 
-        addField(key, value, fieldId);
+        addField(key, value, fieldId); 
       });
 
       /* ================= CALCULATED ================= */
@@ -2557,7 +2598,7 @@ const LoanApplication = ({
 
   const netWorth = borrowerAssets - borrowerLiabilities;
 
-  const calculateAnnualDebtService = (
+  const calculateMonthlyPayment = (
     loanAmount: number,
     interestRate: number,
     termMonths: number,
@@ -2568,14 +2609,13 @@ const LoanApplication = ({
     const monthlyRate = interestRate / 100 / 12;
 
     if (monthlyRate === 0) {
-      return (loanAmount / termMonths) * 12;
+      return loanAmount / termMonths;
     }
 
-    const emi =
+    return (
       (loanAmount * monthlyRate * Math.pow(1 + monthlyRate, termMonths)) /
-      (Math.pow(1 + monthlyRate, termMonths) - 1);
-
-    return emi * 12;
+      (Math.pow(1 + monthlyRate, termMonths) - 1)
+    );
   };
 
   const loanAmount = toNumber(formData.loanRequest.amount);
@@ -2598,8 +2638,11 @@ const LoanApplication = ({
         : purchasePrice
       : marketValue;
 
+  const afterRepairValue = toNumber(formData.loanRequest.afterRepairValue);
+
+  const ltvBaseValue = afterRepairValue > 0 ? afterRepairValue : asIsValue;
   const ltv =
-    asIsValue > 0 ? ((loanAmount / asIsValue) * 100).toFixed(2) : "—";
+    ltvBaseValue > 0 ? ((loanAmount / ltvBaseValue) * 100).toFixed(2) : "-";
 
   const ltc =
     isFixAndFlipProduct(selectedProduct) && totalFlipCost > 0
@@ -2608,17 +2651,33 @@ const LoanApplication = ({
         ? ((loanAmount / totalConstructionCost) * 100).toFixed(2)
         : purchasePrice > 0
           ? ((loanAmount / purchasePrice) * 100).toFixed(2)
-          : "—";
-
-  const afterRepairValue = toNumber(formData.loanRequest.afterRepairValue);
+          : "-";
 
   const arv =
     afterRepairValue > 0
       ? ((loanAmount / afterRepairValue) * 100).toFixed(2)
-      : "—";
+      : "-";
 
   const interestRate = toNumber(formData.loanRequest.interestRate);
-  const termMonths = toNumber(formData.loanTermIncome.loanTerm);
+  const amortizationYears = toNumber(formData.loanRequest.amortization);
+  const fallbackTermMonths = toNumber(formData.loanTermIncome.loanTerm);
+  const termMonths =
+    amortizationYears > 0 ? amortizationYears * 12 : fallbackTermMonths;
+
+  const monthlyPayment = calculateMonthlyPayment(
+    loanAmount,
+    interestRate,
+    termMonths,
+  );
+  const annualPrincipalAndInterest = monthlyPayment * 12;
+  const annualPropertyTaxes = usesBase44Financials
+    ? toNumber(formData.financials.annualPropertyTaxes)
+    : toNumber(formData.loanTermIncome.annualTaxes);
+  const annualInsurance = usesBase44Financials
+    ? toNumber(formData.financials.annualInsurance)
+    : toNumber(formData.loanTermIncome.insurancePremium);
+  const totalAnnualDebtPayment =
+    annualPrincipalAndInterest + annualPropertyTaxes + annualInsurance;
 
   const crePermanentNoi = toNumber(formData.entity.ebitdaWithNoi);
 
@@ -2633,12 +2692,21 @@ const LoanApplication = ({
   const annualDebtService =
     residentialDebtService > 0
       ? residentialDebtService
-      : calculateAnnualDebtService(loanAmount, interestRate, termMonths);
+      : totalAnnualDebtPayment;
 
   const dscr =
     annualDebtService > 0 && residentialNoiForDscr > 0
       ? (residentialNoiForDscr / annualDebtService).toFixed(2)
-      : "—";
+      : "-";
+
+  const monthlyPaymentDisplay =
+    monthlyPayment > 0
+      ? "$" +
+        monthlyPayment.toLocaleString("en-US", {
+          minimumFractionDigits: 0,
+          maximumFractionDigits: 0,
+        })
+      : "-";
 
   const handleDynamicFieldChange = (fieldId: string, value: any) => {
     setDynamicFormData((prev) => ({
@@ -2989,6 +3057,19 @@ const LoanApplication = ({
       };
       return { ...prev, coBorrowers: updated };
     });
+
+    if (nestedKey === "declarations") {
+      const errorKey =
+        scope === "borrower"
+          ? `borrower.declarations.${field}`
+          : `coBorrowers.${coIndex}.declarations.${field}`;
+
+      setErrors((prev) => {
+        const updated = { ...prev };
+        delete updated[errorKey];
+        return updated;
+      });
+    }
   };
 
   const updateBorrowerAmountField = (
@@ -3523,10 +3604,10 @@ rounded-2xl p-6 shadow-sm
             )}
 
             <div className="grid grid-cols-2 md:grid-cols-5 gap-6 text-center">
-              <Stat label="LTV %" value={ltv !== "—" ? `${ltv}%` : "—"} />
-              <Stat label="LTC %" value={ltc !== "—" ? `${ltc}%` : "—"} />
-              <Stat label="ARV %" value={arv !== "—" ? `${arv}%` : "—"} />
-              <Stat label="DSCR" value={dscr !== "—" ? dscr : "—"} />
+              <Stat label="Monthly Payment" value={monthlyPaymentDisplay} />
+              <Stat label="LTV %" value={ltv !== "-" ? `${ltv}%` : "-"} />
+              <Stat label="ARV %" value={arv !== "-" ? `${arv}%` : "-"} />
+              <Stat label="DSCR" value={dscr !== "-" ? dscr : "-"} />
               <Stat label="Net Worth" value={`$${netWorth.toLocaleString()}`} />
             </div>
           </div>
@@ -6212,6 +6293,7 @@ focus:border-blue-500 outline-none text-sm ${
                 <ResidentialFinancialsStep
                   financials={formData.financials}
                   onChange={updateFinancials}
+                  annualDebtServiceDefault={totalAnnualDebtPayment}
                 />
               </div>
             ) : (
@@ -6555,7 +6637,7 @@ focus:border-blue-500 outline-none text-sm ${
                       className={`w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200  ${
                         errors["loanTermIncome.hoaDues"]
                           ? "border-red-500 bg-red-50"
-                          : "border-slate-300"
+                          : "border-slate-300" 
                       }
           focus:ring-2 focus:ring-blue-500/20
           focus:border-blue-500 outline-none transition text-sm`}
@@ -6723,3 +6805,4 @@ focus:border-blue-500 outline-none text-sm ${
 };
 
 export default LoanApplication;
+

@@ -6,7 +6,7 @@
 const {
   resolveViewerRole,
   enrichConversationList,
-} = require("../../../../services/conversationPresentation");
+} = require("../../../../services/messaging/conversationPresentation");
 
 module.exports = async function getConversations(fastify) {
   fastify.get(

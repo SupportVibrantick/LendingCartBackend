@@ -2,15 +2,15 @@ const bcrypt = require("bcrypt");
 const { logAudit } = require("../../../services/logger/auditLogger");
 const {
   sendLenderTeamCredentialsEmail,
-} = require("../../../services/lenderTeamCredentialsEmail");
+} = require("../../../services/emails/lenderTeamCredentialsEmail");
 const {
   isLenderAdmin,
   LENDER_TEAM_ASSIGNABLE_ROLES,
   generateTemporaryPassword,
-} = require("../../../utils/lenderTeamRoles");
+} = require("../../../utils/lender/lenderTeamRoles");
 const {
   ensureLenderTeamRole,
-} = require("../../../services/ensureLenderTeamRole");
+} = require("../../../services/lender/ensureLenderTeamRole");
 
 module.exports = async function createLenderUser(fastify) {
   fastify.post(

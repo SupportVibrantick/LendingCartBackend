@@ -1,4 +1,4 @@
-const { officerPreHandler, getUserId } = require("../../../services/loanOfficerAccess");
+const { officerPreHandler, getUserId } = require("../../../services/broker/loanOfficerAccess");
 const {
   getLoanCommissionBreakdown,
 } = require("../../../services/commission/getLoanCommissionBreakdown");

@@ -4,13 +4,13 @@ const { z } = require("zod");
 const {
   notifyBroker,
   BROKER_NOTIFICATION_EVENTS,
-} = require("../../../services/brokerNotifications");
+} = require("../../../services/notifications/brokerNotifications");
 const {
   canBrokerReassignApplication,
-} = require("../../../utils/resolveApplicationStatus");
+} = require("../../../utils/applications/resolveApplicationStatus");
 const {
   autoAssignSubBrokerLoanOfficers,
-} = require("../../../services/autoAssignSubBrokerLoanOfficers");
+} = require("../../../services/broker/autoAssignSubBrokerLoanOfficers");
 
 const SUBBROKER_CHAT_DB_TYPE = "CLIENT_BROKER";
 

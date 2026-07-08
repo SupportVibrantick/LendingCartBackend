@@ -8,11 +8,11 @@ const {
   pickExtendedFields,
   writeExtendedLenderProfileFields,
   readExtendedLenderProfileFields,
-} = require("../../../services/lenderProfileExtendedFields");
+} = require("../../../services/lender/lenderProfileExtendedFields");
 const {
   syncProfileFundingToProducts,
-} = require("../../../utils/evaluateLenderEligibility");
-const { hasLenderPermission, LENDER_PERMISSION } = require("../../../utils/lenderPermissions");
+} = require("../../../utils/lender/evaluateLenderEligibility");
+const { hasLenderPermission, LENDER_PERMISSION } = require("../../../utils/lender/lenderPermissions");
 
 async function readFieldValue(part) {
   if (part.value === undefined || part.value === null) {

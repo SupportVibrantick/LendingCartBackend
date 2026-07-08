@@ -1,10 +1,10 @@
 module.exports = async function viewSubmission(fastify) {
-  const { mapSubmissionFieldResponse } = require("../../../services/staticSubmissionFields");
+  const { mapSubmissionFieldResponse } = require("../../../services/applications/staticSubmissionFields");
   const {
     resolveBrokerPipelineDisplayStatus,
     canBrokerRequestDocuments,
     canBrokerEditSubmittedApplication,
-  } = require("../../../utils/resolveApplicationStatus");
+  } = require("../../../utils/applications/resolveApplicationStatus");
   fastify.get("/submissions/:submissionId", async (req, reply) => {
     const { submissionId } = req.params;
 

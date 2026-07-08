@@ -1,5 +1,5 @@
 const { loanAiPurchaseSchema } = require("../../../../schemas/public/loanAi/auth.schema");
-const { provisionBrokerFromLoanAi } = require("../../../../services/provisionBrokerFromLoanAi");
+const { provisionBrokerFromLoanAi } = require("../../../../services/broker/provisionBrokerFromLoanAi");
 const { commonLogs } = require("../../../../services/logger/contextLogger");
 
 async function loanAiPurchaseRoutes(fastify) {

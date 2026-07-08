@@ -1,6 +1,6 @@
 const { adminLogs } = require("../../../../services/logger/contextLogger");
 const { cancelSubscriptionSchema } = require("../../../../schemas/admin/subscriptions/assign.schema");
-const { cancelSubscription } = require("../../../../services/subscriptionBilling");
+const { cancelSubscription } = require("../../../../services/subscription/subscriptionBilling");
 
 async function cancelSubscriberRoutes(fastify) {
   fastify.patch(

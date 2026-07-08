@@ -1,6 +1,6 @@
 const { adminLogs } = require("../../../../services/logger/contextLogger");
 const { markInvoicePaidSchema } = require("../../../../schemas/admin/subscriptions/assign.schema");
-const { markInvoicePaid } = require("../../../../services/subscriptionBilling");
+const { markInvoicePaid } = require("../../../../services/subscription/subscriptionBilling");
 
 async function markPaidRoutes(fastify) {
   fastify.patch(

@@ -2,7 +2,7 @@ const fp = require("fastify-plugin");
 const { logAudit } = require("../../../services/logger/auditLogger");
 const {
   canBrokerEditSubmittedApplication,
-} = require("../../../utils/resolveApplicationStatus");
+} = require("../../../utils/applications/resolveApplicationStatus");
 
 async function editSubmittedApplication(fastify) {
   fastify.put(

@@ -1,5 +1,5 @@
 const bcrypt = require("bcrypt");
-const { LENDER_PORTAL_ROLES } = require("../../../utils/lenderTeamRoles");
+const { LENDER_PORTAL_ROLES } = require("../../../utils/lender/lenderTeamRoles");
 const {
   lenderResetPasswordSchema,
 } = require("../../../schemas/lender/auth/resetPassword.schema");

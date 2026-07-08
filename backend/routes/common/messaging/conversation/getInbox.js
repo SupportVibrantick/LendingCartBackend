@@ -2,23 +2,23 @@
  * Broker inbox — all conversations across loans for the logged-in org/user.
  */
 
-const { resolveClientDisplayName } = require("../../../../services/resolveClientDisplayName");
+const { resolveClientDisplayName } = require("../../../../services/messaging/resolveClientDisplayName");
 const {
   resolvePrincipalBrokerDisplay,
   buildLoanOfficerInboxPlaceholders,
   filterLoanOfficerClientThreads,
   filterBrokerAdminClientThreads,
   formatBrokerOfficerInboxEntry,
-} = require("../../../../services/brokerOfficerConversation");
+} = require("../../../../services/messaging/brokerOfficerConversation");
 const {
   getConversationListFilters,
   hasRole,
   getUserId,
-} = require("../../../../services/messagingAccess");
+} = require("../../../../services/messaging/messagingAccess");
 const {
   resolveViewerRole,
   enrichConversationList,
-} = require("../../../../services/conversationPresentation");
+} = require("../../../../services/messaging/conversationPresentation");
 
 module.exports = async function getInbox(fastify) {
   fastify.get(

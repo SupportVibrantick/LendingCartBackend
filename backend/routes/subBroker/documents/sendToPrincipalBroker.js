@@ -5,7 +5,7 @@
 const {
   notifyBroker,
   BROKER_NOTIFICATION_EVENTS,
-} = require("../../../services/brokerNotifications");
+} = require("../../../services/notifications/brokerNotifications");
 
 module.exports = async function sendToPrincipalBroker(fastify) {
   fastify.post(

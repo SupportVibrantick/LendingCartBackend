@@ -4,7 +4,7 @@ const {
   findBrokerAdmin,
   findOrCreateBrokerOfficerConversation,
   findOrCreateClientOfficerConversation,
-} = require("../../services/brokerOfficerConversation");
+} = require("../../services/messaging/brokerOfficerConversation");
 
 async function ensureClientBrokerConversation(prismaClient, loan) {
   let conversation = await prismaClient.conversation.findFirst({

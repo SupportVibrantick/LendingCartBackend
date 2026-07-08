@@ -1,5 +1,5 @@
 const { z } = require("zod");
-const { isMinMaxLoanAmountRangeValid, isMinMaxTermRangeValid } = require("../../../utils/validateLenderProductRanges");
+const { isMinMaxLoanAmountRangeValid, isMinMaxTermRangeValid } = require("../../../utils/lender/validateLenderProductRanges");
 
 // subtype support (same as create)
 const nestedTypeSchema = z.record(

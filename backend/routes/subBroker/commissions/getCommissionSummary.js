@@ -1,4 +1,4 @@
-const { buildMonthlySummary } = require("../../../utils/commissionHelpers");
+const { buildMonthlySummary } = require("../../../utils/commission/commissionHelpers");
 const { derivePayoutStatus } = require("../../../services/commission/recordCommissionPayout");
 
 /**

@@ -20,6 +20,7 @@ import {
   isSba504Product,
 } from "../../../lib/loanProductCriteriaFields";
 import { mapToAdminProductPayload } from "../../../lib/lenderProductAdminPayload";
+import { stripNumberFormatting } from "../../../lib/numberInputFormat";
 
 type FormType = {
   lenderId: string;
@@ -168,8 +169,8 @@ export default function Main() {
       }
 
       if (isSba504Product(product.code)) {
-        const total = Number(data.maxTotalProject);
-        const debenture = Number(data.maxSba504Debenture);
+        const total = Number(stripNumberFormatting(String(data.maxTotalProject ?? "")));
+        const debenture = Number(stripNumberFormatting(String(data.maxSba504Debenture ?? "")));
         if (
           data.maxTotalProject &&
           data.maxSba504Debenture &&
@@ -182,10 +183,14 @@ export default function Main() {
         !isMezzanineProduct(product.code)
       ) {
         const minAmount = Number(
-          data.minFacilitySize ?? data.minProgramSize ?? data.minLoan,
+          stripNumberFormatting(
+            String(data.minFacilitySize ?? data.minProgramSize ?? data.minLoan ?? ""),
+          ),
         );
         const maxAmount = Number(
-          data.maxFacilitySize ?? data.maxProgramSize ?? data.maxLoan,
+          stripNumberFormatting(
+            String(data.maxFacilitySize ?? data.maxProgramSize ?? data.maxLoan ?? ""),
+          ),
         );
 
         if (

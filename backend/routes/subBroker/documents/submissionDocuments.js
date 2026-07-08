@@ -3,7 +3,7 @@
  */
 const {
   buildDocumentSentToLenderMap,
-} = require("../../../utils/buildDocumentSentToLenderMap");
+} = require("../../../utils/documents/buildDocumentSentToLenderMap");
 const {
   buildLenderRequestMap,
   buildDocumentFilterLenders,
@@ -11,12 +11,12 @@ const {
   normalizeSourceFilter,
   documentMatchesSentFilter,
   paginateDocuments,
-} = require("../../../utils/submissionDocumentsQuery");
+} = require("../../../utils/documents/submissionDocumentsQuery");
 const {
   submissionDocumentRequirementInclude,
   loadSubBrokerAssignmentNameMap,
   mapSubmissionDocumentRow,
-} = require("../../../utils/mapSubmissionDocumentRow");
+} = require("../../../utils/documents/mapSubmissionDocumentRow");
 
 module.exports = async function submissionDocuments(fastify) {
   fastify.get(

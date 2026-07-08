@@ -1,8 +1,8 @@
 const jwt = require("jsonwebtoken");
-const jwtSecret = require("../../../utils/jwtSecret");
+const jwtSecret = require("../../../utils/auth/jwtSecret");
 const {
   resolveCoBrokerBranding,
-} = require("../../../utils/resolveCoBrokerBranding");
+} = require("../../../utils/broker/resolveCoBrokerBranding");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify

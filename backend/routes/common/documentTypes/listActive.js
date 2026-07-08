@@ -41,25 +41,36 @@ module.exports = async function listActiveDocumentTypes(fastify) {
 
       const where = {
         isActive: true,
+        OR: [
+          { isCustom: false },
+          {
+            isCustom: true,
+            createdByOrgId: req.user?.organizationId || undefined,
+          },
+        ],
         ...(search && {
-          OR: [
+          AND: [
             {
-              name: {
-                contains: search,
-                mode: "insensitive",
-              },
-            },
-            {
-              code: {
-                contains: search,
-                mode: "insensitive",
-              },
-            },
-            {
-              description: {
-                contains: search,
-                mode: "insensitive",
-              },
+              OR: [
+                {
+                  name: {
+                    contains: search,
+                    mode: "insensitive",
+                  },
+                },
+                {
+                  code: {
+                    contains: search,
+                    mode: "insensitive",
+                  },
+                },
+                {
+                  description: {
+                    contains: search,
+                    mode: "insensitive",
+                  },
+                },
+              ],
             },
           ],
         }),

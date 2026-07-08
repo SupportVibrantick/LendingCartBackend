@@ -4,12 +4,12 @@
 
 const {
   findOrCreateClientOfficerConversation,
-} = require("../../../../services/brokerOfficerConversation");
+} = require("../../../../services/messaging/brokerOfficerConversation");
 const {
   isClientUser,
   hasRole,
   getUserId,
-} = require("../../../../services/messagingAccess");
+} = require("../../../../services/messaging/messagingAccess");
 
 module.exports = async function createClientOfficerConversation(fastify) {
   fastify.post(

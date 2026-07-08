@@ -1,12 +1,12 @@
 const { logAudit } = require("../logger/auditLogger");
-const { resolveClientDisplayName } = require("../resolveClientDisplayName");
+const { resolveClientDisplayName } = require("../messaging/resolveClientDisplayName");
 const {
   assertCanAccessConversation,
   assertCanSendMessage,
   resolveAuditDashboard,
   resolveMessageSenderType,
   getUserId,
-} = require("../messagingAccess");
+} = require("../messaging/messagingAccess");
 const {
   publishConversationJoined,
   publishMessage,

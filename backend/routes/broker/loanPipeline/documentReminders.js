@@ -5,7 +5,7 @@ const {
   immediateNextRunAt,
   processSingleReminder,
   REMINDER_TYPE_LABELS,
-} = require("../../../services/documentReminderService");
+} = require("../../../services/documents/documentReminderService");
 
 const VALID_INTERVAL_UNITS = ["MINUTES", "HOURS", "DAYS"];
 const VALID_RECIPIENT_TYPES = ["CLIENT", "LENDER"];

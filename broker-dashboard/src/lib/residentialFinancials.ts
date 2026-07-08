@@ -13,11 +13,12 @@ export interface ProFormaNoiYear {
 }
 
 export interface ResidentialFinancials {
-  /** Number of annual financial columns (min 3: current YTD + 2 prior years). */
+  /** Number of annual financial columns (min 3: current interim year + 2 prior years). */
   financialYearColumnCount: number;
   rentalProperty: boolean;
   hasRentalIncome: boolean;
   monthlyRent: string;
+  interimMonthsReported: string;
   grossRevenue: YearValues;
   grossRentalIncome: YearValues;
   vacancyCreditLoss: YearValues;
@@ -51,7 +52,6 @@ export const FINANCIAL_YEAR_COLUMNS: FinancialYearColumn[] =
   getFinancialYearColumnKeys(DEFAULT_FINANCIAL_YEAR_COLUMN_COUNT);
 
 export const ANNUAL_FINANCIAL_EDITABLE_ROWS = [
-  { key: "grossRevenue" as const, label: "Gross Revenue ($)" },
   { key: "grossRentalIncome" as const, label: "Gross Rental Income ($)" },
   { key: "vacancyCreditLoss" as const, label: "Vacancy & Credit Loss ($)" },
   { key: "operatingExpenses" as const, label: "Operating Expenses ($)" },
@@ -100,6 +100,7 @@ export const createResidentialFinancialsDefaults = (): ResidentialFinancials => 
   rentalProperty: false,
   hasRentalIncome: false,
   monthlyRent: "",
+  interimMonthsReported: "",
   grossRevenue: createEmptyYearValues(),
   grossRentalIncome: createEmptyYearValues(),
   vacancyCreditLoss: createEmptyYearValues(),
@@ -193,7 +194,7 @@ export const removeLastFinancialYearColumn = (
   );
 };
 
-/** Calendar year used as the current (YTD) column — always derived from the system date. */
+/** Calendar year used as the current interim column — always derived from the system date. */
 export const getCurrentFinancialReferenceYear = () => new Date().getFullYear();
 
 export type FinancialYearColumnMeta = {
@@ -211,7 +212,7 @@ export const getFinancialYearColumns = (
     return {
       column,
       year,
-      label: index === 0 ? `${year} (YTD)` : String(year),
+      label: index === 0 ? `${year} (Interim)` : String(year),
     };
   });
 
@@ -246,7 +247,6 @@ export const calcEffectiveGrossIncome = (
   financials: ResidentialFinancials,
   column: FinancialYearColumn,
 ) =>
-  parseAmount(financials.grossRevenue[column]) +
   parseAmount(financials.grossRentalIncome[column]) -
   parseAmount(financials.vacancyCreditLoss[column]);
 
@@ -316,7 +316,15 @@ export const getResidentialNoiForDscr = (financials: ResidentialFinancials) => {
   if (financials.dscrCalculationMethod === "proForma") {
     return getProFormaNoiAverage(financials);
   }
-  return getNoi(financials, "col0");
+
+  const noi = getNoi(financials, "col0");
+  const monthsReported = parseAmount(financials.interimMonthsReported);
+
+  if (monthsReported > 0 && monthsReported < 12) {
+    return (noi / monthsReported) * 12;
+  }
+
+  return noi;
 };
 
 export const getResidentialDebtServiceForDscr = (
@@ -346,6 +354,7 @@ export const appendResidentialFinancialsSubmission = (
   addField("rentalProperty", financials.rentalProperty ? "yes" : "no");
   addField("hasRentalIncome", financials.hasRentalIncome ? "yes" : "no");
   addField("monthlyRent", parseAmount(financials.monthlyRent));
+  addField("interimMonthsReported", parseAmount(financials.interimMonthsReported));
   addField("dscrCalculationMethod", financials.dscrCalculationMethod);
 
   ANNUAL_FINANCIAL_EDITABLE_ROWS.forEach(({ key }) => {
@@ -427,3 +436,6 @@ export const loadFinancialYearValues = (
   });
   return values;
 };
+
+
+

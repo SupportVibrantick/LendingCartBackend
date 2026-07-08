@@ -2,8 +2,8 @@ const {
   formatCommissionRecord,
   decimalToNumber,
   roundMoney,
-} = require("../../utils/commissionHelpers");
-const { commissionInclude } = require("../../utils/commissionQueryHelpers");
+} = require("../../utils/commission/commissionHelpers");
+const { commissionInclude } = require("../../utils/commission/commissionQueryHelpers");
 
 async function assertLoanCommissionAccess(prisma, loan, userId, { role } = {}) {
   if (!loan) {
@@ -93,7 +93,7 @@ async function getLoanCommissionBreakdown(
 
   if (loan.status === "FUNDED" && allRows.length === 0 && autoCalcIfMissing) {
     try {
-      const { calculateDealCommissions } = require("../calculateDealCommissions");
+      const { calculateDealCommissions } = require("../applications/calculateDealCommissions");
       const result = await calculateDealCommissions(prisma, loanId);
       calculationWarnings = result.warnings || [];
       allRows = await prisma.dealCommission.findMany({

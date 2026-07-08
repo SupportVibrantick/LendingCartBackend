@@ -3,8 +3,8 @@ const {
   formatAuditEvent,
   formatPayoutRecord,
   formatInvoiceRecord,
-} = require("../../../utils/commissionHelpers");
-const { commissionInclude } = require("../../../utils/commissionQueryHelpers");
+} = require("../../../utils/commission/commissionHelpers");
+const { commissionInclude } = require("../../../utils/commission/commissionQueryHelpers");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify

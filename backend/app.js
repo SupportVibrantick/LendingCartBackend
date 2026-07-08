@@ -15,8 +15,8 @@ const {
 } = require("./services/logger/contextLogger");
 const createError = require("http-errors");
 // var { runEmailConsumerKafka } = require("./services/kafka/email/consumer");
-const swagger = require("@fastify/swagger");
-const swaggerUi = require("@fastify/swagger-ui");
+// const swagger = require("@fastify/swagger");
+// const swaggerUi = require("@fastify/swagger-ui");
 const indexRoutes = require("./routes/index");
 const verifySuperAdmin = require("./plugins/verifySuperAdmin");
 const dbPlugin = require("./plugins/dbPlugin");
@@ -50,44 +50,12 @@ app.register(cors, {
 });
 
 
-// Swagger Setup
-app.register(swagger, {
-  mode: "dynamic",
-  openapi: {
-    openapi: "3.0.0",
-    info: {
-      title: "Lendingcart Documentation",
-      version: "1.0.0",
-    },
-    components: {
-      securitySchemes: {
-        bearerAuth: {
-          type: "http",
-          scheme: "bearer",
-          bearerFormat: "JWT",
-        },
-      },
-    },
-    security: [{ bearerAuth: [] }],
-  },
-});
-
-
-
 app.register(multipart, {
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB
   },
 });
 
-app.register(swaggerUi, {
-  routePrefix: "/api",
-  uiConfig: {
-    docExpansion: "none",
-    deepLinking: true,
-    persistAuthorization: true,
-  },
-});
 
 app.register(cookieParser);
 
@@ -96,7 +64,6 @@ app.register(fastifyFormbody);
 
 const authMiddleware = require("./middleware/authMiddleware");
 const fgaMiddleware = require("./middleware/fgaMiddleware");
-const Mail = require("nodemailer/lib/mailer");
 app.register(dbPlugin);
 
 const ghlService = require("./modules/ghl/ghl.service");
@@ -184,7 +151,7 @@ app.setErrorHandler((error, request, reply) => {
       validation: error.validation,
       url: request.raw.url,
       method: request.raw.method,
-    });
+    });                                                                    
 
     return reply.status(400).view("error.pug", {
       message: "Validation Error",

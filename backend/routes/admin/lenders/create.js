@@ -4,14 +4,14 @@ const { createLenderSchema } = require("../../../schemas/admin/lenders/create.sc
 const bcrypt = require("bcrypt");
 
 // Mail + Kafka (same pattern as brokers)
-const { loadTemplate } = require("../../../utils/loadTemplate");
-const { buildLenderSignInUrl } = require("../../../utils/emailBranding");
-const { buildLenderWelcomeEmailData } = require("../../../utils/emailTemplateData");
-const sendMail = require("../../../services/mail");
+const { loadTemplate } = require("../../../utils/email/loadTemplate");
+const { buildLenderSignInUrl } = require("../../../utils/email/emailBranding");
+const { buildLenderWelcomeEmailData } = require("../../../utils/email/emailTemplateData");
+const sendMail = require("../../../services/emails/mail");
 const {
   notifyPlatform,
   PLATFORM_NOTIFICATION_EVENTS,
-} = require("../../../services/platformNotifications.js");
+} = require("../../../services/notifications/platformNotifications.js");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
@@ -247,12 +247,24 @@ async function createLenderRoutes(fastify) {
               organizationEmail: organizationEmail,
               organizationPhone,
               brokerName: brokerOrg?.name || "Your broker",
+              adminEmail,
+              temporaryPassword: adminPassword,
               loginUrl: buildLenderSignInUrl(),
             }),
           );
 
+          const loginUrl = buildLenderSignInUrl();
           const subject = "Your Lender Account Has Been Created";
-          const text = `Hello ${adminFirstName}, your lender account is ready.`;
+          const text = [
+            `Hello ${adminFirstName}, your lender account is ready.`,
+            "",
+            `Login email: ${adminEmail}`,
+            `Temporary password: ${adminPassword}`,
+            "",
+            `Sign in: ${loginUrl}`,
+            "",
+            "Please change your password after your first login.",
+          ].join("\n");
 
           await sendMail({
             prisma,

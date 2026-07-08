@@ -1,4 +1,4 @@
-const { formatCommissionRecord } = require("../../../utils/commissionHelpers");
+const { formatCommissionRecord } = require("../../../utils/commission/commissionHelpers");
 const { generateCommissionInvoice } = require("../../../services/commission/generateCommissionInvoice");
 
 /**

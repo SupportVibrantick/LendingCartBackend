@@ -1,4 +1,4 @@
--- RoleName enum values (also patched at seed via applySchemaPatches)
+-- RoleName enum values for lender analyst/viewer roles
 DO $$ BEGIN
   ALTER TYPE "RoleName" ADD VALUE 'LENDER_ANALYST';
 EXCEPTION

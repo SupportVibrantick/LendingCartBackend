@@ -5,6 +5,11 @@ import {
   getCriteriaFieldsForProduct,
   type CriteriaField,
 } from "../../../../lib/loanProductCriteriaFields";
+import {
+  formatNumberInputValue,
+  sanitizeNumberInput,
+  stripNumberFormatting,
+} from "../../../../lib/numberInputFormat";
 
 const US_STATES = [
   "AL",
@@ -223,6 +228,9 @@ const StepFive = ({
     }));
   };
 
+  const parseNumericValue = (input: unknown) =>
+    Number(stripNumberFormatting(String(input ?? "")));
+
   const validateField = (
     productId: string,
     key: string,
@@ -237,7 +245,7 @@ const StepFive = ({
       return isRequired ? "This field is required" : "";
     }
 
-    const numVal = Number(val);
+    const numVal = parseNumericValue(val);
 
     // ✅ GENERIC NUMBER VALIDATION
     if (numVal < 0) {
@@ -246,75 +254,75 @@ const StepFive = ({
 
     // ✅ LOAN AMOUNT
     if (key === "minLoan" && current.maxLoan) {
-      if (numVal > Number(current.maxLoan)) {
+      if (numVal > parseNumericValue(current.maxLoan)) {
         return "Minimum loan amount cannot exceed maximum loan amount";
       }
     }
 
     if (key === "maxLoan" && current.minLoan) {
-      if (numVal < Number(current.minLoan)) {
+      if (numVal < parseNumericValue(current.minLoan)) {
         return "Maximum loan amount cannot be less than minimum loan amount";
       }
     }
 
     if (key === "minFacilitySize" && current.maxFacilitySize) {
-      if (numVal > Number(current.maxFacilitySize)) {
+      if (numVal > parseNumericValue(current.maxFacilitySize)) {
         return "Minimum facility size cannot exceed maximum facility size";
       }
     }
 
     if (key === "maxFacilitySize" && current.minFacilitySize) {
-      if (numVal < Number(current.minFacilitySize)) {
+      if (numVal < parseNumericValue(current.minFacilitySize)) {
         return "Maximum facility size cannot be less than minimum facility size";
       }
     }
 
     if (key === "minProgramSize" && current.maxProgramSize) {
-      if (numVal > Number(current.maxProgramSize)) {
+      if (numVal > parseNumericValue(current.maxProgramSize)) {
         return "Minimum program size cannot exceed maximum program size";
       }
     }
 
     if (key === "maxProgramSize" && current.minProgramSize) {
-      if (numVal < Number(current.minProgramSize)) {
+      if (numVal < parseNumericValue(current.minProgramSize)) {
         return "Maximum program size cannot be less than minimum program size";
       }
     }
 
     if (key === "minProperties" && current.maxProperties) {
-      if (numVal > Number(current.maxProperties)) {
+      if (numVal > parseNumericValue(current.maxProperties)) {
         return "Minimum properties cannot exceed maximum properties";
       }
     }
 
     if (key === "maxProperties" && current.minProperties) {
-      if (numVal < Number(current.minProperties)) {
+      if (numVal < parseNumericValue(current.minProperties)) {
         return "Maximum properties cannot be less than minimum properties";
       }
     }
 
     // ✅ INTEREST RATE
     if (key === "minRate" && current.maxRate) {
-      if (numVal > Number(current.maxRate)) {
+      if (numVal > parseNumericValue(current.maxRate)) {
         return "Minimum interest rate cannot exceed maximum rate";
       }
     }
 
     if (key === "maxRate" && current.minRate) {
-      if (numVal < Number(current.minRate)) {
+      if (numVal < parseNumericValue(current.minRate)) {
         return "Maximum interest rate cannot be less than minimum rate";
       }
     }
 
     // ✅ TERM
     if (key === "minTerm" && current.maxTerm) {
-      if (numVal > Number(current.maxTerm)) {
+      if (numVal > parseNumericValue(current.maxTerm)) {
         return "Minimum term cannot exceed maximum term";
       }
     }
 
     if (key === "maxTerm" && current.minTerm) {
-      if (numVal < Number(current.minTerm)) {
+      if (numVal < parseNumericValue(current.minTerm)) {
         return "Maximum term cannot be less than minimum term";
       }
     }
@@ -346,13 +354,13 @@ const StepFive = ({
     }
 
     if (key === "mezzLtvMin" && current.mezzLtvMax) {
-      if (numVal > Number(current.mezzLtvMax)) {
+      if (numVal > parseNumericValue(current.mezzLtvMax)) {
         return "Mezz LTV min cannot exceed max";
       }
     }
 
     if (key === "mezzLtvMax" && current.mezzLtvMin) {
-      if (numVal < Number(current.mezzLtvMin)) {
+      if (numVal < parseNumericValue(current.mezzLtvMin)) {
         return "Mezz LTV max cannot be less than min";
       }
     }
@@ -510,11 +518,13 @@ const StepFive = ({
           {isRequired && <span className="text-red-500"> *</span>}
         </label>
         <input
-          type="number"
-          step={field.decimal ? "0.01" : "1"}
-          value={currentValue || ""}
+          type="text"
+          inputMode={field.decimal ? "decimal" : "numeric"}
+          value={formatNumberInputValue(currentValue, { decimal: field.decimal })}
           onChange={(e) => {
-            const val = e.target.value;
+            const val = sanitizeNumberInput(e.target.value, {
+              decimal: field.decimal,
+            });
             const err = validateField(product.id, field.key, val, {
               required: field.required !== false,
             });

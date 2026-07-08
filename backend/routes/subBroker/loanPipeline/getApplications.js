@@ -1,11 +1,11 @@
 const prisma = require("../../../config/prisma");
 const {
   resolveClientDisplayNameFromData,
-} = require("../../../services/resolveClientDisplayName");
+} = require("../../../services/messaging/resolveClientDisplayName");
 const {
   buildBrokerPipelineApplicationStatusWhere,
   resolveBrokerPipelineDisplayStatus,
-} = require("../../../utils/resolveApplicationStatus");
+} = require("../../../utils/applications/resolveApplicationStatus");
 
 async function getApplicationsRoute(fastify, options) {
   fastify.get(

@@ -1,10 +1,10 @@
 const {
   resolveCoBrokerBranding,
-} = require("../../../utils/resolveCoBrokerBranding");
+} = require("../../../utils/broker/resolveCoBrokerBranding");
 const {
   formatCoBrokerAuthResponse,
   subBrokerAuthInclude,
-} = require("../../../utils/subBrokerProfileHelpers");
+} = require("../../../utils/broker/subBrokerProfileHelpers");
 
 async function subBrokerMeRoutes(fastify) {
   fastify.get(

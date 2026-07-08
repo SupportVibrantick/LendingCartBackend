@@ -3,12 +3,12 @@ const fs = require("fs");
 const { pipeline } = require("stream/promises");
 const {
   resolveCoBrokerBranding,
-} = require("../../../utils/resolveCoBrokerBranding");
+} = require("../../../utils/broker/resolveCoBrokerBranding");
 const {
   formatCoBrokerAuthResponse,
   mergeSelfEditableProfileData,
   subBrokerAuthInclude,
-} = require("../../../utils/subBrokerProfileHelpers");
+} = require("../../../utils/broker/subBrokerProfileHelpers");
 
 async function updateSubBrokerProfileRoutes(fastify) {
   fastify.put(

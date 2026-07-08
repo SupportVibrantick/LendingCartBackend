@@ -10,20 +10,20 @@ const {
   formatBrokerOfficerInboxEntry,
   filterLoanOfficerClientThreads,
   filterBrokerAdminClientThreads,
-} = require("../../../../services/brokerOfficerConversation");
-const { resolveClientDisplayName } = require("../../../../services/resolveClientDisplayName");
+} = require("../../../../services/messaging/brokerOfficerConversation");
+const { resolveClientDisplayName } = require("../../../../services/messaging/resolveClientDisplayName");
 const {
   getConversationListFilters,
   shouldShowBrokerOfficerPlaceholder,
   isClientUser,
   isLenderUser,
   hasRole,
-} = require("../../../../services/messagingAccess");
+} = require("../../../../services/messaging/messagingAccess");
 const {
   resolveViewerRole,
   enrichConversationList,
-} = require("../../../../services/conversationPresentation");
-const { buildLenderLoanInbox } = require("../../../../services/lenderBrokerConversation");
+} = require("../../../../services/messaging/conversationPresentation");
+const { buildLenderLoanInbox } = require("../../../../services/messaging/lenderBrokerConversation");
 
 module.exports = async function getConversations(fastify) {
   fastify.get(

@@ -1,7 +1,7 @@
-const { officerPreHandler, getUserId } = require("../../../services/loanOfficerAccess");
+const { officerPreHandler, getUserId } = require("../../../services/broker/loanOfficerAccess");
 const {
   countBrokerPipelineStats,
-} = require("../../../utils/resolveApplicationStatus");
+} = require("../../../utils/applications/resolveApplicationStatus");
 
 module.exports = async function loanOfficerPipelineStats(fastify) {
   fastify.get(

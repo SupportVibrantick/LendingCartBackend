@@ -2,11 +2,11 @@ const generateAgreementHtml = require("./generateAgreementHtml");
 const {
   getBrokerWhiteLabelBranding,
   buildBrandingSnapshot,
-} = require("../../../../services/brokerBranding");
+} = require("../../../../services/broker/brokerBranding");
 const {
   loadOrgBrokerUser,
   resolveFeeAgreementSnapshot,
-} = require("../../../../services/feeAgreementFieldResolver");
+} = require("../../../../services/feeAgreement/feeAgreementFieldResolver");
 
 function extractValue(val) {
   if (!val) return "";

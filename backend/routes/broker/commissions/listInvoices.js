@@ -3,7 +3,7 @@ const {
   buildInvoiceSummary,
   buildInvoiceListWhere,
   invoiceListInclude,
-} = require("../../../utils/commissionHelpers");
+} = require("../../../utils/commission/commissionHelpers");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify

@@ -1,5 +1,5 @@
 // backend/middleware/fgaMiddleware.js
-const { checkPermission } = require("../services/fgaService.js");
+const { checkPermission } = require("../services/auth/fgaService.js");
 
 module.exports = function registerFgaMiddleware(fastify, opts, done) {
   /**

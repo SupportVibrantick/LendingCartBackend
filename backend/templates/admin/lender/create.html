@@ -57,6 +57,25 @@
         font-size: 15px;
       }
 
+      .credentials-box {
+        background: #f0fdfa;
+        padding: 15px;
+        border-left: 4px solid #0f766e;
+        margin-top: 20px;
+        border-radius: 6px;
+      }
+
+      .credentials-box p {
+        margin: 6px 0;
+        font-size: 15px;
+      }
+
+      .password {
+        font-family: monospace;
+        font-size: 16px;
+        letter-spacing: 0.5px;
+      }
+
       .btn {
         display: inline-block;
         margin-top: 20px;
@@ -116,6 +135,17 @@
           <p><strong>Lender Phone:</strong> {{default lenderPhone organizationPhone}}</p>
           <p><strong>Assigned Broker:</strong> {{default brokerName "Your broker"}}</p>
         </div>
+
+        <p>Use the credentials below to sign in to your lender portal:</p>
+
+        <div class="credentials-box">
+          <p><strong>Login email:</strong> {{adminEmail}}</p>
+          <p><strong>Temporary password:</strong> <span class="password">{{temporaryPassword}}</span></p>
+        </div>
+
+        <p style="font-size: 14px; color: #60707b; margin-top: 16px;">
+          Please change your password after your first login. Do not share these credentials.
+        </p>
 
         <p>
           If any details seem incorrect, please contact our support team immediately.

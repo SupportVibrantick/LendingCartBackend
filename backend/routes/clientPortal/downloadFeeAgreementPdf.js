@@ -2,7 +2,7 @@ const jwt = require("jsonwebtoken");
 const {
   buildFeeAgreementPdfFilename,
   generateFeeAgreementPdfBuffer,
-} = require("../../services/feeAgreementPdfExport");
+} = require("../../services/feeAgreement/feeAgreementPdfExport");
 
 module.exports = async function downloadClientFeeAgreementPdf(fastify) {
   fastify.get(

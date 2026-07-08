@@ -15,11 +15,12 @@ async function createLenderDocumentConfigRoutes(fastify) {
         consumes: ["application/json"],
         body: {
           type: "object",
-          required: ["lenderProductId", "documentTypeId"],
+          required: ["lenderProductId"],
           additionalProperties: false,
           properties: {
             lenderProductId: { type: "string", format: "uuid" },
             documentTypeId: { type: "string", format: "uuid" },
+            customDocumentName: { type: "string", minLength: 2, maxLength: 120 },
             isRequired: { type: "boolean" },
             minFiles: { type: "number" },
             maxFiles: { type: "number" },
@@ -61,7 +62,8 @@ async function createLenderDocumentConfigRoutes(fastify) {
 
         const {
           lenderProductId,
-          documentTypeId,
+          documentTypeId: inputDocumentTypeId,
+          customDocumentName,
           isRequired,
           minFiles,
           maxFiles,
@@ -85,12 +87,44 @@ async function createLenderDocumentConfigRoutes(fastify) {
         }
 
         /* ================= VALIDATE DOCUMENT ================= */
-        const docType = await prisma.documentType.findFirst({
-          where: {
-            id: documentTypeId,
-            isActive: true,
-          },
-        });
+        let resolvedDocumentTypeId = inputDocumentTypeId;
+        let docType = null;
+
+        if (resolvedDocumentTypeId) {
+          docType = await prisma.documentType.findFirst({
+            where: {
+              id: resolvedDocumentTypeId,
+              isActive: true,
+            },
+          });
+        } else {
+          const normalizedName = String(customDocumentName || "").trim();
+          const existingCustomType = await prisma.documentType.findFirst({
+            where: {
+              isActive: true,
+              isCustom: true,
+              createdByOrgId: lenderOrgId,
+              name: {
+                equals: normalizedName,
+                mode: "insensitive",
+              },
+            },
+          });
+
+          if (existingCustomType) {
+            docType = existingCustomType;
+          } else {
+            docType = await prisma.documentType.create({
+              data: {
+                name: normalizedName,
+                isCustom: true,
+                createdByOrgId: lenderOrgId,
+                isActive: true,
+              },
+            });
+          }
+          resolvedDocumentTypeId = docType.id;
+        }
 
         if (!docType) {
           return reply.code(404).send({
@@ -105,7 +139,7 @@ async function createLenderDocumentConfigRoutes(fastify) {
             where: {
               lenderProductId_documentTypeId: {
                 lenderProductId,
-                documentTypeId,
+                documentTypeId: resolvedDocumentTypeId,
               },
             },
             update: {
@@ -117,7 +151,7 @@ async function createLenderDocumentConfigRoutes(fastify) {
             },
             create: {
               lenderProductId,
-              documentTypeId,
+              documentTypeId: resolvedDocumentTypeId,
               isRequired: isRequired ?? true,
               minFiles: minFiles ?? 1,
               maxFiles: maxFiles ?? null,

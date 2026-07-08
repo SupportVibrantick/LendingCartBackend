@@ -1,8 +1,8 @@
 module.exports = async function (fastify) {
-  const { normalizeFeeAgreement } = require("../../../services/feeAgreementEnrichment");
+  const { normalizeFeeAgreement } = require("../../../services/feeAgreement/feeAgreementEnrichment");
   const {
     getBrokerWhiteLabelBranding,
-  } = require("../../../services/brokerBranding");
+  } = require("../../../services/broker/brokerBranding");
 
   fastify.get(
     "/:loanId/fee-agreement",

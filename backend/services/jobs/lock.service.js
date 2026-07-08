@@ -49,7 +49,7 @@ async function acquireJobLock(
 
     if (error.message?.includes("job_locks") && error.message?.includes("does not exist")) {
       throw new Error(
-        'job_locks table is missing. Run: npm run db:patch (or npx prisma migrate deploy)',
+        'job_locks table is missing. Run: npx prisma migrate deploy',
       );
     }
 

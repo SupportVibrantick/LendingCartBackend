@@ -1,5 +1,5 @@
 const jwt = require("jsonwebtoken");
-const jwtSecret = require("../../../utils/jwtSecret");
+const jwtSecret = require("../../../utils/auth/jwtSecret");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify

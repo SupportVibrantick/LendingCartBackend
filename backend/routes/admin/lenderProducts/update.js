@@ -3,10 +3,10 @@
 const { adminLogs } = require("../../../services/logger/contextLogger");
 const {
   buildLenderProductPrismaFields,
-} = require("../../../utils/buildLenderProductPrismaFields");
+} = require("../../../utils/lender/buildLenderProductPrismaFields");
 const {
   syncLenderProductDocuments,
-} = require("../../../utils/syncLenderProductDocuments");
+} = require("../../../utils/lender/syncLenderProductDocuments");
 
 async function updateLenderProductRoutes(fastify) {
   fastify.patch("/", async (request, reply) => {

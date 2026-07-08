@@ -5,7 +5,7 @@
 const {
   assertCanAccessConversation,
   getUserId,
-} = require("../../../../services/messagingAccess");
+} = require("../../../../services/messaging/messagingAccess");
 
 module.exports = async function markAsRead(fastify) {
   fastify.patch(

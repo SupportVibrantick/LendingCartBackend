@@ -1,14 +1,14 @@
 module.exports = async function viewSubmission(fastify) {
-  const { mapSubmissionFieldResponse } = require("../../../../services/staticSubmissionFields");
+  const { mapSubmissionFieldResponse } = require("../../../../services/applications/staticSubmissionFields");
   const {
     resolveClientDisplayNameFromData,
-  } = require("../../../../services/resolveClientDisplayName");
+  } = require("../../../../services/messaging/resolveClientDisplayName");
   const {
     resolveBrokerPipelineDisplayStatus,
     canBrokerEditSubmittedApplication,
     canBrokerRequestDocuments,
-  } = require("../../../../utils/resolveApplicationStatus");
-  const { getMarkFundedEligibility } = require("../../../../utils/markFundedHelpers");
+  } = require("../../../../utils/applications/resolveApplicationStatus");
+  const { getMarkFundedEligibility } = require("../../../../utils/commission/markFundedHelpers");
 
   fastify.get("/submissions/:submissionId", async (req, reply) => {
     const { submissionId } = req.params;

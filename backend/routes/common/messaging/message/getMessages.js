@@ -9,9 +9,9 @@ const {
   getOrganizationId,
   isClientUser,
   isLenderUser,
-} = require("../../../../services/messagingAccess");
-const { resolvePrincipalBrokerDisplay } = require("../../../../services/brokerOfficerConversation");
-const { resolveClientDisplayName } = require("../../../../services/resolveClientDisplayName");
+} = require("../../../../services/messaging/messagingAccess");
+const { resolvePrincipalBrokerDisplay } = require("../../../../services/messaging/brokerOfficerConversation");
+const { resolveClientDisplayName } = require("../../../../services/messaging/resolveClientDisplayName");
 
 module.exports = async function getMessages(fastify) {
   fastify.get(

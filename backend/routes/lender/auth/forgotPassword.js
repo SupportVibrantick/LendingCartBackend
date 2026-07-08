@@ -1,11 +1,11 @@
 const crypto = require("crypto");
-const { findLenderUserByEmail } = require("../../../utils/findLenderUserByEmail");
+const { findLenderUserByEmail } = require("../../../utils/auth/findLenderUserByEmail");
 const {
   lenderForgotPasswordSchema,
 } = require("../../../schemas/lender/auth/resetPassword.schema");
 const {
   sendLenderPasswordResetEmail,
-} = require("../../../services/lenderPasswordResetEmail");
+} = require("../../../services/emails/lenderPasswordResetEmail");
 
 const RESET_TOKEN_EXPIRY_MS =
   Number(process.env.PASSWORD_RESET_EXPIRY_HOURS || 1) * 60 * 60 * 1000;

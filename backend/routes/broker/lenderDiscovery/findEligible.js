@@ -2,10 +2,10 @@
 
 const {
   evaluateLenderProductEligibility,
-} = require("../../../utils/evaluateLenderEligibility");
+} = require("../../../utils/lender/evaluateLenderEligibility");
 const {
   extractApplicantEligibilityData,
-} = require("../../../utils/extractApplicantEligibilityData");
+} = require("../../../utils/lender/extractApplicantEligibilityData");
 
 module.exports = async function findEligibleLenders(fastify) {
   fastify.get(

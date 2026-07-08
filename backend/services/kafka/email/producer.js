@@ -1,6 +1,6 @@
 const { Kafka, Partitioners } = require("kafkajs");
 const logger = require("../../logger/contextLogger");
-const { enqueueEmail } = require("../email");
+const { enqueueEmail } = require("../../email");
 const {
   isKafkaEnabled,
   getKafkaBrokers,
@@ -29,7 +29,7 @@ function getKafkaProducer() {
       createPartitioner: Partitioners.LegacyPartitioner,
     });
   }
-
+  
   return producer;
 }
 
@@ -81,7 +81,7 @@ const sendEmailUsingKafka = async (to, subject, text, html, options = {}) => {
             }),
           },
         ],
-      });
+      });    
 
       logger.kafkaLogs.info(`Email request sent to Kafka topic=${TOPIC_NAME}`, {
         to,

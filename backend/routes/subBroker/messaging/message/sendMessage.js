@@ -2,7 +2,7 @@
  * Send message in a sub-broker conversation
  */
 
-const { emitRealtimeMessage } = require("../../../../services/messagingAccess");
+const { emitRealtimeMessage } = require("../../../../services/messaging/messagingAccess");
 
 module.exports = async function sendMessage(fastify) {
   fastify.post(

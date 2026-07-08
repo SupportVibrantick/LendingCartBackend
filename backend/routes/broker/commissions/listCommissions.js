@@ -1,11 +1,11 @@
 const {
   formatCommissionRecord,
   buildMonthlySummary,
-} = require("../../../utils/commissionHelpers");
+} = require("../../../utils/commission/commissionHelpers");
 const {
   commissionInclude,
   buildCommissionListWhere,
-} = require("../../../utils/commissionQueryHelpers");
+} = require("../../../utils/commission/commissionQueryHelpers");
 const { derivePayoutStatus } = require("../../../services/commission/recordCommissionPayout");
 
 /**

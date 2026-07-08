@@ -1,5 +1,5 @@
-const { officerPreHandler, getUserId } = require("../../../services/loanOfficerAccess");
-const { buildMonthlySummary } = require("../../../utils/commissionHelpers");
+const { officerPreHandler, getUserId } = require("../../../services/broker/loanOfficerAccess");
+const { buildMonthlySummary } = require("../../../utils/commission/commissionHelpers");
 const { derivePayoutStatus } = require("../../../services/commission/recordCommissionPayout");
 
 /**
@@ -66,4 +66,4 @@ module.exports = async function getCommissionSummary(fastify) {
       }
     },
   );
-};
+}; 

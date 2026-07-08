@@ -1,9 +1,9 @@
 module.exports = async function (fastify) {
-  const { normalizeFeeAgreement } = require("../../../../services/feeAgreementEnrichment");
+  const { normalizeFeeAgreement } = require("../../../../services/feeAgreement/feeAgreementEnrichment");
   const {
     buildResolvedFeeAgreementContext,
     refreshDraftFeeAgreementIfNeeded,
-  } = require("../../../../services/refreshDraftFeeAgreement");
+  } = require("../../../../services/feeAgreement/refreshDraftFeeAgreement");
   fastify.get(
     "/:loanId/fee-agreement",
     {

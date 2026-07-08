@@ -1,4 +1,4 @@
-const { formatAdminClientRow } = require("../../../services/formatAdminClientRow");
+const { formatAdminClientRow } = require("../../../services/applications/formatAdminClientRow");
 
 async function listClients(fastify) {
   fastify.get(

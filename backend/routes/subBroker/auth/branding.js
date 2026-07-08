@@ -1,6 +1,6 @@
 const {
   resolveCoBrokerBranding,
-} = require("../../../utils/resolveCoBrokerBranding");
+} = require("../../../utils/broker/resolveCoBrokerBranding");
 
 async function subBrokerBrandingRoute(fastify) {
   fastify.get(

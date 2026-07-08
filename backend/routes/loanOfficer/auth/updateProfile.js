@@ -1,7 +1,7 @@
 const path = require("path");
 const fs = require("fs");
 const { pipeline } = require("stream/promises");
-const { officerPreHandler } = require("../../../services/loanOfficerAccess");
+const { officerPreHandler } = require("../../../services/broker/loanOfficerAccess");
 
 const PROFILE_FIELDS = [
   "company",

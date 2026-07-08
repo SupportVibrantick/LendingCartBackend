@@ -1,9 +1,9 @@
-const { resolveClientDisplayNameFromData } = require("../../../services/resolveClientDisplayName");
+const { resolveClientDisplayNameFromData } = require("../../../services/messaging/resolveClientDisplayName");
 const {
   buildApplicationSearchWhere,
   loanApplicationListInclude,
-} = require("../../../services/loanApplicationSearch");
-const { formatAdminClientRow } = require("../../../services/formatAdminClientRow");
+} = require("../../../services/applications/loanApplicationSearch");
+const { formatAdminClientRow } = require("../../../services/applications/formatAdminClientRow");
 
 function submissionFieldValue(fields, ...keys) {
   for (const field of fields || []) {

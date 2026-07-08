@@ -1,6 +1,6 @@
 const jwt = require("jsonwebtoken");
-const jwtSecret = require("../../../utils/jwtSecret");
-const { resolveClientDisplayName } = require("../../../utils/resolveClientDisplayName");
+const jwtSecret = require("../../../utils/auth/jwtSecret");
+const { resolveClientDisplayName } = require("../../../utils/applications/resolveClientDisplayName");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify

@@ -5,11 +5,11 @@ const {
 } = require("../../../schemas/broker/auth/register.schema");
 
 const { commonLogs } = require("../../../services/logger/contextLogger");
-const { sendBrokerWelcomeEmail } = require("../../../services/brokerWelcomeEmail");
+const { sendBrokerWelcomeEmail } = require("../../../services/emails/brokerWelcomeEmail");
 const {
   notifyPlatform,
   PLATFORM_NOTIFICATION_EVENTS,
-} = require("../../../services/platformNotifications");
+} = require("../../../services/notifications/platformNotifications");
 
 /**
  * Broker self-register (creates BROKER org + admin user)

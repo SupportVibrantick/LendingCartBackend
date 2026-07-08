@@ -1,5 +1,5 @@
-const { getClientFromRequest } = require("../../utils/clientPortalAuth");
-const { resolveClientDisplayName } = require("../../utils/resolveClientDisplayName");
+const { getClientFromRequest } = require("../../utils/auth/clientPortalAuth");
+const { resolveClientDisplayName } = require("../../utils/applications/resolveClientDisplayName");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify

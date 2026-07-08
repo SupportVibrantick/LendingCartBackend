@@ -115,12 +115,12 @@ module.exports = async function signFeeAgreement(fastify) {
           });
         }
 
-        const { canClientSignFeeAgreement } = require("../../services/feeAgreementEnrichment");
+        const { canClientSignFeeAgreement } = require("../../services/feeAgreement/feeAgreementEnrichment");
         const generateAgreementHtml = require("../broker/loanPipeline/feeAgreement/generateAgreementHtml");
         const {
           getBrokerWhiteLabelBranding,
           lockAgreementBranding,
-        } = require("../../services/brokerBranding");
+        } = require("../../services/broker/brokerBranding");
 
         if (!canClientSignFeeAgreement(agreement)) {
           return reply.code(400).send({

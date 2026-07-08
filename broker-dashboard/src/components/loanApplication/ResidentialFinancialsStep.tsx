@@ -6,6 +6,7 @@ import {
   calcCashFlowAfterDebt,
   calcEffectiveGrossIncome,
   calcNoi,
+  formatCurrencyDisplay,
   formatCurrencyInput,
   getDisplayCalculatedValue,
   getFinancialYearColumnKeys,
@@ -19,6 +20,7 @@ import {
 type ResidentialFinancialsStepProps = {
   financials: ResidentialFinancials;
   onChange: (financials: ResidentialFinancials) => void;
+  annualDebtServiceDefault?: number;
 };
 
 const ToggleSwitch = ({
@@ -85,6 +87,7 @@ const CurrencyInput = ({
 export default function ResidentialFinancialsStep({
   financials,
   onChange,
+  annualDebtServiceDefault = 0,
 }: ResidentialFinancialsStepProps) {
   const yearColumns = getFinancialYearColumns(
     undefined,
@@ -96,6 +99,11 @@ export default function ResidentialFinancialsStep({
 
   const patch = (partial: Partial<ResidentialFinancials>) =>
     onChange({ ...financials, ...partial });
+
+  const annualDebtServiceDisplay =
+    annualDebtServiceDefault > 0
+      ? formatCurrencyDisplay(annualDebtServiceDefault)
+      : "";
 
   const patchYearTriple = (
     key: keyof Pick<
@@ -225,14 +233,23 @@ export default function ResidentialFinancialsStep({
                   <td className="px-4 py-2 text-slate-700 dark:text-slate-300">
                     {label}
                   </td>
-                  {columnKeys.map((column) => (
-                    <td key={column} className="px-3 py-2">
-                      <CurrencyInput
-                        value={financials[key][column] ?? ""}
-                        onChange={(value) => patchYearTriple(key, column, value)}
-                      />
-                    </td>
-                  ))}
+                  {columnKeys.map((column, columnIndex) => {
+                    const isInterimDebtServiceColumn =
+                      key === "mortgageDebtService" && columnIndex === 0;
+                    const inputValue =
+                      isInterimDebtServiceColumn && !financials[key][column]?.trim()
+                        ? annualDebtServiceDisplay
+                        : (financials[key][column] ?? "");
+
+                    return (
+                      <td key={column} className="px-3 py-2">
+                        <CurrencyInput
+                          value={inputValue}
+                          onChange={(value) => patchYearTriple(key, column, value)}
+                        />
+                      </td>
+                    );
+                  })}
                 </tr>
               ))}
 
@@ -290,6 +307,24 @@ export default function ResidentialFinancialsStep({
         <p className="mt-2 text-xs italic text-slate-500">
           Shaded rows are auto-calculated but can be overridden.
         </p>
+
+        <div className="mt-4 flex flex-col gap-2 md:flex-row md:items-center">
+          <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+            Months Reported (Interim Year)
+          </label>
+          <input
+            type="number"
+            min="0"
+            max="12"
+            value={financials.interimMonthsReported}
+            onChange={(e) => patch({ interimMonthsReported: e.target.value })}
+            placeholder="0"
+            className="w-full rounded-md border border-slate-300 bg-white px-4 py-1 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 md:w-28"
+          />
+          <p className="text-xs text-slate-500">
+            Used to annualize the interim NOI for DSCR.
+          </p>
+        </div>
       </div>
 
       <div>
@@ -471,3 +506,5 @@ export default function ResidentialFinancialsStep({
     </div>
   );
 }
+
+

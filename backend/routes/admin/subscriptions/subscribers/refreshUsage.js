@@ -2,7 +2,7 @@ const { refreshUsageSchema } = require("../../../../schemas/admin/subscriptions/
 const {
   ACTIVE_SUB_STATUSES,
   refreshUsageForSubscription,
-} = require("../../../../services/subscriptionBilling");
+} = require("../../../../services/subscription/subscriptionBilling");
 
 async function refreshUsageRoutes(fastify) {
   fastify.post(

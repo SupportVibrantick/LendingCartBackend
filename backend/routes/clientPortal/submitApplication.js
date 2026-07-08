@@ -3,13 +3,13 @@ const jwt = require("jsonwebtoken");
 const {
   notifyBroker,
   BROKER_NOTIFICATION_EVENTS,
-} = require("../../services/brokerNotifications");
+} = require("../../services/notifications/brokerNotifications");
 
 // ADDED (Fee Agreement)
 const createFeeAgreement = require("../../routes/broker/loanPipeline/feeAgreement/createFeeAgreement");
 const {
   resolveClientSignableSubmission,
-} = require("../../utils/clientPortalSubmission");
+} = require("../../utils/applications/clientPortalSubmission");
 
 const submissionInclude = {
   submissions: {

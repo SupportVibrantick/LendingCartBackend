@@ -1,6 +1,6 @@
 const {
   fetchActiveBrokerApplication,
-} = require("../../../utils/activeBrokerApplication");
+} = require("../../../utils/broker/activeBrokerApplication");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify

@@ -3,25 +3,25 @@ const path = require("path");
 const { pipeline } = require("stream/promises");
 const crypto = require("crypto");
 const clientAuthMiddleware = require("../../middleware/clientAuthMiddleware");
-const { loadTemplate } = require("../../utils/loadTemplate");
-const { buildDocumentUploadEmailData } = require("../../utils/emailTemplateData");
-const sendMail = require("../../services/mail");
+const { loadTemplate } = require("../../utils/email/loadTemplate");
+const { buildDocumentUploadEmailData } = require("../../utils/email/emailTemplateData");
+const sendMail = require("../../services/emails/mail");
 const {
   notifyBroker,
   BROKER_NOTIFICATION_EVENTS,
-} = require("../../services/brokerNotifications");
+} = require("../../services/notifications/brokerNotifications");
 const {
   autoForwardDocumentUpload,
-} = require("../../services/autoForwardDocumentUpload");
+} = require("../../services/documents/autoForwardDocumentUpload");
 const {
   syncUploadToExistingLenderSubmissions,
-} = require("../../services/syncUploadToExistingLenderSubmissions");
+} = require("../../services/documents/syncUploadToExistingLenderSubmissions");
 const {
   notifyLendersForForwardedDocument,
-} = require("../../services/lenderNotifications");
+} = require("../../services/notifications/lenderNotifications");
 const {
   getAutoForwardDocumentsToLender,
-} = require("../../services/documentAutoForwardSetting");
+} = require("../../services/documents/documentAutoForwardSetting");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify

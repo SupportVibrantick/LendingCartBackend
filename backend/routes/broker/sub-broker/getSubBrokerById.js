@@ -2,7 +2,7 @@
  * @param {import("fastify").FastifyInstance} fastify
  */
 module.exports = async function getSubBrokerByIdRoutes(fastify) {
-  const { formatSubBrokerDetail } = require("../../../utils/subBrokerProfileHelpers");
+  const { formatSubBrokerDetail } = require("../../../utils/broker/subBrokerProfileHelpers");
 
   fastify.get(
     "/:id",

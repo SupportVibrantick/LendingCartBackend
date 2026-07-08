@@ -1,7 +1,7 @@
 async function listLenderProductsByLenderRoutes(fastify) {
   const {
     mapLenderDocumentRequirements,
-  } = require("../../../utils/syncLenderProductDocuments");
+  } = require("../../../utils/lender/syncLenderProductDocuments");
   fastify.get(
     "/lender/:lenderOrgId",
     {

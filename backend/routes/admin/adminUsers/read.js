@@ -1,6 +1,6 @@
 const fp = require("fastify-plugin");
-const { getUserRolesFromFGA } = require("../../../services/fgaService");
-const { resolveUserPermissions } = require("../../../services/adminUserPermissions.js");
+const { getUserRolesFromFGA } = require("../../../services/auth/fgaService");
+const { resolveUserPermissions } = require("../../../services/auth/adminUserPermissions.js");
 
 module.exports = fp(async function adminUserReadRoutes(fastify) {
   fastify.get("/read", {

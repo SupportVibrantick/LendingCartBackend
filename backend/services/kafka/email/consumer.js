@@ -1,6 +1,6 @@
 const { Kafka } = require("kafkajs");
 const logger = require("../../logger/contextLogger");
-const sendMail = require("../../mail");
+const sendMail = require("../../emails/mail");
 const {
   isKafkaEnabled,
   getKafkaBrokers,

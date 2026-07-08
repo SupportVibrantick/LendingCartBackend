@@ -5,14 +5,14 @@ const {
 const bcrypt = require("bcrypt");
 
 // Mail + Kafka
-const { loadTemplate } = require("../../../utils/loadTemplate");
-const { buildBrokerSignInUrl } = require("../../../utils/emailBranding");
-const { buildBrokerWelcomeEmailData } = require("../../../utils/emailTemplateData");
-const sendMail = require("../../../services/mail");
+const { loadTemplate } = require("../../../utils/email/loadTemplate");
+const { buildBrokerSignInUrl } = require("../../../utils/email/emailBranding");
+const { buildBrokerWelcomeEmailData } = require("../../../utils/email/emailTemplateData");
+const sendMail = require("../../../services/emails/mail");
 const {
   notifyPlatform,
   PLATFORM_NOTIFICATION_EVENTS,
-} = require("../../../services/platformNotifications.js");
+} = require("../../../services/notifications/platformNotifications.js");
 
 function normalizeWebsiteUrl(input) {
   if (!input?.trim()) return null;

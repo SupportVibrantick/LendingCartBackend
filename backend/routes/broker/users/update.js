@@ -6,11 +6,11 @@ const {
   syncUserPermissions,
   parsePermissionsField,
   deletePublicFileIfExists,
-} = require("../../../utils/brokerUserProfileHelpers");
+} = require("../../../utils/broker/brokerUserProfileHelpers");
 const {
   parseJsonField,
   syncLoanOfficerSubBrokers,
-} = require("../../../utils/subBrokerProfileHelpers");
+} = require("../../../utils/broker/subBrokerProfileHelpers");
 
 module.exports = async function updateBrokerUser(fastify) {
   fastify.put(

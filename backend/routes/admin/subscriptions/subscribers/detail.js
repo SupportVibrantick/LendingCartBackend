@@ -1,4 +1,4 @@
-const { ACTIVE_SUB_STATUSES } = require("../../../../services/subscriptionBilling");
+const { ACTIVE_SUB_STATUSES } = require("../../../../services/subscription/subscriptionBilling");
 
 async function subscriberDetailRoutes(fastify) {
   fastify.get(

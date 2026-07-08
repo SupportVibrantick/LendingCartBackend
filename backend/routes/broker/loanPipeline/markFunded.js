@@ -1,8 +1,8 @@
-const { calculateDealCommissions } = require("../../../services/calculateDealCommissions");
-const { formatCommissionRecord } = require("../../../utils/commissionHelpers");
+const { calculateDealCommissions } = require("../../../services/applications/calculateDealCommissions");
+const { formatCommissionRecord } = require("../../../utils/commission/commissionHelpers");
 const {
   validateMarkFundedPrerequisites,
-} = require("../../../utils/markFundedHelpers");
+} = require("../../../utils/commission/markFundedHelpers");
 
 const loanIncludeForFunding = {
   feeAgreement: true,

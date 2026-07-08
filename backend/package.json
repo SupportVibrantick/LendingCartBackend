@@ -14,16 +14,14 @@
     "postinstall": "prisma generate",
     "db:migrations": "prisma migrate dev --name init",
     "db:migrate": "prisma migrate dev",
-    "db:deploy": "node prisma/deployDatabase.js",
-    "db:baseline": "prisma migrate resolve --applied 20250618120000_init",
-    "db:sync": "node prisma/deployDatabase.js && node prisma/generateClient.js",
+    "db:deploy": "npx prisma migrate deploy",
+    "db:sync": "npx prisma migrate deploy && node prisma/generateClient.js",
     "db:generate": "node prisma/generateClient.js",
     "db:push": "prisma db push",
     "db:reset": "prisma migrate reset --force",
     "db:reset:push": "prisma db push --force-reset --accept-data-loss",
     "prisma:studio": "prisma studio",
-    "db:seed": "node prisma/seed.js",
-    "db:patch": "node prisma/applySchemaPatches.js"
+    "db:seed": "node prisma/seed.js"
   },
   "prisma": {
     "seed": "node prisma/seed.js"

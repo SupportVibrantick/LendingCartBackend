@@ -1,7 +1,7 @@
 /**
  * @param {import("fastify").FastifyInstance} fastify
  */
-const { canLenderReceiveDocuments } = require("../../../utils/lenderDocumentDelivery");
+const { canLenderReceiveDocuments } = require("../../../utils/lender/lenderDocumentDelivery");
 
 module.exports = async function getSubmittedLenders(fastify) {
   fastify.get(

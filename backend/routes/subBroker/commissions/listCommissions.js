@@ -1,8 +1,8 @@
 const {
   formatCommissionRecord,
   buildMonthlySummary,
-} = require("../../../utils/commissionHelpers");
-const { commissionInclude } = require("../../../utils/commissionQueryHelpers");
+} = require("../../../utils/commission/commissionHelpers");
+const { commissionInclude } = require("../../../utils/commission/commissionQueryHelpers");
 const { derivePayoutStatus } = require("../../../services/commission/recordCommissionPayout");
 
 /**

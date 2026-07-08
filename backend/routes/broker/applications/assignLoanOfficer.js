@@ -5,14 +5,14 @@ const { logAudit } = require("../../../services/logger/auditLogger");
 const {
   findOrCreateClientOfficerConversation,
   syncLoanOfficerForApplication,
-} = require("../../../services/brokerOfficerConversation");
+} = require("../../../services/messaging/brokerOfficerConversation");
 const {
   notifyBroker,
   BROKER_NOTIFICATION_EVENTS,
-} = require("../../../services/brokerNotifications");
+} = require("../../../services/notifications/brokerNotifications");
 const {
   canBrokerReassignApplication,
-} = require("../../../utils/resolveApplicationStatus");
+} = require("../../../utils/applications/resolveApplicationStatus");
 
 const SUBBROKER_CHAT_DB_TYPE = "CLIENT_BROKER";
 

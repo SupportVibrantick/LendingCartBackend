@@ -2,7 +2,7 @@
 const { z } = require("zod");
 const bcrypt = require("bcryptjs");
 const prisma = require("../../../config/prisma.js");
-const { assignRoleToUser } = require("../../../services/fgaService.js");
+const { assignRoleToUser } = require("../../../services/auth/fgaService.js");
 const jwt = require("jsonwebtoken");
 
 const bodySchema = z.object({

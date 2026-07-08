@@ -6,10 +6,10 @@ const {
 } = require("../../../schemas/admin/lenderProducts/create.schema");
 const {
   buildLenderProductPrismaFields,
-} = require("../../../utils/buildLenderProductPrismaFields");
+} = require("../../../utils/lender/buildLenderProductPrismaFields");
 const {
   syncLenderProductDocuments,
-} = require("../../../utils/syncLenderProductDocuments");
+} = require("../../../utils/lender/syncLenderProductDocuments");
 
 async function createLenderProductRoutes(fastify) {
   fastify.post(

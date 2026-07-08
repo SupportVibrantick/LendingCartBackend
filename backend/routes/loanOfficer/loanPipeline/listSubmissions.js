@@ -5,7 +5,7 @@
 const {
   resolveBrokerPipelineDisplayStatus,
   buildBrokerPipelineApplicationStatusWhere,
-} = require("../../../utils/resolveApplicationStatus");
+} = require("../../../utils/applications/resolveApplicationStatus");
 
 module.exports = async function listSubmissionsTable(fastify) {
   fastify.get(

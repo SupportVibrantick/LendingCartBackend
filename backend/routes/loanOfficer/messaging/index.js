@@ -1,4 +1,4 @@
-const { officerPreHandler } = require("../../../services/loanOfficerAccess");
+const { officerPreHandler } = require("../../../services/broker/loanOfficerAccess");
 
 module.exports = async function messagingRoutes(fastify) {
   for (const handler of officerPreHandler(fastify)) {

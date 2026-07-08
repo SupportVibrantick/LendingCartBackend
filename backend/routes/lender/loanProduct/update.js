@@ -33,8 +33,8 @@ const {
   isNoTermCriteriaProduct,
   isSba7aRateSpreadProduct,
   supportsLtcPercent,
-} = require("../../../utils/lenderProductCriteria");
-const { stripNullValues } = require("../../../utils/stripNullValues");
+} = require("../../../utils/lender/lenderProductCriteria");
+const { stripNullValues } = require("../../../utils/common/stripNullValues");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify

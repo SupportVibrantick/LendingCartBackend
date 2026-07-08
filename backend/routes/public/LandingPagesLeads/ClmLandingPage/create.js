@@ -1,7 +1,7 @@
 const {
   notifyPlatform,
   PLATFORM_NOTIFICATION_EVENTS,
-} = require("../../../../services/platformNotifications");
+} = require("../../../../services/notifications/platformNotifications");
 
 module.exports = async function (fastify) {
   fastify.post("/", async (req, reply) => {

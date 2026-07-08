@@ -1,4 +1,4 @@
-const { buildPlatformNotificationFilter } = require("../../../services/platformNotifications");
+const { buildPlatformNotificationFilter } = require("../../../services/notifications/platformNotifications");
 
 async function deleteAdminNotification(fastify) {
   fastify.delete("/:id", async (req, reply) => {

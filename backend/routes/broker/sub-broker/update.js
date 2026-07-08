@@ -10,7 +10,7 @@ module.exports = async function updateSubBrokerRoutes(fastify) {
     formatSubBrokerDetail,
     parseJsonField,
     validatePrimaryContactFields,
-  } = require("../../../utils/subBrokerProfileHelpers");
+  } = require("../../../utils/broker/subBrokerProfileHelpers");
 
   fastify.patch(
     "/:id/update",

@@ -1,9 +1,9 @@
 const dayjs = require("dayjs");
-const { mapClientPortalDocuments } = require("../../utils/mapClientPortalDocuments");
+const { mapClientPortalDocuments } = require("../../utils/documents/mapClientPortalDocuments");
 const {
   canClientSignApplication,
   resolveLatestActiveSubmission,
-} = require("../../utils/clientPortalSubmission");
+} = require("../../utils/applications/clientPortalSubmission");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify

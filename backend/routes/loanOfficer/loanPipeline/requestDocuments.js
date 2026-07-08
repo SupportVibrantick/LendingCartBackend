@@ -1,13 +1,13 @@
-const { loadTemplate } = require("../../../utils/loadTemplate");
-const { buildClientLinkEmailData } = require("../../../utils/emailTemplateData");
-const sendMail = require("../../../services/mail");
+const { loadTemplate } = require("../../../utils/email/loadTemplate");
+const { buildClientLinkEmailData } = require("../../../utils/email/emailTemplateData");
+const sendMail = require("../../../services/emails/mail");
 const {
   notifyClient,
   CLIENT_NOTIFICATION_EVENTS,
-} = require("../../../services/clientNotifications");
+} = require("../../../services/notifications/clientNotifications");
 const {
   canBrokerRequestDocuments,
-} = require("../../../utils/resolveApplicationStatus");
+} = require("../../../utils/applications/resolveApplicationStatus");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify

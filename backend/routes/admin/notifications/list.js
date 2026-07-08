@@ -1,4 +1,4 @@
-const { buildPlatformNotificationFilter } = require("../../../services/platformNotifications");
+const { buildPlatformNotificationFilter } = require("../../../services/notifications/platformNotifications");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify

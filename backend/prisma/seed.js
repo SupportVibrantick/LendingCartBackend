@@ -12,7 +12,6 @@ const { seedDocumentTypes } = require("./admin/documentTypes.seed");
 const {
   seedSubscriptionPackages,
 } = require("./admin/subscriptionPackages.seed");
-const { applySchemaPatches } = require("./applySchemaPatches");
 
 // Broker seeds
 const { seedBrokerOrg } = require("./broker/brokerOrg.seed");
@@ -34,8 +33,6 @@ const { seedLoanProducts } = require("./admin/loanProduct.seed");
 
 async function main() {
   console.log("🚀 Starting database seed...\n");
-
-  await applySchemaPatches(prisma);
 
   // ================== Admin ==================
   await seedRoles();

@@ -1,3 +1,3 @@
-const { generateFeeAgreementHtml } = require("../../../../services/feeAgreementTemplate");
+const { generateFeeAgreementHtml } = require("../../../../services/feeAgreement/feeAgreementTemplate");
 
 module.exports = generateFeeAgreementHtml;

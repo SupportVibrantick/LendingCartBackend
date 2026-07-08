@@ -7,7 +7,7 @@ const {
   assertCanSendMessage,
   resolveAuditDashboard,
   emitRealtimeMessage,
-} = require("../../../../services/messagingAccess");
+} = require("../../../../services/messaging/messagingAccess");
 
 module.exports = async function sendMessage(fastify) {
   fastify.post(

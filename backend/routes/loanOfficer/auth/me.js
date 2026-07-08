@@ -1,4 +1,4 @@
-const { officerPreHandler } = require("../../../services/loanOfficerAccess");
+const { officerPreHandler } = require("../../../services/broker/loanOfficerAccess");
 
 async function loanOfficerMeRoutes(fastify) {
   fastify.get(

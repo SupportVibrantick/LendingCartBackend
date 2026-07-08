@@ -5,7 +5,7 @@
 const {
   findBrokerAdmin,
   findOrCreateBrokerOfficerConversation,
-} = require("../../../../services/brokerOfficerConversation");
+} = require("../../../../services/messaging/brokerOfficerConversation");
 
 module.exports = async function createBrokerOfficerConversation(fastify) {
   fastify.post(

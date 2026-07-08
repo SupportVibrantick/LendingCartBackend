@@ -1,21 +1,21 @@
-const sendMail = require("../../../services/mail");
-const { loadTemplate } = require("../../../utils/loadTemplate");
-const { buildClientLinkEmailData } = require("../../../utils/emailTemplateData");
+const sendMail = require("../../../services/emails/mail");
+const { loadTemplate } = require("../../../utils/email/loadTemplate");
+const { buildClientLinkEmailData } = require("../../../utils/email/emailTemplateData");
 const {
   formatSignDocumentRequirement,
   REQUEST_APPLICATION_LENDER_INCLUDE,
-} = require("../../../utils/formatSignDocument");
+} = require("../../../utils/documents/formatSignDocument");
 const {
   notifyClient,
   CLIENT_NOTIFICATION_EVENTS,
-} = require("../../../services/clientNotifications");
+} = require("../../../services/notifications/clientNotifications");
 const {
   applyDocumentSendStatusUpdates,
-} = require("../../../services/applyDocumentSendStatusUpdates");
+} = require("../../../services/documents/applyDocumentSendStatusUpdates");
 const {
   canLenderReceiveDocuments,
   getLenderDocumentDeliveryBlockMessage,
-} = require("../../../utils/lenderDocumentDelivery");
+} = require("../../../utils/lender/lenderDocumentDelivery");
 
 function assertLoanOfficerSubmissionAccess(req, submission) {
   const brokerOrgId = req.user.organizationId;

@@ -2,13 +2,13 @@ const fp = require("fastify-plugin");
 const {
   buildSubmissionFieldsPayload,
   loadProductFieldIdMap,
-} = require("../../../services/staticSubmissionFields");
+} = require("../../../services/applications/staticSubmissionFields");
 const { randomUUID } = require("crypto");
 const { logAudit } = require("../../../services/logger/auditLogger");
 const {
   notifyBroker,
   BROKER_NOTIFICATION_EVENTS,
-} = require("../../../services/brokerNotifications");
+} = require("../../../services/notifications/brokerNotifications");
 
 async function brokerSubmitApplication(fastify) {
   fastify.post(

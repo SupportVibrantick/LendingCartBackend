@@ -1,10 +1,10 @@
-const { mapSubmissionFieldResponse } = require("../../../services/staticSubmissionFields");
+const { mapSubmissionFieldResponse } = require("../../../services/applications/staticSubmissionFields");
 const {
   resolveClientDisplayNameFromData,
-} = require("../../../services/resolveClientDisplayName");
+} = require("../../../services/messaging/resolveClientDisplayName");
 const {
   resolveLatestActiveSubmission,
-} = require("../../../utils/clientPortalSubmission");
+} = require("../../../utils/applications/clientPortalSubmission");
 
 function findSubmissionFieldValue(fields, keys) {
   const field = fields.find((item) => keys.includes(item.fieldKey));

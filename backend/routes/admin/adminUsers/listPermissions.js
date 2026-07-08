@@ -2,7 +2,7 @@ const fp = require("fastify-plugin");
 const {
   ADMIN_PERMISSION_GROUPS,
   formatPermissionLabel,
-} = require("../../../services/adminUserPermissions.js");
+} = require("../../../services/auth/adminUserPermissions.js");
 
 module.exports = fp(async function listAdminPermissionsRoutes(fastify) {
   fastify.get("/permissions", {

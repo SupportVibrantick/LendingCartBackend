@@ -101,6 +101,7 @@ type DocumentPagination = {
 type ProductDocumentState = {
   search: string;
   debouncedSearch: string;
+  customDocumentName: string;
   page: number;
   documents: any[];
   pagination: DocumentPagination;
@@ -110,6 +111,7 @@ type ProductDocumentState = {
 const createDefaultDocumentState = (): ProductDocumentState => ({
   search: "",
   debouncedSearch: "",
+  customDocumentName: "",
   page: 1,
   documents: [],
   pagination: {
@@ -209,6 +211,73 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
       : [...currentDocs, doc];
 
     handleChange(productId, "documents", updated);
+  };
+
+  const addCustomDocument = async (productId: string) => {
+    const docState = getDocState(productId);
+    const customName = docState.customDocumentName.trim();
+
+    if (!customName) {
+      toast.error("Please enter custom document name");
+      return;
+    }
+
+    if (customName.length < 2) {
+      toast.error("Custom document name must be at least 2 characters");
+      return;
+    }
+
+    try {
+      patchDocState(productId, { loading: true });
+      const token = sessionStorage.getItem("lender_token");
+
+      const res = await fetch(
+        `${API_BASE}/lender/document-config/create-custom-document-type`,
+        {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+        body: JSON.stringify({
+          name: customName,
+        }),
+      },
+      );
+
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json?.success) {
+        throw new Error(json?.message || "Failed to add custom document");
+      }
+
+      const createdDocType = json?.data;
+      const selectedDocs = value?.[productId]?.documents || [];
+      const alreadySelected = selectedDocs.some(
+        (d: any) => d.id === createdDocType?.id || d.documentTypeId === createdDocType?.id,
+      );
+
+      const customDoc = {
+        id: createdDocType?.id,
+        documentTypeId: createdDocType?.id,
+        name: createdDocType?.name || customName,
+        isCustom: true,
+      };
+
+      if (!alreadySelected) {
+        handleChange(productId, "documents", [...selectedDocs, customDoc]);
+      }
+
+      patchDocState(productId, {
+        customDocumentName: "",
+      });
+      await fetchDocuments(productId, 1, docState.search);
+      toast.success("Custom document added");
+    } catch (error: any) {
+      console.error(error);
+      toast.error(error?.message || "Failed to add custom document");
+    } finally {
+      patchDocState(productId, { loading: false });
+    }
   };
 
   const selectAllDocuments = async (productId: string) => {
@@ -868,6 +937,27 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
                       className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
                     />
                   </div>
+                  <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center">
+  <input
+    type="text"
+    placeholder="Enter custom document name..."
+    value={docState.customDocumentName}
+    onChange={(e) =>
+      patchDocState(product.id, {
+        customDocumentName: e.target.value,
+      })
+    }
+    className="h-12 flex-1 rounded-xl border border-slate-300 bg-white px-4 text-sm shadow-sm transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none"
+  />
+
+  <button
+    type="button"
+    onClick={() => addCustomDocument(product.id)}
+    className="flex h-12 shrink-0 items-center justify-center rounded-xl bg-indigo-600 px-6 text-sm font-semibold text-white transition hover:bg-indigo-700 active:scale-[0.98] md:w-auto"
+  >
+    + Add Document
+  </button>
+</div>
                   {isOpen && docState.loading ? (
                     <div className="flex items-center justify-center py-12 text-sm text-gray-500">
                       Loading documents...

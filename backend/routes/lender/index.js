@@ -12,11 +12,11 @@ const dashboardRoutes = require("./dashboard/index");
 // const brokerRoutes = require("./broker");
 // const commonRoutes = require("./common");
 
-const { LENDER_PORTAL_ROLES } = require("../../utils/lenderTeamRoles");
+const { LENDER_PORTAL_ROLES } = require("../../utils/lender/lenderTeamRoles");
 const {
   canLenderMutate,
   denyLenderMutation,
-} = require("../../utils/lenderAccess");
+} = require("../../utils/lender/lenderAccess");
 
 module.exports = async function lenderRoutes(fastify, opts) {
   // -------------------------

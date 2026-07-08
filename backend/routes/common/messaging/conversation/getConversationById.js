@@ -10,12 +10,12 @@ const {
   getUserId,
   isClientUser,
   isLenderUser,
-} = require("../../../../services/messagingAccess");
+} = require("../../../../services/messaging/messagingAccess");
 const {
   maskBrokerParticipantsForClient,
   resolvePrincipalBrokerDisplay,
-} = require("../../../../services/brokerOfficerConversation");
-const { resolveClientDisplayName } = require("../../../../services/resolveClientDisplayName");
+} = require("../../../../services/messaging/brokerOfficerConversation");
+const { resolveClientDisplayName } = require("../../../../services/messaging/resolveClientDisplayName");
 
 module.exports = async function getConversationById(fastify) {
   fastify.get(

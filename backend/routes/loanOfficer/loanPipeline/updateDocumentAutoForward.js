@@ -1,10 +1,10 @@
 /**
  * @param {import("fastify").FastifyInstance} fastify
  */
-const { assertOwnsSubmission } = require("../../../services/loanOfficerAccess");
+const { assertOwnsSubmission } = require("../../../services/broker/loanOfficerAccess");
 const {
   setAutoForwardDocumentsToLender,
-} = require("../../../services/documentAutoForwardSetting");
+} = require("../../../services/documents/documentAutoForwardSetting");
 
 module.exports = async function updateDocumentAutoForward(fastify) {
   fastify.patch(

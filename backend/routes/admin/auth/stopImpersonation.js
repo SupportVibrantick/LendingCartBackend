@@ -1,5 +1,5 @@
 const jwt = require("jsonwebtoken");
-const jwtSecret = require("../../../utils/jwtSecret");
+const jwtSecret = require("../../../utils/auth/jwtSecret");
 const { adminLogs } = require("../../../services/logger/contextLogger");
 
 async function stopImpersonationRoute(fastify) {

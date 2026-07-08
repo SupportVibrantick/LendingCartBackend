@@ -1,7 +1,7 @@
 const {
   isLenderAdmin,
   formatLenderRoleLabel,
-} = require("../../../utils/lenderTeamRoles");
+} = require("../../../utils/lender/lenderTeamRoles");
 
 module.exports = async function listLenderUsers(fastify) {
   fastify.get(

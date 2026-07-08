@@ -153,6 +153,9 @@ const mapResidentialFinancialsFromFields = (
     getFieldValue(fields, "hasRentalIncome"),
   );
   financials.monthlyRent = asFormNumber(getFieldValue(fields, "monthlyRent"));
+  financials.interimMonthsReported = asFormNumber(
+    getFieldValue(fields, "interimMonthsReported"),
+  );
   financials.dscrCalculationMethod =
     asString(getFieldValue(fields, "dscrCalculationMethod")) === "proForma"
       ? "proForma"
@@ -519,3 +522,5 @@ export function mapSubmissionToLoanApplication(fields: SubmissionField[]) {
     selectedCategory,
   };
 }
+
+

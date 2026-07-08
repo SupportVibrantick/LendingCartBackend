@@ -2,7 +2,7 @@ const {
   resolveClientDisplayNameFromData,
   resolveClientEmailFromData,
   resolveClientPhoneFromData,
-} = require("../../../services/resolveClientDisplayName");
+} = require("../../../services/messaging/resolveClientDisplayName");
 
 function getActiveSubmissions(submissions = []) {
   return submissions.filter((s) => s.status !== "SUPERSEDED");

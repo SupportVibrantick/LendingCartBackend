@@ -1,5 +1,5 @@
-const { formatCommissionRecord } = require("../../../utils/commissionHelpers");
-const { commissionInclude } = require("../../../utils/commissionQueryHelpers");
+const { formatCommissionRecord } = require("../../../utils/commission/commissionHelpers");
+const { commissionInclude } = require("../../../utils/commission/commissionQueryHelpers");
 const {
   recordCommissionPayout,
   ALLOWED_PAYMENT_METHODS,

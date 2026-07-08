@@ -6,9 +6,9 @@ const prisma = require("../../../config/prisma");
 const { ZodError } = require("zod");
 const {
   resolveCoBrokerBranding,
-} = require("../../../utils/resolveCoBrokerBranding");
+} = require("../../../utils/broker/resolveCoBrokerBranding");
 
-const jwtSecret = require("../../../utils/jwtSecret");
+const jwtSecret = require("../../../utils/auth/jwtSecret");
 
 async function loginRoute(fastify, options) {
   fastify.post(

@@ -4,7 +4,7 @@ const {
   formatBrokerLoiRecord,
   buildLoiSearchFilter,
   buildLoiPagination,
-} = require("../../../utils/brokerLoiList");
+} = require("../../../utils/broker/brokerLoiList");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify

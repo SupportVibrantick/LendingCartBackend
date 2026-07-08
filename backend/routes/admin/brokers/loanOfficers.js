@@ -5,14 +5,14 @@ const { pipeline } = require("stream/promises");
 const { adminLogs } = require("../../../services/logger/contextLogger.js");
 const {
   sendLoanOfficerCredentialsEmail,
-} = require("../../../services/loanOfficerCredentialsEmail");
+} = require("../../../services/emails/loanOfficerCredentialsEmail");
 const {
   resolveClientDisplayNameFromData,
-} = require("../../../services/resolveClientDisplayName");
+} = require("../../../services/messaging/resolveClientDisplayName");
 const {
   buildApplicationSearchWhere,
   loanApplicationListInclude,
-} = require("../../../services/loanApplicationSearch");
+} = require("../../../services/applications/loanApplicationSearch");
 
 function submissionFieldValue(fields, ...keys) {
   for (const field of fields || []) {
