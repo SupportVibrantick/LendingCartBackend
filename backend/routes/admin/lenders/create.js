@@ -272,7 +272,7 @@ async function createLenderRoutes(fastify) {
             subject,
             text,
             html,
-            idempotencyKey: `admin-lender-create:${adminEmail}`,
+            idempotencyKey: `admin-lender-create:${newLenderOrg.id}`,
           });
 
           adminLogs.info("Lender creation email enqueued", {

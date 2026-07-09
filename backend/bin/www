@@ -1,4 +1,4 @@
-const { validateApiEnv, isEmailEnabled, envFlag } = require("../config/env");
+const { validateApiEnv, isEmailEnabled } = require("../config/env");
 const { startEmailOutboxWorker } = require("../services/email");
 const { registerProcessSafetyHandlers } = require("../config/processSafety");
 
@@ -41,7 +41,7 @@ async function start() {
   debug(`Server is running on ${address}`);
   app.log.info(`Server listening on ${bind}`);
 
-  if (isEmailEnabled() && !envFlag("ENABLE_CRONS", false)) {
+  if (isEmailEnabled()) {
     startEmailOutboxWorker(app.prisma);
     app.log.info("Email outbox worker started (API process)");
   }

@@ -1,13 +1,22 @@
 const fp = require("fastify-plugin");
+const crypto = require("crypto");
 const {
   buildSubmissionFieldsPayload,
   loadProductFieldIdMap,
 } = require("../../../../services/applications/staticSubmissionFields");
-const { randomUUID } = require("crypto");
 const {
   notifyBroker,
   BROKER_NOTIFICATION_EVENTS,
 } = require("../../../../services/notifications/brokerNotifications");
+const {
+  createClientPortalToken,
+  sendClientPortalAccessEmail,
+} = require("../../../../services/emails/clientPortalAccessEmail");
+const {
+  resolveBorrowerNameParts,
+  resolveClientDisplayName,
+  resolveBorrowerEmail,
+} = require("../../../../utils/applications/resolveBorrowerIdentity");
 
 async function submitApplication(fastify) {
   fastify.post("/submit", async (req, reply) => {
@@ -52,34 +61,21 @@ async function submitApplication(fastify) {
     }
 
     const result = await fastify.prisma.$transaction(async (tx) => {
-      // Extract required fields
-      const emailField = fields.find(
-        (f) => f.fieldKey === "email" || f.fieldKey === "borrowerEmail",
-      );
-      const firstNameField = fields.find(
-        (f) =>
-          f.fieldKey === "first_name" ||
-          f.fieldKey === "borrowerFirstName" ||
-          f.fieldKey === "firstName",
-      );
-      const lastNameField = fields.find(
-        (f) =>
-          f.fieldKey === "last_name" ||
-          f.fieldKey === "borrowerLastName" ||
-          f.fieldKey === "lastName",
-      );
+      const borrowerEmail = resolveBorrowerEmail(fields);
+      const { firstName, lastName, displayName } =
+        resolveBorrowerNameParts(fields);
 
-      if (!emailField?.value) {
+      if (!borrowerEmail) {
         throw new Error("Email is required");
       }
+
+      const legalName = displayName || "Individual Applicant";
 
       // 1️⃣ Create Client
       const client = await tx.client.create({
         data: {
-          id: randomUUID(),
-          legalName:
-            `${firstNameField?.value || ""} ${lastNameField?.value || ""}`.trim() ||
-            "Individual Applicant",
+          id: crypto.randomUUID(),
+          legalName,
           entityType: "INDIVIDUAL",
           primaryBrokerOrgId: brokerProduct.brokerApplication.brokerOrgId,
         },
@@ -89,9 +85,9 @@ async function submitApplication(fastify) {
       await tx.clientContact.create({
         data: {
           clientId: client.id,
-          firstName: firstNameField?.value || "Applicant",
-          lastName: lastNameField?.value || "",
-          email: emailField.value,
+          firstName: firstName || "Applicant",
+          lastName: lastName || "",
+          email: borrowerEmail,
           isPrimary: true,
         },
       });
@@ -99,7 +95,7 @@ async function submitApplication(fastify) {
       // 3️⃣ Create Loan Application
       const loanApplication = await tx.loanApplication.create({
         data: {
-          id: randomUUID(),
+          id: crypto.randomUUID(),
           applicationNumber: `APP-${Date.now()}`,
           brokerOrgId: brokerProduct.brokerApplication.brokerOrgId,
           clientId: client.id,
@@ -136,8 +132,58 @@ async function submitApplication(fastify) {
         });
       }
 
-      return { submission, loanApplication, client, brokerOrgId: brokerProduct.brokerApplication.brokerOrgId };
+      const portalToken = await createClientPortalToken(tx, {
+        loanApplicationId: loanApplication.id,
+        clientId: client.id,
+      });
+
+      return {
+        submission,
+        loanApplication,
+        client,
+        brokerOrgId: brokerProduct.brokerApplication.brokerOrgId,
+        borrowerEmail,
+        portalToken,
+        clientDisplayName: resolveClientDisplayName({
+          client,
+          fields,
+        }),
+      };
     });
+
+    try {
+      const brokerOrg = await fastify.prisma.organization.findUnique({
+        where: { id: result.brokerOrgId },
+        select: { name: true },
+      });
+
+      await sendClientPortalAccessEmail({
+        prisma: fastify.prisma,
+        to: result.borrowerEmail,
+        clientName: result.clientDisplayName,
+        applicationNumber: result.loanApplication.applicationNumber,
+        brokerName: brokerOrg?.name,
+        portalToken: result.portalToken,
+        idempotencyKey: `public-submit-portal:${result.loanApplication.id}`,
+      });
+
+      fastify.log.info(
+        {
+          borrowerEmail: result.borrowerEmail,
+          applicationId: result.loanApplication.id,
+        },
+        "Client portal access email enqueued after public application submit",
+      );
+    } catch (mailErr) {
+      fastify.log.error(
+        {
+          error: mailErr.message,
+          applicationId: result.loanApplication.id,
+          borrowerEmail: result.borrowerEmail,
+        },
+        "Failed to send client portal email after public application submit",
+      );
+    }
 
     await notifyBroker(fastify.prisma, fastify.io, {
       brokerOrgId: result.brokerOrgId,
@@ -148,7 +194,7 @@ async function submitApplication(fastify) {
       metadata: {
         applicationId: result.loanApplication.id,
         applicationNumber: result.loanApplication.applicationNumber,
-        clientName: result.client.legalName,
+        clientName: result.clientDisplayName,
         source: "PUBLIC_FORM",
       },
     });

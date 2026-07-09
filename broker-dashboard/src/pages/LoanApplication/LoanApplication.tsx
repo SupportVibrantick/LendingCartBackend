@@ -972,6 +972,39 @@ async function fetchActiveApplicationCatalog(
     : result.data;
 }
 
+function withBorrowerNameFields<
+  T extends { fieldKey: string; value: unknown; fieldId?: string },
+>(fields: T[]): T[] {
+  const next = [...fields];
+
+  const readValue = (...keys: string[]) => {
+    for (const key of keys) {
+      const match = fields.find((field) => field.fieldKey === key);
+      const value = match?.value;
+      if (value != null && String(value).trim()) {
+        return String(value).trim();
+      }
+    }
+    return "";
+  };
+
+  if (!next.some((field) => field.fieldKey === "first_name")) {
+    const firstName = readValue("first_name", "borrowerFirstName", "firstName");
+    if (firstName) {
+      next.push({ fieldKey: "first_name", value: firstName } as T);
+    }
+  }
+
+  if (!next.some((field) => field.fieldKey === "last_name")) {
+    const lastName = readValue("last_name", "borrowerLastName", "lastName");
+    if (lastName) {
+      next.push({ fieldKey: "last_name", value: lastName } as T);
+    }
+  }
+
+  return next;
+}
+
 const LoanApplication = ({
   mode = "create",
   portal = "broker",
@@ -2403,7 +2436,7 @@ const LoanApplication = ({
           throw new Error("Please verify reCAPTCHA before submitting");
         }
 
-        const publicFields = [...payload.fields];
+        const publicFields = withBorrowerNameFields([...payload.fields]);
         const hasFirstName = publicFields.some((f) => f.fieldKey === "first_name");
         const hasLastName = publicFields.some((f) => f.fieldKey === "last_name");
 
@@ -2451,18 +2484,18 @@ const LoanApplication = ({
 
         if (pendingDocuments.length > 0) {
           toast(
-            "Application submitted. Your broker may request documents through the client portal.",
+            "Application submitted. A client portal access link was sent to the borrower email.",
             { icon: "ℹ️" },
           );
         } else {
-          toast.success("Application submitted successfully");
+          toast.success(
+            "Application submitted. Client portal access link sent to borrower email.",
+          );
         }
 
         onPublicSubmitSuccess?.(result?.data?.submissionId);
         return;
       }
-
-      console.log("Submitting Payload:", payload);
 
       const response = await fetch(portalConfig.submitUrl, {
         method: "POST",
@@ -2470,7 +2503,10 @@ const LoanApplication = ({
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          ...payload,
+          fields: withBorrowerNameFields(payload.fields),
+        }),
       });
 
       const result = await response.json();
@@ -2505,7 +2541,9 @@ const LoanApplication = ({
         }
       }
 
-      toast.success("Application Submitted Successfully");
+      toast.success(
+        "Application submitted. Client portal access link sent to borrower email.",
+      );
       navigate(portalConfig.successPath);
     } catch (error: any) {
       toast.error(error.message || "Something went wrong");

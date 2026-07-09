@@ -9,6 +9,16 @@ const {
   notifyBroker,
   BROKER_NOTIFICATION_EVENTS,
 } = require("../../../services/notifications/brokerNotifications");
+const {
+  createClientPortalToken,
+  sendClientPortalAccessEmail,
+} = require("../../../services/emails/clientPortalAccessEmail");
+const {
+  resolveBorrowerNameParts,
+  resolveClientDisplayName,
+  resolveBorrowerEmail,
+  isGenericClientName,
+} = require("../../../utils/applications/resolveBorrowerIdentity");
 
 async function brokerSubmitApplication(fastify) {
   fastify.post(
@@ -85,17 +95,15 @@ async function brokerSubmitApplication(fastify) {
         /* ================= TRANSACTION ================= */
 
         const result = await prisma.$transaction(async (tx) => {
-          const emailField = fields.find((f) => f.fieldKey === "email");
-          const firstNameField = fields.find(
-            (f) => f.fieldKey === "first_name",
-          );
-          const lastNameField = fields.find((f) => f.fieldKey === "last_name");
+          const email = resolveBorrowerEmail(fields);
 
-          if (!emailField?.value) {
+          if (!email) {
             throw new Error("Email is required");
           }
 
-          const email = emailField.value;
+          const { firstName, lastName, displayName } =
+            resolveBorrowerNameParts(fields);
+          const legalName = displayName || "Individual Applicant";
 
           /* ---------- CLIENT ---------- */
 
@@ -113,16 +121,13 @@ async function brokerSubmitApplication(fastify) {
             client = await tx.client.create({
               data: {
                 id: randomUUID(),
-                legalName:
-                  `${firstNameField?.value || ""} ${
-                    lastNameField?.value || ""
-                  }`.trim() || "Individual Applicant",
+                legalName,
                 entityType: "INDIVIDUAL",
                 primaryBrokerOrgId: brokerOrgId,
                 contacts: {
                   create: {
-                    firstName: firstNameField?.value || "Applicant",
-                    lastName: lastNameField?.value || "",
+                    firstName: firstName || "Applicant",
+                    lastName: lastName || "",
                     email,
                     isPrimary: true,
                   },
@@ -130,6 +135,34 @@ async function brokerSubmitApplication(fastify) {
               },
               include: { contacts: true },
             });
+          } else {
+            if (displayName && isGenericClientName(client.legalName)) {
+              client = await tx.client.update({
+                where: { id: client.id },
+                data: { legalName: displayName },
+                include: { contacts: true },
+              });
+            }
+
+            const primaryContact =
+              client.contacts.find((contact) => contact.email === email) ||
+              client.contacts.find((contact) => contact.isPrimary) ||
+              client.contacts[0];
+
+            if (primaryContact && (firstName || lastName)) {
+              await tx.clientContact.update({
+                where: { id: primaryContact.id },
+                data: {
+                  ...(firstName ? { firstName } : {}),
+                  ...(lastName ? { lastName } : {}),
+                },
+              });
+
+              client = await tx.client.findUnique({
+                where: { id: client.id },
+                include: { contacts: true },
+              });
+            }
           }
 
           /* ---------- LOAN APPLICATION ---------- */
@@ -182,7 +215,23 @@ async function brokerSubmitApplication(fastify) {
             });
           }
 
-          return { submission, loanApplication, client };
+          const portalToken = await createClientPortalToken(tx, {
+            loanApplicationId: loanApplication.id,
+            clientId: client.id,
+          });
+
+          return {
+            submission,
+            loanApplication,
+            client,
+            borrowerEmail: email,
+            portalToken,
+            clientDisplayName: resolveClientDisplayName({
+              client,
+              contacts: client.contacts,
+              fields,
+            }),
+          };
         });
 
         /* ================= AUDIT ================= */
@@ -257,10 +306,46 @@ async function brokerSubmitApplication(fastify) {
           metadata: {
             applicationId: result.loanApplication.id,
             applicationNumber: result.loanApplication.applicationNumber,
-            clientName: result.client.legalName,
+            clientName: result.clientDisplayName,
             createdByUserId: loggedInUserId,
           },
         });
+
+        try {
+          const brokerOrg = await prisma.organization.findUnique({
+            where: { id: brokerOrgId },
+            select: { name: true },
+          });
+
+          await sendClientPortalAccessEmail({
+            prisma,
+            to: result.borrowerEmail,
+            clientName: result.clientDisplayName,
+            applicationNumber: result.loanApplication.applicationNumber,
+            brokerName: brokerOrg?.name,
+            portalToken: result.portalToken,
+            idempotencyKey: `broker-submit-portal:${result.loanApplication.id}`,
+            message:
+              "Your loan application has been created. Use the secure link below to access your client portal, complete your application, and upload documents.",
+          });
+
+          fastify.log.info(
+            {
+              borrowerEmail: result.borrowerEmail,
+              applicationId: result.loanApplication.id,
+            },
+            "Client portal access email enqueued after broker application submit",
+          );
+        } catch (mailErr) {
+          fastify.log.error(
+            {
+              error: mailErr.message,
+              applicationId: result.loanApplication.id,
+              borrowerEmail: result.borrowerEmail,
+            },
+            "Failed to send client portal email after broker application submit",
+          );
+        }
 
         /* ================= RESPONSE ================= */
 
