@@ -178,7 +178,7 @@ async function brokerSubmitApplication(fastify) {
 
               clientId: client.id,
               loanProductCode: brokerProduct.loanProductCode,
-              status: "DRAFT",
+              status: "CLIENT_PENDING",
             },
           });
 

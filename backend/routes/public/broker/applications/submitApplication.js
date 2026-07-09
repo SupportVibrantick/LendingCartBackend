@@ -100,7 +100,7 @@ async function submitApplication(fastify) {
           brokerOrgId: brokerProduct.brokerApplication.brokerOrgId,
           clientId: client.id,
           loanProductCode: brokerProduct.loanProductCode,
-          status: "SUBMITTED",
+          status: "CLIENT_PENDING",
         },
       });
 
@@ -109,7 +109,7 @@ async function submitApplication(fastify) {
         data: {
           applicationId: loanApplication.id,
           applicationProductId,
-          status: "NEW",
+          status: "CLIENT_PENDING",
         },
       });
 
