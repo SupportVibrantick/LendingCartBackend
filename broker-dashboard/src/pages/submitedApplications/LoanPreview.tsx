@@ -1054,11 +1054,29 @@ const LoanPreview = () => {
   //   }
   // };
 
-  useEffect(() => {
-    if (activeTab === "documents" && applicationId) {
-      fetchSubmittedLenders();
-    }
-  }, [activeTab, applicationId]);
+useEffect(() => {
+  if (
+    activeTab !== "documents" ||
+    !submissionId ||
+    !applicationId
+  ) {
+    return;
+  }
+
+  fetchSubmittedLenders();
+  fetchSubmissionDocuments(
+    submissionId,
+    page,
+    debouncedSearch,
+    documentLenderFilter,
+    documentSentFilter,
+    documentSourceFilter,
+  );
+}, [
+  activeTab,
+  applicationId,
+  submissionId,
+]);
 
   useEffect(() => {
     setSubmissionDetail(null);
