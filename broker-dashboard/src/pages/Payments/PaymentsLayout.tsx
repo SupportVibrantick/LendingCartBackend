@@ -11,7 +11,7 @@ export default function PaymentsLayout() {
       <div>
         <h1 className="text-2xl font-semibold text-slate-900">Payments</h1>
         <p className="mt-1 text-sm text-slate-500">
-          Manage commission invoices, payouts, and payment records.
+          Manage commission invoices, payouts, and payment records. 
         </p>
       </div>
 

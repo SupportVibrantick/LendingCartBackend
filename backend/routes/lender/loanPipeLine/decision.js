@@ -11,6 +11,46 @@ const {
   CLIENT_NOTIFICATION_EVENTS,
 } = require("../../../services/notifications/clientNotifications");
 
+const INTEREST_RATE_MAX = 100;
+const APPROVED_AMOUNT_MAX = 999_999_999_999_999.99;
+
+function parseApprovedAmount(value) {
+  if (value == null || value === "") return null;
+
+  const num = Number(value);
+  if (!Number.isFinite(num)) {
+    throw new Error("Approved amount must be a valid number");
+  }
+  if (num < 0) {
+    throw new Error("Approved amount cannot be negative");
+  }
+  if (num > APPROVED_AMOUNT_MAX) {
+    throw new Error("Approved amount is too large");
+  }
+
+  return Math.round(num * 100) / 100;
+}
+
+function parseInterestRate(value) {
+  if (value == null || value === "") return null;
+
+  const num = Number(value);
+  if (!Number.isFinite(num)) {
+    throw new Error("Interest rate must be a valid number");
+  }
+  if (num < 0 || num > INTEREST_RATE_MAX) {
+    throw new Error(
+      `Interest rate must be between 0 and ${INTEREST_RATE_MAX} (enter as a percentage, e.g. 8.5 for 8.5%)`,
+    );
+  }
+
+  return Math.round(num * 10000) / 10000;
+}
+
+function isClientError(message = "") {
+  return /must be|cannot be|too large|Please select/i.test(message);
+}
+
 /**
  * @param {import("fastify").FastifyInstance} fastify
  */
@@ -36,8 +76,8 @@ async function lenderDecisionRoutes(fastify) {
               type: "string",
               enum: ["CONDITIONAL", "APPROVED", "DECLINED"],
             },
-            approvedAmount: { type: "number" },
-            interestRate: { type: "number" },
+            approvedAmount: { type: "number", minimum: 0 },
+            interestRate: { type: "number", minimum: 0, maximum: 100 },
             notes: { type: "string" },
             documentTypeIds: {
               type: "array",
@@ -159,6 +199,10 @@ async function lenderDecisionRoutes(fastify) {
         }
 
         const previousLoanStatus = record.loanApplication.status;
+        const normalizedApprovedAmount =
+          decision === "APPROVED" ? parseApprovedAmount(approvedAmount) : null;
+        const normalizedInterestRate =
+          decision === "APPROVED" ? parseInterestRate(interestRate) : null;
 
         /* ===============================
            TRANSACTION
@@ -179,8 +223,8 @@ async function lenderDecisionRoutes(fastify) {
               applicationLenderId,
               reviewedByUserId: userId,
               reviewStatus,
-              approvedAmount: decision === "APPROVED" ? approvedAmount : null,
-              interestRate: decision === "APPROVED" ? interestRate : null,
+              approvedAmount: normalizedApprovedAmount,
+              interestRate: normalizedInterestRate,
               notes: notes || null,
             },
           });
@@ -411,8 +455,8 @@ async function lenderDecisionRoutes(fastify) {
             applicationLenderId,
             lenderName,
             decision,
-            approvedAmount: decision === "APPROVED" ? approvedAmount : null,
-            interestRate: decision === "APPROVED" ? interestRate : null,
+            approvedAmount: normalizedApprovedAmount,
+            interestRate: normalizedInterestRate,
           },
         });
 
@@ -456,9 +500,9 @@ async function lenderDecisionRoutes(fastify) {
           route: "lender-decision",
         });
 
-        return reply.status(500).send({
+        return reply.status(isClientError(error.message) ? 400 : 500).send({
           success: false,
-          message: error.message, // easier debugging
+          message: error.message,
         });
       }
     },

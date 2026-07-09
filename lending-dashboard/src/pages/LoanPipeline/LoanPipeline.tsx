@@ -1167,6 +1167,8 @@ transition rounded-lg mx-1"
                             <input
                               type="number"
                               step="0.01"
+                              min="0"
+                              max="100"
                               value={decisionForm.interestRate}
                               onChange={(e) =>
                                 setDecisionForm({

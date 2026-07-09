@@ -31,7 +31,7 @@ import LoanPreviewChat from "./LoanPreviewChat";
 import FeeAgreement from "./FeeAgreement";
 import LoanApplication from "../LoanApplication/LoanApplication";
 import { mapSubmissionToLoanApplication } from "../../lib/mapSubmissionToLoanApplication";
-import { 
+import {
   expandDocumentsForDisplay,
   getDocumentSentDisplay,
   getDocumentSourceDisplay,
@@ -229,29 +229,26 @@ const Metric = ({
     >
       <div className="absolute inset-0 opacity-0 blur-xl transition duration-300 group-hover:opacity-100 bg-gradient-to-r from-cyan-400/10 to-blue-500/10" />
       <p
-        className={`text-[11px] font-semibold uppercase tracking-widest transition ${
-          isHero
+        className={`text-[11px] font-semibold uppercase tracking-widest transition ${isHero
             ? "text-white/70 group-hover:text-white"
             : "text-slate-500 group-hover:text-slate-700"
-        }`}
+          }`}
       >
         {label}
       </p>
       <p
-        className={`mt-2 text-md font-bold transition-all duration-300 ${
-          isHero
+        className={`mt-2 text-md font-bold transition-all duration-300 ${isHero
             ? "text-white group-hover:scale-105"
             : "bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-transparent group-hover:from-blue-600 group-hover:to-cyan-500"
-        }`}
+          }`}
       >
         {value}
       </p>
       <div
-        className={`mt-3 h-[3px] w-0 rounded-full transition-all duration-300 group-hover:w-full ${
-          isHero
+        className={`mt-3 h-[3px] w-0 rounded-full transition-all duration-300 group-hover:w-full ${isHero
             ? "bg-gradient-to-r from-white/80 to-cyan-300"
             : "bg-gradient-to-r from-cyan-500 to-blue-500"
-        }`}
+          }`}
       />
     </motion.div>
   );
@@ -385,7 +382,7 @@ const LoanPreview = () => {
 
   const documentFilterLenders = documentsData?.documentFilterLenders || [];
 
-  const selectableDocuments = displayDocuments.filter(       
+  const selectableDocuments = displayDocuments.filter(
     (doc) => doc.status !== "SKIPPED",
   );
 
@@ -601,9 +598,9 @@ const LoanPreview = () => {
       setDocumentsData((prev: any) =>
         prev
           ? {
-              ...prev,
-              autoForwardDocumentsToLender: nextValue,
-            }
+            ...prev,
+            autoForwardDocumentsToLender: nextValue,
+          }
           : prev,
       );
 
@@ -834,7 +831,7 @@ const LoanPreview = () => {
     if (!canRequestDocuments) {
       toast.error(
         documentRequestBlockedReason ||
-          "Documents cannot be requested for this application.",
+        "Documents cannot be requested for this application.",
       );
       return;
     }
@@ -861,10 +858,26 @@ const LoanPreview = () => {
         throw new Error(json.message || "Failed to request documents");
       }
       toast.success("Documents requested successfully");
+
       setSelectedRequestDocs([]);
       setRequestMessage("");
+
       if (submissionId) {
-        fetchSubmissionDocuments(submissionId);
+        // Force refresh documents
+        await fetchSubmissionDocuments(
+          submissionId,
+          1,
+          "",
+          "",
+          "all",
+          "all",
+        );
+
+        // Reset loaded state
+        setDocumentsLoadedFor(submissionId);
+
+        // Switch to Upload Documents tab
+        setActiveTab("documents");
       }
     } catch (err: any) {
       toast.error(err.message || "Something went wrong");
@@ -1054,29 +1067,29 @@ const LoanPreview = () => {
   //   }
   // };
 
-useEffect(() => {
-  if (
-    activeTab !== "documents" ||
-    !submissionId ||
-    !applicationId
-  ) {
-    return;
-  }
+  useEffect(() => {
+    if (
+      activeTab !== "documents" ||
+      !submissionId ||
+      !applicationId
+    ) {
+      return;
+    }
 
-  fetchSubmittedLenders();
-  fetchSubmissionDocuments(
+    fetchSubmittedLenders();
+    fetchSubmissionDocuments(
+      submissionId,
+      page,
+      debouncedSearch,
+      documentLenderFilter,
+      documentSentFilter,
+      documentSourceFilter,
+    );
+  }, [
+    activeTab,
+    applicationId,
     submissionId,
-    page,
-    debouncedSearch,
-    documentLenderFilter,
-    documentSentFilter,
-    documentSourceFilter,
-  );
-}, [
-  activeTab,
-  applicationId,
-  submissionId,
-]);
+  ]);
 
   useEffect(() => {
     setSubmissionDetail(null);
@@ -1204,13 +1217,13 @@ useEffect(() => {
     },
     ...(submissionDetail?.canEdit !== false
       ? [
-          {
-            key: "update-application" as const,
-            label: "Update Application",
-            icon: Pencil,
-            color: "text-cyan-600",
-          },
-        ]
+        {
+          key: "update-application" as const,
+          label: "Update Application",
+          icon: Pencil,
+          color: "text-cyan-600",
+        },
+      ]
       : []),
     {
       key: "find-lenders" as const,
@@ -1225,6 +1238,12 @@ useEffect(() => {
       color: "text-emerald-600",
     },
     {
+      key: "documents" as const,
+      label: "Upload Documents",
+      icon: FolderOpen,
+      color: "text-amber-600",
+    },
+    {
       key: "email-reminders" as const,
       label: "Email Reminders",
       icon: Mail,
@@ -1235,12 +1254,6 @@ useEffect(() => {
       label: "View LOI",
       icon: FileText,
       color: "text-purple-600",
-    },
-    {
-      key: "documents" as const,
-      label: "Upload Documents",
-      icon: FolderOpen,
-      color: "text-amber-600",
     },
     {
       key: "sign-documents" as const,
@@ -1268,13 +1281,13 @@ useEffect(() => {
     },
     ...(isFundedDeal
       ? [
-          {
-            key: "commissions" as const,
-            label: "Commissions",
-            icon: DollarSign,
-            color: "text-emerald-600",
-          },
-        ]
+        {
+          key: "commissions" as const,
+          label: "Commissions",
+          icon: DollarSign,
+          color: "text-emerald-600",
+        },
+      ]
       : []),
   ];
 
@@ -1382,110 +1395,109 @@ useEffect(() => {
     }
 
     return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950">
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-semibold text-gray-800 dark:text-slate-100">
-            Select Documents
-          </h2>
-          <p className="text-sm text-gray-500">
-            Select which documents are required.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() =>
-              setSelectedRequestDocs(
-                requestDocs.map((doc: any) => doc.documentTypeId),
-              )
-            }
-            className="rounded-md border bg-gray-50 px-3 py-1 text-xs hover:bg-gray-100 dark:border-slate-700 dark:bg-slate-900"
-          >
-            Select All
-          </button>
-          <button
-            onClick={() => setSelectedRequestDocs([])}
-            className="rounded-md border bg-gray-50 px-3 py-1 text-xs hover:bg-gray-100 dark:border-slate-700 dark:bg-slate-900"
-          >
-            Clear
-          </button>
-        </div>
-      </div>
-
-      {requestDocsLoading ? (
-        <div className="py-10 text-center text-gray-500">
-          Loading documents...
-        </div>
-      ) : (
-        <>
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-            {requestDocs.map((doc: any) => {
-              const isSelected = selectedRequestDocs.includes(
-                doc.documentTypeId,
-              );
-              return (
-                <div
-                  key={doc.documentTypeId}
-                  onClick={() => {
-                    setSelectedRequestDocs((prev) =>
-                      isSelected
-                        ? prev.filter((id) => id !== doc.documentTypeId)
-                        : [...prev, doc.documentTypeId],
-                    );
-                  }}
-                  className={`flex cursor-pointer items-center justify-between rounded-xl border px-4 py-3 transition ${
-                    isSelected
-                      ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-500/10"
-                      : "border-gray-200 hover:border-gray-300 dark:border-slate-700"
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full bg-orange-400" />
-                    <span className="text-sm text-gray-700 dark:text-slate-200">
-                      {doc.documentType.name}
-                    </span>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={isSelected}
-                    readOnly
-                    className="accent-emerald-600"
-                  />
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="mt-4">
-            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-slate-200">
-              Message
-            </label>
-            <textarea
-              placeholder="Enter a message for the client (optional)..."
-              className="min-h-[90px] w-full resize-none rounded-xl border border-gray-300 px-3 py-2 text-sm transition focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-900"
-              value={requestMessage}
-              onChange={(e) => setRequestMessage(e.target.value)}
-            />
-            <p className="mt-1 text-xs text-gray-400">
-              This message will be sent along with the document request.
-            </p>
-          </div>
-
-          <div className="mt-6 flex items-center justify-between">
+      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-800 dark:text-slate-100">
+              Select Documents
+            </h2>
             <p className="text-sm text-gray-500">
-              {selectedRequestDocs.length} selected
+              Select which documents are required.
             </p>
+          </div>
+          <div className="flex gap-2">
             <button
-              onClick={handleRequestDocuments}
-              disabled={selectedRequestDocs.length === 0 || requestSubmitting}
-              className="rounded-lg bg-emerald-600 px-5 py-2 text-sm text-white hover:bg-emerald-700 disabled:opacity-50"
+              onClick={() =>
+                setSelectedRequestDocs(
+                  requestDocs.map((doc: any) => doc.documentTypeId),
+                )
+              }
+              className="rounded-md border bg-gray-50 px-3 py-1 text-xs hover:bg-gray-100 dark:border-slate-700 dark:bg-slate-900"
             >
-              {requestSubmitting ? "Requesting..." : "Request Documents"}
+              Select All
+            </button>
+            <button
+              onClick={() => setSelectedRequestDocs([])}
+              className="rounded-md border bg-gray-50 px-3 py-1 text-xs hover:bg-gray-100 dark:border-slate-700 dark:bg-slate-900"
+            >
+              Clear
             </button>
           </div>
-        </>
-      )}
-    </div>
+        </div>
+
+        {requestDocsLoading ? (
+          <div className="py-10 text-center text-gray-500">
+            Loading documents...
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+              {requestDocs.map((doc: any) => {
+                const isSelected = selectedRequestDocs.includes(
+                  doc.documentTypeId,
+                );
+                return (
+                  <div
+                    key={doc.documentTypeId}
+                    onClick={() => {
+                      setSelectedRequestDocs((prev) =>
+                        isSelected
+                          ? prev.filter((id) => id !== doc.documentTypeId)
+                          : [...prev, doc.documentTypeId],
+                      );
+                    }}
+                    className={`flex cursor-pointer items-center justify-between rounded-xl border px-4 py-3 transition ${isSelected
+                        ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-500/10"
+                        : "border-gray-200 hover:border-gray-300 dark:border-slate-700"
+                      }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="h-2 w-2 rounded-full bg-orange-400" />
+                      <span className="text-sm text-gray-700 dark:text-slate-200">
+                        {doc.documentType.name}
+                      </span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      readOnly
+                      className="accent-emerald-600"
+                    />
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="mt-4">
+              <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-slate-200">
+                Message
+              </label>
+              <textarea
+                placeholder="Enter a message for the client (optional)..."
+                className="min-h-[90px] w-full resize-none rounded-xl border border-gray-300 px-3 py-2 text-sm transition focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-900"
+                value={requestMessage}
+                onChange={(e) => setRequestMessage(e.target.value)}
+              />
+              <p className="mt-1 text-xs text-gray-400">
+                This message will be sent along with the document request.
+              </p>
+            </div>
+
+            <div className="mt-6 flex items-center justify-between">
+              <p className="text-sm text-gray-500">
+                {selectedRequestDocs.length} selected
+              </p>
+              <button
+                onClick={handleRequestDocuments}
+                disabled={selectedRequestDocs.length === 0 || requestSubmitting}
+                className="rounded-lg bg-emerald-600 px-5 py-2 text-sm text-white hover:bg-emerald-700 disabled:opacity-50"
+              >
+                {requestSubmitting ? "Requesting..." : "Request Documents"}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
     );
   };
 
@@ -1499,20 +1511,20 @@ useEffect(() => {
   );
 
   const PRODUCT_LABELS: Record<string, string> = {
-  FIX_AND_FLIP_LOAN_1_TO_4_UNITS: "FIX & FLIP",
-  DSCR_LOAN_1_TO_4_UNITS: "DSCR",
-  CONSTRUCTION_LOAN_1_TO_4_UNITS: "CONSTRUCTION",
-  BRIDGE_LOAN_1_TO_4_UNITS: "BRIDGE LOAN",
-  SBA_504_REAL_ESTATE_AND_EQUIPMENT: "SBA 504",
-  USDA_BI: "USDA B&I",
-  AGENCY_LOAN_MULTIFAMILY: "AGENCY MULTIFAMILY",
-  CRE_PERMANENT_LOAN: "CRE PERMANENT",
-  RENTAL_PORTFOLIO: "RENTAL PORTFOLIO",
-  PURCHASE_ORDER_FINANCE: "PURCHASE ORDER FINANCE",
-  ACCOUNTS_PAYABLE_FINANCE: "AP SUPPLY CHAIN",
-  ACCOUNTS_RECEIVABLE: "ACCOUNTS RECEIVABLE",
-  INVOICE_FACTORING: "AR FACTORING",
-};
+    FIX_AND_FLIP_LOAN_1_TO_4_UNITS: "FIX & FLIP",
+    DSCR_LOAN_1_TO_4_UNITS: "DSCR",
+    CONSTRUCTION_LOAN_1_TO_4_UNITS: "CONSTRUCTION",
+    BRIDGE_LOAN_1_TO_4_UNITS: "BRIDGE LOAN",
+    SBA_504_REAL_ESTATE_AND_EQUIPMENT: "SBA 504",
+    USDA_BI: "USDA B&I",
+    AGENCY_LOAN_MULTIFAMILY: "AGENCY MULTIFAMILY",
+    CRE_PERMANENT_LOAN: "CRE PERMANENT",
+    RENTAL_PORTFOLIO: "RENTAL PORTFOLIO",
+    PURCHASE_ORDER_FINANCE: "PURCHASE ORDER FINANCE",
+    ACCOUNTS_PAYABLE_FINANCE: "AP SUPPLY CHAIN",
+    ACCOUNTS_RECEIVABLE: "ACCOUNTS RECEIVABLE",
+    INVOICE_FACTORING: "AR FACTORING",
+  };
 
   const renderFindLenders = () => {
     const filteredLenders = (lenders || []).filter((lender) => {
@@ -1551,17 +1563,16 @@ dark:border-slate-800 dark:bg-slate-900"
                 scrollToLenders();
               }}
               className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all
-      ${
-        lenderFilter === type
-          ? type === "eligible"
-            ? "bg-green-600 text-white"
-            : type === "rejected"
-              ? "bg-red-600 text-white"
-              : type === "sent"
-                ? "bg-blue-600 text-white"
-                : "bg-slate-800 text-white dark:bg-white dark:text-black"
-          : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
-      }
+      ${lenderFilter === type
+                  ? type === "eligible"
+                    ? "bg-green-600 text-white"
+                    : type === "rejected"
+                      ? "bg-red-600 text-white"
+                      : type === "sent"
+                        ? "bg-blue-600 text-white"
+                        : "bg-slate-800 text-white dark:bg-white dark:text-black"
+                  : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                }
 `}
             >
               {type === "all"
@@ -1765,15 +1776,14 @@ dark:border-slate-800 dark:bg-slate-900"
                       </div>
 
                       <span
-                        className={`px-2 py-1 text-xs rounded-full capitalize ${
-                          lender.type === "eligible"
+                        className={`px-2 py-1 text-xs rounded-full capitalize ${lender.type === "eligible"
                             ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
                             : lender.type === "ineligible"
                               ? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400"
-                            : lender.type === "rejected"
-                              ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                              : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
-                        }`}
+                              : lender.type === "rejected"
+                                ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                                : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                          }`}
                       >
                         {lender.type === "ineligible"
                           ? "Not Eligible"
@@ -1785,10 +1795,10 @@ dark:border-slate-800 dark:bg-slate-900"
                     <div className="text-sm space-y-1">
                       <div>
                         Product:{" "}
-{PRODUCT_LABELS[lender.loanProductCode] ??
-  lender.loanProductCode
-    ?.replace(/_/g, " ")
-    .toUpperCase()}
+                        {PRODUCT_LABELS[lender.loanProductCode] ??
+                          lender.loanProductCode
+                            ?.replace(/_/g, " ")
+                            .toUpperCase()}
                       </div>
                       <div>
                         Funding: ${Number(lender.minFunding).toLocaleString()} -
@@ -1820,16 +1830,16 @@ dark:bg-amber-900/20 dark:text-amber-300"
                       )}
 
                     {lender.type === "rejected" && (
-                        <div
-                          className="mt-3 text-xs text-red-600 bg-red-50 p-2 rounded
+                      <div
+                        className="mt-3 text-xs text-red-600 bg-red-50 p-2 rounded
 dark:bg-red-900/20 dark:text-red-400"
-                        >
-                          Lender declined this submission
-                          {lender.applicationStatus
-                            ? ` (${String(lender.applicationStatus).replace(/_/g, " ").toLowerCase()})`
-                            : ""}
-                        </div>
-                      )}
+                      >
+                        Lender declined this submission
+                        {lender.applicationStatus
+                          ? ` (${String(lender.applicationStatus).replace(/_/g, " ").toLowerCase()})`
+                          : ""}
+                      </div>
+                    )}
                   </div>
 
                   {/* BUTTON ALWAYS BOTTOM */}
@@ -1845,17 +1855,16 @@ dark:bg-red-900/20 dark:text-red-400"
                       }
                       className={`w-full py-2 rounded-lg text-white font-semibold transition-all duration-300
 
-     ${
-       sendingId === lender.lenderProductId
-         ? "bg-slate-400 cursor-wait"
-         : lender.alreadySent
-           ? "bg-blue-500 cursor-not-allowed"
-           : lender.type === "rejected"
-             ? "bg-red-500 cursor-not-allowed"
-             : lender.type === "ineligible"
-               ? "bg-amber-500 cursor-not-allowed"
-             : "bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-indigo-600 hover:to-blue-500 shadow-md hover:shadow-lg"
-     }
+     ${sendingId === lender.lenderProductId
+                          ? "bg-slate-400 cursor-wait"
+                          : lender.alreadySent
+                            ? "bg-blue-500 cursor-not-allowed"
+                            : lender.type === "rejected"
+                              ? "bg-red-500 cursor-not-allowed"
+                              : lender.type === "ineligible"
+                                ? "bg-amber-500 cursor-not-allowed"
+                                : "bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-indigo-600 hover:to-blue-500 shadow-md hover:shadow-lg"
+                        }
 
       disabled:opacity-70
       `}
@@ -1868,7 +1877,7 @@ dark:bg-red-900/20 dark:text-red-400"
                             ? "Rejected"
                             : lender.type === "ineligible"
                               ? "Not Eligible"
-                            : "Send to Lender"}
+                              : "Send to Lender"}
                     </button>
                   </div>
                 </div>
@@ -1900,11 +1909,10 @@ dark:bg-red-900/20 dark:text-red-400"
                   <button
                     key={pageNum}
                     onClick={() => setLenderPage(pageNum)}
-                    className={`h-10 w-10 rounded-xl text-sm font-semibold transition ${
-                      lenderPage === pageNum
+                    className={`h-10 w-10 rounded-xl text-sm font-semibold transition ${lenderPage === pageNum
                         ? "bg-cyan-600 text-white"
                         : "border border-slate-300 bg-white hover:bg-slate-50"
-                    }`}
+                      }`}
                   >
                     {pageNum}
                   </button>
@@ -2012,64 +2020,64 @@ dark:bg-red-900/20 dark:text-red-400"
         manualSendSlot={
           !autoForwardEnabled && selectedRows.length > 0 ? (
             lenderOptions.length > 0 ? (
-            <div className="w-full min-w-[220px] sm:w-64 z-999">
-              <Select
-                isMulti
-                options={finalOptions}
-                value={lenderOptions.filter((opt) =>
-                  selectedLenders.includes(opt.value),
-                )}
-                closeMenuOnSelect={false}
-                hideSelectedOptions={false}
-                placeholder="Send to lenders..."
-                isLoading={lenderLoading}
-                onChange={(selected: any) => {
-                  if (!selected) {
-                    setSelectedLenders([]);
-                    return;
-                  }
+              <div className="w-full min-w-[220px] sm:w-64 z-999">
+                <Select
+                  isMulti
+                  options={finalOptions}
+                  value={lenderOptions.filter((opt) =>
+                    selectedLenders.includes(opt.value),
+                  )}
+                  closeMenuOnSelect={false}
+                  hideSelectedOptions={false}
+                  placeholder="Send to lenders..."
+                  isLoading={lenderLoading}
+                  onChange={(selected: any) => {
+                    if (!selected) {
+                      setSelectedLenders([]);
+                      return;
+                    }
 
-                  const isSelectAll = selected.find(
-                    (s: any) => s.value === "__all__",
-                  );
+                    const isSelectAll = selected.find(
+                      (s: any) => s.value === "__all__",
+                    );
 
-                  if (isSelectAll) {
-                    setSelectedLenders(lenderOptions.map((l) => l.value));
-                  } else {
-                    setSelectedLenders(selected.map((s: any) => s.value));
-                  }
-                }}
-                components={{
-                  Option: CustomOption,
-                  MultiValue: (props) => {
-                    if (props.index < 2) return <CustomMultiValue {...props} />;
-                    if (props.index === 2)
-                      return (
-                        <div className="text-xs px-2">
-                          +{selectedLenders.length - 2} more
-                        </div>
-                      );
-                    return null;
-                  },
-                }}
-                styles={{
-                  control: (base) => ({
-                    ...base,
-                    minHeight: "40px",
-                    maxHeight: "40px",
-                    overflow: "hidden",
-                    borderRadius: "12px",
-                    borderColor: "#e2e8f0",
-                    backgroundColor: "#f8fafc",
-                  }),
-                  valueContainer: (base) => ({
-                    ...base,
-                    flexWrap: "nowrap",
-                    overflow: "hidden",
-                  }),
-                }}
-              />
-            </div>
+                    if (isSelectAll) {
+                      setSelectedLenders(lenderOptions.map((l) => l.value));
+                    } else {
+                      setSelectedLenders(selected.map((s: any) => s.value));
+                    }
+                  }}
+                  components={{
+                    Option: CustomOption,
+                    MultiValue: (props) => {
+                      if (props.index < 2) return <CustomMultiValue {...props} />;
+                      if (props.index === 2)
+                        return (
+                          <div className="text-xs px-2">
+                            +{selectedLenders.length - 2} more
+                          </div>
+                        );
+                      return null;
+                    },
+                  }}
+                  styles={{
+                    control: (base) => ({
+                      ...base,
+                      minHeight: "40px",
+                      maxHeight: "40px",
+                      overflow: "hidden",
+                      borderRadius: "12px",
+                      borderColor: "#e2e8f0",
+                      backgroundColor: "#f8fafc",
+                    }),
+                    valueContainer: (base) => ({
+                      ...base,
+                      flexWrap: "nowrap",
+                      overflow: "hidden",
+                    }),
+                  }}
+                />
+              </div>
             ) : (
               <p className="max-w-xs text-xs text-amber-700 dark:text-amber-300">
                 No active lenders available. Approved, declined, or withdrawn
@@ -2198,13 +2206,12 @@ dark:bg-red-900/20 dark:text-red-400"
                           </span>
                           {sentDisplay && (
                             <span
-                              className={`max-w-[220px] text-center text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                                sentDisplay.isPartial
+                              className={`max-w-[220px] text-center text-[10px] font-semibold px-2 py-0.5 rounded-full ${sentDisplay.isPartial
                                   ? "bg-amber-50 text-amber-700"
                                   : sentDisplay.isSent
                                     ? "bg-emerald-50 text-emerald-700"
                                     : "bg-orange-50 text-orange-700"
-                              }`}
+                                }`}
                             >
                               {sentDisplay.detail}
                             </span>
@@ -2349,7 +2356,7 @@ dark:bg-red-900/20 dark:text-red-400"
                                       if (!res.ok || !json.success) {
                                         throw new Error(
                                           json.message ||
-                                            "Failed to skip document",
+                                          "Failed to skip document",
                                         );
                                       }
 
@@ -2371,7 +2378,7 @@ dark:bg-red-900/20 dark:text-red-400"
                                     } catch (err: any) {
                                       toast.error(
                                         err.message ||
-                                          "Failed to skip document",
+                                        "Failed to skip document",
                                       );
                                     } finally {
                                       setActiveAction(null);
@@ -2433,11 +2440,10 @@ dark:bg-red-900/20 dark:text-red-400"
                         key={pageNum}
                         type="button"
                         onClick={() => setPage(pageNum)}
-                        className={`h-9 min-w-9 rounded-xl px-2.5 text-sm font-semibold transition ${
-                          page === pageNum
+                        className={`h-9 min-w-9 rounded-xl px-2.5 text-sm font-semibold transition ${page === pageNum
                             ? "bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-sm"
                             : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
-                        }`}
+                          }`}
                       >
                         {pageNum}
                       </button>
@@ -2577,7 +2583,7 @@ dark:bg-red-900/20 dark:text-red-400"
     return `${firstName} ${lastName}`.trim() || "-";
   }, [fields]);
 
-const productCode = submissionDetail?.loanProduct?.name || "-";
+  const productCode = submissionDetail?.loanProduct?.name || "-";
 
   return (
     <>
@@ -2750,7 +2756,7 @@ const productCode = submissionDetail?.loanProduct?.name || "-";
                       title={
                         isDisabled
                           ? documentRequestBlockedReason ||
-                            "Documents cannot be requested for this application."
+                          "Documents cannot be requested for this application."
                           : undefined
                       }
                       onClick={() => {
@@ -2758,29 +2764,26 @@ const productCode = submissionDetail?.loanProduct?.name || "-";
                         setActiveTab(tab.key);
                       }}
                       className={`group relative inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium transition-all duration-200
-          ${
-            isActive
-              ? "bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-md"
-              : isDisabled
-                ? "cursor-not-allowed text-slate-400 opacity-60 dark:text-slate-500"
-                : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white"
-          }
+          ${isActive
+                          ? "bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-md"
+                          : isDisabled
+                            ? "cursor-not-allowed text-slate-400 opacity-60 dark:text-slate-500"
+                            : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white"
+                        }
         `}
                     >
                       {/* ICON */}
                       <span
                         className={`flex items-center justify-center rounded-md p-1 transition-all
-          ${
-            isActive
-              ? "bg-white/20"
-              : "bg-slate-100 group-hover:bg-slate-200 dark:bg-slate-800 dark:group-hover:bg-slate-700"
-          }`}
+          ${isActive
+                            ? "bg-white/20"
+                            : "bg-slate-100 group-hover:bg-slate-200 dark:bg-slate-800 dark:group-hover:bg-slate-700"
+                          }`}
                       >
                         <Icon
                           size={13}
-                          className={`transition ${
-                            isActive ? "text-white" : tab.color
-                          }`}
+                          className={`transition ${isActive ? "text-white" : tab.color
+                            }`}
                         />
                       </span>
 
@@ -2972,36 +2975,35 @@ const productCode = submissionDetail?.loanProduct?.name || "-";
                 const fileSent = getUploadFileSentLabel(file);
 
                 return (
-                <div
-                  key={file.uploadId || i}
-                  onClick={() => setActiveIndex(i)}
-                  className={`relative h-14 w-20 flex items-center justify-center rounded-lg cursor-pointer border-2 overflow-hidden ${
-                    i === activeIndex ? "border-blue-500" : "border-transparent"
-                  }`}
-                >
-                  {file.fileMimeType?.includes("image") ? (
-                    <img
-                      src={`${API_BASE}${file.fileUrl}`}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : file.fileMimeType?.includes("pdf") ? (
-                    <div className="flex flex-col items-center justify-center text-[10px] text-red-600 font-semibold">
-                      PDF
-                    </div>
-                  ) : (
-                    <div className="text-xs text-slate-400">FILE</div>
-                  )}
-                  <span
-                    className={`absolute bottom-0 left-0 right-0 px-0.5 py-0.5 text-[8px] font-bold text-center truncate ${
-                      fileSent.isSent
-                        ? "bg-emerald-600 text-white"
-                        : "bg-amber-500 text-white"
-                    }`}
+                  <div
+                    key={file.uploadId || i}
+                    onClick={() => setActiveIndex(i)}
+                    className={`relative h-14 w-20 flex items-center justify-center rounded-lg cursor-pointer border-2 overflow-hidden ${i === activeIndex ? "border-blue-500" : "border-transparent"
+                      }`}
                   >
-                    {fileSent.isSent ? "Sent" : "Pending"}
-                  </span>
-                </div>
-              )})}
+                    {file.fileMimeType?.includes("image") ? (
+                      <img
+                        src={`${API_BASE}${file.fileUrl}`}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : file.fileMimeType?.includes("pdf") ? (
+                      <div className="flex flex-col items-center justify-center text-[10px] text-red-600 font-semibold">
+                        PDF
+                      </div>
+                    ) : (
+                      <div className="text-xs text-slate-400">FILE</div>
+                    )}
+                    <span
+                      className={`absolute bottom-0 left-0 right-0 px-0.5 py-0.5 text-[8px] font-bold text-center truncate ${fileSent.isSent
+                          ? "bg-emerald-600 text-white"
+                          : "bg-amber-500 text-white"
+                        }`}
+                    >
+                      {fileSent.isSent ? "Sent" : "Pending"}
+                    </span>
+                  </div>
+                )
+              })}
             </div>
           </motion.div>
         </div>
