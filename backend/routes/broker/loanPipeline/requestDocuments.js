@@ -1,3 +1,4 @@
+
 const { loadTemplate } = require("../../../utils/email/loadTemplate");
 const { buildClientLinkEmailData } = require("../../../utils/email/emailTemplateData");
 const sendMail = require("../../../services/emails/mail");
@@ -294,7 +295,7 @@ ${portalLink}
 
         return reply.code(500).send({
           success: false,
-          message: "Unexpected server error",
+          message: error.message ||"Unexpected server error",
         });
       }
     }

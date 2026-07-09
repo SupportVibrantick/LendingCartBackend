@@ -8,7 +8,7 @@ let partialsRegistered = false;
 const registerPartials = () => {
   if (partialsRegistered) return;
 
-  const partialsDir = path.join(__dirname, "../templates/partials");
+  const partialsDir = path.join(__dirname, "../../templates/partials");
   if (!fs.existsSync(partialsDir)) {
     partialsRegistered = true;
     return;
@@ -46,7 +46,7 @@ const loadTemplate = (templateName, data = {}) => {
 
   const templatePath = path.join(
     __dirname,
-    "../templates",
+    "../../templates",
     `${templateName}.html`,
   );
 
