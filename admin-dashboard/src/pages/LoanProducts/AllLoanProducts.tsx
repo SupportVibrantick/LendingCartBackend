@@ -168,55 +168,51 @@ const AllLoanProducts: React.FC = () => {
       setSaving(true);
 
       if (editingProductId) {
-        // Update existing (backend uses PUT)
+        // PATCH /admin/loan-products/update/:id
         const res = await fetch(
           `${API_BASE}/admin/loan-products/update/${editingProductId}`,
           {
-            method: "PUT",
+            method: "PATCH",
             headers: getAuthHeaders(),
             body: JSON.stringify({
-              name: form.name,
-              description: form.description || undefined,
+              name: form.name.trim(),
+              description: form.description.trim(),
             }),
           },
         );
 
-        const json = await res.json();
+        const json = await res.json().catch(() => ({}));
         if (!res.ok || !json.success) {
-          console.error(
-            "Failed to update product:",
-            json.message || res.status,
-          );
           toast.error(json.message || "Failed to update product");
           return;
         }
+
+        toast.success(json.message || "Loan product updated successfully");
       } else {
-        // Create new
         const res = await fetch(`${API_BASE}/admin/loan-products/create`, {
           method: "POST",
           headers: getAuthHeaders(),
           body: JSON.stringify({
             code: form.code,
-            name: form.name,
-            description: form.description || undefined,
+            name: form.name.trim(),
+            description: form.description.trim() || undefined,
           }),
         });
 
-        const json = await res.json();
+        const json = await res.json().catch(() => ({}));
         if (!res.ok || !json.success) {
-          console.error(
-            "Failed to create product:",
-            json.message || res.status,
-          );
           toast.error(json.message || "Failed to create product");
           return;
         }
+
+        toast.success(json.message || "Loan product created successfully");
       }
 
       await fetchLoanProducts();
       resetForm();
     } catch (err) {
       console.error("Error saving loan product", err);
+      toast.error("Error saving loan product");
     } finally {
       setSaving(false);
     }
@@ -272,7 +268,7 @@ const AllLoanProducts: React.FC = () => {
 
   // ===== UI =====
   return (
-    <div className="px-6 py-6 text-gray-900 dark:text-gray-100">
+    <div className=" text-gray-900 dark:text-gray-100">
       {/* Heading */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
@@ -280,7 +276,7 @@ const AllLoanProducts: React.FC = () => {
             Loan Products
           </h1>
           <p className="text-sm text-gray-500 mt-1 dark:text-slate-400">
-            Manage global loan products available on the platform.  
+            Manage global loan products available on the platform.
           </p>
         </div>
       </div>
@@ -427,7 +423,7 @@ const AllLoanProducts: React.FC = () => {
             <table className="min-w-full table-fixed text-sm">
               <thead>
                 <tr className="border-b border-gray-100 text-xs text-gray-500 uppercase tracking-wide dark:border-slate-700 dark:text-slate-400">
-                  <th className="w-[180px] py-2 pr-4 text-left">Code</th>
+                  {/* <th className="w-[180px] py-2 pr-4 text-left">Code</th> */}
                   <th className="w-[200px] py-2 pr-4 text-left">Name</th>
                   <th className="py-2 pr-4 text-left">Description</th>
                   <th className="w-[120px] py-2 pr-4 text-left">Status</th>
@@ -461,9 +457,9 @@ const AllLoanProducts: React.FC = () => {
                       key={p.id}
                       className="border-b text-xs border-gray-100 last:border-0 hover:bg-gray-50/40 dark:border-slate-800 dark:hover:bg-slate-800/60"
                     >
-                      <td className="py-3 pr-4 text-gray-900 whitespace-nowrap dark:text-gray-100">
+                      {/* <td className="py-3 pr-4 text-gray-900 whitespace-nowrap dark:text-gray-100">
                         {p.code}
-                      </td>
+                      </td> */}
                       <td className="py-3 pr-4 text-gray-900 whitespace-nowrap dark:text-gray-100">
                         {p.name}
                       </td>

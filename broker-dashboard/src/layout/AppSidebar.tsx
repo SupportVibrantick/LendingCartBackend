@@ -145,8 +145,8 @@ const AppSidebar: React.FC = () => {
                 icon: <Wallet />,
                 name: "Payments",
                 subItems: [
-                  { name: "Invoices", path: "/payments/invoices" },
                   { name: "Commissions", path: "/payments/commissions" },
+                  { name: "Invoices", path: "/payments/invoices" },
                 ],
               },
             ]

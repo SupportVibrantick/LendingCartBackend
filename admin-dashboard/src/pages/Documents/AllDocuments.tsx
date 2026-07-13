@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
-import { MdModeEdit } from "react-icons/md";
+import { MdModeEdit, MdDelete } from "react-icons/md";
 import { FiAlertCircle } from "react-icons/fi";
+import Swal from "sweetalert2";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
@@ -37,17 +38,6 @@ function getAuthHeaders(): Record<string, string> {
   return { "Content-Type": "application/json" };
 }
 
-// function statusClass(status?: string) {
-//   switch ((status || "").toUpperCase()) {
-//     case "ACTIVE":
-//       return "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/30";
-//     case "INACTIVE":
-//       return "bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-500/10 dark:text-yellow-300 dark:border-yellow-500/30";
-//     default:
-//       return "bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-500/10 dark:text-gray-300 dark:border-gray-500/30";
-//   }
-// }
-
 /* ================= COMPONENT ================= */
 
 const AllDocuments = () => {
@@ -55,15 +45,13 @@ const AllDocuments = () => {
   const [loadingList, setLoadingList] = useState(false);
   const [saving, setSaving] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<DocumentForm>({
     name: "",
     description: "",
   });
-
-  // const [loanProducts, setLoanProducts] = useState<any[]>([]);
-  // const [loadingProducts, setLoadingProducts] = useState(false);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [limit] = useState(5);
@@ -121,35 +109,6 @@ const AllDocuments = () => {
     }
   };
 
-  const fetchLoanProducts = async () => {
-    try {
-      // setLoadingProducts(true);
-
-      const res = await fetch(
-        `${API_BASE}/admin/loan-products/list`,
-        {
-          headers: getAuthHeaders(),
-        },
-      );
-
-      const json = await res.json();
-
-      if (!res.ok || !json.success) {
-        toast.error(json.message || "Failed to load loan products");
-        return;
-      }
-
-      // sirf active products
-      // const active = json.data.filter((item: any) => item.isActive);
-
-      // setLoanProducts(active);
-    } catch (err: any) {
-      toast.error(err.message || "Something went wrong");
-    } finally {
-      // setLoadingProducts(false);
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name) {
@@ -196,7 +155,6 @@ const AllDocuments = () => {
   const handleEdit = (doc: Document) => {
     setEditingId(doc.id);
     setForm({
-      // code: doc.code,
       name: doc.name,
       description: doc.description || "",
     });
@@ -228,6 +186,54 @@ const AllDocuments = () => {
     }
   };
 
+  const handleDelete = async (doc: Document) => {
+    const result = await Swal.fire({
+      title: "Delete document?",
+      text: `"${doc.name}" will be permanently removed.`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#dc2626",
+      cancelButtonColor: "#6b7280",
+      confirmButtonText: "Delete",
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+      setDeletingId(doc.id);
+
+      const res = await fetch(`${API_BASE}/admin/document-types/delete`, {
+        method: "DELETE",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ id: doc.id }),
+      });
+
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.success) {
+        toast.error(json.message || "Delete failed");
+        return;
+      }
+
+      toast.success(json.message || "Document deleted");
+
+      if (editingId === doc.id) {
+        resetForm();
+      }
+
+      const nextPage =
+        documents.length === 1 && currentPage > 1
+          ? currentPage - 1
+          : currentPage;
+
+      await fetchDocuments(nextPage);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to delete document");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   const gotoPage = (page: number) => {
     if (page < 1 || page > totalPages) return;
     fetchDocuments(page);
@@ -237,7 +243,6 @@ const AllDocuments = () => {
 
   useEffect(() => {
     fetchDocuments(1);
-    fetchLoanProducts();
   }, []);
 
   /* ================= UI ================= */
@@ -251,7 +256,6 @@ const AllDocuments = () => {
       <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-6">
         {/* FORM */}
         <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-6">
-          {/* HEADER */}
           <div className="flex items-center justify-between mb-5">
             <div>
               <h2 className="text-lg font-semibold">
@@ -264,7 +268,6 @@ const AllDocuments = () => {
               </p>
             </div>
 
-            {/* 🔥 Show Create New when editing */}
             {editingId && (
               <button
                 onClick={resetForm}
@@ -276,35 +279,6 @@ const AllDocuments = () => {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
-            {/* CODE SELECT */}
-            {/* <div>
-              <label className="text-xs text-slate-500 mb-1 block">
-                Document Code
-              </label>
-              <select
-                value={form.code}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, code: e.target.value }))
-                }
-                disabled={!!editingId || saving || loadingProducts}
-                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-[#18B6B4]/20 outline-none transition"
-              >
-                <option value="">
-                  {loadingProducts ? "Loading..." : "Select code"}
-                </option>
-
-                {loanProducts.map((item) => (
-                  <option key={item.id} value={item.code}>
-                   {item.code
-  .replace(/_/g, " ")
-  .toLowerCase()
-  .replace(/\b\w/g, (c: string) => c.toUpperCase())}
-                  </option>
-                ))}
-              </select>
-            </div> */}
-
-            {/* NAME */}
             <div>
               <label className="text-xs text-slate-500 mb-1 block">
                 Document Name
@@ -319,7 +293,6 @@ const AllDocuments = () => {
               />
             </div>
 
-            {/* DESCRIPTION */}
             <div>
               <label className="text-xs text-slate-500 mb-1 block">
                 Description
@@ -335,9 +308,7 @@ const AllDocuments = () => {
               />
             </div>
 
-            {/* ACTION BUTTONS */}
             <div className="flex gap-3 pt-2">
-              {/* MAIN BUTTON */}
               <button
                 type="submit"
                 disabled={saving}
@@ -357,10 +328,8 @@ const AllDocuments = () => {
         <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-700">
           <div className="w-full overflow-x-auto">
             <table className="min-w-full text-sm border-separate border-spacing-y-2">
-              {/* HEADER */}
               <thead>
                 <tr className="text-xs uppercase text-slate-500 dark:text-slate-400">
-                  {/* <th className="px-4 py-2 text-left">Code</th> */}
                   <th className="px-4 py-2 text-left">Name</th>
                   <th className="px-4 py-2 text-left">Status</th>
                   <th className="px-4 py-2 text-left">Created</th>
@@ -410,24 +379,15 @@ const AllDocuments = () => {
             rounded-xl
           "
                     >
-                      {/* CODE */}
-                      {/* <td className="px-4 py-3">
-                        <span className="px-2 py-1 text-xs font-medium rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                          {p.code}
-                        </span>
-                      </td> */}
-
-                      {/* NAME */}
                       <td className="px-4 py-3">
                         <p
-                          className="font-medium text-slate-800 dark:text-slate-200 truncate max-w-[180px]"
+                          className="font-medium text-slate-800 dark:text-slate-200 "
                           title={p.name}
                         >
                           {p.name}
                         </p>
                       </td>
 
-                      {/* STATUS */}
                       <td className="px-4 py-3">
                         <button
                           onClick={() => handleToggleStatus(p)}
@@ -448,35 +408,52 @@ const AllDocuments = () => {
                         </button>
                       </td>
 
-                      {/* CREATED */}
                       <td className="px-4 py-3 text-slate-500 text-sm">
                         {formatDate(p.createdAt)}
                       </td>
 
-                      {/* ACTION */}
                       <td className="px-4 py-3 text-right">
-                        <button
-                          onClick={() => handleEdit(p)}
-                          className="
+                        <div className="inline-flex items-center justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleEdit(p)}
+                            className="
                 h-9 w-9 flex items-center justify-center 
                 rounded-lg 
                 bg-slate-100 dark:bg-slate-800
                 hover:bg-blue-600 hover:text-white
                 transition-all
               "
-                        >
-                          <MdModeEdit size={16} />
-                        </button>
+                          >
+                            <MdModeEdit size={16} />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(p)}
+                            disabled={deletingId === p.id}
+                            className="
+                h-9 w-9 flex items-center justify-center 
+                rounded-lg 
+                bg-slate-100 dark:bg-slate-800 text-rose-600
+                hover:bg-rose-600 hover:text-white
+                transition-all
+                disabled:opacity-50 disabled:cursor-not-allowed
+              "
+                            title="Delete document"
+                          >
+                            <MdDelete size={16} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))
                 )}
               </tbody>
             </table>
-            {/* pagination */}
+
             {!loadingList && totalPages > 1 && (
               <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-slate-200 dark:border-slate-700 pt-4">
-                {/* Page Info */}
                 <p className="text-sm text-slate-500 dark:text-slate-400">
                   Showing page{" "}
                   <span className="font-semibold text-slate-800 dark:text-slate-100">
@@ -485,9 +462,7 @@ const AllDocuments = () => {
                   of {totalPages}
                 </p>
 
-                {/* Controls */}
                 <div className="flex items-center gap-2 flex-wrap">
-                  {/* Prev */}
                   <button
                     disabled={currentPage === 1}
                     onClick={() => gotoPage(currentPage - 1)}
@@ -501,7 +476,6 @@ const AllDocuments = () => {
                     Prev
                   </button>
 
-                  {/* Page Numbers */}
                   {Array.from({ length: totalPages }).map((_, i) => {
                     const page = i + 1;
 
@@ -521,7 +495,6 @@ const AllDocuments = () => {
                     );
                   })}
 
-                  {/* Next */}
                   <button
                     disabled={currentPage === totalPages}
                     onClick={() => gotoPage(currentPage + 1)}

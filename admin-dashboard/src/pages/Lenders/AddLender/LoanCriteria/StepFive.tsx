@@ -108,13 +108,20 @@ const StepFive = ({
   const [errors, setErrors] = useState<any>({});
   const [documents, setDocuments] = useState<any[]>([]);
   const [loadingDocs, setLoadingDocs] = useState(false);
+  const [docSearch, setDocSearch] = useState("");
+  const [customDocumentName, setCustomDocumentName] = useState("");
+  const [addingCustomDoc, setAddingCustomDoc] = useState(false);
+
+  const getAuthToken = () => {
+    const tokenKey = authMode === "admin" ? "admin_token" : "lender_token";
+    return sessionStorage.getItem(tokenKey);
+  };
 
   const fetchDocuments = async () => {
     try {
       setLoadingDocs(true);
 
-      const tokenKey = authMode === "admin" ? "admin_token" : "lender_token";
-      const token = sessionStorage.getItem(tokenKey);
+      const token = getAuthToken();
 
       const endpoint =
         authMode === "admin"
@@ -160,8 +167,84 @@ const StepFive = ({
     handleChange(productId, "documents", updated);
   };
 
+  const addCustomDocument = async (productId: string) => {
+    const customName = customDocumentName.trim();
+
+    if (!customName) {
+      toast.error("Please enter custom document name");
+      return;
+    }
+
+    if (customName.length < 2) {
+      toast.error("Custom document name must be at least 2 characters");
+      return;
+    }
+
+    try {
+      setAddingCustomDoc(true);
+      const token = getAuthToken();
+
+      const endpoint =
+        authMode === "admin"
+          ? `${API_BASE}/admin/document-types/create`
+          : `${API_BASE}/lender/document-config/create-custom-document-type`;
+
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+        body: JSON.stringify({
+          name: customName,
+          ...(authMode === "admin" ? { isActive: true } : {}),
+        }),
+      });
+
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json?.success) {
+        throw new Error(json?.message || "Failed to add custom document");
+      }
+
+      const createdDocType = json?.data;
+      const selectedDocs = value?.[productId]?.documents || [];
+      const alreadySelected = selectedDocs.some(
+        (d: any) =>
+          d.id === createdDocType?.id || d.documentTypeId === createdDocType?.id,
+      );
+
+      const customDoc = {
+        id: createdDocType?.id,
+        documentTypeId: createdDocType?.id,
+        name: createdDocType?.name || customName,
+        isCustom: true,
+      };
+
+      if (!alreadySelected) {
+        handleChange(productId, "documents", [...selectedDocs, customDoc]);
+      }
+
+      setCustomDocumentName("");
+      await fetchDocuments();
+      toast.success(json?.message || "Custom document added");
+    } catch (error: any) {
+      console.error(error);
+      toast.error(error?.message || "Failed to add custom document");
+    } finally {
+      setAddingCustomDoc(false);
+    }
+  };
+
+  const filteredDocuments = documents.filter((doc) => {
+    const term = docSearch.trim().toLowerCase();
+    if (!term) return true;
+    return String(doc.name || "")
+      .toLowerCase()
+      .includes(term);
+  });
+
   const selectAllDocuments = (productId: string) => {
-    handleChange(productId, "documents", documents);
+    handleChange(productId, "documents", filteredDocuments);
   };
 
   const clearDocuments = (productId: string) => {
@@ -732,13 +815,48 @@ const StepFive = ({
                     </div>
                   </div>
 
+                  <div className="mb-4">
+                    <input
+                      type="text"
+                      placeholder="Search documents..."
+                      value={docSearch}
+                      onChange={(e) => setDocSearch(e.target.value)}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center">
+                    <input
+                      type="text"
+                      placeholder="Enter custom document name..."
+                      value={customDocumentName}
+                      onChange={(e) => setCustomDocumentName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          addCustomDocument(product.id);
+                        }
+                      }}
+                      className="h-12 flex-1 rounded-xl border border-slate-300 bg-white px-4 text-sm shadow-sm transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none"
+                    />
+
+                    <button
+                      type="button"
+                      onClick={() => addCustomDocument(product.id)}
+                      disabled={addingCustomDoc}
+                      className="flex h-12 shrink-0 items-center justify-center rounded-xl bg-indigo-600 px-6 text-sm font-semibold text-white transition hover:bg-indigo-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 md:w-auto"
+                    >
+                      {addingCustomDoc ? "Adding..." : "+ Add Document"}
+                    </button>
+                  </div>
+
                   {loadingDocs ? (
-                    <div className="text-sm text-gray-400">
+                    <div className="flex items-center justify-center py-12 text-sm text-gray-500">
                       Loading documents...
                     </div>
-                  ) : (
+                  ) : filteredDocuments.length > 0 ? (
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                      {documents.map((doc) => {
+                      {filteredDocuments.map((doc) => {
                         const checked = value?.[product.id]?.documents?.some(
                           (d: any) =>
                             d.id === doc.id || d.documentTypeId === doc.id,
@@ -773,12 +891,6 @@ const StepFive = ({
                                   {doc.name}
                                 </p>
                               </div>
-
-                              {/* {doc.code && (
-                                <p className="text-[11px] text-gray-500 mt-1 uppercase tracking-wide">
-                                  {doc.code}
-                                </p>
-                              )} */}
                             </div>
 
                             {checked && (
@@ -790,6 +902,20 @@ const StepFive = ({
                           </label>
                         );
                       })}
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-gray-50 py-12">
+                      <FileText size={42} className="mb-3 text-gray-400" />
+
+                      <h3 className="text-base font-semibold text-gray-700">
+                        No documents found
+                      </h3>
+
+                      <p className="mt-1 text-sm text-gray-500 text-center">
+                        {docSearch.trim()
+                          ? `No documents found for "${docSearch}".`
+                          : "No document types are available. Add a custom document above."}
+                      </p>
                     </div>
                   )}
                 </div>

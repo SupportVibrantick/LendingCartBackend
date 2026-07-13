@@ -100,23 +100,9 @@ const navItems: NavItem[] = [
   //   path: "/loan-pipeline",
   // },
   {
-    icon: <MessageSquare />,
-    name: "Communications",
-    path: "/all-communications",
-  },
-  {
     icon: <GrDocumentText />,
     name: "Document Type",
     path: "/all-documents",
-  },
-  {
-    icon: <CurrencyExchangeOutlinedIcon />,
-    name: "Subscriptions",
-    subItems: [
-      { name: "Packages", path: "/all-subscriptions" },
-      { name: "Subscribers", path: "/subscription-subscribers" },
-      { name: "Invoices", path: "/subscription-invoices" },
-    ],
   },
   {
     icon: <AdminPanelSettingsOutlinedIcon />,
@@ -133,6 +119,20 @@ const navItems: NavItem[] = [
   //   name: "Email Marketing",
   //   path: "/email-marketing",
   // },
+  {
+    icon: <MessageSquare />,
+    name: "Communications",
+    path: "/all-communications",
+  },
+  {
+    icon: <CurrencyExchangeOutlinedIcon />,
+    name: "Subscriptions",
+    subItems: [
+      { name: "Packages", path: "/all-subscriptions" },
+      { name: "Subscribers", path: "/subscription-subscribers" },
+      { name: "Invoices", path: "/subscription-invoices" },
+    ],
+  },
   {
     icon: <AdminPanelSettingsOutlinedIcon />,
     name: "Settings",
