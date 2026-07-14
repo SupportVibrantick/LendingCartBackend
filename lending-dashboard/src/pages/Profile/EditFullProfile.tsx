@@ -120,6 +120,9 @@ export default function EditFullProfile() {
   const validateCompany = () => {
     const nextErrors: Record<string, string> = {};
 
+    if (!company.companyName.trim()) {
+      nextErrors.companyName = "Company name is required";
+    }
     if (!company.firstName.trim()) {
       nextErrors.firstName = "First name is required";
     }
@@ -353,6 +356,7 @@ export default function EditFullProfile() {
 
     try {
       const formData = new FormData();
+      formData.append("companyName", company.companyName.trim());
       formData.append("firstName", company.firstName);
       formData.append("lastName", company.lastName);
       formData.append("organizationEmail", company.organizationEmail);

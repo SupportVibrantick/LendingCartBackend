@@ -49,6 +49,33 @@ const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
 const normalizeText = (value: unknown) => String(value || "").trim();
 
+const calculateMonthlyPayment = (
+  loanAmount: number,
+  interestRate: number,
+  termMonths: number,
+) => {
+  if (!loanAmount || !termMonths || termMonths <= 0) return 0;
+  if (interestRate < 0) return 0;
+
+  const monthlyRate = interestRate / 100 / 12;
+
+  if (monthlyRate === 0) {
+    return loanAmount / termMonths;
+  }
+
+  return (
+    (loanAmount * monthlyRate * Math.pow(1 + monthlyRate, termMonths)) /
+    (Math.pow(1 + monthlyRate, termMonths) - 1)
+  );
+};
+
+const formatMonthlyPayment = (value: number) => {
+  if (!value || !isFinite(value) || value <= 0) return "-";
+  return `$${value.toLocaleString("en-US", {
+    maximumFractionDigits: 0,
+  })}`;
+};
+
 const getFieldValueFromList = (
   fields: SubmissionDetailField[],
   ...keys: string[]
@@ -429,6 +456,26 @@ export default function LoanPreview() {
     () => getNumericFieldValue(submissionFields, "netWorth"),
     [submissionFields],
   );
+  const interestRate = useMemo(
+    () => getNumericFieldValue(submissionFields, "interestRate"),
+    [submissionFields],
+  );
+  const amortizationYears = useMemo(
+    () => getNumericFieldValue(submissionFields, "amortization"),
+    [submissionFields],
+  );
+  const loanTermMonths = useMemo(
+    () => getNumericFieldValue(submissionFields, "loanTerm"),
+    [submissionFields],
+  );
+  const termMonths =
+    amortizationYears > 0 ? amortizationYears * 12 : loanTermMonths;
+  const monthlyPayment = calculateMonthlyPayment(
+    loanAmount,
+    interestRate,
+    termMonths,
+  );
+  const monthlyPaymentDisplay = formatMonthlyPayment(monthlyPayment);
 
   const submittedDate = latestSubmission?.createdAt
     ? new Date(latestSubmission.createdAt)
@@ -749,6 +796,8 @@ export default function LoanPreview() {
         arv={arv}
         dscr={dscr}
         netWorth={netWorth}
+        monthlyPayment={monthlyPayment}
+        monthlyPaymentDisplay={monthlyPaymentDisplay}
         submittedDate={submittedDate}
       />
     );
@@ -1671,7 +1720,12 @@ export default function LoanPreview() {
             bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.24),_transparent_28%),linear-gradient(135deg,_#1d4ed8_0%,_#0f766e_55%,_#0891b2_100%)] 
             px-6 py-8 text-white"
           >
-            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-6">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-6">
+              <Metric
+                label="Monthly Payment"
+                value={monthlyPaymentDisplay}
+              />
+
               <Metric
                 label="LTV"
                 value={

@@ -159,154 +159,157 @@ export default function AcceptInvite() {
     <>
       <PageMeta title="Accept Invitation | LendingCart" description="" />
       <AuthLayout>
-        <div className="flex flex-col flex-1 w-full overflow-y-auto lg:w-1/2 no-scrollbar">
-          <div className="flex flex-col justify-center flex-1 w-full max-w-md mx-auto px-4">
-            <div className="mb-6">
-              <h1 className="text-2xl font-semibold text-gray-800 dark:text-white">
-                Accept Invitation
-              </h1>
-              <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                Create your lender account to join LendingCart.
-              </p>
-            </div>
+        <div className="w-full">
+          <div className="mb-8">
+            <h1 className="text-2xl font-semibold text-gray-800 dark:text-white sm:text-3xl">
+              Accept Invitation
+            </h1>
+            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+              Create your lender account to join LendingCart.
+            </p>
+          </div>
 
-            {loading ? (
-              <p className="text-sm text-gray-500">Validating invitation...</p>
-            ) : error || !invite ? (
-              <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-900">
-                <p className="font-medium">{error || "Invitation unavailable"}</p>
-                {errorCode && (
-                  <p className="mt-1 text-xs uppercase tracking-wide opacity-70">
-                    {errorCode}
-                  </p>
-                )}
-                <Link
-                  to="/signin"
-                  className="mt-4 inline-block text-sm font-semibold text-brand-500"
-                >
-                  Go to sign in
-                </Link>
+          {loading ? (
+            <p className="text-sm text-gray-500">Validating invitation...</p>
+          ) : error || !invite ? (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-900">
+              <p className="font-medium">{error || "Invitation unavailable"}</p>
+              {errorCode && (
+                <p className="mt-1 text-xs uppercase tracking-wide opacity-70">
+                  {errorCode}
+                </p>
+              )}
+              <Link
+                to="/signin"
+                className="mt-4 inline-block text-sm font-semibold text-brand-500"
+              >
+                Go to sign in
+              </Link>
+            </div>
+          ) : (
+            <form onSubmit={handleRegister} className="space-y-5">
+              <div className="w-full">
+                <Label>
+                  Company Name<span className="text-error-500">*</span>
+                </Label>
+                <Input
+                  type="text"
+                  value={form.organizationName}
+                  onChange={(e) =>
+                    setForm({ ...form, organizationName: e.target.value })
+                  }
+                />
               </div>
-            ) : (
-              <form onSubmit={handleRegister} className="space-y-5">
-                <div>
+
+              <div className="w-full">
+                <Label>
+                  Company Email<span className="text-error-500">*</span>
+                </Label>
+                <Input
+                  type="email"
+                  value={form.organizationEmail}
+                  onChange={(e) =>
+                    setForm({ ...form, organizationEmail: e.target.value })
+                  }
+                />
+              </div>
+
+              <div className="grid w-full grid-cols-1 gap-5 sm:grid-cols-2">
+                <div className="min-w-0 w-full">
                   <Label>
-                    Company Name<span className="text-error-500">*</span>
+                    First Name<span className="text-error-500">*</span>
                   </Label>
                   <Input
                     type="text"
-                    value={form.organizationName}
+                    value={form.adminFirstName}
                     onChange={(e) =>
-                      setForm({ ...form, organizationName: e.target.value })
+                      setForm({ ...form, adminFirstName: e.target.value })
                     }
                   />
                 </div>
-
-                <div>
+                <div className="min-w-0 w-full">
                   <Label>
-                    Company Email<span className="text-error-500">*</span>
+                    Last Name<span className="text-error-500">*</span>
                   </Label>
                   <Input
-                    type="email"
-                    value={form.organizationEmail}
+                    type="text"
+                    value={form.adminLastName}
                     onChange={(e) =>
-                      setForm({ ...form, organizationEmail: e.target.value })
+                      setForm({ ...form, adminLastName: e.target.value })
                     }
                   />
                 </div>
+              </div>
 
-                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-                  <div>
-                    <Label>
-                      First Name<span className="text-error-500">*</span>
-                    </Label>
-                    <Input
-                      type="text"
-                      value={form.adminFirstName}
-                      onChange={(e) =>
-                        setForm({ ...form, adminFirstName: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div>
-                    <Label>Last Name</Label>
-                    <Input
-                      type="text"
-                      value={form.adminLastName}
-                      onChange={(e) =>
-                        setForm({ ...form, adminLastName: e.target.value })
-                      }
-                    />
-                  </div>
-                </div>
+              <div className="w-full">
+                <Label>
+                  Admin Email<span className="text-error-500">*</span>
+                </Label>
+                <Input
+                  type="email"
+                  value={form.adminEmail}
+                  disabled
+                  className="cursor-not-allowed bg-gray-100"
+                />
+                <p className="mt-1.5 text-xs text-gray-500">
+                  Locked to the invited email address
+                </p>
+              </div>
 
-                <div>
-                  <Label>
-                    Admin Email<span className="text-error-500">*</span>
-                  </Label>
+              <div className="w-full">
+                <Label>
+                  Password<span className="text-error-500">*</span>
+                </Label>
+                <div className="relative">
                   <Input
-                    type="email"
-                    value={form.adminEmail}
-                    disabled
-                    className="cursor-not-allowed bg-gray-100"
+                    type={showPassword ? "text" : "password"}
+                    value={form.password}
+                    onChange={(e) =>
+                      setForm({ ...form, password: e.target.value })
+                    }
+                    placeholder="Create a password"
                   />
-                  <p className="mt-1 text-xs text-gray-500">
-                    Locked to the invited email address
-                  </p>
-                </div>
-
-                <div>
-                  <Label>
-                    Password<span className="text-error-500">*</span>
-                  </Label>
-                  <div className="relative">
-                    <Input
-                      type={showPassword ? "text" : "password"}
-                      value={form.password}
-                      onChange={(e) =>
-                        setForm({ ...form, password: e.target.value })
-                      }
-                    />
-                    <span
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute z-30 -translate-y-1/2 cursor-pointer right-4 top-1/2"
-                    >
-                      {showPassword ? (
-                        <EyeIcon className="fill-gray-500 dark:fill-gray-400 size-5" />
-                      ) : (
-                        <EyeCloseIcon className="fill-gray-500 dark:fill-gray-400 size-5" />
-                      )}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-3 sm:flex-row">
-                  <button
-                    type="submit"
-                    disabled={saving}
-                    className="inline-flex items-center justify-center rounded-lg bg-brand-500 px-5 py-3 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-50"
-                  >
-                    {saving ? "Creating account..." : "Create Account"}
-                  </button>
                   <button
                     type="button"
-                    onClick={handleDecline}
-                    disabled={declining || saving}
-                    className="inline-flex items-center justify-center rounded-lg border border-gray-300 px-5 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:text-gray-200"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 z-30 -translate-y-1/2"
+                    aria-label={showPassword ? "Hide password" : "Show password"}
                   >
-                    {declining ? "Declining..." : "Decline Invitation"}
+                    {showPassword ? (
+                      <EyeIcon className="fill-gray-500 dark:fill-gray-400 size-5" />
+                    ) : (
+                      <EyeCloseIcon className="fill-gray-500 dark:fill-gray-400 size-5" />
+                    )}
                   </button>
                 </div>
+              </div>
 
-                <p className="text-sm text-center text-gray-500">
-                  Already registered?{" "}
-                  <Link to="/signin" className="text-brand-500 font-medium">
-                    Sign in
-                  </Link>
-                </p>
-              </form>
-            )}
-          </div>
+              <div className="flex w-full flex-col gap-3 pt-2 sm:flex-row">
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="inline-flex w-full flex-1 items-center justify-center whitespace-nowrap rounded-lg bg-brand-500 px-5 py-3.5 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-50"
+                >
+                  {saving ? "Creating account..." : "Create Account"}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDecline}
+                  disabled={declining || saving}
+                  className="inline-flex w-full flex-1 items-center justify-center whitespace-nowrap rounded-lg border border-gray-300 px-5 py-3.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+                >
+                  {declining ? "Declining..." : "Decline Invitation"}
+                </button>
+              </div>
+
+              <p className="pt-1 text-center text-sm text-gray-500">
+                Already registered?{" "}
+                <Link to="/signin" className="font-medium text-brand-500">
+                  Sign in
+                </Link>
+              </p>
+            </form>
+          )}
         </div>
       </AuthLayout>
     </>

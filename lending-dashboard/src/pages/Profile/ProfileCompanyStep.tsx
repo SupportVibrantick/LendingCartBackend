@@ -49,13 +49,17 @@ export default function ProfileCompanyStep({
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div>
           <label className="text-sm font-medium text-gray-700 dark:text-slate-300">
-            Company Name
+            Company Name <span className="text-red-500">*</span>
           </label>
           <input
             value={form.companyName}
-            readOnly
-            className={`${fieldClass} bg-slate-50 text-slate-500`}
+            onChange={(event) => handle("companyName", event.target.value)}
+            placeholder="Enter company name"
+            className={fieldClass}
           />
+          {errors.companyName && (
+            <p className="mt-1 text-xs text-red-500">{errors.companyName}</p>
+          )}
         </div>
 
         <div>

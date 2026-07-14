@@ -18,8 +18,8 @@ export default function AuthLayout({
     <div className="relative min-h-screen bg-white dark:bg-gray-950">
       <div className="flex min-h-screen flex-col lg:flex-row">
         {/* Form panel */}
-        <div className="relative flex min-h-screen w-full items-center justify-center lg:w-[48%] xl:w-[44%]">
-          <div className="w-full max-w-md px-6 py-10 sm:px-10 lg:px-8">
+        <div className="relative flex min-h-screen w-full items-start justify-center overflow-y-auto lg:w-[48%] xl:w-[44%] lg:items-center">
+          <div className="w-full max-w-md px-6 py-10 sm:px-10 lg:px-8 lg:py-12">
             {children}
           </div>
         </div>

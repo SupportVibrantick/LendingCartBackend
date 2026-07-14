@@ -124,6 +124,7 @@ async function lenderUpdateProfileRoutes(fastify) {
         let propertyRequirements;
         let organizationEmail;
         let organizationPhone;
+        let organizationName;
         let website;
         let nmls;
         let address;
@@ -219,6 +220,12 @@ async function lenderUpdateProfileRoutes(fastify) {
               case "organizationPhone":
                 organizationPhone = value;
                 sentFields.add("organizationPhone");
+                break;
+
+              case "organizationName":
+              case "companyName":
+                organizationName = value;
+                sentFields.add("organizationName");
                 break;
 
               case "website":
@@ -348,6 +355,32 @@ async function lenderUpdateProfileRoutes(fastify) {
         }
 
         const organizationData = {};
+        if (sentFields.has("organizationName")) {
+          const trimmedName = organizationName?.trim() || "";
+          if (!trimmedName) {
+            return reply.code(400).send({
+              success: false,
+              message: "Company name is required",
+            });
+          }
+
+          const duplicateOrg = await prisma.organization.findFirst({
+            where: {
+              name: trimmedName,
+              id: { not: organizationId },
+              isDeleted: false,
+            },
+          });
+
+          if (duplicateOrg) {
+            return reply.code(409).send({
+              success: false,
+              message: "Another organization already uses this company name",
+            });
+          }
+
+          organizationData.name = trimmedName;
+        }
         if (sentFields.has("organizationEmail")) {
           organizationData.email = organizationEmail?.trim() || null;
         }

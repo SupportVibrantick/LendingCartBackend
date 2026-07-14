@@ -960,17 +960,22 @@ export default function AllLendersPage() {
 
         {/* ================= VIEW TABS ================= */}
         <div className="mb-6 inline-flex rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-1">
-          <button
-            type="button"
-            onClick={() => setListView("lenders")}
-            className={`px-4 py-2 text-xs font-semibold rounded-lg transition ${
-              listView === "lenders"
-                ? "bg-[#13538A] text-white"
-                : "text-slate-600 dark:text-slate-300"
-            }`}
-          >
-            All Lenders
-          </button>
+        <button
+  type="button"
+  onClick={async () => {
+    setListView("lenders");
+    setCurrentPage(1);
+    setQuery("");
+    await fetchLenders();
+  }}
+  className={`px-4 py-2 text-xs font-semibold rounded-lg transition ${
+    listView === "lenders"
+      ? "bg-[#13538A] text-white"
+      : "text-slate-600 dark:text-slate-300"
+  }`}
+>
+  All Lenders
+</button>
           <button
             type="button"
             onClick={() => setListView("invites")}

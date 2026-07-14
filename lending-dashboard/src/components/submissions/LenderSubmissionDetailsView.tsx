@@ -32,6 +32,8 @@ type LenderSubmissionDetailsViewProps = {
   arv: number;
   dscr: number;
   netWorth: number;
+  monthlyPayment?: number;
+  monthlyPaymentDisplay?: string;
   submittedDate?: Date | null;
 };
 
@@ -211,6 +213,8 @@ export default function LenderSubmissionDetailsView({
   arv,
   dscr,
   netWorth,
+  monthlyPayment = 0,
+  monthlyPaymentDisplay,
   submittedDate,
 }: LenderSubmissionDetailsViewProps) {
   const loanApplication = applicationLender?.loanApplication;
@@ -315,10 +319,21 @@ export default function LenderSubmissionDetailsView({
             <p className="mb-4 text-xs font-semibold uppercase tracking-wide text-slate-500">
               Key Loan Metrics
             </p>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7">
               <Metric
                 label="Loan Amount"
                 value={formatCompactAmount(Number(loanAmount || 0))}
+              />
+              <Metric
+                label="Monthly Payment"
+                value={
+                  monthlyPaymentDisplay ||
+                  (monthlyPayment > 0
+                    ? `$${monthlyPayment.toLocaleString("en-US", {
+                        maximumFractionDigits: 0,
+                      })}`
+                    : "—")
+                }
               />
               <Metric label="LTV %" value={ltv ? `${ltv.toFixed(2)}%` : "—"} />
               <Metric label="LTC %" value={ltc ? `${ltc.toFixed(2)}%` : "—"} />
