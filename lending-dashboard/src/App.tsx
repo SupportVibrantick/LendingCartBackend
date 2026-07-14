@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router";
 import SignIn from "./pages/AuthPages/SignIn";
 import ResetPassword from "./pages/AuthPages/ResetPassword";
+import AcceptInvite from "./pages/AuthPages/AcceptInvite";
 // import SignUp from "./pages/AuthPages/SignUp";
 import NotFound from "./pages/OtherPage/NotFound";
 import LenderProfileView from "./pages/Profile/LenderProfileView";
@@ -134,6 +135,7 @@ export default function App() {
           <Route path="/impersonate" element={<ImpersonateLogin />} />
           <Route path="/signin" element={<SignIn />} />
           <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/invite/:token" element={<AcceptInvite />} />
           {/* <Route path="/signup" element={<SignUp />} /> */}
           <Route index path="/client-upload/:token" element={<ClientUpload />} />
           <Route path="*" element={<NotFound />} />

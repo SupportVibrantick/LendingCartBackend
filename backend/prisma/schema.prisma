@@ -45,8 +45,34 @@ model Organization {
   organizationSubscriptions   OrganizationSubscription[]
   subscriptionInvoices        SubscriptionInvoice[]
   users                       UserAccount[]
+  adminLenderInvites          AdminLenderInvite[]
 
   @@map("organizations")
+}
+
+model AdminLenderInvite {
+  id               String                   @id @default(uuid()) @db.Uuid
+  companyName      String                   @map("company_name")
+  fullName         String                   @map("full_name")
+  email            String
+  phone            String?
+  token            String                   @unique
+  status           AdminLenderInviteStatus  @default(PENDING)
+  expiresAt        DateTime                 @map("expires_at") @db.Timestamptz(6)
+  acceptedAt       DateTime?                @map("accepted_at") @db.Timestamptz(6)
+  declinedAt       DateTime?                @map("declined_at") @db.Timestamptz(6)
+  cancelledAt      DateTime?                @map("cancelled_at") @db.Timestamptz(6)
+  lastSentAt       DateTime                 @default(now()) @map("last_sent_at") @db.Timestamptz(6)
+  invitedByAdminId String?                  @map("invited_by_admin_id") @db.Uuid
+  lenderOrgId      String?                  @map("lender_org_id") @db.Uuid
+  createdAt        DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(6)
+  lenderOrg        Organization?            @relation(fields: [lenderOrgId], references: [id])
+
+  @@index([email])
+  @@index([status])
+  @@index([expiresAt])
+  @@map("admin_lender_invites")
 }
 
 model UserAccount {
@@ -1714,6 +1740,14 @@ enum InviteStatus {
   PENDING
   ACCEPTED
   REJECTED
+}
+
+enum AdminLenderInviteStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  EXPIRED
+  CANCELLED
 }
 
 enum FeeAgreementStatus {

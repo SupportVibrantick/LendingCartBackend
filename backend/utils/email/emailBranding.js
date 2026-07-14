@@ -76,6 +76,14 @@ const buildLenderSignInUrl = () => {
   return lenderDashboardUrl ? `${lenderDashboardUrl}/signin` : "";
 };
 
+const buildLenderInviteUrl = (token) => {
+  const { lenderDashboardUrl } = getEmailBranding();
+  if (!lenderDashboardUrl || !token) return "";
+  return ensureAbsoluteUrl(
+    `${stripTrailingSlash(lenderDashboardUrl)}/invite/${encodeURIComponent(token)}`,
+  );
+};
+
 const buildClientPortalUrl = ({ token, path = "" } = {}) => {
   const { frontendUrl } = getEmailBranding();
   if (!frontendUrl) return "";
@@ -154,6 +162,7 @@ module.exports = {
   getEmailBranding,
   buildBrokerSignInUrl,
   buildLenderSignInUrl,
+  buildLenderInviteUrl,
   buildClientPortalUrl,
   buildLoanPreviewUrl,
   buildLenderLoanPreviewUrl,

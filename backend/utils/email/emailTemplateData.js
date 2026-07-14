@@ -122,11 +122,21 @@ const buildDocumentUploadEmailData = ({
     `${getEmailBranding().frontendUrl}/loan-preview`,
 });
 
-const buildLenderInviteEmailData = ({ name, email, phone, signupUrl } = {}) => ({
+const buildLenderInviteEmailData = ({
+  name,
+  email,
+  phone,
+  companyName,
+  signupUrl,
+} = {}) => ({
   name: asDisplayText(name, "there"),
   email: asDisplayText(email),
   phone: asDisplayText(phone, "—"),
-  signupUrl: signupUrl || buildLenderSignInUrl() || getEmailBranding().lenderDashboardUrl,
+  companyName: asDisplayText(companyName, "—"),
+  signupUrl:
+    signupUrl ||
+    buildLenderSignInUrl() ||
+    getEmailBranding().lenderDashboardUrl,
 });
 
 const buildLenderWelcomeEmailData = ({

@@ -33,6 +33,10 @@ async function indexRoutes(fastify, options) {
     prefix: "/api/public/broker/applications",
   });
 
+  fastify.register(require("./public/lenderInvites"), {
+    prefix: "/public/lender-invites",
+  });
+
   // =========================
   // CLIENT PORTAL (NEW)
   // =========================

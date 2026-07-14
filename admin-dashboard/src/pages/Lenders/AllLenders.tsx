@@ -30,6 +30,7 @@ Swal.mixin({
 import { Eye, EyeOff } from "lucide-react";
 import LenderProductAssign from "../LoanProducts/LenderAssignProduct";
 import toast from "react-hot-toast";
+import LenderInvitesPanel from "./LenderInvitesPanel";
 
 type Lender = {
   id: any;
@@ -130,14 +131,18 @@ export default function AllLendersPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const [isInviteOpen, setIsInviteOpen] = useState(false);
+  const [inviteListKey, setInviteListKey] = useState(0);
+  const [listView, setListView] = useState<"lenders" | "invites">("lenders");
 
   const [inviteForm, setInviteForm] = useState({
+    companyName: "",
     fullName: "",
     email: "",
     phone: "",
   });
 
   const [inviteErrors, setInviteErrors] = useState({
+    companyName: "",
     name: "",
     email: "",
     phone: "",
@@ -231,6 +236,7 @@ export default function AllLendersPage() {
 
   const validateInvite = () => {
     const errors = {
+      companyName: "",
       name: "",
       email: "",
       phone: "",
@@ -239,6 +245,11 @@ export default function AllLendersPage() {
     let isValid = true;
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!inviteForm.companyName.trim()) {
+      errors.companyName = "Company name is required";
+      isValid = false;
+    }
 
     if (!inviteForm.fullName.trim()) {
       errors.name = "Name is required";
@@ -500,8 +511,9 @@ export default function AllLendersPage() {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
-          fullName: inviteForm.fullName,
-          email: inviteForm.email,
+          companyName: inviteForm.companyName.trim(),
+          fullName: inviteForm.fullName.trim(),
+          email: inviteForm.email.trim().toLowerCase(),
           phone: inviteForm.phone.replace(/\D/g, ""),
         }),
       });
@@ -513,14 +525,18 @@ export default function AllLendersPage() {
         return;
       }
 
-      // success
+      toast.success("Invitation sent successfully");
+
       setInviteForm({
+        companyName: "",
         fullName: "",
         email: "",
         phone: "",
       });
 
       setIsInviteOpen(false);
+      setListView("invites");
+      setInviteListKey((k) => k + 1);
     } catch (err: any) {
       setInviteApiError("Something went wrong. Please try again.");
     } finally {
@@ -942,6 +958,40 @@ export default function AllLendersPage() {
           </div>
         </div>
 
+        {/* ================= VIEW TABS ================= */}
+        <div className="mb-6 inline-flex rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-1">
+          <button
+            type="button"
+            onClick={() => setListView("lenders")}
+            className={`px-4 py-2 text-xs font-semibold rounded-lg transition ${
+              listView === "lenders"
+                ? "bg-[#13538A] text-white"
+                : "text-slate-600 dark:text-slate-300"
+            }`}
+          >
+            All Lenders
+          </button>
+          <button
+            type="button"
+            onClick={() => setListView("invites")}
+            className={`px-4 py-2 text-xs font-semibold rounded-lg transition ${
+              listView === "invites"
+                ? "bg-[#13538A] text-white"
+                : "text-slate-600 dark:text-slate-300"
+            }`}
+          >
+            Invitations
+          </button>
+        </div>
+
+        {listView === "invites" ? (
+          <LenderInvitesPanel
+            key={inviteListKey}
+            apiBase={API_BASE}
+            getAuthHeaders={getAuthHeaders}
+          />
+        ) : (
+          <>
         {/* ================= STATS CARDS ================= */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
           {/* TOTAL LENDERS */}
@@ -1841,6 +1891,8 @@ dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100`}
             </div>
           </div>
         )}
+          </>
+        )}
       </div>
       {showAssignPopup && newCreatedLenderId && (
         <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/40 backdrop-blur-sm">
@@ -1883,6 +1935,44 @@ dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100`}
                   {inviteApiError}
                 </div>
               )}
+
+              {/* Company */}
+              <div>
+                <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                  Company Name
+                </label>
+
+                <div className="relative mt-1">
+                  <Building2
+                    size={16}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                  />
+
+                  <input
+                    type="text"
+                    value={inviteForm.companyName}
+                    onChange={(e) => {
+                      setInviteForm({
+                        ...inviteForm,
+                        companyName: e.target.value,
+                      });
+                      setInviteErrors({ ...inviteErrors, companyName: "" });
+                    }}
+                    placeholder="Enter company name"
+                    className={`w-full pl-9 pr-3 py-2.5 rounded-lg border
+      ${inviteErrors.companyName ? "border-red-500" : "border-slate-300"}
+      dark:border-slate-600
+      bg-white dark:bg-slate-800
+      text-slate-900 dark:text-white`}
+                  />
+                </div>
+
+                {inviteErrors.companyName && (
+                  <p className="text-red-500 text-xs mt-1">
+                    {inviteErrors.companyName}
+                  </p>
+                )}
+              </div>
 
               {/* Name */}
               <div>
