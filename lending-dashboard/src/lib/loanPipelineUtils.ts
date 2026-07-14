@@ -192,6 +192,50 @@ export function canLenderTakeDecision(input?: {
   return true;
 }
 
+export function normalizeLenderDecision(status?: string | null) {
+  return (status || "").toUpperCase().trim();
+}
+
+export function canShowFinalApprovalAction(input: {
+  lenderDecision?: string | null;
+  canDecide: boolean;
+  canTakeDecision: boolean;
+}) {
+  return (
+    input.canDecide &&
+    input.canTakeDecision &&
+    normalizeLenderDecision(input.lenderDecision) === "CONDITIONAL"
+  );
+}
+
+export function canShowRequestDocumentsAction(input: {
+  lenderDecision?: string | null;
+  canRequestDocuments: boolean;
+  canTakeDecision: boolean;
+}) {
+  const decision = normalizeLenderDecision(input.lenderDecision);
+
+  if (["APPROVED", "DECLINED", "CONDITIONAL"].includes(decision)) {
+    return false;
+  }
+
+  return input.canRequestDocuments && input.canTakeDecision;
+}
+
+export function canShowRejectAction(input: {
+  lenderDecision?: string | null;
+  canDecide: boolean;
+  canTakeDecision: boolean;
+}) {
+  const decision = normalizeLenderDecision(input.lenderDecision);
+
+  if (["APPROVED", "DECLINED"].includes(decision)) {
+    return false;
+  }
+
+  return input.canDecide && input.canTakeDecision;
+}
+
 export function canLenderRequestDocuments(
   lenderStatus?: string | null,
   latestReviewStatus?: string | null,

@@ -129,9 +129,9 @@ function getAuthHeaders(): HeadersInit {
 
 const tabMeta: Array<{ id: PreviewTab; label: string }> = [
   { id: "details", label: "View Details" },
+  { id: "requestDocs", label: "Request Documents" },
   { id: "documents", label: "Upload Documents" },
   { id: "signDocuments", label: "Sign Documents" },
-  { id: "requestDocs", label: "Request Documents" },
   { id: "loi", label: "View LOI" },
   { id: "chat", label: "Chat" },
 ];

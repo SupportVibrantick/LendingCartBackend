@@ -81,20 +81,6 @@ async function checkUserByTokenRoute(fastify) {
         }
 
         /* ===============================
-           CHECK USER EXISTS
-        =============================== */
-
-        const clientUser = await prisma.clientPortalUser.findFirst({
-          where: {
-            clientId,
-            isDeleted: false,
-          },
-          select: { id: true },
-        });
-
-        userExists = !!clientUser;
-
-        /* ===============================
            GET EMAIL
         =============================== */
 
@@ -111,6 +97,26 @@ async function checkUserByTokenRoute(fastify) {
         });
 
         email = contact?.email || null;
+
+        /* ===============================
+           CHECK USER EXISTS
+           Unique on email — also match by email so invite UI shows login
+        =============================== */
+
+        const clientUser = await prisma.clientPortalUser.findFirst({
+          where: {
+            isDeleted: false,
+            OR: [
+              { clientId },
+              ...(email
+                ? [{ email: { equals: email, mode: "insensitive" } }]
+                : []),
+            ],
+          },
+          select: { id: true },
+        });
+
+        userExists = !!clientUser;
 
         /* ===============================
            RESPONSE

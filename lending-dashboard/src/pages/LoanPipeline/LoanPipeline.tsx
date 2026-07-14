@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
+import Swal from "sweetalert2";
 import { createPortal } from "react-dom";
 import {
   Eye,
@@ -25,6 +26,9 @@ import { useNavigate } from "react-router";
 import {
   buildBorrowerDisplayName,
   canLenderTakeDecision,
+  canShowFinalApprovalAction,
+  canShowRejectAction,
+  canShowRequestDocumentsAction,
   DECISION_FILTERS,
   formatApplicationStatus,
   formatCompactAmount,
@@ -39,6 +43,7 @@ import {
 import {
   canDecideApplications,
   canGenerateLoi,
+  canRequestDocuments,
 } from "../../lib/lenderPermissions";
 
 /* ================= TYPES ================= */
@@ -75,10 +80,29 @@ function getAuthHeaders(): HeadersInit {
 
 const normalizeStatus = (status?: string) => status?.toUpperCase().trim();
 
+type DecisionFormErrors = {
+  approvedAmount?: string;
+  interestRate?: string;
+  notes?: string;
+};
+
+function getSwalTheme() {
+  const isDark = document.documentElement.classList.contains("dark");
+
+  return {
+    background: isDark ? "#1e293b" : "#ffffff",
+    color: isDark ? "#e2e8f0" : "#1e293b",
+    customClass: {
+      popup: "rounded-2xl",
+    },
+  };
+}
+
 /* ================= COMPONENT ================= */
 export default function LoanPipeline() {
   const navigate = useNavigate();
   const canDecide = canDecideApplications();
+  const canRequestDocs = canRequestDocuments();
   const canCreateLoi = canGenerateLoi();
   const [rows, setRows] = useState<TableRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -105,14 +129,10 @@ export default function LoanPipeline() {
     interestRate: "",
     notes: "",
   });
-
-  const [docSelectModal, setDocSelectModal] = useState({
-    isOpen: false,
-    applicationId: "",
-    documents: [] as any[],
-    selectedDocs: [] as string[],
-    loading: false,
-  });
+  const [decisionFormErrors, setDecisionFormErrors] = useState<DecisionFormErrors>(
+    {},
+  );
+  const [decisionSubmitting, setDecisionSubmitting] = useState(false);
 
   // File Preview State
   const [previewFile, setPreviewFile] = useState<{
@@ -174,45 +194,6 @@ export default function LoanPipeline() {
 const newCount = stats.newApplications;
 const approvedCount = stats.approvedApplications;
 const totalVolume = stats.totalVolume;
-
-  const openDocumentSelector = async (row: any) => {
-    try {
-      setDocSelectModal((prev) => ({
-        ...prev,
-        isOpen: true,
-        applicationId: row.applicationLenderId,
-        loading: true,
-      }));
-
-      const res = await fetch(
-        `${API_BASE}/lender/document-config/list?loanProductCode=${encodeURIComponent(row.loanType)}&limit=100`,
-        {
-          headers: getAuthHeaders(),
-        },
-      );
-
-      const json = await res.json();
-
-      if (!res.ok || !json.success) {
-        throw new Error("Failed to fetch documents");
-      }
-
-      setDocSelectModal({
-        isOpen: true,
-        applicationId: row.applicationLenderId,
-        documents: json.data || [],
-        selectedDocs: [],
-        loading: false,
-      });
-    } catch (err: any) {
-      toast.error(err.message);
-      setDocSelectModal((prev) => ({
-        ...prev,
-        isOpen: false,
-        loading: false,
-      }));
-    }
-  };
 
   const loadStats = useCallback(async () => {
     try {
@@ -362,6 +343,16 @@ useEffect(() => {
     });
   };
 
+  const openRequestDocumentsTab = (row: TableRow) => {
+    navigate("/loan-preview/?tab=requestDocs", {
+      state: {
+        applicationLenderId: row.applicationLenderId,
+        initialTab: "requestDocs",
+        isLoi: row.loiGenerated,
+      },
+    });
+  };
+
   const pageNumbers = useMemo(
     () => getPaginationWindow(currentPage, pagination.totalPages),
     [currentPage, pagination.totalPages],
@@ -413,9 +404,83 @@ useEffect(() => {
   //   }
   // };
 
+  const closeDecisionModal = () => {
+    setDecisionModal({ type: null, applicationId: null });
+    setDecisionForm({
+      approvedAmount: "",
+      interestRate: "",
+      notes: "",
+    });
+    setDecisionFormErrors({});
+    setDecisionSubmitting(false);
+  };
+
+  const validateDecisionForm = () => {
+    const errors: DecisionFormErrors = {};
+    const notes = decisionForm.notes.trim();
+
+    if (!notes) {
+      errors.notes = "Notes are required";
+    }
+
+    if (decisionModal.type === "APPROVED") {
+      const approvedAmount = Number(decisionForm.approvedAmount);
+      if (!decisionForm.approvedAmount.trim()) {
+        errors.approvedAmount = "Approved amount is required";
+      } else if (!Number.isFinite(approvedAmount) || approvedAmount <= 0) {
+        errors.approvedAmount = "Enter a valid approved amount greater than 0";
+      }
+
+      const interestRate = Number(decisionForm.interestRate);
+      if (!decisionForm.interestRate.trim()) {
+        errors.interestRate = "Interest rate is required";
+      } else if (
+        !Number.isFinite(interestRate) ||
+        interestRate < 0 ||
+        interestRate > 100
+      ) {
+        errors.interestRate = "Enter a valid interest rate between 0 and 100";
+      }
+    }
+
+    setDecisionFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleDecisionSubmit = async () => {
+    if (!decisionModal.applicationId || !decisionModal.type) return;
+    if (!validateDecisionForm()) {
+      await Swal.fire({
+        title: "Missing required fields",
+        text: "Please complete all required fields before continuing.",
+        icon: "warning",
+        confirmButtonColor: "#0F766E",
+        ...getSwalTheme(),
+      });
+      return;
+    }
+
+    const isApproval = decisionModal.type === "APPROVED";
+    const confirmResult = await Swal.fire({
+      title: isApproval ? "Confirm final approval?" : "Confirm rejection?",
+      text: isApproval
+        ? "This will mark the application as approved."
+        : "This will mark the application as rejected.",
+      icon: isApproval ? "question" : "warning",
+      showCancelButton: true,
+      confirmButtonColor: isApproval ? "#059669" : "#dc2626",
+      cancelButtonColor: "#6b7280",
+      confirmButtonText: isApproval
+        ? "Yes, approve"
+        : "Yes, reject",
+      cancelButtonText: "Cancel",
+      ...getSwalTheme(),
+    });
+
+    if (!confirmResult.isConfirmed) return;
+
     try {
-      if (!decisionModal.applicationId || !decisionModal.type) return;
+      setDecisionSubmitting(true);
 
       const payload =
         decisionModal.type === "APPROVED"
@@ -423,11 +488,11 @@ useEffect(() => {
               decision: "APPROVED",
               approvedAmount: Number(decisionForm.approvedAmount),
               interestRate: Number(decisionForm.interestRate),
-              notes: decisionForm.notes,
+              notes: decisionForm.notes.trim(),
             }
           : {
               decision: "DECLINED",
-              notes: decisionForm.notes,
+              notes: decisionForm.notes.trim(),
             };
 
       const res = await fetch(
@@ -445,27 +510,31 @@ useEffect(() => {
         throw new Error(json.message || "Decision failed");
       }
 
-      toast.success(
-        decisionModal.type === "APPROVED"
-          ? "Application Approved"
-          : "Application Rejected",
-      );
+      closeDecisionModal();
 
-      // Close modal
-      setDecisionModal({ type: null, applicationId: null });
-
-      // Reset form
-      setDecisionForm({
-        approvedAmount: "",
-        interestRate: "",
-        notes: "",
+      await Swal.fire({
+        title: isApproval ? "Application approved" : "Application rejected",
+        text: isApproval
+          ? "Final approval has been recorded successfully."
+          : "The application has been rejected successfully.",
+        icon: "success",
+        timer: 1800,
+        showConfirmButton: false,
+        ...getSwalTheme(),
       });
 
-      // Refresh table
       loadSubmissions();
       loadStats();
     } catch (err: any) {
-      toast.error(err.message || "Something went wrong");
+      await Swal.fire({
+        title: isApproval ? "Approval failed" : "Rejection failed",
+        text: err.message || "Something went wrong",
+        icon: "error",
+        confirmButtonColor: "#0F766E",
+        ...getSwalTheme(),
+      });
+    } finally {
+      setDecisionSubmitting(false);
     }
   };
 
@@ -709,13 +778,27 @@ useEffect(() => {
                 ))
               ) : rows.length > 0 ? (
                 rows.map((row) => {
-                  const isActionAllowed =
-                    canDecide &&
-                    canLenderTakeDecision({
-                      applicationStatus: row.applicationStatus,
-                      lenderStatus: row.lenderStatus,
-                      lenderDecision: row.lenderDecision,
-                    });
+                  const decisionContext = {
+                    applicationStatus: row.applicationStatus,
+                    lenderStatus: row.lenderStatus,
+                    lenderDecision: row.lenderDecision,
+                  };
+                  const canTakeDecision = canLenderTakeDecision(decisionContext);
+                  const showRequestDocuments = canShowRequestDocumentsAction({
+                    lenderDecision: row.lenderDecision,
+                    canRequestDocuments: canRequestDocs,
+                    canTakeDecision,
+                  });
+                  const showFinalApproval = canShowFinalApprovalAction({
+                    lenderDecision: row.lenderDecision,
+                    canDecide,
+                    canTakeDecision,
+                  });
+                  const showReject = canShowRejectAction({
+                    lenderDecision: row.lenderDecision,
+                    canDecide,
+                    canTakeDecision,
+                  });
 
                   return (
                     <tr
@@ -947,33 +1030,46 @@ transition rounded-lg mx-1"
                                       </button>
                                     )}
 
-                                    {/* Approve */}
-                                    {normalizeStatus(row.lenderDecision) ===
-                                      "CONDITIONAL" && (
+                                    {/* Request documents (initial conditional step) */}
+                                    {showRequestDocuments && (
                                       <button
-                                        disabled={!isActionAllowed}
                                         onClick={() => {
                                           setActiveDropdown(null);
-
-                                          if (
-                                            normalizeStatus(
-                                              row.lenderDecision,
-                                            ) === "CONDITIONAL"
-                                          ) {
-                                            setDecisionModal({
-                                              type: "APPROVED",
-                                              applicationId:
-                                                row.applicationLenderId,
-                                            });
-                                          } else {
-                                            openDocumentSelector(row);
-                                          }
+                                          openRequestDocumentsTab(row);
                                         }}
-                                        className={`flex items-center gap-3 w-full px-4 py-2.5 text-sm rounded-lg mx-1 transition ${
-                                          isActionAllowed
-                                            ? "text-emerald-600 bg-emerald-50/50 dark:bg-emerald-900/10 hover:bg-emerald-100 dark:hover:bg-emerald-900/20"
-                                            : "text-slate-300 bg-slate-50 cursor-not-allowed"
-                                        }`}
+                                        className="flex items-center gap-3 w-full px-4 py-2.5 text-sm 
+text-amber-600 bg-amber-50/50 dark:bg-amber-900/10 
+hover:bg-amber-100 dark:hover:bg-amber-900/20 
+transition rounded-lg mx-1"
+                                      >
+                                        <FileIcon size={16} />
+                                        Request Documents
+                                        {(row.pendingDocumentsCount ?? 0) > 0 && (
+                                          <span className="ml-auto bg-amber-500 text-white text-[10px] px-2 py-0.5 rounded-full">
+                                            {row.pendingDocumentsCount}
+                                          </span>
+                                        )}
+                                      </button>
+                                    )}
+
+                                    {/* Final approval after docs requested */}
+                                    {showFinalApproval && (
+                                      <button
+                                        onClick={() => {
+                                          setActiveDropdown(null);
+                                          setDecisionModal({
+                                            type: "APPROVED",
+                                            applicationId:
+                                              row.applicationLenderId,
+                                          });
+                                          setDecisionForm({
+                                            approvedAmount: "",
+                                            interestRate: "",
+                                            notes: "",
+                                          });
+                                          setDecisionFormErrors({});
+                                        }}
+                                        className="flex items-center gap-3 w-full px-4 py-2.5 text-sm rounded-lg mx-1 transition text-emerald-600 bg-emerald-50/50 dark:bg-emerald-900/10 hover:bg-emerald-100 dark:hover:bg-emerald-900/20"
                                       >
                                         <CheckCircle size={16} />
                                         Final Approval
@@ -981,11 +1077,8 @@ transition rounded-lg mx-1"
                                     )}
 
                                     {/* Reject */}
-                                  {!["APPROVED", "DECLINED"].includes(
-  normalizeStatus(row.lenderDecision) || ""
-) && (
+                                    {showReject && (
                                       <button
-                                        disabled={!isActionAllowed}
                                         onClick={() => {
                                           setActiveDropdown(null);
                                           setDecisionModal({
@@ -993,12 +1086,14 @@ transition rounded-lg mx-1"
                                             applicationId:
                                               row.applicationLenderId,
                                           });
+                                          setDecisionForm({
+                                            approvedAmount: "",
+                                            interestRate: "",
+                                            notes: "",
+                                          });
+                                          setDecisionFormErrors({});
                                         }}
-                                        className={`flex items-center gap-3 w-full px-4 py-2.5 text-sm rounded-lg mx-1 transition ${
-                                          isActionAllowed
-                                            ? "text-rose-600 bg-rose-50/50 dark:bg-rose-900/10 hover:bg-rose-100 dark:hover:bg-rose-900/20"
-                                            : "text-slate-300 bg-slate-50 cursor-not-allowed"
-                                        }`}
+                                        className="flex items-center gap-3 w-full px-4 py-2.5 text-sm rounded-lg mx-1 transition text-rose-600 bg-rose-50/50 dark:bg-rose-900/10 hover:bg-rose-100 dark:hover:bg-rose-900/20"
                                       >
                                         <XCircle size={16} />
                                         Reject
@@ -1122,14 +1217,12 @@ transition rounded-lg mx-1"
                     <div className="flex items-center justify-between px-6 py-4 border-b dark:border-slate-800">
                       <h2 className="text-lg font-bold">
                         {decisionModal.type === "APPROVED"
-                          ? "Approve Application"
+                          ? "Final Approval"
                           : "Reject Application"}
                       </h2>
 
                       <button
-                        onClick={() =>
-                          setDecisionModal({ type: null, applicationId: null })
-                        }
+                        onClick={closeDecisionModal}
                         className="text-sm px-3 py-1 rounded-lg bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400"
                       >
                         Close
@@ -1143,42 +1236,74 @@ transition rounded-lg mx-1"
                           {/* Approved Amount */}
                           <div>
                             <label className="block text-sm font-medium mb-1">
-                              Approved Amount
+                              Approved Amount <span className="text-red-500">*</span>
                             </label>
                             <input
                               type="number"
+                              required
+                              min="0"
                               placeholder="Enter approved amount"
                               value={decisionForm.approvedAmount}
-                              onChange={(e) =>
+                              onChange={(e) => {
                                 setDecisionForm({
                                   ...decisionForm,
                                   approvedAmount: e.target.value,
-                                })
-                              }
-                              className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-emerald-500 outline-none"
+                                });
+                                if (decisionFormErrors.approvedAmount) {
+                                  setDecisionFormErrors((prev) => ({
+                                    ...prev,
+                                    approvedAmount: undefined,
+                                  }));
+                                }
+                              }}
+                              className={`w-full px-3 py-2 rounded-xl border bg-white dark:bg-slate-800 focus:ring-2 focus:ring-emerald-500 outline-none ${
+                                decisionFormErrors.approvedAmount
+                                  ? "border-red-500"
+                                  : "border-slate-200 dark:border-slate-700"
+                              }`}
                             />
+                            {decisionFormErrors.approvedAmount && (
+                              <p className="mt-1 text-xs text-red-500">
+                                {decisionFormErrors.approvedAmount}
+                              </p>
+                            )}
                           </div>
 
-                          {/* Interest Rate */}
                           <div>
                             <label className="block text-sm font-medium mb-1">
-                              Interest Rate (%)
+                              Interest Rate (%) <span className="text-red-500">*</span>
                             </label>
                             <input
                               type="number"
+                              required
                               step="0.01"
                               min="0"
                               max="100"
                               value={decisionForm.interestRate}
-                              onChange={(e) =>
+                              onChange={(e) => {
                                 setDecisionForm({
                                   ...decisionForm,
                                   interestRate: e.target.value,
-                                })
-                              }
+                                });
+                                if (decisionFormErrors.interestRate) {
+                                  setDecisionFormErrors((prev) => ({
+                                    ...prev,
+                                    interestRate: undefined,
+                                  }));
+                                }
+                              }}
                               placeholder="Enter interest rate"
-                              className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-emerald-500 outline-none"
+                              className={`w-full px-3 py-2 rounded-xl border bg-white dark:bg-slate-800 focus:ring-2 focus:ring-emerald-500 outline-none ${
+                                decisionFormErrors.interestRate
+                                  ? "border-red-500"
+                                  : "border-slate-200 dark:border-slate-700"
+                              }`}
                             />
+                            {decisionFormErrors.interestRate && (
+                              <p className="mt-1 text-xs text-red-500">
+                                {decisionFormErrors.interestRate}
+                              </p>
+                            )}
                           </div>
                         </>
                       )}
@@ -1186,43 +1311,57 @@ transition rounded-lg mx-1"
                       {/* Notes */}
                       <div>
                         <label className="block text-sm font-medium mb-1">
-                          Notes
+                          Notes <span className="text-red-500">*</span>
                         </label>
                         <textarea
+                          required
                           rows={4}
                           value={decisionForm.notes}
-                          onChange={(e) =>
+                          onChange={(e) => {
                             setDecisionForm({
                               ...decisionForm,
                               notes: e.target.value,
-                            })
-                          }
+                            });
+                            if (decisionFormErrors.notes) {
+                              setDecisionFormErrors((prev) => ({
+                                ...prev,
+                                notes: undefined,
+                              }));
+                            }
+                          }}
                           placeholder={
                             decisionModal.type === "APPROVED"
                               ? "Approval notes..."
                               : "Reason for rejection..."
                           }
-                          className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-blue-500 outline-none"
+                          className={`w-full px-3 py-2 rounded-xl border bg-white dark:bg-slate-800 focus:ring-2 focus:ring-blue-500 outline-none ${
+                            decisionFormErrors.notes
+                              ? "border-red-500"
+                              : "border-slate-200 dark:border-slate-700"
+                          }`}
                         />
+                        {decisionFormErrors.notes && (
+                          <p className="mt-1 text-xs text-red-500">
+                            {decisionFormErrors.notes}
+                          </p>
+                        )}
                       </div>
 
-                      {/* Footer Buttons */}
                       <div className="flex justify-end gap-3 pt-4">
                         <button
-                          onClick={() =>
-                            setDecisionModal({
-                              type: null,
-                              applicationId: null,
-                            })
-                          }
-                          className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800"
+                          type="button"
+                          onClick={closeDecisionModal}
+                          disabled={decisionSubmitting}
+                          className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 disabled:opacity-60"
                         >
                           Cancel
                         </button>
 
                         <button
+                          type="button"
                           onClick={handleDecisionSubmit}
-                          className={`px-4 py-2 rounded-xl text-white font-semibold
+                          disabled={decisionSubmitting}
+                          className={`px-4 py-2 rounded-xl text-white font-semibold disabled:opacity-60
     ${
       decisionModal.type === "APPROVED"
         ? "bg-emerald-600 hover:bg-emerald-700"
@@ -1230,9 +1369,11 @@ transition rounded-lg mx-1"
     }
   `}
                         >
-                          {decisionModal.type === "APPROVED"
-                            ? "Confirm Approval"
-                            : "Confirm Rejection"}
+                          {decisionSubmitting
+                            ? "Processing..."
+                            : decisionModal.type === "APPROVED"
+                              ? "Confirm Final Approval"
+                              : "Confirm Rejection"}
                         </button>
                       </div>
                     </div>
@@ -1433,270 +1574,6 @@ transition rounded-lg mx-1"
                 document.body,
               )}
 
-            {docSelectModal.isOpen &&
-              createPortal(
-                <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-                  <div className="w-full max-w-3xl bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
-                    {/* HEADER */}
-                    <div className="px-6 py-4 border-b dark:border-slate-800 flex items-center justify-between">
-                      <h2 className="text-lg font-semibold text-[#134E4A] dark:text-teal-300">
-                        Select Documents
-                      </h2>
-
-                      <button
-                        onClick={() =>
-                          setDocSelectModal({
-                            isOpen: false,
-                            applicationId: "",
-                            documents: [],
-                            selectedDocs: [],
-                            loading: false,
-                          })
-                        }
-                        className="
-    flex items-center justify-center
-    w-9 h-9 rounded-lg
-    bg-slate-100 dark:bg-slate-800
-    text-slate-500 dark:text-slate-400
-    hover:bg-red-100 hover:text-red-600
-    transition-all duration-200
-    active:scale-95
-  "
-                      >
-                        <X size={18} />
-                      </button>
-                    </div>
-
-                    {/* CONTENT */}
-                    <div className="p-6">
-                      {docSelectModal.loading ? (
-                        <div className="flex items-center justify-center py-10">
-                          <span className="animate-pulse text-slate-500 text-sm">
-                            Loading documents...
-                          </span>
-                        </div>
-                      ) : (
-                        <>
-                          {/* TOP ACTIONS */}
-                          <div className="flex items-center justify-between mb-4">
-                            <p className="text-xs text-slate-500">
-                              Select which documents are required.
-                            </p>
-
-                            <div className="flex gap-2 text-xs">
-                              {/* Select All */}
-                              <button
-                                onClick={() =>
-                                  setDocSelectModal({
-                                    ...docSelectModal,
-                                    selectedDocs: docSelectModal.documents.map(
-                                      (d: any) => d.documentTypeId,
-                                    ),
-                                  })
-                                }
-                                className="
-      px-3 py-1.5 rounded-lg font-medium
-      bg-[#134E4A]/10 text-[#134E4A] dark:text-[#45c8bf]
-      hover:bg-[#134E4A] hover:text-white
-      border border-[#134E4A]/20
-      transition-all duration-200
-      active:scale-95
-    "
-                              >
-                                Select All
-                              </button>
-
-                              {/* Clear */}
-                              <button
-                                onClick={() =>
-                                  setDocSelectModal({
-                                    ...docSelectModal,
-                                    selectedDocs: [],
-                                  })
-                                }
-                                className="
-      px-3 py-1.5 rounded-lg font-medium
-      bg-slate-100 dark:bg-slate-800
-      text-slate-600 dark:text-slate-300
-      hover:bg-red-50 hover:text-red-600
-      border border-slate-200 dark:border-slate-700
-      transition-all duration-200
-      active:scale-95
-    "
-                              >
-                                Clear
-                              </button>
-                            </div>
-                          </div>
-
-                          {/* GRID */}
-                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 max-h-72 overflow-y-auto pr-1">
-                            {docSelectModal.documents.map(
-                              (doc: any, index: number) => {
-                                const isChecked =
-                                  docSelectModal.selectedDocs.includes(
-                                    doc.documentTypeId,
-                                  );
-
-                                const colors = [
-                                  "bg-orange-400",
-                                  "bg-purple-400",
-                                  "bg-blue-400",
-                                  "bg-pink-400",
-                                  "bg-green-400",
-                                  "bg-yellow-400",
-                                ];
-
-                                return (
-                                  <label
-                                    key={doc.documentTypeId}
-                                    className={`
-                        flex items-center justify-between p-4 rounded-2xl cursor-pointer
-                        border transition-all duration-200
-                        ${
-                          isChecked
-                            ? "border-[#134E4A] bg-[#134E4A]/5"
-                            : "border-slate-200 dark:border-slate-700 hover:border-[#134E4A]/40"
-                        }
-                      `}
-                                  >
-                                    {/* LEFT */}
-                                    <div className="flex items-center gap-3">
-                                      {/* Dot */}
-                                      <span
-                                        className={`w-2.5 h-2.5 rounded-full ${
-                                          colors[index % colors.length]
-                                        }`}
-                                      />
-
-                                      {/* TEXT */}
-                                      <div className="flex flex-col">
-                                        <span className="text-sm font-medium text-slate-800 dark:text-slate-200">
-                                          {doc.documentType.name}
-                                        </span>
-
-                                        {/* {doc.isRequired && (
-                                          <span className="text-[10px] text-red-500 font-semibold">
-                                            Required
-                                          </span>
-                                        )} */}
-                                      </div> 
-                                    </div>
-
-                                    {/* CHECKBOX */}
-                                    <div
-                                      className={`
-                          w-6 h-6 flex items-center justify-center rounded-md border
-                          transition-all
-                          ${
-                            isChecked
-                              ? "bg-[#134E4A] border-[#134E4A]"
-                              : "border-slate-300 dark:border-slate-600"
-                          }
-                        `}
-                                    >
-                                      {isChecked && (
-                                        <svg
-                                          xmlns="http://www.w3.org/2000/svg"
-                                          className="w-4 h-4 text-white"
-                                          viewBox="0 0 20 20"
-                                          fill="currentColor"
-                                        >
-                                          <path
-                                            fillRule="evenodd"
-                                            d="M16.707 5.293a1 1 0 010 1.414l-7.25 7.25a1 1 0 01-1.414 0l-3.25-3.25a1 1 0 011.414-1.414l2.543 2.543 6.543-6.543a1 1 0 011.414 0z"
-                                            clipRule="evenodd"
-                                          />
-                                        </svg>
-                                      )}
-                                    </div>
-
-                                    {/* Hidden Input */}
-                                    <input
-                                      type="checkbox"
-                                      checked={isChecked}
-                                      onChange={(e) => {
-                                        const updated = e.target.checked
-                                          ? [
-                                              ...docSelectModal.selectedDocs,
-                                              doc.documentTypeId,
-                                            ]
-                                          : docSelectModal.selectedDocs.filter(
-                                              (id) => id !== doc.documentTypeId,
-                                            );
-
-                                        setDocSelectModal({
-                                          ...docSelectModal,
-                                          selectedDocs: updated,
-                                        });
-                                      }}
-                                      className="hidden"
-                                    />
-                                  </label>
-                                );
-                              },
-                            )}
-                          </div>
-                        </>
-                      )}
-
-                      {/* FOOTER */}
-                      <div className="flex justify-between items-center mt-6 pt-4 border-t dark:border-slate-800">
-                        <span className="text-xs text-slate-500">
-                          {docSelectModal.selectedDocs.length} selected
-                        </span>
-
-                        <button
-                          onClick={async () => {
-                            try {
-                              const payload = {
-                                decision: "CONDITIONAL",
-                                notes: "Please upload required documents",
-                                documentTypeIds: docSelectModal.selectedDocs,
-                              };
-
-                              const res = await fetch(
-                                `${API_BASE}/lender/loan-pipeline/${docSelectModal.applicationId}/decision`,
-                                {
-                                  method: "PATCH",
-                                  headers: getAuthHeaders(),
-                                  body: JSON.stringify(payload),
-                                },
-                              );
-
-                              const json = await res.json();
-
-                              if (!res.ok || !json.success) {
-                                throw new Error(json.message);
-                              }
-
-                              toast.success("Documents requested");
-
-                              setDocSelectModal({
-                                isOpen: false,
-                                applicationId: "",
-                                documents: [],
-                                selectedDocs: [],
-                                loading: false,
-                              });
-
-                              loadSubmissions();
-                              loadStats();
-                            } catch (err: any) {
-                              toast.error(err.message);
-                            }
-                          }}
-                          className="px-5 py-2 text-sm font-semibold text-white rounded-xl
-              bg-[#134E4A] hover:bg-[#0f3d3a] active:scale-95 transition-all"
-                        >
-                          Request Documents
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>,
-                document.body,
-              )}
     </div>
   );
 }

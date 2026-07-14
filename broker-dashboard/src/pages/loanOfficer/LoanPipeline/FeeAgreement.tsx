@@ -11,9 +11,14 @@ const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 interface Props {
   applicationId: string;
   getAuthHeaders: () => HeadersInit;
+  applicationBrokerPoints?: string | number | null;
 }
 
-export default function FeeAgreement({ applicationId, getAuthHeaders }: Props) {
+export default function FeeAgreement({
+  applicationId,
+  getAuthHeaders,
+  applicationBrokerPoints = null,
+}: Props) {
   const pdfRef = useRef<HTMLDivElement>(null);
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -32,19 +37,41 @@ export default function FeeAgreement({ applicationId, getAuthHeaders }: Props) {
   exclusivityMonths: "",
 });
 
+  const resolveApplicationBrokerPoints = () => {
+    if (
+      applicationBrokerPoints === null ||
+      applicationBrokerPoints === undefined ||
+      applicationBrokerPoints === ""
+    ) {
+      return "";
+    }
+
+    return String(applicationBrokerPoints).trim();
+  };
+
+  const buildFormFromSources = (agreementData: any) => ({
+    brokerPoints:
+      resolveApplicationBrokerPoints() ||
+      (agreementData?.brokerPoints != null
+        ? String(agreementData.brokerPoints)
+        : ""),
+    upfrontFee:
+      agreementData?.upfrontFee != null ? String(agreementData.upfrontFee) : "",
+    exclusivityMonths:
+      agreementData?.exclusivityMonths != null
+        ? String(agreementData.exclusivityMonths)
+        : "",
+  });
+
   useEffect(() => {
     if (applicationId) fetchAgreement();
   }, [applicationId]);
 
   useEffect(() => {
     if (data) {
-      setForm({
-        brokerPoints: data.brokerPoints || "",
-        upfrontFee: data.upfrontFee || "",
-        exclusivityMonths: data.exclusivityMonths || "",
-      });
+      setForm(buildFormFromSources(data));
     }
-  }, [data]);
+  }, [data, applicationBrokerPoints]);
 
   const fetchAgreement = async () => {
     try {
@@ -247,32 +274,29 @@ dark:border-slate-700 dark:bg-slate-800"
                 <label className="text-sm font-medium text-gray-600">
                   Broker Points (%)
                 </label>
-<input
-  type="number"
-  value={form.brokerPoints}
-  onChange={(e) => {
-    setForm({ ...form, brokerPoints: e.target.value });
-
-    if (errors.brokerPoints) {
-      setErrors((prev) => ({
-        ...prev,
-        brokerPoints: "",
-      }));
-    }
-  }}
-  className={`w-full mt-1 rounded-lg border px-3 py-2 text-sm outline-none
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  step="0.01"
+                  value={form.brokerPoints}
+                  disabled
+                  readOnly
+                  className={`w-full mt-1 rounded-lg border px-3 py-2 text-sm outline-none bg-slate-100 text-slate-600 cursor-not-allowed
   ${
     errors.brokerPoints
-      ? "border-red-500 focus:ring-2 focus:ring-red-500"
-      : "focus:ring-2 focus:ring-indigo-500"
+      ? "border-red-500"
+      : "border-slate-200"
   }`}
-/>
-
-{errors.brokerPoints && (
-  <p className="mt-1 text-xs text-red-500">
-    {errors.brokerPoints}
-  </p>
-)}
+                />
+                <p className="mt-1 text-xs text-slate-500">
+                  Loaded from loan application details (read-only)
+                </p>
+                {errors.brokerPoints && (
+                  <p className="mt-1 text-xs text-red-500">
+                    {errors.brokerPoints}
+                  </p>
+                )}
               </div>
 
               {/* Upfront Fee */}

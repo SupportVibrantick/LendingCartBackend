@@ -76,7 +76,35 @@ const FIELD_LABELS: Record<string, string> = {
   noiProforma: "NOI Proforma",
   loanProductCode: "Loan Product",
   interimMonthsReported: "Months Reported (Interim Year)",
+  businessIndustry: "Business / Industry Type",
+  business_industry: "Business / Industry Type",
+  naicsCode: "Industry Code (NAICS)",
+  naics: "Industry Code (NAICS)",
 };
+
+/**
+ * Alias groups: first key is preferred when multiple equivalent fields exist.
+ * Used to prevent duplicates like businessIndustry + business_industry.
+ */
+const FIELD_ALIAS_GROUPS: string[][] = [
+  ["businessIndustry", "business_industry"],
+  ["naicsCode", "naics", "naics_code"],
+];
+
+const FIELD_ALIAS_TO_CANONICAL = (() => {
+  const map = new Map<string, string>();
+  for (const group of FIELD_ALIAS_GROUPS) {
+    const canonical = group[0];
+    for (const key of group) {
+      map.set(key, canonical);
+    }
+  }
+  return map;
+})();
+
+function getFieldAliasCanonical(fieldKey: string) {
+  return FIELD_ALIAS_TO_CANONICAL.get(fieldKey) || fieldKey;
+}
 
 export function getLatestSubmission(submissions: any[] = []) {
   if (!submissions.length) return null;
@@ -270,6 +298,50 @@ const METRIC_ONLY_FIELD_KEYS = new Set([
   "netWorth",
 ]);
 
+/** Document uploads belong in the Documents tab, not Additional Details. */
+function isApplicationDocumentField(
+  fieldKey: string,
+  label?: string | null,
+) {
+  const normalize = (value: string) =>
+    value.toLowerCase().replace(/[\s_-]+/g, "");
+
+  const keyNorm = normalize(fieldKey);
+  const labelNorm = normalize(label || "");
+
+  return (
+    keyNorm.includes("applicationdocument") ||
+    labelNorm.includes("applicationdocument") ||
+    keyNorm === "applicationdocumentcount" ||
+    labelNorm.includes("applicationdocumentcount")
+  );
+}
+
+/** Derived/computed financial columns — hide from Financial Details display. */
+function isComputedFinancialField(
+  fieldKey: string,
+  label?: string | null,
+) {
+  const key = fieldKey.trim();
+  const labelText = (label || "").trim();
+
+  return (
+    /(?:^|_|[\s-])computed(?:_|$|[\s-]|$)/i.test(key) ||
+    /computed$/i.test(key) ||
+    /\bcomputed\b/i.test(labelText)
+  );
+}
+
+function shouldOmitSubmissionFieldFromDetails(
+  fieldKey: string,
+  label?: string | null,
+) {
+  return (
+    isApplicationDocumentField(fieldKey, label) ||
+    isComputedFinancialField(fieldKey, label)
+  );
+}
+
 function resolveHeuristicSection(fieldKey: string) {
   if (fieldKey.startsWith("coBorrower_")) {
     const match = fieldKey.match(/^coBorrower_(\d+)_/);
@@ -301,7 +373,11 @@ function resolveHeuristicSection(fieldKey: string) {
     };
   }
 
-  if (/noi|revenue|income|rent|tax|insurance|hoa|assets|liabilities|floodZone|financial/i.test(fieldKey)) {
+  if (
+    /noi|revenue|income|rent|tax|insurance|hoa|floodZone|financial|vacancy|cashFlow|grossIncome|override|asset|liabilit|expense|debt|equity|balance|inventoryValue|ebitda/i.test(
+      fieldKey,
+    )
+  ) {
     return {
       id: "financial-details",
       title: "Financial Details",
@@ -374,12 +450,56 @@ export function groupSubmissionFieldsForDisplay(
   const signatureField =
     fields.find((field) => field.fieldKey === "borrowerSignature") || null;
 
+  // Prefer canonical keys when aliases exist (e.g. businessIndustry over business_industry)
+  const preferredByAlias = new Map<string, SubmissionDetailField>();
+  for (const field of fields) {
+    const fieldKey = field.fieldKey || "";
+    if (!fieldKey) continue;
+    const canonical = getFieldAliasCanonical(fieldKey);
+    const existing = preferredByAlias.get(canonical);
+    if (!existing) {
+      preferredByAlias.set(canonical, field);
+      continue;
+    }
+    if (fieldKey === canonical && existing.fieldKey !== canonical) {
+      preferredByAlias.set(canonical, field);
+    }
+  }
+  const preferredFieldIds = new Set(
+    Array.from(preferredByAlias.values()).map(
+      (field) => `${field.fieldKey}::${field.fieldId || ""}`,
+    ),
+  );
+
   const sectionMap = new Map<string, SubmissionFieldSection>();
+  const seenAliasKeys = new Set<string>();
+  const seenLabelValues = new Set<string>();
 
   fields.forEach((field) => {
     const fieldKey = field.fieldKey || "";
     if (!fieldKey || fieldKey === "borrowerSignature") return;
     if (METRIC_ONLY_FIELD_KEYS.has(fieldKey)) return;
+    if (shouldOmitSubmissionFieldFromDetails(fieldKey, field.label)) return;
+
+    const aliasKey = getFieldAliasCanonical(fieldKey);
+    if (FIELD_ALIAS_TO_CANONICAL.has(fieldKey)) {
+      if (!preferredFieldIds.has(`${field.fieldKey}::${field.fieldId || ""}`)) {
+        return;
+      }
+      if (seenAliasKeys.has(aliasKey)) return;
+      seenAliasKeys.add(aliasKey);
+    }
+
+    const label = getSubmissionFieldLabel(field)
+      .trim()
+      .toLowerCase()
+      .replace(/[\s/_-]+/g, "");
+    const valueNorm = String(field.value ?? "")
+      .trim()
+      .toLowerCase();
+    const labelValueKey = `${label}::${valueNorm}`;
+    if (label && seenLabelValues.has(labelValueKey)) return;
+    if (label) seenLabelValues.add(labelValueKey);
 
     const heuristic = resolveHeuristicSection(fieldKey);
     const useBuilderSection =
@@ -469,7 +589,10 @@ export function mapSubmissionDetailFields(
 ): SubmissionDetailField[] {
   return rawFields.map((field) => ({
     fieldId: field.fieldId || field.id || null,
-    fieldKey: field.fieldKey ?? field.builderField?.fieldKey ?? null,
+    fieldKey:
+      field.fieldKey ??
+      field.builderField?.fieldKey ??
+      null,
     label: field.label ?? field.builderField?.label ?? null,
     type: field.type ?? field.builderField?.fieldType ?? null,
     value: normalizeFieldValue(field.value),

@@ -143,6 +143,9 @@ function waitForImages(root: HTMLElement): Promise<void> {
   ).then(() => undefined);
 }
 
+const PDF_MARGIN_X_MM = 14;
+const PDF_MARGIN_Y_MM = 18;
+
 function buildPrintHost(html: string): HTMLDivElement {
   const host = document.createElement("div");
   host.setAttribute("data-fee-agreement-pdf", "true");
@@ -153,10 +156,10 @@ function buildPrintHost(html: string): HTMLDivElement {
     width: "794px",
     background: "#ffffff",
     color: "#111827",
-    padding: "32px",
+    padding: "40px 36px",
     fontFamily: "Arial, Helvetica, sans-serif",
     fontSize: "12px",
-    lineHeight: "1.5",
+    lineHeight: "1.55",
     boxSizing: "border-box",
   });
 
@@ -171,6 +174,19 @@ function buildPrintHost(html: string): HTMLDivElement {
     [data-fee-agreement-pdf] h3,
     [data-fee-agreement-pdf] p {
       color: #111827;
+    }
+    [data-fee-agreement-pdf] h2,
+    [data-fee-agreement-pdf] h3 {
+      margin-top: 18px;
+      margin-bottom: 10px;
+      page-break-after: avoid;
+      break-after: avoid;
+    }
+    [data-fee-agreement-pdf] p {
+      margin-top: 0;
+      margin-bottom: 12px;
+      orphans: 3;
+      widows: 3;
     }
     [data-fee-agreement-pdf] div {
       border-color: #e2e8f0 !important;
@@ -193,7 +209,7 @@ async function renderElementToPdf(
   filename: string,
 ): Promise<void> {
   const canvas = await html2canvas(element, {
-    scale: 1,
+    scale: 2,
     backgroundColor: "#ffffff",
     useCORS: true,
     allowTaint: false,
@@ -204,24 +220,64 @@ async function renderElementToPdf(
     windowHeight: element.scrollHeight,
   });
 
-  const imgData = canvas.toDataURL("image/jpeg", 0.92);
   const pdf = new jsPDF({ orientation: "p", unit: "mm", format: "a4" });
   const pageWidth = pdf.internal.pageSize.getWidth();
   const pageHeight = pdf.internal.pageSize.getHeight();
-  const imgWidth = pageWidth;
-  const imgHeight = (canvas.height * imgWidth) / canvas.width;
+  const contentWidth = pageWidth - PDF_MARGIN_X_MM * 2;
+  const contentHeight = pageHeight - PDF_MARGIN_Y_MM * 2;
 
-  let heightLeft = imgHeight;
-  let position = 0;
+  // Convert rendered canvas into page-sized slices with consistent margins.
+  const pxPerMm = canvas.width / contentWidth;
+  const pageSliceHeightPx = Math.max(1, Math.floor(contentHeight * pxPerMm));
 
-  pdf.addImage(imgData, "JPEG", 0, position, imgWidth, imgHeight, undefined, "FAST");
-  heightLeft -= pageHeight;
+  let sourceY = 0;
+  let pageIndex = 0;
 
-  while (heightLeft > 0) {
-    position = heightLeft - imgHeight;
-    pdf.addPage();
-    pdf.addImage(imgData, "JPEG", 0, position, imgWidth, imgHeight, undefined, "FAST");
-    heightLeft -= pageHeight;
+  while (sourceY < canvas.height) {
+    if (pageIndex > 0) {
+      pdf.addPage();
+    }
+
+    const sliceHeightPx = Math.min(pageSliceHeightPx, canvas.height - sourceY);
+    const pageCanvas = document.createElement("canvas");
+    pageCanvas.width = canvas.width;
+    pageCanvas.height = sliceHeightPx;
+
+    const context = pageCanvas.getContext("2d");
+    if (!context) {
+      throw new Error("Canvas not supported");
+    }
+
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+    context.drawImage(
+      canvas,
+      0,
+      sourceY,
+      canvas.width,
+      sliceHeightPx,
+      0,
+      0,
+      canvas.width,
+      sliceHeightPx,
+    );
+
+    const sliceData = pageCanvas.toDataURL("image/jpeg", 0.92);
+    const sliceHeightMm = sliceHeightPx / pxPerMm;
+
+    pdf.addImage(
+      sliceData,
+      "JPEG",
+      PDF_MARGIN_X_MM,
+      PDF_MARGIN_Y_MM,
+      contentWidth,
+      sliceHeightMm,
+      undefined,
+      "FAST",
+    );
+
+    sourceY += sliceHeightPx;
+    pageIndex += 1;
   }
 
   pdf.save(filename);

@@ -472,32 +472,6 @@ export default function ResidentialBorrowerPanel({
     />
   </div>
 </div>
-
-<div>
-  <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
-    Existing Debt ($)
-  </label>
-
-  <div className="relative mt-1">
-    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">
-      $
-    </span>
-
-    <input
-      type="text"
-      inputMode="numeric"
-      value={borrower.existingDebt}
-      onChange={(e) =>
-        onAmountChange(
-          "existingDebt",
-          formatCurrencyInput(e.target.value),
-        )
-      }
-      placeholder="0"
-      className={currencyInputClass(false)}
-    />
-  </div>
-</div>
           </div>
 
           <CollapsibleSection title="Assets & Liabilities">

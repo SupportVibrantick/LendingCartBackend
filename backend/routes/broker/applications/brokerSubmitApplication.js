@@ -19,6 +19,9 @@ const {
   resolveBorrowerEmail,
   isGenericClientName,
 } = require("../../../utils/applications/resolveBorrowerIdentity");
+const {
+  resolveSubmitLoanProduct,
+} = require("../../../utils/applications/resolveSubmitLoanProduct");
 
 async function brokerSubmitApplication(fastify) {
   fastify.post(
@@ -60,9 +63,9 @@ async function brokerSubmitApplication(fastify) {
 
         /* ================= BODY ================= */
 
-        const { applicationProductId, fields } = req.body;
+        const { applicationProductId, loanProductCode, fields } = req.body;
 
-        if (!applicationProductId || !Array.isArray(fields)) {
+        if (!Array.isArray(fields)) {
           return reply.code(400).send({
             success: false,
             message: "Invalid payload",
@@ -71,26 +74,22 @@ async function brokerSubmitApplication(fastify) {
 
         /* ================= VALIDATE PRODUCT ================= */
 
-        const brokerProduct = await prisma.brokerApplicationProduct.findFirst({
-          where: {
-            id: applicationProductId,
-            isActive: true,
-            brokerApplication: {
-              isActive: true,
-              brokerOrgId,
-            },
-          },
-          select: {
-            loanProductCode: true,
-          },
+        const resolvedProduct = await resolveSubmitLoanProduct(prisma, {
+          loanProductCode,
+          applicationProductId,
+          brokerOrgId,
         });
 
-        if (!brokerProduct) {
-          return reply.code(404).send({
+        if (resolvedProduct.error) {
+          return reply.code(resolvedProduct.error.status).send({
             success: false,
-            message: "Invalid or unauthorized application product",
+            message: resolvedProduct.error.message,
           });
         }
+
+        const resolvedLoanProductCode = resolvedProduct.loanProductCode;
+        const resolvedApplicationProductId =
+          resolvedProduct.applicationProductId;
 
         /* ================= TRANSACTION ================= */
 
@@ -177,7 +176,7 @@ async function brokerSubmitApplication(fastify) {
               brokerUserId: isOfficer ? loggedInUserId : null,
 
               clientId: client.id,
-              loanProductCode: brokerProduct.loanProductCode,
+              loanProductCode: resolvedLoanProductCode,
               status: "CLIENT_PENDING",
             },
           });
@@ -187,7 +186,9 @@ async function brokerSubmitApplication(fastify) {
           const submission = await tx.applicationSubmission.create({
             data: {
               applicationId: loanApplication.id,
-              applicationProductId,
+              ...(resolvedApplicationProductId
+                ? { applicationProductId: resolvedApplicationProductId }
+                : {}),
               status: "CLIENT_PENDING",
             },
           });
@@ -196,7 +197,7 @@ async function brokerSubmitApplication(fastify) {
 
           const fieldIdByKey = await loadProductFieldIdMap(
             tx,
-            applicationProductId,
+            resolvedApplicationProductId,
           );
 
           const normalizedFields = buildSubmissionFieldsPayload(
@@ -372,7 +373,7 @@ async function brokerSubmitApplication(fastify) {
 
         return reply.code(500).send({
           success: false,
-          message: "Internal server error while creating application",
+          message: error.message || "Internal server error while creating application",
         });
       }
     },

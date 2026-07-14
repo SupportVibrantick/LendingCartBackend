@@ -9,6 +9,13 @@ const {
 const {
   canBrokerRequestDocuments,
 } = require("../../../utils/applications/resolveApplicationStatus");
+const {
+  getAutoForwardLenderRequestsToClient,
+} = require("../../../services/documents/documentAutoForwardSetting");
+const {
+  notifyBroker,
+  BROKER_NOTIFICATION_EVENTS,
+} = require("../../../services/notifications/brokerNotifications");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
@@ -136,21 +143,27 @@ async function requestDocumentsRoute(fastify) {
 
         const clientEmail = contact?.email;
 
-        if (!clientEmail) {
+        const source =
+          req.user.orgType === "BROKER"
+            ? "BROKER_ADDED"
+            : "LENDER_ADDED";
+
+        const autoForwardLenderRequestsToClient =
+          source === "LENDER_ADDED"
+            ? await getAutoForwardLenderRequestsToClient(prisma, loan.id)
+            : true;
+        const sentToClientAt =
+          source === "BROKER_ADDED" || autoForwardLenderRequestsToClient
+            ? new Date()
+            : null;
+        const shouldNotifyClient = Boolean(sentToClientAt);
+
+        if (shouldNotifyClient && !clientEmail) {
           return reply.code(400).send({
             success: false,
             message: "Client email not available",
           });
         }
-
-        /* ===============================
-           DETERMINE SOURCE
-        =============================== */
-
-        const source =
-          req.user.orgType === "BROKER"
-            ? "BROKER_ADDED"
-            : "LENDER_ADDED";
 
         /* ===============================
            TRANSACTION: UPSERT LOGIC
@@ -177,6 +190,12 @@ async function requestDocumentsRoute(fastify) {
                   status: "PENDING",
                   lastRequestedAt: new Date(),
                   updatedAt: new Date(),
+                  ...(source === "LENDER_ADDED" && sentToClientAt
+                    ? { sentToClientAt }
+                    : {}),
+                  ...(source === "BROKER_ADDED"
+                    ? { sentToClientAt: new Date() }
+                    : {}),
                 },
               });
             } else {
@@ -189,6 +208,9 @@ async function requestDocumentsRoute(fastify) {
                   isRequired: true,
                   status: "PENDING",
                   lastRequestedAt: new Date(),
+                  ...(source === "LENDER_ADDED"
+                    ? { sentToClientAt }
+                    : { sentToClientAt: new Date() }),
                 },
               });
             }
@@ -196,28 +218,29 @@ async function requestDocumentsRoute(fastify) {
         });
 
         /* ===============================
-           EMAIL PREPARATION
+           EMAIL / NOTIFY CLIENT (broker requests, or lender + auto-forward)
         =============================== */
 
-        const portalLink = `${process.env.FRONTEND_URL || "http://localhost:5173"}/client-portal`;
+        if (shouldNotifyClient) {
+          const portalLink = `${process.env.FRONTEND_URL || "http://localhost:5173"}/client-portal`;
 
-        const html = loadTemplate(
-          "broker/clientLink",
-          buildClientLinkEmailData({
-            clientName: loan.client?.legalName,
-            uploadLink: portalLink,
-            applicationNumber: loan.applicationNumber,
-            brokerName: actorName,
-            message:
-              message ||
-              "New documents have been requested for your application.",
-            preset: "documentsRequested",
-          }),
-        );
+          const html = loadTemplate(
+            "broker/clientLink",
+            buildClientLinkEmailData({
+              clientName: loan.client?.legalName,
+              uploadLink: portalLink,
+              applicationNumber: loan.applicationNumber,
+              brokerName: actorName,
+              message:
+                message ||
+                "New documents have been requested for your application.",
+              preset: "documentsRequested",
+            }),
+          );
 
-        const subject = "Document Request Update for Your Loan";
+          const subject = "Document Request Update for Your Loan";
 
-        const text = `
+          const text = `
 Hello,
 
 There is an update regarding your document requirements.
@@ -226,61 +249,83 @@ Please login here:
 ${portalLink}
         `;
 
-        /* ===============================
-           SEND EMAIL (NON-BLOCKING SAFE)
-        =============================== */
+          try {
+            await sendMail({
+              to: clientEmail,
+              subject,
+              text,
+              html,
+            });
 
-        try {
-          await sendMail({
-            to: clientEmail,
-            subject,
-            text,
-            html,
-          });
+            fastify.log.info(
+              {
+                clientEmail,
+                loanId,
+                requestedBy: req.user.orgType,
+              },
+              "Document request email sent",
+            );
+          } catch (err) {
+            fastify.log.error(
+              {
+                error: err.message,
+                clientEmail,
+                loanId,
+              },
+              "Email sending failed",
+            );
+          }
 
-          fastify.log.info(
-            {
-              clientEmail,
-              loanId,
-              requestedBy: req.user.orgType,
-            },
-            "Document request email sent"
-          );
-        } catch (err) {
-          // 🔥 Do NOT fail entire request if email fails
-          fastify.log.error(
-            {
-              error: err.message,
-              clientEmail,
-              loanId,
-            },
-            "Email sending failed"
-          );
+          try {
+            await notifyClient(prisma, fastify.io, {
+              clientId: loan.clientId,
+              eventType: CLIENT_NOTIFICATION_EVENTS.DOCUMENTS_REQUESTED,
+              category: "DOCUMENT",
+              subject: `Documents requested for ${loan.applicationNumber}`,
+              body:
+                message ||
+                "New documents have been requested for your application.",
+              metadata: {
+                applicationId: loan.id,
+                applicationNumber: loan.applicationNumber,
+              },
+            });
+          } catch (err) {
+            fastify.log.error(err, "Client notification failed");
+          }
+        } else if (source === "LENDER_ADDED") {
+          // Lender request held at broker — notify broker only
+          try {
+            await notifyBroker(prisma, fastify.io, {
+              brokerOrgId: loan.brokerOrgId,
+              eventType: BROKER_NOTIFICATION_EVENTS.LENDER_DECISION_CONDITIONAL,
+              category: "LENDER",
+              subject: "Lender requested documents",
+              body: `A lender requested ${uniqueDocIds.length} document(s) for application ${loan.applicationNumber}. Forward them to the client when ready.`,
+              metadata: {
+                applicationId: loan.id,
+                applicationNumber: loan.applicationNumber,
+                documentCount: uniqueDocIds.length,
+              },
+            });
+          } catch (err) {
+            fastify.log.error(err, "Broker notification failed");
+          }
         }
 
         /* ===============================
            SUCCESS RESPONSE
         =============================== */
 
-        if (loan.clientId) {
-          await notifyClient(prisma, fastify.io, {
-            clientId: loan.clientId,
-            eventType: CLIENT_NOTIFICATION_EVENTS.DOCUMENTS_REQUESTED,
-            category: "DOCUMENT",
-            subject: "Documents requested",
-            body: `New documents have been requested for application ${loan.applicationNumber}.`,
-            metadata: {
-              applicationId: loan.id,
-              applicationNumber: loan.applicationNumber,
-              documentCount: uniqueDocIds.length,
-              requestedBy: req.user.orgType,
-            },
-          });
-        }
-
         return reply.send({
           success: true,
-          message: "Documents requested successfully",
+          message: shouldNotifyClient
+            ? "Documents requested and client notified"
+            : "Documents requested. Broker can forward them to the client.",
+          data: {
+            forwardedToClient: shouldNotifyClient,
+            documentCount: uniqueDocIds.length,
+          },
         });
 
       } catch (error) {

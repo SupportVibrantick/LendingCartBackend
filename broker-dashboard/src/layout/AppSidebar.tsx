@@ -5,7 +5,7 @@ import { ChevronDownIcon, GridIcon, HorizontaLDots } from "../icons";
 import { useSidebar } from "../context/SidebarContext";
 
 import { MdEmail, MdWeb } from "react-icons/md";
-import { FaAppStore } from "react-icons/fa6";
+// import { FaAppStore } from "react-icons/fa6";
 import { MdOutlineDocumentScanner } from "react-icons/md";
 import { FaUsersBetweenLines, FaUserGroup } from "react-icons/fa6";
 import { PiSecurityCameraFill } from "react-icons/pi";
@@ -161,19 +161,19 @@ const AppSidebar: React.FC = () => {
                 name: "Branding",
                 path: "/settings/branding",
               },
-              {
-                icon: <FaAppStore />,
-                name: "Application Builder",
-                subItems: [
-                  { name: "Create Application", path: "/create-application" },
-                  {
-                    name: "Loan Application Config",
-                    path: "/application-config",
-                  },
-                  { name: "Add Sections", path: "/add-section" },
-                  { name: "Application Builder", path: "/application" },
-                ],
-              },
+              // {
+              //   icon: <FaAppStore />,
+              //   name: "Application Builder",
+              //   subItems: [
+              //     { name: "Create Application", path: "/create-application" },
+              //     {
+              //       name: "Loan Application Config",
+              //       path: "/application-config",
+              //     },
+              //     { name: "Add Sections", path: "/add-section" },
+              //     { name: "Application Builder", path: "/application" },
+              //   ],
+              // },
             ],
           },
         ]

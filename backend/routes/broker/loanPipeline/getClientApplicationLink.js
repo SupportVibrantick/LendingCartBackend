@@ -1,7 +1,3 @@
-const {
-  fetchActiveBrokerApplication,
-} = require("../../../utils/broker/activeBrokerApplication");
-
 /**
  * @param {import("fastify").FastifyInstance} fastify
  */
@@ -44,10 +40,9 @@ module.exports = async function getClientApplicationLink(fastify) {
           });
         }
 
-        const activeApplication = await fetchActiveBrokerApplication(
-          prisma,
-          brokerOrgId,
-        );
+        const activeProductCount = await prisma.loanProduct.count({
+          where: { isActive: true },
+        });
 
         const embedBase = (
           process.env.EMBED_APP_URL ||
@@ -58,15 +53,18 @@ module.exports = async function getClientApplicationLink(fastify) {
         const sharePath = `/get-loan?broker=${encodeURIComponent(brokerOrgId)}`;
         const shareUrl = embedBase ? `${embedBase}${sharePath}` : sharePath;
 
+        // Catalog products replace Application Builder — link is shareable when
+        // the broker org exists (fallback form codes always available on embed).
         return reply.send({
           success: true,
           data: {
             brokerOrgId,
             brokerName: organization.name,
             brokerEmail: organization.email,
-            hasActiveApplication: Boolean(activeApplication),
-            applicationId: activeApplication?.id || null,
-            applicationName: activeApplication?.name || null,
+            hasActiveApplication: true,
+            catalogProductCount: activeProductCount,
+            applicationId: null,
+            applicationName: null,
             sharePath,
             shareUrl,
             embedBaseUrl: embedBase || null,

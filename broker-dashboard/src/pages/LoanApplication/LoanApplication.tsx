@@ -897,8 +897,8 @@ function getPortalConfig(portal: LoanApplicationPortal, apiBase: string) {
       submitUrl: `${apiBase}/loanofficer/applications/submit`,
       editUrl: (applicationId: string) =>
         `${apiBase}/loanofficer/applications/${applicationId}/edit`,
-      activeProductsUrl: `${apiBase}/loanofficer/applications/active`,
-      activeProductsAuth: true,
+      loanProductsUrl: `${apiBase}/common/loan-products/loan-product-code`,
+      loanProductsAuth: false,
       successPath: "/loan-officer/loan-pipeline",
       backLabel: "Back to Loan Pipeline",
     };
@@ -909,67 +909,41 @@ function getPortalConfig(portal: LoanApplicationPortal, apiBase: string) {
     submitUrl: `${apiBase}/broker/applications/submit`,
     editUrl: (applicationId: string) =>
       `${apiBase}/broker/applications/${applicationId}/edit`,
-    activeProductsUrl: `${apiBase}/broker/applications/active`,
-    activeProductsAuth: true,
+    loanProductsUrl: `${apiBase}/common/loan-products/loan-product-code`,
+    loanProductsAuth: false,
     successPath: "/submit-applications",
     backLabel: "Back to Submit Applications",
   };
 }
 
-function normalizeBrokerActiveApplication(data: any) {
-  if (!data) return data;
-
-  const mapField = (field: any) => ({
-    fieldId: field.fieldId || field.id,
-    fieldKey: field.fieldKey,
-    label: field.label,
-    type: field.type || field.fieldType,
-    placeholder: field.placeholder,
-    required: field.required ?? field.isRequired,
-    options: field.options,
-    validation: field.validation,
-    sortOrder: field.sortOrder,
-  });
-
-  return {
-    ...data,
-    products: (data.products || []).map((product: any) => ({
-      ...product,
-      sections: (product.sections || []).map((section: any) => ({
-        sectionId: section.sectionId || section.id,
-        sectionName: section.sectionName || section.name,
-        description: section.description,
-        sortOrder: section.sortOrder,
-        fields: (section.fields || []).map(mapField),
-      })),
-      unsectionedFields: (product.unsectionedFields || []).map(mapField),
-    })),
-  };
-}
-
-async function fetchActiveApplicationCatalog(
+async function fetchLoanProductCatalog(
   portalConfig: ReturnType<typeof getPortalConfig>,
-  portal: LoanApplicationPortal,
 ) {
   const headers: Record<string, string> = {};
 
-  if (portalConfig.activeProductsAuth) {
+  if (portalConfig.loanProductsAuth) {
     const token = sessionStorage.getItem(portalConfig.tokenKey);
     if (token) {
       headers.Authorization = `Bearer ${token}`;
     }
   }
 
-  const response = await fetch(portalConfig.activeProductsUrl, { headers });
+  const response = await fetch(portalConfig.loanProductsUrl, { headers });
   const result = await response.json();
 
   if (!response.ok || result.success === false) {
     throw new Error(result.message || "Failed to load loan products");
   }
 
-  return portal === "broker"
-    ? normalizeBrokerActiveApplication(result.data)
-    : result.data;
+  const products = (result.data || []).map((product: any) => ({
+    productId: product.id,
+    loanProductCode: product.code,
+    name: product.name,
+    sections: [],
+    unsectionedFields: [],
+  }));
+
+  return { products };
 }
 
 function withBorrowerNameFields<
@@ -1032,7 +1006,7 @@ const LoanApplication = ({
   const [dynamicFormData, setDynamicFormData] = useState<Record<string, any>>(
     initialDynamicFormData || {},
   );
-  const [applicationId, setApplicationId] = useState<string>("");
+  // const [applicationId, setApplicationId] = useState<string>("");
   const [productsMeta, setProductsMeta] = useState<any[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -2142,7 +2116,7 @@ const LoanApplication = ({
         return;
       }
 
-      if (!activeProduct) {
+      if (!selectedProduct) {
         toast.error("Please select a loan product");
         return;
       }
@@ -2265,7 +2239,6 @@ const LoanApplication = ({
       addField("inventoryValue", toNumber(formData.entity.inventoryValue));
       addField("equipmentValue", toNumber(formData.entity.equipmentValue));
       addField("businessIndustry", formData.loanRequest.propertyType);
-      addField("business_industry", formData.loanRequest.propertyType);
 
       addField(
         "currentMarketValue",
@@ -2391,8 +2364,7 @@ const LoanApplication = ({
       /* ================= FINAL PAYLOAD ================= */
 
       const payload = {
-        applicationId,
-        applicationProductId: activeProduct.productId,
+        loanProductCode: selectedProduct,
         fields: Array.from(fieldsMap.entries()).map(
           ([fieldKey, { value, fieldId }]) => ({
             fieldKey,
@@ -2557,14 +2529,53 @@ const LoanApplication = ({
       try {
         setLoadingProducts(true);
 
-        const data = await fetchActiveApplicationCatalog(portalConfig, portal);
+        const data = await fetchLoanProductCatalog(portalConfig);
+        const products = data?.products || [];
 
-        setProductsMeta(data?.products || []);
-        setApplicationId(data?.applicationId || "");
+        // If catalog is empty/unreachable codes, still allow category-mapped products.
+        if (products.length === 0) {
+          const allCategoryCodes = Array.from(
+            new Set(Object.values(CATEGORY_LOAN_TYPES).flat()),
+          );
+          setProductsMeta(
+            allCategoryCodes.map((code) => ({
+              productId: code,
+              loanProductCode: code,
+              name: PRODUCT_LABELS[code] || code,
+              sections: [],
+              unsectionedFields: [],
+            })),
+          );
+        } else {
+          setProductsMeta(products);
+        }
+
+        // setApplicationId("");
         setLoanProducts([]);
+        setDynamicSections([]);
       } catch (error: any) {
         console.error("Error fetching loan products:", error);
-        toast.error(error.message || "Failed to load loan products");
+
+        // Local fallback so the form remains usable without Application Builder
+        const allCategoryCodes = Array.from(
+          new Set(Object.values(CATEGORY_LOAN_TYPES).flat()),
+        );
+        setProductsMeta(
+          allCategoryCodes.map((code) => ({
+            productId: code,
+            loanProductCode: code,
+            name: PRODUCT_LABELS[code] || code,
+            sections: [],
+            unsectionedFields: [],
+          })),
+        );
+        // setApplicationId("");
+        setLoanProducts([]);
+        setDynamicSections([]);
+        toast.error(
+          error.message ||
+            "Catalog unavailable — using built-in loan product list",
+        );
       } finally {
         setLoadingProducts(false);
       }
@@ -2573,40 +2584,9 @@ const LoanApplication = ({
     fetchLoanProducts();
   }, [portal, portalConfig]);
 
-  const fetchSectionsByProduct = async (productCode: string) => {
-    try {
-      const data = await fetchActiveApplicationCatalog(portalConfig, portal);
-
-      const products = data?.products || [];
-
-      const matchedProduct = products.find(
-        (p: any) => p.loanProductCode === productCode,
-      );
-
-      const sections = matchedProduct?.sections || [];
-
-      const normalizeKey = (key: string = "") =>
-        key.toLowerCase().replace(/\s+/g, "");
-
-      const staticKeysSet = new Set(STATIC_FIELD_KEYS.map(normalizeKey));
-
-      const cleanedSections = sections.map((section: any) => ({
-        ...section,
-        fields: (section.fields || []).filter((field: any) => {
-          const fieldKey = normalizeKey(field.fieldKey || field.label || "");
-
-          return !staticKeysSet.has(fieldKey);
-        }),
-      }));
-
-      const sortedSections = [...cleanedSections].sort(
-        (a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0),
-      );
-
-      setDynamicSections(sortedSections);
-    } catch (error) {
-      console.error("Error fetching sections:", error);
-    }
+  const fetchSectionsByProduct = async (_productCode: string) => {
+    // Application Builder removed — form fields are static per product flow.
+    setDynamicSections([]);
   };
 
   useEffect(() => {
@@ -3013,7 +2993,12 @@ const LoanApplication = ({
           allowedProducts.indexOf(b.loanProductCode),
       );
 
-    setLoanProducts(filteredProducts.map((p: any) => p.loanProductCode));
+    // Prefer catalog matches; if none match category mapping, show category codes.
+    setLoanProducts(
+      filteredProducts.length > 0
+        ? filteredProducts.map((p: any) => p.loanProductCode)
+        : allowedProducts,
+    );
 
     if (mode === "update" && initialSelectedProduct) {
       setSelectedProduct((prev) =>
@@ -3641,9 +3626,10 @@ rounded-2xl p-6 shadow-sm
               </div>
             )}
 
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-6 text-center">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6 text-center">
               <Stat label="Monthly Payment" value={monthlyPaymentDisplay} />
               <Stat label="LTV %" value={ltv !== "-" ? `${ltv}%` : "-"} />
+              <Stat label="LTC %" value={ltc !== "-" ? `${ltc}%` : "-"} />
               <Stat label="ARV %" value={arv !== "-" ? `${arv}%` : "-"} />
               <Stat label="DSCR" value={dscr !== "-" ? dscr : "-"} />
               <Stat label="Net Worth" value={`$${netWorth.toLocaleString()}`} />

@@ -55,21 +55,6 @@ async function setPasswordRoute(fastify) {
 
         const result = await prisma.$transaction(async (tx) => {
           /* ===============================
-             CHECK EXISTING USER
-          =============================== */
-
-          const existingUser = await tx.clientPortalUser.findFirst({
-            where: {
-              clientId: tokenRecord.clientId,
-              isDeleted: false,
-            },
-          });
-
-          if (existingUser) {
-            throw new Error("USER_ALREADY_EXISTS");
-          }
-
-          /* ===============================
              GET EMAIL
           =============================== */
 
@@ -89,7 +74,22 @@ async function setPasswordRoute(fastify) {
             throw new Error("EMAIL_NOT_FOUND");
           }
 
-          const clientEmail = contact.email;
+          const clientEmail = contact.email.trim().toLowerCase();
+
+          /* ===============================
+             CHECK EXISTING USER
+             Unique is on email (not clientId)
+          =============================== */
+
+          const existingUser = await tx.clientPortalUser.findFirst({
+            where: {
+              OR: [
+                { clientId: tokenRecord.clientId },
+                { email: clientEmail },
+                { email: { equals: clientEmail, mode: "insensitive" } },
+              ],
+            },
+          });
 
           /* ===============================
              HASH PASSWORD
@@ -97,20 +97,46 @@ async function setPasswordRoute(fastify) {
 
           const hashedPassword = await bcrypt.hash(password, 10);
 
-          /* ===============================
-             CREATE USER
-          =============================== */
+          let user;
+          const isSoftDeleted = Boolean(existingUser?.isDeleted);
 
-          const user = await tx.clientPortalUser.create({
-            data: {
-              clientId: tokenRecord.clientId,
-              email: clientEmail,
-              passwordHash: hashedPassword,
-            },
-          });
+          if (existingUser && !isSoftDeleted) {
+            throw new Error("USER_ALREADY_EXISTS");
+          }
+
+          if (existingUser && isSoftDeleted) {
+            // Restore soft-deleted portal account for this invite
+            user = await tx.clientPortalUser.update({
+              where: { id: existingUser.id },
+              data: {
+                clientId: tokenRecord.clientId,
+                email: clientEmail,
+                passwordHash: hashedPassword,
+                isActive: true,
+                isDeleted: false,
+                deletedAt: null,
+              },
+            });
+          } else {
+            try {
+              user = await tx.clientPortalUser.create({
+                data: {
+                  clientId: tokenRecord.clientId,
+                  email: clientEmail,
+                  passwordHash: hashedPassword,
+                },
+              });
+            } catch (createError) {
+              // Race / casing mismatch: email already taken
+              if (createError?.code === "P2002") {
+                throw new Error("USER_ALREADY_EXISTS");
+              }
+              throw createError;
+            }
+          }
 
           /* ===============================
-             ✅ FIX: LINK CLIENT TO EXISTING CONVERSATION
+             LINK CLIENT TO EXISTING CONVERSATION
           =============================== */
 
           try {
@@ -122,18 +148,15 @@ async function setPasswordRoute(fastify) {
               },
               data: {
                 participantId: user.id,
-                // optional cleanup:
-                // participantEmail: null,
               },
             });
           } catch (err) {
-            // ❗ do NOT break user creation
             fastify.log.error(
               {
                 error: err.message,
                 clientId: tokenRecord.clientId,
               },
-              "Failed to link client to conversations"
+              "Failed to link client to conversations",
             );
           }
 
@@ -161,7 +184,6 @@ async function setPasswordRoute(fastify) {
             email: result.email,
           },
         });
-
       } catch (error) {
         fastify.log.error(
           {
@@ -169,7 +191,7 @@ async function setPasswordRoute(fastify) {
             stack: error.stack,
             body: req.body,
           },
-          "Failed to set client password"
+          "Failed to set client password",
         );
 
         if (error.message === "USER_ALREADY_EXISTS") {
@@ -188,10 +210,10 @@ async function setPasswordRoute(fastify) {
 
         return reply.code(500).send({
           success: false,
-          message: "Unexpected server error",
+          message: error.message || "Unexpected server error",
         });
       }
-    }
+    },
   );
 }
 

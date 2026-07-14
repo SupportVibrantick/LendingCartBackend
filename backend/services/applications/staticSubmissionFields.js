@@ -249,6 +249,10 @@ function buildSubmissionFieldsPayload(fields, fieldIdByKey) {
 }
 
 async function loadProductFieldIdMap(prisma, applicationProductId) {
+  if (!applicationProductId) {
+    return new Map();
+  }
+
   const builderFields = await prisma.brokerApplicationProductField.findMany({
     where: { applicationProductId },
     select: { id: true, fieldKey: true },

@@ -2301,6 +2301,7 @@ dark:bg-red-900/20 dark:text-red-400"
           <FeeAgreement
             applicationId={applicationId}
             getAuthHeaders={getAuthHeaders}
+            applicationBrokerPoints={getFieldValue(fields, "brokerPoints")}
           />
         );
       case "commissions":

@@ -51,6 +51,7 @@ import DocumentReminderPanel from "../../components/loanPipeline/DocumentReminde
 import BrokerLoiPanel from "../../components/loi/BrokerLoiPanel";
 import SubmissionDetailsView from "../../components/submissions/SubmissionDetailsView";
 import LoanCommissionPanel from "../../components/commissions/LoanCommissionPanel";
+import { mapSubmissionDetailFields } from "../../lib/submissionFieldUtils";
 import {
   canLenderReceiveDocuments,
   getLenderStatusBadgeClass,
@@ -62,16 +63,16 @@ import {
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
-type SubmissionField = {
-  fieldId: string | null;
-  fieldKey: string | null;
-  label?: string | null;
-  type?: string | null;
-  value: string;
-  sectionName?: string | null;
-  sectionSortOrder?: number | null;
-  fieldSortOrder?: number | null;
-};
+// type SubmissionField = {
+//   fieldId: string | null;
+//   fieldKey: string | null;
+//   label?: string | null;
+//   type?: string | null;
+//   value: string;
+//   sectionName?: string | null;
+//   sectionSortOrder?: number | null;
+//   fieldSortOrder?: number | null;
+// };
 
 type Lender = {
   id: string;
@@ -114,7 +115,13 @@ type TabKey =
   | "fee-agreement"
   | "commissions";
 
-const parseValue = (val: string): any => {
+const parseValue = (val: unknown): any => {
+  if (val == null) return undefined;
+
+  if (typeof val !== "string") {
+    return val;
+  }
+
   try {
     return JSON.parse(val);
   } catch {
@@ -178,8 +185,17 @@ const getStatusChip = (status?: string) => {
   }
 };
 
-const getFieldValue = (fields: SubmissionField[], key: string) => {
-  const field = fields.find((f) => f.fieldKey === key || f.fieldId === key);
+type FieldLike = {
+  fieldKey?: string | null;
+  fieldId?: string | null;
+  value: string | null;
+};
+
+const getFieldValue = <T extends FieldLike>(fields: T[], key: string) => {
+  const field = fields.find(
+    (f) => f.fieldKey === key || f.fieldId === key,
+  );
+
   return field ? parseValue(field.value) : undefined;
 };
 
@@ -267,8 +283,36 @@ const formatCompactAmount = (value: number) => {
   return `$${num}`;
 };
 
+const calculateMonthlyPayment = (
+  loanAmount: number,
+  interestRate: number,
+  termMonths: number,
+) => {
+  if (!loanAmount || !termMonths || termMonths <= 0) return 0;
+  if (interestRate < 0) return 0;
+
+  const monthlyRate = interestRate / 100 / 12;
+
+  if (monthlyRate === 0) {
+    return loanAmount / termMonths;
+  }
+
+  return (
+    (loanAmount * monthlyRate * Math.pow(1 + monthlyRate, termMonths)) /
+    (Math.pow(1 + monthlyRate, termMonths) - 1)
+  );
+};
+
+const formatMonthlyPayment = (value: number) => {
+  if (!value || !isFinite(value) || value <= 0) return "-";
+  return `$${value.toLocaleString("en-US", {
+    maximumFractionDigits: 0,
+  })}`;
+};
+
 const LoanPreview = () => {
   const Location = useLocation();
+  const actionRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const lendersSectionRef = useRef<HTMLDivElement | null>(null);
   const navigate = useNavigate();
@@ -312,6 +356,7 @@ const LoanPreview = () => {
   const [previewFiles, setPreviewFiles] = useState<any[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [activeAction, setActiveAction] = useState<string | null>(null);
+  
 
   const [lenders, setLenders] = useState<Lender[]>([]);
   const [borrowerSummary, setBorrowerSummary] = useState<any>(null);
@@ -350,6 +395,9 @@ const LoanPreview = () => {
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [sending, setSending] = useState(false);
   const [autoForwardSaving, setAutoForwardSaving] = useState(false);
+  const [autoForwardToClientSaving, setAutoForwardToClientSaving] =
+    useState(false);
+  const [forwardingToClient, setForwardingToClient] = useState(false);
   // const [currentPage, setCurrentPage] = useState(1);
 
   // const [search, setSearch] = useState("");
@@ -387,6 +435,31 @@ const LoanPreview = () => {
   );
 
   const autoForwardEnabled = Boolean(documentsData?.autoForwardDocumentsToLender);
+  const autoForwardToClientEnabled = Boolean(
+    documentsData?.autoForwardLenderRequestsToClient,
+  );
+
+  const pendingClientForwardDocs = useMemo(
+    () =>
+      displayDocuments.filter(
+        (doc) =>
+          doc.source === "LENDER_ADDED" &&
+          !doc.isForwardedToClient &&
+          doc.status !== "SKIPPED",
+      ),
+    [displayDocuments],
+  );
+
+  const selectedPendingClientForwardIds = useMemo(() => {
+    const selected = new Set(selectedRows);
+    return [
+      ...new Set(
+        pendingClientForwardDocs
+          .filter((doc) => selected.has(doc.rowKey))
+          .map((doc) => String(doc.requirementId)),
+      ),
+    ];
+  }, [pendingClientForwardDocs, selectedRows]);
 
   const isAllSelected =
     selectableDocuments.length > 0 &&
@@ -611,8 +684,8 @@ const LoanPreview = () => {
 
       toast.success(
         nextValue
-          ? "Auto-forward enabled â€” uploads go directly to lenders"
-          : "Broker review enabled â€” you will send documents manually",
+          ? "Auto-forward enabled — uploads go directly to lenders"
+          : "Broker review enabled — you will send documents manually",
       );
     } catch (err: any) {
       toast.error(err.message || "Failed to update setting");
@@ -621,7 +694,112 @@ const LoanPreview = () => {
     }
   };
 
-  const fields = submissionDetail?.fields || [];
+  const handleToggleAutoForwardToClient = async () => {
+    if (!submissionId) return;
+
+    const nextValue = !autoForwardToClientEnabled;
+
+    try {
+      setAutoForwardToClientSaving(true);
+      const token = sessionStorage.getItem("broker_token");
+
+      const res = await fetch(
+        `${API_BASE}/broker/loan-pipeline/submissions/${submissionId}/documents/auto-forward-to-client`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+          body: JSON.stringify({
+            autoForwardLenderRequestsToClient: nextValue,
+          }),
+        },
+      );
+
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        throw new Error(
+          json.message || "Failed to update auto-forward to client",
+        );
+      }
+
+      setDocumentsData((prev: any) =>
+        prev
+          ? {
+              ...prev,
+              autoForwardLenderRequestsToClient: nextValue,
+            }
+          : prev,
+      );
+
+      toast.success(
+        nextValue
+          ? "Lender requests will auto-forward to the client"
+          : "You will manually forward lender requests to the client",
+      );
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update setting");
+    } finally {
+      setAutoForwardToClientSaving(false);
+    }
+  };
+
+  const handleForwardToClient = async (requirementIds: string[]) => {
+    if (!documentsData?.submissionId || requirementIds.length === 0) return;
+
+    const result = await Swal.fire({
+      title: "Forward to client?",
+      text: `${requirementIds.length} lender-requested document(s) will appear on the client portal.`,
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonText: "Forward",
+      confirmButtonColor: "#4f46e5",
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+      setForwardingToClient(true);
+      const token = sessionStorage.getItem("broker_token");
+
+      const res = await fetch(
+        `${API_BASE}/broker/loan-pipeline/submissions/${documentsData.submissionId}/documents/forward-to-client`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+          body: JSON.stringify({ requirementIds }),
+        },
+      );
+
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Failed to forward documents");
+      }
+
+      toast.success(json.message || "Documents forwarded to client");
+      setActiveAction(null);
+      setSelectedRows([]);
+      await fetchSubmissionDocuments(
+        documentsData.submissionId,
+        page,
+        debouncedSearch,
+      );
+    } catch (err: any) {
+      toast.error(err.message || "Failed to forward documents");
+    } finally {
+      setForwardingToClient(false);
+    }
+  };
+
+  const fields = useMemo(
+    () => mapSubmissionDetailFields(submissionDetail?.fields || []),
+    [submissionDetail?.fields],
+  );
   const applicationId = submissionDetail?.applicationId;
   const submissionId = Location.state?.submissionId;
 
@@ -643,6 +821,23 @@ const LoanPreview = () => {
 
     return () => clearTimeout(timer);
   }, [lenderSearchQ]);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (!activeAction) return;
+  
+      const current = actionRefs.current[activeAction];
+  
+      if (current && !current.contains(e.target as Node)) {
+        setActiveAction(null);
+      }
+    };
+  
+    document.addEventListener("mousedown", handleClickOutside);
+  
+    return () =>
+      document.removeEventListener("mousedown", handleClickOutside);
+  }, [activeAction]);
 
   const fetchSubmissionDetails = async (id: string) => {
     try {
@@ -1203,6 +1398,19 @@ const LoanPreview = () => {
   const arv = Number(getFieldValue(fields, "arvPercentage") ?? 0) || 0;
   const dscr = Number(getFieldValue(fields, "dscr") ?? 0) || 0;
   const netWorth = Number(getFieldValue(fields, "netWorth") ?? 0) || 0;
+  const interestRate =
+    Number(getFieldValue(fields, "interestRate") ?? 0) || 0;
+  const amortizationYears =
+    Number(getFieldValue(fields, "amortization") ?? 0) || 0;
+  const loanTermMonths = Number(getFieldValue(fields, "loanTerm") ?? 0) || 0;
+  const termMonths =
+    amortizationYears > 0 ? amortizationYears * 12 : loanTermMonths;
+  const monthlyPayment = calculateMonthlyPayment(
+    loanAmount,
+    interestRate,
+    termMonths,
+  );
+  const monthlyPaymentDisplay = formatMonthlyPayment(monthlyPayment);
 
   const submittedDate = submissionDetail?.submittedAt
     ? new Date(submissionDetail.submittedAt)
@@ -1306,6 +1514,8 @@ const LoanPreview = () => {
       arv={arv}
       dscr={dscr}
       netWorth={netWorth}
+      monthlyPayment={monthlyPayment}
+      monthlyPaymentDisplay={monthlyPaymentDisplay}
       submittedDate={submittedDate}
       showEditHint={submissionDetail?.canEdit !== false}
       canMarkFunded={Boolean(submissionDetail?.canMarkFunded)}
@@ -2007,6 +2217,10 @@ dark:bg-red-900/20 dark:text-red-400"
         autoForwardEnabled={autoForwardEnabled}
         autoForwardSaving={autoForwardSaving}
         onToggleAutoForward={handleToggleAutoForward}
+        showAutoForwardToClient
+        autoForwardToClientEnabled={autoForwardToClientEnabled}
+        autoForwardToClientSaving={autoForwardToClientSaving}
+        onToggleAutoForwardToClient={handleToggleAutoForwardToClient}
         documentFilterLenders={documentFilterLenders}
         documentLenderFilter={documentLenderFilter}
         onDocumentLenderFilterChange={setDocumentLenderFilter}
@@ -2120,6 +2334,27 @@ dark:bg-red-900/20 dark:text-red-400"
         </div>
       )}
 
+      {selectedPendingClientForwardIds.length > 0 && (
+        <div className="mb-4 flex items-center justify-between rounded-2xl border border-indigo-200 bg-gradient-to-r from-indigo-50 to-violet-50 px-5 py-3 shadow-sm dark:border-indigo-900/40 dark:from-slate-900 dark:to-slate-800">
+          <p className="text-sm font-medium text-indigo-700 dark:text-indigo-300">
+            {selectedPendingClientForwardIds.length} lender request(s) ready to
+            forward to client
+          </p>
+          <button
+            type="button"
+            onClick={() =>
+              handleForwardToClient(selectedPendingClientForwardIds)
+            }
+            disabled={forwardingToClient}
+            className="inline-flex items-center gap-2 px-3 py-2 text-xs font-semibold
+      bg-indigo-600 text-white rounded-xl shadow-md hover:bg-indigo-700
+      transition-all disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {forwardingToClient ? "Forwarding..." : "Forward to Client"}
+          </button>
+        </div>
+      )}
+
       {documentsLoading ? (
         <div className="flex flex-col items-center justify-center py-16">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-500 border-t-transparent"></div>
@@ -2216,6 +2451,19 @@ dark:bg-red-900/20 dark:text-red-400"
                               {sentDisplay.detail}
                             </span>
                           )}
+                          {doc.source === "LENDER_ADDED" && (
+                            <span
+                              className={`max-w-[220px] text-center text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                                doc.isForwardedToClient
+                                  ? "bg-indigo-50 text-indigo-700"
+                                  : "bg-slate-100 text-slate-600"
+                              }`}
+                            >
+                              {doc.isForwardedToClient
+                                ? "Sent to client"
+                                : "Broker only — not on client portal"}
+                            </span>
+                          )}
                         </div>
                       </td>
 
@@ -2246,6 +2494,11 @@ dark:bg-red-900/20 dark:text-red-400"
 
                       {/* ACTION */}
                       <td className="px-5 py-4 text-right relative">
+                      <div
+  ref={(el) => {
+    actionRefs.current[doc.rowKey] = el;
+  }}
+>
                         <button
                           onClick={() =>
                             setActiveAction(isOpen ? null : doc.rowKey)
@@ -2307,6 +2560,22 @@ dark:bg-red-900/20 dark:text-red-400"
                                 }}
                               />
                             </label>
+                            {doc.source === "LENDER_ADDED" &&
+                              !doc.isForwardedToClient && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleForwardToClient([
+                                      String(doc.requirementId),
+                                    ])
+                                  }
+                                  disabled={forwardingToClient}
+                                  className="flex w-full items-center gap-2 px-4 py-3 text-sm text-indigo-600 hover:bg-indigo-50 transition disabled:opacity-60"
+                                >
+                                  <Send size={14} />
+                                  Forward to Client
+                                </button>
+                              )}
                             {doc.source === "SUB_BROKER_ADDED" &&
                               doc.status !== "SKIPPED" && (
                                 <button
@@ -2392,6 +2661,7 @@ dark:bg-red-900/20 dark:text-red-400"
                               )}
                           </div>
                         )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -2538,6 +2808,7 @@ dark:bg-red-900/20 dark:text-red-400"
           <FeeAgreement
             applicationId={applicationId}
             getAuthHeaders={getAuthHeaders}
+            applicationBrokerPoints={getFieldValue(fields, "brokerPoints")}
           />
         );
       case "commissions":
@@ -2728,7 +2999,11 @@ dark:bg-red-900/20 dark:text-red-400"
           ) : (
             <>
               <div className="mb-6 overflow-hidden rounded-[30px] border border-white/30 bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.24),_transparent_28%),linear-gradient(135deg,_#1d4ed8_0%,_#0f766e_55%,_#0891b2_100%)] p-6 text-white">
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-6">
+                  <Metric
+                    label="Monthly Payment"
+                    value={monthlyPaymentDisplay}
+                  />
                   <Metric label="LTV" value={ltv ? `${ltv}%` : "-"} />
                   <Metric label="LTC" value={ltc ? `${ltc}%` : "-"} />
                   <Metric label="ARV %" value={arv ? `${arv}%` : "-"} />

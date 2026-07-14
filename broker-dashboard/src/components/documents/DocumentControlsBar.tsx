@@ -23,6 +23,10 @@ type DocumentControlsBarProps = {
   autoForwardEnabled: boolean;
   autoForwardSaving: boolean;
   onToggleAutoForward: () => void;
+  autoForwardToClientEnabled?: boolean;
+  autoForwardToClientSaving?: boolean;
+  onToggleAutoForwardToClient?: () => void;
+  showAutoForwardToClient?: boolean;
   documentFilterLenders: DocumentFilterLender[];
   documentLenderFilter: string;
   onDocumentLenderFilterChange: (value: string) => void;
@@ -50,6 +54,10 @@ export default function DocumentControlsBar({
   autoForwardEnabled,
   autoForwardSaving,
   onToggleAutoForward,
+  autoForwardToClientEnabled = false,
+  autoForwardToClientSaving = false,
+  onToggleAutoForwardToClient,
+  showAutoForwardToClient = false,
   documentFilterLenders,
   documentLenderFilter,
   onDocumentLenderFilterChange,
@@ -147,6 +155,71 @@ export default function DocumentControlsBar({
           </button>
         </div>
       </div>
+      )}
+
+      {/* Auto-forward lender requests → client */}
+      {showAutoForwardToClient && onToggleAutoForwardToClient && (
+        <div
+          className={`flex flex-col gap-3 rounded-2xl border px-4 py-3.5 shadow-sm transition sm:flex-row sm:items-center sm:justify-between ${
+            autoForwardToClientEnabled
+              ? "border-indigo-200/80 bg-gradient-to-r from-indigo-50/90 to-blue-50/50 dark:border-indigo-900/40 dark:from-indigo-950/30 dark:to-slate-900"
+              : "border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900"
+          }`}
+        >
+          <div className="flex min-w-0 flex-1 items-start gap-3 sm:items-center">
+            <div
+              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
+                autoForwardToClientEnabled
+                  ? "bg-indigo-500 text-white shadow-sm shadow-indigo-500/30"
+                  : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
+              }`}
+            >
+              <UserRound size={18} />
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-sm font-semibold text-slate-800 dark:text-white">
+                  Auto-forward lender requests to client
+                </p>
+                <span
+                  className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                    autoForwardToClientEnabled
+                      ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300"
+                      : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
+                  }`}
+                >
+                  {autoForwardToClientEnabled ? "On" : "Off"}
+                </span>
+              </div>
+              <p className="mt-0.5 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                {autoForwardToClientEnabled
+                  ? "When a lender requests documents, they appear on the client portal automatically."
+                  : "Lender requests stay with you first. Forward each document to the client when ready."}
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            role="switch"
+            aria-checked={autoForwardToClientEnabled}
+            aria-label="Toggle auto-forward lender requests to client"
+            disabled={autoForwardToClientSaving}
+            onClick={onToggleAutoForwardToClient}
+            className={`relative inline-flex h-8 w-14 shrink-0 items-center rounded-full transition-colors duration-200 self-end sm:self-center ${
+              autoForwardToClientEnabled
+                ? "bg-indigo-500"
+                : "bg-slate-300 dark:bg-slate-600"
+            } ${autoForwardToClientSaving ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}
+          >
+            <span
+              className={`inline-block h-6 w-6 transform rounded-full bg-white shadow-md transition-transform duration-200 ${
+                autoForwardToClientEnabled ? "translate-x-7" : "translate-x-1"
+              }`}
+            />
+          </button>
+        </div>
       )}
 
       {/* Filters & search */}

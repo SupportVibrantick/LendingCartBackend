@@ -356,14 +356,7 @@ const PRODUCT_LABELS: Record<string, string> = {
 /* ================= HELPERS ================= */
 const API_BASE = "https://api-lendingcart.vibrantick.org";
 
-function getPublicActiveApplicationUrl(brokerOrgId?: string | null) {
-  const params = new URLSearchParams();
-  if (brokerOrgId) {
-    params.set("broker", brokerOrgId);
-  }
-  const query = params.toString();
-  return `${API_BASE}/api/public/broker/applications/active${query ? `?${query}` : ""}`;
-}
+const LOAN_PRODUCTS_CATALOG_URL = `${API_BASE}/common/loan-products/loan-product-code`;
 
 const OPTIONAL_LOAN_REQUEST_KEYS = new Set([
   "sellerFinancing",
@@ -912,13 +905,9 @@ const LoanApplication = ({
     initialSelectedProduct,
   );
   const [dynamicSections, setDynamicSections] = useState<any[]>([]);
-  const [activeSectionIndex, setActiveSectionIndex] = useState<number | null>(
-    null,
-  );
   const [dynamicFormData, setDynamicFormData] = useState<Record<string, any>>(
     initialDynamicFormData || {},
   );
-  const [applicationId, setApplicationId] = useState<string>("");
   const [productsMeta, setProductsMeta] = useState<any[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -958,12 +947,12 @@ const LoanApplication = ({
     isSba7aBase44Flow ||
     isAblBase44Flow;
 
-  /** Show the standard 7-step stepper until category + loan type are both chosen. */
-  const useStandardSevenStepFlow =
-    isBase44Flow || !selectedCategory || !selectedProduct;
+  // Application Builder removed — always use the static catalog form flow.
+  const useStandardSevenStepFlow = true;
 
+  // Non-base44 products used to rely on builder sections; show static defaults instead.
   const showDefaultEntityInfoFields =
-    !selectedCategory || !selectedProduct;
+    !isBase44Flow || !selectedCategory || !selectedProduct;
 
   const showDefaultPropertyInfoFields = showDefaultEntityInfoFields;
 
@@ -1060,20 +1049,7 @@ const LoanApplication = ({
     }
   };
 
-  const toTitleCase = (text: string) => {
-    return text
-      .toLowerCase()
-      .split(" ")
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(" ");
-  };
-
-  const allSteps = useStandardSevenStepFlow
-    ? baseSteps
-    : [
-        ...baseSteps,
-        ...dynamicSections.map((section) => toTitleCase(section.sectionName)),
-      ];
+  const allSteps = baseSteps;
 
   const [currentStep, setCurrentStep] = useState(0);
   const createEmptyBorrower = (): Borrower => ({
@@ -1980,7 +1956,7 @@ const LoanApplication = ({
         return;
       }
 
-      if (!activeProduct) {
+      if (!selectedProduct) {
         toast.error("Please select a loan product");
         return;
       }
@@ -2103,7 +2079,6 @@ const LoanApplication = ({
       addField("inventoryValue", toNumber(formData.entity.inventoryValue));
       addField("equipmentValue", toNumber(formData.entity.equipmentValue));
       addField("businessIndustry", formData.loanRequest.propertyType);
-      addField("business_industry", formData.loanRequest.propertyType);
 
       addField(
         "currentMarketValue",
@@ -2232,8 +2207,8 @@ const LoanApplication = ({
       /* ================= FINAL PAYLOAD ================= */
 
       const payload = {
-        applicationId,
-        applicationProductId: activeProduct.productId,
+        loanProductCode: selectedProduct,
+        ...(publicEmbed && brokerOrgId ? { brokerOrgId } : {}),
         fields: Array.from(fieldsMap.entries()).map(
           ([fieldKey, { value, fieldId }]) => ({
             fieldKey,
@@ -2388,7 +2363,21 @@ const LoanApplication = ({
   };
 
   useEffect(() => {
+    const buildFallbackProducts = () => {
+      const allCategoryCodes = Array.from(
+        new Set(Object.values(CATEGORY_LOAN_TYPES).flat()),
+      );
+      return allCategoryCodes.map((code) => ({
+        productId: code,
+        loanProductCode: code,
+        name: PRODUCT_LABELS[code] || code,
+        sections: [],
+        unsectionedFields: [],
+      }));
+    };
+
     const fetchLoanProducts = async () => {
+      // Public share link needs broker org for submit; still load catalog product codes.
       if (publicEmbed && !brokerOrgId) {
         return;
       }
@@ -2396,33 +2385,36 @@ const LoanApplication = ({
       try {
         setLoadingProducts(true);
 
-        const response = await fetch(
-          publicEmbed
-            ? getPublicActiveApplicationUrl(brokerOrgId)
-            : `${API_BASE}/broker/applications/active`,
-          publicEmbed
-            ? undefined
-            : {
-                headers: {
-                  Authorization: `Bearer ${sessionStorage.getItem("broker_token") || ""}`,
-                },
-              },
-        );
-
+        const response = await fetch(LOAN_PRODUCTS_CATALOG_URL);
         const result = await response.json();
 
         if (!response.ok || !result.success) {
-          throw new Error(result.message || "Failed to load loan application");
+          throw new Error(result.message || "Failed to load loan products");
         }
 
-        const products = result?.data?.products || [];
+        const products = (result?.data || []).map((product: any) => ({
+          productId: product.id,
+          loanProductCode: product.code,
+          name: product.name,
+          sections: [],
+          unsectionedFields: [],
+        }));
 
-        setProductsMeta(products);
-        setApplicationId(result?.data?.applicationId || "");
+        setProductsMeta(
+          products.length > 0 ? products : buildFallbackProducts(),
+        );
         setLoanProducts([]);
+        setDynamicSections([]);
       } catch (error: any) {
         console.error("Error fetching loan products:", error);
-        toast.error(error.message || "Failed to load loan application");
+        // Local fallback so the form remains usable without Application Builder
+        setProductsMeta(buildFallbackProducts());
+        setLoanProducts([]);
+        setDynamicSections([]);
+        toast.error(
+          error.message ||
+            "Catalog unavailable — using built-in loan product list",
+        );
       } finally {
         setLoadingProducts(false);
       }
@@ -2430,55 +2422,6 @@ const LoanApplication = ({
 
     fetchLoanProducts();
   }, [publicEmbed, brokerOrgId]);
-
-  const fetchSectionsByProduct = async (productCode: string) => {
-    try {
-      const response = await fetch(
-        publicEmbed
-          ? getPublicActiveApplicationUrl(brokerOrgId)
-          : `${API_BASE}/broker/applications/active`,
-        publicEmbed
-          ? undefined
-          : {
-              headers: {
-                Authorization: `Bearer ${sessionStorage.getItem("broker_token") || ""}`,
-              },
-            },
-      );
-
-      const result = await response.json();
-
-      const products = result?.data?.products || [];
-
-      const matchedProduct = products.find(
-        (p: any) => p.loanProductCode === productCode,
-      );
-
-      const sections = matchedProduct?.sections || [];
-
-      const normalizeKey = (key: string = "") =>
-        key.toLowerCase().replace(/\s+/g, "");
-
-      const staticKeysSet = new Set(STATIC_FIELD_KEYS.map(normalizeKey));
-
-      const cleanedSections = sections.map((section: any) => ({
-        ...section,
-        fields: (section.fields || []).filter((field: any) => {
-          const fieldKey = normalizeKey(field.fieldKey || field.label || "");
-
-          return !staticKeysSet.has(fieldKey);
-        }),
-      }));
-
-      const sortedSections = [...cleanedSections].sort(
-        (a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0),
-      );
-
-      setDynamicSections(sortedSections);
-    } catch (error) {
-      console.error("Error fetching sections:", error);
-    }
-  };
 
   useEffect(() => {
     if (!lastAddedId) return;
@@ -2590,231 +2533,9 @@ const LoanApplication = ({
       ? (residentialNoiForDscr / annualDebtService).toFixed(2)
       : "—";
 
-  const handleDynamicFieldChange = (fieldId: string, value: any) => {
-    setDynamicFormData((prev) => ({
-      ...prev,
-      [fieldId]: value,
-    }));
-  };
-
-  const renderField = (field: any, hasError?: boolean) => {
-    const commonClasses = `
-  w-full px-4 py-1 text-sm rounded-md border transition
-  ${
-    hasError
-      ? "border-red-500 bg-red-50 dark:bg-red-900/20"
-      : "border-slate-300 dark:border-slate-600"
-  }
-  bg-white dark:bg-slate-900
-  text-slate-800 dark:text-slate-200
-  focus:ring-2 focus:ring-blue-500/20
-  focus:border-blue-500
-  outline-none
-  `;
-
-    switch (field.type) {
-      case "TEXT": {
-        const lowerKey = (field.fieldKey || field.label || "").toLowerCase();
-
-        const isPhone = lowerKey.includes("phone");
-        const isSSN = lowerKey.includes("ssn");
-
-        return (
-          <input
-            type="text"
-            inputMode={isPhone || isSSN ? "numeric" : "text"}
-            placeholder={field.placeholder || ""}
-            required={field.required}
-            value={dynamicFormData[field.fieldId] || ""}
-            onChange={(e) => {
-              let value = e.target.value;
-
-              if (isPhone) {
-                value = formatUSPhone(value);
-              }
-
-              if (isSSN) {
-                value = formatSSN(value);
-              }
-
-              handleDynamicFieldChange(field.fieldId, value);
-            }}
-            className={commonClasses}
-          />
-        );
-      }
-
-      case "TEXTAREA":
-      case "textarea":
-        return (
-          <textarea
-            rows={4}
-            placeholder={field.placeholder || ""}
-            required={field.required}
-            value={dynamicFormData[field.fieldId] || ""}
-            onChange={(e) =>
-              handleDynamicFieldChange(field.fieldId, e.target.value)
-            }
-            className={commonClasses}
-          />
-        );
-
-      case "EMAIL":
-        return (
-          <input
-            type="email"
-            placeholder={field.placeholder || ""}
-            required={field.required}
-            value={dynamicFormData[field.fieldId] || ""}
-            onChange={(e) =>
-              handleDynamicFieldChange(field.fieldId, e.target.value)
-            }
-            className={commonClasses}
-          />
-        );
-
-      case "NUMBER": {
-        const lowerKey = (field.fieldKey || field.label || "").toLowerCase();
-
-        const isPhone = lowerKey.includes("phone");
-        const isSSN = lowerKey.includes("ssn");
-
-        return (
-          <input
-            type="text"
-            inputMode="numeric"
-            placeholder={field.placeholder || ""}
-            required={field.required}
-            value={dynamicFormData[field.fieldId] || ""}
-            onChange={(e) => {
-              let value = e.target.value;
-
-              if (isPhone) {
-                value = formatUSPhone(value);
-              } else if (isSSN) {
-                value = formatSSN(value);
-              }
-              handleDynamicFieldChange(field.fieldId, value);
-            }}
-            className={commonClasses}
-          />
-        );
-      }
-
-      case "DATE":
-        return (
-          <LoanDateField
-            value={dynamicFormData[field.fieldId] || ""}
-            onChange={(val) => handleDynamicFieldChange(field.fieldId, val)}
-            className={commonClasses.replace(/^w-full\s+/, "")}
-          />
-        );
-
-      case "SELECT":
-        return (
-          <select
-            required={field.required}
-            value={dynamicFormData[field.fieldId] || ""}
-            onChange={(e) =>
-              handleDynamicFieldChange(field.fieldId, e.target.value)
-            }
-            className={commonClasses}
-          >
-            <option value="">Select</option>
-            {field.options?.map((opt: string, i: number) => (
-              <option key={i} value={opt}>
-                {opt}
-              </option>
-            ))}
-          </select>
-        );
-
-      case "RADIO":
-        return (
-          <div
-            className={`
-      flex flex-wrap gap-6 mt-2 text-sm p-2 rounded-md border
-      ${
-        hasError
-          ? "border-red-500 bg-red-50 dark:bg-red-900/20"
-          : "border-slate-300 dark:border-slate-600"
-      }
-      bg-white dark:bg-slate-900
-      text-slate-800 dark:text-slate-200
-      `}
-          >
-            {field.options?.map((opt: string, i: number) => (
-              <label key={i} className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  name={field.fieldKey}
-                  value={opt}
-                  checked={dynamicFormData[field.fieldId] === opt}
-                  onChange={() => handleDynamicFieldChange(field.fieldId, opt)}
-                />
-                {opt}
-              </label>
-            ))}
-          </div>
-        );
-
-      case "CHECKBOX_GROUP":
-        return (
-          <div
-            className={`
-      flex flex-wrap gap-4 mt-2 text-sm p-2 rounded-md border
-      ${
-        hasError
-          ? "border-red-500 bg-red-50 dark:bg-red-900/20"
-          : "border-slate-300 dark:border-slate-600"
-      }
-      bg-white dark:bg-slate-900
-      text-slate-800 dark:text-slate-200
-      `}
-          >
-            {field.options?.map((opt: string, i: number) => (
-              <label key={i} className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  value={opt}
-                  checked={
-                    dynamicFormData[field.fieldId]?.includes(opt) || false
-                  }
-                  onChange={(e) => {
-                    const prevValues = dynamicFormData[field.fieldId] || [];
-
-                    if (e.target.checked) {
-                      handleDynamicFieldChange(field.fieldId, [
-                        ...prevValues,
-                        opt,
-                      ]);
-                    } else {
-                      handleDynamicFieldChange(
-                        field.fieldId,
-                        prevValues.filter((v: string) => v !== opt),
-                      );
-                    }
-                  }}
-                />
-                {opt}
-              </label>
-            ))}
-          </div>
-        );
-      default:
-        return null;
-    }
-  };
-
   const goToStep = (stepIndex: number) => {
     setErrors({});
     setCurrentStep(stepIndex);
-
-    if (stepIndex >= baseSteps.length) {
-      setActiveSectionIndex(stepIndex - baseSteps.length);
-    } else {
-      setActiveSectionIndex(null);
-    }
   };
 
   const handleStepClick = (index: number) => {
@@ -2824,7 +2545,8 @@ const LoanApplication = ({
 
   useEffect(() => {
     if (selectedProduct) {
-      fetchSectionsByProduct(selectedProduct);
+      // Keep any leftover builder section state cleared after product change.
+      setDynamicSections([]);
     }
   }, [selectedProduct]);
 
@@ -2857,7 +2579,11 @@ const LoanApplication = ({
           allowedProducts.indexOf(b.loanProductCode),
       );
 
-    setLoanProducts(filteredProducts.map((p: any) => p.loanProductCode));
+    setLoanProducts(
+      filteredProducts.length > 0
+        ? filteredProducts.map((p: any) => p.loanProductCode)
+        : allowedProducts,
+    );
 
     if (mode === "update" && initialSelectedProduct) {
       setSelectedProduct((prev) =>
@@ -3548,7 +3274,7 @@ rounded-2xl p-6 shadow-sm
                       setSelectedProduct(e.target.value);
                       updateLoanRequest("purpose", "");
                       setDynamicSections([]);
-                      setActiveSectionIndex(null);
+                      // setActiveSectionIndex(null);
                     }}
                     className={`w-full px-4 py-1 rounded-md border
 border-slate-300 dark:border-slate-600
@@ -6555,51 +6281,6 @@ focus:border-blue-500 outline-none text-sm ${
             </div>
           )}
 
-          {!useStandardSevenStepFlow &&
-            activeSectionIndex !== null &&
-            dynamicSections[activeSectionIndex] && (
-              <div
-                className="
-      border border-slate-200 dark:border-slate-700
-      rounded-2xl p-6
-      bg-white dark:bg-slate-800
-      mt-6
-      "
-              >
-                <h3 className="text-lg font-semibold mb-6 text-slate-800 dark:text-slate-200">
-                  {toTitleCase(dynamicSections[activeSectionIndex].sectionName)}
-                </h3>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {dynamicSections[activeSectionIndex].fields.map(
-                    (field: any) => {
-                      const errorKey = `dynamic.${field.fieldId}`;
-                      const hasError = !!errors[errorKey];
-
-                      return (
-                        <div key={field.fieldId}>
-                          <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-2">
-                            {field.label}
-                            {field.required && (
-                              <span className="text-red-500"> *</span>
-                            )}
-                          </label>
-
-                          {renderField(field, hasError)}
-
-                          {hasError && (
-                            <p className="text-xs text-red-500 mt-1">
-                              {errors[errorKey]}
-                            </p>
-                          )}
-                        </div>
-                      );
-                    },
-                  )}
-                </div>
-              </div>
-            )}
-
           {/* Footer */}
           <div className="flex justify-between pt-6 mt-6 border-t border-slate-200 dark:border-slate-700">
             {/* Back Button */}
@@ -6634,15 +6315,6 @@ focus:border-blue-500 outline-none text-sm ${
                   }
                   handleSubmitApplication();
                   return;
-                }
-
-                if (
-                  currentStep === 2 &&
-                  selectedProduct &&
-                  dynamicSections.length === 0 &&
-                  !useStandardSevenStepFlow
-                ) {
-                  fetchSectionsByProduct(selectedProduct);
                 }
 
                 goToStep(currentStep + 1);

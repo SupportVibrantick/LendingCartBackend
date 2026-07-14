@@ -17,46 +17,97 @@ const {
   resolveClientDisplayName,
   resolveBorrowerEmail,
 } = require("../../../../utils/applications/resolveBorrowerIdentity");
+const {
+  resolveSubmitLoanProduct,
+} = require("../../../../utils/applications/resolveSubmitLoanProduct");
 
 async function submitApplication(fastify) {
   fastify.post("/submit", async (req, reply) => {
     const {
       applicationId: brokerApplicationId,
       applicationProductId,
+      loanProductCode,
+      brokerOrgId: bodyBrokerOrgId,
       fields,
     } = req.body;
 
-    if (!brokerApplicationId || !applicationProductId || !Array.isArray(fields)) {
+    if (!Array.isArray(fields)) {
       return reply.code(400).send({
         success: false,
         message: "Invalid payload",
       });
     }
 
-    // Validate Template + Product
-    const brokerProduct =
-      await fastify.prisma.brokerApplicationProduct.findFirst({
-        where: {
-          id: applicationProductId,
-          isActive: true,
-          brokerApplication: {
-            id: brokerApplicationId,
-            isActive: true,
-          },
-        },
-        select: {
-          id: true,
-          loanProductCode: true,
-          brokerApplication: {
-            select: { brokerOrgId: true },
-          },
-        },
+    let resolvedLoanProductCode;
+    let resolvedApplicationProductId = null;
+    let brokerOrgId;
+
+    if (loanProductCode && bodyBrokerOrgId) {
+      const resolvedProduct = await resolveSubmitLoanProduct(fastify.prisma, {
+        loanProductCode,
       });
 
-    if (!brokerProduct) {
-      return reply.code(404).send({
+      if (resolvedProduct.error) {
+        return reply.code(resolvedProduct.error.status).send({
+          success: false,
+          message: resolvedProduct.error.message,
+        });
+      }
+
+      const org = await fastify.prisma.organization.findFirst({
+        where: {
+          id: bodyBrokerOrgId,
+          type: "BROKER",
+        },
+        select: { id: true },
+      });
+
+      if (!org) {
+        return reply.code(404).send({
+          success: false,
+          message: "Invalid broker organization",
+        });
+      }
+
+      resolvedLoanProductCode = resolvedProduct.loanProductCode;
+      resolvedApplicationProductId = null;
+      brokerOrgId = org.id;
+    } else if (brokerApplicationId && applicationProductId) {
+      // Legacy Application Builder path
+      const brokerProduct =
+        await fastify.prisma.brokerApplicationProduct.findFirst({
+          where: {
+            id: applicationProductId,
+            isActive: true,
+            brokerApplication: {
+              id: brokerApplicationId,
+              isActive: true,
+            },
+          },
+          select: {
+            id: true,
+            loanProductCode: true,
+            brokerApplication: {
+              select: { brokerOrgId: true },
+            },
+          },
+        });
+
+      if (!brokerProduct) {
+        return reply.code(404).send({
+          success: false,
+          message: "Invalid application product",
+        });
+      }
+
+      resolvedLoanProductCode = brokerProduct.loanProductCode;
+      resolvedApplicationProductId = brokerProduct.id;
+      brokerOrgId = brokerProduct.brokerApplication.brokerOrgId;
+    } else {
+      return reply.code(400).send({
         success: false,
-        message: "Invalid application product",
+        message:
+          "Provide loanProductCode + brokerOrgId, or applicationId + applicationProductId",
       });
     }
 
@@ -77,7 +128,7 @@ async function submitApplication(fastify) {
           id: crypto.randomUUID(),
           legalName,
           entityType: "INDIVIDUAL",
-          primaryBrokerOrgId: brokerProduct.brokerApplication.brokerOrgId,
+          primaryBrokerOrgId: brokerOrgId,
         },
       });
 
@@ -97,9 +148,9 @@ async function submitApplication(fastify) {
         data: {
           id: crypto.randomUUID(),
           applicationNumber: `APP-${Date.now()}`,
-          brokerOrgId: brokerProduct.brokerApplication.brokerOrgId,
+          brokerOrgId,
           clientId: client.id,
-          loanProductCode: brokerProduct.loanProductCode,
+          loanProductCode: resolvedLoanProductCode,
           status: "CLIENT_PENDING",
         },
       });
@@ -108,7 +159,9 @@ async function submitApplication(fastify) {
       const submission = await tx.applicationSubmission.create({
         data: {
           applicationId: loanApplication.id,
-          applicationProductId,
+          ...(resolvedApplicationProductId
+            ? { applicationProductId: resolvedApplicationProductId }
+            : {}),
           status: "CLIENT_PENDING",
         },
       });
@@ -116,7 +169,7 @@ async function submitApplication(fastify) {
       // 5️⃣ Create Submission Fields
       const fieldIdByKey = await loadProductFieldIdMap(
         tx,
-        applicationProductId,
+        resolvedApplicationProductId,
       );
 
       const normalizedFields = buildSubmissionFieldsPayload(fields, fieldIdByKey);
@@ -141,7 +194,7 @@ async function submitApplication(fastify) {
         submission,
         loanApplication,
         client,
-        brokerOrgId: brokerProduct.brokerApplication.brokerOrgId,
+        brokerOrgId,
         borrowerEmail,
         portalToken,
         clientDisplayName: resolveClientDisplayName({

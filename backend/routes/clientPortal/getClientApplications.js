@@ -1,6 +1,6 @@
 const jwt = require("jsonwebtoken");
 const { resolveApplicationStatus } = require("../../utils/applications/resolveApplicationStatus");
-const { CLIENT_VISIBLE_DOC_SOURCES } = require("../../utils/documents/mapClientPortalDocuments");
+const { isDocumentVisibleToClient } = require("../../utils/documents/mapClientPortalDocuments");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
@@ -107,7 +107,13 @@ async function getClientApplicationsRoute(fastify) {
             },
 
             documentRequirements: {
-              select: { id: true, source: true, status: true },
+              select: {
+                id: true,
+                source: true,
+                status: true,
+                sentToClientAt: true,
+                requiresClientSignature: true,
+              },
             },
 
             documentUploads: {
@@ -174,7 +180,7 @@ async function getClientApplicationsRoute(fastify) {
           const productFromField = getFieldValue("loanProductCode");
 
           const visibleRequirements = (app.documentRequirements || []).filter(
-            (req) => CLIENT_VISIBLE_DOC_SOURCES.has(req.source),
+            isDocumentVisibleToClient,
           );
 
           return {

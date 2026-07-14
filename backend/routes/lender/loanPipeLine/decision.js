@@ -10,6 +10,9 @@ const {
   notifyClient,
   CLIENT_NOTIFICATION_EVENTS,
 } = require("../../../services/notifications/clientNotifications");
+const {
+  getAutoForwardLenderRequestsToClient,
+} = require("../../../services/documents/documentAutoForwardSetting");
 
 const INTEREST_RATE_MAX = 100;
 const APPROVED_AMOUNT_MAX = 999_999_999_999_999.99;
@@ -204,6 +207,17 @@ async function lenderDecisionRoutes(fastify) {
         const normalizedInterestRate =
           decision === "APPROVED" ? parseInterestRate(interestRate) : null;
 
+        const autoForwardLenderRequestsToClient =
+          decision === "CONDITIONAL"
+            ? await getAutoForwardLenderRequestsToClient(
+                prisma,
+                record.loanApplication.id,
+              )
+            : false;
+        const lenderRequestSentToClientAt = autoForwardLenderRequestsToClient
+          ? new Date()
+          : null;
+
         /* ===============================
            TRANSACTION
         =============================== */
@@ -311,6 +325,10 @@ async function lenderDecisionRoutes(fastify) {
                     lastRequestedAt: new Date(),
                     updatedAt: new Date(),
                     source: "LENDER_ADDED",
+                    // Only stamp when auto-forward is on; don't clear an earlier forward
+                    ...(lenderRequestSentToClientAt
+                      ? { sentToClientAt: lenderRequestSentToClientAt }
+                      : {}),
                   },
                 });
               } else {
@@ -322,6 +340,7 @@ async function lenderDecisionRoutes(fastify) {
                     isRequired: true,
                     status: "PENDING",
                     lastRequestedAt: new Date(),
+                    sentToClientAt: lenderRequestSentToClientAt,
                   },
                 });
               }
@@ -394,9 +413,13 @@ async function lenderDecisionRoutes(fastify) {
         });
 
         /* ===============================
-           OPTIONAL EMAIL (NO TOKEN NOW)
+           OPTIONAL EMAIL (only when auto-forwarded to client)
         =============================== */
-        if (decision === "CONDITIONAL" && clientEmail) {
+        if (
+          decision === "CONDITIONAL" &&
+          clientEmail &&
+          autoForwardLenderRequestsToClient
+        ) {
           const html = loadTemplate(
             "clientPortal/document",
             buildClientLinkEmailData({
@@ -462,32 +485,38 @@ async function lenderDecisionRoutes(fastify) {
 
         const clientId = record.loanApplication.clientId;
         if (clientId) {
-          const clientEventMap = {
-            APPROVED: CLIENT_NOTIFICATION_EVENTS.LENDER_APPROVED,
-            DECLINED: CLIENT_NOTIFICATION_EVENTS.LENDER_DECLINED,
-            CONDITIONAL: CLIENT_NOTIFICATION_EVENTS.LENDER_CONDITIONAL,
-          };
+          // For CONDITIONAL: notify client only when docs were auto-forwarded
+          const shouldNotifyClient =
+            decision !== "CONDITIONAL" || autoForwardLenderRequestsToClient;
 
-          const clientBodyMap = {
-            APPROVED: `Your application ${applicationNumber} has been approved by ${lenderName}.`,
-            DECLINED: `Your application ${applicationNumber} was declined by ${lenderName}.`,
-            CONDITIONAL: `${lenderName} requested additional documents for application ${applicationNumber}.`,
-          };
+          if (shouldNotifyClient) {
+            const clientEventMap = {
+              APPROVED: CLIENT_NOTIFICATION_EVENTS.LENDER_APPROVED,
+              DECLINED: CLIENT_NOTIFICATION_EVENTS.LENDER_DECLINED,
+              CONDITIONAL: CLIENT_NOTIFICATION_EVENTS.LENDER_CONDITIONAL,
+            };
 
-          await notifyClient(prisma, fastify.io, {
-            clientId,
-            eventType: clientEventMap[decision],
-            category: "APPLICATION",
-            subject: clientBodyMap[decision],
-            body: clientBodyMap[decision],
-            metadata: {
-              applicationId: record.loanApplication.id,
-              applicationNumber,
-              applicationLenderId,
-              lenderName,
-              decision,
-            },
-          });
+            const clientBodyMap = {
+              APPROVED: `Your application ${applicationNumber} has been approved by ${lenderName}.`,
+              DECLINED: `Your application ${applicationNumber} was declined by ${lenderName}.`,
+              CONDITIONAL: `${lenderName} requested additional documents for application ${applicationNumber}.`,
+            };
+
+            await notifyClient(prisma, fastify.io, {
+              clientId,
+              eventType: clientEventMap[decision],
+              category: "APPLICATION",
+              subject: clientBodyMap[decision],
+              body: clientBodyMap[decision],
+              metadata: {
+                applicationId: record.loanApplication.id,
+                applicationNumber,
+                applicationLenderId,
+                lenderName,
+                decision,
+              },
+            });
+          }
         }
 
         return reply.send({

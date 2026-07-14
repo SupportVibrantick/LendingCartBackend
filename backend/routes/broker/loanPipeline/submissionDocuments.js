@@ -3,6 +3,7 @@
  */
 const {
   getAutoForwardDocumentsToLender,
+  getAutoForwardLenderRequestsToClient,
 } = require("../../../services/documents/documentAutoForwardSetting");
 const {
   buildDocumentSentToLenderMap,
@@ -188,12 +189,19 @@ module.exports = async function submissionDocuments(fastify) {
           loanApplicationId,
         );
 
+      const autoForwardLenderRequestsToClient =
+        await getAutoForwardLenderRequestsToClient(
+          fastify.prisma,
+          loanApplicationId,
+        );
+
       return reply.send({
         success: true,
         data: {
           submissionId: submission.id,
           loanApplicationId,
           autoForwardDocumentsToLender,
+          autoForwardLenderRequestsToClient,
           documentsRequested: pendingCount > 0,
           pendingDocumentsCount: pendingCount,
           documentFilterLenders,

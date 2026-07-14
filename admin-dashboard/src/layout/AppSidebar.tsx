@@ -147,17 +147,17 @@ const navItems: NavItem[] = [
           { name: "Add Fields", path: "/add-fields" },
         ],
       },
-      {
-        // icon: <FaAppStore />,
-        name: "Application Builder",
-        subItems: [
-          { name: "Create Application", path: "/create-application" },
-          { name: "Loan Application Config", path: "/loan-application-config" },
-          { name: "Add Sections", path: "/add-app-sections" },
-          { name: "Application Builder", path: "/application-builder" },
-          { name: "Active Application", path: "/active-application" },
-        ],
-      },
+      // {
+      //   // icon: <FaAppStore />,
+      //   name: "Application Builder",
+      //   subItems: [
+      //     { name: "Create Application", path: "/create-application" },
+      //     { name: "Loan Application Config", path: "/loan-application-config" },
+      //     { name: "Add Sections", path: "/add-app-sections" },
+      //     { name: "Application Builder", path: "/application-builder" },
+      //     { name: "Active Application", path: "/active-application" },
+      //   ],
+      // },
       {
         name: "System Settings",
         path: "/system-settings",

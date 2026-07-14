@@ -9,6 +9,7 @@ async function loanPipelineRoutes(fastify) {
   fastify.register(require("./requestDocuments"));
   fastify.register(require("./submitDocumentsToLender"));
   fastify.register(require("./updateDocumentAutoForward"), { prefix: "" });
+  fastify.register(require("./forwardLenderDocumentsToClient"), { prefix: "" });
 
   fastify.register(require("./deleteDocument.js"));
 

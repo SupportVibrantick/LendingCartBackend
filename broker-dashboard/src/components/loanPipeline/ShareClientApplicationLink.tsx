@@ -11,16 +11,14 @@ import {
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 const EMBED_APP_URL = (
-  import.meta.env.VITE_EMBED_APP_URL || "https://loan-application-lendingcart.vibrantick.org"
+  import.meta.env.VITE_EMBED_APP_URL ||
+  "https://loan-application-lendingcart.vibrantick.org"
 ).replace(/\/$/, "");
 
 type ShareLinkData = {
   brokerOrgId: string;
   brokerName: string;
   brokerEmail: string | null;
-  hasActiveApplication: boolean;
-  applicationId: string | null;
-  applicationName: string | null;
   shareUrl: string;
 };
 
@@ -65,9 +63,6 @@ export default function ShareClientApplicationLink() {
         brokerOrgId: payload.brokerOrgId,
         brokerName: payload.brokerName,
         brokerEmail: payload.brokerEmail,
-        hasActiveApplication: payload.hasActiveApplication,
-        applicationId: payload.applicationId,
-        applicationName: payload.applicationName,
         shareUrl,
       });
     } catch (error) {
@@ -94,7 +89,7 @@ export default function ShareClientApplicationLink() {
 
     try {
       await navigator.clipboard.writeText(data.shareUrl);
-      toast.success("Link copied to clipboard"); 
+      toast.success("Link copied to clipboard");
     } catch {
       toast.error("Could not copy link");
     }
@@ -156,13 +151,6 @@ export default function ShareClientApplicationLink() {
         </p>
       ) : (
         <>
-          {!data.hasActiveApplication && (
-            <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200">
-              No active loan application is configured. Activate one in
-              Application Builder before sharing this link with clients.
-            </div>
-          )}
-
           <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
             <input
               readOnly
@@ -183,8 +171,7 @@ export default function ShareClientApplicationLink() {
             <button
               type="button"
               onClick={openPreview}
-              disabled={!data.hasActiveApplication}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-sky-200 bg-white px-3 py-2 text-xs font-medium text-sky-800 hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-sky-800 dark:bg-gray-900 dark:text-sky-200"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-sky-200 bg-white px-3 py-2 text-xs font-medium text-sky-800 hover:bg-sky-50 dark:border-sky-800 dark:bg-gray-900 dark:text-sky-200"
             >
               <ExternalLink className="h-3.5 w-3.5" />
               Preview
@@ -192,8 +179,7 @@ export default function ShareClientApplicationLink() {
             <button
               type="button"
               onClick={shareEmail}
-              disabled={!data.hasActiveApplication}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-sky-200 bg-white px-3 py-2 text-xs font-medium text-sky-800 hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-sky-800 dark:bg-gray-900 dark:text-sky-200"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-sky-200 bg-white px-3 py-2 text-xs font-medium text-sky-800 hover:bg-sky-50 dark:border-sky-800 dark:bg-gray-900 dark:text-sky-200"
             >
               <Mail className="h-3.5 w-3.5" />
               Share via Email
@@ -201,18 +187,16 @@ export default function ShareClientApplicationLink() {
             <button
               type="button"
               onClick={shareSms}
-              disabled={!data.hasActiveApplication}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-sky-200 bg-white px-3 py-2 text-xs font-medium text-sky-800 hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-sky-800 dark:bg-gray-900 dark:text-sky-200"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-sky-200 bg-white px-3 py-2 text-xs font-medium text-sky-800 hover:bg-sky-50 dark:border-sky-800 dark:bg-gray-900 dark:text-sky-200"
             >
               <MessageSquare className="h-3.5 w-3.5" />
               Share via SMS
             </button>
           </div>
 
-          {data.applicationName && (
+          {data.brokerEmail && (
             <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
-              Active form: {data.applicationName}
-              {data.brokerEmail ? ` · ${data.brokerEmail}` : ""}
+              Broker contact: {data.brokerEmail}
             </p>
           )}
         </>
