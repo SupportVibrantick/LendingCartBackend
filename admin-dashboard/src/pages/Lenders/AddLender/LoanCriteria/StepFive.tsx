@@ -786,7 +786,7 @@ const StepFive = ({
                       <FileText size={16} className="text-indigo-600" />
 
                       <h3 className="text-sm font-semibold">
-                        What documents do you need in this program? (optional)
+                        Upfront Documents (optional)
                       </h3>
 
                       {!!value?.[product.id]?.documents?.length && (

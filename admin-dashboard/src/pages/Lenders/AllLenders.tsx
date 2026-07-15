@@ -19,6 +19,7 @@ import {
   Activity,
   PackagePlus,
   Phone,
+  Upload,
   // Filter,
 } from "lucide-react";
 import Swal from "sweetalert2";
@@ -31,6 +32,7 @@ import { Eye, EyeOff } from "lucide-react";
 import LenderProductAssign from "../LoanProducts/LenderAssignProduct";
 import toast from "react-hot-toast";
 import LenderInvitesPanel from "./LenderInvitesPanel";
+import BulkInviteLendersModal from "./BulkInviteLendersModal";
 
 type Lender = {
   id: any;
@@ -131,6 +133,7 @@ export default function AllLendersPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const [isInviteOpen, setIsInviteOpen] = useState(false);
+  const [isBulkInviteOpen, setIsBulkInviteOpen] = useState(false);
   const [inviteListKey, setInviteListKey] = useState(0);
   const [listView, setListView] = useState<"lenders" | "invites">("lenders");
 
@@ -895,7 +898,7 @@ export default function AllLendersPage() {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-slate-950 px-4 py-8 sm:px-6 lg:px-8 transition-colors duration-300">
+    <div className="bg-gray-50 dark:bg-slate-950 py-8 transition-colors duration-300">
       <div className="max-w-7xl mx-auto">
         {/* ================= HEADER ================= */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
@@ -912,7 +915,7 @@ export default function AllLendersPage() {
             <button
               onClick={() => fetchLenders()}
               disabled={loading}
-              className="group flex items-center justify-center w-10 h-10 rounded-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-all active:scale-95 disabled:opacity-50"
+              className="group flex items-center justify-center w-10 h-10 rounded-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 transition-all active:scale-95 disabled:opacity-50"
               title="Refresh List"
             >
               <RefreshCcw
@@ -955,6 +958,22 @@ export default function AllLendersPage() {
               <Users className="w-4 h-4" />
               Invite Lender
             </button>
+
+            <button
+              onClick={() => setIsBulkInviteOpen(true)}
+className="inline-flex items-center gap-2 whitespace-nowrap rounded-xl
+bg-indigo-600
+px-5 py-2.5
+text-xs font-semibold text-white
+shadow-md shadow-indigo-500/20
+transition-all duration-200
+hover:bg-indigo-700
+hover:shadow-lg
+active:scale-95"
+            >
+              <Upload className="w-4 h-4" />
+              Bulk Invite Lenders  
+            </button>
           </div>
         </div>
 
@@ -994,6 +1013,7 @@ export default function AllLendersPage() {
             key={inviteListKey}
             apiBase={API_BASE}
             getAuthHeaders={getAuthHeaders}
+            onBulkInvite={() => setIsBulkInviteOpen(true)}
           />
         ) : (
           <>
@@ -2123,6 +2143,18 @@ dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100`}
             </div>
           </div>
         </div>
+      )}
+
+      {isBulkInviteOpen && (
+        <BulkInviteLendersModal
+          apiBase={API_BASE}
+          getAuthHeaders={getAuthHeaders}
+          onClose={() => setIsBulkInviteOpen(false)}
+          onComplete={() => {
+            setListView("invites");
+            setInviteListKey((k) => k + 1);
+          }}
+        />
       )}
     </div>
   );
