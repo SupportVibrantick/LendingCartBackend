@@ -10,12 +10,16 @@ import { saveLenderSession } from "../../lib/lenderSession";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 const US_PHONE_REGEX = /^\d{3}-\d{3}-\d{4}$/;
+const RECAPTCHA_ACTION = "lender_public_signup";
 
 declare global {
   interface Window {
     grecaptcha?: {
-      ready: (cb: () => void) => void;
-      execute: (siteKey: string, options: { action: string }) => Promise<string>;
+      ready?: (cb: () => void) => void;
+      execute?: (
+        siteKey: string,
+        options: { action: string },
+      ) => Promise<string>;
     };
   }
 }
@@ -33,31 +37,135 @@ function cleanPhone(value: string) {
   return value.replace(/\D/g, "");
 }
 
+let recaptchaLoadPromise: Promise<void> | null = null;
+
+function waitForGrecaptcha(timeoutMs = 15000): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const started = Date.now();
+
+    const finish = () => {
+      if (typeof window.grecaptcha?.execute === "function") {
+        resolve();
+        return;
+      }
+      reject(new Error("reCAPTCHA loaded but execute() is unavailable"));
+    };
+
+    const check = () => {
+      const grecaptcha = window.grecaptcha;
+      if (grecaptcha && typeof grecaptcha.ready === "function") {
+        try {
+          grecaptcha.ready(finish);
+        } catch {
+          // Some browsers expose grecaptcha before ready is usable
+          if (typeof grecaptcha.execute === "function") {
+            resolve();
+          } else {
+            reject(new Error("reCAPTCHA failed to initialize"));
+          }
+        }
+        return;
+      }
+
+      if (typeof grecaptcha?.execute === "function") {
+        resolve();
+        return;
+      }
+
+      if (Date.now() - started > timeoutMs) {
+        reject(
+          new Error(
+            "reCAPTCHA failed to initialize. Check site key and allowed domains.",
+          ),
+        );
+        return;
+      }
+
+      window.setTimeout(check, 50);
+    };
+
+    check();
+  });
+}
+
 async function loadRecaptchaScript(siteKey: string) {
-  if (!siteKey || document.getElementById("recaptcha-v3")) return;
-  await new Promise<void>((resolve, reject) => {
+  if (!siteKey) {
+    throw new Error("reCAPTCHA site key is missing");
+  }
+
+  if (typeof window.grecaptcha?.execute === "function") {
+    return;
+  }
+
+  if (recaptchaLoadPromise) {
+    await recaptchaLoadPromise;
+    return;
+  }
+
+  recaptchaLoadPromise = new Promise<void>((resolve, reject) => {
+    const existing = document.getElementById(
+      "recaptcha-v3",
+    ) as HTMLScriptElement | null;
+
+    if (existing) {
+      waitForGrecaptcha().then(resolve).catch((err) => {
+        recaptchaLoadPromise = null;
+        reject(err);
+      });
+      return;
+    }
+
     const script = document.createElement("script");
     script.id = "recaptcha-v3";
     script.src = `https://www.google.com/recaptcha/api.js?render=${encodeURIComponent(siteKey)}`;
     script.async = true;
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error("Failed to load reCAPTCHA"));
+    script.defer = true;
+    script.onload = () => {
+      waitForGrecaptcha().then(resolve).catch((err) => {
+        recaptchaLoadPromise = null;
+        reject(err);
+      });
+    };
+    script.onerror = () => {
+      recaptchaLoadPromise = null;
+      script.remove();
+      reject(
+        new Error(
+          "Failed to load reCAPTCHA script. Allow google.com/recaptcha or check your network.",
+        ),
+      );
+    };
     document.head.appendChild(script);
   });
+
+  await recaptchaLoadPromise;
 }
 
-async function getCaptchaToken(siteKey: string): Promise<string | undefined> {
-  if (!siteKey) return undefined;
+async function getCaptchaToken(siteKey: string): Promise<string> {
+  if (!siteKey) {
+    throw new Error(
+      "reCAPTCHA site key is not configured. Set RECAPTCHA_SITE_KEY on the server.",
+    );
+  }
+
   await loadRecaptchaScript(siteKey);
-  await new Promise<void>((resolve) => {
-    if (window.grecaptcha?.ready) {
-      window.grecaptcha.ready(() => resolve());
-    } else {
-      resolve();
-    }
+
+  const execute = window.grecaptcha?.execute;
+  if (typeof execute !== "function") {
+    throw new Error("reCAPTCHA is unavailable in this browser");
+  }
+
+  const token = await execute(siteKey, {
+    action: RECAPTCHA_ACTION,
   });
-  if (!window.grecaptcha?.execute) return undefined;
-  return window.grecaptcha.execute(siteKey, { action: "lender_public_signup" });
+
+  if (!token) {
+    throw new Error(
+      "Could not get reCAPTCHA token. Add this domain in Google reCAPTCHA settings.",
+    );
+  }
+
+  return token;
 }
 
 type FormErrors = {
@@ -92,10 +200,23 @@ export default function PartnerSignup() {
         const res = await fetch(`${API_BASE}/lender/auth/register/public-config`);
         const json = await res.json().catch(() => ({}));
         if (cancelled || !json?.success) return;
-        setCaptchaRequired(Boolean(json.data?.captchaRequired));
-        setCaptchaSiteKey(String(json.data?.captchaSiteKey || ""));
-        if (json.data?.captchaSiteKey) {
-          void loadRecaptchaScript(String(json.data.captchaSiteKey));
+
+        const envSiteKey = String(
+          import.meta.env.VITE_RECAPTCHA_SITE_KEY || "",
+        ).trim();
+        const siteKey =
+          String(json.data?.captchaSiteKey || "").trim() || envSiteKey;
+        const required = Boolean(json.data?.captchaRequired) && Boolean(siteKey);
+
+        setCaptchaRequired(required);
+        setCaptchaSiteKey(siteKey);
+
+        if (siteKey) {
+          try {
+            await loadRecaptchaScript(siteKey);
+          } catch (err) {
+            console.error("reCAPTCHA preload failed", err);
+          }
         }
       } catch {
         // Config is optional in local/dev without captcha
@@ -169,10 +290,15 @@ export default function PartnerSignup() {
       setSaving(true);
 
       let captchaToken: string | undefined;
-      if (captchaRequired || captchaSiteKey) {
-        captchaToken = await getCaptchaToken(captchaSiteKey);
-        if (captchaRequired && !captchaToken) {
-          toast.error("Captcha verification failed. Please try again.");
+      if (captchaRequired) {
+        try {
+          captchaToken = await getCaptchaToken(captchaSiteKey);
+        } catch (captchaErr: any) {
+          console.error("reCAPTCHA token error", captchaErr);
+          toast.error(
+            captchaErr?.message ||
+              "Captcha verification failed. Please try again.",
+          );
           return;
         }
       }
@@ -343,6 +469,7 @@ export default function PartnerSignup() {
                 </Label>
                 <Input
                   type="email"
+                  autoComplete="username"
                   value={form.adminEmail}
                   onChange={(e) => updateField("adminEmail", e.target.value)}
                   placeholder="you@example.com"
