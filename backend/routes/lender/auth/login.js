@@ -104,6 +104,16 @@ async function lenderLoginRoutes(fastify) {
           });
         }
 
+        // Hard gate: public partner signups must verify email first
+        if (!user.emailVerifiedAt) {
+          return reply.status(403).send({
+            success: false,
+            message: "Please verify your email before signing in",
+            code: "EMAIL_NOT_VERIFIED",
+            data: { email: user.email },
+          });
+        }
+
         await prisma.userAccount.update({
           where: { id: user.id },
           data: { lastLoginAt: new Date() },
@@ -142,6 +152,7 @@ async function lenderLoginRoutes(fastify) {
               organizationId: user.organizationId,
               organizationName: user.organization.name,
               roles,
+              emailVerified: true,
             },
           },
         });

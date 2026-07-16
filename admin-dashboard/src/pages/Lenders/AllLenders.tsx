@@ -20,6 +20,7 @@ import {
   PackagePlus,
   Phone,
   Upload,
+  Link2,
   // Filter,
 } from "lucide-react";
 import Swal from "sweetalert2";
@@ -136,6 +137,22 @@ export default function AllLendersPage() {
   const [isBulkInviteOpen, setIsBulkInviteOpen] = useState(false);
   const [inviteListKey, setInviteListKey] = useState(0);
   const [listView, setListView] = useState<"lenders" | "invites">("lenders");
+
+  const publicPartnerLink = (() => {
+    const lenderBase = String(
+      import.meta.env.VITE_LENDER_URI || "http://localhost:5174",
+    ).replace(/\/$/, "");
+    return `${lenderBase}/partner`;
+  })();
+
+  const copyPublicPartnerLink = async () => {
+    try {
+      await navigator.clipboard.writeText(publicPartnerLink);
+      toast.success("Lender signup link copied to clipboard.");
+    } catch {
+      toast.error("Could not copy link");
+    }
+  };
 
   const [inviteForm, setInviteForm] = useState({
     companyName: "",
@@ -898,103 +915,121 @@ export default function AllLendersPage() {
   );
 
   return (
-    <div className="bg-gray-50 dark:bg-slate-950 py-8 transition-colors duration-300">
+    <div className="bg-gray-50 dark:bg-slate-950 transition-colors duration-300">
       <div className="max-w-7xl mx-auto">
         {/* ================= HEADER ================= */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-[#13538A] dark:text-indigo-600">
-              All Lenders
-            </h1>
-            <p className="text-slate-500 dark:text-slate-400 mt-2 text-sm">
-              Manage lender organizations and their admin users.
-            </p>
-          </div>
+        <div className="mb-8 rounded-2xl border border-slate-200 bg-white p-6  dark:border-slate-800 dark:bg-slate-900">
+  {/* Top */}
+  <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+    <div>
+      <div className="flex items-center gap-3">
+        <h1 className="text-3xl font-bold tracking-tight text-[#13538A] dark:text-white">
+          All Lenders
+        </h1>
 
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => fetchLenders()}
-              disabled={loading}
-              className="group flex items-center justify-center w-10 h-10 rounded-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 transition-all active:scale-95 disabled:opacity-50"
-              title="Refresh List"
-            >
-              <RefreshCcw
-                size={18}
-                className={`${loading ? "animate-spin" : "group-hover:rotate-180 transition-transform duration-500"} text-blue-600`}
-              />
-            </button>
-            <button
-              onClick={() => navigate("/add-lender")}
-              className="inline-flex items-center whitespace-nowrap px-4 py-2.5 bg-[#13538A] text-white text-xs font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-500/20 active:scale-95 transition-all"
-            >
-              <TiPlus className="mr-2  h-4 w-4" />
-              Add Lender
-            </button>
+        <button
+          onClick={() => fetchLenders()}
+          disabled={loading}
+          title="Refresh"
+          className="group inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm transition-all hover:border-blue-500 hover:bg-blue-50 hover:text-blue-600 active:scale-95 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+        >
+          <RefreshCcw
+            size={16}
+            className={
+              loading
+                ? "animate-spin"
+                : "transition-transform duration-500 group-hover:rotate-180"
+            }
+          />
+        </button>
+      </div>
 
-            <button
-              onClick={() => navigate("/assigned-products")}
-              className="inline-flex items-center whitespace-nowrap px-4 py-2.5 bg-[#13538A] text-white text-xs font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-500/20 active:scale-95 transition-all"
-            >
-              <PackagePlus className="mr-2 h-4 w-4" />
-              Assign Products
-            </button>
-            <button
-              onClick={() => navigate("/view-assigned-products")}
-              className="inline-flex items-center whitespace-nowrap px-4 py-2.5 bg-emerald-600 text-white text-xs font-bold rounded-xl hover:bg-emerald-700 shadow-lg shadow-emerald-500/20 active:scale-95 transition-all"
-            >
-              <Eye className="mr-2 h-4 w-4" />
-              View Assign Products
-            </button>
+      <p className="mt-2  text-sm leading-6 text-slate-500 dark:text-slate-400">
+        Manage lender organizations, assign loan products and manage lender invitations from one place.
+      </p>
+    </div>
+  </div>
 
-            <button
-              onClick={() => setIsInviteOpen(true)}
-              className="inline-flex items-center gap-2 whitespace-nowrap px-5 py-2.5 
-  bg-gradient-to-r from-indigo-600 to-blue-600 
-  text-white text-xs font-semibold 
-  rounded-xl shadow-lg shadow-indigo-500/30 
-  hover:from-indigo-700 hover:to-blue-700 
-  active:scale-95 transition-all"
-            >
-              <Users className="w-4 h-4" />
-              Invite Lender
-            </button>
+  {/* Divider */}
+  <div className="my-5 border-t border-slate-200 dark:border-slate-800" />
 
-            <button
-              onClick={() => setIsBulkInviteOpen(true)}
-className="inline-flex items-center gap-2 whitespace-nowrap rounded-xl
-bg-indigo-600
-px-5 py-2.5
-text-xs font-semibold text-white
-shadow-md shadow-indigo-500/20
-transition-all duration-200
-hover:bg-indigo-700
-hover:shadow-lg
-active:scale-95"
-            >
-              <Upload className="w-4 h-4" />
-              Bulk Invite Lenders  
-            </button>
-          </div>
-        </div>
+  {/* Actions */}
+  <div className="flex flex-wrap items-center gap-2.5">
+    {/* Add */}
+    <button
+      onClick={() => navigate("/add-lender")}
+      className="inline-flex items-center gap-1.5 rounded-lg bg-[#13538A] px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition-all hover:bg-[#10446f] hover:shadow-md active:scale-95"
+    >
+      <TiPlus className="h-3.5 w-3.5" />
+      Add Lender
+    </button>
 
+    {/* Assign */}
+    <button
+      onClick={() => navigate("/assigned-products")}
+      className="inline-flex items-center gap-1.5 rounded-lg border border-[#13538A] bg-white px-3.5 py-2 text-xs font-semibold text-[#13538A] shadow-sm transition-all hover:bg-blue-50 active:scale-95 dark:border-blue-500 dark:bg-slate-900 dark:text-blue-400 dark:hover:bg-slate-800"
+    >
+      <PackagePlus className="h-3.5 w-3.5" />
+      Assign Products
+    </button>
+
+    {/* View */}
+    <button
+      onClick={() => navigate("/view-assigned-products")}
+      className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition-all hover:bg-emerald-700 hover:shadow-md active:scale-95"
+    >
+      <Eye className="h-3.5 w-3.5" />
+      View Assigned Products
+    </button>
+
+    {/* Invite */}
+    <button
+      onClick={() => setIsInviteOpen(true)}
+      className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition-all hover:bg-indigo-700 hover:shadow-md active:scale-95"
+    >
+      <Users className="h-3.5 w-3.5" />
+      Invite Lender
+    </button>
+
+    {/* Bulk */}
+    <button
+      onClick={() => setIsBulkInviteOpen(true)}
+      className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition-all hover:bg-violet-700 hover:shadow-md active:scale-95"
+    >
+      <Upload className="h-3.5 w-3.5" />
+      Invite Multiple Lenders
+    </button>
+
+    {/* Public Link */}
+    <button
+      type="button"
+      onClick={copyPublicPartnerLink}
+      title={publicPartnerLink}
+      className="inline-flex items-center gap-1.5 rounded-lg bg-teal-600 px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition-all hover:bg-teal-700 hover:shadow-md active:scale-95"
+    >
+      <Link2 className="h-3.5 w-3.5" />
+      Copy Lender Signup Link
+    </button>
+  </div>
+</div>
         {/* ================= VIEW TABS ================= */}
         <div className="mb-6 inline-flex rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-1">
-        <button
-  type="button"
-  onClick={async () => {
-    setListView("lenders");
-    setCurrentPage(1);
-    setQuery("");
-    await fetchLenders();
-  }}
-  className={`px-4 py-2 text-xs font-semibold rounded-lg transition ${
-    listView === "lenders"
-      ? "bg-[#13538A] text-white"
-      : "text-slate-600 dark:text-slate-300"
-  }`}
->
-  All Lenders
-</button>
+          <button
+            type="button"
+            onClick={async () => {
+              setListView("lenders");
+              setCurrentPage(1);
+              setQuery("");
+              await fetchLenders();
+            }}
+            className={`px-4 py-2 text-xs font-semibold rounded-lg transition ${
+              listView === "lenders"
+                ? "bg-[#13538A] text-white"
+                : "text-slate-600 dark:text-slate-300"
+            }`}
+          >
+            All Lenders
+          </button>
           <button
             type="button"
             onClick={() => setListView("invites")}
@@ -1017,119 +1052,119 @@ active:scale-95"
           />
         ) : (
           <>
-        {/* ================= STATS CARDS ================= */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-          {/* TOTAL LENDERS */}
-          <div
-            className="
-    bg-white dark:bg-slate-900
-    border border-slate-200 dark:border-slate-800
-    rounded-2xl p-6
-    shadow-sm hover:shadow-md
-    transition-all duration-200
-    flex items-center justify-between
-  "
-          >
-            <div>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                Total Lenders
-              </p>
-              <p className="text-xl font-semibold text-slate-900 dark:text-white mt-1">
-                {totalLenders}
-              </p>
-            </div>
-
-            <div className="h-8 w-8 flex items-center justify-center rounded-full bg-violet-600 text-white">
-              <Users className="w-5 h-5" />
-            </div>
-          </div>
-
-          {/* Total Volume */}
-          <div
-            className="
-    bg-white dark:bg-slate-900
-    border border-slate-200 dark:border-slate-800
-    rounded-2xl p-6
-    shadow-sm hover:shadow-md
-    transition-all duration-200
-    flex items-center justify-between
-  "
-          >
-            <div>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                Total Volume
-              </p>
-              <p className="text-xl font-semibold text-slate-900 dark:text-white mt-1">
-                0
-              </p>
-            </div>
-
-            <div className="h-8 w-8 flex items-center justify-center rounded-full bg-orange-500 text-white">
-              <UserCheck className="w-5 h-5" />
-            </div>
-          </div>
-
-          {/* ACTIVE LENDERS */}
-          <div
-            className="
-    bg-white dark:bg-slate-900
-    border border-slate-200 dark:border-slate-800
-    rounded-2xl p-6
-    shadow-sm hover:shadow-md
-    transition-all duration-200
-    flex items-center justify-between
-  "
-          >
-            <div>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                Active Lenders
-              </p>
-              <p className="text-xl font-semibold text-slate-900 dark:text-white mt-1">
-                {activeLenders}
-              </p>
-            </div>
-
-            <div className="h-8 w-8 flex items-center justify-center rounded-full bg-emerald-600 text-white">
-              <Activity className="w-5 h-5" />
-            </div>
-          </div>
-        </div>
-
-        {/* ================= SEARCH & FILTER BAR ================= */}
-        <div className="mb-8 p-2 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl shadow-slate-200/50 dark:shadow-none flex flex-col md:flex-row items-center gap-4">
-          <div className="relative flex-1 w-full">
-            <Search
-              size={20}
-              className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
-            />
-            <input
-              value={query}
-              onChange={(e) => {
-                const value = e.target.value;
-                setQuery(value);
-                setCurrentPage(1);
-                fetchLenders(value);
-              }}
-              placeholder="Search by name, email, phone or status..."
-              className="text-sm w-full pl-12 pr-4 py-2 bg-transparent border-none focus:ring-2 focus:ring-blue-500/20 rounded-xl text-slate-700 dark:text-slate-200 placeholder:text-slate-400"
-            />
-          </div>
-
-          <div className="hidden md:block h-8 w-px bg-slate-200 dark:bg-slate-800"></div>
-
-          <div className="flex items-center gap-2 pr-4">
-            <span className="text-sm font-medium text-slate-500 dark:text-slate-400 whitespace-nowrap">
-              View:
-            </span>
-
-            <div className="relative">
-              <select
-                value={pageSize}
-                onChange={(e) => {
-                  setCurrentPage(1);
-                  setPageSize(Number(e.target.value));
-                }}
+            {/* ================= STATS CARDS ================= */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+              {/* TOTAL LENDERS */}
+              <div
                 className="
+    bg-white dark:bg-slate-900
+    border border-slate-200 dark:border-slate-800
+    rounded-2xl p-6
+    hover:shadow-md
+    transition-all duration-200
+    flex items-center justify-between
+  "
+              >
+                <div>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">
+                    Total Lenders
+                  </p>
+                  <p className="text-xl font-semibold text-slate-900 dark:text-white mt-1">
+                    {totalLenders}
+                  </p>
+                </div>
+
+                <div className="h-8 w-8 flex items-center justify-center rounded-full bg-violet-600 text-white">
+                  <Users className="w-5 h-5" />
+                </div>
+              </div>
+
+              {/* Total Volume */}
+              <div
+                className="
+    bg-white dark:bg-slate-900
+    border border-slate-200 dark:border-slate-800
+    rounded-2xl p-6
+    hover:shadow-md
+    transition-all duration-200
+    flex items-center justify-between
+  "
+              >
+                <div>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">
+                    Total Volume
+                  </p>
+                  <p className="text-xl font-semibold text-slate-900 dark:text-white mt-1">
+                    0
+                  </p>
+                </div>
+
+                <div className="h-8 w-8 flex items-center justify-center rounded-full bg-orange-500 text-white">
+                  <UserCheck className="w-5 h-5" />
+                </div>
+              </div>
+
+              {/* ACTIVE LENDERS */}
+              <div
+                className="
+    bg-white dark:bg-slate-900
+    border border-slate-200 dark:border-slate-800
+    rounded-2xl p-6
+    hover:shadow-md
+    transition-all duration-200
+    flex items-center justify-between
+  "
+              >
+                <div>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">
+                    Active Lenders
+                  </p>
+                  <p className="text-xl font-semibold text-slate-900 dark:text-white mt-1">
+                    {activeLenders}
+                  </p>
+                </div>
+
+                <div className="h-8 w-8 flex items-center justify-center rounded-full bg-emerald-600 text-white">
+                  <Activity className="w-5 h-5" />
+                </div>
+              </div>
+            </div>
+
+            {/* ================= SEARCH & FILTER BAR ================= */}
+            <div className="mb-8 p-2 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 dark:shadow-none flex flex-col md:flex-row items-center gap-4">
+              <div className="relative flex-1 w-full">
+                <Search
+                  size={20}
+                  className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+                />
+                <input
+                  value={query}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setQuery(value);
+                    setCurrentPage(1);
+                    fetchLenders(value);
+                  }}
+                  placeholder="Search by name, email, phone or status..."
+                  className="text-sm w-full pl-12 pr-4 py-2 bg-transparent border-none focus:ring-2 focus:ring-blue-500/20 rounded-xl text-slate-700 dark:text-slate-200 placeholder:text-slate-400"
+                />
+              </div>
+
+              <div className="hidden md:block h-8 w-px bg-slate-200 dark:bg-slate-800"></div>
+
+              <div className="flex items-center gap-2 pr-4">
+                <span className="text-sm font-medium text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                  View:
+                </span>
+
+                <div className="relative">
+                  <select
+                    value={pageSize}
+                    onChange={(e) => {
+                      setCurrentPage(1);
+                      setPageSize(Number(e.target.value));
+                    }}
+                    className="
                     appearance-none
                     px-3 py-2 pr-8
                     rounded-xl text-sm font-semibold
@@ -1140,559 +1175,579 @@ active:scale-95"
                     focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500
                     transition cursor-pointer
                 "
-              >
-                <option value={6}>6 / page</option>
-                <option value={9}>9 / page</option>
-                <option value={12}>12 / page</option>
-                <option value={20}>20 / page</option>
-              </select>
-
-              <svg
-                className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M19 9l-7 7-7-7"
-                />
-              </svg>
-            </div>
-          </div>
-        </div>
-
-        {/* ================= CONTENT GRID ================= */}
-        {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <div
-                key={i}
-                className="h-72 rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 animate-pulse overflow-hidden"
-              >
-                <div className="h-2/3 bg-slate-100 dark:bg-slate-800/50"></div>
-                <div className="p-6 space-y-3">
-                  <div className="h-4 w-1/2 bg-slate-200 dark:bg-slate-700 rounded"></div>
-                  <div className="h-4 w-full bg-slate-200 dark:bg-slate-700 rounded"></div>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : isTotalEmpty ? (
-          <div className="py-24 flex flex-col items-center text-center bg-white dark:bg-slate-900 rounded-3xl border border-dashed border-slate-300 dark:border-slate-700 shadow-sm">
-            <div className="w-24 h-24 rounded-3xl bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center mb-6">
-              <Building2
-                size={48}
-                className="text-blue-600 dark:text-blue-400"
-              />
-            </div>
-            <h3 className="text-2xl font-bold text-slate-900 dark:text-white">
-              No Lenders Found
-            </h3>
-            <p className="text-slate-500 dark:text-slate-400 mt-2 max-w-sm">
-              Get started by adding a new lender to the platform.
-            </p>
-            <button
-              onClick={openAdd}
-              className="mt-6 px-6 py-2 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 transition"
-            >
-              Add Lender
-            </button>
-          </div>
-        ) : isSearchEmpty ? (
-          <div className="py-24 flex flex-col items-center text-center bg-white dark:bg-slate-900 rounded-3xl border border-dashed border-orange-300 dark:border-orange-700/50 shadow-sm">
-            <div className="w-24 h-24 rounded-3xl bg-orange-50 dark:bg-orange-900/20 flex items-center justify-center mb-6">
-              <SearchX
-                size={48}
-                className="text-orange-600 dark:text-orange-400"
-              />
-            </div>
-            <h3 className="text-2xl font-bold text-slate-900 dark:text-white">
-              No Results Found
-            </h3>
-            <p className="text-slate-500 dark:text-slate-400 mt-2 max-w-sm">
-              We couldn't find any lenders matching "
-              <span className="font-semibold text-orange-600">{query}</span>".
-            </p>
-            <button
-              onClick={() => setQuery("")}
-              className="mt-6 text-sm font-bold text-blue-600 hover:underline"
-            >
-              Clear search
-            </button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-            {paginated.map((l) => (
-              <div
-                key={l.id}
-                role="button"
-                tabIndex={0}
-                onClick={() => setViewingLender(l)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    setViewingLender(l);
-                  }
-                }}
-                className="group relative cursor-pointer rounded-xl border border-slate-200 bg-white p-5 transition-all duration-300 hover:border-[#13538A]/35 hover:shadow-md dark:border-slate-800 dark:bg-slate-900 dark:hover:border-blue-500/40"
-              >
-                {/* STATUS */}
-                <div className="absolute top-4 right-4">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (!rowLoadingId) changeStatusFor(l);
-                    }}
-                    disabled={!!rowLoadingId}
-                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border uppercase tracking-wider ${statusClass(
-                      l.status,
-                    )}`}
                   >
-                    {l.status === "ACTIVE" && (
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                    )}
-                    {l.status}
-                  </button>
-                </div>
+                    <option value={6}>6 / page</option>
+                    <option value={9}>9 / page</option>
+                    <option value={12}>12 / page</option>
+                    <option value={20}>20 / page</option>
+                  </select>
 
-                <div className="flex gap-4">
-                  {/* Image */}
-                  <div className="relative flex-shrink-0">
-                    <div className="h-14 w-14 rounded-xl overflow-hidden bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center border border-emerald-100 dark:border-emerald-500/20">
-                      {l.profileImage ? (
-                        <img
-                          src={`${API_BASE}/public${l.profileImage}`}
-                          className="h-full w-full object-cover"
-                          onError={(e: any) =>
-                            (e.currentTarget.src = "/circle_logo.png")
-                          }
-                          alt={l.name}
-                        />
-                      ) : (
-                        <Building2
-                          size={24}
-                          className="text-emerald-600 dark:text-emerald-400"
-                        />
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Info */}
-                  <div className="flex-1 min-w-0 pr-16">
-                    <div>
-                      <h3 className="truncate text-base font-bold text-[#13538A] transition-colors group-hover:text-blue-600 dark:text-white">
-                        {l.name}
-                      </h3>
-                    </div>
-                    <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
-                      {l.brokerName
-                        ? `Broker: ${l.brokerName}`
-                        : "No Broker Assigned"}
-                    </p>
-
-                    <div className="mt-3 space-y-1.5">
-                      <div className="flex items-center gap-2 text-slate-500">
-                        <Mail size={14} className="flex-shrink-0" />
-                        <span className="text-[12px] truncate">{l.email}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-slate-500">
-                        <span className="text-[12px] truncate">{l.phone}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Actions Footer */}
-                <div className="mt-5 flex items-center justify-between gap-2 border-t border-slate-100 pt-4 dark:border-slate-800/50">
-                  <span className="text-[10px] font-bold uppercase text-slate-400">
-                    Created:{" "}
-                    {l.createdAt
-                      ? new Date(l.createdAt).toLocaleDateString()
-                      : "-"}
-                  </span>
-
-                  <div className="flex items-center gap-2">
-                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#13538A] opacity-0 transition-opacity group-hover:opacity-100 dark:text-blue-400">
-                      View details
-                      <ChevronRight size={12} />
-                    </span>
-
-                    <button
-                      disabled={!!rowLoadingId}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(`/update-lender/${l.id}`);
-                      }}
-                      className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-500/10"
-                      title="Edit Lender"
-                    >
-                      <MdModeEdit size={16} />
-                    </button>
-                    <button
-                      disabled={!!rowLoadingId}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDelete(l);
-                      }}
-                      className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10"
-                      title="Delete Lender"
-                    >
-                      {rowLoadingId === l.id ? (
-                        <RefreshCcw size={16} className="animate-spin" />
-                      ) : (
-                        <MdDelete size={16} />
-                      )}
-                    </button>
-                  </div>
+                  <svg
+                    className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 9l-7 7-7-7"
+                    />
+                  </svg>
                 </div>
               </div>
-            ))}
-          </div>
-        )}
-
-        {/* ================= PAGINATION ================= */}
-        {!loading && totalPages > 1 && (
-          <div className="mt-10 flex flex-col sm:flex-row items-center justify-between gap-6 border-t border-slate-200 dark:border-slate-700 pt-6">
-            <p className="text-sm text-slate-500 dark:text-slate-400">
-              Showing{" "}
-              <span className="font-semibold text-slate-800 dark:text-slate-100">
-                Page {currentPage}
-              </span>{" "}
-              of {totalPages}
-            </p>
-
-            <div className="flex items-center gap-3">
-              {/* Prev */}
-              <button
-                disabled={currentPage === 1}
-                onClick={() => gotoPage(currentPage - 1)}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg border 
-        border-slate-200 dark:border-slate-700
-        bg-white dark:bg-slate-900
-        text-slate-700 dark:text-slate-200
-        hover:bg-slate-50 dark:hover:bg-slate-800
-        disabled:opacity-40 disabled:cursor-not-allowed
-        transition"
-              >
-                <ChevronLeft size={18} />
-                Prev
-              </button>
-
-              {/* Next */}
-              <button
-                disabled={currentPage === totalPages}
-                onClick={() => gotoPage(currentPage + 1)}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg border 
-        border-slate-200 dark:border-slate-700
-        bg-white dark:bg-slate-900
-        text-slate-700 dark:text-slate-200
-        hover:bg-slate-50 dark:hover:bg-slate-800
-        disabled:opacity-40 disabled:cursor-not-allowed
-        transition"
-              >
-                Next
-                <ChevronRight size={18} />
-              </button>
             </div>
-          </div>
-        )}
-        {/* Add Lender Modal */}
-        {isAddOpen && (
-          <div className="fixed inset-0 z-500000 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-            <div className="bg-white rounded-xl p-6 w-full max-w-2xl shadow-lg dark:bg-slate-900 dark:border dark:border-slate-700">
-              {/* HEADER */}
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  Create Lender
-                </h2>
+
+            {/* ================= CONTENT GRID ================= */}
+            {loading ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+                {[1, 2, 3, 4, 5, 6].map((i) => (
+                  <div
+                    key={i}
+                    className="h-72 rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 animate-pulse overflow-hidden"
+                  >
+                    <div className="h-2/3 bg-slate-100 dark:bg-slate-800/50"></div>
+                    <div className="p-6 space-y-3">
+                      <div className="h-4 w-1/2 bg-slate-200 dark:bg-slate-700 rounded"></div>
+                      <div className="h-4 w-full bg-slate-200 dark:bg-slate-700 rounded"></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : isTotalEmpty ? (
+              <div className="py-24 flex flex-col items-center text-center bg-white dark:bg-slate-900 rounded-3xl border border-dashed border-slate-300 dark:border-slate-700 shadow-sm">
+                <div className="w-24 h-24 rounded-3xl bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center mb-6">
+                  <Building2
+                    size={48}
+                    className="text-blue-600 dark:text-blue-400"
+                  />
+                </div>
+                <h3 className="text-2xl font-bold text-slate-900 dark:text-white">
+                  No Lenders Found
+                </h3>
+                <p className="text-slate-500 dark:text-slate-400 mt-2 max-w-sm">
+                  Get started by adding a new lender to the platform.
+                </p>
                 <button
-                  disabled={showAssignPopup}
-                  onClick={() => !showAssignPopup && setIsAddOpen(false)}
-                  className="text-gray-500 hover:text-red-500 dark:text-slate-400 dark:hover:text-red-500"
+                  onClick={openAdd}
+                  className="mt-6 px-6 py-2 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 transition"
                 >
-                  Close
+                  Add Lender
                 </button>
               </div>
-
-              <form onSubmit={handleSubmit} className="space-y-5">
-                {/* ================= ORGANIZATION SECTION ================= */}
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <h3 className="font-semibold text-gray-800 dark:text-gray-100">
-                      Organization Details
-                    </h3>
-                    <InfoTip text="Basic information about the lender organization." />
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <label className="block">
-                      <span className="text-sm text-gray-700 dark:text-slate-200">
-                        Organization Name
-                      </span>
-                      <input
-                        value={form.organizationName}
-                        onChange={(e) => {
-                          setForm({
-                            ...form,
-                            organizationName: e.target.value,
-                          });
-                          setErrors((prev) => ({
-                            ...prev,
-                            organizationName: "",
-                          }));
-                        }}
-                        className={`w-full px-3 py-2 mt-1 border rounded-md
-${errors.organizationName ? "border-red-500" : "border-gray-300"}
-bg-white text-gray-900
-dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100`}
-                      />
-                      {errors.organizationName && (
-                        <p className="text-xs text-red-600 mt-1">
-                          {errors.organizationName}
-                        </p>
-                      )}
-                    </label>
-
-                    <label className="block">
-                      <span className="text-sm text-gray-700 dark:text-slate-200">
-                        Organization Email
-                      </span>
-                      <input
-                        value={form.organizationEmail}
-                        onChange={(e) => {
-                          setForm({
-                            ...form,
-                            organizationEmail: e.target.value,
-                          });
-                          setErrors((prev) => ({
-                            ...prev,
-                            organizationEmail: "",
-                          }));
-                        }}
-                        className={`w-full px-3 py-2 mt-1 border rounded-md
-${errors.organizationEmail ? "border-red-500" : "border-gray-300"}
-bg-white text-gray-900
-dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100`}
-                      />
-                      {errors.organizationEmail && (
-                        <p className="text-xs text-red-600 mt-1">
-                          {errors.organizationEmail}
-                        </p>
-                      )}
-                    </label>
-
-                    <label className="block md:col-span-1">
-                      <span className="text-sm text-gray-700 dark:text-slate-200">
-                        Organization Phone
-                      </span>
-                      <input
-                        value={form.organizationPhone}
-                        onChange={(e) => {
-                          setForm({
-                            ...form,
-                            organizationPhone: e.target.value,
-                          });
-                          setErrors((prev) => ({
-                            ...prev,
-                            organizationPhone: "",
-                          }));
-                        }}
-                        className={`w-full px-3 py-2 mt-1 border rounded-md
-${errors.organizationPhone ? "border-red-500" : "border-gray-300"}
-bg-white text-gray-900
-dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100`}
-                      />
-                      {errors.organizationPhone && (
-                        <p className="text-xs text-red-600 mt-1">
-                          {errors.organizationPhone}
-                        </p>
-                      )}
-                    </label>
-                  </div>
+            ) : isSearchEmpty ? (
+              <div className="py-24 flex flex-col items-center text-center bg-white dark:bg-slate-900 rounded-3xl border border-dashed border-orange-300 dark:border-orange-700/50 shadow-sm">
+                <div className="w-24 h-24 rounded-3xl bg-orange-50 dark:bg-orange-900/20 flex items-center justify-center mb-6">
+                  <SearchX
+                    size={48}
+                    className="text-orange-600 dark:text-orange-400"
+                  />
                 </div>
-
-                {/* ================= ADMIN SECTION ================= */}
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <h3 className="font-semibold text-gray-800 dark:text-gray-100">
-                      Admin Details
-                    </h3>
-                    <InfoTip text="Admin user who will manage this lender." />
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {/* First + Last Name parallel */}
-                    <label className="block">
-                      <span className="text-sm text-gray-700 dark:text-slate-200">
-                        Admin First Name
-                      </span>
-                      <input
-                        value={form.adminFirstName}
-                        onChange={(e) => {
-                          setForm({ ...form, adminFirstName: e.target.value });
-                          setErrors((prev) => ({
-                            ...prev,
-                            adminFirstName: "",
-                          }));
+                <h3 className="text-2xl font-bold text-slate-900 dark:text-white">
+                  No Results Found
+                </h3>
+                <p className="text-slate-500 dark:text-slate-400 mt-2 max-w-sm">
+                  We couldn't find any lenders matching "
+                  <span className="font-semibold text-orange-600">{query}</span>
+                  ".
+                </p>
+                <button
+                  onClick={() => setQuery("")}
+                  className="mt-6 text-sm font-bold text-blue-600 hover:underline"
+                >
+                  Clear search
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                {paginated.map((l) => (
+                  <div
+                    key={l.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setViewingLender(l)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setViewingLender(l);
+                      }
+                    }}
+                    className="group relative cursor-pointer rounded-xl border border-slate-200 bg-white p-5 transition-all duration-300 hover:border-[#13538A]/35 hover:shadow-md dark:border-slate-800 dark:bg-slate-900 dark:hover:border-blue-500/40"
+                  >
+                    {/* STATUS */}
+                    <div className="absolute top-4 right-4">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (!rowLoadingId) changeStatusFor(l);
                         }}
-                        className={`w-full px-3 py-2 mt-1 border rounded-md
-${errors.adminFirstName ? "border-red-500" : "border-gray-300"}
-bg-white text-gray-900
-dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100`}
-                      />
-                      {errors.adminFirstName && (
-                        <p className="text-xs text-red-600 mt-1">
-                          {errors.adminFirstName}
+                        disabled={!!rowLoadingId}
+                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border uppercase tracking-wider ${statusClass(
+                          l.status,
+                        )}`}
+                      >
+                        {l.status === "ACTIVE" && (
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                        )}
+                        {l.status}
+                      </button>
+                    </div>
+
+                    <div className="flex gap-4">
+                      {/* Image */}
+                      <div className="relative flex-shrink-0">
+                        <div className="h-14 w-14 rounded-xl overflow-hidden bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center border border-emerald-100 dark:border-emerald-500/20">
+                          {l.profileImage ? (
+                            <img
+                              src={`${API_BASE}/public${l.profileImage}`}
+                              className="h-full w-full object-cover"
+                              onError={(e: any) =>
+                                (e.currentTarget.src = "/circle_logo.png")
+                              }
+                              alt={l.name}
+                            />
+                          ) : (
+                            <Building2
+                              size={24}
+                              className="text-emerald-600 dark:text-emerald-400"
+                            />
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Info */}
+                      <div className="flex-1 min-w-0 pr-16">
+                        <div>
+                          <h3 className="truncate text-base font-bold text-[#13538A] transition-colors group-hover:text-blue-600 dark:text-white">
+                            {l.name}
+                          </h3>
+                        </div>
+                        <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+                          {l.brokerName
+                            ? `Broker: ${l.brokerName}`
+                            : "No Broker Assigned"}
                         </p>
-                      )}
-                    </label>
 
-                    <label className="block">
-                      <span className="text-sm text-gray-700 dark:text-slate-200">
-                        Admin Last Name
-                      </span>
-                      <input
-                        value={form.adminLastName}
-                        onChange={(e) => {
-                          setForm({ ...form, adminLastName: e.target.value });
-                          setErrors((prev) => ({ ...prev, adminLastName: "" }));
-                        }}
-                        className={`w-full px-3 py-2 mt-1 border rounded-md
-${errors.adminLastName ? "border-red-500" : "border-gray-300"}
-bg-white text-gray-900
-dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100`}
-                      />
-                      {errors.adminLastName && (
-                        <p className="text-xs text-red-600 mt-1">
-                          {errors.adminLastName}
-                        </p>
-                      )}
-                    </label>
+                        <div className="mt-3 space-y-1.5">
+                          <div className="flex items-center gap-2 text-slate-500">
+                            <Mail size={14} className="flex-shrink-0" />
+                            <span className="text-[12px] truncate">
+                              {l.email}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 text-slate-500">
+                            <span className="text-[12px] truncate">
+                              {l.phone}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
 
-                    {/* Email + Password parallel */}
-                    <label className="block">
-                      <span className="text-sm text-gray-700 dark:text-slate-200">
-                        Admin Email
-                      </span>
-                      <input
-                        value={form.adminEmail}
-                        onChange={(e) => {
-                          setForm({ ...form, adminEmail: e.target.value });
-                          setErrors((prev) => ({ ...prev, adminEmail: "" }));
-                        }}
-                        className={`w-full px-3 py-2 mt-1 border rounded-md
-${errors.adminEmail ? "border-red-500" : "border-gray-300"}
-bg-white text-gray-900
-dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100`}
-                      />
-                      {errors.adminEmail && (
-                        <p className="text-xs text-red-600 mt-1">
-                          {errors.adminEmail}
-                        </p>
-                      )}
-                    </label>
-
-                    <label className="block">
-                      <span className="text-sm text-gray-700 dark:text-slate-200">
-                        Admin Password
+                    {/* Actions Footer */}
+                    <div className="mt-5 flex items-center justify-between gap-2 border-t border-slate-100 pt-4 dark:border-slate-800/50">
+                      <span className="text-[10px] font-bold uppercase text-slate-400">
+                        Created:{" "}
+                        {l.createdAt
+                          ? new Date(l.createdAt).toLocaleDateString()
+                          : "-"}
                       </span>
 
-                      <div className="relative">
-                        <input
-                          type={showPassword ? "text" : "password"}
-                          value={form.adminPassword}
-                          onChange={(e) => {
-                            setForm({ ...form, adminPassword: e.target.value });
-                            setErrors((prev) => ({
-                              ...prev,
-                              adminPassword: "",
-                            }));
-                          }}
-                          className={`w-full px-3 py-2 mt-1 border rounded-md pr-10
-      ${errors.adminPassword ? "border-red-500" : "border-gray-300"}
-      bg-white text-gray-900
-      dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100`}
-                        />
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#13538A] opacity-0 transition-opacity group-hover:opacity-100 dark:text-blue-400">
+                          View details
+                          <ChevronRight size={12} />
+                        </span>
 
                         <button
-                          type="button"
-                          onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 dark:text-white"
+                          disabled={!!rowLoadingId}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/update-lender/${l.id}`);
+                          }}
+                          className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-500/10"
+                          title="Edit Lender"
                         >
-                          {showPassword ? (
-                            <EyeOff size={18} />
+                          <MdModeEdit size={16} />
+                        </button>
+                        <button
+                          disabled={!!rowLoadingId}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDelete(l);
+                          }}
+                          className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10"
+                          title="Delete Lender"
+                        >
+                          {rowLoadingId === l.id ? (
+                            <RefreshCcw size={16} className="animate-spin" />
                           ) : (
-                            <Eye size={18} />
+                            <MdDelete size={16} />
                           )}
                         </button>
                       </div>
-
-                      {errors.adminPassword && (
-                        <p className="text-xs text-red-600 mt-1">
-                          {errors.adminPassword}
-                        </p>
-                      )}
-                    </label>
+                    </div>
                   </div>
+                ))}
+              </div>
+            )}
+
+            {/* ================= PAGINATION ================= */}
+            {!loading && totalPages > 1 && (
+              <div className="mt-10 flex flex-col sm:flex-row items-center justify-between gap-6 border-t border-slate-200 dark:border-slate-700 pt-6">
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  Showing{" "}
+                  <span className="font-semibold text-slate-800 dark:text-slate-100">
+                    Page {currentPage}
+                  </span>{" "}
+                  of {totalPages}
+                </p>
+
+                <div className="flex items-center gap-3">
+                  {/* Prev */}
+                  <button
+                    disabled={currentPage === 1}
+                    onClick={() => gotoPage(currentPage - 1)}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg border 
+        border-slate-200 dark:border-slate-700
+        bg-white dark:bg-slate-900
+        text-slate-700 dark:text-slate-200
+        hover:bg-slate-50 dark:hover:bg-slate-800
+        disabled:opacity-40 disabled:cursor-not-allowed
+        transition"
+                  >
+                    <ChevronLeft size={18} />
+                    Prev
+                  </button>
+
+                  {/* Next */}
+                  <button
+                    disabled={currentPage === totalPages}
+                    onClick={() => gotoPage(currentPage + 1)}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg border 
+        border-slate-200 dark:border-slate-700
+        bg-white dark:bg-slate-900
+        text-slate-700 dark:text-slate-200
+        hover:bg-slate-50 dark:hover:bg-slate-800
+        disabled:opacity-40 disabled:cursor-not-allowed
+        transition"
+                  >
+                    Next
+                    <ChevronRight size={18} />
+                  </button>
                 </div>
-
-                {/* ================= BROKER SECTION ================= */}
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <h3 className="font-semibold text-gray-800 dark:text-gray-100">
-                      Broker Assignment
-                    </h3>
-                    <InfoTip text="Optional broker assignment for this lender." />
+              </div>
+            )}
+            {/* Add Lender Modal */}
+            {isAddOpen && (
+              <div className="fixed inset-0 z-500000 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+                <div className="bg-white rounded-xl p-6 w-full max-w-2xl shadow-lg dark:bg-slate-900 dark:border dark:border-slate-700">
+                  {/* HEADER */}
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                      Create Lender
+                    </h2>
+                    <button
+                      disabled={showAssignPopup}
+                      onClick={() => !showAssignPopup && setIsAddOpen(false)}
+                      className="text-gray-500 hover:text-red-500 dark:text-slate-400 dark:hover:text-red-500"
+                    >
+                      Close
+                    </button>
                   </div>
 
-                  <label className="block">
-                    <span className="text-sm text-gray-700 dark:text-slate-200">
-                      Assign Broker (optional)
-                    </span>
-                    <select
-                      value={form.brokerOrgId}
-                      onChange={(e) =>
-                        setForm({ ...form, brokerOrgId: e.target.value })
-                      }
-                      className="w-full px-3 py-2 mt-1 border rounded-md bg-white text-gray-900
+                  <form onSubmit={handleSubmit} className="space-y-5">
+                    {/* ================= ORGANIZATION SECTION ================= */}
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <h3 className="font-semibold text-gray-800 dark:text-gray-100">
+                          Organization Details
+                        </h3>
+                        <InfoTip text="Basic information about the lender organization." />
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <label className="block">
+                          <span className="text-sm text-gray-700 dark:text-slate-200">
+                            Organization Name
+                          </span>
+                          <input
+                            value={form.organizationName}
+                            onChange={(e) => {
+                              setForm({
+                                ...form,
+                                organizationName: e.target.value,
+                              });
+                              setErrors((prev) => ({
+                                ...prev,
+                                organizationName: "",
+                              }));
+                            }}
+                            className={`w-full px-3 py-2 mt-1 border rounded-md
+${errors.organizationName ? "border-red-500" : "border-gray-300"}
+bg-white text-gray-900
+dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100`}
+                          />
+                          {errors.organizationName && (
+                            <p className="text-xs text-red-600 mt-1">
+                              {errors.organizationName}
+                            </p>
+                          )}
+                        </label>
+
+                        <label className="block">
+                          <span className="text-sm text-gray-700 dark:text-slate-200">
+                            Organization Email
+                          </span>
+                          <input
+                            value={form.organizationEmail}
+                            onChange={(e) => {
+                              setForm({
+                                ...form,
+                                organizationEmail: e.target.value,
+                              });
+                              setErrors((prev) => ({
+                                ...prev,
+                                organizationEmail: "",
+                              }));
+                            }}
+                            className={`w-full px-3 py-2 mt-1 border rounded-md
+${errors.organizationEmail ? "border-red-500" : "border-gray-300"}
+bg-white text-gray-900
+dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100`}
+                          />
+                          {errors.organizationEmail && (
+                            <p className="text-xs text-red-600 mt-1">
+                              {errors.organizationEmail}
+                            </p>
+                          )}
+                        </label>
+
+                        <label className="block md:col-span-1">
+                          <span className="text-sm text-gray-700 dark:text-slate-200">
+                            Organization Phone
+                          </span>
+                          <input
+                            value={form.organizationPhone}
+                            onChange={(e) => {
+                              setForm({
+                                ...form,
+                                organizationPhone: e.target.value,
+                              });
+                              setErrors((prev) => ({
+                                ...prev,
+                                organizationPhone: "",
+                              }));
+                            }}
+                            className={`w-full px-3 py-2 mt-1 border rounded-md
+${errors.organizationPhone ? "border-red-500" : "border-gray-300"}
+bg-white text-gray-900
+dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100`}
+                          />
+                          {errors.organizationPhone && (
+                            <p className="text-xs text-red-600 mt-1">
+                              {errors.organizationPhone}
+                            </p>
+                          )}
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* ================= ADMIN SECTION ================= */}
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <h3 className="font-semibold text-gray-800 dark:text-gray-100">
+                          Admin Details
+                        </h3>
+                        <InfoTip text="Admin user who will manage this lender." />
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {/* First + Last Name parallel */}
+                        <label className="block">
+                          <span className="text-sm text-gray-700 dark:text-slate-200">
+                            Admin First Name
+                          </span>
+                          <input
+                            value={form.adminFirstName}
+                            onChange={(e) => {
+                              setForm({
+                                ...form,
+                                adminFirstName: e.target.value,
+                              });
+                              setErrors((prev) => ({
+                                ...prev,
+                                adminFirstName: "",
+                              }));
+                            }}
+                            className={`w-full px-3 py-2 mt-1 border rounded-md
+${errors.adminFirstName ? "border-red-500" : "border-gray-300"}
+bg-white text-gray-900
+dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100`}
+                          />
+                          {errors.adminFirstName && (
+                            <p className="text-xs text-red-600 mt-1">
+                              {errors.adminFirstName}
+                            </p>
+                          )}
+                        </label>
+
+                        <label className="block">
+                          <span className="text-sm text-gray-700 dark:text-slate-200">
+                            Admin Last Name
+                          </span>
+                          <input
+                            value={form.adminLastName}
+                            onChange={(e) => {
+                              setForm({
+                                ...form,
+                                adminLastName: e.target.value,
+                              });
+                              setErrors((prev) => ({
+                                ...prev,
+                                adminLastName: "",
+                              }));
+                            }}
+                            className={`w-full px-3 py-2 mt-1 border rounded-md
+${errors.adminLastName ? "border-red-500" : "border-gray-300"}
+bg-white text-gray-900
+dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100`}
+                          />
+                          {errors.adminLastName && (
+                            <p className="text-xs text-red-600 mt-1">
+                              {errors.adminLastName}
+                            </p>
+                          )}
+                        </label>
+
+                        {/* Email + Password parallel */}
+                        <label className="block">
+                          <span className="text-sm text-gray-700 dark:text-slate-200">
+                            Admin Email
+                          </span>
+                          <input
+                            value={form.adminEmail}
+                            onChange={(e) => {
+                              setForm({ ...form, adminEmail: e.target.value });
+                              setErrors((prev) => ({
+                                ...prev,
+                                adminEmail: "",
+                              }));
+                            }}
+                            className={`w-full px-3 py-2 mt-1 border rounded-md
+${errors.adminEmail ? "border-red-500" : "border-gray-300"}
+bg-white text-gray-900
+dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100`}
+                          />
+                          {errors.adminEmail && (
+                            <p className="text-xs text-red-600 mt-1">
+                              {errors.adminEmail}
+                            </p>
+                          )}
+                        </label>
+
+                        <label className="block">
+                          <span className="text-sm text-gray-700 dark:text-slate-200">
+                            Admin Password
+                          </span>
+
+                          <div className="relative">
+                            <input
+                              type={showPassword ? "text" : "password"}
+                              value={form.adminPassword}
+                              onChange={(e) => {
+                                setForm({
+                                  ...form,
+                                  adminPassword: e.target.value,
+                                });
+                                setErrors((prev) => ({
+                                  ...prev,
+                                  adminPassword: "",
+                                }));
+                              }}
+                              className={`w-full px-3 py-2 mt-1 border rounded-md pr-10
+      ${errors.adminPassword ? "border-red-500" : "border-gray-300"}
+      bg-white text-gray-900
+      dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100`}
+                            />
+
+                            <button
+                              type="button"
+                              onClick={() => setShowPassword(!showPassword)}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 dark:text-white"
+                            >
+                              {showPassword ? (
+                                <EyeOff size={18} />
+                              ) : (
+                                <Eye size={18} />
+                              )}
+                            </button>
+                          </div>
+
+                          {errors.adminPassword && (
+                            <p className="text-xs text-red-600 mt-1">
+                              {errors.adminPassword}
+                            </p>
+                          )}
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* ================= BROKER SECTION ================= */}
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <h3 className="font-semibold text-gray-800 dark:text-gray-100">
+                          Broker Assignment
+                        </h3>
+                        <InfoTip text="Optional broker assignment for this lender." />
+                      </div>
+
+                      <label className="block">
+                        <span className="text-sm text-gray-700 dark:text-slate-200">
+                          Assign Broker (optional)
+                        </span>
+                        <select
+                          value={form.brokerOrgId}
+                          onChange={(e) =>
+                            setForm({ ...form, brokerOrgId: e.target.value })
+                          }
+                          className="w-full px-3 py-2 mt-1 border rounded-md bg-white text-gray-900
                 border-gray-300
                 dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
-                    >
-                      <option value="">No broker (none)</option>
-                      {loadingBrokers && (
-                        <option value="" disabled>
-                          Loading brokers...
-                        </option>
-                      )}
-                      {!loadingBrokers &&
-                        brokers.map((b) => (
-                          <option key={b.id} value={b.id}>
-                            {b.name}
-                            {b.email ? ` (${b.email})` : ""}
-                          </option>
-                        ))}
-                    </select>
+                        >
+                          <option value="">No broker (none)</option>
+                          {loadingBrokers && (
+                            <option value="" disabled>
+                              Loading brokers...
+                            </option>
+                          )}
+                          {!loadingBrokers &&
+                            brokers.map((b) => (
+                              <option key={b.id} value={b.id}>
+                                {b.name}
+                                {b.email ? ` (${b.email})` : ""}
+                              </option>
+                            ))}
+                        </select>
 
-                    {brokersError && (
-                      <div className="text-xs text-red-500 mt-1">
-                        {brokersError}
-                      </div>
+                        {brokersError && (
+                          <div className="text-xs text-red-500 mt-1">
+                            {brokersError}
+                          </div>
+                        )}
+                      </label>
+                    </div>
+
+                    {/* ================= ERRORS ================= */}
+                    {formError && (
+                      <div className="text-sm text-red-600">{formError}</div>
                     )}
-                  </label>
-                </div>
 
-                {/* ================= ERRORS ================= */}
-                {formError && (
-                  <div className="text-sm text-red-600">{formError}</div>
-                )}
-
-                {/* ================= ACTIONS ================= */}
-                <div className="flex justify-end gap-3 pt-3">
-                  {/* <button
+                    {/* ================= ACTIONS ================= */}
+                    <div className="flex justify-end gap-3 pt-3">
+                      {/* <button
                     type="button"
                     onClick={() => setIsAddOpen(false)}
                     className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md
@@ -1700,222 +1755,222 @@ dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100`}
                   >
                     Cancel
                   </button> */}
-                  <button
-                    type="submit"
-                    disabled={submitting}
-                    className="px-4 py-2 bg-[#13538A] text-white rounded-md hover:bg-blue-700 disabled:opacity-70"
-                  >
-                    {submitting ? "Creating..." : "Create Lender"}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {/* Lender Details Modal */}
-        <LenderDetailsModal
-          lender={viewingLender}
-          apiBase={API_BASE}
-          onClose={() => setViewingLender(null)}
-        />
-
-        {/* Edit Lender Modal */}
-        {editingLender && (
-          <EditLenderModal
-            isOpen={true}
-            lender={editingLender}
-            brokers={brokers}
-            onClose={() => setEditingLender(null)}
-            onSave={handleEditSave}
-          />
-        )}
-
-        {/* Admins Modal (with inline edit) */}
-        {showAdminsFor && (
-          <div className="fixed inset-0 z-600000 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-            <div className="bg-white rounded-xl p-6 w-full max-w-2xl shadow-lg dark:bg-slate-900 dark:border dark:border-slate-700">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  Admins for {showAdminsFor.name}
-                </h2>
-                <button
-                  onClick={closeAdmins}
-                  className="text-gray-500 hover:text-gray-800 dark:text-slate-400 dark:hover:text-slate-200"
-                >
-                  Close
-                </button>
-              </div>
-
-              <div>
-                {loadingAdmins ? (
-                  <div className="py-8 text-center text-gray-500 dark:text-slate-400">
-                    Loading admins...
-                  </div>
-                ) : adminsError ? (
-                  <div className="py-8 text-center text-red-600 dark:text-red-400">
-                    {adminsError}
-                  </div>
-                ) : admins.length === 0 ? (
-                  <div className="py-8 text-center text-gray-500 dark:text-slate-400">
-                    No admins found for this lender.
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {admins.map((a, idx) => (
-                      <div
-                        key={a.id ?? idx}
-                        className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-4 transition hover:shadow-sm"
+                      <button
+                        type="submit"
+                        disabled={submitting}
+                        className="px-4 py-2 bg-[#13538A] text-white rounded-md hover:bg-blue-700 disabled:opacity-70"
                       >
-                        {editingAdminId === a.id ? (
-                          /* ===== EDIT MODE ===== */
-                          <div className="grid grid-cols-1 md:grid-cols-5 gap-3 items-center">
-                            <input
-                              value={adminEditForm.firstName || ""}
-                              onChange={(e) =>
-                                setAdminEditForm({
-                                  ...adminEditForm,
-                                  firstName: e.target.value,
-                                })
-                              }
-                              placeholder="First name"
-                              className="col-span-1 px-3 py-2 rounded-lg border text-sm
+                        {submitting ? "Creating..." : "Create Lender"}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+
+            {/* Lender Details Modal */}
+            <LenderDetailsModal
+              lender={viewingLender}
+              apiBase={API_BASE}
+              onClose={() => setViewingLender(null)}
+            />
+
+            {/* Edit Lender Modal */}
+            {editingLender && (
+              <EditLenderModal
+                isOpen={true}
+                lender={editingLender}
+                brokers={brokers}
+                onClose={() => setEditingLender(null)}
+                onSave={handleEditSave}
+              />
+            )}
+
+            {/* Admins Modal (with inline edit) */}
+            {showAdminsFor && (
+              <div className="fixed inset-0 z-600000 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+                <div className="bg-white rounded-xl p-6 w-full max-w-2xl shadow-lg dark:bg-slate-900 dark:border dark:border-slate-700">
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                      Admins for {showAdminsFor.name}
+                    </h2>
+                    <button
+                      onClick={closeAdmins}
+                      className="text-gray-500 hover:text-gray-800 dark:text-slate-400 dark:hover:text-slate-200"
+                    >
+                      Close
+                    </button>
+                  </div>
+
+                  <div>
+                    {loadingAdmins ? (
+                      <div className="py-8 text-center text-gray-500 dark:text-slate-400">
+                        Loading admins...
+                      </div>
+                    ) : adminsError ? (
+                      <div className="py-8 text-center text-red-600 dark:text-red-400">
+                        {adminsError}
+                      </div>
+                    ) : admins.length === 0 ? (
+                      <div className="py-8 text-center text-gray-500 dark:text-slate-400">
+                        No admins found for this lender.
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {admins.map((a, idx) => (
+                          <div
+                            key={a.id ?? idx}
+                            className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-4 transition hover:shadow-sm"
+                          >
+                            {editingAdminId === a.id ? (
+                              /* ===== EDIT MODE ===== */
+                              <div className="grid grid-cols-1 md:grid-cols-5 gap-3 items-center">
+                                <input
+                                  value={adminEditForm.firstName || ""}
+                                  onChange={(e) =>
+                                    setAdminEditForm({
+                                      ...adminEditForm,
+                                      firstName: e.target.value,
+                                    })
+                                  }
+                                  placeholder="First name"
+                                  className="col-span-1 px-3 py-2 rounded-lg border text-sm
             border-slate-300 dark:border-slate-600
             bg-white dark:bg-slate-900
             text-slate-900 dark:text-white
             focus:ring-2 focus:ring-blue-500/30"
-                            />
+                                />
 
-                            <input
-                              value={adminEditForm.lastName || ""}
-                              onChange={(e) =>
-                                setAdminEditForm({
-                                  ...adminEditForm,
-                                  lastName: e.target.value,
-                                })
-                              }
-                              placeholder="Last name"
-                              className="col-span-1 px-3 py-2 rounded-lg border text-sm
+                                <input
+                                  value={adminEditForm.lastName || ""}
+                                  onChange={(e) =>
+                                    setAdminEditForm({
+                                      ...adminEditForm,
+                                      lastName: e.target.value,
+                                    })
+                                  }
+                                  placeholder="Last name"
+                                  className="col-span-1 px-3 py-2 rounded-lg border text-sm
             border-slate-300 dark:border-slate-600
             bg-white dark:bg-slate-900
             text-slate-900 dark:text-white
             focus:ring-2 focus:ring-blue-500/30"
-                            />
+                                />
 
-                            <input
-                              value={adminEditForm.email || ""}
-                              onChange={(e) =>
-                                setAdminEditForm({
-                                  ...adminEditForm,
-                                  email: e.target.value,
-                                })
-                              }
-                              placeholder="Email"
-                              className="col-span-2 px-3 py-2 rounded-lg border text-sm
+                                <input
+                                  value={adminEditForm.email || ""}
+                                  onChange={(e) =>
+                                    setAdminEditForm({
+                                      ...adminEditForm,
+                                      email: e.target.value,
+                                    })
+                                  }
+                                  placeholder="Email"
+                                  className="col-span-2 px-3 py-2 rounded-lg border text-sm
             border-slate-300 dark:border-slate-600
             bg-white dark:bg-slate-900
             text-slate-900 dark:text-white
             focus:ring-2 focus:ring-blue-500/30"
-                            />
+                                />
 
-                            <input
-                              value={adminEditForm.phone || ""}
-                              onChange={(e) =>
-                                setAdminEditForm({
-                                  ...adminEditForm,
-                                  phone: e.target.value,
-                                })
-                              }
-                              placeholder="Phone"
-                              className="col-span-1 px-3 py-2 rounded-lg border text-sm
+                                <input
+                                  value={adminEditForm.phone || ""}
+                                  onChange={(e) =>
+                                    setAdminEditForm({
+                                      ...adminEditForm,
+                                      phone: e.target.value,
+                                    })
+                                  }
+                                  placeholder="Phone"
+                                  className="col-span-1 px-3 py-2 rounded-lg border text-sm
             border-slate-300 dark:border-slate-600
             bg-white dark:bg-slate-900
             text-slate-900 dark:text-white
             focus:ring-2 focus:ring-blue-500/30"
-                            />
+                                />
 
-                            <div className="col-span-full flex justify-end gap-2 mt-2">
-                              <button
-                                onClick={cancelEditAdmin}
-                                disabled={adminSaving}
-                                className="px-4 py-2 rounded-lg border text-sm font-semibold
+                                <div className="col-span-full flex justify-end gap-2 mt-2">
+                                  <button
+                                    onClick={cancelEditAdmin}
+                                    disabled={adminSaving}
+                                    className="px-4 py-2 rounded-lg border text-sm font-semibold
               border-slate-300 dark:border-slate-600
               text-slate-700 dark:text-slate-200
               hover:bg-slate-100 dark:hover:bg-slate-700 transition"
-                              >
-                                Cancel
-                              </button>
+                                  >
+                                    Cancel
+                                  </button>
 
-                              <button
-                                onClick={saveAdminEdit}
-                                disabled={adminSaving}
-                                className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold
+                                  <button
+                                    onClick={saveAdminEdit}
+                                    disabled={adminSaving}
+                                    className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold
               hover:bg-blue-700 transition disabled:opacity-70"
-                              >
-                                {adminSaving ? "Saving..." : "Save Changes"}
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                            {/* LEFT SIDE - AVATAR + INFO */}
-                            <div className="flex items-center gap-4 flex-1 min-w-0">
-                              {/* Avatar initials */}
-                              <div className="h-12 w-12 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-sm uppercase shrink-0">
-                                {a.firstName?.[0] || "A"}
-                                {a.lastName?.[0] || ""}
+                                  >
+                                    {adminSaving ? "Saving..." : "Save Changes"}
+                                  </button>
+                                </div>
                               </div>
+                            ) : (
+                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                {/* LEFT SIDE - AVATAR + INFO */}
+                                <div className="flex items-center gap-4 flex-1 min-w-0">
+                                  {/* Avatar initials */}
+                                  <div className="h-12 w-12 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-sm uppercase shrink-0">
+                                    {a.firstName?.[0] || "A"}
+                                    {a.lastName?.[0] || ""}
+                                  </div>
 
-                              {/* Name & email */}
-                              <div className="min-w-0">
-                                <p className="font-semibold text-slate-900 dark:text-white truncate">
-                                  {a.firstName || "—"} {a.lastName || ""}
-                                </p>
-                                <p className="text-sm text-slate-500 dark:text-slate-400 truncate">
-                                  {a.email || "No email"}
-                                </p>
-                              </div>
-                            </div>
+                                  {/* Name & email */}
+                                  <div className="min-w-0">
+                                    <p className="font-semibold text-slate-900 dark:text-white truncate">
+                                      {a.firstName || "—"} {a.lastName || ""}
+                                    </p>
+                                    <p className="text-sm text-slate-500 dark:text-slate-400 truncate">
+                                      {a.email || "No email"}
+                                    </p>
+                                  </div>
+                                </div>
 
-                            {/* RIGHT SIDE - PHONE + ACTION */}
-                            <div className="flex items-center gap-3">
-                              <span
-                                className="px-3 py-1 rounded-full text-xs font-semibold
+                                {/* RIGHT SIDE - PHONE + ACTION */}
+                                <div className="flex items-center gap-3">
+                                  <span
+                                    className="px-3 py-1 rounded-full text-xs font-semibold
         bg-slate-100 dark:bg-slate-800
         text-slate-600 dark:text-slate-300"
-                              >
-                                {a.phone || "No phone"}
-                              </span>
+                                  >
+                                    {a.phone || "No phone"}
+                                  </span>
 
-                              <button
-                                onClick={() => startEditAdmin(a)}
-                                className="px-4 py-2 rounded-lg text-sm font-semibold
+                                  <button
+                                    onClick={() => startEditAdmin(a)}
+                                    className="px-4 py-2 rounded-lg text-sm font-semibold
           bg-blue-600 text-white
           hover:bg-blue-700 active:scale-95 transition"
-                              >
-                                Edit
-                              </button>
-                            </div>
+                                  >
+                                    Edit
+                                  </button>
+                                </div>
+                              </div>
+                            )}
                           </div>
-                        )}
+                        ))}
                       </div>
-                    ))}
+                    )}
                   </div>
-                )}
-              </div>
 
-              <div className="mt-4 flex justify-end">
-                <button
-                  onClick={closeAdmins}
-                  className="px-4 py-2 bg-gray-100 rounded-md
+                  <div className="mt-4 flex justify-end">
+                    <button
+                      onClick={closeAdmins}
+                      className="px-4 py-2 bg-gray-100 rounded-md
                            dark:bg-slate-800 dark:text-slate-100"
-                >
-                  Close
-                </button>
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
-        )}
+            )}
           </>
         )}
       </div>
@@ -2150,7 +2205,7 @@ dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100`}
           apiBase={API_BASE}
           getAuthHeaders={getAuthHeaders}
           onClose={() => setIsBulkInviteOpen(false)}
-          onComplete={() => {
+          onComplete={() => { 
             setListView("invites");
             setInviteListKey((k) => k + 1);
           }}

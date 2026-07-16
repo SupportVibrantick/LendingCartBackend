@@ -189,6 +189,7 @@ async function createLenderRoutes(fastify) {
               firstName: adminFirstName,
               lastName: adminLastName,
               status: "ACTIVE",
+              emailVerifiedAt: new Date(),
             },
           });
 

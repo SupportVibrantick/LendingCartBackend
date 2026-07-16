@@ -69,9 +69,9 @@ async function indexRoutes(fastify, options) {
   fastify.register(subBrokerRoutes, {
     prefix: "/subbroker",
   });
-  // fastify.register(loanOfficerRoutes, {
-  //   prefix: "/loanofficer",
-  // });
+  fastify.register(loanOfficerRoutes, {
+    prefix: "/loanofficer",
+  });
 }
 
 module.exports = indexRoutes;

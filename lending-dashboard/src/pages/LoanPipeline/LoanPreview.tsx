@@ -29,11 +29,13 @@ import {
   getLenderRequestDocumentsDisabledReason,
 } from "../../lib/loanPipelineUtils";
 import {
+  canGenerateLoi,
   canRequestDocuments,
   canUploadSignDocuments,
 } from "../../lib/lenderPermissions";
 import LenderSubmissionDetailsView from "../../components/submissions/LenderSubmissionDetailsView";
 import SignDocumentsPanel from "../../components/documents/SignDocumentsPanel";
+import LoiUnderwritingFormModal from "../../components/loi/LoiUnderwritingFormModal";
 import {
   getNumericFieldValue,
   getLatestSubmission,
@@ -41,6 +43,7 @@ import {
   parseSubmissionFieldValue,
   type SubmissionDetailField,
 } from "../../lib/submissionFieldUtils";
+import type { serializeLoiUnderwritingTerms } from "../../lib/loiUnderwritingTerms";
 
 type PreviewTab = "details" | "documents" | "signDocuments" | "requestDocs" | "loi" | "chat";
 type DocumentSourceFilter = "all" | "mine" | "broker";
@@ -158,7 +161,7 @@ const tabMeta: Array<{ id: PreviewTab; label: string }> = [
   { id: "details", label: "View Details" },
   { id: "requestDocs", label: "Request Documents" },
   { id: "documents", label: "Upload Documents" },
-  { id: "signDocuments", label: "Sign Documents" },
+  { id: "signDocuments", label: "Sign Forms/Documents" },
   { id: "loi", label: "View LOI" },
   { id: "chat", label: "Chat" },
 ];
@@ -204,6 +207,7 @@ export default function LoanPreview() {
     location.state?.initialTab || searchParams.get("tab") || "details";
 
   const isLoi = location.state?.isLoi;
+  const shouldOpenLoiForm = Boolean(location.state?.openLoiForm);
 
   const initialTab: PreviewTab = (() => {
     const allowedTabs = getVisibleTabs().map((tab) => tab.id);
@@ -224,6 +228,8 @@ export default function LoanPreview() {
   const [documentSourceFilter, setDocumentSourceFilter] =
     useState<DocumentSourceFilter>("all");
   const [loiLoading, setLoiLoading] = useState(false);
+  const [loiGenerating, setLoiGenerating] = useState(false);
+  const [loiFormOpen, setLoiFormOpen] = useState(shouldOpenLoiForm);
   const [loiUrl, setLoiUrl] = useState<string | null>(null);
   const [loanProducts, setLoanProducts] = useState<any[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(false);
@@ -267,6 +273,12 @@ export default function LoanPreview() {
   useEffect(() => {
     setActiveTab(initialTab);
   }, [initialTab]);
+
+  useEffect(() => {
+    if (shouldOpenLoiForm) {
+      setLoiFormOpen(true);
+    }
+  }, [shouldOpenLoiForm, applicationLenderId]);
 
   useEffect(() => {
     return () => {
@@ -390,7 +402,17 @@ export default function LoanPreview() {
 
   useEffect(() => {
     setSubmissionDetail(null);
+    setLoiUrl((prev) => {
+      if (prev?.startsWith("blob:")) {
+        URL.revokeObjectURL(prev);
+      }
+      return null;
+    });
   }, [applicationLenderId]);
+
+  const canCreateLoi = useMemo(() => canGenerateLoi(), []);
+  const loiGenerated = Boolean(submissionDetail?.loiUrl);
+  const showLoiTab = canCreateLoi || loiGenerated || Boolean(isLoi);
 
   const fetchLenderApplicationDetail = async () => {
     if (!applicationLenderId) return;
@@ -614,28 +636,36 @@ export default function LoanPreview() {
     }
   };
 
-  const fetchLoi = async () => {
-    if (!applicationLenderId || loiUrl) return;
+  const loadLoiPreview = async (loiPath?: string, force = false) => {
+    if (!applicationLenderId) return;
+    if (loiUrl && !force) return;
 
     try {
       setLoiLoading(true);
-      const res = await fetch(
-        `${API_BASE}/lender/loan-pipeline/${applicationLenderId}/view-loi`,
-        {
-          headers: getAuthHeaders(),
-        },
-      );
 
-      const json = await res.json();
-      if (!res.ok || !json.success) {
-        throw new Error(json.message || "Failed to fetch LOI");
+      let resolvedPath = loiPath;
+
+      if (!resolvedPath) {
+        const res = await fetch(
+          `${API_BASE}/lender/loan-pipeline/${applicationLenderId}/view-loi`,
+          {
+            headers: getAuthHeaders(),
+          },
+        );
+
+        const json = await res.json();
+        if (!res.ok || !json.success) {
+          throw new Error(json.message || "Failed to fetch LOI");
+        }
+
+        if (!json.data?.loiPath) {
+          throw new Error("LOI not generated yet");
+        }
+
+        resolvedPath = json.data.loiPath;
       }
 
-      if (!json.data?.loiPath) {
-        throw new Error("LOI not generated yet");
-      }
-
-      const fileUrl = `${API_BASE}/public${json.data.loiPath}`;
+      const fileUrl = `${API_BASE}/public${resolvedPath}`;
       const fileRes = await fetch(fileUrl, {
         headers: getAuthHeaders(),
       });
@@ -660,25 +690,88 @@ export default function LoanPreview() {
     }
   };
 
+  const handleGenerateLOI = async (
+    lenderTerms: ReturnType<typeof serializeLoiUnderwritingTerms>,
+  ) => {
+    if (!applicationLenderId) return;
+
+    try {
+      setLoiGenerating(true);
+
+      const res = await fetch(
+        `${API_BASE}/lender/loan-pipeline/${applicationLenderId}/generate-loi`,
+        {
+          method: "POST",
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ lenderTerms }),
+        },
+      );
+
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Failed to generate LOI");
+      }
+
+      toast.success("Term Sheet / LOI generated successfully");
+      setLoiFormOpen(false);
+
+      setSubmissionDetail((prev: any) =>
+        prev ? { ...prev, loiUrl: json.loiUrl } : prev,
+      );
+
+      setLoiUrl((prev) => {
+        if (prev?.startsWith("blob:")) {
+          URL.revokeObjectURL(prev);
+        }
+        return null;
+      });
+
+      await loadLoiPreview(json.loiUrl, true);
+
+      navigate(`/loan-preview/?tab=loi`, {
+        replace: true,
+        state: {
+          applicationLenderId,
+          initialTab: "loi",
+          isLoi: true,
+        },
+      });
+    } catch (err: any) {
+      toast.error(err.message || "Failed to generate LOI");
+    } finally {
+      setLoiGenerating(false);
+    }
+  };
+
   useEffect(() => {
     fetchLoanProducts();
   }, []);
 
   useEffect(() => {
     if (!applicationLenderId) return;
+    fetchLenderApplicationDetail();
+  }, [applicationLenderId]);
 
-    if (activeTab === "details") {
-      fetchLenderApplicationDetail();
-    }
+  useEffect(() => {
+    if (!applicationLenderId) return;
 
     if (activeTab === "documents") {
       fetchDocuments();
     }
 
-    if (activeTab === "loi") {
-      fetchLoi();
+    if (activeTab === "loi" && (loiGenerated || isLoi)) {
+      loadLoiPreview();
     }
-  }, [activeTab, applicationLenderId, documentPage, documentSearchInput, documentSourceFilter]);
+  }, [
+    activeTab,
+    applicationLenderId,
+    documentPage,
+    documentSearchInput,
+    documentSourceFilter,
+    loiGenerated,
+    isLoi,
+  ]);
 
   const latestLenderReview = submissionDetail?.lenderReviews?.[0];
   const latestReviewStatus =
@@ -1493,10 +1586,58 @@ export default function LoanPreview() {
   };
 
   const renderLoi = () => {
-    if (loiLoading) {
+    if (detailLoading && (loiGenerated || isLoi)) {
       return (
-        <div className="flex items-center justify-center py-20">
+        <div className="flex flex-col items-center justify-center gap-3 py-20">
           <Loader2 className="animate-spin w-8 h-8 text-blue-500" />
+          <p className="text-sm text-slate-500">Loading LOI preview...</p>
+        </div>
+      );
+    }
+
+    if (loiGenerating || loiLoading) {
+      return (
+        <div className="flex flex-col items-center justify-center gap-3 py-20">
+          <Loader2 className="animate-spin w-8 h-8 text-blue-500" />
+          <p className="text-sm text-slate-500">
+            {loiGenerating
+              ? "Generating Term Sheet / LOI from application data..."
+              : "Loading LOI preview..."}
+          </p>
+        </div>
+      );
+    }
+
+    if (!loiGenerated && !isLoi) {
+      if (!canCreateLoi) {
+        return (
+          <div className="text-center py-16 text-slate-500">
+            LOI has not been generated for this application yet.
+          </div>
+        );
+      }
+
+      return (
+        <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+          <div className="w-16 h-16 rounded-2xl bg-purple-50 dark:bg-purple-900/20 text-purple-600 flex items-center justify-center mb-4">
+            <FileText size={28} />
+          </div>
+          <h3 className="text-lg font-semibold text-slate-800 dark:text-white">
+            Generate Term Sheet / LOI
+          </h3>
+          <p className="mt-2 max-w-lg text-sm text-slate-500">
+            Application details auto-fill. Enter your credit decision and
+            commercial terms, then generate the Term Sheet / LOI for the broker.
+          </p>
+          <button
+            type="button"
+            onClick={() => setLoiFormOpen(true)}
+            disabled={loiGenerating || detailLoading}
+            className="mt-6 inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-purple-600 text-white text-sm font-semibold hover:bg-purple-700 transition disabled:opacity-50"
+          >
+            <FileText size={16} />
+            Enter Terms & Generate LOI
+          </button>
         </div>
       );
     }
@@ -1576,7 +1717,7 @@ export default function LoanPreview() {
                 <p className="text-xs text-slate-500 mt-1">
                   {submissionDetail?.loanApplication?.applicationNumber}
                 </p>
-                <p className="text-xs text-slate-500 mt-1">
+                <p className="text-md text-slate-800 mt-1 font-bold">
                   Borrower: {getBorrowerDisplayName(submissionDetail, submissionFields)}
                   {/* {" • "}
                   {getBorrowerEntityType(submissionDetail)} */}
@@ -1778,10 +1919,16 @@ export default function LoanPreview() {
           <div className="border-b border-slate-200 dark:border-slate-800 px-4 md:px-6 pt-4">
             <div className="flex flex-wrap gap-2">
               {visibleTabs
-                .filter((tab) => tab.id !== "loi" || isLoi)
+                .filter((tab) => tab.id !== "loi" || showLoiTab)
                 .map((tab) => {
                   const isRequestDocsTab = tab.id === "requestDocs";
                   const isDisabled = isRequestDocsTab && !canRequestDocuments;
+                  const tabLabel =
+                    tab.id === "loi"
+                      ? loiGenerated || isLoi
+                        ? "View LOI"
+                        : "Generate LOI"
+                      : tab.label;
 
                   return (
                   <button
@@ -1803,7 +1950,7 @@ export default function LoanPreview() {
                           : "text-slate-500 hover:text-[#18B6B4] bg-slate-50 dark:bg-slate-800/70 dark:text-slate-300"
                     }`}
                   >
-                    {tab.label}
+                    {tabLabel}
                   </button>
                   );
                 })}
@@ -1983,6 +2130,40 @@ export default function LoanPreview() {
           </div>,
           document.body,
         )}
+
+      {createPortal(
+        <LoiUnderwritingFormModal
+          isOpen={loiFormOpen}
+          requestedAmount={loanAmount}
+          propertyValue={
+            getNumericFieldValue(submissionFields, "currentMarketValue") ||
+            getNumericFieldValue(submissionFields, "purchasePrice") ||
+            getNumericFieldValue(submissionFields, "afterRepairValue") ||
+            null
+          }
+          projectCost={
+            (() => {
+              const total =
+                getNumericFieldValue(submissionFields, "totalProjectCost") ||
+                getNumericFieldValue(submissionFields, "projectCost");
+              if (total) return total;
+              const purchase =
+                getNumericFieldValue(submissionFields, "purchasePrice") || 0;
+              const rehab =
+                getNumericFieldValue(submissionFields, "rehabCost") ||
+                getNumericFieldValue(submissionFields, "rehabBudget") ||
+                getNumericFieldValue(submissionFields, "constructionBudget") ||
+                0;
+              const combined = purchase + rehab;
+              return combined > 0 ? combined : null;
+            })()
+          }
+          submitting={loiGenerating}
+          onClose={() => setLoiFormOpen(false)}
+          onSubmit={handleGenerateLOI}
+        />,
+        document.body,
+      )}
     </div>
   );
 }

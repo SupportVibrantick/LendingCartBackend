@@ -43,6 +43,16 @@ async function lenderMeRoutes(fastify) {
           });
         }
 
+        if (!user.emailVerifiedAt) {
+          return reply.code(403).send({
+            ok: false,
+            success: false,
+            message: "Please verify your email before continuing",
+            code: "EMAIL_NOT_VERIFIED",
+            data: { email: user.email },
+          });
+        }
+
         const lenderProfile = user.organization?.lenderProfile || null;
         const extendedProfileFields = await readExtendedLenderProfileFields(
           user.organizationId,
@@ -59,6 +69,7 @@ async function lenderMeRoutes(fastify) {
               name: `${user.firstName || ""} ${user.lastName || ""}`.trim(),
               profileImage: user.profileImage || null,
               status: user.status,
+              emailVerified: Boolean(user.emailVerifiedAt),
               roles: user.roles.map((r) => r.role.name),
             },
 

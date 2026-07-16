@@ -6,6 +6,7 @@ import AuthLayout from "./AuthPageLayout";
 import Label from "../../components/form/Label";
 import Input from "../../components/form/input/InputField";
 import { EyeCloseIcon, EyeIcon } from "../../icons";
+import { saveLenderSession } from "../../lib/lenderSession";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
@@ -119,6 +120,13 @@ export default function AcceptInvite() {
       const json = await res.json().catch(() => ({}));
       if (!res.ok || !json.success) {
         toast.error(json.message || "Failed to register");
+        return;
+      }
+
+      if (json.data?.token) {
+        saveLenderSession(json.data.token, json.data.user || null);
+        toast.success("Account created successfully");
+        navigate("/");
         return;
       }
 

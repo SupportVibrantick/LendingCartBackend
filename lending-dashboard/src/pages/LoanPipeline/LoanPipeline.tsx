@@ -296,37 +296,15 @@ const totalVolume = stats.totalVolume;
     }
   }, [currentPage, debouncedSearch, decisionFilter]);
 
-  const handleGenerateLOI = async (applicationId: string) => {
-    try {
-      setLoading(true);
-
-      const res = await fetch(
-        `${API_BASE}/lender/loan-pipeline/${applicationId}/generate-loi`,
-        {
-          method: "POST",
-          headers: getAuthHeaders(),
-          body: JSON.stringify({}),
-        },
-      );
-
-      const json = await res.json();
-
-      if (!res.ok || !json.success) {
-        throw new Error(json.message || "Failed to generate LOI");
-      }
-
-      toast.success("LOI Generated Successfully");
-      navigate(`/loi-preview`, {
-        state: { pdfUrl: `${API_BASE}/public${json.loiUrl}` },
-      });
-      // reload pipeline
-      loadSubmissions();
-      loadStats();
-    } catch (err: any) {
-      toast.error(err.message || "Something went wrong");
-    } finally {
-      setLoading(false);
-    }
+  const handleGenerateLOI = (applicationId: string) => {
+    navigate("/loan-preview/?tab=loi", {
+      state: {
+        applicationLenderId: applicationId,
+        initialTab: "loi",
+        isLoi: false,
+        openLoiForm: true,
+      },
+    });
   };
 
 useEffect(() => {

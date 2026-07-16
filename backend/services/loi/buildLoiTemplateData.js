@@ -1,16 +1,31 @@
 const { mapSubmissionFieldResponse } = require("../applications/staticSubmissionFields");
+const {
+  calculateLoiMetrics,
+  formatLoiMetrics,
+} = require("./calculateLoiMetrics");
 
 const formatCurrency = (value) => {
   if (value === null || value === undefined || value === "") return "";
   const numeric = Number(String(value).replace(/[$,\s]/g, ""));
-  if (!Number.isFinite(numeric)) return String(value);
+  if (!Number.isFinite(numeric) || numeric <= 0) return "";
   return `$${numeric.toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
+};
+
+const formatPercent = (value, suffix = "%") => {
+  if (value === null || value === undefined || value === "") return "";
+  const numeric = Number(String(value).replace(/%/g, ""));
+  if (!Number.isFinite(numeric) || numeric <= 0) return "";
+  const rounded = Math.round(numeric * 100) / 100;
+  return `${rounded}${suffix}`;
 };
 
 const formatInterestRate = (value) => {
   if (value === null || value === undefined || value === "") return "";
-  const numeric = Number(String(value).replace(/%/g, ""));
-  if (!Number.isFinite(numeric)) return String(value);
+  const raw = String(value).trim();
+  if (!raw || raw === "0" || raw === "0%") return "";
+  if (/prime|\+/i.test(raw)) return raw;
+  const numeric = Number(raw.replace(/%/g, ""));
+  if (!Number.isFinite(numeric) || numeric <= 0) return "";
   return `${numeric}%`;
 };
 
@@ -18,22 +33,56 @@ const extractFieldValue = (val) => {
   if (val === null || val === undefined) return "";
 
   if (typeof val === "object") {
+    if (typeof val.toNumber === "function") {
+      const numeric = val.toNumber();
+      return Number.isFinite(numeric) ? String(numeric) : "";
+    }
+    if (typeof val.toString === "function" && val.constructor?.name === "Decimal") {
+      return val.toString();
+    }
     return String(
-      val.text ?? val.value ?? val.label ?? val.url ?? JSON.stringify(val),
-    );
+      val.text ?? val.value ?? val.label ?? val.url ?? "",
+    ).trim();
   }
 
-  return String(val);
+  const str = String(val).trim();
+  if (!str) return "";
+
+  if (str.startsWith("{") || str.startsWith("[")) {
+    try {
+      return extractFieldValue(JSON.parse(str));
+    } catch {
+      return str;
+    }
+  }
+
+  return str;
+};
+
+const toPositiveNumber = (value) => {
+  const extracted = extractFieldValue(value);
+  if (!extracted) return null;
+  const numeric = Number(String(extracted).replace(/[$,\s%]/g, ""));
+  if (!Number.isFinite(numeric) || numeric <= 0) return null;
+  return numeric;
 };
 
 const pickField = (fieldMap, ...keys) => {
   for (const key of keys) {
     const value = fieldMap?.[key];
     if (value !== undefined && value !== null && value !== "") {
-      return String(value);
+      return String(value).trim();
     }
   }
   return "";
+};
+
+const pickNumericField = (fieldMap, ...keys) => {
+  for (const key of keys) {
+    const numeric = toPositiveNumber(fieldMap?.[key]);
+    if (numeric != null) return numeric;
+  }
+  return null;
 };
 
 function buildSubmissionFieldMap(fields = []) {
@@ -42,11 +91,269 @@ function buildSubmissionFieldMap(fields = []) {
   for (const field of fields) {
     const mapped = mapSubmissionFieldResponse(field);
     if (!mapped.fieldKey) continue;
-
-    fieldMap[mapped.fieldKey] = extractFieldValue(mapped.value);
+    fieldMap[mapped.fieldKey] = extractFieldValue(field.value);
   }
 
   return fieldMap;
+}
+
+const splitTags = (value) => {
+  if (!value) return [];
+  return String(value)
+    .split(/[,;|&/]+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+};
+
+function extractGuarantors(fieldMap) {
+  const names = [];
+
+  for (let index = 1; index <= 10; index += 1) {
+    const name = pickField(
+      fieldMap,
+      `coBorrower_${index}_name`,
+      `coBorrower_${index}_entityName`,
+    );
+    if (name) names.push(name);
+  }
+
+  if (names.length > 0) {
+    return names.join(" & ");
+  }
+
+  return pickField(fieldMap, "guarantors", "guarantorName", "guarantorNames");
+}
+
+function extractLoanPurposeTags(fieldMap, loanApplication) {
+  const purpose =
+    pickField(fieldMap, "purpose", "loanPurpose", "useOfFunds") ||
+    loanApplication?.purpose ||
+    "";
+
+  const tags = splitTags(purpose);
+  return tags.length > 0 ? tags : purpose ? [purpose] : [];
+}
+
+function extractCollateralTags(collaterals = [], fieldMap = {}, lenderProduct) {
+  const tags = collaterals
+    .map((item) => {
+      const parts = [];
+      if (item.lienPosition) parts.push(item.lienPosition);
+      if (item.collateralType) parts.push(item.collateralType);
+      if (item.description && !parts.includes(item.description)) {
+        parts.push(item.description);
+      }
+      return parts.join(" — ");
+    })
+    .filter(Boolean);
+
+  const propertyType = pickField(fieldMap, "propertyType", "property_type");
+  if (propertyType) {
+    tags.push(`1st Charge — ${propertyType.replace(/_/g, " ")}`);
+  }
+
+  const recourse = pickField(fieldMap, "recourse");
+  if (recourse && !tags.some((tag) => /recourse/i.test(tag))) {
+    tags.push(recourse.replace(/_/g, " "));
+  }
+
+  const fieldCollateral = pickField(fieldMap, "collateral", "collateralTypes");
+  splitTags(fieldCollateral).forEach((tag) => {
+    if (!tags.includes(tag)) tags.push(tag);
+  });
+
+  if (
+    lenderProduct?.personalGuaranteeRequired &&
+    !tags.some((tag) => /personal guarantee/i.test(tag))
+  ) {
+    tags.push("Personal Guarantees");
+  }
+
+  const propertyAddress = pickField(
+    fieldMap,
+    "propertyAddress",
+    "property_address",
+    "address",
+  );
+  if (propertyAddress && !tags.some((tag) => tag.includes(propertyAddress))) {
+    tags.push(propertyAddress);
+  }
+
+  return [...new Set(tags)];
+}
+
+function extractRequiredDocuments(review) {
+  const conditions = review?.conditions || [];
+  const docs = conditions
+    .map((item) => String(item.description || "").trim())
+    .filter(Boolean);
+
+  if (docs.length > 0) return docs;
+
+  return [
+    "Last 3 years' Financial Statements",
+    "Last 6 months' Bank Statements",
+    "Insurance Documentation",
+    "Appraisal",
+    "Legal Review",
+    "Credit Approval",
+  ];
+}
+
+function calculateMonthlyPayment(loanAmount, interestRate, termMonths) {
+  if (!loanAmount || !termMonths || termMonths <= 0) return "";
+
+  const monthlyRate = interestRate / 100 / 12;
+  if (monthlyRate === 0) {
+    return formatCurrency(loanAmount / termMonths);
+  }
+
+  const payment =
+    (loanAmount * monthlyRate * Math.pow(1 + monthlyRate, termMonths)) /
+    (Math.pow(1 + monthlyRate, termMonths) - 1);
+
+  return formatCurrency(payment);
+}
+
+function formatTermLabel(fieldMap) {
+  const loanTermMonths = Number(
+    pickField(fieldMap, "loanTerm", "termMonths", "term_months"),
+  );
+  const loanTermYears = Number(pickField(fieldMap, "loanTermYears", "termYears"));
+
+  if (loanTermYears > 0) return `${loanTermYears} Years`;
+  if (loanTermMonths > 0) {
+    if (loanTermMonths % 12 === 0) return `${loanTermMonths / 12} Years`;
+    return `${loanTermMonths} Months`;
+  }
+
+  return "";
+}
+
+function resolveLoanAmount(fieldMap, loanApplication, review) {
+  return (
+    toPositiveNumber(review?.approvedAmount) ??
+    pickNumericField(fieldMap, "amountRequested", "loanAmount", "loan_amount") ??
+    toPositiveNumber(loanApplication?.amountRequested) ??
+    null
+  );
+}
+
+function resolvePropertyValue(fieldMap, loanAmount) {
+  const direct =
+    pickNumericField(
+      fieldMap,
+      "currentMarketValue",
+      "propertyValue",
+      "purchasePrice",
+      "appraisedValue",
+      "afterRepairValue",
+    ) ?? null;
+
+  if (direct != null) return direct;
+
+  const ltv = pickNumericField(fieldMap, "ltvPercentage", "ltv", "ltvPercent");
+  if (ltv && loanAmount) {
+    return Math.round((loanAmount / ltv) * 100);
+  }
+
+  const arv = pickNumericField(fieldMap, "arvPercentage", "arv");
+  if (arv && loanAmount) {
+    return Math.round((loanAmount / arv) * 100);
+  }
+
+  return null;
+}
+
+function resolveInterestRate(fieldMap, review, lenderProduct) {
+  const reviewRate = toPositiveNumber(review?.interestRate);
+  if (reviewRate != null) return reviewRate;
+
+  const fieldRate = pickNumericField(fieldMap, "interestRate", "rate", "interest_rate");
+  if (fieldRate != null) return fieldRate;
+
+  const range = lenderProduct?.interestRateRange;
+  if (range) return String(range).trim();
+
+  return "";
+}
+
+function resolveAmortizationYears(fieldMap, lenderProduct) {
+  const fromField = pickField(fieldMap, "amortization", "amortizationYears");
+  if (fromField) return fromField;
+
+  if (lenderProduct?.amortizationYears) {
+    return String(lenderProduct.amortizationYears);
+  }
+
+  return "";
+}
+
+function calculateFeeAmount(loanAmount, percentValue) {
+  const percent = toPositiveNumber(percentValue);
+  if (!loanAmount || percent == null) return "";
+  return formatCurrency((loanAmount * percent) / 100);
+}
+
+function parseLoanTermMonths(loanTerm) {
+  if (!loanTerm) return 0;
+  const monthsMatch = String(loanTerm).match(/(\d+)\s*Months?/i);
+  if (monthsMatch) return Number(monthsMatch[1]);
+  const yearsMatch = String(loanTerm).match(/(\d+)\s*Years?/i);
+  if (yearsMatch) return Number(yearsMatch[1]) * 12;
+  const numeric = Number(String(loanTerm).replace(/[^\d.]/g, ""));
+  return Number.isFinite(numeric) ? numeric : 0;
+}
+
+function parseAmortizationLabel(amortization) {
+  if (!amortization) return "";
+  if (/interest\s*only/i.test(amortization)) return "Interest Only";
+  return String(amortization);
+}
+
+function normalizeLenderTerms(lenderTerms = {}) {
+  if (!lenderTerms || typeof lenderTerms !== "object") return null;
+
+  const approvedAmount = toPositiveNumber(lenderTerms.approvedAmount);
+  if (!approvedAmount) return null;
+
+  const closingConditions = Array.isArray(lenderTerms.closingConditions)
+    ? lenderTerms.closingConditions
+        .map((item) => String(item || "").trim())
+        .filter(Boolean)
+    : [];
+
+  return {
+    approvedAmount,
+    interestRateType: lenderTerms.interestRateType || "FIXED",
+    interestRate: toPositiveNumber(lenderTerms.interestRate),
+    interestRateDisplay: String(lenderTerms.interestRateDisplay || "").trim(),
+    variableRateIndex: String(lenderTerms.variableRateIndex || "").trim(),
+    variableRateSpread: toPositiveNumber(lenderTerms.variableRateSpread),
+    loanTerm: String(lenderTerms.loanTerm || "").trim(),
+    amortization: String(lenderTerms.amortization || "").trim(),
+    paymentFrequency: String(lenderTerms.paymentFrequency || "").trim(),
+    originationFeePercent: String(lenderTerms.originationFeePercent || "").trim(),
+    exitFee: String(lenderTerms.exitFee || "").trim(),
+    processingFee: String(lenderTerms.processingFee || "").trim(),
+    underwritingFee: String(lenderTerms.underwritingFee || "").trim(),
+    legalFee: String(lenderTerms.legalFee || "").trim(),
+    appraisalRequired: String(lenderTerms.appraisalRequired || "").trim(),
+    environmentalReport: String(lenderTerms.environmentalReport || "").trim(),
+    personalGuarantee: String(lenderTerms.personalGuarantee || "").trim(),
+    prepaymentPenalty: String(lenderTerms.prepaymentPenalty || "").trim(),
+    recourse: String(lenderTerms.recourse || "").trim(),
+    closingConditions,
+    specialConditions: Array.isArray(lenderTerms.specialConditions)
+      ? lenderTerms.specialConditions
+          .map((item) => String(item || "").trim())
+          .filter(Boolean)
+      : String(lenderTerms.specialConditions || "")
+          .split("\n")
+          .map((item) => item.trim())
+          .filter(Boolean),
+    expirationDate: String(lenderTerms.expirationDate || "").trim(),
+  };
 }
 
 function buildLoiTemplateData({
@@ -54,14 +361,18 @@ function buildLoiTemplateData({
   loanApplication,
   lenderRecord,
   applicationLenderId,
+  collaterals = [],
+  lenderTerms: rawLenderTerms = null,
 }) {
   const fieldMap = buildSubmissionFieldMap(submission?.fields || []);
   const review = lenderRecord?.lenderReviews?.[0];
+  const lenderProduct = lenderRecord?.lenderProduct;
   const brokerUser = loanApplication?.brokerUser;
   const brokerProfile = brokerUser?.brokerProfile;
   const brokerOrg = loanApplication?.brokerOrg;
   const client = loanApplication?.client;
   const primaryContact = client?.contacts?.[0];
+  const lenderTerms = normalizeLenderTerms(rawLenderTerms);
 
   const borrowerFirstName =
     pickField(fieldMap, "borrowerFirstName", "firstName", "first_name") ||
@@ -76,6 +387,11 @@ function buildLoiTemplateData({
     client?.legalName ||
     "";
 
+  const companyName =
+    pickField(fieldMap, "companyName", "entityLegalName") ||
+    client?.legalName ||
+    borrowerName;
+
   const brokerFirstName = brokerUser?.firstName || "";
   const brokerLastName = brokerUser?.lastName || "";
   const brokerName =
@@ -89,27 +405,189 @@ function buildLoiTemplateData({
     pickField(fieldMap, "phone", "borrowerPhone", "mobile") ||
     primaryContact?.phone ||
     "";
-  const city = pickField(
+  const city = pickField(fieldMap, "borrowerCity", "propertyCity", "city");
+  const state = pickField(fieldMap, "borrowerState", "propertyState", "state");
+
+  const requestedAmountNumeric =
+    pickNumericField(fieldMap, "amountRequested", "loanAmount", "loan_amount") ??
+    toPositiveNumber(loanApplication?.amountRequested) ??
+    null;
+
+  const loanAmountNumeric =
+    lenderTerms?.approvedAmount ??
+    resolveLoanAmount(fieldMap, loanApplication, review);
+  const propertyValueNumeric = resolvePropertyValue(
     fieldMap,
-    "borrowerCity",
-    "propertyCity",
-    "city",
-  );
-  const state = pickField(
-    fieldMap,
-    "borrowerState",
-    "propertyState",
-    "state",
+    loanAmountNumeric || requestedAmountNumeric,
   );
 
-  const loanAmountRequested =
-    pickField(fieldMap, "amountRequested", "loanAmount", "loan_amount") ||
-    (loanApplication?.amountRequested != null
-      ? String(loanApplication.amountRequested)
+  const projectCostNumeric =
+    pickNumericField(
+      fieldMap,
+      "totalProjectCost",
+      "projectCost",
+      "purchasePrice",
+    ) != null
+      ? (() => {
+          const purchase =
+            pickNumericField(fieldMap, "purchasePrice", "totalProjectCost", "projectCost") ||
+            0;
+          const rehab =
+            pickNumericField(
+              fieldMap,
+              "rehabCost",
+              "rehabBudget",
+              "constructionBudget",
+            ) || 0;
+          const fromField = pickNumericField(
+            fieldMap,
+            "totalProjectCost",
+            "projectCost",
+          );
+          if (fromField) return fromField;
+          const combined = purchase + rehab;
+          return combined > 0 ? combined : purchase || null;
+        })()
+      : null;
+
+  const ltvFromFields = pickNumericField(
+    fieldMap,
+    "ltvPercentage",
+    "ltv",
+    "ltvPercent",
+  );
+  const ltcFromFields = pickNumericField(
+    fieldMap,
+    "ltcPercentage",
+    "ltc",
+    "ltcPercent",
+  );
+
+  const interestRateRaw =
+    lenderTerms?.interestRateDisplay ||
+    resolveInterestRate(fieldMap, review, lenderProduct);
+  const interestRateNumeric =
+    lenderTerms?.interestRate ??
+    (typeof interestRateRaw === "number"
+      ? interestRateRaw
+      : toPositiveNumber(interestRateRaw));
+
+  const amortizationLabel =
+    parseAmortizationLabel(lenderTerms?.amortization) ||
+    (() => {
+      const years = resolveAmortizationYears(fieldMap, lenderProduct);
+      return years ? `${years} Years` : "";
+    })();
+
+  const termLabel =
+    lenderTerms?.loanTerm || formatTermLabel(fieldMap);
+
+  const originationPercent =
+    lenderTerms?.originationFeePercent ||
+    (lenderProduct?.originationPointsPercent != null
+      ? lenderProduct.originationPointsPercent
+      : pickField(fieldMap, "originationPoints", "originationFeePercent"));
+
+  const calculatedMetrics = calculateLoiMetrics({
+    approvedAmount: loanAmountNumeric,
+    interestRate: interestRateNumeric,
+    interestRateType: lenderTerms?.interestRateType || "FIXED",
+    loanTerm: termLabel,
+    amortization: amortizationLabel,
+    paymentFrequency: lenderTerms?.paymentFrequency,
+    propertyValue: propertyValueNumeric,
+    projectCost: projectCostNumeric,
+    originationFeePercent: originationPercent,
+    exitFee: lenderTerms?.exitFee,
+    processingFee: lenderTerms?.processingFee,
+    underwritingFee: lenderTerms?.underwritingFee,
+  });
+  const formattedMetrics = formatLoiMetrics(calculatedMetrics);
+
+  const ltvNumeric =
+    calculatedMetrics.ltv ??
+    ltvFromFields ??
+    (loanAmountNumeric && propertyValueNumeric
+      ? (loanAmountNumeric / propertyValueNumeric) * 100
+      : pickNumericField(fieldMap, "arvPercentage", "arv"));
+
+  const ltcNumeric = calculatedMetrics.ltc ?? ltcFromFields;
+
+  const loanTermMonths =
+    parseLoanTermMonths(lenderTerms?.loanTerm) ||
+    Number(pickField(fieldMap, "loanTerm", "termMonths", "term_months"));
+
+  const monthlyPayment =
+    formattedMetrics.monthlyPayment ||
+    (/interest\s*only/i.test(amortizationLabel) ||
+    /interest\s*only/i.test(lenderTerms?.paymentFrequency || "") ||
+    (typeof interestRateRaw === "string" && /sofr|\+|prime/i.test(interestRateRaw))
+      ? "P & I"
+      : calculateMonthlyPayment(
+          loanAmountNumeric || 0,
+          interestRateNumeric || 0,
+          loanTermMonths || 0,
+        ) || "P & I");
+
+  const brokerPoints =
+    pickField(fieldMap, "brokerPoints", "brokerFindersFee") ||
+    (lenderProduct?.transactionFeePercent != null
+      ? lenderProduct.transactionFeePercent
       : "");
 
-  const approvedAmountRaw = review?.approvedAmount ?? "";
-  const interestRateRaw = review?.interestRate ?? "";
+  const loanPurposeTags = extractLoanPurposeTags(fieldMap, loanApplication);
+  let collateralTags = extractCollateralTags(
+    collaterals,
+    fieldMap,
+    lenderProduct,
+  );
+
+  if (
+    lenderTerms?.personalGuarantee === "Required" &&
+    !collateralTags.some((tag) => /personal guarantee/i.test(tag))
+  ) {
+    collateralTags = [...collateralTags, "Personal Guarantees"];
+  }
+
+  if (lenderTerms?.recourse) {
+    const recourseTag = `${lenderTerms.recourse} Recourse`;
+    if (!collateralTags.some((tag) => /recourse/i.test(tag))) {
+      collateralTags = [...collateralTags, recourseTag];
+    }
+  }
+
+  const requiredDocuments =
+    lenderTerms?.closingConditions?.length > 0
+      ? lenderTerms.closingConditions
+      : extractRequiredDocuments(review);
+
+  const specialConditions = lenderTerms?.specialConditions || [];
+
+  const guarantors = extractGuarantors(fieldMap);
+  const fundingTimelineDays =
+    lenderProduct?.avgTurnaroundDays != null
+      ? String(lenderProduct.avgTurnaroundDays)
+      : "30";
+
+  const clientName = companyName || borrowerName;
+  const brokerStateValue = brokerProfile?.state || brokerOrg?.state || state || "";
+  const signatureBorrowerName = clientName || borrowerName;
+
+  const lenderOriginationFeeAmount = calculateFeeAmount(
+    loanAmountNumeric,
+    originationPercent,
+  );
+  const brokerFindersFeeAmount = calculateFeeAmount(
+    loanAmountNumeric,
+    brokerPoints,
+  );
+
+  const expirationDateDisplay = lenderTerms?.expirationDate
+    ? new Date(`${lenderTerms.expirationDate}T00:00:00`).toLocaleDateString(
+        "en-US",
+        { year: "numeric", month: "long", day: "numeric" },
+      )
+    : "";
 
   return {
     ...fieldMap,
@@ -120,11 +598,18 @@ function buildLoiTemplateData({
     lenderName: lenderRecord?.lender?.name || "",
     status: lenderRecord?.status || "",
     applicationStatus: lenderRecord?.status || "",
-    date: new Date().toLocaleDateString(),
+    date: new Date().toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    }),
 
     borrowerFirstName,
     borrowerLastName,
     borrowerName,
+    clientName,
+    applicantBorrower: clientName,
+    signatureBorrowerName,
     email,
     borrowerEmail: email,
     phone,
@@ -133,10 +618,7 @@ function buildLoiTemplateData({
     borrowerCity: city,
     state,
     borrowerState: state,
-    companyName:
-      pickField(fieldMap, "companyName", "entityLegalName") ||
-      client?.legalName ||
-      "",
+    companyName,
 
     brokerName,
     brokerFirstName,
@@ -145,12 +627,23 @@ function buildLoiTemplateData({
     brokerPhone: brokerUser?.phone || brokerOrg?.phone || "",
     brokerCompany: brokerProfile?.company || brokerOrg?.name || "",
     brokerCity: brokerProfile?.city || "",
-    brokerState: brokerProfile?.state || "",
+    brokerState: brokerStateValue,
     brokerAddress: brokerProfile?.address || "",
     brokerZip: brokerProfile?.zipCode || "",
 
-    loanAmountRequested,
-    amountRequested: loanAmountRequested,
+    guarantors,
+
+    loanAmountRequested: formatCurrency(requestedAmountNumeric),
+    amountRequested: formatCurrency(requestedAmountNumeric),
+    loanRequest: formatCurrency(loanAmountNumeric),
+    approvedAmount: formatCurrency(loanAmountNumeric),
+    propertyValue: formatCurrency(propertyValueNumeric),
+    projectCost: formatCurrency(projectCostNumeric),
+    ltvRatio: formatPercent(ltvNumeric) || formattedMetrics.ltvRatio,
+    ltcRatio: formatPercent(ltcNumeric) || formattedMetrics.ltcRatio,
+    ltvPercentage: formatPercent(ltvNumeric),
+    ltcPercentage: formatPercent(ltcNumeric),
+
     loanProductCode:
       pickField(fieldMap, "loanProductCode", "loan_product", "productCode") ||
       loanApplication?.loanProductCode ||
@@ -162,10 +655,84 @@ function buildLoiTemplateData({
       "property_address",
       "address",
     ),
+    propertyType: pickField(fieldMap, "propertyType", "property_type")?.replace(
+      /_/g,
+      " ",
+    ),
 
-    approvedAmount: formatCurrency(approvedAmountRaw),
+    term: termLabel,
+    amortization: amortizationLabel,
     interestRate: formatInterestRate(interestRateRaw),
+    fixedRatePeriod:
+      lenderTerms?.interestRateType === "VARIABLE"
+        ? "Variable"
+        : lenderTerms?.interestRateType === "FIXED"
+          ? "Fixed"
+          : pickField(fieldMap, "rateType", "fixedRatePeriod")?.replace(/_/g, " "),
+    paymentFrequency: lenderTerms?.paymentFrequency || "Monthly",
+    monthlyPayment,
+    balloonPayment: formattedMetrics.balloonPayment,
+    interestAmount: formattedMetrics.interestAmount,
+    estimatedClosingCost: formattedMetrics.estimatedClosingCost,
+    apr: formattedMetrics.apr,
+    paymentType: lenderTerms?.paymentFrequency || "P & I",
+    prepaymentPenalty:
+      lenderTerms?.prepaymentPenalty ||
+      pickField(fieldMap, "prepaymentPenalty", "prepaymentStructure") ||
+      lenderProduct?.prepaymentStructure ||
+      "",
+    personalGuarantee: lenderTerms?.personalGuarantee || "",
+    recourse: lenderTerms?.recourse || "",
+    appraisalRequired: lenderTerms?.appraisalRequired || "",
+    environmentalReport: lenderTerms?.environmentalReport || "",
+    expirationDate: expirationDateDisplay,
+
+    underwritingFee: lenderTerms?.underwritingFee || pickField(fieldMap, "underwritingFee"),
+    lenderOriginationFeePercent: formatPercent(originationPercent) || originationPercent,
+    lenderOriginationFeeAmount,
+    lenderFee: lenderTerms?.processingFee || pickField(fieldMap, "lenderFee"),
+    lenderCommitmentFee:
+      lenderTerms?.exitFee || pickField(fieldMap, "lenderCommitmentFee"),
+    exitFee: lenderTerms?.exitFee || "",
+    processingFee: lenderTerms?.processingFee || "",
+    legalFee: lenderTerms?.legalFee || "",
+    brokerFindersFee: brokerPoints ? formatPercent(brokerPoints) : "",
+    brokerFindersFeeAmount,
+    rateBuyDown: pickField(fieldMap, "rateBuyDown"),
+    prepayBuyDown: pickField(fieldMap, "prepayBuyDown"),
+    appraisalCost: "",
+    appraisalWhenDue:
+      lenderTerms?.appraisalRequired === "No" ? "Waived" : "At Cost",
+    legalAppraisal: "",
+    legalAppraisalWhenDue: lenderTerms?.legalFee || "At Cost",
+    totalLoanCosts:
+      formattedMetrics.estimatedClosingCost ||
+      pickField(fieldMap, "totalLoanCosts"),
+
+    loanPurposeTags,
+    loanPurpose: loanPurposeTags.join(", "),
+    collateralTags,
+    collateral: collateralTags.join(", "),
+    requiredDocuments,
+    specialConditions,
+    fundingTimelineDays,
+
     notes: review?.notes || "",
+
+    disclaimerText: [
+      "The undersigned acknowledge that:",
+      "This is a preliminary summary of non-binding terms for discussion purposes only.",
+      `${lenderRecord?.lender?.name || "Lender"} has presented these proposed terms to ${clientName || "Client"} based on the assumptions contained in this request, and the Client has instructed us to proceed with formal underwriting based on the information provided.`,
+      "This document is not a commitment to lend, nor does it guarantee that final loan documents will contain these or any other specific terms.",
+      "Final approval is subject to satisfactory completion of underwriting, due diligence, appraisal, legal review, and execution of definitive loan documents acceptable to the Lender in its sole discretion.",
+      `Broker Independence: The Broker is an independent intermediary and is not an agent, employee, or representative of ${lenderRecord?.lender?.name || "Lender"}.`,
+      expirationDateDisplay
+        ? `This offer is valid until ${expirationDateDisplay}.`
+        : "",
+      `This agreement shall be governed by the laws of ${brokerStateValue || "the applicable jurisdiction"}.`,
+    ]
+      .filter(Boolean)
+      .join(" "),
   };
 }
 

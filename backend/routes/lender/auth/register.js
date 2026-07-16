@@ -1,13 +1,69 @@
 const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
+const jwtSecret = require("../../../utils/auth/jwtSecret");
 const {
   findInviteByToken,
   splitFullName,
 } = require("../../../services/lenderInvites/adminLenderInviteHelpers");
+const {
+  notifyPlatform,
+  PLATFORM_NOTIFICATION_EVENTS,
+} = require("../../../services/notifications/platformNotifications");
+const {
+  createAndSendEmailVerification,
+} = require("../../../services/auth/emailVerification");
+const {
+  checkRateLimit,
+  getClientIp,
+} = require("../../../utils/security/rateLimit");
+const {
+  verifyRecaptchaToken,
+  isCaptchaConfigured,
+  getCaptchaSiteKey,
+} = require("../../../utils/security/recaptcha");
+
+function issueLenderToken(user, roles) {
+  return jwt.sign(
+    {
+      id: user.id,
+      organizationId: user.organizationId,
+      orgType: "LENDER",
+      roles,
+    },
+    jwtSecret,
+    {
+      expiresIn: "7d",
+      issuer: "lendingcart",
+      audience: "lender-app",
+    },
+  );
+}
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
  */
 async function lenderRegisterRoutes(fastify) {
+  fastify.get(
+    "/public-config",
+    {
+      schema: {
+        tags: ["Lender -> Auth"],
+        summary: "Public lender signup config",
+      },
+    },
+    async (_req, reply) => {
+      const captchaConfigured = isCaptchaConfigured();
+      return reply.send({
+        success: true,
+        data: {
+          captchaRequired: captchaConfigured,
+          captchaSiteKey: captchaConfigured ? getCaptchaSiteKey() : "",
+          publicSignupEnabled: true,
+        },
+      });
+    },
+  );
+
   fastify.post(
     "/",
     {
@@ -29,8 +85,10 @@ async function lenderRegisterRoutes(fastify) {
             adminFirstName: { type: "string" },
             adminLastName: { type: "string" },
             adminEmail: { type: "string" },
-            password: { type: "string" },
+            password: { type: "string", minLength: 8 },
             inviteToken: { type: "string" },
+            source: { type: "string", enum: ["public", "invite", "direct"] },
+            captchaToken: { type: "string" },
           },
         },
       },
@@ -46,13 +104,64 @@ async function lenderRegisterRoutes(fastify) {
         adminEmail,
         password,
         inviteToken,
+        captchaToken,
       } = req.body || {};
+
+      const source = inviteToken
+        ? "invite"
+        : String(req.body?.source || "public").toLowerCase() === "direct"
+          ? "direct"
+          : "public";
 
       if (!organizationName || !organizationEmail || !adminEmail || !password) {
         return reply.status(400).send({
           success: false,
           message: "Missing required fields",
         });
+      }
+
+      if (String(password).length < 8) {
+        return reply.status(400).send({
+          success: false,
+          message: "Password must be at least 8 characters",
+          field: "password",
+        });
+      }
+
+      const clientIp = getClientIp(req);
+
+      if (source === "public") {
+        const limit = checkRateLimit(`lender-public-register:${clientIp}`, {
+          windowMs: 15 * 60 * 1000,
+          max: Number(process.env.PUBLIC_SIGNUP_RATE_MAX || 5),
+        });
+        if (!limit.allowed) {
+          reply.header("Retry-After", String(limit.retryAfterSec));
+          return reply.status(429).send({
+            success: false,
+            message: "Too many signup attempts. Please try again later.",
+            code: "RATE_LIMITED",
+            retryAfterSec: limit.retryAfterSec,
+          });
+        }
+
+        try {
+          const captcha = await verifyRecaptchaToken(captchaToken, clientIp);
+          if (!captcha.ok) {
+            return reply.status(400).send({
+              success: false,
+              message: captcha.message || "Captcha verification failed",
+              code: "CAPTCHA_FAILED",
+            });
+          }
+        } catch (captchaErr) {
+          req.log.error(captchaErr, "reCAPTCHA verify error");
+          return reply.status(400).send({
+            success: false,
+            message: "Captcha verification failed",
+            code: "CAPTCHA_FAILED",
+          });
+        }
       }
 
       let invite = null;
@@ -83,8 +192,6 @@ async function lenderRegisterRoutes(fastify) {
             field: "adminEmail",
           });
         }
-      } else {
-        // Open self-signup remains available unless you later lock it down
       }
 
       const normalizedOrgEmail = String(organizationEmail).trim().toLowerCase();
@@ -101,6 +208,7 @@ async function lenderRegisterRoutes(fastify) {
         return reply.status(409).send({
           success: false,
           message: "Organization already exists",
+          code: "ORG_EXISTS",
         });
       }
 
@@ -112,6 +220,7 @@ async function lenderRegisterRoutes(fastify) {
         return reply.status(409).send({
           success: false,
           message: "Email already registered",
+          code: "EMAIL_EXISTS",
         });
       }
 
@@ -131,10 +240,7 @@ async function lenderRegisterRoutes(fastify) {
             data: {
               name: String(organizationName).trim(),
               email: normalizedOrgEmail,
-              phone:
-                organizationPhone ||
-                invite?.phone ||
-                null,
+              phone: organizationPhone || invite?.phone || null,
               type: "LENDER",
               status: "ACTIVE",
             },
@@ -149,6 +255,8 @@ async function lenderRegisterRoutes(fastify) {
               lastName: adminLastName || nameParts.lastName,
               phone: organizationPhone || invite?.phone || null,
               status: "ACTIVE",
+              emailVerifiedAt: invite ? new Date() : null,
+              ...(invite ? { lastLoginAt: new Date() } : {}),
             },
           });
 
@@ -192,13 +300,76 @@ async function lenderRegisterRoutes(fastify) {
         });
       }
 
+      const roles = ["LENDER_ADMIN"];
+
+      if (!invite) {
+        try {
+          await createAndSendEmailVerification(prisma, {
+            id: adminUser.id,
+            email: adminUser.email,
+            firstName: adminUser.firstName,
+            lastName: adminUser.lastName,
+          });
+        } catch (mailErr) {
+          req.log.error(mailErr, "Email verification send failed after register");
+        }
+      }
+
+      try {
+        await notifyPlatform(prisma, fastify.io, {
+          eventType: PLATFORM_NOTIFICATION_EVENTS.LENDER_REGISTERED,
+          category: "ORGANIZATION",
+          subject: "New lender registered",
+          body: `Lender organization "${organizationName}" registered via ${source === "invite" ? "invitation" : "public partner link"} (${normalizedAdminEmail}).`,
+          metadata: {
+            organizationId: lenderOrg.id,
+            organizationName: String(organizationName).trim(),
+            adminEmail: normalizedAdminEmail,
+            source: source === "invite" ? "LENDER_INVITE" : "PUBLIC_PARTNER_LINK",
+          },
+        });
+      } catch (notifyErr) {
+        req.log.error(notifyErr, "Lender register platform notification failed");
+      }
+
+      // Hard gate: public signup must verify email before receiving a session token
+      if (!invite) {
+        return reply.status(201).send({
+          success: true,
+          message:
+            "Account created. Please verify your email before signing in.",
+          data: {
+            organizationId: lenderOrg.id,
+            adminUserId: adminUser.id,
+            inviteAccepted: false,
+            emailVerified: false,
+            emailVerificationRequired: true,
+            email: adminUser.email,
+          },
+        });
+      }
+
+      const token = issueLenderToken(adminUser, roles);
+
       return reply.status(201).send({
         success: true,
         message: "Lender registered successfully",
         data: {
           organizationId: lenderOrg.id,
           adminUserId: adminUser.id,
-          inviteAccepted: Boolean(invite),
+          inviteAccepted: true,
+          emailVerified: true,
+          emailVerificationRequired: false,
+          token,
+          user: {
+            id: adminUser.id,
+            email: adminUser.email,
+            name: `${adminUser.firstName || ""} ${adminUser.lastName || ""}`.trim(),
+            organizationId: lenderOrg.id,
+            organizationName: lenderOrg.name,
+            roles,
+            emailVerified: true,
+          },
         },
       });
     },

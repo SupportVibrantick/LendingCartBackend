@@ -7,11 +7,13 @@ const path = require("path");
 const PizZip = require("pizzip");
 const Docxtemplater = require("docxtemplater");
 
-const { loadDocxTemplate } = require("../../../utils/email/loadDocxTemplate");
 const { convertDocxToPdf } = require("../../../utils/pdf/convertDocxToPdf");
 const { generateLoiPdf } = require("../../../services/loi/generateLoiPdf");
 const { buildLoiTemplateData } = require("../../../services/loi/buildLoiTemplateData");
 const { logAudit } = require("../../../services/logger/auditLogger");
+const {
+  resolveLatestActiveSubmission,
+} = require("../../../utils/applications/clientPortalSubmission");
 
 async function generateLoiRoute(fastify) {
   fastify.post(
@@ -25,6 +27,59 @@ async function generateLoiRoute(fastify) {
           required: ["applicationLenderId"],
           properties: {
             applicationLenderId: { type: "string" },
+          },
+        },
+        body: {
+          type: "object",
+          required: ["lenderTerms"],
+          properties: {
+            lenderTerms: {
+              type: "object",
+              required: [
+                "approvedAmount",
+                "interestRateType",
+                "loanTerm",
+                "amortization",
+                "paymentFrequency",
+                "originationFeePercent",
+                "expirationDate",
+                "closingConditions",
+              ],
+              properties: {
+                approvedAmount: { type: "number", exclusiveMinimum: 0 },
+                interestRateType: {
+                  type: "string",
+                  enum: ["FIXED", "VARIABLE"],
+                },
+                interestRate: { type: ["number", "null"] },
+                interestRateDisplay: { type: "string" },
+                variableRateIndex: { type: ["string", "null"] },
+                variableRateSpread: { type: ["number", "null"] },
+                loanTerm: { type: "string", minLength: 1 },
+                amortization: { type: "string", minLength: 1 },
+                paymentFrequency: { type: "string", minLength: 1 },
+                originationFeePercent: { type: "string", minLength: 1 },
+                exitFee: { type: "string" },
+                processingFee: { type: "string" },
+                underwritingFee: { type: "string" },
+                legalFee: { type: "string" },
+                appraisalRequired: { type: "string" },
+                environmentalReport: { type: "string" },
+                personalGuarantee: { type: "string" },
+                prepaymentPenalty: { type: "string" },
+                recourse: { type: "string" },
+                closingConditions: {
+                  type: "array",
+                  minItems: 1,
+                  items: { type: "string" },
+                },
+                specialConditions: {
+                  type: "array",
+                  items: { type: "string" },
+                },
+                expirationDate: { type: "string", minLength: 1 },
+              },
+            },
           },
         },
       },
@@ -50,11 +105,39 @@ async function generateLoiRoute(fastify) {
 
         const lenderOrgId = req.user.organizationId;
         const { applicationLenderId } = req.params;
+        const lenderTerms = req.body?.lenderTerms;
 
         if (!applicationLenderId) {
           return reply.code(400).send({
             success: false,
             message: "ApplicationLenderId is required",
+          });
+        }
+
+        if (!lenderTerms || typeof lenderTerms !== "object") {
+          return reply.code(400).send({
+            success: false,
+            message: "Lender underwriting terms are required",
+          });
+        }
+
+        if (
+          !Number.isFinite(Number(lenderTerms.approvedAmount)) ||
+          Number(lenderTerms.approvedAmount) <= 0
+        ) {
+          return reply.code(400).send({
+            success: false,
+            message: "Approved amount is required",
+          });
+        }
+
+        if (
+          !Array.isArray(lenderTerms.closingConditions) ||
+          lenderTerms.closingConditions.length === 0
+        ) {
+          return reply.code(400).send({
+            success: false,
+            message: "At least one closing condition is required",
           });
         }
 
@@ -83,7 +166,9 @@ async function generateLoiRoute(fastify) {
                     brokerProfile: true,
                   },
                 },
+                collaterals: true,
                 submissions: {
+                  where: { status: { not: "SUPERSEDED" } },
                   include: {
                     fields: {
                       include: {
@@ -92,14 +177,17 @@ async function generateLoiRoute(fastify) {
                     },
                   },
                   orderBy: { createdAt: "desc" },
-                  take: 1,
                 },
               },
             },
             lender: true,
+            lenderProduct: true,
             lenderReviews: {
               orderBy: { createdAt: "desc" },
               take: 1,
+              include: {
+                conditions: true,
+              },
             },
           },
         });
@@ -120,7 +208,9 @@ async function generateLoiRoute(fastify) {
           });
         }
 
-        const submission = lenderRecord.loanApplication?.submissions?.[0];
+        const submission = resolveLatestActiveSubmission(
+          lenderRecord.loanApplication?.submissions || [],
+        );
 
         if (!submission) {
           return reply.code(400).send({
@@ -137,116 +227,70 @@ async function generateLoiRoute(fastify) {
           loanApplication: lenderRecord.loanApplication,
           lenderRecord,
           applicationLenderId,
+          collaterals: lenderRecord.loanApplication?.collaterals || [],
+          lenderTerms,
         });
 
         /* ===============================
-           LOAD TEMPLATE (DYNAMIC + FALLBACK)
+           GENERATE PDF
+           Default: styled term sheet template.
+           Custom lender DOCX only when uploaded.
         =============================== */
-        let templateBuffer;
+        let pdfBuffer;
+        let generatedVia = "styled-term-sheet";
 
-        try {
-          const lenderTemplate = await prisma.lenderLoiTemplate.findUnique({
-            where: { lenderOrgId },
-          });
+        const lenderTemplate = await prisma.lenderLoiTemplate.findUnique({
+          where: { lenderOrgId },
+        });
 
-          if (lenderTemplate?.fileUrl) {
-            const fullPath = path.join(
+        const customTemplatePath = lenderTemplate?.fileUrl
+          ? path.join(
               process.cwd(),
               "public",
-              lenderTemplate.fileUrl.replace(/^\/+/, "")
-            );
+              lenderTemplate.fileUrl.replace(/^\/+/, ""),
+            )
+          : null;
 
-            if (!fs.existsSync(fullPath)) {
-              fastify.log.warn(
-                `Template missing on disk, fallback used: ${fullPath}`
-              );
-              templateBuffer = loadDocxTemplate(
-                "lender/loi/loi-template"
-              );
-            } else {
-              templateBuffer = fs.readFileSync(fullPath);
-            }
-          } else {
-            templateBuffer = loadDocxTemplate(
-              "lender/loi/loi-template"
+        const hasCustomTemplate =
+          customTemplatePath && fs.existsSync(customTemplatePath);
+
+        if (hasCustomTemplate) {
+          try {
+            const templateBuffer = fs.readFileSync(customTemplatePath);
+            const zip = new PizZip(templateBuffer);
+            const doc = new Docxtemplater(zip, {
+              paragraphLoop: true,
+              linebreaks: true,
+              nullGetter: () => "—",
+            });
+
+            doc.setData(loiData);
+            doc.render();
+
+            const docxBuffer = doc.getZip().generate({
+              type: "nodebuffer",
+              compression: "DEFLATE",
+            });
+
+            pdfBuffer = await convertDocxToPdf(docxBuffer);
+            generatedVia = "custom-docx-template";
+          } catch (err) {
+            fastify.log.warn(
+              { error: err.message, code: err.code },
+              "Custom LOI template failed, using styled term sheet",
             );
           }
-        } catch (err) {
-          fastify.log.error("Template load error:", err);
-
-          return reply.code(500).send({
-            success: false,
-            message: "Failed to load LOI template",
-          });
         }
 
-        /* ===============================
-           GENERATE DOCX
-        =============================== */
-        let docxBuffer;
-
-        try {
-          const zip = new PizZip(templateBuffer);
-
-          const doc = new Docxtemplater(zip, {
-            paragraphLoop: true,
-            linebreaks: true,
-            nullGetter: () => "—",
-          });
-
-          doc.setData(loiData);
-
-          doc.render();
-
-          docxBuffer = doc.getZip().generate({
-            type: "nodebuffer",
-            compression: "DEFLATE",
-          });
-        } catch (err) {
-          fastify.log.error("Docx render error:", err);
-
-          return reply.code(500).send({
-            success: false,
-            message: "Template rendering failed. Check placeholders.",
-          });
-        }
-
-        /* ===============================
-           CONVERT TO PDF
-        =============================== */
-        const review = lenderRecord.lenderReviews?.[0];
-        const loiDate = loiData.date;
-        let pdfBuffer;
-        let generatedVia = "docx-template";
-
-        try {
-          pdfBuffer = await convertDocxToPdf(docxBuffer);
-        } catch (err) {
-          fastify.log.warn(
-            { error: err.message, code: err.code },
-            "LibreOffice conversion unavailable, using PDFKit fallback",
-          );
-
+        if (!pdfBuffer) {
           try {
-            pdfBuffer = await generateLoiPdf({
-              applicationNumber: loiData.applicationNumber,
-              lenderName: loiData.lenderName,
-              approvedAmount: review?.approvedAmount || "",
-              interestRate: review?.interestRate || "",
-              notes: loiData.notes,
-              date: loiDate,
-              fieldMap: loiData,
-            });
-            generatedVia = "pdfkit-fallback";
-          } catch (fallbackErr) {
-            fastify.log.error("PDF fallback error:", fallbackErr);
+            pdfBuffer = await generateLoiPdf(loiData);
+          } catch (pdfErr) {
+            fastify.log.error("Styled LOI PDF error:", pdfErr);
 
             return reply.code(500).send({
               success: false,
-              message:
-                err.code === "LIBREOFFICE_MISSING"
-                  ? "PDF conversion failed. Install LibreOffice or retry after server restart."
-                  : "PDF conversion failed",
+              message: "Failed to generate LOI PDF",
             });
           }
         }

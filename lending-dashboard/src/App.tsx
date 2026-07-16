@@ -2,6 +2,10 @@ import { BrowserRouter as Router, Routes, Route } from "react-router";
 import SignIn from "./pages/AuthPages/SignIn";
 import ResetPassword from "./pages/AuthPages/ResetPassword";
 import AcceptInvite from "./pages/AuthPages/AcceptInvite";
+import PartnerLanding from "./pages/AuthPages/PartnerLanding";
+import PartnerSignup from "./pages/AuthPages/PartnerSignup";
+import VerifyEmail from "./pages/AuthPages/VerifyEmail";
+import VerifyEmailPending from "./pages/AuthPages/VerifyEmailPending";
 // import SignUp from "./pages/AuthPages/SignUp";
 import NotFound from "./pages/OtherPage/NotFound";
 import LenderProfileView from "./pages/Profile/LenderProfileView";
@@ -136,6 +140,10 @@ export default function App() {
           <Route path="/signin" element={<SignIn />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/invite/:token" element={<AcceptInvite />} />
+          <Route path="/partner" element={<PartnerLanding />} />
+          <Route path="/partner/signup" element={<PartnerSignup />} />
+          <Route path="/verify-email" element={<VerifyEmail />} />
+          <Route path="/verify-email-pending" element={<VerifyEmailPending />} />
           {/* <Route path="/signup" element={<SignUp />} /> */}
           <Route index path="/client-upload/:token" element={<ClientUpload />} />
           <Route path="*" element={<NotFound />} />

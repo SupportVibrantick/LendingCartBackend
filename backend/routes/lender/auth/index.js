@@ -6,10 +6,12 @@ const forgotPassword = require("./forgotPassword");
 const validateResetToken = require("./validateResetToken");
 const resetPassword = require("./resetPassword");
 const changePassword = require("./changePassword");
+const verifyEmail = require("./verifyEmail");
 
 async function lenderAuthRoutes(fastify) {
   fastify.register(login, { prefix: "/login" });
   fastify.register(register, { prefix: "/register" });
+  fastify.register(verifyEmail, { prefix: "/verify-email" });
   fastify.register(forgotPassword, { prefix: "/forgot-password" });
   fastify.register(validateResetToken, { prefix: "/reset-password/validate" });
   fastify.register(resetPassword, { prefix: "/reset-password" });

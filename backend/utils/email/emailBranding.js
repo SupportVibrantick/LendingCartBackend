@@ -84,6 +84,20 @@ const buildLenderInviteUrl = (token) => {
   );
 };
 
+const buildLenderPartnerUrl = () => {
+  const { lenderDashboardUrl } = getEmailBranding();
+  if (!lenderDashboardUrl) return "";
+  return ensureAbsoluteUrl(`${stripTrailingSlash(lenderDashboardUrl)}/partner`);
+};
+
+const buildLenderVerifyEmailUrl = (token) => {
+  const { lenderDashboardUrl } = getEmailBranding();
+  if (!lenderDashboardUrl || !token) return "";
+  return ensureAbsoluteUrl(
+    `${stripTrailingSlash(lenderDashboardUrl)}/verify-email?token=${encodeURIComponent(token)}`,
+  );
+};
+
 const buildClientPortalUrl = ({ token, path = "" } = {}) => {
   const { frontendUrl } = getEmailBranding();
   if (!frontendUrl) return "";
@@ -163,6 +177,8 @@ module.exports = {
   buildBrokerSignInUrl,
   buildLenderSignInUrl,
   buildLenderInviteUrl,
+  buildLenderPartnerUrl,
+  buildLenderVerifyEmailUrl,
   buildClientPortalUrl,
   buildLoanPreviewUrl,
   buildLenderLoanPreviewUrl,

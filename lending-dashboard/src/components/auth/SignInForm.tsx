@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowRight, LockKeyhole, Mail } from "lucide-react";
 import { EyeCloseIcon, EyeIcon } from "../../icons";
@@ -15,9 +15,12 @@ import {
 const API_BASE = LENDER_API_BASE;
 
 export default function SignInForm() {
+  const [searchParams] = useSearchParams();
   const [showPassword, setShowPassword] = useState(false);
   const [isChecked, setIsChecked] = useState(false);
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(() =>
+    String(searchParams.get("email") || "").trim(),
+  );
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
@@ -73,6 +76,17 @@ export default function SignInForm() {
       }
 
       if (!res.ok) {
+        if (json?.code === "EMAIL_NOT_VERIFIED") {
+          toast.error(json?.message || "Please verify your email first", {
+            id: toastId,
+          });
+          navigate(
+            `/verify-email-pending?email=${encodeURIComponent(
+              String(json?.data?.email || cleanEmail),
+            )}`,
+          );
+          return;
+        }
         throw new Error(json?.message || `Login failed (${res.status})`);
       }
 
