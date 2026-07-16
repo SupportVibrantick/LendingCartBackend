@@ -1926,8 +1926,8 @@ export default function LoanPreview() {
                   const tabLabel =
                     tab.id === "loi"
                       ? loiGenerated || isLoi
-                        ? "View LOI"
-                        : "Generate LOI"
+                        ? "View LOI/Term Sheet"
+                        : "Generate LOI/Term Sheet"
                       : tab.label;
 
                   return (
