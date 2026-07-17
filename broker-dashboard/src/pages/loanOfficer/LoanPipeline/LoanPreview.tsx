@@ -1235,6 +1235,9 @@ const LoanPreview = () => {
         initialSelectedProduct={loanApplicationInitial.selectedProduct}
         initialSelectedCategory={loanApplicationInitial.selectedCategory}
         initialDynamicFormData={loanApplicationInitial.dynamicFormData}
+        initialCreditAuthorizationConsent={
+          loanApplicationInitial.creditAuthorizationConsent
+        }
         onUpdateSuccess={(newSubmissionId) => {
           const idToLoad = newSubmissionId || submissionId;
           if (newSubmissionId && newSubmissionId !== submissionId) {

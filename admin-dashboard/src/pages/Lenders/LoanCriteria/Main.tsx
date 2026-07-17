@@ -14,6 +14,7 @@ import {
   isSba504Product,
 } from "../../../lib/loanProductCriteriaFields";
 import { mapToAdminProductPayload } from "../../../lib/lenderProductAdminPayload";
+import { mapToCanonicalCatalogId } from "../../../lib/canonicalLoanProducts";
 
 type FormType = {
   lenderId: string;
@@ -28,6 +29,13 @@ type Product = {
   id: string;
   name: string;
   code: string;
+};
+
+type ExistingLenderProduct = {
+  id: string;
+  loanProductId?: string | null;
+  loanProductCode?: string | null;
+  loanProduct?: { id?: string; code?: string } | null;
 };
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
@@ -46,6 +54,9 @@ export default function Main() {
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const [products, setProducts] = useState<Product[]>([]);
+  const [existingLenderProducts, setExistingLenderProducts] = useState<
+    ExistingLenderProduct[]
+  >([]);
   const [lenders, setLenders] = useState<any[]>([]);
   const [loadingLenders, setLoadingLenders] = useState(false);
   const [search, setSearch] = useState("");
@@ -63,9 +74,43 @@ export default function Main() {
     equipmentFinance: [],
   });
 
+  const alreadyAssignedIds = useMemo(() => {
+    if (!products.length || !existingLenderProducts.length) return [];
+
+    return [
+      ...new Set(
+        existingLenderProducts
+          .map((item) =>
+            mapToCanonicalCatalogId(
+              products,
+              item.loanProductCode || item.loanProduct?.code,
+              item.loanProductId || item.loanProduct?.id,
+            ),
+          )
+          .filter(Boolean),
+      ),
+    ] as string[];
+  }, [products, existingLenderProducts]);
+
+  useEffect(() => {
+    if (!alreadyAssignedIds.length) return;
+    setForm((prev) => {
+      const filtered = prev.loanPrograms.filter(
+        (id) => !alreadyAssignedIds.includes(id),
+      );
+      if (filtered.length === prev.loanPrograms.length) return prev;
+      return { ...prev, loanPrograms: filtered };
+    });
+  }, [alreadyAssignedIds]);
+
   const selectedProducts = useMemo(
-    () => products.filter((p) => form.loanPrograms.includes(p.id)),
-    [products, form.loanPrograms],
+    () =>
+      products.filter(
+        (p) =>
+          form.loanPrograms.includes(p.id) &&
+          !alreadyAssignedIds.includes(p.id),
+      ),
+    [products, form.loanPrograms, alreadyAssignedIds],
   );
 
   const isEquipmentSelected = selectedProducts.some(
@@ -239,6 +284,45 @@ export default function Main() {
     }
   }, [isEquipmentSelected]);
 
+  useEffect(() => {
+    if (!form.lenderId) {
+      setExistingLenderProducts([]);
+      return;
+    }
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const res = await fetch(
+          `${API_BASE}/admin/lender-products/lender/${form.lenderId}`,
+          { headers: getAuthHeaders() },
+        );
+        const json = await res.json().catch(() => ({}));
+
+        if (!res.ok || !json.success) {
+          throw new Error(json.message || "Failed to load assigned products");
+        }
+
+        if (!cancelled) {
+          setExistingLenderProducts(
+            (json.data || []) as ExistingLenderProduct[],
+          );
+        }
+      } catch (err: any) {
+        console.error(err);
+        if (!cancelled) {
+          setExistingLenderProducts([]);
+          toast.error(err?.message || "Failed to load assigned products");
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [form.lenderId]);
+
   const getStepContent = () => {
     if (step === 0) {
       const filtered = lenders.filter((l) =>
@@ -296,7 +380,18 @@ export default function Main() {
                     <div
                       key={lender.id}
                       onClick={() =>
-                        setForm((p) => ({ ...p, lenderId: lender.id }))
+                        setForm((p) =>
+                          p.lenderId === lender.id
+                            ? p
+                            : {
+                                lenderId: lender.id,
+                                loanPrograms: [],
+                                propertyTypes: {},
+                                businessTypes: {},
+                                loanCriteria: {},
+                                equipmentFinance: [],
+                              },
+                        )
                       }
                       className={`relative cursor-pointer rounded-lg border px-3 py-2.5 transition-all
                         ${
@@ -391,8 +486,14 @@ export default function Main() {
           mode="admin"
           value={form.loanPrograms}
           setValue={(val) =>
-            setForm((p) => ({ ...p, loanPrograms: val }))
+            setForm((p) => ({
+              ...p,
+              loanPrograms: (Array.isArray(val) ? val : []).filter(
+                (id) => !alreadyAssignedIds.includes(id),
+              ),
+            }))
           }
+          alreadyAddedIds={alreadyAssignedIds}
           onProductsLoad={setProducts}
         />
       );
@@ -468,7 +569,7 @@ export default function Main() {
         <div className="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
           <div className="flex items-center gap-3">
             <button
-              onClick={() => navigate("/view-assigned-products")}
+              onClick={() => navigate("/all-lenders-Organization")}
               className="flex items-center justify-center w-9 h-9 rounded-full border hover:bg-gray-100 transition"
             >
               <ArrowLeft size={18} />

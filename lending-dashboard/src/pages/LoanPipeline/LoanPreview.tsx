@@ -3,19 +3,26 @@ import { createPortal } from "react-dom";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
+  Building2,
   Check,
   ChevronLeft,
   ChevronRight,
+  ClipboardList,
   Download,
   Eye,
   FileIcon,
   FileText,
   Filter,
+  FolderOpen,
   Loader2,
+  MessageSquare,
   Search,
   SearchX,
+  Send,
+  Upload,
   User,
   ChevronDown,
+  type LucideIcon,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import Chat from "./Chat";
@@ -47,6 +54,32 @@ import type { serializeLoiUnderwritingTerms } from "../../lib/loiUnderwritingTer
 
 type PreviewTab = "details" | "documents" | "signDocuments" | "requestDocs" | "loi" | "chat";
 type DocumentSourceFilter = "all" | "mine" | "broker";
+type PreviewSectionId = "application" | "documents" | "communication" | "lender";
+
+type PreviewTabItem = {
+  id: PreviewTab;
+  label: string;
+  icon: LucideIcon;
+  color: string;
+  disabled?: boolean;
+  disabledReason?: string;
+};
+
+type PreviewTabSection = {
+  id: PreviewSectionId;
+  label: string;
+  icon: LucideIcon;
+  items: PreviewTabItem[];
+};
+
+const PREVIEW_SECTION_BY_TAB: Record<PreviewTab, PreviewSectionId> = {
+  details: "application",
+  documents: "documents",
+  requestDocs: "documents",
+  signDocuments: "documents",
+  chat: "communication",
+  loi: "lender",
+};
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
@@ -160,8 +193,8 @@ function getAuthHeaders(): HeadersInit {
 const tabMeta: Array<{ id: PreviewTab; label: string }> = [
   { id: "details", label: "View Details" },
   { id: "requestDocs", label: "Request Documents" },
-  { id: "documents", label: "Upload Documents" },
-  { id: "signDocuments", label: "Sign Forms/Documents" },
+  { id: "documents", label: "Uploaded Documents" },
+  { id: "signDocuments", label: "Upload Signable Forms/Documents" },
   { id: "loi", label: "View LOI" },
   { id: "chat", label: "Chat" },
 ];
@@ -1692,6 +1725,114 @@ export default function LoanPreview() {
     return `${numeric}${suffix}`;
   };
 
+  const availableTabIds = new Set(
+    visibleTabs
+      .filter((tab) => tab.id !== "loi" || showLoiTab)
+      .map((tab) => tab.id),
+  );
+
+  const getVisibleTabLabel = (id: PreviewTab, fallback: string) => {
+    if (id === "loi") {
+      return loiGenerated || isLoi
+        ? "View LOI / Term Sheet"
+        : "Generate LOI / Term Sheet";
+    }
+    return visibleTabs.find((tab) => tab.id === id)?.label || fallback;
+  };
+
+  const onlyAvailableTabs = (items: PreviewTabItem[]) =>
+    items.filter((item) => availableTabIds.has(item.id));
+
+  const previewTabSections: PreviewTabSection[] = [
+    {
+      id: "application",
+      label: "Application",
+      icon: ClipboardList,
+      items: [
+        {
+          id: "details",
+          label: getVisibleTabLabel("details", "View Details"),
+          icon: Eye,
+          color: "text-blue-600",
+        },
+      ],
+    },
+    {
+      id: "documents",
+      label: "Documents",
+      icon: FolderOpen,
+      items: onlyAvailableTabs([
+        {
+          id: "documents",
+          label: getVisibleTabLabel("documents", "Uploaded Documents"),
+          icon: Upload,
+          color: "text-amber-600",
+        },
+        {
+          id: "requestDocs",
+          label: getVisibleTabLabel("requestDocs", "Request Documents"),
+          icon: Send,
+          color: "text-emerald-600",
+          disabled: !canRequestDocuments,
+          disabledReason:
+            requestDocumentsDisabledReason ||
+            "Documents cannot be requested for this application.",
+        },
+        {
+          id: "signDocuments",
+          label: getVisibleTabLabel(
+            "signDocuments",
+            "Upload Signable Forms / Documents",
+          ),
+          icon: FileText,
+          color: "text-indigo-600",
+        },
+      ]),
+    },
+    {
+      id: "communication",
+      label: "Communication",
+      icon: MessageSquare,
+      items: [
+        {
+          id: "chat",
+          label: getVisibleTabLabel("chat", "Chat"),
+          icon: MessageSquare,
+          color: "text-green-600",
+        },
+      ],
+    },
+    ...(availableTabIds.has("loi")
+      ? [
+          {
+            id: "lender" as const,
+            label: "Lender",
+            icon: Building2,
+            items: [
+              {
+                id: "loi" as const,
+                label: getVisibleTabLabel("loi", "LOI / Term Sheet"),
+                icon: FileText,
+                color: "text-purple-600",
+              },
+            ],
+          },
+        ]
+      : []),
+  ];
+
+  const activeSectionId =
+    PREVIEW_SECTION_BY_TAB[activeTab] || ("application" as PreviewSectionId);
+  const activeSection =
+    previewTabSections.find((section) => section.id === activeSectionId) ||
+    previewTabSections[0];
+
+  const handleSectionChange = (section: PreviewTabSection) => {
+    const firstEnabled =
+      section.items.find((item) => !item.disabled) || section.items[0];
+    if (firstEnabled) onTabChange(firstEnabled.id);
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#0b1120] p-4 md:p-6 text-slate-900 dark:text-slate-100">
       <div className="max-w-7xl mx-auto space-y-6">
@@ -1915,47 +2056,102 @@ export default function LoanPreview() {
           </div>
         )}
 
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden">
-          <div className="border-b border-slate-200 dark:border-slate-800 px-4 md:px-6 pt-4">
-            <div className="flex flex-wrap gap-2">
-              {visibleTabs
-                .filter((tab) => tab.id !== "loi" || showLoiTab)
-                .map((tab) => {
-                  const isRequestDocsTab = tab.id === "requestDocs";
-                  const isDisabled = isRequestDocsTab && !canRequestDocuments;
-                  const tabLabel =
-                    tab.id === "loi"
-                      ? loiGenerated || isLoi
-                        ? "View LOI/Term Sheet"
-                        : "Generate LOI/Term Sheet"
-                      : tab.label;
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+          <nav aria-label="Loan preview sections">
+            {/* Primary sections */}
+            <div className="grid grid-cols-2 gap-1.5 bg-slate-50/80 p-2 sm:grid-cols-4 dark:bg-slate-950/50">
+              {previewTabSections.map((section) => {
+                const SectionIcon = section.icon;
+                const isSectionActive = section.id === activeSectionId;
 
-                  return (
+                return (
                   <button
-                    key={tab.id}
+                    key={section.id}
                     type="button"
-                    disabled={isDisabled}
-                    title={
-                      isDisabled
-                        ? requestDocumentsDisabledReason ||
-                          "Documents cannot be requested for this application."
-                        : undefined
-                    }
-                    onClick={() => onTabChange(tab.id)}
-                    className={`px-4 py-2.5 rounded-t-xl text-xs font-semibold transition-all ${
-                      activeTab === tab.id
-                        ? "bg-[#18B6B4] text-white"
-                        : isDisabled
-                          ? "cursor-not-allowed bg-slate-100 text-slate-400 opacity-60 dark:bg-slate-800/40 dark:text-slate-500"
-                          : "text-slate-500 hover:text-[#18B6B4] bg-slate-50 dark:bg-slate-800/70 dark:text-slate-300"
+                    onClick={() => handleSectionChange(section)}
+                    aria-current={isSectionActive ? "page" : undefined}
+                    className={`group relative flex min-w-0 items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-all ${
+                      isSectionActive
+                        ? "bg-[#104340] text-white shadow-md shadow-[#104340]/20"
+                        : "text-slate-600 hover:bg-white hover:text-slate-900 hover:shadow-sm dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
                     }`}
                   >
-                    {tabLabel}
+                    <span
+                      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition ${
+                        isSectionActive
+                          ? "bg-white/20 text-white"
+                          : "bg-white text-slate-400 shadow-sm group-hover:text-blue-600 dark:bg-slate-900"
+                      }`}
+                    >
+                      <SectionIcon size={16} />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-semibold">
+                        {section.label}
+                      </span>
+                      <span
+                        className={`block text-[10px] font-medium ${
+                          isSectionActive ? "text-white/75" : "text-slate-400"
+                        }`}
+                      >
+                        {section.items.length}{" "}
+                        {section.items.length === 1 ? "tool" : "tools"}
+                      </span>
+                    </span>
+                    {isSectionActive && (
+                      <span className="absolute inset-x-5 bottom-0 h-0.5 rounded-full bg-white/80" />
+                    )}
                   </button>
+                );
+              })}
+            </div>
+
+            {/* Secondary tabs */}
+            <div className="border-y border-slate-200 px-3 py-2.5 dark:border-slate-800">
+              <div className="flex items-center gap-3 overflow-x-auto">
+                <span className="hidden shrink-0 text-[10px] font-bold uppercase tracking-wider text-slate-400 sm:block">
+                  {activeSection.label}
+                </span>
+                <span className="hidden h-5 w-px shrink-0 bg-slate-200 sm:block dark:bg-slate-700" />
+
+                {activeSection.items.map((tab) => {
+                  const Icon = tab.icon;
+                  const isActive = activeTab === tab.id;
+                  const isDisabled = Boolean(tab.disabled);
+
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      disabled={isDisabled}
+                      title={isDisabled ? tab.disabledReason : undefined}
+                      aria-current={isActive ? "page" : undefined}
+                      onClick={() => {
+                        if (!isDisabled) onTabChange(tab.id);
+                      }}
+                      className={`group inline-flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold transition-all ${
+                        isActive
+                          ? "bg-[#104340] text-white shadow-sm dark:bg-[#104340] dark:text-white"
+                          : isDisabled
+                            ? "cursor-not-allowed text-slate-400 opacity-50"
+                            : "text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
+                      }`}
+                    >
+                      <Icon
+                        size={14}
+                        className={
+                          isActive
+                            ? "text-white"
+                            : tab.color
+                        }
+                      />
+                      <span className="whitespace-nowrap">{tab.label}</span>
+                    </button>
                   );
                 })}
+              </div>
             </div>
-          </div>
+          </nav>
 
           <div className="p-4 md:p-6">
             {activeTab === "details" && renderDetails()}

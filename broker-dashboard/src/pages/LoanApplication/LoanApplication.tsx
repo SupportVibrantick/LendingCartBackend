@@ -884,6 +884,7 @@ export type LoanApplicationProps = {
   initialSelectedProduct?: string;
   initialSelectedCategory?: LoanCategory;
   initialDynamicFormData?: Record<string, any>;
+  initialCreditAuthorizationConsent?: boolean;
   onUpdateSuccess?: (submissionId?: string) => void;
   onPublicSubmitSuccess?: (submissionId?: string) => void;
   reviewCaptchaSlot?: ReactNode;
@@ -989,6 +990,7 @@ const LoanApplication = ({
   initialSelectedProduct = "",
   initialSelectedCategory = "",
   initialDynamicFormData,
+  initialCreditAuthorizationConsent = false,
   onUpdateSuccess,
   onPublicSubmitSuccess,
   reviewCaptchaSlot,
@@ -1009,6 +1011,8 @@ const LoanApplication = ({
   // const [applicationId, setApplicationId] = useState<string>("");
   const [productsMeta, setProductsMeta] = useState<any[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [creditAuthorizationConsent, setCreditAuthorizationConsent] =
+    useState(Boolean(initialCreditAuthorizationConsent));
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [pendingDocuments, setPendingDocuments] = useState<
     PendingApplicationDocument[]
@@ -2086,6 +2090,12 @@ const LoanApplication = ({
       toast.error("Please complete all required fields before submitting");
       return;
     }
+    if (!creditAuthorizationConsent) {
+      toast.error(
+        "Please agree to the Credit Authorization Consent before submitting",
+      );
+      return;
+    }
     if (publicEmbed && !recaptchaToken) {
       toast.error("Please verify reCAPTCHA before submitting");
       return;
@@ -2113,6 +2123,13 @@ const LoanApplication = ({
     try {
       if (useStandardSevenStepFlow && getReviewValidationIssues().length > 0) {
         toast.error("Please complete all required fields before submitting");
+        return;
+      }
+
+      if (useStandardSevenStepFlow && !creditAuthorizationConsent) {
+        toast.error(
+          "Please agree to the Credit Authorization Consent before submitting",
+        );
         return;
       }
 
@@ -2360,6 +2377,10 @@ const LoanApplication = ({
         addField(`applicationDocument_${index}_documentType`, doc.documentType);
       });
       addField("applicationDocumentCount", pendingDocuments.length);
+      addField(
+        "creditAuthorizationConsent",
+        creditAuthorizationConsent ? "yes" : "no",
+      );
 
       /* ================= FINAL PAYLOAD ================= */
 
@@ -2704,7 +2725,10 @@ const LoanApplication = ({
     : toNumber(formData.loanTermIncome.noiActual) * 12;
 
   const residentialDebtService = usesBase44Financials
-    ? getResidentialDebtServiceForDscr(formData.financials)
+    ? getResidentialDebtServiceForDscr(
+        formData.financials,
+        totalAnnualDebtPayment,
+      )
     : 0;
 
   const annualDebtService =
@@ -6710,6 +6734,10 @@ focus:border-blue-500 outline-none text-sm ${
                 requireCaptcha={publicEmbed}
                 captchaVerified={Boolean(recaptchaToken)}
                 captchaSlot={publicEmbed ? reviewCaptchaSlot : null}
+                creditAuthorizationConsent={creditAuthorizationConsent}
+                onCreditAuthorizationConsentChange={
+                  setCreditAuthorizationConsent
+                }
               />
             </div>
           )}

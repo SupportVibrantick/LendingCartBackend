@@ -131,7 +131,10 @@ module.exports = async function submissionDocuments(fastify) {
       });
 
       const useInMemoryPagination =
-        normalizedSentFilter === "sent" || normalizedSentFilter === "not_sent";
+        normalizedSentFilter === "sent" ||
+        normalizedSentFilter === "not_sent" ||
+        normalizedSentFilter === "sent_to_client" ||
+        normalizedSentFilter === "not_sent_to_client";
 
       const documentRequirements =
         await fastify.prisma.applicationDocumentRequirement.findMany({

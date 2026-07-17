@@ -262,13 +262,18 @@ export default function ResidentialFinancialsStep({
                     <td className="px-4 py-2 italic text-slate-600 dark:text-slate-400">
                       {label}
                     </td>
-                    {columnKeys.map((column) => {
+                    {columnKeys.map((column, columnIndex) => {
                       const calculated =
                         key === "effectiveGrossIncome"
                           ? calcEffectiveGrossIncome(financials, column)
                           : key === "noi"
                             ? calcNoi(financials, column)
-                            : calcCashFlowAfterDebt(financials, column);
+                            : calcCashFlowAfterDebt(
+                                financials,
+                                column,
+                                columnIndex,
+                                annualDebtServiceDefault,
+                              );
 
                       return (
                         <td key={column} className="px-3 py-2">
@@ -322,7 +327,8 @@ export default function ResidentialFinancialsStep({
             className="w-full rounded-md border border-slate-300 bg-white px-4 py-1 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 md:w-28"
           />
           <p className="text-xs text-slate-500">
-            Used to annualize the interim NOI for DSCR.
+            Used to annualize the interim-year NOI when averaging DSCR across
+            all entered years.
           </p>
         </div>
       </div>
@@ -418,7 +424,9 @@ export default function ResidentialFinancialsStep({
         </div>
 
         <p className="mt-2 text-xs text-slate-500">
-          DSCR uses the average of all entered pro-forma year amounts.
+          NOI method averages annualized NOI and debt service across all entered
+          years (default last 4: interim + prior years). Pro-forma averages all
+          entered projection years.
         </p>
       </div>
 

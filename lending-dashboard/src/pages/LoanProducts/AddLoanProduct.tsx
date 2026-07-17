@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
 import toast from "react-hot-toast";
@@ -14,6 +14,7 @@ import {
   isNoMinLoanCriteriaProduct,
   isSba504Product,
 } from "../../lib/loanProductCriteriaFields";
+import { mapToCanonicalCatalogId } from "../../lib/lenderLoanProducts";
 
 type FormType = {
   loanPrograms: string[];
@@ -27,6 +28,14 @@ type Product = {
   id: string;
   name: string;
   code: string;
+};
+
+type ExistingLenderProduct = {
+  id: string;
+  loanProductId?: string;
+  loanProductCode?: string;
+  code?: string;
+  loanProduct?: { id?: string; code?: string };
 };
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
@@ -47,12 +56,19 @@ function getAuthHeaders(): Record<string, string> {
   return { "Content-Type": "application/json" };
 }
 
+function getProgramId(record: ExistingLenderProduct) {
+  return String(record.loanProductId || record.loanProduct?.id || "");
+}
+
 export default function AddLoanProduct() {
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const [hasStep5Errors, setHasStep5Errors] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
+  const [existingLenderProducts, setExistingLenderProducts] = useState<
+    ExistingLenderProduct[]
+  >([]);
   const [form, setForm] = useState<FormType>({
     loanPrograms: [],
     propertyTypes: {},
@@ -61,9 +77,73 @@ export default function AddLoanProduct() {
     equipmentFinance: [],
   });
 
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const res = await fetch(
+          `${API_BASE}/lender/loan-products/list?limit=100`,
+          {
+            headers: getAuthHeaders(),
+          },
+        );
+        const json = await res.json().catch(() => ({}));
+
+        if (!res.ok || !json.success) {
+          throw new Error(json.message || "Failed to load existing products");
+        }
+
+        if (!cancelled) {
+          setExistingLenderProducts((json.data || []) as ExistingLenderProduct[]);
+        }
+      } catch (err: any) {
+        console.error(err);
+        toast.error(err?.message || "Failed to load existing loan products");
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const alreadyAddedIds = useMemo(() => {
+    if (!products.length || !existingLenderProducts.length) return [];
+
+    return [
+      ...new Set(
+        existingLenderProducts
+          .map((item) =>
+            mapToCanonicalCatalogId(
+              products,
+              item.loanProductCode || item.code || item.loanProduct?.code,
+              getProgramId(item),
+            ),
+          )
+          .filter(Boolean),
+      ),
+    ] as string[];
+  }, [products, existingLenderProducts]);
+
+  useEffect(() => {
+    if (!alreadyAddedIds.length) return;
+    setForm((prev) => {
+      const filtered = prev.loanPrograms.filter(
+        (id) => !alreadyAddedIds.includes(id),
+      );
+      if (filtered.length === prev.loanPrograms.length) return prev;
+      return { ...prev, loanPrograms: filtered };
+    });
+  }, [alreadyAddedIds]);
+
   const selectedProducts = useMemo(
-    () => products.filter((p) => form.loanPrograms.includes(p.id)),
-    [products, form.loanPrograms],
+    () =>
+      products.filter(
+        (p) =>
+          form.loanPrograms.includes(p.id) && !alreadyAddedIds.includes(p.id),
+      ),
+    [products, form.loanPrograms, alreadyAddedIds],
   );
 
   const isEquipmentSelected = selectedProducts.some(
@@ -231,9 +311,14 @@ export default function AddLoanProduct() {
           mode="lender"
           value={form.loanPrograms}
           setValue={(val) =>
-            setForm((prev) => ({ ...prev, loanPrograms: val }))
+            setForm((prev) => ({
+              ...prev,
+              loanPrograms: val.filter((id) => !alreadyAddedIds.includes(id)),
+            }))
           }
           onProductsLoad={setProducts}
+          alreadyAddedIds={alreadyAddedIds}
+          description="Already added programs are disabled. Select new programs to add."
         />
       );
     }

@@ -34,7 +34,7 @@ async function notifyClientDocumentsForwarded(prisma, io, loan, logger) {
           applicationNumber: loan.applicationNumber,
           brokerName: "Your Broker",
           message:
-            "Your broker forwarded new document requests for your application. Please upload them in the client portal.",
+            "Your broker sent document requests for your application. Please upload them in the client portal.",
           preset: "documentsRequested",
         }),
       );
@@ -45,10 +45,10 @@ async function notifyClientDocumentsForwarded(prisma, io, loan, logger) {
         subject: "Documents Requested for Your Loan Application",
         text: "Your broker has requested documents. Please check the client portal.",
         html,
-        idempotencyKey: `broker-forward-docs:${loan.id}:${Date.now()}`,
+        idempotencyKey: `broker-send-docs-to-client:${loan.id}:${Date.now()}`,
       });
     } catch (err) {
-      logger?.error?.(err, "Failed to email client after document forward");
+      logger?.error?.(err, "Failed to email client after document send");
     }
   }
 
@@ -59,14 +59,14 @@ async function notifyClientDocumentsForwarded(prisma, io, loan, logger) {
         eventType: CLIENT_NOTIFICATION_EVENTS.DOCUMENTS_REQUESTED,
         category: "DOCUMENT",
         subject: `Documents requested for ${loan.applicationNumber}`,
-        body: "Your broker forwarded new document requests. Please upload them in the client portal.",
+        body: "Your broker sent document requests. Please upload them in the client portal.",
         metadata: {
           applicationId: loan.id,
           applicationNumber: loan.applicationNumber,
         },
       });
     } catch (err) {
-      logger?.error?.(err, "Failed to notify client after document forward");
+      logger?.error?.(err, "Failed to notify client after document send");
     }
   }
 }
@@ -81,7 +81,7 @@ async function forwardLenderDocumentsToClientRoutes(fastify) {
     {
       schema: {
         tags: ["Broker -> Loan Pipeline"],
-        summary: "Forward lender-requested documents to the client portal",
+        summary: "Send/forward document requests to the client portal",
         body: {
           type: "object",
           required: ["requirementIds"],
@@ -153,7 +153,9 @@ async function forwardLenderDocumentsToClientRoutes(fastify) {
           where: {
             id: { in: requirementIds },
             loanApplicationId: loan.id,
-            source: "LENDER_ADDED",
+            source: {
+              in: ["LENDER_ADDED", "BROKER_ADDED", "SUB_BROKER_ADDED"],
+            },
             requiresClientSignature: false,
           },
         });
@@ -161,25 +163,20 @@ async function forwardLenderDocumentsToClientRoutes(fastify) {
         if (requirements.length === 0) {
           return reply.code(400).send({
             success: false,
-            message: "No eligible lender-requested documents found",
+            message: "No eligible documents found to send to the client",
           });
         }
 
         const toForward = requirements.filter((r) => !r.sentToClientAt);
+        const alreadySentCount = requirements.length - toForward.length;
 
-        if (toForward.length === 0) {
-          return reply.send({
-            success: true,
-            message: "Selected documents were already forwarded to the client",
-            data: { forwardedCount: 0 },
+        if (toForward.length > 0) {
+          const now = new Date();
+          await prisma.applicationDocumentRequirement.updateMany({
+            where: { id: { in: toForward.map((r) => r.id) } },
+            data: { sentToClientAt: now },
           });
         }
-
-        const now = new Date();
-        await prisma.applicationDocumentRequirement.updateMany({
-          where: { id: { in: toForward.map((r) => r.id) } },
-          data: { sentToClientAt: now },
-        });
 
         await notifyClientDocumentsForwarded(
           prisma,
@@ -188,12 +185,25 @@ async function forwardLenderDocumentsToClientRoutes(fastify) {
           fastify.log,
         );
 
+        const messageParts = [];
+        if (toForward.length > 0) {
+          messageParts.push(
+            `${toForward.length} document(s) sent to client`,
+          );
+        }
+        if (alreadySentCount > 0) {
+          messageParts.push(
+            `${alreadySentCount} already on client portal — client re-notified`,
+          );
+        }
+
         return reply.send({
           success: true,
-          message: `${toForward.length} document(s) forwarded to client`,
+          message: messageParts.join(". ") || "Client notified",
           data: {
             forwardedCount: toForward.length,
-            requirementIds: toForward.map((r) => r.id),
+            reNotifiedCount: alreadySentCount,
+            requirementIds: requirements.map((r) => r.id),
           },
         });
       } catch (error) {

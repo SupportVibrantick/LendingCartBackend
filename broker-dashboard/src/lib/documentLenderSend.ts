@@ -25,7 +25,12 @@ export type DocumentSendRow = {
   [key: string]: unknown;
 };
 
-export type DocumentSentFilter = "all" | "sent" | "not_sent";
+export type DocumentSentFilter =
+  | "all"
+  | "sent"
+  | "not_sent"
+  | "sent_to_client"
+  | "not_sent_to_client";
 
 export type DocumentSourceFilter = "all" | "broker" | "lender" | "sub_broker";
 
@@ -370,11 +375,33 @@ export function isDocumentFullySentToLender(
   return uploadedCount > 0 && sentCount >= uploadedCount && pendingCount === 0;
 }
 
+const CLIENT_FORWARD_SOURCES = new Set([
+  "BROKER_ADDED",
+  "LENDER_ADDED",
+  "SUB_BROKER_ADDED",
+]);
+
+export function isClientForwardableDocument(doc: DocumentSendRow) {
+  return CLIENT_FORWARD_SOURCES.has(String(doc.source || ""));
+}
+
+export function isDocumentSentToClient(doc: DocumentSendRow) {
+  return Boolean(doc.isForwardedToClient);
+}
+
 export function matchesDocumentSentFilter(
   doc: DocumentDisplayRow,
   filter: DocumentSentFilter,
 ) {
   if (filter === "all") return true;
+
+  if (filter === "sent_to_client") {
+    return isClientForwardableDocument(doc) && isDocumentSentToClient(doc);
+  }
+
+  if (filter === "not_sent_to_client") {
+    return isClientForwardableDocument(doc) && !isDocumentSentToClient(doc);
+  }
 
   const lenderId = doc.sourceLender?.applicationLenderId ?? null;
   const isFullySent = isDocumentFullySentToLender(doc, lenderId);

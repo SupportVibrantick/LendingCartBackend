@@ -23,7 +23,7 @@ module.exports = async function listActiveDocumentTypes(fastify) {
               type: "string",
             },
             all: {
-              type: "boolean",
+              anyOf: [{ type: "boolean" }, { type: "string" }],
               default: false,
             },
           },
@@ -84,10 +84,13 @@ module.exports = async function listActiveDocumentTypes(fastify) {
             name: true,
             code: true,
             description: true,
+            isCustom: true,
           },
-          orderBy: {
-            name: "asc",
-          },
+          orderBy: [
+            { isCustom: "desc" },
+            { createdAt: "desc" },
+            { name: "asc" },
+          ],
           ...(all
             ? {}
             : {

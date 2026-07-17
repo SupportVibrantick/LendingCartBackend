@@ -304,17 +304,19 @@ export default function PartnerSignup() {
       }
 
       const phoneDigits = cleanPhone(form.organizationPhone);
+      const organizationEmail = form.organizationEmail.trim().toLowerCase();
+      const adminEmail = form.adminEmail.trim().toLowerCase();
 
       const res = await fetch(`${API_BASE}/lender/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           organizationName: form.organizationName.trim(),
-          organizationEmail: form.organizationEmail.trim(),
+          organizationEmail,
           organizationPhone: phoneDigits || undefined,
           adminFirstName: form.adminFirstName.trim() || undefined,
           adminLastName: form.adminLastName.trim() || undefined,
-          adminEmail: form.adminEmail.trim(),
+          adminEmail,
           password: form.password,
           source: "public",
           captchaToken,
@@ -349,7 +351,7 @@ export default function PartnerSignup() {
       if (json.data?.emailVerificationRequired) {
         toast.success("Account created. Please verify your email.");
         const pendingEmail = encodeURIComponent(
-          String(json.data?.email || form.adminEmail.trim()),
+          String(json.data?.email || adminEmail),
         );
         navigate(`/verify-email-pending?email=${pendingEmail}`);
         return;
@@ -415,7 +417,12 @@ export default function PartnerSignup() {
                 <Input
                   type="email"
                   value={form.organizationEmail}
-                  onChange={(e) => updateField("organizationEmail", e.target.value)}
+                  onChange={(e) =>
+                    updateField(
+                      "organizationEmail",
+                      e.target.value.toLowerCase(),
+                    )
+                  }
                   placeholder="company@example.com"
                   error={Boolean(errors.organizationEmail)}
                   disabled={saving}
@@ -471,7 +478,9 @@ export default function PartnerSignup() {
                   type="email"
                   autoComplete="username"
                   value={form.adminEmail}
-                  onChange={(e) => updateField("adminEmail", e.target.value)}
+                  onChange={(e) =>
+                    updateField("adminEmail", e.target.value.toLowerCase())
+                  }
                   placeholder="you@example.com"
                   error={Boolean(errors.adminEmail)}
                   disabled={saving}

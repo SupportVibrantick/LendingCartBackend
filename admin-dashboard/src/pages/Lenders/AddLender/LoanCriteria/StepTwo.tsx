@@ -59,6 +59,7 @@ type StepTwoProps = {
   mode?: "admin" | "lender";
   onProductsLoad?: (products: LoanProduct[]) => void;
   lockedIds?: string[];
+  alreadyAddedIds?: string[];
   description?: string;
 };
 
@@ -68,13 +69,21 @@ const StepTwo = ({
   mode = "admin",
   onProductsLoad,
   lockedIds = [],
+  alreadyAddedIds = [],
   description,
 }: StepTwoProps) => {
   const safeValue = Array.isArray(value) ? value : [];
   const lockedSet = new Set(lockedIds);
+  const alreadyAddedSet = new Set(alreadyAddedIds);
   const [products, setProducts] = useState<LoanProduct[]>([]);
 
+  const selectableProducts = products.filter(
+    (product) => !alreadyAddedSet.has(product.id),
+  );
+
   const toggle = (id: string) => {
+    if (alreadyAddedSet.has(id)) return;
+
     const current = Array.isArray(value) ? value : [];
 
     if (lockedSet.has(id) && current.includes(id)) {
@@ -94,6 +103,13 @@ const StepTwo = ({
       return;
     }
     setValue([]);
+  };
+
+  const handleSelectAll = () => {
+    const nextIds = [
+      ...new Set([...lockedIds, ...selectableProducts.map((p) => p.id)]),
+    ];
+    setValue(nextIds);
   };
 
   const fetchLoanProducts = async () => {
@@ -151,7 +167,7 @@ const StepTwo = ({
       {value?.length > 0 && (
         <div className="flex flex-wrap gap-2 mb-4">
           {products
-            .filter((p) => value.includes(p.id))
+            .filter((p) => value.includes(p.id) && !alreadyAddedSet.has(p.id))
             .slice(0, 5)
             .map((p) => (
               <span
@@ -162,9 +178,9 @@ const StepTwo = ({
               </span>
             ))}
 
-          {value.length > 5 && (
+          {value.filter((id) => !alreadyAddedSet.has(id)).length > 5 && (
             <span className="text-xs text-gray-500">
-              +{value.length - 5} more
+              +{value.filter((id) => !alreadyAddedSet.has(id)).length - 5} more
             </span>
           )}
         </div>
@@ -176,24 +192,34 @@ const StepTwo = ({
             Loan Programs Offered
             {value?.length > 0 && (
               <span className="text-xs bg-blue-100 text-blue-600 px-2.5 py-0.5 rounded-full font-medium">
-                {value.length} selected
+                {value.filter((id) => !alreadyAddedSet.has(id)).length} selected
+              </span>
+            )}
+            {alreadyAddedIds.length > 0 && (
+              <span className="text-xs bg-amber-100 text-amber-700 px-2.5 py-0.5 rounded-full font-medium">
+                {alreadyAddedIds.length} already assigned
               </span>
             )}
           </h2>
 
           <p className="text-sm text-gray-500 mt-1">
             {description ||
-              (lockedIds.length > 0
-                ? "Existing programs stay selected. You can add more programs, but cannot remove current ones."
-                : "Select which loan programs you want to add.")}
+              (alreadyAddedIds.length > 0
+                ? "Already assigned programs are disabled. Select new programs to add."
+                : lockedIds.length > 0
+                  ? "Existing programs stay selected. You can add more programs, but cannot remove current ones."
+                  : "Select which loan programs you want to add.")}
           </p>
         </div>
 
         <div className="flex items-center gap-4 text-sm mt-1">
           <button
-            onClick={() => setValue(products.map((p) => p.id))}
+            onClick={handleSelectAll}
             className="text-blue-600 font-medium hover:underline disabled:text-gray-300"
-            disabled={value?.length === products.length}
+            disabled={
+              selectableProducts.length === 0 ||
+              selectableProducts.every((p) => safeValue.includes(p.id))
+            }
           >
             Select All
           </button>
@@ -210,7 +236,8 @@ const StepTwo = ({
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 max-h-[600px] overflow-y-auto pr-2">
         {products.map((item) => {
-          const isChecked = safeValue.includes(item.id);
+          const isAlreadyAdded = alreadyAddedSet.has(item.id);
+          const isChecked = safeValue.includes(item.id) && !isAlreadyAdded;
           const isLocked = lockedSet.has(item.id) && isChecked;
 
           return (
@@ -218,24 +245,32 @@ const StepTwo = ({
               key={item.id}
               className={`flex items-center gap-3 rounded-xl px-4 py-3 transition-all duration-200 border
   ${
-    isLocked
-      ? "cursor-not-allowed border-emerald-200 bg-emerald-50/80"
-      : "cursor-pointer"
+    isAlreadyAdded
+      ? "cursor-not-allowed border-amber-200 bg-amber-50/70 opacity-80"
+      : isLocked
+        ? "cursor-not-allowed border-emerald-200 bg-emerald-50/80"
+        : "cursor-pointer"
   }
   ${
     isChecked
       ? isLocked
         ? "shadow-sm"
         : "border-blue-500 bg-blue-50 shadow-sm scale-[1.01]"
-      : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+      : isAlreadyAdded
+        ? ""
+        : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
   }`}
             >
               <input
                 type="checkbox"
-                checked={isChecked}
-                disabled={isLocked}
+                checked={isChecked || isAlreadyAdded}
+                disabled={isLocked || isAlreadyAdded}
                 onChange={() => toggle(item.id)}
-                className={`${isLocked ? "cursor-not-allowed opacity-70" : "cursor-pointer"}`}
+                className={`${
+                  isLocked || isAlreadyAdded
+                    ? "cursor-not-allowed opacity-70"
+                    : "cursor-pointer"
+                }`}
               />
 
               <span
@@ -246,7 +281,11 @@ const StepTwo = ({
 
               <span className="flex-1 text-xs">{item.name}</span>
 
-              {isLocked ? (
+              {isAlreadyAdded ? (
+                <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-amber-700">
+                  Already Assigned
+                </span>
+              ) : isLocked ? (
                 <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-emerald-700">
                   Active
                 </span>

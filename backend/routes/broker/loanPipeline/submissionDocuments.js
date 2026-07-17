@@ -124,7 +124,10 @@ module.exports = async function submissionDocuments(fastify) {
       });
 
       const useInMemoryPagination =
-        normalizedSentFilter === "sent" || normalizedSentFilter === "not_sent";
+        normalizedSentFilter === "sent" ||
+        normalizedSentFilter === "not_sent" ||
+        normalizedSentFilter === "sent_to_client" ||
+        normalizedSentFilter === "not_sent_to_client";
 
       const { byRequirement, byUpload, lenderNameById } =
         await buildDocumentSentToLenderMap(fastify.prisma, loanApplicationId);

@@ -9,6 +9,7 @@ async function sendLenderTeamCredentialsEmail({
   password,
   organizationName,
   roleName,
+  invitationKey,
   prisma,
 }) {
   const loginUrl = buildLenderSignInUrl();
@@ -45,7 +46,7 @@ Please change your password after your first login. Do not share these credentia
     subject,
     text,
     html,
-    idempotencyKey: `lender-team-credentials:${email}`,
+    idempotencyKey: `lender-team-credentials:${invitationKey || email}`,
     provider: "SMTP",
   });
 }

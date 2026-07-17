@@ -174,6 +174,11 @@ module.exports = async function lenderViewDocuments(fastify) {
           if (reqDoc.status === "SKIPPED") return false;
           if (reqDoc.requiresClientSignature) return false;
 
+          // Broker manually shared this requirement with this lender.
+          if (sharedRequirementIdSet.has(reqDoc.id)) {
+            return true;
+          }
+
           if (reqDoc.source === "LENDER_ADDED") {
             return lenderRequestedTypeIds.has(reqDoc.documentTypeId);
           }
@@ -182,14 +187,10 @@ module.exports = async function lenderViewDocuments(fastify) {
             reqDoc.source === "BROKER_ADDED" ||
             reqDoc.source === "SUB_BROKER_ADDED"
           ) {
-            return sharedRequirementIdSet.has(reqDoc.id);
+            return false;
           }
 
-          if (lenderRequestedTypeIds.has(reqDoc.documentTypeId)) {
-            return true;
-          }
-
-          return sharedRequirementIdSet.has(reqDoc.id);
+          return lenderRequestedTypeIds.has(reqDoc.documentTypeId);
         };
 
         const uploadInclude = {

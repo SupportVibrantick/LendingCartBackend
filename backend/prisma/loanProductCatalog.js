@@ -23,8 +23,8 @@ const LOAN_PRODUCTS = [
   { code: "USDA_BI", name: "USDA B&I" },
   { code: "PURCHASE_ORDER_FINANCE", name: "Purchase Order Financing (Asset Based Lending)" },
   { code: "EQUIPMENT_FINANCE", name: "Equipment Finance (Asset Based Lending)" },
-  { code: "INVOICE_FACTORING", name: "AR Factoring" },
-  { code: "ACCOUNTS_PAYABLE_FINANCE", name: "AP Supply Chain (Asset Based Lending)" },
+  { code: "INVOICE_FACTORING", name: "Accounts Receivable Finance" },
+  { code: "ACCOUNTS_PAYABLE_FINANCE", name: "Accounts Payable Finance (Asset Based Lending)" },
   { code: "ACCOUNTS_RECEIVABLE", name: "Accounts Receivable (Asset Based Lending)" },
 ];
 

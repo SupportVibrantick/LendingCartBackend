@@ -64,6 +64,33 @@ export default function TeamMembers() {
     [editForm.role],
   );
 
+  const currentUserId = useMemo(() => {
+    try {
+      const raw =
+        sessionStorage.getItem("lender_user") ||
+        sessionStorage.getItem("user") ||
+        "{}";
+      const user = JSON.parse(raw);
+      return String(user?.id || user?.userId || "");
+    } catch {
+      return "";
+    }
+  }, []);
+
+  const sortedMembers = useMemo(() => {
+    return [...members].sort((a, b) => {
+      const aIsCurrent = Boolean(currentUserId) && a.id === currentUserId;
+      const bIsCurrent = Boolean(currentUserId) && b.id === currentUserId;
+      if (aIsCurrent !== bIsCurrent) return aIsCurrent ? -1 : 1;
+
+      const aIsAdmin = a.role === "LENDER_ADMIN";
+      const bIsAdmin = b.role === "LENDER_ADMIN";
+      if (aIsAdmin !== bIsAdmin) return aIsAdmin ? -1 : 1;
+
+      return 0;
+    });
+  }, [members, currentUserId]);
+
   const fetchMembers = async () => {
     try {
       setLoading(true);
@@ -252,7 +279,7 @@ export default function TeamMembers() {
           <div>
             <h1 className="text-2xl font-bold text-slate-900">Team Members</h1>
             <p className="mt-1 text-sm text-slate-500">
-              Manage who has access to your Lender Portal
+              Manage who has access to your Lender Portal 
             </p>
           </div>
 
@@ -305,7 +332,11 @@ export default function TeamMembers() {
                     </td>
                   </tr>
                 ) : (
-                  members.map((member) => (
+                  sortedMembers.map((member) => {
+                    const isCurrentUser =
+                      Boolean(currentUserId) && member.id === currentUserId;
+
+                    return (
                     <tr
                       key={member.id}
                       className="border-b border-slate-100 last:border-b-0"
@@ -315,9 +346,16 @@ export default function TeamMembers() {
                           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-teal-100 text-sm font-semibold text-teal-700">
                             {getMemberInitials(member)}
                           </div>
-                          <span className="font-medium text-slate-800">
-                            {formatTeamMemberName(member)}
-                          </span>
+                          <div className="min-w-0">
+                            <span className="font-medium text-slate-800">
+                              {formatTeamMemberName(member)}
+                            </span>
+                            {isCurrentUser ? (
+                              <span className="ml-2 inline-flex rounded-full bg-teal-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-teal-700 ring-1 ring-inset ring-teal-200">
+                                You
+                              </span>
+                            ) : null}
+                          </div>
                         </div>
                       </td>
                       <td className="px-5 py-4 text-slate-600">{member.email}</td>
@@ -351,18 +389,21 @@ export default function TeamMembers() {
                           >
                             <Pencil size={16} />
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDelete(member)}
-                            className="rounded-lg border border-rose-200 p-2 text-rose-500 transition hover:bg-rose-50 hover:text-rose-700"
-                            title="Remove member"
-                          >
-                            <Trash2 size={16} />
-                          </button>
+                          {!isCurrentUser ? (
+                            <button
+                              type="button"
+                              onClick={() => handleDelete(member)}
+                              className="rounded-lg border border-rose-200 p-2 text-rose-500 transition hover:bg-rose-50 hover:text-rose-700"
+                              title="Remove member"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          ) : null}
                         </div>
                       </td>
                     </tr>
-                  ))
+                    );
+                  })
                 )}
               </tbody>
             </table>

@@ -209,6 +209,18 @@ function getSentFilterLenderContexts(doc, applicationLenderId) {
 }
 
 function rowMatchesSentFilter(doc, sentFilter, lenderId) {
+  if (sentFilter === "sent_to_client") {
+    return (
+      isClientForwardableDocument(doc) && Boolean(doc.isForwardedToClient)
+    );
+  }
+
+  if (sentFilter === "not_sent_to_client") {
+    return (
+      isClientForwardableDocument(doc) && !Boolean(doc.isForwardedToClient)
+    );
+  }
+
   const isFullySent = isDocumentFullySentToLender(doc, lenderId);
 
   if (sentFilter === "sent") return isFullySent;
@@ -216,8 +228,24 @@ function rowMatchesSentFilter(doc, sentFilter, lenderId) {
   return !isFullySent;
 }
 
+function isClientForwardableDocument(doc) {
+  const source = String(doc?.source || "");
+  return (
+    source === "BROKER_ADDED" ||
+    source === "LENDER_ADDED" ||
+    source === "SUB_BROKER_ADDED"
+  );
+}
+
 function documentMatchesSentFilter(doc, sentFilter, applicationLenderId) {
   if (!sentFilter || sentFilter === "all") return true;
+
+  if (
+    sentFilter === "sent_to_client" ||
+    sentFilter === "not_sent_to_client"
+  ) {
+    return rowMatchesSentFilter(doc, sentFilter, null);
+  }
 
   const contexts = getSentFilterLenderContexts(doc, applicationLenderId);
 

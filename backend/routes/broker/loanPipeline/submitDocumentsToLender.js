@@ -1,7 +1,4 @@
 const {
-  filterRequirementIdsForLender,
-} = require("../../../utils/lender/filterDocumentRequirementsForLender");
-const {
   canLenderReceiveDocuments,
   getLenderDocumentDeliveryBlockMessage,
 } = require("../../../utils/lender/lenderDocumentDelivery");
@@ -125,9 +122,8 @@ module.exports = async function submitDocumentsToLender(fastify) {
             continue;
           }
 
-          /* VALIDATE + FILTER REQUIREMENTS PER LENDER */
+          /* VALIDATE REQUIREMENTS FOR THIS APPLICATION */
           let filteredRequirementIds = requirementIds;
-          let skippedCount = 0;
 
           if (requirementIds && requirementIds.length > 0) {
             if (
@@ -142,16 +138,17 @@ module.exports = async function submitDocumentsToLender(fastify) {
               continue;
             }
 
+            const uniqueRequirementIds = [...new Set(requirementIds)];
             const validRequirements =
               await fastify.prisma.applicationDocumentRequirement.findMany({
                 where: {
-                  id: { in: requirementIds },
+                  id: { in: uniqueRequirementIds },
                   loanApplicationId,
                 },
                 select: { id: true },
               });
 
-            if (validRequirements.length !== requirementIds.length) {
+            if (validRequirements.length !== uniqueRequirementIds.length) {
               results.push({
                 lenderId: applicationLenderId,
                 success: false,
@@ -160,27 +157,9 @@ module.exports = async function submitDocumentsToLender(fastify) {
               continue;
             }
 
-            const filterResult = await filterRequirementIdsForLender(
-              fastify.prisma,
-              {
-                loanApplicationId,
-                applicationLenderId,
-                requirementIds,
-              },
-            );
-
-            filteredRequirementIds = filterResult.allowedIds;
-            skippedCount = filterResult.skippedIds.length;
-
-            if (filteredRequirementIds.length === 0) {
-              results.push({
-                lenderId: applicationLenderId,
-                success: false,
-                message: "No eligible documents for this lender",
-                skippedCount,
-              });
-              continue;
-            }
+            // A broker may manually send any document on the application to
+            // any receivable lender, even if that lender did not request it.
+            filteredRequirementIds = uniqueRequirementIds;
           }
 
           /* BUILD FILTER */
@@ -203,7 +182,8 @@ module.exports = async function submitDocumentsToLender(fastify) {
             results.push({
               lenderId: applicationLenderId,
               success: false,
-              message: "No documents available",
+              message:
+                "No uploaded files found for the selected documents. Upload files first, then send to lender.",
             });
             continue;
           }
@@ -239,7 +219,7 @@ module.exports = async function submitDocumentsToLender(fastify) {
             lenderId: applicationLenderId,
             success: true,
             submittedCount: uploadIds.length,
-            skippedCount,
+            skippedCount: 0,
           });
         }
 

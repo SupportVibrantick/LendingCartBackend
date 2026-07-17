@@ -1,7 +1,10 @@
 ﻿import {
   ArrowLeft,
+  Building2,
+  CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  ClipboardList,
   Download,
   DollarSign,
   Eye,
@@ -10,12 +13,14 @@
   FolderOpen,
   Loader2,
   Mail,
+  MessageSquare,
   MoreVertical,
   Pencil,
   Search,
   SearchX,
   Send,
   Upload,
+  X,
 } from "lucide-react";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -39,7 +44,6 @@ import {
   matchesDocumentSentFilter,
   type DocumentSentFilter,
   type DocumentSourceFilter,
-  summarizeSendFromDisplayRows,
 } from "../../lib/documentLenderSend";
 import {
   formatDocumentStatusLabel,
@@ -114,6 +118,42 @@ type TabKey =
   | "chat"
   | "fee-agreement"
   | "commissions";
+
+type TabSectionId =
+  | "application"
+  | "documents"
+  | "communication"
+  | "lender";
+
+type TabItem = {
+  key: TabKey;
+  label: string;
+  icon: typeof Eye;
+  color: string;
+  disabled?: boolean;
+  disabledReason?: string;
+};
+
+type TabSection = {
+  id: TabSectionId;
+  label: string;
+  icon: typeof Eye;
+  items: TabItem[];
+};
+
+const TAB_SECTION_BY_KEY: Record<TabKey, TabSectionId> = {
+  "view-details": "application",
+  "update-application": "application",
+  "fee-agreement": "application",
+  commissions: "application",
+  documents: "documents",
+  "request-document": "documents",
+  "sign-documents": "documents",
+  chat: "communication",
+  "email-reminders": "communication",
+  "find-lenders": "lender",
+  "view-loi": "lender",
+};
 
 const parseValue = (val: unknown): any => {
   if (val == null) return undefined;
@@ -310,6 +350,28 @@ const formatMonthlyPayment = (value: number) => {
   })}`;
 };
 
+const REQUEST_DOC_LIMIT = 12;
+
+const getRequestDocColor = (name: string) => {
+  const colors = [
+    "bg-orange-500",
+    "bg-green-500",
+    "bg-blue-500",
+    "bg-purple-500",
+    "bg-pink-500",
+    "bg-yellow-500",
+    "bg-indigo-500",
+    "bg-teal-500",
+    "bg-red-500",
+    "bg-cyan-500",
+  ];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return colors[Math.abs(hash) % colors.length];
+};
+
 const LoanPreview = () => {
   const Location = useLocation();
   const actionRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -330,8 +392,26 @@ const LoanPreview = () => {
     string | null
   >(null);
   const [selectedRequestDocs, setSelectedRequestDocs] = useState<string[]>([]);
+  const [selectedRequestDocMeta, setSelectedRequestDocMeta] = useState<
+    Record<string, { name: string; isCustom: boolean }>
+  >({});
   const [requestMessage, setRequestMessage] = useState("");
   const [requestSubmitting, setRequestSubmitting] = useState(false);
+  const [requestDocSearch, setRequestDocSearch] = useState("");
+  const [debouncedRequestDocSearch, setDebouncedRequestDocSearch] =
+    useState("");
+  const [requestDocPage, setRequestDocPage] = useState(1);
+  const [requestDocPagination, setRequestDocPagination] = useState({
+    page: 1,
+    limit: REQUEST_DOC_LIMIT,
+    total: 0,
+    totalPages: 1,
+    hasNextPage: false,
+    hasPreviousPage: false,
+  });
+  const [customDocumentName, setCustomDocumentName] = useState("");
+  const [addingCustomDoc, setAddingCustomDoc] = useState(false);
+  const [selectingAllRequestDocs, setSelectingAllRequestDocs] = useState(false);
 
   const [submittedLenders, setSubmittedLenders] = useState<any[]>([]);
   const [selectedLenders, setSelectedLenders] = useState<string[]>([]);
@@ -341,6 +421,7 @@ const LoanPreview = () => {
   const [documentsLoadedFor, setDocumentsLoadedFor] = useState<string | null>(
     null,
   );
+  const [documentsRefreshKey, setDocumentsRefreshKey] = useState(0);
   // const [uploadingDocId, setUploadingDocId] = useState<string | null>(null);
   // const [selectedFiles, setSelectedFiles] = useState<Record<string, File[]>>(
   //   {},
@@ -439,27 +520,24 @@ const LoanPreview = () => {
     documentsData?.autoForwardLenderRequestsToClient,
   );
 
-  const pendingClientForwardDocs = useMemo(
-    () =>
-      displayDocuments.filter(
-        (doc) =>
-          doc.source === "LENDER_ADDED" &&
-          !doc.isForwardedToClient &&
-          doc.status !== "SKIPPED",
-      ),
-    [displayDocuments],
-  );
-
-  const selectedPendingClientForwardIds = useMemo(() => {
+  /** Broker/lender/sub-broker docs that can be sent (or re-notified) to the client */
+  const selectedClientSendableIds = useMemo(() => {
     const selected = new Set(selectedRows);
     return [
       ...new Set(
-        pendingClientForwardDocs
-          .filter((doc) => selected.has(doc.rowKey))
+        displayDocuments
+          .filter(
+            (doc) =>
+              selected.has(doc.rowKey) &&
+              doc.status !== "SKIPPED" &&
+              ["BROKER_ADDED", "LENDER_ADDED", "SUB_BROKER_ADDED"].includes(
+                String(doc.source || ""),
+              ),
+          )
           .map((doc) => String(doc.requirementId)),
       ),
     ];
-  }, [pendingClientForwardDocs, selectedRows]);
+  }, [displayDocuments, selectedRows]);
 
   const isAllSelected =
     selectableDocuments.length > 0 &&
@@ -531,25 +609,28 @@ const LoanPreview = () => {
       return;
     }
 
-    const { payload, skippedByLender } = summarizeSendFromDisplayRows(
-      displayDocuments,
-      selectedRows,
-      selectedLenders,
-    );
+    const selectedRowSet = new Set(selectedRows);
+    const requirementIds = [
+      ...new Set(
+        displayDocuments
+          .filter((document) => selectedRowSet.has(document.rowKey))
+          .map((document) => String(document.requirementId)),
+      ),
+    ];
 
-    if (payload.length === 0) {
-      toast.error(
-        "None of the selected documents apply to the selected lenders",
-      );
+    const payload = selectedLenders.map((applicationLenderId) => ({
+      applicationLenderId,
+      requirementIds,
+    }));
+
+    if (requirementIds.length === 0) {
+      toast.error("Please select at least one valid document");
       return;
     }
 
     const result = await Swal.fire({
       title: "Send Documents?",
-      text:
-        skippedByLender.length > 0
-          ? "Each lender will only receive documents they requested (plus broker documents). Some selections may be skipped for certain lenders."
-          : "Selected documents will be sent to selected lenders.",
+      text: `${requirementIds.length} selected document(s) will be sent to ${selectedLenders.length} lender(s), whether or not each lender originally requested them.`,
       icon: "warning",
       showCancelButton: true,
       confirmButtonText: "Yes, send",
@@ -595,22 +676,22 @@ const LoanPreview = () => {
       const blockedResults = (json.results || []).filter(
         (result: any) => !result.success && result.blockedByStatus,
       );
+      const failedResults = (json.results || []).filter(
+        (result: any) => !result.success,
+      );
       const successResults = (json.results || []).filter(
         (result: any) => result.success,
       );
 
       if (successResults.length === 0) {
-        const blockedMessage =
+        const failedMessage =
+          failedResults.map((result: any) => result.message).filter(Boolean).join(" ") ||
           blockedResults.map((result: any) => result.message).join(" ") ||
           "No documents were sent to the selected lenders.";
 
-        throw new Error(blockedMessage);
+        throw new Error(failedMessage);
       }
 
-      const skippedNote =
-        skippedByLender.length > 0
-          ? " Some documents were skipped for lenders that did not request them."
-          : "";
       const blockedNote =
         blockedResults.length > 0
           ? ` ${blockedResults.length} lender(s) were skipped because they are approved, declined, or withdrawn.`
@@ -618,7 +699,7 @@ const LoanPreview = () => {
 
       await Swal.fire({
         title: "Success",
-        text: `Documents sent to lenders successfully.${skippedNote}${blockedNote}`,
+        text: `Documents sent to lenders successfully.${blockedNote}`,
         icon: "success",
         confirmButtonColor: "#22c55e",
       });
@@ -750,11 +831,11 @@ const LoanPreview = () => {
     if (!documentsData?.submissionId || requirementIds.length === 0) return;
 
     const result = await Swal.fire({
-      title: "Forward to client?",
-      text: `${requirementIds.length} lender-requested document(s) will appear on the client portal.`,
+      title: "Send to client?",
+      text: `${requirementIds.length} document request(s) will be sent to the client portal and the client will be notified.`,
       icon: "question",
       showCancelButton: true,
-      confirmButtonText: "Forward",
+      confirmButtonText: "Send to Client",
       confirmButtonColor: "#4f46e5",
     });
 
@@ -778,10 +859,10 @@ const LoanPreview = () => {
 
       const json = await res.json();
       if (!res.ok || !json.success) {
-        throw new Error(json.message || "Failed to forward documents");
+        throw new Error(json.message || "Failed to send documents to client");
       }
 
-      toast.success(json.message || "Documents forwarded to client");
+      toast.success(json.message || "Documents sent to client");
       setActiveAction(null);
       setSelectedRows([]);
       await fetchSubmissionDocuments(
@@ -790,7 +871,7 @@ const LoanPreview = () => {
         debouncedSearch,
       );
     } catch (err: any) {
-      toast.error(err.message || "Failed to forward documents");
+      toast.error(err.message || "Failed to send documents to client");
     } finally {
       setForwardingToClient(false);
     }
@@ -944,27 +1025,268 @@ const LoanPreview = () => {
     }
   };
 
-  const fetchDocumentTypes = async (id: string) => {
+  const fetchDocumentTypes = async (
+    id: string,
+    pageNo = requestDocPage,
+    searchQuery = debouncedRequestDocSearch,
+  ) => {
     try {
       setRequestDocsLoading(true);
-      const res = await fetch(`${API_BASE}/document-types/active`, {
-        method: "GET",
-        headers: getAuthHeaders(),
+      const params = new URLSearchParams({
+        page: String(pageNo),
+        limit: String(REQUEST_DOC_LIMIT),
       });
+      if (searchQuery.trim()) {
+        params.set("search", searchQuery.trim());
+      }
+
+      const res = await fetch(
+        `${API_BASE}/document-types/active?${params.toString()}`,
+        {
+          method: "GET",
+          headers: getAuthHeaders(),
+        },
+      );
       const json = await res.json();
       if (!res.ok || !json.success) {
         throw new Error(json.message || "Failed to fetch document types");
       }
-      const formattedDocs = json.data.map((doc: any) => ({
+      const formattedDocs = (json.data || []).map((doc: any) => ({
         documentTypeId: doc.id,
         documentType: { name: doc.name },
+        isCustom: Boolean(doc.isCustom),
       }));
       setRequestDocs(formattedDocs);
+      setSelectedRequestDocMeta((prev) => {
+        const next = { ...prev };
+        for (const doc of formattedDocs) {
+          next[doc.documentTypeId] = {
+            name: doc.documentType.name,
+            isCustom: doc.isCustom,
+          };
+        }
+        return next;
+      });
+      setRequestDocPagination(
+        json.pagination || {
+          page: pageNo,
+          limit: REQUEST_DOC_LIMIT,
+          total: formattedDocs.length,
+          totalPages: 1,
+          hasNextPage: false,
+          hasPreviousPage: false,
+        },
+      );
       setRequestDocsLoadedFor(id);
     } catch (err: any) {
       toast.error(err.message || "Failed to load documents");
     } finally {
       setRequestDocsLoading(false);
+    }
+  };
+
+  const handleSelectAllRequestDocs = async () => {
+    try {
+      setSelectingAllRequestDocs(true);
+      const search = debouncedRequestDocSearch.trim();
+      const collected: Array<{ id: string; name: string; isCustom: boolean }> =
+        [];
+
+      // Prefer unpaginated fetch when backend supports `all=true`
+      const allParams = new URLSearchParams({ all: "true" });
+      if (search) allParams.set("search", search);
+
+      const allRes = await fetch(
+        `${API_BASE}/document-types/active?${allParams.toString()}`,
+        {
+          method: "GET",
+          headers: getAuthHeaders(),
+        },
+      );
+      const allJson = await allRes.json().catch(() => ({}));
+
+      if (allRes.ok && allJson.success && Array.isArray(allJson.data)) {
+        for (const doc of allJson.data) {
+          collected.push({
+            id: String(doc.id),
+            name: doc.name || "Document",
+            isCustom: Boolean(doc.isCustom),
+          });
+        }
+      } else {
+        // Fallback: walk pages (limit max 100 per API schema)
+        let page = 1;
+        let totalPages = 1;
+        do {
+          const params = new URLSearchParams({
+            page: String(page),
+            limit: "100",
+          });
+          if (search) params.set("search", search);
+
+          const res = await fetch(
+            `${API_BASE}/document-types/active?${params.toString()}`,
+            {
+              method: "GET",
+              headers: getAuthHeaders(),
+            },
+          );
+          const json = await res.json().catch(() => ({}));
+          if (!res.ok || !json.success) {
+            throw new Error(json.message || "Failed to select documents");
+          }
+
+          for (const doc of json.data || []) {
+            collected.push({
+              id: String(doc.id),
+              name: doc.name || "Document",
+              isCustom: Boolean(doc.isCustom),
+            });
+          }
+
+          totalPages = Math.max(1, Number(json.pagination?.totalPages) || 1);
+          page += 1;
+        } while (page <= totalPages);
+      }
+
+      // Last resort: current page only
+      if (collected.length === 0 && requestDocs.length > 0) {
+        for (const doc of requestDocs) {
+          collected.push({
+            id: String(doc.documentTypeId),
+            name: doc.documentType?.name || "Document",
+            isCustom: Boolean(doc.isCustom),
+          });
+        }
+      }
+
+      if (collected.length === 0) {
+        toast.error(
+          search
+            ? "No documents match your search"
+            : "No documents available to select",
+        );
+        return;
+      }
+
+      // De-dupe by id while preserving order
+      const seen = new Set<string>();
+      const unique = collected.filter((doc) => {
+        if (seen.has(doc.id)) return false;
+        seen.add(doc.id);
+        return true;
+      });
+
+      setSelectedRequestDocs(unique.map((doc) => doc.id));
+      setSelectedRequestDocMeta((prev) => {
+        const next = { ...prev };
+        for (const doc of unique) {
+          next[doc.id] = { name: doc.name, isCustom: doc.isCustom };
+        }
+        return next;
+      });
+
+      toast.success(
+        `Selected ${unique.length} document${unique.length === 1 ? "" : "s"}`,
+      );
+    } catch (err: any) {
+      toast.error(err.message || "Failed to select all documents");
+    } finally {
+      setSelectingAllRequestDocs(false);
+    }
+  };
+
+  const toggleRequestDocument = (doc: {
+    documentTypeId: string;
+    documentType?: { name?: string };
+    isCustom?: boolean;
+  }) => {
+    const id = doc.documentTypeId;
+    const isSelected = selectedRequestDocs.includes(id);
+
+    setSelectedRequestDocs((prev) =>
+      isSelected ? prev.filter((item) => item !== id) : [...prev, id],
+    );
+
+    setSelectedRequestDocMeta((prev) => {
+      if (isSelected) {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      }
+      return {
+        ...prev,
+        [id]: {
+          name: doc.documentType?.name || "Document",
+          isCustom: Boolean(doc.isCustom),
+        },
+      };
+    });
+  };
+
+  const removeRequestedDocument = (id: string) => {
+    setSelectedRequestDocs((prev) => prev.filter((item) => item !== id));
+    setSelectedRequestDocMeta((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+  };
+
+  const clearRequestedDocuments = () => {
+    if (selectedRequestDocs.length === 0) return;
+    setSelectedRequestDocs([]);
+    setSelectedRequestDocMeta({});
+    toast.success("Cleared document selection");
+  };
+
+  const handleAddCustomDocument = async () => {
+    const customName = customDocumentName.trim();
+    if (!customName) {
+      toast.error("Please enter custom document name");
+      return;
+    }
+    if (customName.length < 2) {
+      toast.error("Custom document name must be at least 2 characters");
+      return;
+    }
+
+    try {
+      setAddingCustomDoc(true);
+      const res = await fetch(`${API_BASE}/document-types/create-custom`, {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ name: customName }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Failed to add custom document");
+      }
+
+      const createdId = String(json.data?.id || "");
+      const createdName = String(json.data?.name || customName);
+      if (createdId) {
+        setSelectedRequestDocs((prev) =>
+          prev.includes(createdId) ? prev : [createdId, ...prev],
+        );
+        setSelectedRequestDocMeta((prev) => ({
+          ...prev,
+          [createdId]: { name: createdName, isCustom: true },
+        }));
+      }
+
+      setCustomDocumentName("");
+      setRequestDocSearch("");
+      setDebouncedRequestDocSearch("");
+      setRequestDocPage(1);
+      if (applicationId) {
+        await fetchDocumentTypes(applicationId, 1, "");
+      }
+      toast.success("Custom document added");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to add custom document");
+    } finally {
+      setAddingCustomDoc(false);
     }
   };
 
@@ -1055,10 +1377,22 @@ const LoanPreview = () => {
       toast.success("Documents requested successfully");
 
       setSelectedRequestDocs([]);
+      setSelectedRequestDocMeta({});
       setRequestMessage("");
 
+      // Reset upload-documents filters so newly requested docs show up
+      setSearchInput("");
+      setDebouncedSearch("");
+      setPage(1);
+      setDocumentSentFilter("all");
+      setDocumentSourceFilter("all");
+      setDocumentLenderFilter("");
+      setDocumentsLoadedFor(null);
+      setDocumentsData(null);
+      setDocumentsRefreshKey((key) => key + 1);
+      setActiveTab("documents");
+
       if (submissionId) {
-        // Force refresh documents
         await fetchSubmissionDocuments(
           submissionId,
           1,
@@ -1067,12 +1401,6 @@ const LoanPreview = () => {
           "all",
           "all",
         );
-
-        // Reset loaded state
-        setDocumentsLoadedFor(submissionId);
-
-        // Switch to Upload Documents tab
-        setActiveTab("documents");
       }
     } catch (err: any) {
       toast.error(err.message || "Something went wrong");
@@ -1301,6 +1629,7 @@ const LoanPreview = () => {
     // setSelectedFiles({});
     setPreviewFiles([]);
     setSelectedRequestDocs([]);
+    setSelectedRequestDocMeta({});
     setRequestMessage("");
     setActiveTab(
       (Location.state as { activeTab?: TabKey })?.activeTab || "view-details",
@@ -1327,13 +1656,32 @@ const LoanPreview = () => {
   }, [canRequestDocuments, activeTab]);
 
   useEffect(() => {
+    setRequestDocs([]);
+    setRequestDocsLoadedFor(null);
+    setSelectedRequestDocs([]);
+    setSelectedRequestDocMeta({});
+    setRequestDocSearch("");
+    setDebouncedRequestDocSearch("");
+    setRequestDocPage(1);
+    setCustomDocumentName("");
+    setRequestDocPagination({
+      page: 1,
+      limit: REQUEST_DOC_LIMIT,
+      total: 0,
+      totalPages: 1,
+      hasNextPage: false,
+      hasPreviousPage: false,
+    });
+  }, [applicationId]);
+
+  useEffect(() => {
     if (
       activeTab === "request-document" &&
       canRequestDocuments &&
       applicationId &&
       requestDocsLoadedFor !== applicationId
     ) {
-      fetchDocumentTypes(applicationId);
+      fetchDocumentTypes(applicationId, 1, "");
     }
 
     if (
@@ -1350,6 +1698,25 @@ const LoanPreview = () => {
     requestDocsLoadedFor,
     documentsLoadedFor,
   ]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedRequestDocSearch(requestDocSearch);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [requestDocSearch]);
+
+  useEffect(() => {
+    if (
+      activeTab !== "request-document" ||
+      !canRequestDocuments ||
+      !applicationId ||
+      requestDocsLoadedFor !== applicationId
+    ) {
+      return;
+    }
+    fetchDocumentTypes(applicationId, requestDocPage, debouncedRequestDocSearch);
+  }, [requestDocPage, debouncedRequestDocSearch]);
 
   useEffect(() => {
     if (submissionId) {
@@ -1416,88 +1783,129 @@ const LoanPreview = () => {
     ? new Date(submissionDetail.submittedAt)
     : null;
 
-  const tabs = [
+  const tabSections: TabSection[] = [
     {
-      key: "view-details" as const,
-      label: "View Details",
-      icon: Eye,
-      color: "text-blue-600",
-    },
-    ...(submissionDetail?.canEdit !== false
-      ? [
+      id: "application",
+      label: "Application",
+      icon: ClipboardList,
+      items: [
         {
-          key: "update-application" as const,
-          label: "Update Application",
-          icon: Pencil,
-          color: "text-cyan-600",
+          key: "view-details",
+          label: "View Details",
+          icon: Eye,
+          color: "text-blue-600",
         },
-      ]
-      : []),
-    {
-      key: "find-lenders" as const,
-      label: "Lender Hub",
-      icon: FileSearch,
-      color: "text-blue-600",
+        ...(submissionDetail?.canEdit !== false
+          ? [
+              {
+                key: "update-application" as const,
+                label: "Update Application",
+                icon: Pencil,
+                color: "text-cyan-600",
+              },
+            ]
+          : []),
+        {
+          key: "fee-agreement",
+          label: "Fee Agreement",
+          icon: FileText,
+          color: "text-indigo-600",
+        },
+        ...(isFundedDeal
+          ? [
+              {
+                key: "commissions" as const,
+                label: "Commissions",
+                icon: DollarSign,
+                color: "text-emerald-600",
+              },
+            ]
+          : []),
+      ],
     },
     {
-      key: "request-document" as const,
-      label: "Request Document",
-      icon: Send,
-      color: "text-emerald-600",
-    },
-    {
-      key: "documents" as const,
-      label: "Upload Documents",
+      id: "documents",
+      label: "Documents",
       icon: FolderOpen,
-      color: "text-amber-600",
-    },
-    {
-      key: "email-reminders" as const,
-      label: "Email Reminders",
-      icon: Mail,
-      color: "text-sky-600",
-    },
-    {
-      key: "view-loi" as const,
-      label: "View LOI",
-      icon: FileText,
-      color: "text-purple-600",
-    },
-    {
-      key: "sign-documents" as const,
-      label: "Sign Documents",
-      icon: FileText,
-      color: "text-indigo-600",
-    },
-    // {
-    //   key: "submitted-lenders" as const,
-    //   label: "Submitted To Lenders",
-    //   icon: Send,
-    //   color: "text-blue-600",
-    // },
-    {
-      key: "chat" as const,
-      label: "Chat",
-      icon: Send,
-      color: "text-green-600",
-    },
-    {
-      key: "fee-agreement" as const,
-      label: "Fee Agreement",
-      icon: FileText,
-      color: "text-indigo-600",
-    },
-    ...(isFundedDeal
-      ? [
+      items: [
         {
-          key: "commissions" as const,
-          label: "Commissions",
-          icon: DollarSign,
-          color: "text-emerald-600",
+          key: "documents",
+          label: "Upload Documents",
+          icon: Upload,
+          color: "text-amber-600",
         },
-      ]
-      : []),
+        {
+          key: "request-document",
+          label: "Request Documents",
+          icon: Send,
+          color: "text-emerald-600",
+          disabled: !canRequestDocuments,
+          disabledReason:
+            documentRequestBlockedReason ||
+            "Documents cannot be requested for this application.",
+        },
+        {
+          key: "sign-documents",
+          label: "Signable Documents",
+          icon: FileText,
+          color: "text-indigo-600",
+        },
+      ],
+    },
+    {
+      id: "communication",
+      label: "Communication",
+      icon: MessageSquare,
+      items: [
+        {
+          key: "chat",
+          label: "Chat",
+          icon: MessageSquare,
+          color: "text-green-600",
+        },
+        {
+          key: "email-reminders",
+          label: "Email Reminders",
+          icon: Mail,
+          color: "text-sky-600",
+        },
+      ],
+    },
+    {
+      id: "lender",
+      label: "Lender",
+      icon: Building2,
+      items: [
+        {
+          key: "find-lenders",
+          label: "Lender Hub",
+          icon: FileSearch,
+          color: "text-blue-600",
+        },
+        {
+          key: "view-loi",
+          label: "LOI / Term Sheets",
+          icon: FileText,
+          color: "text-purple-600",
+        },
+      ],
+    },
   ];
+
+  const activeSectionId =
+    TAB_SECTION_BY_KEY[activeTab] || ("application" as TabSectionId);
+
+  const activeSection =
+    tabSections.find((section) => section.id === activeSectionId) ||
+    tabSections[0];
+
+  const handleSectionClick = (section: TabSection) => {
+    const firstEnabled =
+      section.items.find((item) => !item.disabled) || section.items[0];
+    if (firstEnabled) {
+      setActiveTab(firstEnabled.key);
+    }
+  };
 
   const currentFile = previewFiles[activeIndex];
 
@@ -1571,6 +1979,9 @@ const LoanPreview = () => {
         initialSelectedProduct={loanApplicationInitial.selectedProduct}
         initialSelectedCategory={loanApplicationInitial.selectedCategory}
         initialDynamicFormData={loanApplicationInitial.dynamicFormData}
+        initialCreditAuthorizationConsent={
+          loanApplicationInitial.creditAuthorizationConsent
+        }
         onUpdateSuccess={(newSubmissionId) => {
           const idToLoad = newSubmissionId || submissionId;
           if (newSubmissionId && newSubmissionId !== submissionId) {
@@ -1604,6 +2015,15 @@ const LoanPreview = () => {
       );
     }
 
+    const showingFrom =
+      requestDocPagination.total === 0
+        ? 0
+        : (requestDocPagination.page - 1) * REQUEST_DOC_LIMIT + 1;
+    const showingTo = Math.min(
+      requestDocPagination.page * REQUEST_DOC_LIMIT,
+      requestDocPagination.total,
+    );
+
     return (
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950">
         <div className="mb-4 flex items-center justify-between">
@@ -1617,67 +2037,266 @@ const LoanPreview = () => {
           </div>
           <div className="flex gap-2">
             <button
-              onClick={() =>
-                setSelectedRequestDocs(
-                  requestDocs.map((doc: any) => doc.documentTypeId),
-                )
-              }
-              className="rounded-md border bg-gray-50 px-3 py-1 text-xs hover:bg-gray-100 dark:border-slate-700 dark:bg-slate-900"
+              type="button"
+              onClick={handleSelectAllRequestDocs}
+              disabled={selectingAllRequestDocs || requestDocsLoading}
+              className="rounded-md border bg-gray-50 px-3 py-1 text-xs hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900"
             >
-              Select All
+              {selectingAllRequestDocs ? "Selecting..." : "Select All"}
             </button>
             <button
-              onClick={() => setSelectedRequestDocs([])}
-              className="rounded-md border bg-gray-50 px-3 py-1 text-xs hover:bg-gray-100 dark:border-slate-700 dark:bg-slate-900"
+              type="button"
+              onClick={clearRequestedDocuments}
+              disabled={
+                selectedRequestDocs.length === 0 || selectingAllRequestDocs
+              }
+              className="rounded-md border bg-gray-50 px-3 py-1 text-xs hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900"
             >
-              Clear
+              Clear All
             </button>
           </div>
+        </div>
+
+        {selectedRequestDocs.length > 0 ? (
+          <div className="mb-5 rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 dark:border-emerald-500/30 dark:bg-emerald-500/10">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">
+                  Request Documents List
+                </h3>
+                <p className="text-xs text-emerald-700/80 dark:text-emerald-300/80">
+                  {selectedRequestDocs.length} document
+                  {selectedRequestDocs.length === 1 ? "" : "s"} selected to
+                  request
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={clearRequestedDocuments}
+                disabled={selectingAllRequestDocs}
+                className="text-xs font-medium text-emerald-700 hover:underline disabled:opacity-60 dark:text-emerald-300"
+              >
+                Clear all
+              </button>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {[...selectedRequestDocs]
+                .sort((a, b) => {
+                  const aCustom = selectedRequestDocMeta[a]?.isCustom ? 1 : 0;
+                  const bCustom = selectedRequestDocMeta[b]?.isCustom ? 1 : 0;
+                  if (aCustom !== bCustom) return bCustom - aCustom;
+                  return selectedRequestDocs.indexOf(a) - selectedRequestDocs.indexOf(b);
+                })
+                .map((id) => {
+                const meta = selectedRequestDocMeta[id];
+                const name = meta?.name || "Document";
+                const isCustom = Boolean(meta?.isCustom);
+
+                return (
+                  <span
+                    key={id}
+                    className="inline-flex max-w-full items-center gap-2 rounded-full border border-emerald-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm dark:border-emerald-500/20 dark:bg-slate-900 dark:text-slate-200"
+                  >
+                    <span
+                      className={`h-2 w-2 shrink-0 rounded-full ${getRequestDocColor(name)}`}
+                    />
+                    <span className="truncate">{name}</span>
+                    {isCustom ? (
+                      <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-amber-700">
+                        Custom
+                      </span>
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={() => removeRequestedDocument(id)}
+                      className="rounded-full p-0.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800"
+                      aria-label={`Remove ${name}`}
+                    >
+                      <X size={12} />
+                    </button>
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
+
+        <div className="mb-4">
+          <div className="relative">
+            <Search
+              size={16}
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+            />
+            <input
+              type="search"
+              value={requestDocSearch}
+              onChange={(e) => {
+                setRequestDocSearch(e.target.value);
+                setRequestDocPage(1);
+              }}
+              placeholder="Search documents..."
+              className="w-full rounded-xl border border-slate-200 bg-slate-50/80 py-2.5 pl-9 pr-9 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/15 dark:border-slate-700 dark:bg-slate-800/80 dark:text-white"
+            />
+            {requestDocSearch ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setRequestDocSearch("");
+                  setRequestDocPage(1);
+                }}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400 transition hover:bg-slate-200/80 hover:text-slate-600"
+                aria-label="Clear search"
+              >
+                <SearchX size={14} />
+              </button>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center">
+          <input
+            type="text"
+            placeholder="Enter custom document name..."
+            value={customDocumentName}
+            onChange={(e) => setCustomDocumentName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                handleAddCustomDocument();
+              }
+            }}
+            className="h-12 flex-1 rounded-xl border border-slate-300 bg-white px-4 text-sm shadow-sm transition focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+          />
+          <button
+            type="button"
+            onClick={handleAddCustomDocument}
+            disabled={addingCustomDoc}
+            className="flex h-12 shrink-0 items-center justify-center rounded-xl bg-emerald-600 px-6 text-sm font-semibold text-white transition hover:bg-emerald-700 active:scale-[0.98] disabled:opacity-60"
+          >
+            {addingCustomDoc ? "Adding..." : "+ Add Document"}
+          </button>
         </div>
 
         {requestDocsLoading ? (
           <div className="py-10 text-center text-gray-500">
             Loading documents...
           </div>
+        ) : requestDocs.length === 0 ? (
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-gray-50 py-12 dark:border-slate-700 dark:bg-slate-900/40">
+            <FileText size={42} className="mb-3 text-gray-400" />
+            <h3 className="text-base font-semibold text-gray-700 dark:text-slate-200">
+              No documents found
+            </h3>
+            <p className="mt-1 text-center text-sm text-gray-500">
+              {requestDocSearch.trim()
+                ? `No documents found for "${requestDocSearch}".`
+                : "No document types are available."}
+            </p>
+          </div>
         ) : (
           <>
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
               {requestDocs.map((doc: any) => {
                 const isSelected = selectedRequestDocs.includes(
                   doc.documentTypeId,
                 );
                 return (
-                  <div
+                  <label
                     key={doc.documentTypeId}
-                    onClick={() => {
-                      setSelectedRequestDocs((prev) =>
-                        isSelected
-                          ? prev.filter((id) => id !== doc.documentTypeId)
-                          : [...prev, doc.documentTypeId],
-                      );
-                    }}
-                    className={`flex cursor-pointer items-center justify-between rounded-xl border px-4 py-3 transition ${isSelected
-                        ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-500/10"
-                        : "border-gray-200 hover:border-gray-300 dark:border-slate-700"
-                      }`}
+                    className={`group relative flex cursor-pointer items-start gap-3 rounded-2xl border px-4 py-3 transition-all duration-200 ${
+                      isSelected
+                        ? "scale-[1.01] border-emerald-500 bg-emerald-50 shadow-sm dark:bg-emerald-500/10"
+                        : "border-gray-200 bg-white hover:border-emerald-300 hover:bg-gray-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-emerald-500/40"
+                    }`}
                   >
-                    <div className="flex items-center gap-2">
-                      <span className="h-2 w-2 rounded-full bg-orange-400" />
-                      <span className="text-sm text-gray-700 dark:text-slate-200">
-                        {doc.documentType.name}
-                      </span>
-                    </div>
                     <input
                       type="checkbox"
                       checked={isSelected}
-                      readOnly
-                      className="accent-emerald-600"
+                      onChange={() => toggleRequestDocument(doc)}
+                      className="mt-1 cursor-pointer accent-emerald-600"
                     />
-                  </div>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <div
+                          className={`h-2.5 w-2.5 rounded-full ${getRequestDocColor(
+                            doc.documentType.name,
+                          )}`}
+                        />
+                        <p className="text-sm font-medium leading-tight text-gray-800 dark:text-slate-200">
+                          {doc.documentType.name}
+                        </p>
+                        {doc.isCustom ? (
+                          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-amber-700">
+                            Custom
+                          </span>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    {isSelected ? (
+                      <CheckCircle2
+                        size={18}
+                        className="shrink-0 text-emerald-600"
+                      />
+                    ) : null}
+                  </label>
                 );
               })}
             </div>
 
+            {requestDocPagination.total > 0 ? (
+              <div className="mt-6 flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between dark:border-slate-700">
+                <div className="text-sm text-gray-500">
+                  Showing{" "}
+                  <span className="font-semibold text-gray-700 dark:text-slate-200">
+                    {showingFrom}
+                  </span>
+                  {" - "}
+                  <span className="font-semibold text-gray-700 dark:text-slate-200">
+                    {showingTo}
+                  </span>{" "}
+                  of{" "}
+                  <span className="font-semibold text-gray-700 dark:text-slate-200">
+                    {requestDocPagination.total}
+                  </span>{" "}
+                  documents
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    disabled={!requestDocPagination.hasPreviousPage}
+                    onClick={() =>
+                      setRequestDocPage((prev) => Math.max(1, prev - 1))
+                    }
+                    className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:border-emerald-500 hover:text-emerald-600 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                  >
+                    ← Previous
+                  </button>
+
+                  <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-2 text-sm font-medium text-gray-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                    Page {requestDocPagination.page} of{" "}
+                    {requestDocPagination.totalPages || 1}
+                  </div>
+
+                  <button
+                    type="button"
+                    disabled={!requestDocPagination.hasNextPage}
+                    onClick={() => setRequestDocPage((prev) => prev + 1)}
+                    className="rounded-lg border border-emerald-600 bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:border-gray-300 disabled:bg-gray-300"
+                  >
+                    Next →
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </>
+        )}
+
+        {!requestDocsLoading ? (
+          <>
             <div className="mt-4">
               <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-slate-200">
                 Message
@@ -1698,6 +2317,7 @@ const LoanPreview = () => {
                 {selectedRequestDocs.length} selected
               </p>
               <button
+                type="button"
                 onClick={handleRequestDocuments}
                 disabled={selectedRequestDocs.length === 0 || requestSubmitting}
                 className="rounded-lg bg-emerald-600 px-5 py-2 text-sm text-white hover:bg-emerald-700 disabled:opacity-50"
@@ -1706,7 +2326,7 @@ const LoanPreview = () => {
               </button>
             </div>
           </>
-        )}
+        ) : null}
       </div>
     );
   };
@@ -2203,7 +2823,7 @@ dark:bg-red-900/20 dark:text-red-400"
   const finalOptions = [selectAllOption, ...lenderOptions];
 
   const renderDocuments = () => (
-    <div className="min-h-screen h-[90vh] rounded-3xl  p-6">
+    <div className="h-[90vh] min-h-screen w-full">
       <div className="mb-2">
         <h2 className="text-xl font-bold text-slate-800 dark:text-white">
           Requested Documents
@@ -2231,126 +2851,230 @@ dark:bg-red-900/20 dark:text-red-400"
         searchInput={searchInput}
         onSearchInputChange={setSearchInput}
         onResetPage={() => setPage(1)}
-        manualSendSlot={
-          !autoForwardEnabled && selectedRows.length > 0 ? (
-            lenderOptions.length > 0 ? (
-              <div className="w-full min-w-[220px] sm:w-64 z-999">
-                <Select
-                  isMulti
-                  options={finalOptions}
-                  value={lenderOptions.filter((opt) =>
-                    selectedLenders.includes(opt.value),
-                  )}
-                  closeMenuOnSelect={false}
-                  hideSelectedOptions={false}
-                  placeholder="Send to lenders..."
-                  isLoading={lenderLoading}
-                  onChange={(selected: any) => {
-                    if (!selected) {
-                      setSelectedLenders([]);
-                      return;
-                    }
-
-                    const isSelectAll = selected.find(
-                      (s: any) => s.value === "__all__",
-                    );
-
-                    if (isSelectAll) {
-                      setSelectedLenders(lenderOptions.map((l) => l.value));
-                    } else {
-                      setSelectedLenders(selected.map((s: any) => s.value));
-                    }
-                  }}
-                  components={{
-                    Option: CustomOption,
-                    MultiValue: (props) => {
-                      if (props.index < 2) return <CustomMultiValue {...props} />;
-                      if (props.index === 2)
-                        return (
-                          <div className="text-xs px-2">
-                            +{selectedLenders.length - 2} more
-                          </div>
-                        );
-                      return null;
-                    },
-                  }}
-                  styles={{
-                    control: (base) => ({
-                      ...base,
-                      minHeight: "40px",
-                      maxHeight: "40px",
-                      overflow: "hidden",
-                      borderRadius: "12px",
-                      borderColor: "#e2e8f0",
-                      backgroundColor: "#f8fafc",
-                    }),
-                    valueContainer: (base) => ({
-                      ...base,
-                      flexWrap: "nowrap",
-                      overflow: "hidden",
-                    }),
-                  }}
-                />
-              </div>
-            ) : (
-              <p className="max-w-xs text-xs text-amber-700 dark:text-amber-300">
-                No active lenders available. Approved, declined, or withdrawn
-                lenders cannot receive documents.
-              </p>
-            )
-          ) : undefined
-        }
       />
 
       {!autoForwardEnabled && selectedRows.length > 0 && (
-        <div className="mb-4 flex items-center justify-between rounded-2xl border border-blue-200 bg-gradient-to-r from-blue-50 to-cyan-50 px-5 py-3 shadow-sm dark:border-blue-900/40 dark:from-slate-900 dark:to-slate-800">
-          {/* LEFT TEXT */}
-          <p className="text-sm font-medium text-blue-700 dark:text-cyan-300">
-            {selectedRows.length} document(s) selected
-          </p>
+        <div className="mb-4 overflow-visible rounded-2xl border border-blue-200 bg-blue-50/70 shadow-sm dark:border-blue-900/40 dark:bg-slate-900">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-blue-200/70 px-5 py-3 dark:border-blue-900/40">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white">
+                <FiSend size={15} />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-slate-800 dark:text-white">
+                  Send selected documents
+                </p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Choose recipients, then send.
+                </p>
+              </div>
+            </div>
 
-          {/* BUTTON */}
-          <button
-            onClick={handleSendToLender}
-            disabled={
-              sending ||
-              lenderOptions.length === 0 ||
-              selectedLenders.length === 0
-            }
-            className="inline-flex items-center gap-2 px-3 py-2 text-xs font-semibold
-      bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-xl
-      shadow-md hover:shadow-lg hover:scale-[1.03] active:scale-95
-      transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100"
-          >
-            {sending ? (
-              "Sending..."
-            ) : (
-              <>
-                <FiSend size={16} />
-                Send To Lender
-              </>
-            )}
-          </button>
+            <div className="flex items-center gap-2">
+              <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-blue-700 ring-1 ring-blue-200 dark:bg-slate-800 dark:text-blue-300 dark:ring-blue-900">
+                {selectedRows.length} document
+                {selectedRows.length === 1 ? "" : "s"}
+              </span>
+              <span
+                className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ${
+                  selectedLenders.length > 0
+                    ? "bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:ring-emerald-900"
+                    : "bg-amber-50 text-amber-700 ring-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:ring-amber-900"
+                }`}
+              >
+                {selectedLenders.length} lender
+                {selectedLenders.length === 1 ? "" : "s"}
+              </span>
+            </div>
+          </div>
+
+          <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+            <div className="min-w-0 rounded-xl border border-blue-100 bg-white p-3 dark:border-slate-700 dark:bg-slate-800/70">
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200">
+                  Select lender recipients
+                </label>
+                {selectedLenders.length > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedLenders([])}
+                    className="text-[11px] font-medium text-blue-600 hover:underline dark:text-blue-400"
+                  >
+                    Clear lenders
+                  </button>
+                ) : null}
+              </div>
+
+              {lenderOptions.length > 0 ? (
+                <div className="relative z-[60] w-full">
+                  <Select
+                    isMulti
+                    options={finalOptions}
+                    value={lenderOptions.filter((opt) =>
+                      selectedLenders.includes(opt.value),
+                    )}
+                    closeMenuOnSelect={false}
+                    hideSelectedOptions={false}
+                    placeholder="Search and select lender(s)..."
+                    isLoading={lenderLoading}
+                    noOptionsMessage={() => "No matching lenders"}
+                    onChange={(selected: any) => {
+                      if (!selected) {
+                        setSelectedLenders([]);
+                        return;
+                      }
+
+                      const isSelectAll = selected.find(
+                        (s: any) => s.value === "__all__",
+                      );
+
+                      if (isSelectAll) {
+                        setSelectedLenders(lenderOptions.map((l) => l.value));
+                      } else {
+                        setSelectedLenders(
+                          selected
+                            .filter((s: any) => s.value !== "__all__")
+                            .map((s: any) => s.value),
+                        );
+                      }
+                    }}
+                    components={{
+                      Option: CustomOption,
+                      MultiValue: (props) => {
+                        if (props.index < 2)
+                          return <CustomMultiValue {...props} />;
+                        if (props.index === 2)
+                          return (
+                            <div className="px-2 text-xs">
+                              +{selectedLenders.length - 2} more
+                            </div>
+                          );
+                        return null;
+                      },
+                    }}
+                    styles={{
+                      control: (base, state) => ({
+                        ...base,
+                        minHeight: "46px",
+                        borderRadius: "12px",
+                        borderColor: state.isFocused ? "#2563eb" : "#bfdbfe",
+                        boxShadow: state.isFocused
+                          ? "0 0 0 2px rgba(37, 99, 235, 0.15)"
+                          : "none",
+                        backgroundColor: "#ffffff",
+                        cursor: "pointer",
+                      }),
+                      menu: (base) => ({
+                        ...base,
+                        zIndex: 80,
+                        overflow: "hidden",
+                        borderRadius: "12px",
+                      }),
+                      valueContainer: (base) => ({
+                        ...base,
+                        flexWrap: "nowrap",
+                        overflow: "hidden",
+                      }),
+                    }}
+                  />
+                </div>
+              ) : (
+                <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-700 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+                  No active lenders available. Approved, declined, or withdrawn
+                  lenders cannot receive documents.
+                </p>
+              )}
+              {lenderOptions.length > 0 && selectedLenders.length === 0 ? (
+                <p className="mt-2 text-[11px] text-amber-600 dark:text-amber-400">
+                  Select at least one lender before sending.
+                </p>
+              ) : selectedLenders.length > 0 ? (
+                <p className="mt-2 text-[11px] text-emerald-600 dark:text-emerald-400">
+                  Ready to send to {selectedLenders.length} selected lender
+                  {selectedLenders.length === 1 ? "" : "s"}.
+                </p>
+              ) : null}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 lg:flex-col lg:items-stretch">
+              <button
+                type="button"
+                onClick={handleSendToLender}
+                disabled={
+                  sending ||
+                  lenderOptions.length === 0 ||
+                  selectedLenders.length === 0
+                }
+                title={
+                  selectedLenders.length === 0
+                    ? "Select lender recipients first"
+                    : "Send selected documents to chosen lenders"
+                }
+                className="inline-flex min-w-[170px] items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 px-5 py-3 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg active:translate-y-0 disabled:cursor-not-allowed disabled:from-slate-300 disabled:to-slate-300 disabled:text-slate-500 disabled:shadow-none dark:disabled:from-slate-700 dark:disabled:to-slate-700 dark:disabled:text-slate-400"
+              >
+                {sending ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    Sending...
+                  </>
+                ) : selectedLenders.length === 0 ? (
+                  <>
+                    <FiSend size={16} />
+                    Select lender first
+                  </>
+                ) : (
+                  <>
+                    <FiSend size={16} />
+                    Send to {selectedLenders.length} lender
+                    {selectedLenders.length === 1 ? "" : "s"}
+                  </>
+                )}
+              </button>
+
+              {selectedClientSendableIds.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleForwardToClient(selectedClientSendableIds)
+                  }
+                  disabled={forwardingToClient}
+                  className="inline-flex min-w-[170px] items-center justify-center gap-2 rounded-xl border border-indigo-200 bg-white px-5 py-2.5 text-xs font-semibold text-indigo-700 transition-all hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-indigo-900 dark:bg-slate-800 dark:text-indigo-300 dark:hover:bg-indigo-950/30"
+                >
+                  {forwardingToClient ? (
+                    "Sending..."
+                  ) : (
+                    <>
+                      <Mail size={16} />
+                      Send to Client
+                    </>
+                  )}
+                </button>
+              ) : null}
+            </div>
+          </div>
         </div>
       )}
 
-      {selectedPendingClientForwardIds.length > 0 && (
+      {autoForwardEnabled && selectedClientSendableIds.length > 0 && (
         <div className="mb-4 flex items-center justify-between rounded-2xl border border-indigo-200 bg-gradient-to-r from-indigo-50 to-violet-50 px-5 py-3 shadow-sm dark:border-indigo-900/40 dark:from-slate-900 dark:to-slate-800">
           <p className="text-sm font-medium text-indigo-700 dark:text-indigo-300">
-            {selectedPendingClientForwardIds.length} lender request(s) ready to
-            forward to client
+            {selectedClientSendableIds.length} document(s) ready to send to
+            client
           </p>
           <button
             type="button"
-            onClick={() =>
-              handleForwardToClient(selectedPendingClientForwardIds)
-            }
+            onClick={() => handleForwardToClient(selectedClientSendableIds)}
             disabled={forwardingToClient}
-            className="inline-flex items-center gap-2 px-3 py-2 text-xs font-semibold
-      bg-indigo-600 text-white rounded-xl shadow-md hover:bg-indigo-700
-      transition-all disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-3 py-2 text-xs font-semibold text-white shadow-md transition-all hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {forwardingToClient ? "Forwarding..." : "Forward to Client"}
+            {forwardingToClient ? (
+              "Sending..."
+            ) : (
+              <>
+                <Mail size={16} />
+                Send to Client
+              </>
+            )}
           </button>
         </div>
       )}
@@ -2451,7 +3175,9 @@ dark:bg-red-900/20 dark:text-red-400"
                               {sentDisplay.detail}
                             </span>
                           )}
-                          {doc.source === "LENDER_ADDED" && (
+                          {["BROKER_ADDED", "LENDER_ADDED", "SUB_BROKER_ADDED"].includes(
+                            String(doc.source || ""),
+                          ) && (
                             <span
                               className={`max-w-[220px] text-center text-[10px] font-semibold px-2 py-0.5 rounded-full ${
                                 doc.isForwardedToClient
@@ -2461,7 +3187,9 @@ dark:bg-red-900/20 dark:text-red-400"
                             >
                               {doc.isForwardedToClient
                                 ? "Sent to client"
-                                : "Broker only — not on client portal"}
+                                : doc.source === "LENDER_ADDED"
+                                  ? "Broker only — not on client portal"
+                                  : "Not sent to client"}
                             </span>
                           )}
                         </div>
@@ -2560,8 +3288,9 @@ dark:bg-red-900/20 dark:text-red-400"
                                 }}
                               />
                             </label>
-                            {doc.source === "LENDER_ADDED" &&
-                              !doc.isForwardedToClient && (
+                            {(doc.source === "LENDER_ADDED" ||
+                              doc.source === "BROKER_ADDED") &&
+                              doc.status !== "SKIPPED" && (
                                 <button
                                   type="button"
                                   onClick={() =>
@@ -2572,8 +3301,8 @@ dark:bg-red-900/20 dark:text-red-400"
                                   disabled={forwardingToClient}
                                   className="flex w-full items-center gap-2 px-4 py-3 text-sm text-indigo-600 hover:bg-indigo-50 transition disabled:opacity-60"
                                 >
-                                  <Send size={14} />
-                                  Forward to Client
+                                  <Mail size={14} />
+                                  Send to Client
                                 </button>
                               )}
                             {doc.source === "SUB_BROKER_ADDED" &&
@@ -2778,7 +3507,11 @@ dark:bg-red-900/20 dark:text-red-400"
       case "view-loi":
         return renderViewLoi();
       case "documents":
-        return renderDocuments();
+        return (
+          <div key={`documents-${documentsRefreshKey}-${submissionId || "none"}`}>
+            {renderDocuments()}
+          </div>
+        );
       case "sign-documents":
         return (
           <SignDocumentsPanel
@@ -2858,8 +3591,8 @@ dark:bg-red-900/20 dark:text-red-400"
 
   return (
     <>
-      <div className="min-h-screen bg-slate-50 p-6 dark:bg-[#0b1120] dark:text-slate-100">
-        <div className="mx-auto max-w-7xl">
+      <div className="min-h-screen w-full max-w-none bg-slate-50 dark:bg-[#0b1120] dark:text-slate-100">
+        <div className="w-full">
           <div className="mb-6 flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
             {/* LEFT SIDE */}
             <div>
@@ -3015,64 +3748,107 @@ dark:bg-red-900/20 dark:text-red-400"
                 </div>
               </div>
 
-              <div className="mb-6 flex flex-wrap gap-2 border-b border-slate-200 pb-3 dark:border-slate-800">
-                {tabs.map((tab) => {
-                  const Icon = tab.icon;
-                  const isActive = activeTab === tab.key;
-                  const isRequestDocumentTab = tab.key === "request-document";
-                  const isDisabled =
-                    isRequestDocumentTab && !canRequestDocuments;
+              <nav
+                aria-label="Loan application sections"
+                className="mb-6 overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900"
+              >
+                {/* Primary sections */}
+                <div className="grid grid-cols-2 gap-1.5 bg-slate-50/80 p-2 sm:grid-cols-4 dark:bg-slate-950/50">
+                  {tabSections.map((section) => {
+                    const SectionIcon = section.icon;
+                    const isSectionActive = section.id === activeSectionId;
 
-                  return (
-                    <button
-                      key={tab.key}
-                      type="button"
-                      disabled={isDisabled}
-                      title={
-                        isDisabled
-                          ? documentRequestBlockedReason ||
-                          "Documents cannot be requested for this application."
-                          : undefined
-                      }
-                      onClick={() => {
-                        if (isDisabled) return;
-                        setActiveTab(tab.key);
-                      }}
-                      className={`group relative inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium transition-all duration-200
-          ${isActive
-                          ? "bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-md"
-                          : isDisabled
-                            ? "cursor-not-allowed text-slate-400 opacity-60 dark:text-slate-500"
-                            : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white"
-                        }
-        `}
-                    >
-                      {/* ICON */}
-                      <span
-                        className={`flex items-center justify-center rounded-md p-1 transition-all
-          ${isActive
-                            ? "bg-white/20"
-                            : "bg-slate-100 group-hover:bg-slate-200 dark:bg-slate-800 dark:group-hover:bg-slate-700"
-                          }`}
+                    return (
+                      <button
+                        key={section.id}
+                        type="button"
+                        onClick={() => handleSectionClick(section)}
+                        aria-current={isSectionActive ? "page" : undefined}
+                        className={`group relative flex min-w-0 items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-all ${
+                          isSectionActive
+                            ? "bg-[#13538A] text-white shadow-md shadow-[#13538A]/20"
+                            : "text-slate-600 hover:bg-white hover:text-slate-900 hover:shadow-sm dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+                        }`}
                       >
-                        <Icon
-                          size={13}
-                          className={`transition ${isActive ? "text-white" : tab.color
+                        <span
+                          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition ${
+                            isSectionActive
+                              ? "bg-white/20 text-white"
+                              : "bg-white text-slate-400 shadow-sm group-hover:text-blue-600 dark:bg-slate-900"
+                          }`}
+                        >
+                          <SectionIcon size={16} />
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-semibold">
+                            {section.label}
+                          </span>
+                          <span
+                            className={`block text-[10px] font-medium ${
+                              isSectionActive
+                                ? "text-white/75"
+                                : "text-slate-400"
                             }`}
-                        />
-                      </span>
+                          >
+                            {section.items.length}{" "}
+                            {section.items.length === 1 ? "tool" : "tools"}
+                          </span>
+                        </span>
+                        {isSectionActive && (
+                          <span className="absolute inset-x-5 bottom-0 h-0.5 rounded-full bg-white/80" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
 
-                      {/* LABEL */}
-                      <span className="whitespace-nowrap">{tab.label}</span>
+                {/* Secondary items within active section */}
+                <div className="border-t border-slate-200 px-3 py-2.5 dark:border-slate-700">
+                  <div className="flex items-center gap-3 overflow-x-auto">
+                    <span className="hidden shrink-0 text-[10px] font-bold uppercase tracking-wider text-slate-400 sm:block">
+                      {activeSection.label}
+                    </span>
+                    <span className="hidden h-5 w-px shrink-0 bg-slate-200 sm:block dark:bg-slate-700" />
 
-                      {/* ACTIVE UNDERLINE GLOW */}
-                      {isActive && (
-                        <span className="absolute bottom-0 left-2 right-2 h-[2px] rounded-full bg-white/70 blur-[1px]" />
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
+                    {activeSection.items.map((tab) => {
+                      const Icon = tab.icon;
+                      const isActive = activeTab === tab.key;
+                      const isDisabled = Boolean(tab.disabled);
+
+                      return (
+                        <button
+                          key={tab.key}
+                          type="button"
+                          disabled={isDisabled}
+                          title={isDisabled ? tab.disabledReason : undefined}
+                          aria-current={isActive ? "page" : undefined}
+                          onClick={() => {
+                            if (isDisabled) return;
+                            setActiveTab(tab.key);
+                          }}
+                          className={`group inline-flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold transition-all ${
+                            isActive
+                              ? "bg-[#13538A] text-white shadow-sm dark:bg-[#13538A] dark:text-white"
+                              : isDisabled
+                                ? "cursor-not-allowed text-slate-400 opacity-50"
+                                : "text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
+                          }`}
+                        >
+                          <Icon
+                            size={14}
+                            className={
+                              isActive
+                                ? "text-white"
+                                : tab.color
+                            }
+                          />
+                          <span className="whitespace-nowrap">{tab.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </nav>
 
               {renderTabContent()}
             </>

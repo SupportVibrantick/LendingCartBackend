@@ -74,6 +74,7 @@ const STATIC_SUBMIT_KEYS = new Set([
   "arvPercentage",
   "dscr",
   "netWorth",
+  "creditAuthorizationConsent",
 ]);
 
 const CO_BORROWER_SKIP_KEYS = new Set(["netWorth", "ltv", "ltc", "dscr"]);
@@ -514,12 +515,16 @@ export function mapSubmissionToLoanApplication(fields: SubmissionField[]) {
 
   const selectedProduct = asString(getFieldValue(fields, "loanProductCode"));
   const selectedCategory = inferCategoryFromProduct(selectedProduct);
+  const creditAuthorizationConsent = normalizeYesNo(
+    getFieldValue(fields, "creditAuthorizationConsent"),
+  );
 
   return {
     formData,
     dynamicFormData,
     selectedProduct,
     selectedCategory,
+    creditAuthorizationConsent,
   };
 }
 

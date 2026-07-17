@@ -90,15 +90,16 @@ export default function DocumentControlsBar({
 
   return (
     <div className="mb-5 space-y-3">
-      {/* Auto-forward */}
-      {showAutoForward && (
-      <div
-        className={`flex flex-col gap-3 rounded-2xl border px-4 py-3.5 shadow-sm transition sm:flex-row sm:items-center sm:justify-between ${
-          autoForwardEnabled
-            ? "border-emerald-200/80 bg-gradient-to-r from-emerald-50/90 to-teal-50/50 dark:border-emerald-900/40 dark:from-emerald-950/30 dark:to-slate-900"
-            : "border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900"
-        }`}
-      >
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+        {/* Auto-forward */}
+        {showAutoForward && (
+          <div
+            className={`flex h-full flex-col gap-3 rounded-2xl border px-4 py-3.5 shadow-sm transition sm:flex-row sm:items-center sm:justify-between ${
+              autoForwardEnabled
+                ? "border-emerald-200/80 bg-gradient-to-r from-emerald-50/90 to-teal-50/50 dark:border-emerald-900/40 dark:from-emerald-950/30 dark:to-slate-900"
+                : "border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900"
+            }`}
+          >
         <div className="flex min-w-0 flex-1 items-start gap-3 sm:items-center">
           <div
             className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
@@ -113,7 +114,7 @@ export default function DocumentControlsBar({
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <p className="text-sm font-semibold text-slate-800 dark:text-white">
-                Auto document forwarding
+                Auto Forward to Lender
               </p>
               <span
                 className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
@@ -134,13 +135,11 @@ export default function DocumentControlsBar({
         </div>
 
         <div className="flex shrink-0 items-center gap-3 self-end sm:self-center">
-          {manualSendSlot}
-
           <button
             type="button"
             role="switch"
             aria-checked={autoForwardEnabled}
-            aria-label="Toggle auto document forwarding"
+            aria-label="Toggle Auto Forward to Lender"
             disabled={autoForwardSaving}
             onClick={onToggleAutoForward}
             className={`relative inline-flex h-8 w-14 shrink-0 items-center rounded-full transition-colors duration-200 ${
@@ -154,18 +153,18 @@ export default function DocumentControlsBar({
             />
           </button>
         </div>
-      </div>
-      )}
+          </div>
+        )}
 
-      {/* Auto-forward lender requests → client */}
-      {showAutoForwardToClient && onToggleAutoForwardToClient && (
-        <div
-          className={`flex flex-col gap-3 rounded-2xl border px-4 py-3.5 shadow-sm transition sm:flex-row sm:items-center sm:justify-between ${
-            autoForwardToClientEnabled
-              ? "border-indigo-200/80 bg-gradient-to-r from-indigo-50/90 to-blue-50/50 dark:border-indigo-900/40 dark:from-indigo-950/30 dark:to-slate-900"
-              : "border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900"
-          }`}
-        >
+        {/* Auto Forward to Client */}
+        {showAutoForwardToClient && onToggleAutoForwardToClient && (
+          <div
+            className={`flex h-full flex-col gap-3 rounded-2xl border px-4 py-3.5 shadow-sm transition sm:flex-row sm:items-center sm:justify-between ${
+              autoForwardToClientEnabled
+                ? "border-indigo-200/80 bg-gradient-to-r from-indigo-50/90 to-blue-50/50 dark:border-indigo-900/40 dark:from-indigo-950/30 dark:to-slate-900"
+                : "border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900"
+            }`}
+          >
           <div className="flex min-w-0 flex-1 items-start gap-3 sm:items-center">
             <div
               className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
@@ -180,7 +179,7 @@ export default function DocumentControlsBar({
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
                 <p className="text-sm font-semibold text-slate-800 dark:text-white">
-                  Auto-forward lender requests to client
+                  Auto Forward to Client
                 </p>
                 <span
                   className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
@@ -204,7 +203,7 @@ export default function DocumentControlsBar({
             type="button"
             role="switch"
             aria-checked={autoForwardToClientEnabled}
-            aria-label="Toggle auto-forward lender requests to client"
+            aria-label="Toggle Auto Forward to Client"
             disabled={autoForwardToClientSaving}
             onClick={onToggleAutoForwardToClient}
             className={`relative inline-flex h-8 w-14 shrink-0 items-center rounded-full transition-colors duration-200 self-end sm:self-center ${
@@ -219,8 +218,11 @@ export default function DocumentControlsBar({
               }`}
             />
           </button>
-        </div>
-      )}
+          </div>
+        )}
+      </div>
+
+      {manualSendSlot ? <div>{manualSendSlot}</div> : null}
 
       {/* Filters & search */}
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
@@ -397,6 +399,8 @@ export default function DocumentControlsBar({
                 <option value="all">All documents</option>
                 <option value="sent">Sent to lender</option>
                 <option value="not_sent">Not sent yet</option>
+                <option value="sent_to_client">Sent to client</option>
+                <option value="not_sent_to_client">Not sent to client</option>
               </select>
               <ChevronDown
                 size={16}

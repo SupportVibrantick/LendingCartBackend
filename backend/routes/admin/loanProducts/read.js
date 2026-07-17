@@ -2,18 +2,22 @@ async function listLoanProducts(fastify) {
   fastify.get(
     "/",
     {
-      schema:{
-        tags:["Admin -> Loan Products"],
-        summary:"List all loan products",
-      }
+      schema: {
+        tags: ["Admin -> Loan Products"],
+        summary: "List all loan products",
+      },
     },
-    async (_, reply)=>{
+    async (_, reply) => {
       const prisma = fastify.prisma;
-      const products = await prisma.loanProduct.findMany({
-        orderBy:{ createdAt:"desc" }
-      });
-      reply.send({ success:true, data:products });
-    }
+      const {
+        sortLoanProductsByPriority,
+      } = require("../../../utils/loanProducts/sortLoanProductsByPriority");
+
+      const products = await prisma.loanProduct.findMany();
+      const sortedProducts = sortLoanProductsByPriority(products);
+
+      reply.send({ success: true, data: sortedProducts });
+    },
   );
 }
 

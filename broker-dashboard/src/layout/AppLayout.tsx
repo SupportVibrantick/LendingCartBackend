@@ -1,11 +1,13 @@
 import { SidebarProvider, useSidebar } from "../context/SidebarContext";
-import { Outlet } from "react-router";
+import { Outlet, useLocation } from "react-router";
 import AppHeader from "./AppHeader";
 import Backdrop from "./Backdrop";
 import AppSidebar from "./AppSidebar";
 
 const LayoutContent: React.FC = () => {
   const { isExpanded, isHovered, isMobileOpen } = useSidebar();
+  const { pathname } = useLocation();
+  const isLoanApplicationPage = pathname === "/loan-application";
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50 dark:bg-gray-950">
@@ -22,7 +24,13 @@ const LayoutContent: React.FC = () => {
         <AppHeader />
 
         <main className="min-h-0 flex-1 overflow-y-auto">
-          <div className="mx-auto w-full max-w-[1480px] p-4 md:p-6 lg:px-8">
+          <div
+            className={
+              isLoanApplicationPage
+                ? "w-full"
+                : "mx-auto w-full max-w-[1480px] p-4 md:p-6 lg:px-8"
+            }
+          >
             <Outlet />
           </div>
         </main>
