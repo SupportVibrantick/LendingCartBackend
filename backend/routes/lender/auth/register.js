@@ -129,12 +129,18 @@ async function lenderRegisterRoutes(fastify) {
       }
 
       const clientIp = getClientIp(req);
+      const normalizedOrgEmail = String(organizationEmail).trim().toLowerCase();
+      const normalizedAdminEmail = String(adminEmail).trim().toLowerCase();
 
       if (source === "public") {
-        const limit = checkRateLimit(`lender-public-register:${clientIp}`, {
-          windowMs: 15 * 60 * 1000,
-          max: Number(process.env.PUBLIC_SIGNUP_RATE_MAX || 5),
-        });
+        // Rate limit per email (not global/IP), so different emails are not blocked together.
+        const limit = checkRateLimit(
+          `lender-public-register:email:${normalizedAdminEmail}`,
+          {
+            windowMs: 15 * 60 * 1000,
+            max: Number(process.env.PUBLIC_SIGNUP_RATE_MAX || 5),
+          },
+        );
         if (!limit.allowed) {
           reply.header("Retry-After", String(limit.retryAfterSec));
           return reply.status(429).send({
@@ -185,7 +191,7 @@ async function lenderRegisterRoutes(fastify) {
         }
 
         const inviteEmail = String(invite.email).toLowerCase();
-        if (String(adminEmail).trim().toLowerCase() !== inviteEmail) {
+        if (normalizedAdminEmail !== inviteEmail) {
           return reply.status(400).send({
             success: false,
             message: "Registration email must match the invitation email",
@@ -193,9 +199,6 @@ async function lenderRegisterRoutes(fastify) {
           });
         }
       }
-
-      const normalizedOrgEmail = String(organizationEmail).trim().toLowerCase();
-      const normalizedAdminEmail = String(adminEmail).trim().toLowerCase();
 
       const orgExists = await prisma.organization.findFirst({
         where: {
