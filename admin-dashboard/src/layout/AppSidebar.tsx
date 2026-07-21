@@ -428,7 +428,7 @@ const AppSidebar: React.FC = () => {
               </div>
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold text-white">Loan Automation</p>
-                <p className="truncate text-[11px] text-white/60">Admin Portal</p>
+                <p className="truncate text-[11px] text-white/60">Super Admin Portal</p>
               </div>
             </div>
           ) : (

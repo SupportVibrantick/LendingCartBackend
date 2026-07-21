@@ -1,5 +1,6 @@
 import {
   CATEGORY_LOAN_TYPES,
+  getLoanProductAliasGroup,
   type FormDataType,
   type LoanCategory,
 } from "../pages/LoanApplication/LoanApplication";
@@ -37,6 +38,7 @@ const STATIC_SUBMIT_KEYS = new Set([
   "mailingAddress",
   "employer",
   "loanProductCode",
+  "loanCategory",
   "amountRequested",
   "interestRate",
   "purpose",
@@ -223,6 +225,18 @@ export function inferCategoryFromProduct(productCode: string): LoanCategory {
       return category as LoanCategory;
     }
   }
+
+  // Alias fallback (e.g. BRIDGE_LOAN ↔ BRIDGE_LOAN_1_TO_4_UNITS)
+  for (const [category, products] of Object.entries(CATEGORY_LOAN_TYPES)) {
+    if (
+      products.some((allowedCode) =>
+        getLoanProductAliasGroup(allowedCode).includes(productCode),
+      )
+    ) {
+      return category as LoanCategory;
+    }
+  }
+
   return "";
 };
 
@@ -514,7 +528,14 @@ export function mapSubmissionToLoanApplication(fields: SubmissionField[]) {
   });
 
   const selectedProduct = asString(getFieldValue(fields, "loanProductCode"));
-  const selectedCategory = inferCategoryFromProduct(selectedProduct);
+  const storedCategory = asString(
+    getFieldValue(fields, "loanCategory"),
+  ) as LoanCategory;
+  const selectedCategory =
+    storedCategory &&
+    Object.prototype.hasOwnProperty.call(CATEGORY_LOAN_TYPES, storedCategory)
+      ? storedCategory
+      : inferCategoryFromProduct(selectedProduct);
   const creditAuthorizationConsent = normalizeYesNo(
     getFieldValue(fields, "creditAuthorizationConsent"),
   );

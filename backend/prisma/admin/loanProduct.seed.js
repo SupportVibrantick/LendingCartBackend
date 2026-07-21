@@ -1,6 +1,8 @@
 const prisma = require("../client");
 const { LOAN_PRODUCTS } = require("../loanProductCatalog");
 
+const ALLOWED_CODES = LOAN_PRODUCTS.map((product) => product.code);
+
 async function seedLoanProducts() {
   for (const product of LOAN_PRODUCTS) {
     const existing = await prisma.loanProduct.findFirst({
@@ -14,21 +16,51 @@ async function seedLoanProducts() {
         data: {
           code: product.code,
           name: product.name,
+          description: "",
           isActive: true,
         },
       });
 
       console.log(`✅ Created loan product: ${product.name}`);
-    } else if (existing.name !== product.name) {
+      continue;
+    }
+
+    const normalizedDescription = existing.description ?? "";
+    const needsUpdate =
+      existing.name !== product.name ||
+      normalizedDescription !== "" ||
+      existing.isActive !== true;
+
+    if (needsUpdate) {
       await prisma.loanProduct.update({
         where: { id: existing.id },
-        data: { name: product.name },
+        data: {
+          name: product.name,
+          description: "",
+          isActive: true,
+        },
       });
 
-      console.log(`✅ Updated loan product name: ${product.name}`);
+      console.log(`✅ Updated loan product: ${product.name}`);
     } else {
       console.log(`ℹ️ Loan product already exists: ${product.name}`);
     }
+  }
+
+  const deactivated = await prisma.loanProduct.updateMany({
+    where: {
+      code: {
+        notIn: ALLOWED_CODES,
+      },
+      isActive: true,
+    },
+    data: {
+      isActive: false,
+    },
+  });
+
+  if (deactivated.count > 0) {
+    console.log(`ℹ️ Deactivated ${deactivated.count} non-catalog loan product(s)`);
   }
 
   console.log("✅ Loan products seeded");

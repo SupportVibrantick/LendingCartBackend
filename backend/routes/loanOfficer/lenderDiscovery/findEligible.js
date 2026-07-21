@@ -2,6 +2,7 @@
 
 const {
   evaluateLenderProductEligibility,
+  formatLenderInterestRate,
 } = require("../../../utils/lender/evaluateLenderEligibility");
 const {
   extractApplicantEligibilityData,
@@ -81,7 +82,11 @@ module.exports = async function findEligibleLenders(fastify) {
         const submission = await prisma.applicationSubmission.findUnique({
           where: { id: submissionId },
           include: {
-            application: true,
+            application: {
+              include: {
+                financials: true,
+              },
+            },
             fields: {
               include: {
                 builderField: true,
@@ -157,6 +162,9 @@ module.exports = async function findEligibleLenders(fastify) {
           numberOfUnits,
           similarProjectsCompleted,
           portfolioPropertyCount,
+          annualRevenue,
+          isRefinance,
+          ownerOccupied,
         } = applicantData;
 
         const { loanProductCode } = application;
@@ -247,6 +255,9 @@ module.exports = async function findEligibleLenders(fastify) {
           numberOfUnits,
           similarProjectsCompleted,
           portfolioPropertyCount,
+          annualRevenue,
+          isRefinance,
+          ownerOccupied,
         };
 
         const evaluatedLenders = lenderProducts.map((lp) => {
@@ -278,7 +289,7 @@ module.exports = async function findEligibleLenders(fastify) {
               maxMonths: lp.maxTermMonths,
             },
             minCreditScore: lp.minCreditScore,
-            interestRateRange: lp.interestRateRange,
+            interestRateRange: formatLenderInterestRate(lp),
 
             // 🔥 FLAGS
             alreadySent: isAlreadySent,
@@ -383,6 +394,9 @@ module.exports = async function findEligibleLenders(fastify) {
               propertyState,
               businessIndustry,
               yearsInBusiness,
+              annualRevenue,
+              isRefinance,
+              ownerOccupied,
             },
 
             totalEligibleLenders: eligibleLenders.length,

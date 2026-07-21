@@ -293,6 +293,29 @@ const parseInterestRateRange = (rangeStr) => {
   };
 };
 
+const formatLenderInterestRate = (lenderProduct) => {
+  if (lenderProduct?.interestRateRange) {
+    return lenderProduct.interestRateRange;
+  }
+
+  const min = lenderProduct?.minRateSpreadPercent;
+  const max = lenderProduct?.maxRateSpreadPercent;
+
+  if (min != null && max != null) {
+    return `Prime + ${Number(min)}% to Prime + ${Number(max)}%`;
+  }
+
+  if (min != null) {
+    return `Prime + ${Number(min)}%`;
+  }
+
+  if (max != null) {
+    return `Prime + ${Number(max)}%`;
+  }
+
+  return null;
+};
+
 const isFirstTimeBorrower = (similarProjectsCompleted) => {
   if (similarProjectsCompleted === null || similarProjectsCompleted === undefined) {
     return true;
@@ -526,10 +549,53 @@ function evaluateLenderProductEligibility(lenderProduct, applicant, lenderProfil
     const requiredMonths = Number(lenderProduct.minTimeInBusinessMonths);
 
     if (applicantMonths < requiredMonths) {
-      reasons.push(
-        `Minimum time in business required (${requiredMonths} months)`,
-      );
+      const startupEligible =
+        rules.checkStartupAllowed &&
+        lenderProduct.startupAllowed === true &&
+        applicant.yearsInBusiness < 2;
+
+      if (!startupEligible) {
+        reasons.push(
+          `Minimum time in business required (${requiredMonths} months)`,
+        );
+      }
     }
+  }
+
+  if (
+    rules.checkStartupAllowed &&
+    applicant.yearsInBusiness !== null &&
+    applicant.yearsInBusiness < 2 &&
+    lenderProduct.startupAllowed === false
+  ) {
+    reasons.push("Startups not allowed for this program");
+  }
+
+  if (
+    rules.checkMinAnnualRevenue &&
+    applicant.annualRevenue !== null &&
+    hasConfiguredNumber(lenderProduct.minAnnualRevenue)
+  ) {
+    const minRevenue = Number(lenderProduct.minAnnualRevenue);
+    if (applicant.annualRevenue < minRevenue) {
+      reasons.push(`Annual revenue below minimum (${minRevenue})`);
+    }
+  }
+
+  if (
+    rules.checkOwnerOccupied &&
+    lenderProduct.ownerOccupiedRequired === true &&
+    applicant.ownerOccupied === false
+  ) {
+    reasons.push("Owner-occupied property required");
+  }
+
+  if (
+    rules.checkRefinanceAllowed &&
+    applicant.isRefinance === true &&
+    lenderProduct.refinanceAllowed !== true
+  ) {
+    reasons.push("Refinance not allowed for this program");
   }
 
   if (
@@ -639,6 +705,7 @@ async function syncProfileFundingToProducts(prisma, lenderOrgId, profile) {
 module.exports = {
   evaluateLenderProductEligibility,
   flattenGroupedSelections,
+  formatLenderInterestRate,
   matchesPropertyTypeSelection,
   parseStatesSupported,
   resolveFundingRange,

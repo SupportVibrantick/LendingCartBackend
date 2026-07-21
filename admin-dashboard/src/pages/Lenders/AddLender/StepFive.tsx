@@ -1,39 +1,14 @@
 import { useEffect, useState } from "react";
 import { ChevronDown, Settings } from "lucide-react";
-
-const fields = [
-  { label: "Min Loan Amount ($)", key: "minLoan" },
-  { label: "Max Loan Amount ($)", key: "maxLoan" },
-  { label: "Min Rate (%)", key: "minRate" },
-  { label: "Max Rate (%)", key: "maxRate" },
-
-{ label: "Max LTV (%)", key: "maxLtv" },
-
-{
-  label: "Max ARV (%)",
-  key: "maxArv",
-},
-
-{
-  label: "Max LTC (%)",
-  key: "maxLtc",
-  products: [
-    "MEZZ_FINANCE_PREF_EQUITY",
-    "MEZZ_FINANCE",
-    "MEZZANINE_FINANCE",
-    "FIX_AND_FLIP",
-    "CONSTRUCTION_LOAN",
-    "CONSTRUCTION_LOAN_1_TO_4_UNITS",
-    "FIX_AND_FLIP_LOAN_1_TO_4_UNITS",
-  ],
-},
-
-  { label: "Min FICO Score", key: "fico" },
-  { label: "Min Experience (Years)", key: "experience" },
-
-  { label: "Min Term (months)", key: "minTerm" },
-  { label: "Max Term (months)", key: "maxTerm" },
-];
+import {
+  getCriteriaFieldsForProduct,
+  getCriteriaFieldInputSuffix,
+  type CriteriaField,
+} from "../../../lib/loanProductCriteriaFields";
+import {
+  formatNumberInputValue,
+  sanitizeNumberInput,
+} from "../../../lib/numberInputFormat";
 
 const US_STATES = [
   "AL",
@@ -226,11 +201,16 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
     }
 
 if (
+  key === "minLtv" ||
   key === "maxLtv" ||
   key === "maxArv" ||
   key === "maxLtc"
 ) {
   if (numVal > 100) {
+    if (key === "minLtv") {
+      return "Min LTV cannot exceed 100%";
+    }
+
     if (key === "maxLtv") {
       return "LTV cannot exceed 100%";
     }
@@ -329,22 +309,34 @@ if (
             {isOpen && (
               <div className="p-4 bg-gray-50 border-t">
                 <div className="grid grid-cols-2 gap-4">
-                 {fields
-  .filter((field: any) => {
-    if (!field.products) return true;
+                 {getCriteriaFieldsForProduct(product.code)
+  .filter(
+    (field) =>
+      field.type !== "toggle" &&
+      field.type !== "textarea" &&
+      field.key !== "criteriaNotes",
+  )
+  .map((field: CriteriaField) => {
+                    const inputSuffix = getCriteriaFieldInputSuffix(field);
+                    const isDecimal = Boolean(field.decimal);
 
-    return field.products.includes(product.code);
-  })
-  .map((field: any) => (
+                    return (
                     <div key={field.key}>
                       <label className="text-xs text-gray-600 mb-1 block">
                         {field.label} <span className="text-red-500">*</span>
                       </label>
+                      <div className="relative">
                       <input
-                        type="number"
-                        value={value?.[product.id]?.[field.key] || ""}
+                        type="text"
+                        inputMode={isDecimal ? "decimal" : "numeric"}
+                        value={formatNumberInputValue(
+                          value?.[product.id]?.[field.key],
+                          { decimal: isDecimal },
+                        )}
                         onChange={(e) => {
-                          const val = e.target.value;
+                          const val = sanitizeNumberInput(e.target.value, {
+                            decimal: isDecimal,
+                          });
 
                           handleChange(product.id, field.key, val);
 
@@ -358,20 +350,29 @@ if (
                             },
                           }));
                         }}
-                        className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2
+                        className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 ${
+                          inputSuffix ? "pr-9" : ""
+                        }
   ${
     errors?.[product.id]?.[field.key]
       ? "border-red-500 focus:ring-red-500"
       : "border-gray-300 focus:ring-blue-500"
   }`}
                       />
+                      {inputSuffix && (
+                        <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs font-medium text-gray-400">
+                          {inputSuffix}
+                        </span>
+                      )}
+                      </div>
                       {errors?.[product.id]?.[field.key] && (
                         <p className="text-xs text-red-500 mt-1">
                           {errors[product.id][field.key]}
                         </p>
                       )}
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
                 {/* STATES SECTION */}
                 <div className="mt-6">

@@ -3,11 +3,15 @@ import { ChevronDown, Settings, FileText, CheckCircle2 } from "lucide-react";
 import toast from "react-hot-toast";
 import {
   getCriteriaFieldsForProduct,
+  getCriteriaFieldInputSuffix,
+  getDefaultCriteriaValuesForProduct,
+  getRequiredCriteriaKeysForProduct,
   type CriteriaField,
 } from "../../../lib/loanProductCriteriaFields";
 import {
   formatNumberInputValue,
   sanitizeNumberInput,
+  stripNumberFormatting,
 } from "../../../lib/numberInputFormat";
 
 const US_STATES = [
@@ -386,6 +390,9 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
     }));
   };
 
+  const parseNumericValue = (input: unknown) =>
+    Number(stripNumberFormatting(String(input ?? "")));
+
   const validateField = (
     productId: string,
     key: string,
@@ -400,7 +407,7 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
       return isRequired ? "This field is required" : "";
     }
 
-    const numVal = Number(val);
+    const numVal = parseNumericValue(val);
 
     // ✅ GENERIC NUMBER VALIDATION
     if (numVal < 0) {
@@ -483,6 +490,7 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
     }
 
     if (
+      key === "minLtv" ||
       key === "maxLtv" ||
       key === "maxArv" ||
       key === "maxLtc" ||
@@ -490,6 +498,10 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
       key === "mezzLtvMax"
     ) {
       if (numVal > 100) {
+        if (key === "minLtv") {
+          return "Min LTV cannot exceed 100%";
+        }
+
         if (key === "maxLtv") {
           return "LTV cannot exceed 100%";
         }
@@ -522,6 +534,30 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
 
     if (key === "maxRateSpread" && numVal > 100) {
       return "Max rate spread cannot exceed 100%";
+    }
+
+    if (key === "minRateSpread" && numVal > 100) {
+      return "Min rate spread cannot exceed 100%";
+    }
+
+    if (key === "minRateSpread" && current.maxRateSpread) {
+      if (numVal > parseNumericValue(current.maxRateSpread)) {
+        return "Min rate spread cannot exceed max rate spread";
+      }
+    }
+
+    if (key === "maxRateSpread" && current.minRateSpread) {
+      if (numVal < parseNumericValue(current.minRateSpread)) {
+        return "Max rate spread cannot be less than min rate spread";
+      }
+    }
+
+    if (key === "sbaGuaranteePercent" && numVal > 100) {
+      return "SBA guarantee cannot exceed 100%";
+    }
+
+    if (key === "maxFinancingPercent" && numVal > 100) {
+      return "Max financing cannot exceed 100%";
     }
 
     if (key === "requiredInjection" && numVal > 100) {
@@ -674,12 +710,15 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
       );
     }
 
+    const inputSuffix = getCriteriaFieldInputSuffix(field);
+
     return (
       <div key={field.key}>
         <label className="text-xs text-gray-600 mb-1 block">
           {field.label}
           {isRequired && <span className="text-red-500"> *</span>}
         </label>
+        <div className="relative">
         <input
           type="text"
           inputMode={field.decimal ? "decimal" : "numeric"}
@@ -702,13 +741,21 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
               },
             }));
           }}
-          className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2
+          className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 ${
+            inputSuffix ? "pr-9" : ""
+          }
   ${
     errors?.[product.id]?.[field.key]
       ? "border-red-500 focus:ring-red-500"
       : "border-gray-300 focus:ring-blue-500"
   }`}
         />
+        {inputSuffix && (
+          <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs font-medium text-gray-400">
+            {inputSuffix}
+          </span>
+        )}
+        </div>
         {errors?.[product.id]?.[field.key] && (
           <p className="text-xs text-red-500 mt-1">
             {errors[product.id][field.key]}
@@ -760,19 +807,72 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
   }, [errors]);
 
   useEffect(() => {
+    if (!products.length) return;
+
+    let changed = false;
+    const next = { ...(value || {}) };
+
+    products.forEach((product: any) => {
+      const defaults = getDefaultCriteriaValuesForProduct(product.code);
+      if (!Object.keys(defaults).length) return;
+
+      const existing = value?.[product.id] || {};
+      const hasExistingValues = getRequiredCriteriaKeysForProduct(
+        product.code,
+      ).some((key) => {
+        const current = existing[key];
+        return current !== undefined && current !== "" && current !== null;
+      });
+
+      if (hasExistingValues) return;
+
+      next[product.id] = {
+        ...defaults,
+        states: US_STATES,
+        documents: existing.documents || [],
+      };
+      changed = true;
+    });
+
+    if (changed) {
+      setValue(next);
+    }
+  }, [products]);
+
+  useEffect(() => {
+    if (!products.length) return;
+
     products.forEach((p: any) => {
-      if (!value?.[p.id]?.states?.length) {
-        setErrors((prev: any) => ({
+      const hasStates = Boolean(value?.[p.id]?.states?.length);
+
+      setErrors((prev: any) => {
+        const currentError = prev?.[p.id]?.states || "";
+
+        if (hasStates) {
+          if (!currentError) return prev;
+          return {
+            ...prev,
+            [p.id]: {
+              ...prev?.[p.id],
+              states: "",
+            },
+          };
+        }
+
+        const message =
+          "Please select at least one state where lending is available";
+        if (currentError === message) return prev;
+
+        return {
           ...prev,
           [p.id]: {
             ...prev?.[p.id],
-            states:
-              "Please select at least one state where lending is available",
+            states: message,
           },
-        }));
-      }
+        };
+      });
     });
-  }, []);
+  }, [products, value]);
 
   return (
     <div className="space-y-4">

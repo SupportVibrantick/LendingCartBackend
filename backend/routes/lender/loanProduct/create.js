@@ -237,14 +237,27 @@ maxLtcPercent: data.maxLtcPercent,
                 item.maxRateSpreadPercent
                   ? new Prisma.Decimal(item.maxRateSpreadPercent)
                   : null,
-              avgTurnaroundDays: isSba7aGeneralProduct(item.loanProductCode)
-                ? item.avgTurnaroundDays ?? null
-                : null,
+              minRateSpreadPercent:
+                isSba7aRateSpreadProduct(item.loanProductCode) &&
+                item.minRateSpreadPercent
+                  ? new Prisma.Decimal(item.minRateSpreadPercent)
+                  : null,
+              sbaGuaranteePercent:
+                isSba7aMaxLoanOnlyProduct(item.loanProductCode) &&
+                item.sbaGuaranteePercent
+                  ? new Prisma.Decimal(item.sbaGuaranteePercent)
+                  : null,
+              avgTurnaroundDays:
+                isSba7aGeneralProduct(item.loanProductCode) ||
+                isSba504Product(item.loanProductCode)
+                  ? item.avgTurnaroundDays ?? null
+                  : null,
               preferredLenderPlp: isSba7aGeneralProduct(item.loanProductCode)
                 ? item.preferredLenderPlp ?? false
                 : false,
               requiredInjectionPercent:
-                isSba7aBusinessAcquisitionProduct(item.loanProductCode) &&
+                (isSba7aBusinessAcquisitionProduct(item.loanProductCode) ||
+                  isSba504Product(item.loanProductCode)) &&
                 item.requiredInjectionPercent
                   ? new Prisma.Decimal(item.requiredInjectionPercent)
                   : null,
@@ -258,11 +271,59 @@ maxLtcPercent: data.maxLtcPercent,
               )
                 ? item.sellerFinancingAllowed ?? false
                 : false,
-              minTimeInBusinessMonths: isSba7aWorkingCapitalProduct(
-                item.loanProductCode,
-              )
-                ? item.minTimeInBusinessMonths ?? null
-                : null,
+              minLiquidityRequirement:
+                isSba7aBusinessAcquisitionProduct(item.loanProductCode) &&
+                item.minLiquidityRequirement?.trim()
+                  ? item.minLiquidityRequirement.trim()
+                  : null,
+              minTimeInBusinessMonths:
+                isSba7aWorkingCapitalProduct(item.loanProductCode) ||
+                isSba7aEquipmentPurchaseProduct(item.loanProductCode) ||
+                isSba504Product(item.loanProductCode)
+                  ? item.minTimeInBusinessMonths ?? null
+                  : null,
+              minAnnualRevenue:
+                isSba7aWorkingCapitalProduct(item.loanProductCode) &&
+                item.minAnnualRevenue
+                  ? new Prisma.Decimal(item.minAnnualRevenue)
+                  : null,
+              maxFinancingPercent:
+                isSba7aWorkingCapitalProduct(item.loanProductCode) &&
+                item.maxFinancingPercent
+                  ? new Prisma.Decimal(item.maxFinancingPercent)
+                  : null,
+              useOfFunds:
+                (isSba7aWorkingCapitalProduct(item.loanProductCode) ||
+                  isSba504Product(item.loanProductCode)) &&
+                item.useOfFunds?.trim()
+                  ? item.useOfFunds.trim()
+                  : null,
+              collateralRequirements:
+                (isSba7aWorkingCapitalProduct(item.loanProductCode) ||
+                  isSba504Product(item.loanProductCode)) &&
+                item.collateralRequirements?.trim()
+                  ? item.collateralRequirements.trim()
+                  : null,
+              startupAllowed:
+                isSba7aWorkingCapitalProduct(item.loanProductCode) ||
+                isSba7aEquipmentPurchaseProduct(item.loanProductCode) ||
+                isSba504Product(item.loanProductCode)
+                  ? item.startupAllowed ?? false
+                  : false,
+              rateStructure:
+                isSba504Product(item.loanProductCode) &&
+                item.rateStructure?.trim()
+                  ? item.rateStructure.trim()
+                  : null,
+              refinanceAllowed: isSba504Product(item.loanProductCode)
+                ? item.refinanceAllowed ?? false
+                : false,
+              workingCapitalEligible: isSba504Product(item.loanProductCode)
+                ? item.workingCapitalEligible ?? false
+                : false,
+              lifeInsuranceMayBeRequired: isSba504Product(item.loanProductCode)
+                ? item.lifeInsuranceMayBeRequired ?? false
+                : false,
               lineOfCreditAvailable: isSba7aWorkingCapitalProduct(
                 item.loanProductCode,
               )
@@ -333,11 +394,27 @@ maxLtcPercent: data.maxLtcPercent,
               )
                 ? item.reverseFactoringAvailable ?? false
                 : false,
-              ownerOccupiedRequired: isSba7aRealEstateProduct(
-                item.loanProductCode,
-              )
-                ? item.ownerOccupiedRequired ?? false
-                : false,
+              ownerOccupiedRequired:
+                isSba7aRealEstateProduct(item.loanProductCode) ||
+                isSba504Product(item.loanProductCode)
+                  ? item.ownerOccupiedRequired ?? false
+                  : false,
+              ownerOccupancyRequirement:
+                (isSba7aRealEstateProduct(item.loanProductCode) ||
+                  isSba504Product(item.loanProductCode)) &&
+                item.ownerOccupancyRequirement?.trim()
+                  ? item.ownerOccupancyRequirement.trim()
+                  : null,
+              environmentalReportRequired:
+                isSba7aRealEstateProduct(item.loanProductCode) ||
+                isSba504Product(item.loanProductCode)
+                  ? item.environmentalReportRequired ?? false
+                  : false,
+              appraisalRequired:
+                isSba7aRealEstateProduct(item.loanProductCode) ||
+                isSba504Product(item.loanProductCode)
+                  ? item.appraisalRequired ?? false
+                  : false,
               maxTotalProjectAmount:
                 isSba504Product(item.loanProductCode) &&
                 item.maxTotalProjectAmount
@@ -436,11 +513,12 @@ maxLtcPercent: data.maxLtcPercent,
               extensionAvailable: isBridgeLoanProduct(item.loanProductCode)
                 ? item.extensionAvailable ?? false
                 : false,
-              personalGuaranteeRequired: isBridgeLoanProduct(
-                item.loanProductCode,
-              )
-                ? item.personalGuaranteeRequired ?? false
-                : false,
+              personalGuaranteeRequired:
+                isBridgeLoanProduct(item.loanProductCode) ||
+                isSba7aMaxLoanOnlyProduct(item.loanProductCode) ||
+                isSba504Product(item.loanProductCode)
+                  ? item.personalGuaranteeRequired ?? false
+                  : false,
               firstTimeBorrowersAllowed: isFixAndFlipProduct(
                 item.loanProductCode,
               )
@@ -451,7 +529,9 @@ maxLtcPercent: data.maxLtcPercent,
                   isRentalPortfolioProduct(item.loanProductCode) ||
                   isCrePermanentProduct(item.loanProductCode) ||
                   isCmbsProduct(item.loanProductCode) ||
-                  isAgencyMultifamilyProduct(item.loanProductCode)) &&
+                  isAgencyMultifamilyProduct(item.loanProductCode) ||
+                  isSba7aMaxLoanOnlyProduct(item.loanProductCode) ||
+                  isSba504Product(item.loanProductCode)) &&
                 item.minDscr
                   ? new Prisma.Decimal(item.minDscr)
                   : null,
@@ -470,9 +550,14 @@ maxLtcPercent: data.maxLtcPercent,
               minUnits: isAgencyMultifamilyProduct(item.loanProductCode)
                 ? item.minUnits ?? null
                 : null,
-              prepaymentStructure: isCmbsProduct(item.loanProductCode)
-                ? item.prepaymentStructure ?? null
-                : null,
+              prepaymentStructure:
+                isCmbsProduct(item.loanProductCode) ||
+                isSba7aWorkingCapitalProduct(item.loanProductCode) ||
+                isSba7aEquipmentPurchaseProduct(item.loanProductCode) ||
+                isSba7aRealEstateProduct(item.loanProductCode) ||
+                isSba504Product(item.loanProductCode)
+                  ? item.prepaymentStructure ?? null
+                  : null,
               minPropertiesInPortfolio: isRentalPortfolioProduct(
                 item.loanProductCode,
               )

@@ -402,6 +402,21 @@ model LenderProduct {
   completionGuaranteeRequired Boolean?                    @default(false)
   criteriaNotes               String?
   maxRateSpreadPercent        Decimal?                    @db.Decimal(5, 2)
+  minRateSpreadPercent        Decimal?                    @db.Decimal(5, 2)
+  sbaGuaranteePercent         Decimal?                    @db.Decimal(5, 2)
+  minAnnualRevenue            Decimal?                    @db.Decimal(20, 2)
+  startupAllowed              Boolean?                    @default(false)
+  minLiquidityRequirement     String?
+  ownerOccupancyRequirement   String?
+  useOfFunds                  String?
+  collateralRequirements      String?
+  maxFinancingPercent         Decimal?                    @db.Decimal(5, 2)
+  rateStructure               String?
+  refinanceAllowed            Boolean?                    @default(false)
+  workingCapitalEligible      Boolean?                    @default(false)
+  lifeInsuranceMayBeRequired  Boolean?                    @default(false)
+  environmentalReportRequired Boolean?                    @default(false)
+  appraisalRequired           Boolean?                    @default(false)
   avgTurnaroundDays           Int?
   preferredLenderPlp          Boolean?                    @default(false)
   requiredInjectionPercent    Decimal?                    @db.Decimal(5, 2)

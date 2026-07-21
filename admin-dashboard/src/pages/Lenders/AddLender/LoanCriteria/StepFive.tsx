@@ -3,6 +3,9 @@ import { ChevronDown, Settings, FileText, CheckCircle2 } from "lucide-react";
 import toast from "react-hot-toast";
 import {
   getCriteriaFieldsForProduct,
+  getCriteriaFieldInputSuffix,
+  getDefaultCriteriaValuesForProduct,
+  getRequiredCriteriaKeysForProduct,
   type CriteriaField,
 } from "../../../../lib/loanProductCriteriaFields";
 import {
@@ -109,8 +112,11 @@ const StepFive = ({
   const [documents, setDocuments] = useState<any[]>([]);
   const [loadingDocs, setLoadingDocs] = useState(false);
   const [docSearch, setDocSearch] = useState("");
+  const [docPage, setDocPage] = useState(1);
   const [customDocumentName, setCustomDocumentName] = useState("");
   const [addingCustomDoc, setAddingCustomDoc] = useState(false);
+
+  const DOCS_PER_PAGE = 9;
 
   const getAuthToken = () => {
     const tokenKey = authMode === "admin" ? "admin_token" : "lender_token";
@@ -242,6 +248,13 @@ const StepFive = ({
       .toLowerCase()
       .includes(term);
   });
+
+  const docTotalPages = Math.max(1, Math.ceil(filteredDocuments.length / DOCS_PER_PAGE));
+  const safeDocPage = Math.min(docPage, docTotalPages);
+  const paginatedDocuments = filteredDocuments.slice(
+    (safeDocPage - 1) * DOCS_PER_PAGE,
+    safeDocPage * DOCS_PER_PAGE,
+  );
 
   const selectAllDocuments = (productId: string) => {
     handleChange(productId, "documents", filteredDocuments);
@@ -411,6 +424,7 @@ const StepFive = ({
     }
 
     if (
+      key === "minLtv" ||
       key === "maxLtv" ||
       key === "maxArv" ||
       key === "maxLtc" ||
@@ -418,6 +432,10 @@ const StepFive = ({
       key === "mezzLtvMax"
     ) {
       if (numVal > 100) {
+        if (key === "minLtv") {
+          return "Min LTV cannot exceed 100%";
+        }
+
         if (key === "maxLtv") {
           return "LTV cannot exceed 100%";
         }
@@ -450,6 +468,30 @@ const StepFive = ({
 
     if (key === "maxRateSpread" && numVal > 100) {
       return "Max rate spread cannot exceed 100%";
+    }
+
+    if (key === "minRateSpread" && numVal > 100) {
+      return "Min rate spread cannot exceed 100%";
+    }
+
+    if (key === "minRateSpread" && current.maxRateSpread) {
+      if (numVal > parseNumericValue(current.maxRateSpread)) {
+        return "Min rate spread cannot exceed max rate spread";
+      }
+    }
+
+    if (key === "maxRateSpread" && current.minRateSpread) {
+      if (numVal < parseNumericValue(current.minRateSpread)) {
+        return "Max rate spread cannot be less than min rate spread";
+      }
+    }
+
+    if (key === "sbaGuaranteePercent" && numVal > 100) {
+      return "SBA guarantee cannot exceed 100%";
+    }
+
+    if (key === "maxFinancingPercent" && numVal > 100) {
+      return "Max financing cannot exceed 100%";
     }
 
     if (key === "requiredInjection" && numVal > 100) {
@@ -594,41 +636,52 @@ const StepFive = ({
       );
     }
 
+    const inputSuffix = getCriteriaFieldInputSuffix(field);
+
     return (
       <div key={field.key}>
         <label className="text-xs text-gray-600 mb-1 block">
           {field.label}
           {isRequired && <span className="text-red-500"> *</span>}
         </label>
-        <input
-          type="text"
-          inputMode={field.decimal ? "decimal" : "numeric"}
-          value={formatNumberInputValue(currentValue, { decimal: field.decimal })}
-          onChange={(e) => {
-            const val = sanitizeNumberInput(e.target.value, {
-              decimal: field.decimal,
-            });
-            const err = validateField(product.id, field.key, val, {
-              required: field.required !== false,
-            });
+        <div className="relative">
+          <input
+            type="text"
+            inputMode={field.decimal ? "decimal" : "numeric"}
+            value={formatNumberInputValue(currentValue, { decimal: field.decimal })}
+            onChange={(e) => {
+              const val = sanitizeNumberInput(e.target.value, {
+                decimal: field.decimal,
+              });
+              const err = validateField(product.id, field.key, val, {
+                required: field.required !== false,
+              });
 
-            handleChange(product.id, field.key, val);
+              handleChange(product.id, field.key, val);
 
-            setErrors((prev: any) => ({
-              ...prev,
-              [product.id]: {
-                ...prev?.[product.id],
-                [field.key]: err,
-              },
-            }));
-          }}
-          className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2
+              setErrors((prev: any) => ({
+                ...prev,
+                [product.id]: {
+                  ...prev?.[product.id],
+                  [field.key]: err,
+                },
+              }));
+            }}
+            className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 ${
+              inputSuffix ? "pr-9" : ""
+            }
   ${
     errors?.[product.id]?.[field.key]
       ? "border-red-500 focus:ring-red-500"
       : "border-gray-300 focus:ring-blue-500"
   }`}
-        />
+          />
+          {inputSuffix && (
+            <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs font-medium text-gray-400">
+              {inputSuffix}
+            </span>
+          )}
+        </div>
         {errors?.[product.id]?.[field.key] && (
           <p className="text-xs text-red-500 mt-1">
             {errors[product.id][field.key]}
@@ -651,19 +704,72 @@ const StepFive = ({
   }, [errors]);
 
   useEffect(() => {
+    if (!products.length) return;
+
+    let changed = false;
+    const next = { ...(value || {}) };
+
+    products.forEach((product: any) => {
+      const defaults = getDefaultCriteriaValuesForProduct(product.code);
+      if (!Object.keys(defaults).length) return;
+
+      const existing = value?.[product.id] || {};
+      const hasExistingValues = getRequiredCriteriaKeysForProduct(
+        product.code,
+      ).some((key) => {
+        const current = existing[key];
+        return current !== undefined && current !== "" && current !== null;
+      });
+
+      if (hasExistingValues) return;
+
+      next[product.id] = {
+        ...defaults,
+        states: US_STATES,
+        documents: existing.documents || [],
+      };
+      changed = true;
+    });
+
+    if (changed) {
+      setValue(next);
+    }
+  }, [products]);
+
+  useEffect(() => {
+    if (!products.length) return;
+
     products.forEach((p: any) => {
-      if (!value?.[p.id]?.states?.length) {
-        setErrors((prev: any) => ({
+      const hasStates = Boolean(value?.[p.id]?.states?.length);
+
+      setErrors((prev: any) => {
+        const currentError = prev?.[p.id]?.states || "";
+
+        if (hasStates) {
+          if (!currentError) return prev;
+          return {
+            ...prev,
+            [p.id]: {
+              ...prev?.[p.id],
+              states: "",
+            },
+          };
+        }
+
+        const message =
+          "Please select at least one state where lending is available";
+        if (currentError === message) return prev;
+
+        return {
           ...prev,
           [p.id]: {
             ...prev?.[p.id],
-            states:
-              "Please select at least one state where lending is available",
+            states: message,
           },
-        }));
-      }
+        };
+      });
     });
-  }, []);
+  }, [products, value]);
 
   return (
     <div className="space-y-4">
@@ -673,7 +779,7 @@ const StepFive = ({
           <Settings size={14} /> Loan Criteria
         </h2>
         <p className="text-sm text-gray-500">
-          Configure lending criteria for each selected loan program. 
+          Configure lending criteria for each selected loan program.
         </p>
       </div>
 
@@ -786,7 +892,7 @@ const StepFive = ({
                       <FileText size={16} className="text-indigo-600" />
 
                       <h3 className="text-sm font-semibold">
-                        Upfront Documents (optional)
+                        Upfront Documents (optional) 
                       </h3>
 
                       {!!value?.[product.id]?.documents?.length && (
@@ -820,7 +926,10 @@ const StepFive = ({
                       type="text"
                       placeholder="Search documents..."
                       value={docSearch}
-                      onChange={(e) => setDocSearch(e.target.value)}
+                      onChange={(e) => {
+                        setDocSearch(e.target.value);
+                        setDocPage(1);
+                      }}
                       className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
                     />
                   </div>
@@ -855,54 +964,104 @@ const StepFive = ({
                       Loading documents...
                     </div>
                   ) : filteredDocuments.length > 0 ? (
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                      {filteredDocuments.map((doc) => {
-                        const checked = value?.[product.id]?.documents?.some(
-                          (d: any) =>
-                            d.id === doc.id || d.documentTypeId === doc.id,
-                        );
+                    <>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                        {paginatedDocuments.map((doc) => {
+                          const checked = value?.[product.id]?.documents?.some(
+                            (d: any) =>
+                              d.id === doc.id || d.documentTypeId === doc.id,
+                          );
 
-                        return (
-                          <label
-                            key={doc.id}
-                            className={`group relative flex items-start gap-3 rounded-2xl border px-4 py-3 cursor-pointer transition-all duration-200
-            ${
-              checked
-                ? "border-indigo-500 bg-indigo-50 shadow-sm scale-[1.01]"
-                : "border-gray-200 bg-white hover:border-indigo-300 hover:bg-gray-50"
-            }`}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={checked || false}
-                              onChange={() => toggleDocument(product.id, doc)}
-                              className="mt-1 accent-indigo-600 cursor-pointer"
-                            />
-
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
-                                <div
-                                  className={`w-2.5 h-2.5 rounded-full ${getColor(
-                                    doc.name,
-                                  )}`}
-                                />
-
-                                <p className="text-sm font-medium text-gray-800 leading-tight">
-                                  {doc.name}
-                                </p>
-                              </div>
-                            </div>
-
-                            {checked && (
-                              <CheckCircle2
-                                size={18}
-                                className="text-indigo-600 shrink-0"
+                          return (
+                            <label
+                              key={doc.id}
+                              className={`group relative flex items-start gap-3 rounded-2xl border px-4 py-3 cursor-pointer transition-all duration-200
+              ${
+                checked
+                  ? "border-indigo-500 bg-indigo-50 shadow-sm scale-[1.01]"
+                  : "border-gray-200 bg-white hover:border-indigo-300 hover:bg-gray-50"
+              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={checked || false}
+                                onChange={() => toggleDocument(product.id, doc)}
+                                className="mt-1 accent-indigo-600 cursor-pointer"
                               />
-                            )}
-                          </label>
-                        );
-                      })}
-                    </div>
+
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <div
+                                    className={`w-2.5 h-2.5 rounded-full ${getColor(
+                                      doc.name,
+                                    )}`}
+                                  />
+
+                                  <p className="text-sm font-medium text-gray-800 leading-tight">
+                                    {doc.name}
+                                  </p>
+                                </div>
+                              </div>
+
+                              {checked && (
+                                <CheckCircle2
+                                  size={18}
+                                  className="text-indigo-600 shrink-0"
+                                />
+                              )}
+                            </label>
+                          );
+                        })}
+                      </div>
+
+                      {docTotalPages > 1 && (
+                        <div className="flex items-center justify-between pt-4">
+                          <p className="text-xs text-gray-500">
+                            Showing {(safeDocPage - 1) * DOCS_PER_PAGE + 1}-
+                            {Math.min(safeDocPage * DOCS_PER_PAGE, filteredDocuments.length)} of{" "}
+                            {filteredDocuments.length}
+                          </p>
+
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setDocPage((p) => Math.max(p - 1, 1))}
+                              disabled={safeDocPage <= 1}
+                              className="px-3 py-1 text-xs rounded-md border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                            >
+                              Prev
+                            </button>
+
+                            {Array.from({ length: docTotalPages }).map((_, i) => {
+                              const pg = i + 1;
+                              return (
+                                <button
+                                  key={pg}
+                                  type="button"
+                                  onClick={() => setDocPage(pg)}
+                                  className={`px-3 py-1 text-xs rounded-md border ${
+                                    safeDocPage === pg
+                                      ? "bg-indigo-600 text-white border-indigo-600"
+                                      : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+                                  }`}
+                                >
+                                  {pg}
+                                </button>
+                              );
+                            })}
+
+                            <button
+                              type="button"
+                              onClick={() => setDocPage((p) => Math.min(p + 1, docTotalPages))}
+                              disabled={safeDocPage >= docTotalPages}
+                              className="px-3 py-1 text-xs rounded-md border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                            >
+                              Next
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </>
                   ) : (
                     <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-gray-50 py-12">
                       <FileText size={42} className="mb-3 text-gray-400" />

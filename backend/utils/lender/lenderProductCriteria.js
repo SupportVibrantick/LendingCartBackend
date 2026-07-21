@@ -88,7 +88,9 @@ const LTC_LOAN_CODES = new Set([
 ]);
 
 const supportsLtcPercent = (loanProductCode) =>
-  LTC_LOAN_CODES.has(loanProductCode);
+  LTC_LOAN_CODES.has(loanProductCode) ||
+  isSba7aEquipmentPurchaseProduct(loanProductCode) ||
+  isSba504Product(loanProductCode);
 
 const isBridgeLoanProduct = (loanProductCode) =>
   BRIDGE_LOAN_CODES.has(loanProductCode);
@@ -161,13 +163,17 @@ const isSba7aMaxLoanOnlyProduct = (loanProductCode) =>
   isSba7aRealEstateProduct(loanProductCode);
 
 const isNoMinLoanCriteriaProduct = (loanProductCode) =>
-  isSba7aMaxLoanOnlyProduct(loanProductCode) ||
-  isSba504Product(loanProductCode) ||
   isUsdaBiProduct(loanProductCode);
 
 const isSba7aNoLtvProduct = (loanProductCode) =>
-  isSba7aMaxLoanOnlyProduct(loanProductCode) &&
-  !isSba7aRealEstateProduct(loanProductCode);
+  isSba7aGeneralProduct(loanProductCode) ||
+  isSba7aWorkingCapitalProduct(loanProductCode);
+
+const isAnySba7aProduct = (loanProductCode) =>
+  isSba7aMaxLoanOnlyProduct(loanProductCode);
+
+const isAnySbaProduct = (loanProductCode) =>
+  isAnySba7aProduct(loanProductCode) || isSba504Product(loanProductCode);
 
 const isNoLtvCriteriaProduct = (loanProductCode) =>
   isSba7aNoLtvProduct(loanProductCode) || isUsdaBiProduct(loanProductCode);
@@ -258,7 +264,9 @@ const getProductEligibilityRules = (productCode) => {
       isRentalPortfolioProduct(code) ||
       isCrePermanentProduct(code) ||
       isCmbsProduct(code) ||
-      isAgencyMultifamilyProduct(code),
+      isAgencyMultifamilyProduct(code) ||
+      isAnySba7aProduct(code) ||
+      isSba504Product(code),
     checkMinDebtYield: isCrePermanentProduct(code) || isCmbsProduct(code),
     checkMinExperience:
       !isBridgeLoanProduct(code) &&
@@ -275,10 +283,15 @@ const getProductEligibilityRules = (productCode) => {
     checkFirstTimeBorrowers: isFixAndFlipProduct(code),
     checkMinUnits: isAgencyMultifamilyProduct(code),
     checkPortfolioProperties: isRentalPortfolioProduct(code),
-    checkMinTimeInBusiness: isSba7aWorkingCapitalProduct(code),
+    checkMinTimeInBusiness: isAnySba7aProduct(code) || isSba504Product(code),
+    checkStartupAllowed: isAnySba7aProduct(code) || isSba504Product(code),
+    checkMinAnnualRevenue: isSba7aWorkingCapitalProduct(code),
+    checkOwnerOccupied:
+      isSba7aRealEstateProduct(code) || isSba504Product(code),
+    checkRefinanceAllowed: isSba504Product(code),
     checkPropertyType: true,
     checkPropertyState: true,
-    checkBusinessIndustry: false,
+    checkBusinessIndustry: isAnySbaProduct(code),
     checkInterestRate:
       !isPreferredEquityProduct(code) &&
       !noMinLoan &&
@@ -335,6 +348,8 @@ module.exports = {
   isArFactoringProduct,
   isApSupplyChainProduct,
   isSba7aMaxLoanOnlyProduct,
+  isAnySba7aProduct,
+  isAnySbaProduct,
   isNoMinLoanCriteriaProduct,
   isSba7aNoLtvProduct,
   isNoLtvCriteriaProduct,

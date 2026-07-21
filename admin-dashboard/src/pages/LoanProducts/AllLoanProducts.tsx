@@ -1,10 +1,13 @@
 // src/pages/LoanProducts/AllLoanProducts.tsx
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import toast from "react-hot-toast";
-import { MdModeEdit } from "react-icons/md";
+import { MdDelete, MdModeEdit } from "react-icons/md";
+import Swal from "sweetalert2";
 import { filterLenderCatalogProducts } from "../../lib/canonicalLoanProducts";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
+const ITEMS_PER_PAGE = 10;
+const SEARCH_DEBOUNCE_MS = 400;
 
 type LoanProduct = {
   id: string;
@@ -21,20 +24,34 @@ type LoanProductForm = {
   description: string;
 };
 
+type PaginationMeta = {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+};
+
 // same as BrokersPage
-function getAuthHeaders(): Record<string, string> {
+function getAuthHeaders(options?: {
+  json?: boolean;
+}): Record<string, string> {
+  const headers: Record<string, string> = {};
+  if (options?.json !== false) {
+    headers["Content-Type"] = "application/json";
+  }
+
   try {
     const token = sessionStorage.getItem("admin_token");
     if (token) {
-      return {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      };
+      headers.Authorization = `Bearer ${token}`;
     }
   } catch {
     /* ignore */
   }
-  return { "Content-Type": "application/json" };
+
+  return headers;
 }
 
 // tiny helper for status pill
@@ -52,11 +69,12 @@ function statusClass(status?: string) {
 const AllLoanProducts: React.FC = () => {
   const [products, setProducts] = useState<LoanProduct[]>([]);
   const [loanProductOptions, setLoanProductOptions] = useState<
-  { id: string; code: string; name: string }[]
->([]);
+    { id: string; code: string; name: string }[]
+  >([]);
   const [loadingList, setLoadingList] = useState(false);
   const [saving, setSaving] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [form, setForm] = useState<LoanProductForm>({
@@ -65,15 +83,17 @@ const AllLoanProducts: React.FC = () => {
     description: "",
   });
 
+  const [searchInput, setSearchInput] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 5;
-
-  const totalPages = Math.ceil(products.length / itemsPerPage);
-
-  const paginatedProducts = products.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage,
-  );
+  const [pagination, setPagination] = useState<PaginationMeta>({
+    page: 1,
+    limit: ITEMS_PER_PAGE,
+    total: 0,
+    totalPages: 1,
+    hasNextPage: false,
+    hasPreviousPage: false,
+  });
 
   // ===== Helpers =====
   const formatDate = (value?: string) => {
@@ -93,69 +113,108 @@ const AllLoanProducts: React.FC = () => {
   };
 
   // ===== API Calls =====
-  const fetchLoanProducts = async () => {
-    try {
-      setLoadingList(true);
+  const fetchLoanProducts = useCallback(
+    async (pageNo = currentPage, searchQuery = debouncedSearch) => {
+      try {
+        setLoadingList(true);
 
-      const res = await fetch(`${API_BASE}/admin/loan-products/list`, {
-        method: "GET",
-        headers: getAuthHeaders(),
-      });
+        const params = new URLSearchParams({
+          page: String(pageNo),
+          limit: String(ITEMS_PER_PAGE),
+        });
+        if (searchQuery.trim()) {
+          params.set("search", searchQuery.trim());
+        }
 
-      if (!res.ok) {
-        console.error("Failed to load loan products:", res.status);
-        return;
+        const res = await fetch(
+          `${API_BASE}/admin/loan-products/list?${params.toString()}`,
+          {
+            method: "GET",
+            headers: getAuthHeaders(),
+          },
+        );
+
+        if (!res.ok) {
+          console.error("Failed to load loan products:", res.status);
+          toast.error("Failed to load loan products");
+          return;
+        }
+
+        const json = await res.json();
+        if (!json.success) {
+          console.error("Failed to load loan products:", json.message);
+          toast.error(json.message || "Failed to load loan products");
+          return;
+        }
+
+        const items = (json.data || []) as any[];
+        const mapped: LoanProduct[] = items.map((p) => ({
+          id: String(p.id),
+          code: p.code,
+          name: p.name ?? "",
+          description: p.description ?? "",
+          isActive: Boolean(p.isActive),
+          createdAt: p.createdAt ?? undefined,
+        }));
+
+        setProducts(mapped);
+
+        const meta = json.pagination || {};
+        const total = Number(meta.total) || mapped.length;
+        const limit = Number(meta.limit) || ITEMS_PER_PAGE;
+        const page = Number(meta.page) || pageNo;
+        const totalPages = Math.max(
+          1,
+          Number(meta.totalPages) || Math.ceil(total / limit) || 1,
+        );
+
+        setPagination({
+          page,
+          limit,
+          total,
+          totalPages,
+          hasNextPage: Boolean(meta.hasNextPage ?? page < totalPages),
+          hasPreviousPage: Boolean(meta.hasPreviousPage ?? page > 1),
+        });
+
+        if (page !== pageNo) {
+          setCurrentPage(page);
+        }
+      } catch (err) {
+        console.error("Failed to load loan products", err);
+        toast.error("Failed to load loan products");
+      } finally {
+        setLoadingList(false);
       }
-
-      const json = await res.json();
-      if (!json.success) {
-        console.error("Failed to load loan products:", json.message);
-        return;
-      }
-
-      const items = (json.data || []) as any[];
-
-      const mapped: LoanProduct[] = items.map((p) => ({
-        id: String(p.id),
-        code: p.code,
-        name: p.name ?? "",
-        description: p.description ?? "",
-        isActive: Boolean(p.isActive),
-        createdAt: p.createdAt ?? undefined,
-      }));
-
-      setProducts(filterLenderCatalogProducts(mapped));
-      setCurrentPage(1);
-    } catch (err) {
-      console.error("Failed to load loan products", err);
-    } finally {
-      setLoadingList(false);
-    }
-  };
+    },
+    [currentPage, debouncedSearch],
+  );
 
   const fetchLoanProductCodes = async () => {
-  try {
-    const res = await fetch(
-      `${API_BASE}/common/loan-products/loan-product-code`
-    );
-
-    const json = await res.json();
-
-    if (json?.success) {
-      setLoanProductOptions(
-        filterLenderCatalogProducts(
-          (json.data || []).map((item: { id: string; code: string; name: string }) => ({
-            id: String(item.id),
-            code: item.code,
-            name: item.name,
-          })),
-        ),
+    try {
+      const res = await fetch(
+        `${API_BASE}/common/loan-products/loan-product-code`,
       );
+
+      const json = await res.json();
+
+      if (json?.success) {
+        setLoanProductOptions(
+          filterLenderCatalogProducts(
+            (json.data || []).map(
+              (item: { id: string; code: string; name: string }) => ({
+                id: String(item.id),
+                code: item.code,
+                name: item.name,
+              }),
+            ),
+          ),
+        );
+      }
+    } catch (error) {
+      console.error("Failed to load loan product codes", error);
     }
-  } catch (error) {
-    console.error("Failed to load loan product codes", error);
-  }
-};
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -208,7 +267,7 @@ const AllLoanProducts: React.FC = () => {
         toast.success(json.message || "Loan product created successfully");
       }
 
-      await fetchLoanProducts();
+      await fetchLoanProducts(currentPage, debouncedSearch);
       resetForm();
     } catch (err) {
       console.error("Error saving loan product", err);
@@ -251,7 +310,7 @@ const AllLoanProducts: React.FC = () => {
         return;
       }
 
-      await fetchLoanProducts();
+      await fetchLoanProducts(currentPage, debouncedSearch);
     } catch (err) {
       console.error("Failed to toggle product status", err);
     } finally {
@@ -259,12 +318,90 @@ const AllLoanProducts: React.FC = () => {
     }
   };
 
+  const handleDelete = async (product: LoanProduct) => {
+    const result = await Swal.fire({
+      title: "Are you sure?",
+      text: `Deleting loan product "${product.name}" will permanently remove it. This action cannot be undone.`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#dc2626",
+      cancelButtonColor: "#6b7280",
+      confirmButtonText: "Yes, delete it!",
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+      setDeletingId(product.id);
+
+      const res = await fetch(
+        `${API_BASE}/admin/loan-products/delete/${product.id}`,
+        {
+          method: "DELETE",
+          headers: getAuthHeaders({ json: false }),
+        },
+      );
+
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.success) {
+        await Swal.fire({
+          icon: "error",
+          title: "Delete failed",
+          text: json.message || "Failed to delete loan product",
+        });
+        return;
+      }
+
+      if (editingProductId === product.id) {
+        resetForm();
+      }
+
+      await fetchLoanProducts(currentPage, debouncedSearch);
+
+      await Swal.fire({
+        icon: "success",
+        title: "Deleted!",
+        text: json.message || "Loan product deleted successfully.",
+        timer: 1500,
+        showConfirmButton: false,
+      });
+    } catch (err) {
+      console.error("Failed to delete loan product", err);
+      await Swal.fire({
+        icon: "error",
+        title: "Delete failed",
+        text: "Failed to delete loan product",
+      });
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   // ===== Effects =====
   useEffect(() => {
-    fetchLoanProducts();
-     fetchLoanProductCodes();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchInput.trim());
+    }, SEARCH_DEBOUNCE_MS);
+
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+
+  useEffect(() => {
+    fetchLoanProducts(currentPage, debouncedSearch);
+  }, [currentPage, debouncedSearch, fetchLoanProducts]);
+
+  useEffect(() => {
+    fetchLoanProductCodes();
   }, []);
+
+  const showingFrom =
+    pagination.total === 0
+      ? 0
+      : (pagination.page - 1) * pagination.limit + 1;
+  const showingTo = Math.min(
+    pagination.page * pagination.limit,
+    pagination.total,
+  );
 
   // ===== UI =====
   return (
@@ -276,7 +413,7 @@ const AllLoanProducts: React.FC = () => {
             Loan Products
           </h1>
           <p className="text-sm text-gray-500 mt-1 dark:text-slate-400">
-            Manage global loan products available on the platform.
+            Manage global loan products available on the platform. 
           </p>
         </div>
       </div>
@@ -398,7 +535,7 @@ const AllLoanProducts: React.FC = () => {
 
         {/* RIGHT CARD – Products table */}
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 dark:bg-slate-900 dark:border-slate-700">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
             <div>
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
                 All Loan Products
@@ -408,15 +545,29 @@ const AllLoanProducts: React.FC = () => {
               </p>
             </div>
 
-            <button
-              type="button"
-              onClick={fetchLoanProducts}
-              disabled={loadingList}
-              className="rounded-full border border-gray-200 px-4 py-1.5 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <div className="relative">
+                <input
+                  type="search"
+                  value={searchInput}
+                  onChange={(e) => {
+                    setSearchInput(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  placeholder="Search by name, code, description..."
+                  className="w-full sm:w-64 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-gray-100"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => fetchLoanProducts(currentPage, debouncedSearch)}
+                disabled={loadingList}
+                className="rounded-full border border-gray-200 px-4 py-1.5 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed
                          dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
-            >
-              {loadingList ? "Refreshing..." : "Refresh"}
-            </button>
+              >
+                {loadingList ? "Refreshing..." : "Refresh"}
+              </button>
+            </div>
           </div>
 
           <div className="overflow-auto">
@@ -448,11 +599,13 @@ const AllLoanProducts: React.FC = () => {
                       className="py-6 text-center text-gray-500 dark:text-slate-400"
                       colSpan={6}
                     >
-                      No loan products found.
+                      {debouncedSearch
+                        ? `No loan products found for "${debouncedSearch}".`
+                        : "No loan products found."}
                     </td>
                   </tr>
                 ) : (
-                  paginatedProducts.map((p) => (
+                  products.map((p) => (
                     <tr
                       key={p.id}
                       className="border-b text-xs border-gray-100 last:border-0 hover:bg-gray-50/40 dark:border-slate-800 dark:hover:bg-slate-800/60"
@@ -504,8 +657,19 @@ const AllLoanProducts: React.FC = () => {
                             onClick={() => handleEdit(p)}
                             className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100
                                        dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                            title="Edit"
                           >
                             <MdModeEdit />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(p)}
+                            disabled={deletingId === p.id}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-red-200 text-red-500 hover:bg-red-50 disabled:opacity-60 disabled:cursor-not-allowed
+                                       dark:border-red-900/50 dark:text-red-400 dark:hover:bg-red-950/40"
+                            title="Delete"
+                          >
+                            <MdDelete />
                           </button>
                         </div>
                       </td>
@@ -515,33 +679,32 @@ const AllLoanProducts: React.FC = () => {
               </tbody>
             </table>
             {/* Pagination */}
-            {products.length > itemsPerPage && (
+            {pagination.total > 0 && (
               <div className="flex items-center justify-between pt-4">
                 <p className="text-sm text-gray-500 dark:text-slate-400">
-                  Showing {(currentPage - 1) * itemsPerPage + 1}-
-                  {Math.min(currentPage * itemsPerPage, products.length)} of{" "}
-                  {products.length}
+                  Showing {showingFrom}-{showingTo} of {pagination.total}
                 </p>
 
                 <div className="flex items-center gap-2">
-                  {/* Previous */}
                   <button
+                    type="button"
                     onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
-                    disabled={currentPage === 1}
+                    disabled={!pagination.hasPreviousPage || loadingList}
                     className="px-3 py-1.5 text-sm rounded-md border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50
                    dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
                   >
                     Prev
                   </button>
 
-                  {/* Page Numbers */}
-                  {Array.from({ length: totalPages }).map((_, i) => {
+                  {Array.from({ length: pagination.totalPages }).map((_, i) => {
                     const page = i + 1;
 
                     return (
                       <button
                         key={page}
+                        type="button"
                         onClick={() => setCurrentPage(page)}
+                        disabled={loadingList}
                         className={`px-3 py-1.5 text-sm rounded-md border
               ${
                 currentPage === page
@@ -554,12 +717,14 @@ const AllLoanProducts: React.FC = () => {
                     );
                   })}
 
-                  {/* Next */}
                   <button
+                    type="button"
                     onClick={() =>
-                      setCurrentPage((p) => Math.min(p + 1, totalPages))
+                      setCurrentPage((p) =>
+                        Math.min(p + 1, pagination.totalPages),
+                      )
                     }
-                    disabled={currentPage === totalPages}
+                    disabled={!pagination.hasNextPage || loadingList}
                     className="px-3 py-1.5 text-sm rounded-md border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50
                    dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
                   >

@@ -73,6 +73,44 @@ function extractApplicantEligibilityData(submission, application) {
     getFirstFieldValue("similarProjectsCompleted") ??
     findFieldValueByKeyPart("similarProjectsCompleted");
 
+  const annualRevenue =
+    safeNumber(getFieldValue("annualRevenue")) ??
+    safeNumber(getFieldValue("annual_revenue")) ??
+    safeNumber(findFieldValueByKeyPart("annualRevenue")) ??
+    safeNumber(application?.financials?.annualRevenue);
+
+  const purposeRaw =
+    getFieldValue("purpose") ??
+    getFieldValue("loanPurpose") ??
+    application?.purpose ??
+    "";
+  const isRefinance = /refinance|debt refinanc/i.test(String(purposeRaw));
+
+  const ownerOccupiedRaw = getFirstFieldValue(
+    "ownerOccupied",
+    "isOwnerOccupied",
+    "ownerOccupancy",
+  );
+  const ownerOccupancyPercent = safeNumber(
+    getFieldValue("ownerOccupancyPercent"),
+  );
+
+  let ownerOccupied = null;
+  if (ownerOccupiedRaw !== null && ownerOccupiedRaw !== undefined && ownerOccupiedRaw !== "") {
+    const normalized = String(ownerOccupiedRaw).trim().toLowerCase();
+    if (["true", "yes", "1"].includes(normalized)) {
+      ownerOccupied = true;
+    } else if (["false", "no", "0"].includes(normalized)) {
+      ownerOccupied = false;
+    } else if (normalized.includes("owner")) {
+      ownerOccupied = true;
+    } else if (normalized.includes("investment") || normalized.includes("non-owner")) {
+      ownerOccupied = false;
+    }
+  } else if (ownerOccupancyPercent !== null) {
+    ownerOccupied = ownerOccupancyPercent >= 51;
+  }
+
   return {
     loanAmount,
     termMonths,
@@ -98,6 +136,9 @@ function extractApplicantEligibilityData(submission, application) {
     numberOfUnits: safeNumber(getFieldValue("numberOfUnits")),
     similarProjectsCompleted: safeNumber(similarProjectsRaw) ?? similarProjectsRaw,
     portfolioPropertyCount: safeNumber(getFieldValue("portfolioPropertyCount")),
+    annualRevenue,
+    isRefinance,
+    ownerOccupied,
   };
 }
 

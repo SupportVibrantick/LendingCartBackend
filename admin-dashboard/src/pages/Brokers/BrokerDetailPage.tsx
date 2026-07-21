@@ -103,7 +103,7 @@ type TabKey =
   | "overview"
   | "contacts"
   | "loan-officers"
-  | "sub-brokers"
+  | "Co brokers"
   | "clients"
   | "lenders"
   | "applications"
@@ -151,7 +151,7 @@ const TABS: { key: TabKey; label: string; icon: React.ReactNode }[] = [
   { key: "overview", label: "Overview", icon: <Building2 size={13} /> },
   { key: "contacts", label: "Contacts", icon: <ContactRound size={13} /> },
   { key: "loan-officers", label: "Loan Officers", icon: <Briefcase size={13} /> },
-  { key: "sub-brokers", label: "Sub Brokers", icon: <UsersRound size={13} /> },
+  { key: "Co brokers", label: "Co Brokers", icon: <UsersRound size={13} /> },
   { key: "clients", label: "Clients", icon: <Users size={13} /> },
   { key: "lenders", label: "Lenders", icon: <Link2 size={13} /> },
   { key: "applications", label: "Applications", icon: <FileText size={13} /> },
@@ -683,7 +683,7 @@ export default function BrokerDetailPage() {
         setSbTotalPages(json.meta?.totalPages ?? 1);
         setSbPage(json.meta?.page ?? page);
       } catch (err: any) {
-        toast.error(err.message || "Failed to load sub-brokers");
+        toast.error(err.message || "Failed to load Co brokers");
       } finally {
         setSbLoading(false);
       }
@@ -811,7 +811,7 @@ export default function BrokerDetailPage() {
 
   useEffect(() => {
     if (loading) return;
-    if (["overview", "lenders", "contacts", "loan-officers", "sub-brokers", "clients", "applications"].includes(activeTab)) return;
+    if (["overview", "lenders", "contacts", "loan-officers", "Co brokers", "clients", "applications"].includes(activeTab)) return;
     loadTabData(activeTab);
   }, [activeTab, loadTabData, loading]);
 
@@ -842,7 +842,7 @@ export default function BrokerDetailPage() {
   }, [sbSearch]);
 
   useEffect(() => {
-    if (loading || activeTab !== "sub-brokers" || !brokerId) return;
+    if (loading || activeTab !== "Co brokers" || !brokerId) return;
     loadSubBrokers(sbPage, debouncedSbSearch);
   }, [activeTab, loading, brokerId, sbPage, debouncedSbSearch, loadSubBrokers]);
 
@@ -897,7 +897,7 @@ export default function BrokerDetailPage() {
     () => [
       { label: "Contacts", value: contactTotal, tab: "contacts" as TabKey, icon: <ContactRound size={14} /> },
       { label: "Loan officers", value: loTotal, tab: "loan-officers" as TabKey, icon: <Briefcase size={14} /> },
-      { label: "Sub brokers", value: sbTotal, tab: "sub-brokers" as TabKey, icon: <UsersRound size={14} /> },
+      { label: "Co Brokers", value: sbTotal, tab: "Co brokers" as TabKey, icon: <UsersRound size={14} /> },
       { label: "Clients", value: clientTotal, tab: "clients" as TabKey, icon: <Users size={14} /> },
       {
         label: "Lenders",
@@ -1140,7 +1140,7 @@ export default function BrokerDetailPage() {
     const next = active ? "DISABLED" : "ACTIVE";
 
     const result = await Swal.fire({
-      title: active ? "Disable sub-broker?" : "Activate sub-broker?",
+      title: active ? "Disable Co broker?" : "Activate Co broker?",
       text: `${personName(subBroker.firstName, subBroker.lastName, subBroker.email)} will be marked as ${next}.`,
       icon: "question",
       showCancelButton: true,
@@ -1151,7 +1151,7 @@ export default function BrokerDetailPage() {
 
     try {
       await updateBrokerSubBrokerStatus(brokerId, subBroker.id, next);
-      toast.success(`Sub-broker is now ${next}`);
+      toast.success(`Co broker is now ${next}`);
       await loadSubBrokers(sbPage, debouncedSbSearch);
     } catch (err: any) {
       toast.error(err.message || "Failed to update status");
@@ -1162,7 +1162,7 @@ export default function BrokerDetailPage() {
     if (!brokerId) return;
 
     const result = await Swal.fire({
-      title: "Delete sub-broker?",
+      title: "Delete Co broker?",
       text: `${personName(subBroker.firstName, subBroker.lastName, subBroker.email)} will be removed from this broker.`,
       icon: "warning",
       showCancelButton: true,
@@ -1174,10 +1174,10 @@ export default function BrokerDetailPage() {
 
     try {
       await deleteBrokerSubBroker(brokerId, subBroker.id);
-      toast.success("Sub-broker deleted");
+      toast.success("Co broker deleted");
       await loadSubBrokers(sbPage, debouncedSbSearch);
     } catch (err: any) {
-      toast.error(err.message || "Failed to delete sub-broker");
+      toast.error(err.message || "Failed to delete Co broker");
     }
   };
 
@@ -1506,7 +1506,7 @@ export default function BrokerDetailPage() {
           <DetailCell label="Team members" value={broker.counts?.admins ?? broker.admins?.length ?? 0} />
           <DetailCell label="Contacts" value={contactTotal} />
           <DetailCell label="Loan officers" value={loTotal} />
-          <DetailCell label="Sub brokers" value={sbTotal} />
+          <DetailCell label="Co Brokers" value={sbTotal} />
           <DetailCell label="Clients" value={clientTotal} />
           <DetailCell label="Connected lenders" value={broker.counts?.lenderAccess ?? lenderTotal} />
           <DetailCell label="Applications" value={appTotal} />
@@ -1974,14 +1974,14 @@ export default function BrokerDetailPage() {
   const renderSubBrokers = () => (
     <div className="space-y-3">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-xs text-slate-500">Manage sub-brokers for this broker organization.</p>
+        <p className="text-xs text-slate-500">Manage Co-brokers for this broker organization.</p>
         <button
           type="button"
           onClick={openCreateSbModal}
           className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#13538A] px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-[#0f426d]"
         >
           <Plus size={13} />
-          Add Sub-Broker
+          Add Co broker
         </button>
       </div>
 
@@ -1997,7 +1997,7 @@ export default function BrokerDetailPage() {
           />
         </div>
         <p className="text-[10px] text-slate-400">
-          {sbTotal} sub-broker{sbTotal === 1 ? "" : "s"}
+          {sbTotal} Co broker{sbTotal === 1 ? "" : "s"}
           {debouncedSbSearch ? ` matching "${debouncedSbSearch}"` : ""}
         </p>
       </div>
@@ -2005,14 +2005,14 @@ export default function BrokerDetailPage() {
       {sbLoading ? (
         <div className="flex items-center justify-center rounded-2xl border border-slate-200 py-16 text-xs text-slate-500 dark:border-slate-800">
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          Loading sub-brokers...
+          Loading Co brokers...
         </div>
       ) : !subBrokers.length ? (
         <EmptyTab
           message={
             debouncedSbSearch
-              ? `No sub-brokers found for "${debouncedSbSearch}".`
-              : "No sub-brokers yet. Add a sub-broker for this broker."
+              ? `No Co brokers found for "${debouncedSbSearch}".`
+              : "No Co brokers yet. Add a Co broker for this broker."
           }
         />
       ) : (
@@ -2636,7 +2636,7 @@ export default function BrokerDetailPage() {
   };
 
   const renderTabContent = () => {
-    if (tabLoading && !["overview", "lenders", "contacts", "loan-officers", "sub-brokers", "clients", "applications"].includes(activeTab)) {
+    if (tabLoading && !["overview", "lenders", "contacts", "loan-officers", "Co brokers", "clients", "applications"].includes(activeTab)) {
       return (
         <div className="flex items-center justify-center py-16 text-slate-500">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
@@ -2652,7 +2652,7 @@ export default function BrokerDetailPage() {
         return renderContacts();
       case "loan-officers":
         return renderLoanOfficers();
-      case "sub-brokers":
+      case "Co brokers":
         return renderSubBrokers();
       case "clients":
         return renderClients();

@@ -149,6 +149,8 @@ async function updateLenderLoanProductRoutes(fastify) {
         }
         if (isSba7aRateSpreadProduct(existing.loanProductCode)) {
           setDecimal("maxRateSpreadPercent", data.maxRateSpreadPercent);
+          setDecimal("minRateSpreadPercent", data.minRateSpreadPercent);
+          setDecimal("sbaGuaranteePercent", data.sbaGuaranteePercent);
         }
         if (isSba7aGeneralProduct(existing.loanProductCode)) {
           setValue("avgTurnaroundDays", data.avgTurnaroundDays);
@@ -158,21 +160,51 @@ async function updateLenderLoanProductRoutes(fastify) {
           setDecimal("requiredInjectionPercent", data.requiredInjectionPercent);
           setValue("goodwillFinancingAllowed", data.goodwillFinancingAllowed);
           setValue("sellerFinancingAllowed", data.sellerFinancingAllowed);
+          setValue("minLiquidityRequirement", data.minLiquidityRequirement);
         }
         if (isSba7aWorkingCapitalProduct(existing.loanProductCode)) {
           setValue("minTimeInBusinessMonths", data.minTimeInBusinessMonths);
+          setDecimal("minAnnualRevenue", data.minAnnualRevenue);
+          setDecimal("maxFinancingPercent", data.maxFinancingPercent);
+          setValue("useOfFunds", data.useOfFunds);
+          setValue("collateralRequirements", data.collateralRequirements);
+          setValue("startupAllowed", data.startupAllowed);
           setValue("lineOfCreditAvailable", data.lineOfCreditAvailable);
+          setValue("prepaymentStructure", data.prepaymentStructure);
         }
         if (isSba7aEquipmentPurchaseProduct(existing.loanProductCode)) {
           setValue("usedEquipmentAllowed", data.usedEquipmentAllowed);
+          setValue("minTimeInBusinessMonths", data.minTimeInBusinessMonths);
+          setValue("startupAllowed", data.startupAllowed);
+          setValue("prepaymentStructure", data.prepaymentStructure);
         }
         if (isSba7aRealEstateProduct(existing.loanProductCode)) {
           setValue("ownerOccupiedRequired", data.ownerOccupiedRequired);
+          setValue("ownerOccupancyRequirement", data.ownerOccupancyRequirement);
+          setValue("environmentalReportRequired", data.environmentalReportRequired);
+          setValue("appraisalRequired", data.appraisalRequired);
+          setValue("prepaymentStructure", data.prepaymentStructure);
         }
         if (isSba504Product(existing.loanProductCode)) {
           setDecimal("maxTotalProjectAmount", data.maxTotalProjectAmount);
           setDecimal("maxSba504DebentureAmount", data.maxSba504DebentureAmount);
+          setDecimal("requiredInjectionPercent", data.requiredInjectionPercent);
+          setValue("minTimeInBusinessMonths", data.minTimeInBusinessMonths);
+          setValue("ownerOccupiedRequired", data.ownerOccupiedRequired);
+          setValue("ownerOccupancyRequirement", data.ownerOccupancyRequirement);
+          setValue("environmentalReportRequired", data.environmentalReportRequired);
+          setValue("appraisalRequired", data.appraisalRequired);
           setValue("jobCreationRequired", data.jobCreationRequired);
+          setValue("avgTurnaroundDays", data.avgTurnaroundDays);
+          setValue("prepaymentStructure", data.prepaymentStructure);
+          setValue("useOfFunds", data.useOfFunds);
+          setValue("collateralRequirements", data.collateralRequirements);
+          setValue("startupAllowed", data.startupAllowed);
+          setValue("rateStructure", data.rateStructure);
+          setValue("refinanceAllowed", data.refinanceAllowed);
+          setValue("workingCapitalEligible", data.workingCapitalEligible);
+          setValue("lifeInsuranceMayBeRequired", data.lifeInsuranceMayBeRequired);
+          setValue("interestRateRange", data.interestRateRange);
         }
         if (isUsdaBiProduct(existing.loanProductCode)) {
           setDecimal("maxUsdaGuaranteeAmount", data.maxUsdaGuaranteeAmount);
@@ -274,6 +306,12 @@ async function updateLenderLoanProductRoutes(fastify) {
         }
         if (isBridgeLoanProduct(existing.loanProductCode)) {
           setValue("extensionAvailable", data.extensionAvailable);
+        }
+        if (
+          isBridgeLoanProduct(existing.loanProductCode) ||
+          isSba7aMaxLoanOnlyProduct(existing.loanProductCode) ||
+          isSba504Product(existing.loanProductCode)
+        ) {
           setValue("personalGuaranteeRequired", data.personalGuaranteeRequired);
         }
         if (isFixAndFlipProduct(existing.loanProductCode)) {
@@ -284,7 +322,9 @@ async function updateLenderLoanProductRoutes(fastify) {
           isRentalPortfolioProduct(existing.loanProductCode) ||
           isCrePermanentProduct(existing.loanProductCode) ||
           isCmbsProduct(existing.loanProductCode) ||
-          isAgencyMultifamilyProduct(existing.loanProductCode)
+          isAgencyMultifamilyProduct(existing.loanProductCode) ||
+          isSba7aMaxLoanOnlyProduct(existing.loanProductCode) ||
+          isSba504Product(existing.loanProductCode)
         ) {
           setDecimal("minDscr", data.minDscr);
         }

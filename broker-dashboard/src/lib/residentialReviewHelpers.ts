@@ -91,7 +91,9 @@ export const buildResidentialReviewSections = ({
   selectedProduct: string;
 }): ReviewSummarySection[] => {
   const isFixAndFlip = selectedProduct === "FIX_AND_FLIP_LOAN_1_TO_4_UNITS";
-  const isConstruction = selectedProduct === "CONSTRUCTION_LOAN_1_TO_4_UNITS";
+  const isConstruction =
+    selectedProduct === "CONSTRUCTION_LOAN_1_TO_4_UNITS" ||
+    selectedProduct === "CONSTRUCTION_LOAN";
   const isRentalPortfolio = selectedProduct === "RENTAL_PORTFOLIO";
   const isMezzanine = selectedProduct === "MEZZANINE_FINANCE";
   const isBusinessCollateral = isBase44BusinessCollateralProduct(selectedProduct);

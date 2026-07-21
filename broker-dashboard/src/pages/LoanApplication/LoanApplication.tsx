@@ -322,6 +322,64 @@ export const CATEGORY_LOAN_TYPES: Record<
   ],
 };
 
+/** Shared Bridge / Construction codes across Residential 1-4 and CRE. */
+const LOAN_PRODUCT_CODE_ALIASES: Record<string, string[]> = {
+  BRIDGE_LOAN: ["BRIDGE_LOAN", "BRIDGE_LOAN_1_TO_4_UNITS"],
+  BRIDGE_LOAN_1_TO_4_UNITS: ["BRIDGE_LOAN_1_TO_4_UNITS", "BRIDGE_LOAN"],
+  CONSTRUCTION_LOAN: ["CONSTRUCTION_LOAN", "CONSTRUCTION_LOAN_1_TO_4_UNITS"],
+  CONSTRUCTION_LOAN_1_TO_4_UNITS: [
+    "CONSTRUCTION_LOAN_1_TO_4_UNITS",
+    "CONSTRUCTION_LOAN",
+  ],
+};
+
+export const getLoanProductAliasGroup = (code: string) =>
+  LOAN_PRODUCT_CODE_ALIASES[code] || [code];
+
+const catalogMatchesCategoryProduct = (
+  catalogCode: string,
+  allowedCode: string,
+) => getLoanProductAliasGroup(allowedCode).includes(catalogCode);
+
+/**
+ * Pick one display/submit code per category slot.
+ * Prefer the category's primary code when present in catalog, else an alias.
+ */
+const resolveCategoryLoanProducts = (
+  allowedProducts: string[],
+  catalogCodes: string[],
+) => {
+  const catalogSet = new Set(catalogCodes);
+  const claimed = new Set<string>();
+  const resolved: string[] = [];
+
+  for (const allowedCode of allowedProducts) {
+    const group = getLoanProductAliasGroup(allowedCode);
+    if (group.some((code) => claimed.has(code))) continue;
+
+    const match =
+      group.find((code) => catalogSet.has(code)) ||
+      (catalogCodes.length === 0 ? allowedCode : null);
+
+    if (!match) continue;
+
+    resolved.push(match);
+    group.forEach((code) => claimed.add(code));
+  }
+
+  return resolved;
+};
+
+const isProductAllowedInCategory = (
+  productCode: string,
+  category: Exclude<LoanCategory, "">,
+) => {
+  const allowed = CATEGORY_LOAN_TYPES[category] || [];
+  return allowed.some((allowedCode) =>
+    catalogMatchesCategoryProduct(productCode, allowedCode),
+  );
+};
+
 const PRODUCT_LABELS: Record<string, string> = {
   // Residential
   BRIDGE_LOAN_1_TO_4_UNITS: "Bridge",
@@ -769,9 +827,11 @@ const isResidential14Category = (category: LoanCategory) =>
 /** CRE & Multifamily products that share the same field rules as 1-4 residential. */
 const CRE_RESIDENTIAL_LIKE_LOAN_TYPES = new Set([
   "BRIDGE_LOAN",
+  "BRIDGE_LOAN_1_TO_4_UNITS",
   "FIX_AND_FLIP_LOAN_1_TO_4_UNITS",
   "DSCR_LOAN_1_TO_4_UNITS",
   "CONSTRUCTION_LOAN",
+  "CONSTRUCTION_LOAN_1_TO_4_UNITS",
   "RENTAL_PORTFOLIO",
 ]);
 
@@ -2210,6 +2270,7 @@ const LoanApplication = ({
       /* ================= LOAN REQUEST ================= */
 
       addField("loanProductCode", selectedProduct);
+      addField("loanCategory", selectedCategory);
       addField("amountRequested", toNumber(formData.loanRequest.amount));
       addField("interestRate", formData.loanRequest.interestRate);
       addField("purpose", formData.loanRequest.purpose);
@@ -3008,25 +3069,23 @@ const LoanApplication = ({
     if (!selectedCategory) return;
 
     const allowedProducts = CATEGORY_LOAN_TYPES[selectedCategory] || [];
+    const catalogCodes = productsMeta.map((p: any) =>
+      String(p.loanProductCode || ""),
+    );
 
-    const filteredProducts = productsMeta
-      .filter((p: any) => allowedProducts.includes(p.loanProductCode))
-      .sort(
-        (a: any, b: any) =>
-          allowedProducts.indexOf(a.loanProductCode) -
-          allowedProducts.indexOf(b.loanProductCode),
-      );
+    const resolvedProducts = resolveCategoryLoanProducts(
+      allowedProducts,
+      catalogCodes,
+    );
 
     // Prefer catalog matches; if none match category mapping, show category codes.
     setLoanProducts(
-      filteredProducts.length > 0
-        ? filteredProducts.map((p: any) => p.loanProductCode)
-        : allowedProducts,
+      resolvedProducts.length > 0 ? resolvedProducts : allowedProducts,
     );
 
     if (mode === "update" && initialSelectedProduct) {
       setSelectedProduct((prev) =>
-        allowedProducts.includes(initialSelectedProduct)
+        isProductAllowedInCategory(initialSelectedProduct, selectedCategory)
           ? initialSelectedProduct
           : prev,
       );

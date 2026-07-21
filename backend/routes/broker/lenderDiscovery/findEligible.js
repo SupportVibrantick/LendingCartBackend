@@ -2,6 +2,7 @@
 
 const {
   evaluateLenderProductEligibility,
+  formatLenderInterestRate,
 } = require("../../../utils/lender/evaluateLenderEligibility");
 const {
   extractApplicantEligibilityData,
@@ -81,7 +82,11 @@ module.exports = async function findEligibleLenders(fastify) {
         const submission = await prisma.applicationSubmission.findUnique({
           where: { id: submissionId },
           include: {
-            application: true,
+            application: {
+              include: {
+                financials: true,
+              },
+            },
             fields: {
               include: {
                 builderField: true,
@@ -160,6 +165,9 @@ module.exports = async function findEligibleLenders(fastify) {
           numberOfUnits,
           similarProjectsCompleted,
           portfolioPropertyCount,
+          annualRevenue,
+          isRefinance,
+          ownerOccupied,
         } = applicantData;
 
         const applicant = {
@@ -179,6 +187,9 @@ module.exports = async function findEligibleLenders(fastify) {
           numberOfUnits,
           similarProjectsCompleted,
           portfolioPropertyCount,
+          annualRevenue,
+          isRefinance,
+          ownerOccupied,
         };
 
         const { loanProductCode } = application;
@@ -299,7 +310,7 @@ module.exports = async function findEligibleLenders(fastify) {
               maxMonths: lp.maxTermMonths,
             },
             minCreditScore: lp.minCreditScore,
-            interestRateRange: lp.interestRateRange,
+            interestRateRange: formatLenderInterestRate(lp),
 
             alreadySent: isAlreadySent,
             applicationStatus,
@@ -416,6 +427,9 @@ module.exports = async function findEligibleLenders(fastify) {
               propertyState,
               businessIndustry,
               yearsInBusiness,
+              annualRevenue,
+              isRefinance,
+              ownerOccupied,
             },
 
             totalEligibleLenders: eligibleLenders.length,

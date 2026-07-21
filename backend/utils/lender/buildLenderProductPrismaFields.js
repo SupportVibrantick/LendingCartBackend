@@ -24,6 +24,8 @@ const {
   isNoMinLoanCriteriaProduct,
   isNoPropertyMetricsProduct,
   isSba7aRateSpreadProduct,
+  isAnySba7aProduct,
+  isAnySbaProduct,
   supportsLtcPercent,
 } = require("../lender/lenderProductCriteria");
 
@@ -93,14 +95,24 @@ function buildLenderProductPrismaFields(item) {
       isSba7aRateSpreadProduct(code) && item.maxRateSpreadPercent
         ? toDecimal(item.maxRateSpreadPercent)
         : null,
-    avgTurnaroundDays: isSba7aGeneralProduct(code)
-      ? item.avgTurnaroundDays ?? null
-      : null,
+    minRateSpreadPercent:
+      isSba7aRateSpreadProduct(code) && item.minRateSpreadPercent
+        ? toDecimal(item.minRateSpreadPercent)
+        : null,
+    sbaGuaranteePercent:
+      isAnySba7aProduct(code) && item.sbaGuaranteePercent
+        ? toDecimal(item.sbaGuaranteePercent)
+        : null,
+    avgTurnaroundDays:
+      isSba7aGeneralProduct(code) || isSba504Product(code)
+        ? item.avgTurnaroundDays ?? null
+        : null,
     preferredLenderPlp: isSba7aGeneralProduct(code)
       ? item.preferredLenderPlp ?? false
       : false,
     requiredInjectionPercent:
-      isSba7aBusinessAcquisitionProduct(code) && item.requiredInjectionPercent
+      (isSba7aBusinessAcquisitionProduct(code) || isSba504Product(code)) &&
+      item.requiredInjectionPercent
         ? toDecimal(item.requiredInjectionPercent)
         : null,
     goodwillFinancingAllowed: isSba7aBusinessAcquisitionProduct(code)
@@ -109,9 +121,54 @@ function buildLenderProductPrismaFields(item) {
     sellerFinancingAllowed: isSba7aBusinessAcquisitionProduct(code)
       ? item.sellerFinancingAllowed ?? false
       : false,
-    minTimeInBusinessMonths: isSba7aWorkingCapitalProduct(code)
-      ? item.minTimeInBusinessMonths ?? null
-      : null,
+    minLiquidityRequirement:
+      isSba7aBusinessAcquisitionProduct(code) &&
+      item.minLiquidityRequirement?.trim()
+        ? item.minLiquidityRequirement.trim()
+        : null,
+    minTimeInBusinessMonths:
+      isSba7aWorkingCapitalProduct(code) ||
+      isSba7aEquipmentPurchaseProduct(code) ||
+      isSba504Product(code)
+        ? item.minTimeInBusinessMonths ?? null
+        : null,
+    minAnnualRevenue:
+      isSba7aWorkingCapitalProduct(code) && item.minAnnualRevenue
+        ? toDecimal(item.minAnnualRevenue)
+        : null,
+    maxFinancingPercent:
+      isSba7aWorkingCapitalProduct(code) && item.maxFinancingPercent
+        ? toDecimal(item.maxFinancingPercent)
+        : null,
+    useOfFunds:
+      (isSba7aWorkingCapitalProduct(code) || isSba504Product(code)) &&
+      item.useOfFunds?.trim()
+        ? item.useOfFunds.trim()
+        : null,
+    collateralRequirements:
+      (isSba7aWorkingCapitalProduct(code) || isSba504Product(code)) &&
+      item.collateralRequirements?.trim()
+        ? item.collateralRequirements.trim()
+        : null,
+    startupAllowed:
+      isSba7aWorkingCapitalProduct(code) ||
+      isSba7aEquipmentPurchaseProduct(code) ||
+      isSba504Product(code)
+        ? item.startupAllowed ?? false
+        : false,
+    rateStructure:
+      isSba504Product(code) && item.rateStructure?.trim()
+        ? item.rateStructure.trim()
+        : null,
+    refinanceAllowed: isSba504Product(code)
+      ? item.refinanceAllowed ?? false
+      : false,
+    workingCapitalEligible: isSba504Product(code)
+      ? item.workingCapitalEligible ?? false
+      : false,
+    lifeInsuranceMayBeRequired: isSba504Product(code)
+      ? item.lifeInsuranceMayBeRequired ?? false
+      : false,
     lineOfCreditAvailable: isSba7aWorkingCapitalProduct(code)
       ? item.lineOfCreditAvailable ?? false
       : false,
@@ -164,9 +221,23 @@ function buildLenderProductPrismaFields(item) {
     reverseFactoringAvailable: isApSupplyChainProduct(code)
       ? item.reverseFactoringAvailable ?? false
       : false,
-    ownerOccupiedRequired: isSba7aRealEstateProduct(code)
-      ? item.ownerOccupiedRequired ?? false
-      : false,
+    ownerOccupiedRequired:
+      isSba7aRealEstateProduct(code) || isSba504Product(code)
+        ? item.ownerOccupiedRequired ?? false
+        : false,
+    ownerOccupancyRequirement:
+      (isSba7aRealEstateProduct(code) || isSba504Product(code)) &&
+      item.ownerOccupancyRequirement?.trim()
+        ? item.ownerOccupancyRequirement.trim()
+        : null,
+    environmentalReportRequired:
+      isSba7aRealEstateProduct(code) || isSba504Product(code)
+        ? item.environmentalReportRequired ?? false
+        : false,
+    appraisalRequired:
+      isSba7aRealEstateProduct(code) || isSba504Product(code)
+        ? item.appraisalRequired ?? false
+        : false,
     maxTotalProjectAmount:
       isSba504Product(code) && item.maxTotalProjectAmount
         ? toDecimal(item.maxTotalProjectAmount)
@@ -236,7 +307,8 @@ function buildLenderProductPrismaFields(item) {
       !isAgencyMultifamilyProduct(code) &&
       !isMezzanineProduct(code) &&
       !isPreferredEquityProduct(code) &&
-      !isNoPropertyMetricsProduct(code) &&
+      (!isNoPropertyMetricsProduct(code) ||
+        isSba7aBusinessAcquisitionProduct(code)) &&
       item.minExperience !== undefined
         ? String(item.minExperience)
         : null,
@@ -264,9 +336,10 @@ function buildLenderProductPrismaFields(item) {
     extensionAvailable: isBridgeLoanProduct(code)
       ? item.extensionAvailable ?? false
       : false,
-    personalGuaranteeRequired: isBridgeLoanProduct(code)
-      ? item.personalGuaranteeRequired ?? false
-      : false,
+    personalGuaranteeRequired:
+      isBridgeLoanProduct(code) || isAnySbaProduct(code)
+        ? item.personalGuaranteeRequired ?? false
+        : false,
     firstTimeBorrowersAllowed: isFixAndFlipProduct(code)
       ? item.firstTimeBorrowersAllowed ?? false
       : false,
@@ -276,7 +349,9 @@ function buildLenderProductPrismaFields(item) {
         isRentalPortfolioProduct(code) ||
         isCrePermanentProduct(code) ||
         isCmbsProduct(code) ||
-        isAgencyMultifamilyProduct(code)) &&
+        isAgencyMultifamilyProduct(code) ||
+        isAnySba7aProduct(code) ||
+        isSba504Product(code)) &&
       item.minDscr
         ? toDecimal(item.minDscr)
         : null,
@@ -292,9 +367,14 @@ function buildLenderProductPrismaFields(item) {
         ? item.amortizationYears ?? null
         : null,
     minUnits: isAgencyMultifamilyProduct(code) ? item.minUnits ?? null : null,
-    prepaymentStructure: isCmbsProduct(code)
-      ? item.prepaymentStructure ?? null
-      : null,
+    prepaymentStructure:
+      isCmbsProduct(code) ||
+      isSba7aWorkingCapitalProduct(code) ||
+      isSba7aEquipmentPurchaseProduct(code) ||
+      isSba7aRealEstateProduct(code) ||
+      isSba504Product(code)
+        ? item.prepaymentStructure ?? null
+        : null,
     minPropertiesInPortfolio: isRentalPortfolioProduct(code)
       ? item.minPropertiesInPortfolio ?? null
       : null,

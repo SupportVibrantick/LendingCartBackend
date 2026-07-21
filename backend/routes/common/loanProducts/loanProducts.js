@@ -1,6 +1,6 @@
 /**
  * Public API: List loan products
- * Sort: residential priority first, then other, commercial last.
+ * Sort order: Bridge → Fix & Flip → DSCR → Construction → CRE → SBA → ABL (see sortLoanProductsByPriority).
  */
 const {
   sortLoanProductsByPriority,

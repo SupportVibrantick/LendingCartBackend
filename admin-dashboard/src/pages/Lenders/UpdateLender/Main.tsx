@@ -19,6 +19,7 @@ import {
   mergeGroupedSelections,
   normalizeGroupedSelectionFromApi,
 } from "../../../lib/lenderProductAdminPayload";
+import { stripNumberFormatting } from "../../../lib/numberInputFormat";
 import {
   filterLenderCatalogProducts,
   mapToCanonicalCatalogId,
@@ -173,14 +174,24 @@ export default function Main() {
       }
 
       if (isSba504Product(product.code)) {
-        const total = Number(data.maxTotalProject);
-        const debenture = Number(data.maxSba504Debenture);
+        const total = Number(stripNumberFormatting(String(data.maxTotalProject ?? "")));
+        const debenture = Number(stripNumberFormatting(String(data.maxSba504Debenture ?? "")));
+        const minLoan = Number(stripNumberFormatting(String(data.minLoan ?? "")));
         if (
           data.maxTotalProject &&
           data.maxSba504Debenture &&
           debenture > total
         ) {
           return `${product.name}: SBA 504 debenture cannot exceed total project amount`;
+        }
+        if (
+          data.minLoan &&
+          data.maxTotalProject &&
+          Number.isFinite(minLoan) &&
+          Number.isFinite(total) &&
+          minLoan > total
+        ) {
+          return `${product.name}: Minimum loan amount cannot exceed total project amount`;
         }
       } else if (
         !isNoMinLoanCriteriaProduct(product.code) &&
