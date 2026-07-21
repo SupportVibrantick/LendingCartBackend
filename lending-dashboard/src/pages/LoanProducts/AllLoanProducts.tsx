@@ -5,7 +5,8 @@ import { TiPlus } from "react-icons/ti";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import toast from "react-hot-toast";
 import EditLoanProductModal from "./EditLoanProductModal";
-import { isDscrRentalProduct, isConstructionLoanProduct, isRentalPortfolioProduct, isCrePermanentProduct, isCmbsProduct, isAgencyMultifamilyProduct, isMezzanineProduct, isPreferredEquityProduct, isSba7aGeneralProduct, isSba7aBusinessAcquisitionProduct, isSba7aWorkingCapitalProduct, isSba7aEquipmentPurchaseProduct, isSba7aRealEstateProduct, isSba504Product, isUsdaBiProduct, isPurchaseOrderFinanceProduct, isEquipmentFinanceProduct, isArFactoringProduct, isApSupplyChainProduct, isSba7aMaxLoanOnlyProduct, isNoMinLoanCriteriaProduct, isNoPropertyMetricsProduct } from "../../lib/loanProductCriteriaFields";
+import { isDscrRentalProduct, isConstructionLoanProduct, isRentalPortfolioProduct, isCrePermanentProduct, isCmbsProduct, isAgencyMultifamilyProduct, isMezzanineProduct, isPreferredEquityProduct, isSba7aGeneralProduct, isSba7aBusinessAcquisitionProduct, isSba7aWorkingCapitalProduct, isSba7aEquipmentPurchaseProduct, isSba7aRealEstateProduct, isSba504Product, isUsdaBiProduct, isPurchaseOrderFinanceProduct, isEquipmentFinanceProduct, isArFactoringProduct, isApSupplyChainProduct, isSba7aMaxLoanOnlyProduct, isNoMinLoanCriteriaProduct, isNoPropertyMetricsProduct, buildLenderProductCriteriaPayload, mapApiProductToCriteriaForm } from "../../lib/loanProductCriteriaFields";
+import { resolveLenderOfferedProductCode } from "../../lib/lenderLoanProducts";
 import {
   formatListKeyCriteria,
   formatListTenure,
@@ -348,6 +349,31 @@ export default function AlloanProducts() {
 
     try {
       const token = sessionStorage.getItem("lender_token");
+      const productCode = resolveLenderOfferedProductCode(
+        updated.loanProductCode ||
+          updated.loanProduct?.code ||
+          "",
+      );
+
+      const criteriaForm = mapApiProductToCriteriaForm({
+        ...updated,
+        loanProductCode: productCode,
+        code: productCode,
+      });
+
+      criteriaForm.minLoan = String(updated.minLoanAmount ?? criteriaForm.minLoan ?? "");
+      criteriaForm.maxLoan = String(updated.maxLoanAmount ?? criteriaForm.maxLoan ?? "");
+      criteriaForm.minTerm = String(updated.minTermMonths ?? criteriaForm.minTerm ?? "");
+      criteriaForm.maxTerm = String(updated.maxTermMonths ?? criteriaForm.maxTerm ?? "");
+
+      const payload = {
+        loanProductCode: productCode,
+        ...buildLenderProductCriteriaPayload(criteriaForm, productCode),
+        businessTypes: updated.businessTypes,
+        propertyTypes: updated.propertyTypes,
+        isActive: updated.isActive,
+      };
+
       const res = await fetch(
         `${API_BASE}/lender/loan-products/update/${updated.id}`,
         {
@@ -356,15 +382,7 @@ export default function AlloanProducts() {
             "Content-Type": "application/json",
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
-          body: JSON.stringify({
-            minLoanAmount: updated.minLoanAmount,
-            maxLoanAmount: updated.maxLoanAmount,
-            minTermMonths: updated.minTermMonths,
-            maxTermMonths: updated.maxTermMonths,
-            industriesSupported: updated.industriesSupported,
-            regionsSupported: updated.regionsSupported,
-            isActive: updated.isActive,
-          }),
+          body: JSON.stringify(payload),
         },
       );
 
@@ -378,6 +396,7 @@ export default function AlloanProducts() {
       await fetchLoanProducts();
     } catch (err) {
       console.error("Failed to persist loan product update:", err);
+      toast.error("Failed to update loan product");
     }
   };
 

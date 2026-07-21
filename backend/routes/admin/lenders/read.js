@@ -1,6 +1,7 @@
 // routes/admin/lenders/list.js
 
 const { adminLogs } = require("../../../services/logger/contextLogger.js");
+const { findLenderAdminUser } = require("../../../utils/lender/findLenderAdminUser.js");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
@@ -87,18 +88,6 @@ async function listLendersRoutes(fastify) {
               status: true,
               createdAt: true,
 
-              // ADMIN USER
-              users: {
-                select: {
-                  id: true,
-                  email: true,
-                  firstName: true,
-                  lastName: true,
-                  status: true,
-                },
-                take: 1,
-              },
-
               // BROKER ACCESS
               brokerLenderAccessAsLender: {
                 where: { isActive: true },
@@ -122,29 +111,31 @@ async function listLendersRoutes(fastify) {
         // FORMAT RESPONSE
         // -----------------------------
 
-        const results = lenders.map((org) => {
-          const adminUser = org.users?.[0] || null;
-          const brokerAccess = org.brokerLenderAccessAsLender?.[0];
+        const results = await Promise.all(
+          lenders.map(async (org) => {
+            const adminUser = await findLenderAdminUser(prisma, org.id);
+            const brokerAccess = org.brokerLenderAccessAsLender?.[0];
 
-          return {
-            id: org.id,
+            return {
+              id: org.id,
 
-            organizationName: org.name,
-            organizationEmail: org.email,
-            organizationPhone: org.phone,
-            organizationStatus: org.status,
+              organizationName: org.name,
+              organizationEmail: org.email,
+              organizationPhone: org.phone,
+              organizationStatus: org.status,
 
-            adminFirstName: adminUser?.firstName || null,
-            adminLastName: adminUser?.lastName || null,
-            adminEmail: adminUser?.email || null,
-            adminStatus: adminUser?.status || null,
+              adminFirstName: adminUser?.firstName || null,
+              adminLastName: adminUser?.lastName || null,
+              adminEmail: adminUser?.email || null,
+              adminStatus: adminUser?.status || null,
 
-            brokerOrgId: brokerAccess?.brokerOrgId || null,
-            brokerName: brokerAccess?.broker?.name || null,
+              brokerOrgId: brokerAccess?.brokerOrgId || null,
+              brokerName: brokerAccess?.broker?.name || null,
 
-            createdAt: org.createdAt,
-          };
-        });
+              createdAt: org.createdAt,
+            };
+          }),
+        );
 
         return reply.send({
           success: true,

@@ -16,6 +16,24 @@ const experienceSchema = z
     return String(val);
   });
 
+const businessTypeSchema = z.object({
+  name: z.string(),
+  subTypes: z.array(z.string()).optional(),
+});
+
+const propertyTypeSchema = z.object({
+  type: z.string(),
+  subTypes: z.array(z.string()).optional(),
+});
+
+const groupedBusinessTypesSchema = z
+  .union([nestedTypeSchema, z.array(businessTypeSchema)])
+  .optional();
+
+const groupedPropertyTypesSchema = z
+  .union([nestedTypeSchema, z.array(propertyTypeSchema)])
+  .optional();
+
 const updateLenderLoanProductSchema = z
   .object({
     // 💰 FINANCIAL
@@ -103,9 +121,9 @@ maxArvPercent: z.number().min(0).optional(),
     reverseFactoringAvailable: z.boolean().optional(),
     criteriaNotes: z.string().optional(),
 
-    // ✅ JSON (subtype support)
-    businessTypes: nestedTypeSchema.optional(),
-    propertyTypes: nestedTypeSchema.optional(),
+    // ✅ JSON (subtype support — record or array)
+    businessTypes: groupedBusinessTypesSchema,
+    propertyTypes: groupedPropertyTypesSchema,
 
     // ✅ ARRAY → converted to CSV in API
     statesSupported: z.array(z.string()).optional(),

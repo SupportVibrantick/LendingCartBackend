@@ -212,8 +212,9 @@ maxLtcPercent: data.maxLtcPercent,
                   : null,
 
               minMezzLtvPercent:
-                isMezzanineProduct(item.loanProductCode) &&
-                item.minMezzLtvPercent
+                item.minMezzLtvPercent !== undefined &&
+                item.minMezzLtvPercent !== null &&
+                item.minMezzLtvPercent !== ""
                   ? new Prisma.Decimal(item.minMezzLtvPercent)
                   : null,
               maxMezzLtvPercent:
@@ -478,18 +479,9 @@ maxLtcPercent: data.maxLtcPercent,
                   : item.minCreditScore ?? null,
 
               minExperience:
-                !isBridgeLoanProduct(item.loanProductCode) &&
-                !isFixAndFlipProduct(item.loanProductCode) &&
-                !isDscrRentalProduct(item.loanProductCode) &&
-                !isRentalPortfolioProduct(item.loanProductCode) &&
-                !isConstructionLoanProduct(item.loanProductCode) &&
-                !isCrePermanentProduct(item.loanProductCode) &&
-                !isCmbsProduct(item.loanProductCode) &&
-                !isAgencyMultifamilyProduct(item.loanProductCode) &&
-                !isMezzanineProduct(item.loanProductCode) &&
-                !isPreferredEquityProduct(item.loanProductCode) &&
-                !isNoPropertyMetricsProduct(item.loanProductCode) &&
-                item.minExperience !== undefined
+                item.minExperience !== undefined &&
+                item.minExperience !== null &&
+                String(item.minExperience).trim() !== ""
                   ? String(item.minExperience)
                   : null,
 

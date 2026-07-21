@@ -814,24 +814,47 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
 
     products.forEach((product: any) => {
       const defaults = getDefaultCriteriaValuesForProduct(product.code);
-      if (!Object.keys(defaults).length) return;
+      const existing = next[product.id] || {};
 
-      const existing = value?.[product.id] || {};
-      const hasExistingValues = getRequiredCriteriaKeysForProduct(
-        product.code,
-      ).some((key) => {
-        const current = existing[key];
-        return current !== undefined && current !== "" && current !== null;
+      const hasAnySavedData = Object.entries(existing).some(([key, val]) => {
+        if (key === "states" || key === "documents") return false;
+        return val !== undefined && val !== "" && val !== null;
       });
 
-      if (hasExistingValues) return;
+      if (!hasAnySavedData) {
+        if (!Object.keys(defaults).length) return;
 
-      next[product.id] = {
-        ...defaults,
-        states: US_STATES,
-        documents: existing.documents || [],
-      };
-      changed = true;
+        next[product.id] = {
+          ...defaults,
+          states: US_STATES,
+          documents: existing.documents || [],
+        };
+        changed = true;
+        return;
+      }
+
+      const requiredKeys = getRequiredCriteriaKeysForProduct(product.code);
+      const patch: Record<string, any> = {};
+
+      requiredKeys.forEach((key) => {
+        const current = existing[key];
+        if (
+          (current === undefined || current === "") &&
+          defaults[key] !== undefined &&
+          defaults[key] !== ""
+        ) {
+          patch[key] = defaults[key];
+        }
+      });
+
+      if (!existing.states?.length) {
+        patch.states = US_STATES;
+      }
+
+      if (Object.keys(patch).length) {
+        next[product.id] = { ...existing, ...patch };
+        changed = true;
+      }
     });
 
     if (changed) {

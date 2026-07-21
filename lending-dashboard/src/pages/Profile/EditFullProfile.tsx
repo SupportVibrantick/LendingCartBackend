@@ -17,13 +17,18 @@ import StepFour from "../LoanProducts/LoanCriteria/StepFour";
 import StepFive from "../LoanProducts/LoanCriteria/StepFive";
 import EquipmentFinancingStep from "../LoanProducts/LoanCriteria/EquipmentFinancingStep";
 import {
-  buildLenderProductCriteriaPayload,
+  getDefaultCriteriaValuesForProduct,
   getRequiredCriteriaKeysForProduct,
   isMezzanineProduct,
   isNoMinLoanCriteriaProduct,
   isSba504Product,
   mapApiProductToCriteriaForm,
 } from "../../lib/loanProductCriteriaFields";
+import {
+  mapToLenderProductUpdatePayload,
+  mergeGroupedSelections,
+  normalizeGroupedSelectionFromApi,
+} from "../../lib/lenderProductLenderPayload";
 import { API_BASE, getLenderAuthHeaders } from "../../lib/lenderApi";
 import {
   filterLenderCatalogProducts,
@@ -203,7 +208,6 @@ export default function EditFullProfile() {
       return;
     }
 
-    const primary = activeProducts[0];
     const loanProgramIds = [
       ...new Set(
         activeProducts
@@ -219,6 +223,9 @@ export default function EditFullProfile() {
     ];
 
     const loanCriteria: Record<string, any> = {};
+    let propertyTypes: Record<string, string[]> = {};
+    let businessTypes: Record<string, string[]> = {};
+    let equipmentFinance: string[] = [];
 
     for (const lenderProduct of activeProducts) {
       const canonicalId = mapToCanonicalCatalogId(
@@ -227,6 +234,16 @@ export default function EditFullProfile() {
         lenderProduct.loanProductId,
       );
       if (!canonicalId) continue;
+
+      propertyTypes = mergeGroupedSelections(
+        propertyTypes,
+        normalizeGroupedSelectionFromApi(lenderProduct.propertyTypes, "type"),
+      );
+
+      businessTypes = mergeGroupedSelections(
+        businessTypes,
+        normalizeGroupedSelectionFromApi(lenderProduct.businessTypes, "name"),
+      );
 
       const canonicalCode = resolveLenderOfferedProductCode(
         lenderProduct.code || "",
@@ -237,14 +254,20 @@ export default function EditFullProfile() {
         loanProductCode: canonicalCode,
         code: canonicalCode,
       });
+
+      if (canonicalCode === "EQUIPMENT_FINANCE") {
+        equipmentFinance = Array.isArray(lenderProduct.equipmentTypes)
+          ? lenderProduct.equipmentTypes
+          : [];
+      }
     }
 
     setForm({
       loanPrograms: loanProgramIds,
-      propertyTypes: primary.propertyTypes || {},
-      businessTypes: primary.businessTypes || {},
+      propertyTypes,
+      businessTypes,
       loanCriteria,
-      equipmentFinance: primary.equipmentTypes || [],
+      equipmentFinance,
     });
   };
 
@@ -343,6 +366,37 @@ export default function EditFullProfile() {
 
     load();
   }, [loadProfileData, location.key]);
+
+  useEffect(() => {
+    if (!products.length || !form.loanPrograms.length) return;
+
+    setForm((prev) => {
+      let changed = false;
+      const nextCriteria = { ...prev.loanCriteria };
+
+      form.loanPrograms.forEach((programId) => {
+        if (nextCriteria[programId]) return;
+
+        const product = products.find((p) => p.id === programId);
+        if (!product) return;
+
+        const defaults = getDefaultCriteriaValuesForProduct(product.code);
+        nextCriteria[programId] = {
+          ...defaults,
+          states: [],
+          documents: [],
+        };
+        changed = true;
+      });
+
+      if (!changed) return prev;
+
+      return {
+        ...prev,
+        loanCriteria: nextCriteria,
+      };
+    });
+  }, [form.loanPrograms, products]);
 
   const saveCompanyProfile = async (showToast = true) => {
     if (!validateCompany()) {
@@ -513,16 +567,7 @@ export default function EditFullProfile() {
         const criteria = form.loanCriteria?.[product.id] || {};
         const existing = resolveExistingProduct(product);
 
-        const payload = {
-          businessTypes: form.businessTypes,
-          propertyTypes: form.propertyTypes,
-          ...buildLenderProductCriteriaPayload(criteria, product.code),
-          ...(product.code === "EQUIPMENT_FINANCE" &&
-            form.equipmentFinance?.length && {
-              equipmentTypes: form.equipmentFinance,
-            }),
-          isActive: true,
-        };
+        const payload = mapToLenderProductUpdatePayload(product, form, criteria);
 
         if (existing?.id) {
           const response = await fetch(
@@ -552,12 +597,7 @@ export default function EditFullProfile() {
               method: "POST",
               headers: getLenderAuthHeaders(true),
               body: JSON.stringify({
-                products: [
-                  {
-                    loanProductCode: product.code,
-                    ...payload,
-                  },
-                ],
+                products: [payload],
               }),
             },
           );

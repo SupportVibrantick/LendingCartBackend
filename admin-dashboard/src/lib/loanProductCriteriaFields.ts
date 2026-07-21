@@ -1883,18 +1883,38 @@ const normalizeDocumentsForForm = (product: any) => {
     .filter(Boolean);
 };
 
+const apiToFormValue = (val: unknown) => {
+  if (val === null || val === undefined) return "";
+  if (typeof val === "object") {
+    if (typeof (val as { toString?: () => string }).toString === "function") {
+      const str = (val as { toString: () => string }).toString();
+      if (str && str !== "[object Object]") return str;
+    }
+    return "";
+  }
+  return String(val);
+};
+
+const parseInterestRateRange = (range: unknown) => {
+  if (!range || typeof range !== "string") {
+    return { minRate: "", maxRate: "" };
+  }
+
+  const [minPart = "", maxPart = ""] = range.split("-");
+  const clean = (part: string) =>
+    part.replace(/,/g, "").replace(/%/g, "").trim();
+
+  return {
+    minRate: clean(minPart),
+    maxRate: clean(maxPart),
+  };
+};
+
 export const mapApiProductToCriteriaForm = (product: any) => {
   const productCode = product.loanProductCode || product.code || "";
-
-  const toFormValue = (val: unknown) => {
-    if (val === null || val === undefined) return "";
-    if (typeof val === "object") {
-      return String(val);
-    }
-    return val;
-  };
-
+  const toFormValue = apiToFormValue;
   const toFormBoolean = (val: unknown) => val === true;
+  const interestRates = parseInterestRateRange(product.interestRateRange);
 
   return {
     minLoan: isPurchaseOrderFinanceProduct(productCode) ||
@@ -1912,25 +1932,25 @@ export const mapApiProductToCriteriaForm = (product: any) => {
     minFacilitySize:
       isPurchaseOrderFinanceProduct(productCode) ||
       isArFactoringProduct(productCode)
-        ? (product.minLoanAmount ?? "")
+        ? toFormValue(product.minLoanAmount)
         : "",
     maxFacilitySize:
       isPurchaseOrderFinanceProduct(productCode) ||
       isArFactoringProduct(productCode)
-        ? (product.maxLoanAmount ?? "")
+        ? toFormValue(product.maxLoanAmount)
         : "",
     minProgramSize: isApSupplyChainProduct(productCode)
-      ? (product.minLoanAmount ?? "")
+      ? toFormValue(product.minLoanAmount)
       : "",
     maxProgramSize: isApSupplyChainProduct(productCode)
-      ? (product.maxLoanAmount ?? "")
+      ? toFormValue(product.maxLoanAmount)
       : "",
     minTerm: fromTermMonths(product.minTermMonths, productCode),
     maxTerm: fromTermMonths(product.maxTermMonths, productCode),
     maxRateSpread: toFormValue(product.maxRateSpreadPercent),
     minRateSpread: toFormValue(product.minRateSpreadPercent),
-    sbaGuaranteePercent: product.sbaGuaranteePercent ?? "",
-    avgTurnaroundDays: product.avgTurnaroundDays ?? "",
+    sbaGuaranteePercent: toFormValue(product.sbaGuaranteePercent),
+    avgTurnaroundDays: toFormValue(product.avgTurnaroundDays),
     preferredLenderPlp: toFormBoolean(product.preferredLenderPlp),
     requiredInjection: toFormValue(product.requiredInjectionPercent),
     goodwillFinancingAllowed: toFormBoolean(product.goodwillFinancingAllowed),
@@ -1952,44 +1972,44 @@ export const mapApiProductToCriteriaForm = (product: any) => {
     lineOfCreditAvailable: toFormBoolean(product.lineOfCreditAvailable),
     usedEquipmentAllowed: toFormBoolean(product.usedEquipmentAllowed),
     saleLeasebackAvailable: toFormBoolean(product.saleLeasebackAvailable),
-    advanceRate: product.advanceRatePercent ?? "",
-    transactionFee: product.transactionFeePercent ?? "",
-    minGrossMargin: product.minGrossMarginPercent ?? "",
+    advanceRate: toFormValue(product.advanceRatePercent),
+    transactionFee: toFormValue(product.transactionFeePercent),
+    minGrossMargin: toFormValue(product.minGrossMarginPercent),
     internationalPosAllowed: Boolean(product.internationalPosAllowed),
-    discountFee: product.discountFeePercent ?? "",
-    maxInvoiceAgeDays: product.maxInvoiceAgeDays ?? "",
+    discountFee: toFormValue(product.discountFeePercent),
+    maxInvoiceAgeDays: toFormValue(product.maxInvoiceAgeDays),
     nonRecourseAvailable: Boolean(product.nonRecourseAvailable),
     governmentInvoicesOk: Boolean(product.governmentInvoicesOk),
-    earlyPaymentDiscount: product.earlyPaymentDiscountPercent ?? "",
-    paymentTermsExtensionDays: product.paymentTermsExtensionDays ?? "",
+    earlyPaymentDiscount: toFormValue(product.earlyPaymentDiscountPercent),
+    paymentTermsExtensionDays: toFormValue(product.paymentTermsExtensionDays),
     dynamicDiscountingAvailable: Boolean(product.dynamicDiscountingAvailable),
     reverseFactoringAvailable: Boolean(product.reverseFactoringAvailable),
     ownerOccupiedRequired: Boolean(product.ownerOccupiedRequired),
     ownerOccupancyRequirement: product.ownerOccupancyRequirement ?? "",
     environmentalReportRequired: toFormBoolean(product.environmentalReportRequired),
     appraisalRequired: toFormBoolean(product.appraisalRequired),
-    maxTotalProject: product.maxTotalProjectAmount ?? "",
-    maxSba504Debenture: product.maxSba504DebentureAmount ?? "",
+    maxTotalProject: toFormValue(product.maxTotalProjectAmount),
+    maxSba504Debenture: toFormValue(product.maxSba504DebentureAmount),
     jobCreationRequired: Boolean(product.jobCreationRequired),
-    maxUsdaGuarantee: product.maxUsdaGuaranteeAmount ?? "",
-    usdaGuaranteePercent: product.usdaGuaranteePercent ?? "",
+    maxUsdaGuarantee: toFormValue(product.maxUsdaGuaranteeAmount),
+    usdaGuaranteePercent: toFormValue(product.usdaGuaranteePercent),
     ruralAreaRequired: Boolean(product.ruralAreaRequired),
-    preferredReturn: product.preferredReturnPercent ?? "",
-    mezzLtvMin: product.minMezzLtvPercent ?? "",
-    mezzLtvMax: product.maxMezzLtvPercent ?? "",
-    exitFee: product.exitFeePercent ?? "",
+    preferredReturn: toFormValue(product.preferredReturnPercent),
+    mezzLtvMin: toFormValue(product.minMezzLtvPercent),
+    mezzLtvMax: toFormValue(product.maxMezzLtvPercent),
+    exitFee: toFormValue(product.exitFeePercent),
     minLtv: toFormValue(product.minMezzLtvPercent),
     maxLtv: toFormValue(product.maxLtvPercent),
     maxArv: toFormValue(product.maxArvPercent),
     maxLtc: toFormValue(product.maxLtcPercent),
     fico: toFormValue(product.minCreditScore),
-    minDscr: product.minDscr ?? "",
-    minDebtYield: product.minDebtYieldPercent ?? "",
-    amortizationYears: product.amortizationYears ?? "",
-    minUnits: product.minUnits ?? "",
+    minDscr: toFormValue(product.minDscr),
+    minDebtYield: toFormValue(product.minDebtYieldPercent),
+    amortizationYears: toFormValue(product.amortizationYears),
+    minUnits: toFormValue(product.minUnits),
     prepaymentStructure: product.prepaymentStructure ?? "",
-    minProperties: product.minPropertiesInPortfolio ?? "",
-    maxProperties: product.maxPropertiesInPortfolio ?? "",
+    minProperties: toFormValue(product.minPropertiesInPortfolio),
+    maxProperties: toFormValue(product.maxPropertiesInPortfolio),
     experience: toFormValue(product.minExperience),
     originationPoints: toFormValue(product.originationPointsPercent),
     extensionAvailable: toFormBoolean(product.extensionAvailable),
@@ -2009,11 +2029,13 @@ export const mapApiProductToCriteriaForm = (product: any) => {
         ? String(product.statesSupported).split(",").filter(Boolean)
         : [],
     documents: normalizeDocumentsForForm(product),
-    minRate: isSba504Product(productCode) || isSba7aRateSpreadProduct(productCode)
-      ? ""
-      : product.interestRateRange?.split("-")[0]?.trim() || "",
-    maxRate: isSba504Product(productCode) || isSba7aRateSpreadProduct(productCode)
-      ? ""
-      : product.interestRateRange?.split("-")[1]?.replace("%", "").trim() || "",
+    minRate:
+      isSba504Product(productCode) || isSba7aRateSpreadProduct(productCode)
+        ? ""
+        : interestRates.minRate,
+    maxRate:
+      isSba504Product(productCode) || isSba7aRateSpreadProduct(productCode)
+        ? ""
+        : interestRates.maxRate,
   };
 };

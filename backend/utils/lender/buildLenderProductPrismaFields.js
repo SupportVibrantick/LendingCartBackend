@@ -26,7 +26,6 @@ const {
   isSba7aRateSpreadProduct,
   isAnySba7aProduct,
   isAnySbaProduct,
-  supportsLtcPercent,
 } = require("../lender/lenderProductCriteria");
 
 function toDecimal(val) {
@@ -75,7 +74,7 @@ function buildLenderProductPrismaFields(item) {
         : null,
 
     minMezzLtvPercent:
-      isMezzanineProduct(code) && item.minMezzLtvPercent
+      item.minMezzLtvPercent !== undefined && item.minMezzLtvPercent !== null && item.minMezzLtvPercent !== ""
         ? toDecimal(item.minMezzLtvPercent)
         : null,
     maxMezzLtvPercent:
@@ -277,39 +276,31 @@ function buildLenderProductPrismaFields(item) {
         : null,
 
     maxLtcPercent:
-      supportsLtcPercent(code) &&
-      !isMezzanineProduct(code) &&
-      !isPreferredEquityProduct(code) &&
-      !isNoPropertyMetricsProduct(code) &&
-      item.maxLtcPercent
+      item.maxLtcPercent !== undefined &&
+      item.maxLtcPercent !== null &&
+      item.maxLtcPercent !== ""
         ? toDecimal(item.maxLtcPercent)
         : null,
 
     minCreditScore:
-      isPurchaseOrderFinanceProduct(code) ||
-      isArFactoringProduct(code) ||
-      isApSupplyChainProduct(code) ||
-      isCmbsProduct(code) ||
-      isAgencyMultifamilyProduct(code) ||
-      isMezzanineProduct(code) ||
-      isPreferredEquityProduct(code)
-        ? null
-        : item.minCreditScore ?? null,
+      item.minCreditScore !== undefined &&
+      item.minCreditScore !== null &&
+      item.minCreditScore !== ""
+        ? Number(item.minCreditScore)
+        : isPurchaseOrderFinanceProduct(code) ||
+            isArFactoringProduct(code) ||
+            isApSupplyChainProduct(code) ||
+            isCmbsProduct(code) ||
+            isAgencyMultifamilyProduct(code) ||
+            isMezzanineProduct(code) ||
+            isPreferredEquityProduct(code)
+          ? null
+          : null,
 
     minExperience:
-      !isBridgeLoanProduct(code) &&
-      !isFixAndFlipProduct(code) &&
-      !isDscrRentalProduct(code) &&
-      !isRentalPortfolioProduct(code) &&
-      !isConstructionLoanProduct(code) &&
-      !isCrePermanentProduct(code) &&
-      !isCmbsProduct(code) &&
-      !isAgencyMultifamilyProduct(code) &&
-      !isMezzanineProduct(code) &&
-      !isPreferredEquityProduct(code) &&
-      (!isNoPropertyMetricsProduct(code) ||
-        isSba7aBusinessAcquisitionProduct(code)) &&
-      item.minExperience !== undefined
+      item.minExperience !== undefined &&
+      item.minExperience !== null &&
+      String(item.minExperience).trim() !== ""
         ? String(item.minExperience)
         : null,
 
@@ -323,10 +314,6 @@ function buildLenderProductPrismaFields(item) {
         : item.interestRateRange ?? null,
 
     originationPointsPercent:
-      !isRentalPortfolioProduct(code) &&
-      !isCmbsProduct(code) &&
-      !isAgencyMultifamilyProduct(code) &&
-      !isNoPropertyMetricsProduct(code) &&
       item.originationPointsPercent !== undefined &&
       item.originationPointsPercent !== null &&
       item.originationPointsPercent !== ""

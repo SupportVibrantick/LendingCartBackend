@@ -9,13 +9,18 @@ import StepFour from "./LoanCriteria/StepFour";
 import StepFive from "./LoanCriteria/StepFive";
 import EquipmentFinancingStep from "./LoanCriteria/EquipmentFinancingStep";
 import {
-  buildLenderProductCriteriaPayload,
+  getDefaultCriteriaValuesForProduct,
   getRequiredCriteriaKeysForProduct,
   isMezzanineProduct,
   isNoMinLoanCriteriaProduct,
   isSba504Product,
   mapApiProductToCriteriaForm,
 } from "../../lib/loanProductCriteriaFields";
+import {
+  mapToLenderProductUpdatePayload,
+  mergeGroupedSelections,
+  normalizeGroupedSelectionFromApi,
+} from "../../lib/lenderProductLenderPayload";
 import {
   filterLenderCatalogProducts,
   mapToCanonicalCatalogId,
@@ -282,16 +287,7 @@ export default function UpdateLoanProduct() {
         const criteria = form.loanCriteria?.[product.id] || {};
         const existing = lenderProductByProgramId[product.id];
 
-        const payload = {
-          businessTypes: form.businessTypes,
-          propertyTypes: form.propertyTypes,
-          ...buildLenderProductCriteriaPayload(criteria, product.code),
-          ...(product.code === "EQUIPMENT_FINANCE" &&
-            form.equipmentFinance?.length && {
-              equipmentTypes: form.equipmentFinance,
-            }),
-          isActive: true,
-        };
+        const payload = mapToLenderProductUpdatePayload(product, form, criteria);
 
         if (existing?.id) {
           const res = await fetch(
@@ -325,12 +321,7 @@ export default function UpdateLoanProduct() {
           method: "POST",
           headers,
           body: JSON.stringify({
-            products: [
-              {
-                loanProductCode: product.code,
-                ...payload,
-              },
-            ],
+            products: [payload],
           }),
         });
 
@@ -542,6 +533,10 @@ export default function UpdateLoanProduct() {
         ] as string[];
 
         const loanCriteria: Record<string, any> = {};
+        let propertyTypes: Record<string, string[]> = {};
+        let businessTypes: Record<string, string[]> = {};
+        let equipmentFinance: string[] = [];
+
         items.forEach((item) => {
           const programId = mapToCanonicalCatalogId(
             catalogProducts,
@@ -549,6 +544,16 @@ export default function UpdateLoanProduct() {
             getProgramId(item),
           );
           if (!programId) return;
+
+          propertyTypes = mergeGroupedSelections(
+            propertyTypes,
+            normalizeGroupedSelectionFromApi(item.propertyTypes, "type"),
+          );
+
+          businessTypes = mergeGroupedSelections(
+            businessTypes,
+            normalizeGroupedSelectionFromApi(item.businessTypes, "name"),
+          );
 
           const canonicalCode = resolveLenderOfferedProductCode(
             item.loanProductCode || item.code || "",
@@ -559,15 +564,27 @@ export default function UpdateLoanProduct() {
             loanProductCode: canonicalCode,
             code: canonicalCode,
           });
+
+          if (canonicalCode === "EQUIPMENT_FINANCE") {
+            equipmentFinance = Array.isArray(item.equipmentTypes)
+              ? item.equipmentTypes
+              : [];
+          }
         });
 
         const seedProduct = updatedLoanProduct || items[0] || null;
 
         setForm({
           loanPrograms: programIds,
-          propertyTypes: seedProduct?.propertyTypes || {},
-          businessTypes: seedProduct?.businessTypes || {},
-          equipmentFinance: seedProduct?.equipmentTypes || [],
+          propertyTypes: Object.keys(propertyTypes).length
+            ? propertyTypes
+            : seedProduct?.propertyTypes || {},
+          businessTypes: Object.keys(businessTypes).length
+            ? businessTypes
+            : seedProduct?.businessTypes || {},
+          equipmentFinance: equipmentFinance.length
+            ? equipmentFinance
+            : seedProduct?.equipmentTypes || [],
           loanCriteria,
         });
       } catch (err: any) {
@@ -585,6 +602,37 @@ export default function UpdateLoanProduct() {
       cancelled = true;
     };
   }, [updatedLoanProduct]);
+
+  useEffect(() => {
+    if (!products.length || !form.loanPrograms.length) return;
+
+    setForm((prev) => {
+      let changed = false;
+      const nextCriteria = { ...prev.loanCriteria };
+
+      form.loanPrograms.forEach((programId) => {
+        if (nextCriteria[programId]) return;
+
+        const product = products.find((p) => p.id === programId);
+        if (!product) return;
+
+        const defaults = getDefaultCriteriaValuesForProduct(product.code);
+        nextCriteria[programId] = {
+          ...defaults,
+          states: [],
+          documents: [],
+        };
+        changed = true;
+      });
+
+      if (!changed) return prev;
+
+      return {
+        ...prev,
+        loanCriteria: nextCriteria,
+      };
+    });
+  }, [form.loanPrograms, products]);
 
   return (
     <div className="h-[calc(100vh-80px)] flex flex-col bg-gray-50">

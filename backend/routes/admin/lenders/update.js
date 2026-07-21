@@ -2,6 +2,10 @@
 
 const { adminLogs } = require("../../../services/logger/contextLogger.js");
 const bcrypt = require("bcrypt");
+const {
+  findLenderAdminUser,
+  normalizeEmail,
+} = require("../../../utils/lender/findLenderAdminUser.js");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
@@ -119,19 +123,30 @@ async function updateLenderRoutes(fastify) {
         }
 
         if (body.organizationEmail) {
-          const exists = await prisma.organization.findFirst({
-            where: {
-              email: body.organizationEmail,
-              id: { not: lenderOrgId },
-            },
-          });
+          const nextOrgEmail = body.organizationEmail.trim();
+          const currentOrgEmail = lenderOrg.email?.trim() || "";
 
-          if (exists) {
-            return reply.status(409).send({
-              success: false,
-              message: "Organization email already exists.",
-              field: "organizationEmail",
+          if (
+            normalizeEmail(nextOrgEmail) !== normalizeEmail(currentOrgEmail)
+          ) {
+            const exists = await prisma.organization.findFirst({
+              where: {
+                email: {
+                  equals: nextOrgEmail,
+                  mode: "insensitive",
+                },
+                id: { not: lenderOrgId },
+                isDeleted: { not: true },
+              },
             });
+
+            if (exists) {
+              return reply.status(409).send({
+                success: false,
+                message: "Organization email already exists.",
+                field: "organizationEmail",
+              });
+            }
           }
         }
 
@@ -155,15 +170,7 @@ async function updateLenderRoutes(fastify) {
         // ===============================
         // FIND ADMIN USER
         // ===============================
-        const adminUserRole = await prisma.userRole.findFirst({
-          where: {
-            role: { name: "LENDER_ADMIN" },
-            user: { organizationId: lenderOrgId },
-          },
-          include: { user: true },
-        });
-
-        const adminUser = adminUserRole?.user;
+        const adminUser = await findLenderAdminUser(prisma, lenderOrgId);
 
         if (!adminUser) {
           return reply.status(404).send({
@@ -175,23 +182,31 @@ async function updateLenderRoutes(fastify) {
         // ===============================
         // DUPLICATE ADMIN EMAIL
         // ===============================
-        if (
-          body.adminEmail &&
-          body.adminEmail !== adminUser.email
-        ) {
-          const exists = await prisma.userAccount.findFirst({
-            where: {
-              email: body.adminEmail,
-              id: { not: adminUser.id },
-            },
-          });
+        if (body.adminEmail) {
+          const nextAdminEmail = body.adminEmail.trim();
+          const currentAdminEmail = adminUser.email?.trim() || "";
 
-          if (exists) {
-            return reply.status(409).send({
-              success: false,
-              message: "Admin email already in use.",
-              field: "adminEmail",
+          if (
+            normalizeEmail(nextAdminEmail) !== normalizeEmail(currentAdminEmail)
+          ) {
+            const exists = await prisma.userAccount.findFirst({
+              where: {
+                email: {
+                  equals: nextAdminEmail,
+                  mode: "insensitive",
+                },
+                id: { not: adminUser.id },
+                isDeleted: { not: true },
+              },
             });
+
+            if (exists) {
+              return reply.status(409).send({
+                success: false,
+                message: "Admin email already in use.",
+                field: "adminEmail",
+              });
+            }
           }
         }
 
@@ -214,7 +229,7 @@ async function updateLenderRoutes(fastify) {
             orgUpdates.name = body.organizationName;
 
           if (body.organizationEmail)
-            orgUpdates.email = body.organizationEmail;
+            orgUpdates.email = body.organizationEmail.trim();
 
           if (body.organizationPhone)
             orgUpdates.phone = body.organizationPhone;
@@ -242,7 +257,7 @@ async function updateLenderRoutes(fastify) {
             adminUpdates.lastName = body.adminLastName;
 
           if (body.adminEmail)
-            adminUpdates.email = body.adminEmail;
+            adminUpdates.email = body.adminEmail.trim();
 
           if (body.adminPhone)
             adminUpdates.phone = body.adminPhone;

@@ -2,6 +2,10 @@ async function listLenderProductsByLenderRoutes(fastify) {
   const {
     mapLenderDocumentRequirements,
   } = require("../../../utils/lender/syncLenderProductDocuments");
+  const {
+    normalizeLenderProductForAdminApi,
+  } = require("../../../utils/lender/normalizeLenderProductResponse");
+
   fastify.get(
     "/lender/:lenderOrgId",
     {
@@ -22,9 +26,6 @@ async function listLenderProductsByLenderRoutes(fastify) {
       const { lenderOrgId } = request.params;
 
       try {
-        // ---------------------------
-        // Validate lender
-        // ---------------------------
         const lender = await prisma.organization.findUnique({
           where: { id: lenderOrgId },
           select: {
@@ -42,9 +43,6 @@ async function listLenderProductsByLenderRoutes(fastify) {
           });
         }
 
-        // ---------------------------
-        // Fetch lender products
-        // ---------------------------
         const products = await prisma.lenderProduct.findMany({
           where: { lenderOrgId },
           include: {
@@ -74,45 +72,14 @@ async function listLenderProductsByLenderRoutes(fastify) {
           },
         });
 
-        // ---------------------------
-        // 🔧 Normalize response (IMPORTANT)
-        // ---------------------------
-        const formatted = products.map((item) => ({
-          ...item,
+        const formatted = products.map((item) =>
+          normalizeLenderProductForAdminApi(item, {
+            documents: mapLenderDocumentRequirements(
+              item.lenderDocumentRequirements,
+            ),
+          }),
+        );
 
-          // ✅ CSV → ARRAY
-          statesSupported: item.statesSupported
-            ? item.statesSupported.split(",").map((s) => s.trim()).filter(Boolean)
-            : [],
-
-          equipmentTypes: item.equipmentTypes
-            ? item.equipmentTypes.split(",").map((e) => e.trim()).filter(Boolean)
-            : [],
-
-          // ✅ Ensure JSON consistency
-          businessTypes: Array.isArray(item.businessTypes)
-            ? item.businessTypes
-            : [],
-
-          propertyTypes: Array.isArray(item.propertyTypes)
-            ? item.propertyTypes
-            : [],
-
-          originationPointsPercent: item.originationPointsPercent?.toString() ?? null,
-          minLoanAmount: item.minLoanAmount?.toString() ?? null,
-          maxLoanAmount: item.maxLoanAmount?.toString() ?? null,
-          maxLtvPercent: item.maxLtvPercent?.toString() ?? null,
-          maxArvPercent: item.maxArvPercent?.toString() ?? null,
-          maxLtcPercent: item.maxLtcPercent?.toString() ?? null,
-
-          documents: mapLenderDocumentRequirements(
-            item.lenderDocumentRequirements,
-          ),
-        }));
-
-        // ---------------------------
-        // Response
-        // ---------------------------
         return reply.send({
           success: true,
           lender: {
@@ -130,7 +97,7 @@ async function listLenderProductsByLenderRoutes(fastify) {
           message: "Server error while fetching lender products",
         });
       }
-    }
+    },
   );
 }
 

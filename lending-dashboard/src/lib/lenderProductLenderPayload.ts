@@ -85,34 +85,18 @@ export function mergeGroupedSelections(
   }, {});
 }
 
-export function mapToAdminProductPayload(
+export function mapToLenderProductUpdatePayload(
   product: ProductRef,
   form: LenderProductFormSlice,
   criteria: Record<string, any>,
-  existingLenderProductId?: string,
 ) {
   const built = buildLenderProductCriteriaPayload(criteria, product.code);
 
   return {
-    ...(existingLenderProductId
-      ? { id: existingLenderProductId, loanProductCode: product.code }
-      : { loanProductCode: product.code }),
-    businessTypes: Object.entries(form.businessTypes || {}).map(
-      ([name, subTypes]) => ({
-        name,
-        subTypes: Array.isArray(subTypes) ? subTypes : [],
-      }),
-    ),
-    propertyTypes: Object.entries(form.propertyTypes || {}).map(
-      ([type, subTypes]) => ({
-        type,
-        subTypes: Array.isArray(subTypes) ? subTypes : [],
-      }),
-    ),
+    loanProductCode: product.code,
+    businessTypes: form.businessTypes,
+    propertyTypes: form.propertyTypes,
     ...built,
-    documents: (criteria.documents || []).map((doc: any) => ({
-      documentTypeId: doc.documentTypeId || doc.id,
-    })),
     ...(product.code === "EQUIPMENT_FINANCE" &&
       form.equipmentFinance?.length && {
         equipmentTypes: form.equipmentFinance,

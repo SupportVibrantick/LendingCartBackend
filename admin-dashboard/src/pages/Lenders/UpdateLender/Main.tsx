@@ -8,6 +8,7 @@ import EquipmentFinancingStep from "../AddLender/LoanCriteria/EquipmentFinancing
 import { ChevronRight, ChevronLeft, ArrowLeft } from "lucide-react";
 import toast from "react-hot-toast";
 import {
+  getDefaultCriteriaValuesForProduct,
   getRequiredCriteriaKeysForProduct,
   isMezzanineProduct,
   isNoMinLoanCriteriaProduct,
@@ -54,6 +55,11 @@ type InputFieldProps = {
   value: string;
   onChange: (value: string) => void;
   required?: boolean;
+  error?: string;
+};
+
+type ApiFieldError = Error & {
+  field?: string;
 };
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
@@ -77,6 +83,7 @@ export default function Main() {
   const [hasStep5Errors, setHasStep5Errors] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [lockedProgramIds, setLockedProgramIds] = useState<string[]>([]);
 
   const [form, setForm] = useState<FormType>({
@@ -220,11 +227,11 @@ export default function Main() {
   const updateLender = async (orgId: string) => {
     const payload: Record<string, string> = {
       organizationName: form.organizationName.trim(),
-      organizationEmail: form.organizationEmail.trim(),
+      organizationEmail: form.organizationEmail.trim().toLowerCase(),
       organizationPhone: cleanPhone(form.organizationPhone),
       adminFirstName: form.firstName.trim(),
       adminLastName: form.lastName.trim(),
-      adminEmail: form.adminEmail.trim(),
+      adminEmail: form.adminEmail.trim().toLowerCase(),
     };
 
     if (form.brokerId) {
@@ -237,10 +244,14 @@ export default function Main() {
       body: JSON.stringify(payload),
     });
 
-    const json = await res.json();
+    const json = await res.json().catch(() => ({}));
 
     if (!res.ok) {
-      throw new Error(json?.message || "Failed to update lender");
+      const err = new Error(
+        json?.message || "Failed to update lender",
+      ) as ApiFieldError;
+      err.field = json?.field;
+      throw err;
     }
   };
 
@@ -290,10 +301,39 @@ export default function Main() {
         throw new Error(json?.message || "Failed to update lender products");
       }
 
+      if (Array.isArray(json.data)) {
+        setForm((prev) => {
+          const nextProductIdMap = { ...prev.productIdMap };
+
+          json.data.forEach((item: any) => {
+            const canonicalId = mapToCanonicalCatalogId(
+              products,
+              item.loanProductCode,
+              item.loanProductId,
+            );
+
+            if (canonicalId && item.id) {
+              nextProductIdMap[canonicalId] = item.id;
+            }
+          });
+
+          return {
+            ...prev,
+            productIdMap: nextProductIdMap,
+          };
+        });
+      }
+
       toast.success("Lender updated successfully");
       navigate("/all-lenders-Organization");
     } catch (err: any) {
       console.error(err);
+
+      if (err?.field) {
+        setFieldErrors({ [err.field]: err.message });
+        setStep(0);
+      }
+
       toast.error(err?.message || "Failed to update");
     } finally {
       setSubmitting(false);
@@ -307,6 +347,7 @@ export default function Main() {
         toast.error(error);
         return;
       }
+      setFieldErrors({});
       setStep(1);
       return;
     }
@@ -470,6 +511,37 @@ export default function Main() {
   }, [id]);
 
   useEffect(() => {
+    if (!products.length || !form.loanPrograms.length) return;
+
+    setForm((prev) => {
+      let changed = false;
+      const nextCriteria = { ...prev.loanCriteria };
+
+      form.loanPrograms.forEach((programId) => {
+        if (nextCriteria[programId]) return;
+
+        const product = products.find((p) => p.id === programId);
+        if (!product) return;
+
+        const defaults = getDefaultCriteriaValuesForProduct(product.code);
+        nextCriteria[programId] = {
+          ...defaults,
+          states: [],
+          documents: [],
+        };
+        changed = true;
+      });
+
+      if (!changed) return prev;
+
+      return {
+        ...prev,
+        loanCriteria: nextCriteria,
+      };
+    });
+  }, [form.loanPrograms, products]);
+
+  useEffect(() => {
     if (!isEquipmentSelected) {
       setForm((p) => ({ ...p, equipmentFinance: [] }));
     }
@@ -506,29 +578,50 @@ export default function Main() {
                   label="Organization Name"
                   required
                   value={form.organizationName}
-                  onChange={(v) =>
-                    setForm((p) => ({ ...p, organizationName: v }))
-                  }
+                  error={fieldErrors.organizationName}
+                  onChange={(v) => {
+                    setFieldErrors((prev) => {
+                      if (!prev.organizationName) return prev;
+                      const next = { ...prev };
+                      delete next.organizationName;
+                      return next;
+                    });
+                    setForm((p) => ({ ...p, organizationName: v }));
+                  }}
                 />
                 <InputField
                   label="Organization Email"
                   required
                   value={form.organizationEmail}
-                  onChange={(v) =>
-                    setForm((p) => ({ ...p, organizationEmail: v }))
-                  }
+                  error={fieldErrors.organizationEmail}
+                  onChange={(v) => {
+                    setFieldErrors((prev) => {
+                      if (!prev.organizationEmail) return prev;
+                      const next = { ...prev };
+                      delete next.organizationEmail;
+                      return next;
+                    });
+                    setForm((p) => ({ ...p, organizationEmail: v }));
+                  }}
                 />
                 <div className="col-span-2">
                   <InputField
                     label="Phone Number"
                     required
                     value={form.organizationPhone}
-                    onChange={(v) =>
+                    error={fieldErrors.organizationPhone}
+                    onChange={(v) => {
+                      setFieldErrors((prev) => {
+                        if (!prev.organizationPhone) return prev;
+                        const next = { ...prev };
+                        delete next.organizationPhone;
+                        return next;
+                      });
                       setForm((p) => ({
                         ...p,
                         organizationPhone: formatPhone(v),
-                      }))
-                    }
+                      }));
+                    }}
                   />
                 </div>
               </div>
@@ -555,7 +648,16 @@ export default function Main() {
                   label="Email Address"
                   required
                   value={form.adminEmail}
-                  onChange={(v) => setForm((p) => ({ ...p, adminEmail: v }))}
+                  error={fieldErrors.adminEmail}
+                  onChange={(v) => {
+                    setFieldErrors((prev) => {
+                      if (!prev.adminEmail) return prev;
+                      const next = { ...prev };
+                      delete next.adminEmail;
+                      return next;
+                    });
+                    setForm((p) => ({ ...p, adminEmail: v }));
+                  }}
                 />
               </div>
             </div>
@@ -794,6 +896,7 @@ const InputField = ({
   value,
   onChange,
   required = false,
+  error,
 }: InputFieldProps) => {
   return (
     <div className="flex flex-col gap-1.5">
@@ -805,8 +908,11 @@ const InputField = ({
         type="text"
         value={value || ""}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-black focus:border-black outline-none transition"
+        className={`w-full border rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-black focus:border-black outline-none transition ${
+          error ? "border-red-500" : "border-gray-300"
+        }`}
       />
+      {error ? <p className="text-xs text-red-600">{error}</p> : null}
     </div>
   );
 };
