@@ -3996,9 +3996,10 @@ focus:border-blue-500 outline-none text-sm ${
                     {/* Estimated Closing Date */}
                     <div>
                       <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
-                        Estimated Closing Date
+                        Estimated Closing Date  <span className="text-red-500">*</span>
                       </label>
                       <LoanDateField
+                        allowPastDates={false}
                         value={formData.loanRequest.estimatedClosingDate}
                         onChange={(val) =>
                           updateLoanRequest("estimatedClosingDate", val)
@@ -4100,6 +4101,7 @@ focus:border-blue-500 outline-none text-sm ${
                           {loanRequestPurchaseDateLabel}
                         </label>
                         <LoanDateField
+                        allowPastDates={true}
                           value={formData.loanRequest.purchaseDate}
                           onChange={(val) =>
                             updateLoanRequest("purchaseDate", val)
@@ -4139,6 +4141,7 @@ focus:border-blue-500 outline-none text-sm ${
                           {loanRequestPurchaseDateLabel}
                         </label>
                         <LoanDateField
+                        allowPastDates={false}
                           value={formData.loanRequest.purchaseDate}
                           onChange={(val) =>
                             updateLoanRequest("purchaseDate", val)
@@ -4247,6 +4250,7 @@ focus:border-blue-500 outline-none text-sm ${
                   </label>
 
                   <LoanDateField
+                  allowPastDates={true}
                     value={formData.entity.formationDate}
                     onChange={(val) => updateEntity("formationDate", val)}
                     className={`mt-1 ${
@@ -4963,7 +4967,10 @@ focus:border-blue-500 outline-none text-sm ${
                             <span className="text-red-500">*</span>
                           </label>
 
+                          {/* property_info/purchase date */}
+
                           <LoanDateField
+                          allowPastDates={true}
                             value={formData.loanRequest.purchaseDate}
                             onChange={(val) =>
                               updateLoanRequest("purchaseDate", val)
@@ -5173,6 +5180,7 @@ focus:border-blue-500 outline-none text-sm ${
                     Purchase Date <span className="text-red-500">*</span>
                   </label>
                   <LoanDateField
+                  allowPastDates={true}
                     value={formData.loanRequest.purchaseDate}
                     onChange={(val) => updateLoanRequest("purchaseDate", val)}
                     className={
@@ -5558,7 +5566,7 @@ focus:border-blue-500 outline-none text-sm ${
                   <button
                     type="button"
                     onClick={handleAddCoBorrower}
-                    className="mt-4 flex items-center gap-2 rounded-md border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-800"
+                    className="mt-4 flex items-center gap-2 rounded-md border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-800 dark:text-slate-300"
                   >
                     + Add Borrower
                   </button>
@@ -5742,6 +5750,7 @@ rounded-2xl p-6 bg-white dark:bg-slate-800"
                       DOB (mm/dd/yyyy) <span className="text-red-500">*</span>
                     </label>
                     <LoanDateField
+                    allowPastDates={true}
                       value={formData.borrower.dob}
                       onChange={(val) => updateBorrower("dob", val)}
                       className={`mt-1 ${
@@ -6121,6 +6130,7 @@ focus:border-blue-500 outline-none text-sm ${
                             <span className="text-red-500">*</span>
                           </label>
                           <LoanDateField
+                          allowPastDates={true}
                             value={formData.coBorrowers[index]?.dob}
                             onChange={(val) =>
                               updateCoBorrower(index, "dob", val)

@@ -104,7 +104,7 @@ export default function ResidentialDocumentsStep({
           type="button"
           disabled={uploading}
           onClick={() => inputRef.current?.click()}
-          className="mt-3 flex items-center gap-2 rounded-md border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:hover:bg-slate-800"
+          className="mt-3 flex items-center gap-2 rounded-md border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:hover:bg-slate-800 dark:text-slate-300"
         >
           <Upload className="h-4 w-4" />
           Upload Document

@@ -11,6 +11,7 @@ type LoanDateFieldProps = {
   className?: string;
   id?: string;
   disabled?: boolean;
+  allowPastDates?: boolean;
 };
 
 const BASE_INPUT_CLASS =
@@ -23,6 +24,7 @@ export default function LoanDateField({
   className = "",
   id: idProp,
   disabled = false,
+  allowPastDates = true,
 }: LoanDateFieldProps) {
   const autoId = useId().replace(/:/g, "");
   const id = idProp || `loan-date-${autoId}`;
@@ -36,7 +38,8 @@ export default function LoanDateField({
   const applyAltInputStyles = (instance: Instance) => {
     if (!instance.altInput) return;
     instance.altInput.placeholder = placeholder;
-    instance.altInput.className = `${BASE_INPUT_CLASS} ${classNameRef.current}`.trim();
+    instance.altInput.className =
+      `${BASE_INPUT_CLASS} ${classNameRef.current}`.trim();
   };
 
   useEffect(() => {
@@ -49,13 +52,16 @@ export default function LoanDateField({
       allowInput: true,
       disableMobile: true,
       defaultDate: value || undefined,
+      minDate: allowPastDates ? undefined : "today",
       onChange: (_dates, dateStr) => {
         onChangeRef.current(dateStr || "");
       },
       onReady: (_dates, _dateStr, instance) => {
         applyAltInputStyles(instance);
 
-        if (instance.calendarContainer.querySelector(".flatpickr-footer-actions")) {
+        if (
+          instance.calendarContainer.querySelector(".flatpickr-footer-actions")
+        ) {
           return;
         }
 
@@ -97,6 +103,12 @@ export default function LoanDateField({
   useEffect(() => {
     const fp = fpRef.current;
     if (!fp) return;
+    fp.set("minDate", allowPastDates ? undefined : "today"); // NEW
+  }, [allowPastDates]);
+
+  useEffect(() => {
+    const fp = fpRef.current;
+    if (!fp) return;
     applyAltInputStyles(fp);
   }, [className, placeholder]);
 
@@ -106,9 +118,7 @@ export default function LoanDateField({
 
     const next = value || "";
     const selected = fp.selectedDates[0];
-    const selectedIso = selected
-      ? flatpickr.formatDate(selected, "Y-m-d")
-      : "";
+    const selectedIso = selected ? flatpickr.formatDate(selected, "Y-m-d") : "";
 
     if (selectedIso !== next) {
       fp.setDate(next || "", false);
