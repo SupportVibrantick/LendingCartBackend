@@ -292,7 +292,7 @@ export default function UserProfileCard() {
   };
 
   return (
-    <div className="space-y-6 p-4 md:p-6">
+    <div className="space-y-6 p-4 md:p-6 min-w-0">
       <div className="overflow-hidden rounded-2xl border border-[#13538A]/15 bg-gradient-to-br from-[#13538A] via-[#1a6aad] to-[#2C92D5] p-6 text-white shadow-sm sm:p-8">
         <p className="text-xs font-semibold uppercase tracking-widest text-white/70">
           Account · Settings
@@ -695,11 +695,11 @@ function StatTile({
 }) {
   return (
     <div className="rounded-xl border border-gray-100 bg-white p-3 dark:border-gray-700 dark:bg-gray-900">
-      <p className="text-[10px] font-medium uppercase tracking-wider text-gray-400">
+      <p className="truncate text-[10px] font-medium uppercase tracking-wider text-gray-400">
         {label}
       </p>
       <p
-        className={`mt-1 font-bold text-gray-900 dark:text-white ${
+        className={`truncate mt-1 font-bold text-gray-900 dark:text-white ${
           compact ? "text-sm" : "text-2xl"
         }`}
       >
