@@ -19,59 +19,59 @@ const financialColumnKeys = [
   "cashFlowAfterDebtOverride",
   "cashFlowAfterDebtOverride_computed",
 ];
-// ENUMS 
-const US_STATS= z.enum([
-    "Alabama",
-    "Alaska",
-    "Arizona",
-    "Arkansas",
-    "California",
-    "Colorado",
-    "Connecticut",
-    "Delaware",
-    "Florida",
-    "Georgia",
-    "Hawaii",
-    "Idaho",
-    "Illinois",
-    "Indiana",
-    "Iowa",
-    "Kansas",
-    "Kentucky",
-    "Louisiana",
-    "Maine",
-    "Maryland",
-    "Massachusetts",
-    "Michigan",
-    "Minnesota",
-    "Mississippi",
-    "Missouri",
-    "Montana",
-    "Nebraska",
-    "Nevada",
-    "New Hampshire",
-    "New Jersey",
-    "New Mexico",
-    "New York",
-    "North Carolina",
-    "North Dakota",
-    "Ohio",
-    "Oklahoma",
-    "Oregon",
-    "Pennsylvania",
-    "Rhode Island",
-    "South Carolina",
-    "South Dakota",
-    "Tennessee",
-    "Texas",
-    "Utah",
-    "Vermont",
-    "Virginia",
-    "Washington",
-    "West Virginia",
-    "Wisconsin",
-    "Wyoming",
-  ]);
+// ENUMS
+const US_STATS = z.enum([
+  "Alabama",
+  "Alaska",
+  "Arizona",
+  "Arkansas",
+  "California",
+  "Colorado",
+  "Connecticut",
+  "Delaware",
+  "Florida",
+  "Georgia",
+  "Hawaii",
+  "Idaho",
+  "Illinois",
+  "Indiana",
+  "Iowa",
+  "Kansas",
+  "Kentucky",
+  "Louisiana",
+  "Maine",
+  "Maryland",
+  "Massachusetts",
+  "Michigan",
+  "Minnesota",
+  "Mississippi",
+  "Missouri",
+  "Montana",
+  "Nebraska",
+  "Nevada",
+  "New Hampshire",
+  "New Jersey",
+  "New Mexico",
+  "New York",
+  "North Carolina",
+  "North Dakota",
+  "Ohio",
+  "Oklahoma",
+  "Oregon",
+  "Pennsylvania",
+  "Rhode Island",
+  "South Carolina",
+  "South Dakota",
+  "Tennessee",
+  "Texas",
+  "Utah",
+  "Vermont",
+  "Virginia",
+  "Washington",
+  "West Virginia",
+  "Wisconsin",
+  "Wyoming",
+]);
 
 const financialColumnFields = financialColumnKeys.reduce((acc, key) => {
   for (let col = 0; col < 4; col++) {
@@ -83,8 +83,7 @@ const financialColumnFields = financialColumnKeys.reduce((acc, key) => {
 // Main
 
 const loanApplicationFieldsSchema = z.object({
-
-    // Loan Request (TAB 1)
+  // Loan Request (TAB 1)
   loanCategory: z.enum([
     "RESIDENTIAL_1_4",
     "CRE_MULTIFAMILY",
@@ -103,7 +102,7 @@ const loanApplicationFieldsSchema = z.object({
   sellerFinancing: yesNo,
   sellerNoteAmount: optionalNumeric,
 
-   // Entity Info (TAB 2)
+  // Entity Info (TAB 2)
   entityLegalName: z.string().min(1),
   entityType: z.enum([
     "Sole Proprietorship",
@@ -119,27 +118,30 @@ const loanApplicationFieldsSchema = z.object({
   entityDBA: z.string().optional().default(""),
 
   // Property Info (TAB 3)
-  propertyType:z.string().min(1).max(30),
+  propertyType: z.string().min(1).max(30),
   propertyAddress: z.string().min(1),
   propertyCity: z.string().min(1),
   propertyState: US_STATS,
   propertyZip: z.string().min(1),
-  propertyCountry: z.string().min(1), 
+  propertyCountry: z.string().min(1),
   propertyUnits: optionalNumeric,
   rehabBudget: z.number(),
   afterRepairValue: z.number(),
-  propertyPurchaseDate:z.iso.date(),
-
+  propertyPurchaseDate: z.iso.date(),
 
   // Borrower identity  -> TAB 4
-  borrowerFirstName: z.string().min(3),
+  borrowerFirstName: z.string().min(2),
   borrowerLastName: z.string().min(1),
   entityOwnershipPercent: z.coerce.number().min(0).max(100),
   phone: z.string().min(1),
   email: z.string().email(),
-  ssn: z
-    .string()
-    .regex(/^\d{3}-\d{2}-\d{4}$/, "SSN must be in format XXX-XX-XXXX"),
+  ssn: z.preprocess(
+    (value) => (value === "" ? undefined : value),
+    z
+      .string()
+      .regex(/^\d{3}-\d{2}-\d{4}$/, "SSN must be in format XXX-XX-XXXX")
+      .optional(),
+  ),
   legalStatus: z.enum([
     "US Citizen",
     "Work Visa",
@@ -178,8 +180,7 @@ const loanApplicationFieldsSchema = z.object({
   totalLiabilities: optionalNumeric,
   netWorth: numeric,
 
-
-// Financials (TAB 5)
+  // Financials (TAB 5)
 
   // Rental / DSCR inputs
   rentalProperty: yesNo,
@@ -192,7 +193,6 @@ const loanApplicationFieldsSchema = z.object({
   financialYear_col1: z.coerce.number().int(),
   financialYear_col2: z.coerce.number().int(),
   financialYear_col3: z.coerce.number().int(),
-
 
   interimMonthsReported: z.coerce.number().int().min(0).default(0),
   dscrCalculationMethod: z.enum(["noi", "cashFlow", "other"]).or(z.string()),
@@ -250,7 +250,6 @@ const loanApplicationFieldsSchema = z.object({
   inventoryValue: optionalNumeric,
   equipmentValue: optionalNumeric,
 
-
   // Consent & meta
   creditAuthorizationConsent: yesNo,
   applicationDocumentCount: z.coerce.number().int().min(0).default(0),
@@ -273,11 +272,8 @@ function parseLoanApplicationPayload(payload) {
   return loanApplicationFieldsSchema.parse(flat);
 }
 
-
-
 module.exports = {
   loanApplicationFieldsSchema,
   loanApplicationPayloadSchema,
   parseLoanApplicationPayload,
 };
-

@@ -22,6 +22,12 @@ const {
 const {
   resolveSubmitLoanProduct,
 } = require("../../../utils/applications/resolveSubmitLoanProduct");
+const {
+  formatValidationIssue,
+} = require("../../../utils/applications/formatValidationIssue");
+const {
+  loanApplicationFieldsSchema,
+} = require("../../../schemas/broker/application/loanApplication.schema");
 
 async function brokerSubmitApplication(fastify) {
   fastify.post(
@@ -69,6 +75,30 @@ async function brokerSubmitApplication(fastify) {
           return reply.code(400).send({
             success: false,
             message: "Invalid payload",
+          });
+        }
+
+        const staticFieldsMap = {};
+        for (const f of fields) {
+          if (f.fieldKey) {
+            staticFieldsMap[f.fieldKey] = f.value;
+          }
+        }
+
+        const validation = loanApplicationFieldsSchema
+          .partial()
+          .safeParse(staticFieldsMap);
+
+        if (!validation.success) {
+          const firstIssue = validation.error.issues[0];
+
+          return reply.code(400).send({
+            success: false,
+            message: firstIssue.message,
+            errors: validation.error.issues.map((issue) => ({
+              field: issue.path.join("."),
+              reason: issue.message,
+            })),
           });
         }
 
@@ -373,7 +403,8 @@ async function brokerSubmitApplication(fastify) {
 
         return reply.code(500).send({
           success: false,
-          message: error.message || "Internal server error while creating application",
+          message:
+            error.message || "Internal server error while creating application",
         });
       }
     },
