@@ -7,49 +7,57 @@ const {
   loanApplicationFieldsSchema,
 } = require("../../../schemas/broker/application/loanApplication.schema");
 
-function formatValidationIssue(issue, receivedValue) {
-  const field = issue.path.join(".");
-  const received =
-    receivedValue === undefined ? "no value" : JSON.stringify(receivedValue);
-  const isStringLength = issue.origin === "string";
+function formatValidationIssue(issue) {
+  const field = issue.path
+    .join(".")
+    .replace(/([A-Z])/g, " $1")
+    .replace(/^./, (c) => c.toUpperCase());
+
+  const isString = issue.origin === "string";
 
   switch (issue.code) {
     case "too_big":
-      return `${field} must be ${issue.inclusive ? "at most" : "less than"} ${issue.maximum}${isStringLength ? " character(s)" : ""}. Received ${received}`;
+      return `${field} must be ${issue.inclusive ? "no more than" : "less than"} ${issue.maximum}${isString ? " characters" : ""}.`;
 
     case "too_small":
-      return `${field} must be ${issue.inclusive ? "at least" : "greater than"} ${issue.minimum}${isStringLength ? " character(s)" : ""}. Received ${received}`;
+      return `${field} must be ${issue.inclusive ? "at least" : "more than"} ${issue.minimum}${isString ? " characters" : ""}.`;
 
     case "invalid_type":
-      return `${field} must be a valid ${issue.expected}. Received ${received}`;
+      return `Please enter a valid ${field.toLowerCase()}.`;
 
     case "invalid_format":
       if (issue.format === "email") {
-        return `${field} must be a valid email address. Received ${received}`;
+        return "Please enter a valid email address.";
       }
-      if (issue.format === "regex" && field === "ssn") {
-        return `${field} must be in format XXX-XX-XXXX. Received ${received}`;
+
+      if (issue.format === "regex" && issue.path[0] === "ssn") {
+        return "SSN must be in the format XXX-XX-XXXX.";
       }
+
       if (issue.format === "date") {
-        return `${field} must be a valid date (YYYY-MM-DD). Received ${received}`;
+        return "Please enter a valid date.";
       }
-      return `${field} is not in the correct format. Received ${received}`;
+
+      return issue.message || `${field} is not in the correct format.`;
 
     case "invalid_value":
-      return `${field} must be one of: ${issue.values.join(", ")}. Received ${received}`;
+      return `Please select a valid ${field.toLowerCase()}.`;
 
     case "invalid_union": {
-      // Union fields (e.g. dscrCalculationMethod: enum OR free-text string).
-      // Collapse each branch's sub-errors into one readable line.
       const subMessages = issue.errors
         .flat()
         .map((e) => e.message)
         .filter((msg, i, arr) => arr.indexOf(msg) === i);
-      return `${field} is invalid �� it must satisfy one of: ${subMessages.join(" OR ")}. Received ${received}`;
+
+      return subMessages.length
+        ? subMessages.join(" or ")
+        : issue.message || `Please enter a valid ${field.toLowerCase()}.`;
     }
 
     default:
-      return `${field}: ${issue.message}. Received ${received}`;
+      return (
+        issue.message || `Please correct the ${field.toLowerCase()} field.`
+      );
   }
 }
 
@@ -106,16 +114,15 @@ async function editSubmittedApplication(fastify) {
           .safeParse(staticFieldsMap);
 
         if (!validation.success) {
+          const firstIssue = validation.error.issues[0];
+
           return reply.code(400).send({
             success: false,
-            message: "One or more fields are invalid",
-            errors: validation.error.issues.map((issue) => {
-              const field = issue.path.join(".");
-              return {
-                field,
-                reason: formatValidationIssue(issue, staticFieldsMap[field]),
-              };
-            }),
+            message: firstIssue.message,
+            errors: validation.error.issues.map((issue) => ({
+              field: issue.path.join("."),
+              reason: issue.message,
+            })),
           });
         }
 
@@ -231,7 +238,6 @@ async function editSubmittedApplication(fastify) {
           },
         });
       } catch (error) {
-
         /*  ERROR HANDLING  */
 
         fastify.log.error({
