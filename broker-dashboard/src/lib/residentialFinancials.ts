@@ -55,7 +55,7 @@ export const ANNUAL_FINANCIAL_EDITABLE_ROWS = [
   { key: "grossRentalIncome" as const, label: "Gross Rental Income ($)" },
   { key: "vacancyCreditLoss" as const, label: "Vacancy & Credit Loss ($)" },
   { key: "operatingExpenses" as const, label: "Operating Expenses ($)" },
-  { key: "mortgageDebtService" as const, label: "Mortgage / Debt Service ($)" },
+  // { key: "mortgageDebtService" as const, label: "Mortgage / Debt Service ($)" },
 ];
 
 export const ANNUAL_FINANCIAL_CALCULATED_ROWS = [
