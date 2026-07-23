@@ -6,7 +6,9 @@ const {
 const {
   loanApplicationFieldsSchema,
 } = require("../../../schemas/broker/application/loanApplication.schema");
-const { formatValidationIssue } = require("../../../utils/applications/formatValidationIssue");
+const {
+  formatValidationIssue,
+} = require("../../../utils/applications/formatValidationIssue");
 
 async function editSubmittedApplication(fastify) {
   fastify.put(
@@ -50,12 +52,12 @@ async function editSubmittedApplication(fastify) {
         }
 
         const staticFieldsMap = {};
+
         for (const f of fields) {
-          if (f.fieldKey) {
+          if (f.fieldKey && f.fieldKey !== "email") {
             staticFieldsMap[f.fieldKey] = f.value;
           }
         }
-
         const validation = loanApplicationFieldsSchema
           .partial()
           .safeParse(staticFieldsMap);
@@ -181,7 +183,6 @@ async function editSubmittedApplication(fastify) {
           message: "Application edited successfully",
           data: {
             submissionId: result.newSubmission.id,
-            application,
           },
         });
       } catch (error) {

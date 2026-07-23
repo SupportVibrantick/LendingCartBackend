@@ -42,7 +42,10 @@ export type ResidentialBorrowerPanelProps = {
   onFieldChange: (field: keyof BorrowerPanelData, value: string) => void;
   onAssetChange: (field: keyof BorrowerAssets, value: string) => void;
   onLiabilityChange: (field: keyof BorrowerLiabilities, value: string) => void;
-  onDeclarationChange: (field: keyof BorrowerDeclarations, value: YesNo) => void;
+  onDeclarationChange: (
+    field: keyof BorrowerDeclarations,
+    value: YesNo,
+  ) => void;
   onAddProperty: () => void;
   onRemoveProperty: (propertyId: number) => void;
   onPropertyChange: (
@@ -160,16 +163,18 @@ const CurrencyField = ({
   required?: boolean;
   inline?: boolean;
 }) => (
-  <div className={
-    inline
-      ? "grid grid-cols-[minmax(0,1fr)_190px] items-center gap-5"
-      : "w-full"
-  }>
-   <label
-  className={`text-sm font-medium text-slate-600 dark:text-slate-300 ${
-    inline ? "" : "mb-1 block"
-  }`}
->
+  <div
+    className={
+      inline
+        ? "grid grid-cols-[minmax(0,1fr)_190px] items-center gap-5"
+        : "w-full"
+    }
+  >
+    <label
+      className={`text-sm font-medium text-slate-600 dark:text-slate-300 ${
+        inline ? "" : "mb-1 block"
+      }`}
+    >
       {label}
       {required && <span className="text-red-500"> *</span>}
     </label>
@@ -189,11 +194,7 @@ const CurrencyField = ({
       />
     </div>
 
-    {error && (
-      <p className="col-span-2 text-xs text-red-500">
-        {error}
-      </p>
-    )}
+    {error && <p className="col-span-2 text-xs text-red-500">{error}</p>}
   </div>
 );
 
@@ -227,8 +228,8 @@ export default function ResidentialBorrowerPanel({
   const netWorth = totalAssets - totalLiabilities;
   const scheduleTotal = sumScheduleMarketValue(realEstateOwned);
   const unansweredDeclarations = countUnansweredDeclarations(declarations);
-  const hasDeclarationErrors = DECLARATION_QUESTIONS.some(
-    ({ key }) => Boolean(errors[`${errorPrefix}.declarations.${key}`]),
+  const hasDeclarationErrors = DECLARATION_QUESTIONS.some(({ key }) =>
+    Boolean(errors[`${errorPrefix}.declarations.${key}`]),
   );
   const showDeclarationHighlight =
     unansweredDeclarations > 0 || hasDeclarationErrors;
@@ -353,12 +354,14 @@ export default function ResidentialBorrowerPanel({
               <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
                 Email
               </label>
+
               <input
                 type="email"
                 value={borrower.email}
-                onChange={(e) => onFieldChange("email", e.target.value)}
-                className={inputClass(Boolean(err("email")))}
+                disabled
+                className={`${inputClass(Boolean(err("email")))} cursor-not-allowed bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200 disabled:opacity-100`}
               />
+
               {err("email") && (
                 <p className="mt-1 text-xs text-red-500">{err("email")}</p>
               )}
@@ -448,39 +451,39 @@ export default function ResidentialBorrowerPanel({
             </div>
 
             <div>
-  <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
-    Total Cash Reserves ($)
-  </label>
+              <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                Total Cash Reserves ($)
+              </label>
 
-  <div className="relative mt-1">
-    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">
-      $
-    </span>
+              <div className="relative mt-1">
+                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">
+                  $
+                </span>
 
-    <input
-      type="text"
-      inputMode="numeric"
-      value={borrower.totalCashReserves}
-      onChange={(e) =>
-        onAmountChange(
-          "totalCashReserves",
-          formatCurrencyInput(e.target.value),
-        )
-      }
-      placeholder="0"
-      className={currencyInputClass(false)}
-    />
-  </div>
-</div>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={borrower.totalCashReserves}
+                  onChange={(e) =>
+                    onAmountChange(
+                      "totalCashReserves",
+                      formatCurrencyInput(e.target.value),
+                    )
+                  }
+                  placeholder="0"
+                  className={currencyInputClass(false)}
+                />
+              </div>
+            </div>
           </div>
 
           <CollapsibleSection title="Assets & Liabilities">
-<div className="grid grid-cols-1 gap-10 lg:grid-cols-2">
+            <div className="grid grid-cols-1 gap-10 lg:grid-cols-2">
               <div>
                 <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-[#2C92D5]">
                   Assets
                 </p>
-               <div className="space-y-2">
+                <div className="space-y-2">
                   {ASSET_FIELD_DEFS.map(({ key, label }) => (
                     <CurrencyField
                       key={key}
@@ -496,7 +499,7 @@ export default function ResidentialBorrowerPanel({
                 <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-red-500">
                   Liabilities
                 </p>
-<div className="space-y-2">
+                <div className="space-y-2">
                   {LIABILITY_FIELD_DEFS.map(({ key, label }) => (
                     <CurrencyField
                       key={key}
@@ -648,22 +651,30 @@ export default function ResidentialBorrowerPanel({
                         <LoanDateField
                           value={property.acquisitionDate}
                           onChange={(val) =>
-                            onPropertyChange(property.id, "acquisitionDate", val)
+                            onPropertyChange(
+                              property.id,
+                              "acquisitionDate",
+                              val,
+                            )
                           }
                         />
                       </div>
 
                       <CurrencyField
-                       inline={false}
+                        inline={false}
                         label="Rehab/Upgrade Cost ($) "
                         value={property.rehabUpgradeCost}
                         onChange={(value) =>
-                          onPropertyChange(property.id, "rehabUpgradeCost", value)
+                          onPropertyChange(
+                            property.id,
+                            "rehabUpgradeCost",
+                            value,
+                          )
                         }
                       />
 
                       <CurrencyField
-                      inline={false}
+                        inline={false}
                         label="Current Market Value ($)"
                         value={property.currentMarketValue}
                         onChange={(value) =>
@@ -693,7 +704,7 @@ export default function ResidentialBorrowerPanel({
                       </div>
 
                       <CurrencyField
-                      inline={false}
+                        inline={false}
                         label="Loan/Mortgage Balance ($)"
                         value={property.loanMortgageBalance}
                         onChange={(value) =>
@@ -706,7 +717,7 @@ export default function ResidentialBorrowerPanel({
                       />
 
                       <CurrencyField
-                      inline={false}
+                        inline={false}
                         label="Gross Rental Income ($)"
                         value={property.grossRentalIncome}
                         onChange={(value) =>
@@ -719,7 +730,7 @@ export default function ResidentialBorrowerPanel({
                       />
 
                       <CurrencyField
-                      inline={false}
+                        inline={false}
                         label="Loan/Tax/Insurance Payment/yr ($)"
                         value={property.loanTaxInsurancePaymentYr}
                         onChange={(value) =>
@@ -732,7 +743,7 @@ export default function ResidentialBorrowerPanel({
                       />
 
                       <CurrencyField
-                      inline={false}
+                        inline={false}
                         label="NOI per year ($)"
                         value={property.noiPerYear}
                         onChange={(value) =>
@@ -741,7 +752,7 @@ export default function ResidentialBorrowerPanel({
                       />
 
                       <CurrencyField
-                      inline={false}
+                        inline={false}
                         label="Total Equity ($)"
                         value={property.totalEquity}
                         onChange={(value) =>
@@ -771,7 +782,7 @@ export default function ResidentialBorrowerPanel({
           >
             <p className="mb-3 text-xs text-amber-800 dark:text-amber-200">
               All declarations must be answered (Yes or No) to proceed.
-            </p>                        
+            </p>
 
             {unansweredDeclarations > 0 && (
               <div className="mb-4 flex items-start gap-2 rounded-md border border-amber-300 bg-amber-100 px-3 py-2 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100">
