@@ -17,10 +17,17 @@ import {
 import toast from "react-hot-toast";
 
 import {
+  MAX_COMPANY_NAME,
+  MAX_LICENSE_NUMBER,
   MAX_FIRST_NAME_LENGTH,
   MIN_FIRST_NAME_LENGTH,
   MAX_LAST_NAME_LENGTH,
   MIN_LAST_NAME_LENGTH,
+  MAX_COMPANY_ADDRESS_LENGTH,
+  MAX_COMPANY_ADDRESS_CITY_LENGTH,
+  MAX_COMPANY_ADDRESS_STATE_LENGTH,
+  MAX_COMPANY_ADDRESS_ZIPCODE_LENGTH,
+  MAX_COMPANY_ADDRESS_WEBSITE_LENGTH,
 } from "../../config";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
@@ -54,6 +61,13 @@ export default function UserProfileCard() {
   const [nameError, setNameError] = useState("");
   const [lastNameError, setLastNameError] = useState("");
   const [phoneError, setPhoneError] = useState("");
+  const [companyError, setCompanyError] = useState("");
+  const [licenseNumberError, setLicenseNumberError] = useState("");
+  const [addressError, setAddressError] = useState("");
+  const [cityError, setCityError] = useState("");
+  const [stateError, setStateError] = useState("");
+  const [zipCodeError, setZipCodeError] = useState("");
+  const [websiteError, setWebsiteError] = useState("");
 
   const [showPasswordSection, setShowPasswordSection] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
@@ -403,6 +417,8 @@ export default function UserProfileCard() {
 
         <div className="grid gap-6 border-t border-gray-100 p-4 dark:border-gray-800 sm:p-8 lg:grid-cols-3">
           <div className="space-y-6 lg:col-span-2">
+            {/* Personal Information */}
+
             <section>
               <h3 className="mb-4 text-sm font-semibold text-gray-900 dark:text-white">
                 Personal Information
@@ -481,20 +497,22 @@ export default function UserProfileCard() {
                     setPhoneError("");
                     setPhone(formatted);
                   }}
-                  // onBlur={() => {
-                  //   if (phone.replace(/\D/g, "").length !== 10) {
-                  //     setPhoneError(
-                  //       "Please enter a valid 10-digit US phone number.",
-                  //     );
-                  //   } else {
-                  //     setPhoneError("");
-                  //   }
-                  // }}
+                  onBlur={() => {
+                    if (phone.replace(/\D/g, "").length !== 10) {
+                      setPhoneError(
+                        "Please enter a valid 10-digit US phone number.",
+                      );
+                    } else {
+                      setPhoneError("");
+                    }
+                  }}
                   icon={<Phone size={14} />}
                   error={phoneError}
                 />
               </div>
             </section>
+
+            {/* // Professional Information */}
 
             <section>
               <h3 className="mb-4 text-sm font-semibold text-gray-900 dark:text-white">
@@ -505,53 +523,164 @@ export default function UserProfileCard() {
                   label="Company"
                   value={company}
                   editing={editing}
-                  onChange={setCompany}
+                  maxLength={MAX_COMPANY_NAME}
+                  onChange={(value) => {
+                    setCompanyError("");
+                    setCompany(value);
+                  }}
+                  onBlur={() => {
+                    if (!company.trim()) {
+                      setCompanyError("Company name is required.");
+                    } else {
+                      setCompanyError("");
+                    }
+                  }}
                   icon={<Building2 size={14} />}
+                  error={companyError}
                 />
+
                 <ProfileField
                   label="License Number"
                   value={licenseNumber}
                   editing={editing}
-                  onChange={setLicenseNumber}
+                  maxLength={MAX_LICENSE_NUMBER}
+                  onChange={(value) => {
+                    if (!/^[A-Za-z0-9-]*$/.test(value)) {
+                      setLicenseNumberError(
+                        "Only letters, numbers and hyphens are allowed.",
+                      );
+                      return;
+                    }
+
+                    setLicenseNumberError("");
+                    setLicenseNumber(value);
+                  }}
+                  onBlur={() => {
+                    if (!licenseNumber.trim()) {
+                      setLicenseNumberError("License number is required.");
+                    } else {
+                      setLicenseNumberError("");
+                    }
+                  }}
                   icon={<Briefcase size={14} />}
+                  error={licenseNumberError}
                 />
+
                 <ProfileField
                   label="Address"
                   value={address}
                   editing={editing}
-                  onChange={setAddress}
+                  maxLength={MAX_COMPANY_ADDRESS_LENGTH}
+                  onChange={(value) => {
+                    setAddressError("");
+                    setAddress(value);
+                  }}
+                  onBlur={() => {
+                    if (!address.trim()) {
+                      setAddressError("Address is required.");
+                    } else {
+                      setAddressError("");
+                    }
+                  }}
                   icon={<Building2 size={14} />}
+                  error={addressError}
                 />
+
                 <ProfileField
                   label="City"
                   value={city}
                   editing={editing}
-                  onChange={setCity}
+                  maxLength={MAX_COMPANY_ADDRESS_CITY_LENGTH}
+                  onChange={(value) => {
+                    if (!/^[A-Za-z\s'-]*$/.test(value)) {
+                      setCityError("City can contain only letters.");
+                      return;
+                    }
+
+                    setCityError("");
+                    setCity(value);
+                  }}
+                  onBlur={() => {
+                    if (!city.trim()) {
+                      setCityError("City is required.");
+                    } else {
+                      setCityError("");
+                    }
+                  }}
                   icon={<Building2 size={14} />}
+                  error={cityError}
                 />
+
                 <ProfileField
                   label="State"
                   value={state}
                   editing={editing}
-                  onChange={setState}
+                  maxLength={MAX_COMPANY_ADDRESS_STATE_LENGTH}
+                  onChange={(value) => {
+                    setState(value.toUpperCase().replace(/[^A-Z]/g, ""));
+                    setStateError("");
+                  }}
+                  onBlur={() => {
+                    if (!/^[A-Z]{2}$/.test(state)) {
+                      setStateError("Enter a valid state.");
+                    } else {
+                      setStateError("");
+                    }
+                  }}
                   icon={<Building2 size={14} />}
+                  error={stateError}
                 />
+
                 <ProfileField
                   label="ZIP Code"
                   value={zipCode}
                   editing={editing}
-                  onChange={setZipCode}
+                  maxLength={MAX_COMPANY_ADDRESS_ZIPCODE_LENGTH}
+                  onChange={(value) => {
+                    setZipCode(value.replace(/[^\d-]/g, ""));
+                    setZipCodeError("");
+                  }}
+                  onBlur={() => {
+                    if (!/^\d{5}(-\d{4})?$/.test(zipCode)) {
+                      setZipCodeError("Enter a valid ZIP code.");
+                    } else {
+                      setZipCodeError("");
+                    }
+                  }}
                   icon={<Building2 size={14} />}
+                  error={zipCodeError}
                 />
+
                 <ProfileField
                   label="Website"
                   value={website}
                   editing={editing}
-                  onChange={setWebsite}
+                  maxLength={MAX_COMPANY_ADDRESS_WEBSITE_LENGTH}
+                  onChange={(value) => {
+                    setWebsite(value);
+                    setWebsiteError("");
+                  }}
+                  onBlur={() => {
+                    if (website.trim()) {
+                      try {
+                        new URL(
+                          website.startsWith("http")
+                            ? website
+                            : `https://${website}`,
+                        );
+                        setWebsiteError("");
+                      } catch {
+                        setWebsiteError("Enter a valid website URL.");
+                      }
+                    }
+                  }}
                   icon={<Briefcase size={14} />}
+                  error={websiteError}
                 />
               </div>
             </section>
+
+            {/* Contact & Organization */}
 
             <section>
               <h3 className="mb-4 text-sm font-semibold text-gray-900 dark:text-white">
@@ -570,7 +699,6 @@ export default function UserProfileCard() {
                 />
               </div>
             </section>
-
             <section>
               <h3 className="mb-4 text-sm font-semibold text-gray-900 dark:text-white">
                 Security
@@ -714,6 +842,7 @@ function ProfileField({
   label,
   value,
   editing,
+  maxLength,
   onChange,
   onBlur,
   icon,
@@ -725,6 +854,7 @@ function ProfileField({
   onChange?: (value: string) => void;
   onBlur?: () => void;
   icon: React.ReactNode;
+  maxLength?: number;
   error?: string;
 }) {
   return (
@@ -738,6 +868,7 @@ function ProfileField({
         <>
           <input
             value={value}
+            maxLength={maxLength}
             onBlur={onBlur}
             onChange={(e) => {
               onChange(e.target.value);
