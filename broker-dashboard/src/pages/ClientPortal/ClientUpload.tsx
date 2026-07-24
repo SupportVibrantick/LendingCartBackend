@@ -1,11 +1,10 @@
 import { useParams } from "react-router-dom";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
 import { Upload, FileText, CheckCircle } from "lucide-react";
 import toast from "react-hot-toast";
 import SignatureCanvas from "react-signature-canvas";
 import FeeAgreement from "./FeeAgreement";
-import { useRef } from "react";
 import {
   FiUploadCloud,
   FiFileText,
@@ -109,6 +108,18 @@ const CLIENT_VISIBLE_DOC_SOURCES = new Set([
   "SUB_BROKER_ADDED",
 ]);
 
+function isClientPortalUploadVisible(doc: any) {
+  if (!doc || !CLIENT_VISIBLE_DOC_SOURCES.has(doc.source)) {
+    return false;
+  }
+
+  if (doc.requiresClientSignature) {
+    return false;
+  }
+
+  return Boolean(doc.sentToClientAt);
+}
+
 const API_BASE =
   import.meta.env.VITE_API_BASE || "https://api-lendingcart.vibrantick.org";
 
@@ -193,9 +204,41 @@ const getClientInitials = (name?: string | null) => {
   return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
 };
 
+const APPLICATIONS_PAGE_SIZE = 6;
+
+function getApplicationsRange(
+  page: number,
+  total: number,
+  pageSize: number = APPLICATIONS_PAGE_SIZE,
+) {
+  if (total <= 0) return { start: 0, end: 0 };
+  const start = (page - 1) * pageSize + 1;
+  const end = Math.min(page * pageSize, total);
+  return { start, end };
+}
+
+function buildVisiblePages(current: number, totalPages: number) {
+  if (totalPages <= 1) return [1];
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1);
+  }
+
+  const pages: Array<number | "ellipsis"> = [1];
+  const start = Math.max(2, current - 1);
+  const end = Math.min(totalPages - 1, current + 1);
+
+  if (start > 2) pages.push("ellipsis");
+  for (let page = start; page <= end; page += 1) pages.push(page);
+  if (end < totalPages - 1) pages.push("ellipsis");
+  pages.push(totalPages);
+
+  return pages;
+}
+
 export default function ClientUpload() {
   const { token } = useParams<{ token: string }>();
   const sigRef = useRef<SignatureCanvas | null>(null);
+  const applicationsSectionRef = useRef<HTMLDivElement | null>(null);
   const [signature, setSignature] = useState<string>("");
   const [submittingSign, setSubmittingSign] = useState(false);
 
@@ -226,7 +269,7 @@ export default function ClientUpload() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [limit] = useState(9);
+  const [totalApplications, setTotalApplications] = useState(0);
 
   const [activeTab, setActiveTab] = useState<
     "documents" | "signDocuments" | "application" | "chat" | "applications" | "feeAgreement"
@@ -253,14 +296,11 @@ export default function ClientUpload() {
 };
 
   const getClientPortalAuthConfig = () => {
-    const brokerToken = sessionStorage.getItem("broker_token");
     const clientToken = sessionStorage.getItem("client_token");
 
     const headers: Record<string, string> = {};
 
-    if (token && brokerToken) {
-      headers.Authorization = `Bearer ${brokerToken}`;
-    } else if (clientToken) {
+    if (clientToken) {
       headers.Authorization = `Bearer ${clientToken}`;
     }
 
@@ -289,7 +329,7 @@ export default function ClientUpload() {
     }
 
     const requirements = (application?.documentRequirements || []).filter(
-      (doc: any) => CLIENT_VISIBLE_DOC_SOURCES.has(doc.source),
+      isClientPortalUploadVisible,
     );
     applyDocumentsFromApi(
       requirements.map((doc: any) => ({
@@ -652,9 +692,10 @@ export default function ClientUpload() {
     const appId = notification.metadata?.applicationId;
 
     if (appId) {
+      const metadata = notification.metadata || {};
       const tabByEvent: Record<string, typeof activeTab> = {
         NEW_MESSAGE: "chat",
-        DOCUMENTS_REQUESTED: "documents",
+        DOCUMENTS_REQUESTED: metadata.signDocument ? "signDocuments" : "documents",
         LENDER_CONDITIONAL: "documents",
       };
 
@@ -667,47 +708,51 @@ export default function ClientUpload() {
       }
 
       if (nextTab === "signDocuments" || nextTab === "feeAgreement") {
+        await fetchApplicationDetails(appId, { keepCurrentTab: true });
+        setApplicationId(appId);
         setTabRefreshKey((key) => key + 1);
+        setActiveTab(nextTab);
+        return;
       }
 
       await fetchApplicationDetails(appId, { keepCurrentTab: true });
+      setApplicationId(appId);
       setActiveTab(nextTab);
-      return;
     }
-
-    const tabByEvent: Record<string, typeof activeTab> = {
-      NEW_MESSAGE: "chat",
-      DOCUMENTS_REQUESTED: "documents",
-      LENDER_CONDITIONAL: "documents",
-    };
-
-    const nextTab = tabByEvent[notification.eventType || ""] || "application";
-    setActiveTab(nextTab);
   };
 
-  const fetchApplications = async (pageNumber = 1) => {
-    try {
-      setApplicationsLoading(true);
+  const fetchApplications = useCallback(
+    async (pageNumber = 1) => {
+      try {
+        setApplicationsLoading(true);
 
-      let url = `${API_BASE}/client-portal/applications?page=${pageNumber}&limit=${limit}`;
+        let url = `${API_BASE}/client-portal/applications?page=${pageNumber}&limit=${APPLICATIONS_PAGE_SIZE}`;
 
-      if (debouncedSearch) {
-        url += `&search=${debouncedSearch}`;
+        if (debouncedSearch) {
+          url += `&search=${encodeURIComponent(debouncedSearch)}`;
+        }
+
+        if (token) url += `&token=${token}`;
+
+        const res = await axios.get(url, getClientPortalAuthConfig());
+        const nextTotalPages = Math.max(res.data?.meta?.totalPages || 1, 1);
+        const resolvedPage = Math.min(
+          res.data?.meta?.page || pageNumber,
+          nextTotalPages,
+        );
+
+        setApplications(res.data?.data || []);
+        setPage(resolvedPage);
+        setTotalPages(nextTotalPages);
+        setTotalApplications(res.data?.meta?.total || 0);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setApplicationsLoading(false);
       }
-
-      if (token) url += `&token=${token}`;
-
-      const res = await axios.get(url, getClientPortalAuthConfig());
-
-      setApplications(res.data?.data || []);
-      setPage(res.data?.meta?.page || 1);
-      setTotalPages(res.data?.meta?.totalPages || 1);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setApplicationsLoading(false);
-    }
-  };
+    },
+    [debouncedSearch, token],
+  );
 
   const fetchApplicationDetails = async (
     id: string,
@@ -876,7 +921,25 @@ export default function ClientUpload() {
     if (activeTab === "applications") {
       fetchApplications(page);
     }
-  }, [activeTab, page, debouncedSearch]);
+  }, [activeTab, page, debouncedSearch, fetchApplications]);
+
+  useEffect(() => {
+    if (activeTab !== "applications" || page <= 1) return;
+    applicationsSectionRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  }, [page, activeTab]);
+
+  const applicationsRange = useMemo(
+    () => getApplicationsRange(page, totalApplications),
+    [page, totalApplications],
+  );
+
+  const visiblePages = useMemo(
+    () => buildVisiblePages(page, totalPages),
+    [page, totalPages],
+  );
 
   if (loading) {
     return (
@@ -1198,14 +1261,12 @@ export default function ClientUpload() {
 
         {activeTab === "signDocuments" && applicationId && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <button
-                onClick={() => setActiveTab("application")}
-                className="flex text-xs items-center gap-2 px-3 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 transition"
-              >
-                ← Back
-              </button>
-            </div>
+            <button
+              onClick={() => setActiveTab("application")}
+              className="flex text-xs items-center gap-2 px-3 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 transition"
+            >
+              ← Back
+            </button>
             <SignDocumentsPanel
               key={tabRefreshKey}
               mode="client"
@@ -1219,7 +1280,10 @@ export default function ClientUpload() {
         )}
 
         {activeTab === "applications" && (
-          <div className="min-h-[88vh] rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
+          <div
+            ref={applicationsSectionRef}
+            className="min-h-[88vh] rounded-2xl border border-slate-200 bg-white p-5 sm:p-6"
+          >
             <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div>
                 <h2 className="text-xl font-bold tracking-tight text-slate-900">
@@ -1227,6 +1291,13 @@ export default function ClientUpload() {
                 </h2>
                 <p className="mt-1 text-sm text-slate-500">
                   Track status, documents, and updates for your loans.
+                  {totalApplications > 0 && (
+                    <>
+                      {" "}
+                      · {totalApplications} application
+                      {totalApplications === 1 ? "" : "s"}
+                    </>
+                  )}
                 </p>
               </div>
 
@@ -1412,51 +1483,68 @@ export default function ClientUpload() {
               </div>
             )}
 
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between mt-6">
-                {/* LEFT */}
-                <p className="text-xs text-gray-500">
-                  Page {page} of {totalPages}
+            {totalApplications > 0 && (
+              <div className="mt-6 flex flex-col gap-3 border-t border-slate-100 pt-5 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-xs text-slate-500">
+                  Showing {applicationsRange.start}-{applicationsRange.end} of{" "}
+                  {totalApplications} application
+                  {totalApplications === 1 ? "" : "s"}
+                  {totalPages > 1 && (
+                    <>
+                      {" "}
+                      · Page {page} of {totalPages}
+                    </>
+                  )}
                 </p>
 
-                {/* RIGHT BUTTONS */}
-                <div className="flex items-center gap-2">
-                  {/* PREVIOUS */}
-                  <button
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                    disabled={page === 1}
-                    className="px-3 py-1.5 text-xs rounded-lg border bg-white text-gray-600 
-        hover:bg-gray-50 disabled:opacity-50"
-                  >
-                    Previous
-                  </button>
-
-                  {/* PAGE NUMBERS */}
-                  {Array.from({ length: totalPages }).map((_, i) => (
+                {totalPages > 1 && (
+                  <div className="flex flex-wrap items-center gap-2">
                     <button
-                      key={i}
-                      onClick={() => setPage(i + 1)}
-                      className={`px-3 py-1.5 text-xs rounded-lg transition
-          ${
-            page === i + 1
-              ? "bg-blue-600 text-white shadow"
-              : "bg-white border text-gray-600 hover:bg-gray-50"
-          }`}
+                      type="button"
+                      onClick={() => setPage((current) => Math.max(1, current - 1))}
+                      disabled={page === 1 || applicationsLoading}
+                      className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      {i + 1}
+                      Previous
                     </button>
-                  ))}
 
-                  {/* NEXT */}
-                  <button
-                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                    disabled={page === totalPages}
-                    className="px-3 py-1.5 text-xs rounded-lg border bg-white text-gray-600 
-        hover:bg-gray-50 disabled:opacity-50"
-                  >
-                    Next
-                  </button>
-                </div>
+                    {visiblePages.map((pageNumber, index) =>
+                      pageNumber === "ellipsis" ? (
+                        <span
+                          key={`ellipsis-${index}`}
+                          className="px-1 text-xs text-slate-400"
+                        >
+                          ...
+                        </span>
+                      ) : (
+                        <button
+                          key={pageNumber}
+                          type="button"
+                          onClick={() => setPage(pageNumber)}
+                          disabled={applicationsLoading}
+                          className={`min-w-[2rem] rounded-lg px-3 py-1.5 text-xs font-semibold transition disabled:opacity-50 ${
+                            page === pageNumber
+                              ? "bg-blue-600 text-white shadow-sm"
+                              : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                          }`}
+                        >
+                          {pageNumber}
+                        </button>
+                      ),
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setPage((current) => Math.min(totalPages, current + 1))
+                      }
+                      disabled={page === totalPages || applicationsLoading}
+                      className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Next
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -1513,7 +1601,7 @@ export default function ClientUpload() {
       hover:text-indigo-500`}
                       >
                         <FiFileText size={16} />
-                        Sign Documents
+                        Documents to Sign
                       </button>
 
                       {/* Fee Agreement */}

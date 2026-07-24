@@ -2,10 +2,104 @@ const jwt = require("jsonwebtoken");
 const { resolveApplicationStatus } = require("../../utils/applications/resolveApplicationStatus");
 const { isDocumentVisibleToClient } = require("../../utils/documents/mapClientPortalDocuments");
 
+const APPLICATION_SELECT = {
+  id: true,
+  applicationNumber: true,
+  status: true,
+  amountRequested: true,
+  loanProductCode: true,
+  createdAt: true,
+  submissions: {
+    orderBy: { createdAt: "desc" },
+    take: 1,
+    include: {
+      fields: true,
+    },
+  },
+  documentRequirements: {
+    select: {
+      id: true,
+      source: true,
+      status: true,
+      sentToClientAt: true,
+      requiresClientSignature: true,
+    },
+  },
+  documentUploads: {
+    select: { id: true },
+  },
+  applicationLenders: {
+    select: { status: true },
+  },
+};
+
+function getSubmissionFieldValue(submission, key) {
+  const field = submission?.fields?.find((item) => item.fieldKey === key);
+  return field?.value || "";
+}
+
+function applicationMatchesSearch(app, search) {
+  const latestSubmission = app.submissions?.[0];
+  const applicationNumber = String(app.applicationNumber || "").toLowerCase();
+  const status = String(app.status || "").toLowerCase();
+  const amount = String(
+    getSubmissionFieldValue(latestSubmission, "amountRequested") ||
+      app.amountRequested ||
+      "",
+  ).toLowerCase();
+
+  return (
+    applicationNumber.includes(search) ||
+    status.includes(search) ||
+    amount.includes(search)
+  );
+}
+
+function formatClientApplication(app) {
+  const latestSubmission = app.submissions?.[0];
+  const amountFromField = getSubmissionFieldValue(
+    latestSubmission,
+    "amountRequested",
+  );
+  const productFromField = getSubmissionFieldValue(
+    latestSubmission,
+    "loanProductCode",
+  );
+
+  const visibleRequirements = (app.documentRequirements || []).filter(
+    isDocumentVisibleToClient,
+  );
+
+  return {
+    id: app.id,
+    applicationNumber: app.applicationNumber,
+    status: resolveApplicationStatus(app),
+    loanProduct: productFromField || app.loanProductCode || null,
+    amountRequested: amountFromField
+      ? Number(amountFromField).toLocaleString("en-IN", {
+          style: "currency",
+          currency: "INR",
+          maximumFractionDigits: 0,
+        })
+      : app.amountRequested
+        ? Number(app.amountRequested).toLocaleString("en-IN", {
+            style: "currency",
+            currency: "INR",
+            maximumFractionDigits: 0,
+          })
+        : null,
+    createdAt: app.createdAt,
+    documentProgress: {
+      total: visibleRequirements.length,
+      uploaded: visibleRequirements.filter((req) => req.status === "COMPLETE")
+        .length,
+    },
+  };
+}
+
 /**
  * @param {import("fastify").FastifyInstance} fastify
  */
-
 async function getClientApplicationsRoute(fastify) {
   fastify.get(
     "/applications",
@@ -17,7 +111,7 @@ async function getClientApplicationsRoute(fastify) {
           type: "object",
           properties: {
             page: { type: "integer", minimum: 1, default: 1 },
-            limit: { type: "integer", minimum: 1, maximum: 50, default: 10 },
+            limit: { type: "integer", minimum: 1, maximum: 50, default: 12 },
             status: { type: "string" },
             search: { type: "string" },
           },
@@ -29,10 +123,6 @@ async function getClientApplicationsRoute(fastify) {
       const prisma = fastify.prisma;
 
       try {
-        /* ===============================
-           AUTH
-        =============================== */
-
         const authHeader = req.headers.authorization;
 
         if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -62,163 +152,46 @@ async function getClientApplicationsRoute(fastify) {
         }
 
         const clientId = decoded.clientId;
-
-        /* ===============================
-           PAGINATION
-        =============================== */
-
-        const page = Math.max(parseInt(req.query.page) || 1, 1);
-        const limit = Math.min(parseInt(req.query.limit) || 10, 50);
+        const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+        const limit = Math.min(parseInt(req.query.limit, 10) || 12, 50);
         const skip = (page - 1) * limit;
-
-        /* ===============================
-           BASE WHERE
-        =============================== */
+        const search = String(req.query.search || "").trim().toLowerCase();
 
         const baseWhere = {
           clientId,
           ...(req.query.status && { status: req.query.status }),
         };
 
-        /* ===============================
-           FETCH APPLICATIONS (IMPORTANT FIX)
-        =============================== */
+        let applications;
+        let total;
 
-        let applications = await prisma.loanApplication.findMany({
-          where: baseWhere,
-          orderBy: { createdAt: "desc" },
-          skip,
-          take: limit,
-          select: {
-            id: true,
-            applicationNumber: true,
-            status: true,
-            amountRequested: true,
-            loanProductCode: true,
-            createdAt: true,
+        if (search) {
+          const allApplications = await prisma.loanApplication.findMany({
+            where: baseWhere,
+            orderBy: { createdAt: "desc" },
+            select: APPLICATION_SELECT,
+          });
 
-            // ✅ FIX: get latest submission
-            submissions: {
-              orderBy: { createdAt: "desc" },
-              take: 1,
-              include: {
-                fields: true,
-              },
-            },
+          const filtered = allApplications.filter((app) =>
+            applicationMatchesSearch(app, search),
+          );
 
-            documentRequirements: {
-              select: {
-                id: true,
-                source: true,
-                status: true,
-                sentToClientAt: true,
-                requiresClientSignature: true,
-              },
-            },
+          total = filtered.length;
+          applications = filtered.slice(skip, skip + limit);
+        } else {
+          total = await prisma.loanApplication.count({ where: baseWhere });
 
-            documentUploads: {
-              select: { id: true },
-            },
-
-            applicationLenders: {
-              select: { status: true },
-            },
-          },
-        });
-
-        /* ===============================
-           SEARCH (ENHANCED)
-        =============================== */
-
-        if (req.query.search) {
-          const search = req.query.search.toLowerCase().trim();
-
-          applications = applications.filter((app) => {
-            const latestSubmission = app.submissions?.[0];
-
-            const getFieldValue = (key) => {
-              const field = latestSubmission?.fields?.find(
-                (f) => f.fieldKey === key
-              );
-              return field?.value || "";
-            };
-
-            const applicationNumber = String(app.applicationNumber || "").toLowerCase();
-            const status = String(app.status || "").toLowerCase();
-            const amount =
-              String(getFieldValue("amountRequested") || app.amountRequested || "").toLowerCase();
-
-            return (
-              applicationNumber.includes(search) ||
-              status.includes(search) ||
-              amount.includes(search)
-            );
+          applications = await prisma.loanApplication.findMany({
+            where: baseWhere,
+            orderBy: { createdAt: "desc" },
+            skip,
+            take: limit,
+            select: APPLICATION_SELECT,
           });
         }
 
-        /* ===============================
-           TOTAL
-        =============================== */
-
-        const total = applications.length;
-
-        /* ===============================
-           FORMAT RESPONSE (FINAL FIX)
-        =============================== */
-
-        const formatted = applications.map((app) => {
-          const latestSubmission = app.submissions?.[0];
-
-          const getFieldValue = (key) => {
-            const field = latestSubmission?.fields?.find(
-              (f) => f.fieldKey === key
-            );
-            return field?.value || null;
-          };
-
-          const amountFromField = getFieldValue("amountRequested");
-          const productFromField = getFieldValue("loanProductCode");
-
-          const visibleRequirements = (app.documentRequirements || []).filter(
-            isDocumentVisibleToClient,
-          );
-
-          return {
-            id: app.id,
-            applicationNumber: app.applicationNumber,
-            status: resolveApplicationStatus(app),
-
-            // ✅ Priority: submission > root
-            loanProduct: productFromField || app.loanProductCode || null,
-
-            amountRequested: amountFromField
-              ? Number(amountFromField).toLocaleString("en-IN", {
-                  style: "currency",
-                  currency: "INR",
-                  maximumFractionDigits: 0,
-                })
-              : app.amountRequested
-              ? Number(app.amountRequested).toLocaleString("en-IN", {
-                  style: "currency",
-                  currency: "INR",
-                  maximumFractionDigits: 0,
-                })
-              : null,
-
-            createdAt: app.createdAt,
-
-            documentProgress: {
-              total: visibleRequirements.length,
-              uploaded: visibleRequirements.filter(
-                (req) => req.status === "COMPLETE",
-              ).length,
-            },
-          };
-        });
-
-        /* ===============================
-           RESPONSE
-        =============================== */
+        const formatted = applications.map(formatClientApplication);
+        const totalPages = total > 0 ? Math.ceil(total / limit) : 1;
 
         return reply.send({
           success: true,
@@ -227,14 +200,13 @@ async function getClientApplicationsRoute(fastify) {
             page,
             limit,
             total,
-            totalPages: Math.ceil(total / limit),
+            totalPages,
           },
         });
-
       } catch (error) {
         fastify.log.error(
           { error: error.message },
-          "Failed to fetch client applications"
+          "Failed to fetch client applications",
         );
 
         return reply.code(500).send({
@@ -242,7 +214,7 @@ async function getClientApplicationsRoute(fastify) {
           message: "Unexpected server error",
         });
       }
-    }
+    },
   );
 }
 

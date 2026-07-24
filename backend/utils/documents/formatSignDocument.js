@@ -76,7 +76,7 @@ function formatSignDocumentRequirement(requirement, options = {}) {
     requestedAt: requirement.lastRequestedAt || requirement.createdAt,
     signedUpload: signedUpload
       ? {
-          uploadId: signedUpload.id,
+          uploadId: signedUpload.uploadId,
           fileName: signedUpload.fileName,
           fileUrl: signedUpload.fileUrl,
           fileMimeType: signedUpload.fileMimeType,

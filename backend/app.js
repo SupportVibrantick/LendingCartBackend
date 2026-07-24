@@ -89,6 +89,19 @@ app.register(fastifyStatic, {
   decorateReply: false,
 });
 
+// LOI PDFs are stored under public/broker and public/lender but referenced as /broker/... and /lender/...
+app.register(fastifyStatic, {
+  root: path.join(__dirname, "public", "broker"),
+  prefix: "/broker/",
+  decorateReply: false,
+});
+
+app.register(fastifyStatic, {
+  root: path.join(__dirname, "public", "lender"),
+  prefix: "/lender/",
+  decorateReply: false,
+});
+
 
 // View engine setup (Pug)
 app.register(pointOfView, {

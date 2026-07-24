@@ -75,6 +75,73 @@ export function formatPercent(value?: number | null) {
   return `${Number(value)}%`;
 }
 
+/** Normalizes product interest range strings like "8-12" → "8% – 12%". */
+export function formatInterestRateRange(value?: string | null) {
+  if (!value?.trim()) return "—";
+
+  const raw = value.trim().replace(/\s+/g, " ");
+  const numbers = raw.match(/\d+(\.\d+)?/g);
+
+  if (!numbers?.length) return raw;
+
+  if (numbers.length >= 2) {
+    return `${numbers[0]}% – ${numbers[1]}%`;
+  }
+
+  if (raw.includes("%")) return raw;
+  return `${numbers[0]}%`;
+}
+
+export function formatLoiInterestDisplay(loi: BrokerLoiRecord) {
+  if (loi.interestRate != null && !Number.isNaN(Number(loi.interestRate))) {
+    return formatPercent(loi.interestRate);
+  }
+
+  return formatInterestRateRange(loi.lenderProduct?.interestRateRange);
+}
+
+export function getLoiProductLabel(loi: BrokerLoiRecord) {
+  return (
+    loi.lenderProduct?.productName ||
+    loi.lenderProduct?.loanProductCode?.replace(/_/g, " ") ||
+    "Commercial Term Sheet"
+  );
+}
+
+export function formatLoiApprovedDisplay(
+  amount?: number | null,
+  status?: string | null,
+) {
+  if (amount != null && !Number.isNaN(Number(amount))) {
+    return formatCurrency(amount);
+  }
+
+  const normalized = (status || "").toUpperCase();
+  if (["SENT", "IN_REVIEW", "PENDING"].includes(normalized)) {
+    return "Pending";
+  }
+
+  if (
+    ["APPROVED", "LENDER_APPROVED", "AUTO_APPROVED", "CONDITIONAL"].includes(
+      normalized,
+    )
+  ) {
+    return "Under review";
+  }
+
+  return "—";
+}
+
+export function formatLoiGeneratedLabel(value?: string | null) {
+  if (!value) return "Not generated yet";
+  const formatted = formatLoiDate(value);
+  return formatted === "—" ? "Not generated yet" : formatted;
+}
+
+export function hasLoiPdf(loi: BrokerLoiRecord) {
+  return Boolean(loi.loiUrl?.trim());
+}
+
 export function formatLoiDate(value?: string | null) {
   if (!value) return "—";
   const date = new Date(value);
@@ -117,5 +184,121 @@ export function buildLoiPdfUrl(apiBase: string, loiUrl?: string | null) {
   if (loiUrl.startsWith("http://") || loiUrl.startsWith("https://")) {
     return loiUrl;
   }
-  return `${apiBase}/public${loiUrl}`;
+  const normalizedBase = apiBase.replace(/\/+$/, "");
+  if (loiUrl.startsWith("/uploads/")) {
+    return `${normalizedBase}${loiUrl}`;
+  }
+  if (loiUrl.startsWith("/public/")) {
+    return `${normalizedBase}${loiUrl}`;
+  }
+  return `${normalizedBase}/public${loiUrl}`;
+}
+
+export type LoiSortOption =
+  | "newest"
+  | "oldest"
+  | "amount_desc"
+  | "amount_asc"
+  | "rate_asc"
+  | "rate_desc"
+  | "lender_az";
+
+export type LoiComparisonSummary = {
+  total: number;
+  bestRate: { value: number; lenderName: string } | null;
+  highestAmount: { value: number; lenderName: string } | null;
+  latestGenerated: { date: string; lenderName: string } | null;
+};
+
+export function sortBrokerLois(
+  lois: BrokerLoiRecord[],
+  sortBy: LoiSortOption,
+): BrokerLoiRecord[] {
+  const copy = [...lois];
+
+  copy.sort((a, b) => {
+    switch (sortBy) {
+      case "oldest":
+        return (
+          new Date(a.generatedAt || 0).getTime() -
+          new Date(b.generatedAt || 0).getTime()
+        );
+      case "amount_desc":
+        return (b.approvedAmount ?? -1) - (a.approvedAmount ?? -1);
+      case "amount_asc":
+        return (a.approvedAmount ?? Infinity) - (b.approvedAmount ?? Infinity);
+      case "rate_asc":
+        return (a.interestRate ?? Infinity) - (b.interestRate ?? Infinity);
+      case "rate_desc":
+        return (b.interestRate ?? -1) - (a.interestRate ?? -1);
+      case "lender_az":
+        return a.lenderName.localeCompare(b.lenderName);
+      case "newest":
+      default:
+        return (
+          new Date(b.generatedAt || 0).getTime() -
+          new Date(a.generatedAt || 0).getTime()
+        );
+    }
+  });
+
+  return copy;
+}
+
+export function buildLoiComparisonSummary(
+  lois: BrokerLoiRecord[],
+): LoiComparisonSummary {
+  const withRate = lois.filter((loi) => loi.interestRate != null);
+  const withAmount = lois.filter((loi) => loi.approvedAmount != null);
+  const withDate = lois.filter((loi) => loi.generatedAt);
+
+  const bestRate =
+    withRate.length > 0
+      ? withRate.reduce((best, loi) =>
+          (loi.interestRate as number) < (best.interestRate as number)
+            ? loi
+            : best,
+        )
+      : null;
+
+  const highestAmount =
+    withAmount.length > 0
+      ? withAmount.reduce((best, loi) =>
+          (loi.approvedAmount as number) > (best.approvedAmount as number)
+            ? loi
+            : best,
+        )
+      : null;
+
+  const latestGenerated =
+    withDate.length > 0
+      ? withDate.reduce((latest, loi) =>
+          new Date(loi.generatedAt as string).getTime() >
+          new Date(latest.generatedAt as string).getTime()
+            ? loi
+            : latest,
+        )
+      : null;
+
+  return {
+    total: lois.length,
+    bestRate: bestRate
+      ? {
+          value: bestRate.interestRate as number,
+          lenderName: bestRate.lenderName,
+        }
+      : null,
+    highestAmount: highestAmount
+      ? {
+          value: highestAmount.approvedAmount as number,
+          lenderName: highestAmount.lenderName,
+        }
+      : null,
+    latestGenerated: latestGenerated
+      ? {
+          date: latestGenerated.generatedAt as string,
+          lenderName: latestGenerated.lenderName,
+        }
+      : null,
+  };
 }

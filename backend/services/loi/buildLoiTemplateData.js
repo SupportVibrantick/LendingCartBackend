@@ -3,6 +3,10 @@ const {
   calculateLoiMetrics,
   formatLoiMetrics,
 } = require("./calculateLoiMetrics");
+const { parseFeeAmount } = require("./financedLoanAmount");
+const {
+  resolveLoanProductName,
+} = require("../../utils/loanProducts/resolveLoanProductName.js");
 
 const formatCurrency = (value) => {
   if (value === null || value === undefined || value === "") return "";
@@ -311,17 +315,31 @@ function parseAmortizationLabel(amortization) {
   return String(amortization);
 }
 
+function defaultExpirationDate() {
+  const date = new Date();
+  date.setDate(date.getDate() + 30);
+  return date.toISOString().slice(0, 10);
+}
+
 function normalizeLenderTerms(lenderTerms = {}) {
   if (!lenderTerms || typeof lenderTerms !== "object") return null;
 
   const approvedAmount = toPositiveNumber(lenderTerms.approvedAmount);
   if (!approvedAmount) return null;
 
+  const interestOnly = Boolean(lenderTerms.interestOnly);
+
   const closingConditions = Array.isArray(lenderTerms.closingConditions)
     ? lenderTerms.closingConditions
         .map((item) => String(item || "").trim())
         .filter(Boolean)
-    : [];
+    : ["Clear Title", "Insurance", "Appraisal"];
+
+  const requiredDocuments = Array.isArray(lenderTerms.requiredDocuments)
+    ? lenderTerms.requiredDocuments
+        .map((item) => String(item || "").trim())
+        .filter(Boolean)
+    : closingConditions;
 
   return {
     approvedAmount,
@@ -331,19 +349,30 @@ function normalizeLenderTerms(lenderTerms = {}) {
     variableRateIndex: String(lenderTerms.variableRateIndex || "").trim(),
     variableRateSpread: toPositiveNumber(lenderTerms.variableRateSpread),
     loanTerm: String(lenderTerms.loanTerm || "").trim(),
-    amortization: String(lenderTerms.amortization || "").trim(),
-    paymentFrequency: String(lenderTerms.paymentFrequency || "").trim(),
-    originationFeePercent: String(lenderTerms.originationFeePercent || "").trim(),
-    exitFee: String(lenderTerms.exitFee || "").trim(),
-    processingFee: String(lenderTerms.processingFee || "").trim(),
-    underwritingFee: String(lenderTerms.underwritingFee || "").trim(),
-    legalFee: String(lenderTerms.legalFee || "").trim(),
-    appraisalRequired: String(lenderTerms.appraisalRequired || "").trim(),
-    environmentalReport: String(lenderTerms.environmentalReport || "").trim(),
-    personalGuarantee: String(lenderTerms.personalGuarantee || "").trim(),
-    prepaymentPenalty: String(lenderTerms.prepaymentPenalty || "").trim(),
-    recourse: String(lenderTerms.recourse || "").trim(),
+    amortization: String(
+      lenderTerms.amortization || (interestOnly ? "Interest Only" : "30 Years"),
+    ).trim(),
+    paymentFrequency: String(
+      lenderTerms.paymentFrequency ||
+        (interestOnly ? "Interest Only" : "Monthly"),
+    ).trim(),
+    interestOnly,
+    ltvPercent: toPositiveNumber(lenderTerms.ltvPercent),
+    ltcPercent: toPositiveNumber(lenderTerms.ltcPercent),
+    arvPercent: toPositiveNumber(lenderTerms.arvPercent),
+    monthlyPayment: toPositiveNumber(lenderTerms.monthlyPayment),
+    originationFeePercent: String(lenderTerms.originationFeePercent || "2%").trim(),
+    exitFee: String(lenderTerms.exitFee || "0%").trim(),
+    processingFee: String(lenderTerms.processingFee || "$995").trim(),
+    underwritingFee: String(lenderTerms.underwritingFee || "$750").trim(),
+    legalFee: String(lenderTerms.legalFee || "Borrower Pays").trim(),
+    appraisalRequired: String(lenderTerms.appraisalRequired || "Yes").trim(),
+    environmentalReport: String(lenderTerms.environmentalReport || "Required").trim(),
+    personalGuarantee: String(lenderTerms.personalGuarantee || "Required").trim(),
+    prepaymentPenalty: String(lenderTerms.prepaymentPenalty || "None").trim(),
+    recourse: String(lenderTerms.recourse || "Full").trim(),
     closingConditions,
+    requiredDocuments,
     specialConditions: Array.isArray(lenderTerms.specialConditions)
       ? lenderTerms.specialConditions
           .map((item) => String(item || "").trim())
@@ -352,7 +381,7 @@ function normalizeLenderTerms(lenderTerms = {}) {
           .split("\n")
           .map((item) => item.trim())
           .filter(Boolean),
-    expirationDate: String(lenderTerms.expirationDate || "").trim(),
+    expirationDate: String(lenderTerms.expirationDate || defaultExpirationDate()).trim(),
   };
 }
 
@@ -363,6 +392,7 @@ function buildLoiTemplateData({
   applicationLenderId,
   collaterals = [],
   lenderTerms: rawLenderTerms = null,
+  lenderBranding = null,
 }) {
   const fieldMap = buildSubmissionFieldMap(submission?.fields || []);
   const review = lenderRecord?.lenderReviews?.[0];
@@ -504,14 +534,29 @@ function buildLoiTemplateData({
   });
   const formattedMetrics = formatLoiMetrics(calculatedMetrics);
 
+  const totalLoanAmountNumeric =
+    calculatedMetrics.totalLoanAmount ?? loanAmountNumeric;
+  const baseLoanAmountNumeric =
+    calculatedMetrics.baseLoanAmount ?? loanAmountNumeric;
+
   const ltvNumeric =
+    lenderTerms?.ltvPercent ??
     calculatedMetrics.ltv ??
     ltvFromFields ??
-    (loanAmountNumeric && propertyValueNumeric
-      ? (loanAmountNumeric / propertyValueNumeric) * 100
-      : pickNumericField(fieldMap, "arvPercentage", "arv"));
+    (totalLoanAmountNumeric && propertyValueNumeric
+      ? (totalLoanAmountNumeric / propertyValueNumeric) * 100
+      : null);
 
-  const ltcNumeric = calculatedMetrics.ltc ?? ltcFromFields;
+  const ltcNumeric =
+    lenderTerms?.ltcPercent ?? calculatedMetrics.ltc ?? ltcFromFields;
+
+  const arvNumeric =
+    lenderTerms?.arvPercent ??
+    (totalLoanAmountNumeric && pickNumericField(fieldMap, "afterRepairValue", "arv")
+      ? (totalLoanAmountNumeric /
+          pickNumericField(fieldMap, "afterRepairValue", "arv")) *
+        100
+      : pickNumericField(fieldMap, "arvPercentage", "arvPercent"));
 
   const loanTermMonths =
     parseLoanTermMonths(lenderTerms?.loanTerm) ||
@@ -519,12 +564,21 @@ function buildLoiTemplateData({
 
   const monthlyPayment =
     formattedMetrics.monthlyPayment ||
+    (lenderTerms?.monthlyPayment
+      ? formatCurrency(lenderTerms.monthlyPayment)
+      : null) ||
     (/interest\s*only/i.test(amortizationLabel) ||
     /interest\s*only/i.test(lenderTerms?.paymentFrequency || "") ||
+    lenderTerms?.interestOnly ||
     (typeof interestRateRaw === "string" && /sofr|\+|prime/i.test(interestRateRaw))
-      ? "P & I"
+      ? formatCurrency(
+          calculatedMetrics.monthlyPayment ??
+            (totalLoanAmountNumeric && interestRateNumeric
+              ? (totalLoanAmountNumeric * interestRateNumeric) / 100 / 12
+              : null),
+        )
       : calculateMonthlyPayment(
-          loanAmountNumeric || 0,
+          totalLoanAmountNumeric || 0,
           interestRateNumeric || 0,
           loanTermMonths || 0,
         ) || "P & I");
@@ -557,9 +611,22 @@ function buildLoiTemplateData({
   }
 
   const requiredDocuments =
-    lenderTerms?.closingConditions?.length > 0
-      ? lenderTerms.closingConditions
-      : extractRequiredDocuments(review);
+    lenderTerms?.requiredDocuments?.length > 0
+      ? lenderTerms.requiredDocuments
+      : lenderTerms?.closingConditions?.length > 0
+        ? lenderTerms.closingConditions
+        : extractRequiredDocuments(review);
+
+  const loanProductCode =
+    pickField(fieldMap, "loanProductCode", "loan_product", "productCode") ||
+    loanApplication?.loanProductCode ||
+    lenderProduct?.loanProductCode ||
+    "";
+
+  const loanProductName = resolveLoanProductName({
+    lenderProduct,
+    loanProductCode,
+  });
 
   const specialConditions = lenderTerms?.specialConditions || [];
 
@@ -574,11 +641,26 @@ function buildLoiTemplateData({
   const signatureBorrowerName = clientName || borrowerName;
 
   const lenderOriginationFeeAmount = calculateFeeAmount(
-    loanAmountNumeric,
+    baseLoanAmountNumeric,
     originationPercent,
   );
+  const processingFeeAmountNumeric = parseFeeAmount(
+    lenderTerms?.processingFee,
+    baseLoanAmountNumeric,
+  );
+  const underwritingFeeAmountNumeric = parseFeeAmount(
+    lenderTerms?.underwritingFee,
+    baseLoanAmountNumeric,
+  );
+  const originationFeeAmountNumeric = parseFeeAmount(
+    originationPercent,
+    baseLoanAmountNumeric,
+  );
+  const originationFeeLabel = originationPercent
+    ? `Origination Fee (${String(originationPercent).includes("%") ? originationPercent : `${originationPercent}%`})`
+    : "Origination Fee";
   const brokerFindersFeeAmount = calculateFeeAmount(
-    loanAmountNumeric,
+    baseLoanAmountNumeric,
     brokerPoints,
   );
 
@@ -589,13 +671,37 @@ function buildLoiTemplateData({
       )
     : "";
 
+  const organizationName = lenderRecord?.lender?.name || "";
+  const lenderBrandName =
+    lenderBranding?.lenderBrandName?.trim() || organizationName;
+  const lenderLogoUrl = lenderBranding?.lenderLogoUrl || null;
+  const lenderProfile = lenderRecord?.lender?.lenderProfile;
+  const lenderOrg = lenderRecord?.lender;
+
+  const lenderAddressParts = [
+    lenderProfile?.address,
+    [lenderProfile?.city, lenderProfile?.state].filter(Boolean).join(", "),
+    lenderProfile?.zip,
+  ].filter(Boolean);
+  const lenderAddress = lenderAddressParts.join(" • ");
+  const lenderWebsite = lenderProfile?.website?.trim() || "";
+  const lenderContactEmail = lenderOrg?.email?.trim() || "";
+  const lenderContactPhone = lenderOrg?.phone?.trim() || "";
+
   return {
     ...fieldMap,
     submissionId: submission?.id || "",
     applicationId: loanApplication?.id || "",
     applicationNumber: loanApplication?.applicationNumber || "",
     loanReferenceId: applicationLenderId || lenderRecord?.id || "",
-    lenderName: lenderRecord?.lender?.name || "",
+    lenderName: lenderBrandName,
+    lenderBrandName,
+    lenderLogoUrl,
+    lenderWebsite,
+    lenderContactEmail,
+    lenderContactPhone,
+    lenderAddress,
+    organizationName,
     status: lenderRecord?.status || "",
     applicationStatus: lenderRecord?.status || "",
     date: new Date().toLocaleDateString("en-US", {
@@ -635,19 +741,28 @@ function buildLoiTemplateData({
 
     loanAmountRequested: formatCurrency(requestedAmountNumeric),
     amountRequested: formatCurrency(requestedAmountNumeric),
-    loanRequest: formatCurrency(loanAmountNumeric),
-    approvedAmount: formatCurrency(loanAmountNumeric),
+    requestedLoanAmount: formatCurrency(baseLoanAmountNumeric),
+    totalFinancedLoanAmount: formatCurrency(totalLoanAmountNumeric),
+    loanRequest: formatCurrency(totalLoanAmountNumeric),
+    approvedAmount: formatCurrency(totalLoanAmountNumeric),
+    baseLoanAmount: formatCurrency(baseLoanAmountNumeric),
+    financedFees: formatCurrency(calculatedMetrics.financedFees),
+    originationFeeLabel,
+    originationFeeAmount: formatCurrency(originationFeeAmountNumeric),
+    processingFeeAmount: formatCurrency(processingFeeAmountNumeric),
+    underwritingFeeAmount: formatCurrency(underwritingFeeAmountNumeric),
     propertyValue: formatCurrency(propertyValueNumeric),
     projectCost: formatCurrency(projectCostNumeric),
     ltvRatio: formatPercent(ltvNumeric) || formattedMetrics.ltvRatio,
     ltcRatio: formatPercent(ltcNumeric) || formattedMetrics.ltcRatio,
+    arvRatio: formatPercent(arvNumeric),
     ltvPercentage: formatPercent(ltvNumeric),
     ltcPercentage: formatPercent(ltcNumeric),
+    arvPercentage: formatPercent(arvNumeric),
+    interestOnly: lenderTerms?.interestOnly ? "Yes" : "No",
 
-    loanProductCode:
-      pickField(fieldMap, "loanProductCode", "loan_product", "productCode") ||
-      loanApplication?.loanProductCode ||
-      "",
+    loanProductCode,
+    loanProductName,
 
     propertyAddress: pickField(
       fieldMap,
@@ -742,4 +857,5 @@ module.exports = {
   pickField,
   formatCurrency,
   extractFieldValue,
+  normalizeLenderTerms,
 };

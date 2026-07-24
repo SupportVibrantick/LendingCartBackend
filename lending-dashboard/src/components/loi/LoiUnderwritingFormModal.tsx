@@ -1,78 +1,73 @@
-import { useEffect, useMemo, useState } from "react";
-import { Loader2, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Building2, FileText, Loader2, User, X } from "lucide-react";
+import toast from "react-hot-toast";
 import {
-  LOI_AMORTIZATION_OPTIONS,
-  LOI_CLOSING_CONDITION_OPTIONS,
-  LOI_ENVIRONMENTAL_OPTIONS,
-  LOI_EXIT_FEE_OPTIONS,
-  LOI_LEGAL_FEE_OPTIONS,
-  LOI_LOAN_TERM_OPTIONS,
-  LOI_ORIGINATION_FEE_OPTIONS,
-  LOI_PAYMENT_FREQUENCY_OPTIONS,
-  LOI_PERSONAL_GUARANTEE_OPTIONS,
-  LOI_PREPAYMENT_OPTIONS,
-  LOI_PROCESSING_FEE_OPTIONS,
-  LOI_RECOURSE_OPTIONS,
-  LOI_YES_NO_OPTIONS,
+  LOI_TERM_OPTIONS,
+  calculateSuggestedLoiMetrics,
   createEmptyLoiUnderwritingTerms,
   serializeLoiUnderwritingTerms,
   validateLoiUnderwritingTerms,
+  type LoiApplicationContext,
   type LoiUnderwritingTerms,
 } from "../../lib/loiUnderwritingTerms";
 import {
-  calculateLoiMetricsPreview,
   formatMetricCurrency,
   formatMetricPercent,
 } from "../../lib/loiCalculatedMetrics";
+import LoiBrandingFields from "./LoiBrandingFields";
+import {
+  EMPTY_LOI_BRANDING,
+  getLoiBrandingValidationMessage,
+  isLoiBrandingComplete,
+  type LoiBrandingValues,
+} from "../../lib/loiBranding";
+import LoiRequiredDocumentsPicker from "./LoiRequiredDocumentsPicker";
+
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
+
+function getAuthHeaders(): Record<string, string> {
+  const token = sessionStorage.getItem("lender_token");
+  return token
+    ? {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      }
+    : { "Content-Type": "application/json" };
+}
 
 type Props = {
   isOpen: boolean;
   requestedAmount?: number | string | null;
   propertyValue?: number | string | null;
   projectCost?: number | string | null;
+  arv?: number | string | null;
+  applicationInterestRate?: number | string | null;
+  applicationLoanTerm?: number | string | null;
+  loanProductCode?: string | null;
+  applicationContext?: LoiApplicationContext;
   submitting?: boolean;
   onClose: () => void;
-  onSubmit: (payload: ReturnType<typeof serializeLoiUnderwritingTerms>) => void;
+  onSubmit: (payload: {
+    lenderTerms: ReturnType<typeof serializeLoiUnderwritingTerms>;
+    branding: LoiBrandingValues;
+  }) => void;
 };
 
-function ChipSelect({
-  label,
-  value,
-  options,
-  error,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  options: string[];
-  error?: string;
-  onChange: (value: string) => void;
-}) {
+function formatMoney(value?: number | string | null) {
+  const numeric = Number(String(value || "").replace(/[$,\s]/g, ""));
+  if (!Number.isFinite(numeric) || numeric <= 0) return "—";
+  return `$${numeric.toLocaleString("en-US")}`;
+}
+
+function InfoRow({ label, value }: { label: string; value?: string }) {
   return (
-    <div>
-      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+    <div className="rounded-xl border border-slate-100 bg-slate-50/80 px-3 py-2.5 dark:border-slate-800 dark:bg-slate-900/50">
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
         {label}
       </p>
-      <div className="flex flex-wrap gap-2">
-        {options.map((option) => {
-          const active = value === option;
-          return (
-            <button
-              key={option}
-              type="button"
-              onClick={() => onChange(option)}
-              className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-                active
-                  ? "bg-[#0F766E] text-white"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300"
-              }`}
-            >
-              {option}
-            </button>
-          );
-        })}
-      </div>
-      {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
+      <p className="mt-1 text-sm font-medium text-slate-800 dark:text-slate-100">
+        {value?.trim() || "—"}
+      </p>
     </div>
   );
 }
@@ -82,49 +77,164 @@ export default function LoiUnderwritingFormModal({
   requestedAmount,
   propertyValue = null,
   projectCost = null,
+  arv = null,
+  applicationInterestRate = null,
+  applicationLoanTerm = null,
+  loanProductCode = null,
+  applicationContext,
   submitting = false,
   onClose,
   onSubmit,
 }: Props) {
   const [terms, setTerms] = useState<LoiUnderwritingTerms>(() =>
-    createEmptyLoiUnderwritingTerms(requestedAmount),
+    createEmptyLoiUnderwritingTerms(requestedAmount, {
+      interestRate: applicationInterestRate,
+      loanTerm: applicationLoanTerm,
+      propertyValue,
+      projectCost,
+      arv,
+    }),
   );
   const [errors, setErrors] = useState<
     Partial<Record<keyof LoiUnderwritingTerms, string>>
   >({});
+  const [metricsTouched, setMetricsTouched] = useState({
+    ltv: false,
+    ltc: false,
+    arv: false,
+    payment: false,
+  });
+  const [branding, setBranding] = useState<LoiBrandingValues>(EMPTY_LOI_BRANDING);
+  const [brandingLoading, setBrandingLoading] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
-    setTerms(createEmptyLoiUnderwritingTerms(requestedAmount));
-    setErrors({});
-  }, [isOpen, requestedAmount]);
 
-  const calculated = useMemo(
-    () =>
-      calculateLoiMetricsPreview({
-        approvedAmount: terms.approvedAmount,
-        interestRateType: terms.interestRateType,
-        interestRate: terms.interestRate,
-        loanTerm: terms.loanTerm,
-        amortization: terms.amortization,
-        paymentFrequency: terms.paymentFrequency,
+    setTerms(
+      createEmptyLoiUnderwritingTerms(requestedAmount, {
+        interestRate: applicationInterestRate,
+        loanTerm: applicationLoanTerm,
         propertyValue,
         projectCost,
-        originationFeePercent: terms.originationFeePercent,
-        exitFee: terms.exitFee,
-        processingFee: terms.processingFee,
-        underwritingFee: terms.underwritingFee,
+        arv,
       }),
-    [terms, propertyValue, projectCost],
+    );
+    setErrors({});
+    setMetricsTouched({
+      ltv: false,
+      ltc: false,
+      arv: false,
+      payment: false,
+    });
+  }, [
+    isOpen,
+    requestedAmount,
+    propertyValue,
+    projectCost,
+    arv,
+    applicationInterestRate,
+    applicationLoanTerm,
+  ]);
+
+  const handleProductRequiredLoaded = useCallback((required: string[]) => {
+    if (required.length === 0) return;
+    setTerms((prev) => ({
+      ...prev,
+      requiredDocuments: required,
+    }));
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        setBrandingLoading(true);
+        const res = await fetch(`${API_BASE}/lender/branding/`, {
+          headers: getAuthHeaders(),
+        });
+        const json = await res.json();
+        if (cancelled) return;
+
+        if (res.ok && json.success) {
+          setBranding({
+            brandName: json.data?.brandName || "",
+            logoUrl: json.data?.logoUrl || "",
+          });
+        } else {
+          setBranding(EMPTY_LOI_BRANDING);
+        }
+      } catch {
+        if (!cancelled) {
+          setBranding(EMPTY_LOI_BRANDING);
+        }
+      } finally {
+        if (!cancelled) {
+          setBrandingLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen]);
+
+  const suggested = useMemo(
+    () =>
+      calculateSuggestedLoiMetrics({
+        approvedAmount: terms.approvedAmount,
+        interestRate: terms.interestRate,
+        interestOnly: terms.interestOnly,
+        loanTerm: terms.loanTerm,
+        propertyValue,
+        projectCost,
+        arv,
+      }),
+    [
+      terms.approvedAmount,
+      terms.interestRate,
+      terms.interestOnly,
+      terms.loanTerm,
+      propertyValue,
+      projectCost,
+      arv,
+    ],
   );
 
-  if (!isOpen) return null;
+  useEffect(() => {
+    setTerms((prev) => ({
+      ...prev,
+      ltvPercent:
+        metricsTouched.ltv || prev.ltvPercent
+          ? prev.ltvPercent
+          : suggested.ltv != null
+            ? String(suggested.ltv)
+            : "",
+      ltcPercent:
+        metricsTouched.ltc || prev.ltcPercent
+          ? prev.ltcPercent
+          : suggested.ltc != null
+            ? String(suggested.ltc)
+            : "",
+      arvPercent:
+        metricsTouched.arv || prev.arvPercent
+          ? prev.arvPercent
+          : suggested.arvPercent != null
+            ? String(suggested.arvPercent)
+            : "",
+      monthlyPayment:
+        metricsTouched.payment || prev.monthlyPayment
+          ? prev.monthlyPayment
+          : suggested.monthlyPayment != null
+            ? String(suggested.monthlyPayment)
+            : "",
+    }));
+  }, [suggested, metricsTouched]);
 
-  const requestedDisplay = (() => {
-    const numeric = Number(String(requestedAmount || "").replace(/[$,\s]/g, ""));
-    if (!Number.isFinite(numeric) || numeric <= 0) return "—";
-    return `$${numeric.toLocaleString("en-US")}`;
-  })();
+  if (!isOpen) return null;
 
   const update = <K extends keyof LoiUnderwritingTerms>(
     key: K,
@@ -136,384 +246,353 @@ export default function LoiUnderwritingFormModal({
     }
   };
 
-  const toggleCondition = (condition: string) => {
-    setTerms((prev) => {
-      const exists = prev.closingConditions.includes(condition);
-      return {
-        ...prev,
-        closingConditions: exists
-          ? prev.closingConditions.filter((item) => item !== condition)
-          : [...prev.closingConditions, condition],
-      };
-    });
-    if (errors.closingConditions) {
-      setErrors((prev) => ({ ...prev, closingConditions: undefined }));
-    }
-  };
-
   const handleSubmit = () => {
+    const brandingMessage = getLoiBrandingValidationMessage(branding);
+    if (brandingMessage) {
+      toast.error(brandingMessage);
+      return;
+    }
+
     const result = validateLoiUnderwritingTerms(terms);
     if (!result.valid) {
       setErrors(result.errors);
       return;
     }
-    onSubmit(serializeLoiUnderwritingTerms(terms));
+    onSubmit({
+      lenderTerms: serializeLoiUnderwritingTerms(terms),
+      branding: {
+        brandName: branding.brandName.trim(),
+        logoUrl: branding.logoUrl,
+      },
+    });
   };
+
+  const brandingComplete = isLoiBrandingComplete(branding);
 
   return (
     <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-      <div className="flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-        <div className="flex items-start justify-between border-b border-slate-200 px-6 py-4 dark:border-slate-800">
-          <div>
-            <h2 className="text-lg font-bold text-slate-900 dark:text-white">
-              Lender Credit Decision
-            </h2>
-            <p className="mt-1 text-sm text-slate-500">
-              Application details auto-fill. Enter your commercial terms for the
-              Term Sheet / LOI.
-            </p>
-            <p className="mt-2 text-xs font-medium text-slate-600 dark:text-slate-300">
-              Requested:{" "}
-              <span className="font-bold text-[#0F766E]">{requestedDisplay}</span>
-            </p>
+      <div className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-900">
+        <div className="border-b border-slate-200 bg-gradient-to-r from-[#134E4A] to-[#0F766E] px-6 py-5 text-white dark:border-slate-800">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide">
+                <FileText className="h-3.5 w-3.5" />
+                Term Sheet / LOI
+              </div>
+              <h2 className="text-xl font-bold">Generate Loan Term Sheet</h2>
+              <p className="mt-1 max-w-2xl text-sm text-teal-50/90">
+                Application details are loaded automatically. Enter your final
+                credit terms below to generate the LOI.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={submitting}
+              className="rounded-lg p-2 text-white/80 hover:bg-white/10"
+            >
+              <X size={18} />
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={submitting}
-            className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
-          >
-            <X size={18} />
-          </button>
         </div>
 
-        <div className="flex-1 space-y-6 overflow-y-auto px-6 py-5">
-          <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Loan Amount Approved
-              </label>
-              <input
-                type="number"
-                min="0"
-                value={terms.approvedAmount}
-                onChange={(e) => update("approvedAmount", e.target.value)}
-                placeholder="1750000"
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0F766E] dark:border-slate-700 dark:bg-slate-800"
-              />
-              {errors.approvedAmount && (
-                <p className="mt-1 text-xs text-red-500">{errors.approvedAmount}</p>
-              )}
-            </div>
+        <div className="flex-1 overflow-y-auto px-6 py-5">
+          <div className="grid gap-6 lg:grid-cols-5">
+            <section className="space-y-4 lg:col-span-2">
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+                <div className="mb-3 flex items-center gap-2">
+                  <User className="h-4 w-4 text-[#0F766E]" />
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                    From Application
+                  </h3>
+                </div>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <InfoRow
+                    label="Borrower"
+                    value={applicationContext?.borrowerName}
+                  />
+                  <InfoRow
+                    label="Loan Product"
+                    value={applicationContext?.loanProduct}
+                  />
+                  <InfoRow
+                    label="Property Type"
+                    value={applicationContext?.propertyType}
+                  />
+                  <InfoRow
+                    label="Broker"
+                    value={applicationContext?.brokerName}
+                  />
+                  <InfoRow
+                    label="Requested Amount"
+                    value={formatMoney(requestedAmount)}
+                  />
+                  <InfoRow
+                    label="Property Value"
+                    value={formatMoney(propertyValue)}
+                  />
+                  <InfoRow
+                    label="Project Cost"
+                    value={formatMoney(projectCost)}
+                  />
+                  <InfoRow label="ARV" value={formatMoney(arv)} />
+                </div>
+                {applicationContext?.propertyAddress ? (
+                  <div className="mt-3 rounded-xl border border-slate-100 bg-slate-50/80 px-3 py-2.5 dark:border-slate-800 dark:bg-slate-900/50">
+                    <div className="flex items-start gap-2">
+                      <Building2 className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
+                      <div>
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                          Property Address
+                        </p>
+                        <p className="mt-1 text-sm text-slate-700 dark:text-slate-200">
+                          {applicationContext.propertyAddress}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
 
-            <div>
-              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Offer Valid Until
-              </label>
-              <input
-                type="date"
-                value={terms.expirationDate}
-                onChange={(e) => update("expirationDate", e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0F766E] dark:border-slate-700 dark:bg-slate-800"
-              />
-              {errors.expirationDate && (
-                <p className="mt-1 text-xs text-red-500">{errors.expirationDate}</p>
-              )}
-            </div>
-          </div>
-
-          <div>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Interest Rate Type
-            </p>
-            <div className="mb-3 flex gap-2">
-              {(["FIXED", "VARIABLE"] as const).map((type) => (
-                <button
-                  key={type}
-                  type="button"
-                  onClick={() => update("interestRateType", type)}
-                  className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
-                    terms.interestRateType === type
-                      ? "bg-[#0F766E] text-white"
-                      : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
-                  }`}
-                >
-                  {type === "FIXED" ? "Fixed" : "Variable"}
-                </button>
-              ))}
-            </div>
-
-            {terms.interestRateType === "FIXED" ? (
-              <div>
-                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Interest Rate (%)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.01"
-                  value={terms.interestRate}
-                  onChange={(e) => update("interestRate", e.target.value)}
-                  placeholder="10.75"
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0F766E] dark:border-slate-700 dark:bg-slate-800 md:max-w-xs"
+              {brandingLoading ? (
+                <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-950">
+                  Loading saved branding...
+                </div>
+              ) : (
+                <LoiBrandingFields
+                  value={branding}
+                  onChange={setBranding}
+                  disabled={submitting}
                 />
-                {errors.interestRate && (
-                  <p className="mt-1 text-xs text-red-500">{errors.interestRate}</p>
-                )}
+              )}
+
+              <div className="rounded-2xl border border-teal-100 bg-teal-50/60 p-4 text-sm text-teal-900 dark:border-teal-900/40 dark:bg-teal-950/20 dark:text-teal-100">
+                <p className="font-semibold">What happens next</p>
+                <ul className="mt-2 space-y-1.5 text-teal-800/90 dark:text-teal-100/80">
+                  <li>• Your 6 credit terms populate the term sheet PDF.</li>
+                  <li>• Borrower, property, and broker data come from the application.</li>
+                  <li>• Only the borrower signature block appears on the document.</li>
+                </ul>
               </div>
-            ) : (
-              <div className="grid gap-3 md:grid-cols-2">
-                <div>
-                  <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Index
-                  </label>
-                  <input
-                    type="text"
-                    value={terms.variableRateIndex}
-                    onChange={(e) => update("variableRateIndex", e.target.value)}
-                    placeholder="SOFR"
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0F766E] dark:border-slate-700 dark:bg-slate-800"
-                  />
-                  {errors.variableRateIndex && (
-                    <p className="mt-1 text-xs text-red-500">
-                      {errors.variableRateIndex}
-                    </p>
-                  )}
+            </section>
+
+            <section className="lg:col-span-3">
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                  Lender Credit Terms
+                </h3>
+                <p className="mt-1 text-xs text-slate-500">
+                  These values appear prominently on the generated term sheet.
+                </p>
+
+                <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      1. Loan Amount
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={terms.approvedAmount}
+                      onChange={(e) => update("approvedAmount", e.target.value)}
+                      placeholder="1750000"
+                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0F766E] focus:ring-2 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800"
+                    />
+                    {errors.approvedAmount ? (
+                      <p className="mt-1 text-xs text-red-500">
+                        {errors.approvedAmount}
+                      </p>
+                    ) : null}
+                  </div>
+
+                  <div>
+                    <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      2. Interest Rate (%)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.01"
+                      value={terms.interestRate}
+                      onChange={(e) => update("interestRate", e.target.value)}
+                      placeholder="10.75"
+                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0F766E] focus:ring-2 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800"
+                    />
+                    {errors.interestRate ? (
+                      <p className="mt-1 text-xs text-red-500">
+                        {errors.interestRate}
+                      </p>
+                    ) : null}
+                  </div>
+
+                  <div>
+                    <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      3. LTV (%)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.01"
+                      value={terms.ltvPercent}
+                      onChange={(e) => {
+                        setMetricsTouched((prev) => ({ ...prev, ltv: true }));
+                        update("ltvPercent", e.target.value);
+                      }}
+                      placeholder="65"
+                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0F766E] dark:border-slate-700 dark:bg-slate-800"
+                    />
+                    {errors.ltvPercent ? (
+                      <p className="mt-1 text-xs text-red-500">{errors.ltvPercent}</p>
+                    ) : (
+                      <p className="mt-1 text-[11px] text-slate-400">
+                        Suggested: {formatMetricPercent(suggested.ltv)}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      3. LTC (%)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.01"
+                      value={terms.ltcPercent}
+                      onChange={(e) => {
+                        setMetricsTouched((prev) => ({ ...prev, ltc: true }));
+                        update("ltcPercent", e.target.value);
+                      }}
+                      placeholder="70"
+                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0F766E] dark:border-slate-700 dark:bg-slate-800"
+                    />
+                    {errors.ltcPercent ? (
+                      <p className="mt-1 text-xs text-red-500">{errors.ltcPercent}</p>
+                    ) : (
+                      <p className="mt-1 text-[11px] text-slate-400">
+                        Suggested: {formatMetricPercent(suggested.ltc)}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      3. ARV (%)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.01"
+                      value={terms.arvPercent}
+                      onChange={(e) => {
+                        setMetricsTouched((prev) => ({ ...prev, arv: true }));
+                        update("arvPercent", e.target.value);
+                      }}
+                      placeholder="60"
+                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0F766E] dark:border-slate-700 dark:bg-slate-800"
+                    />
+                    {errors.arvPercent ? (
+                      <p className="mt-1 text-xs text-red-500">{errors.arvPercent}</p>
+                    ) : (
+                      <p className="mt-1 text-[11px] text-slate-400">
+                        Suggested: {formatMetricPercent(suggested.arvPercent)}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      4. Monthly Payment
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={terms.monthlyPayment}
+                      onChange={(e) => {
+                        setMetricsTouched((prev) => ({ ...prev, payment: true }));
+                        update("monthlyPayment", e.target.value);
+                      }}
+                      placeholder="12500"
+                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0F766E] dark:border-slate-700 dark:bg-slate-800"
+                    />
+                    {errors.monthlyPayment ? (
+                      <p className="mt-1 text-xs text-red-500">
+                        {errors.monthlyPayment}
+                      </p>
+                    ) : (
+                      <p className="mt-1 text-[11px] text-slate-400">
+                        Suggested: {formatMetricCurrency(suggested.monthlyPayment)}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      5. Interest Only
+                    </label>
+                    <div className="flex gap-2">
+                      {[true, false].map((value) => (
+                        <button
+                          key={String(value)}
+                          type="button"
+                          onClick={() => update("interestOnly", value)}
+                          className={`flex-1 rounded-xl px-3 py-2.5 text-sm font-semibold transition ${
+                            terms.interestOnly === value
+                              ? "bg-[#0F766E] text-white"
+                              : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300"
+                          }`}
+                        >
+                          {value ? "Yes" : "No"}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      6. Term
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {LOI_TERM_OPTIONS.map((option) => (
+                        <button
+                          key={option}
+                          type="button"
+                          onClick={() => update("loanTerm", option)}
+                          className={`rounded-full px-4 py-2 text-xs font-semibold transition ${
+                            terms.loanTerm === option
+                              ? "bg-[#0F766E] text-white"
+                              : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300"
+                          }`}
+                        >
+                          {option}
+                        </button>
+                      ))}
+                    </div>
+                    {errors.loanTerm ? (
+                      <p className="mt-1 text-xs text-red-500">{errors.loanTerm}</p>
+                    ) : null}
+                  </div>
                 </div>
-                <div>
-                  <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Spread (%)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    step="0.01"
-                    value={terms.variableRateSpread}
-                    onChange={(e) =>
-                      update("variableRateSpread", e.target.value)
-                    }
-                    placeholder="4.25"
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0F766E] dark:border-slate-700 dark:bg-slate-800"
-                  />
-                  {errors.variableRateSpread && (
-                    <p className="mt-1 text-xs text-red-500">
-                      {errors.variableRateSpread}
-                    </p>
-                  )}
-                </div>
+
+                <LoiRequiredDocumentsPicker
+                  selectedDocuments={terms.requiredDocuments}
+                  onSelectedDocumentsChange={(requiredDocuments) => {
+                    update("requiredDocuments", requiredDocuments);
+                  }}
+                  customDocument={terms.customDocument}
+                  onCustomDocumentChange={(value) => update("customDocument", value)}
+                  error={errors.requiredDocuments}
+                  getAuthHeaders={getAuthHeaders}
+                  loanProductCode={loanProductCode}
+                  onProductRequiredLoaded={handleProductRequiredLoaded}
+                />
               </div>
-            )}
-          </div>
-
-          <div className="grid gap-5 md:grid-cols-2">
-            <ChipSelect
-              label="Loan Term"
-              value={terms.loanTerm}
-              options={LOI_LOAN_TERM_OPTIONS}
-              error={errors.loanTerm}
-              onChange={(value) => update("loanTerm", value)}
-            />
-            <ChipSelect
-              label="Amortization"
-              value={terms.amortization}
-              options={LOI_AMORTIZATION_OPTIONS}
-              error={errors.amortization}
-              onChange={(value) => update("amortization", value)}
-            />
-            <ChipSelect
-              label="Payment Frequency"
-              value={terms.paymentFrequency}
-              options={LOI_PAYMENT_FREQUENCY_OPTIONS}
-              error={errors.paymentFrequency}
-              onChange={(value) => update("paymentFrequency", value)}
-            />
-            <ChipSelect
-              label="Origination Fee"
-              value={terms.originationFeePercent}
-              options={LOI_ORIGINATION_FEE_OPTIONS}
-              error={errors.originationFeePercent}
-              onChange={(value) => update("originationFeePercent", value)}
-            />
-            <ChipSelect
-              label="Exit Fee"
-              value={terms.exitFee}
-              options={LOI_EXIT_FEE_OPTIONS}
-              onChange={(value) => update("exitFee", value)}
-            />
-            <ChipSelect
-              label="Processing Fee"
-              value={terms.processingFee}
-              options={LOI_PROCESSING_FEE_OPTIONS}
-              onChange={(value) => update("processingFee", value)}
-            />
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Underwriting Fee
-              </label>
-              <input
-                type="text"
-                value={terms.underwritingFee}
-                onChange={(e) => update("underwritingFee", e.target.value)}
-                placeholder="$750"
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0F766E] dark:border-slate-700 dark:bg-slate-800"
-              />
-            </div>
-            <ChipSelect
-              label="Legal Fee"
-              value={terms.legalFee}
-              options={LOI_LEGAL_FEE_OPTIONS}
-              onChange={(value) => update("legalFee", value)}
-            />
-          </div>
-
-          <div className="grid gap-5 md:grid-cols-2">
-            <ChipSelect
-              label="Appraisal Required"
-              value={terms.appraisalRequired}
-              options={LOI_YES_NO_OPTIONS}
-              onChange={(value) => update("appraisalRequired", value)}
-            />
-            <ChipSelect
-              label="Environmental Report"
-              value={terms.environmentalReport}
-              options={LOI_ENVIRONMENTAL_OPTIONS}
-              onChange={(value) => update("environmentalReport", value)}
-            />
-            <ChipSelect
-              label="Personal Guarantee"
-              value={terms.personalGuarantee}
-              options={LOI_PERSONAL_GUARANTEE_OPTIONS}
-              onChange={(value) => update("personalGuarantee", value)}
-            />
-            <ChipSelect
-              label="Prepayment Penalty"
-              value={terms.prepaymentPenalty}
-              options={LOI_PREPAYMENT_OPTIONS}
-              onChange={(value) => update("prepaymentPenalty", value)}
-            />
-            <ChipSelect
-              label="Recourse"
-              value={terms.recourse}
-              options={LOI_RECOURSE_OPTIONS}
-              onChange={(value) => update("recourse", value)}
-            />
-          </div>
-
-          <div>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Closing Conditions
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {LOI_CLOSING_CONDITION_OPTIONS.map((condition) => {
-                const active = terms.closingConditions.includes(condition);
-                return (
-                  <button
-                    key={condition}
-                    type="button"
-                    onClick={() => toggleCondition(condition)}
-                    className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-                      active
-                        ? "bg-purple-600 text-white"
-                        : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300"
-                    }`}
-                  >
-                    {condition}
-                  </button>
-                );
-              })}
-            </div>
-            <input
-              type="text"
-              value={terms.customClosingCondition}
-              onChange={(e) => update("customClosingCondition", e.target.value)}
-              placeholder="Add custom condition (optional)"
-              className="mt-3 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0F766E] dark:border-slate-700 dark:bg-slate-800"
-            />
-            {errors.closingConditions && (
-              <p className="mt-1 text-xs text-red-500">
-                {errors.closingConditions}
-              </p>
-            )}
-          </div>
-
-          <div>
-            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Special Conditions
-            </label>
-            <p className="mb-2 text-xs text-slate-500">
-              One condition per line. These appear on the Term Sheet as lender
-              underwriting conditions.
-            </p>
-            <textarea
-              value={terms.specialConditions}
-              onChange={(e) => update("specialConditions", e.target.value)}
-              rows={5}
-              placeholder={
-                "Borrower must maintain DSCR above 1.25.\nAdditional collateral required.\nSubject to satisfactory appraisal.\nInsurance required before funding."
-              }
-              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0F766E] dark:border-slate-700 dark:bg-slate-800"
-            />
-          </div>
-
-          <div className="rounded-2xl border border-blue-100 bg-blue-50/70 p-4 dark:border-blue-900/40 dark:bg-blue-950/20">
-            <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-blue-700 dark:text-blue-300">
-              Automatically Calculated
-            </p>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {[
-                ["LTV", formatMetricPercent(calculated.ltv)],
-                ["LTC", formatMetricPercent(calculated.ltc)],
-                [
-                  "Monthly Payment",
-                  calculated.isFloating
-                    ? "Floating"
-                    : formatMetricCurrency(calculated.monthlyPayment),
-                ],
-                [
-                  "Balloon Payment",
-                  formatMetricCurrency(calculated.balloonPayment),
-                ],
-                [
-                  "Interest Amount",
-                  calculated.isFloating
-                    ? "Floating"
-                    : formatMetricCurrency(calculated.interestAmount),
-                ],
-                [
-                  "Est. Closing Cost",
-                  formatMetricCurrency(calculated.estimatedClosingCost),
-                ],
-                [
-                  "APR",
-                  calculated.isFloating
-                    ? "Floating"
-                    : formatMetricPercent(calculated.apr),
-                ],
-              ].map(([label, value]) => (
-                <div
-                  key={label}
-                  className="rounded-xl border border-white/70 bg-white/80 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/60"
-                >
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                    {label}
-                  </p>
-                  <p className="mt-1 text-sm font-bold text-slate-800 dark:text-slate-100">
-                    {value}
-                  </p>
-                </div>
-              ))}
-            </div>
-            <p className="mt-3 text-[11px] text-slate-500">
-              LTV/LTC use application property value and project cost. Payment,
-              interest, balloon, and APR update from your approved amount, rate,
-              term, and fees. Variable rates show Floating until a fixed quote is
-              used.
-            </p>
+            </section>
           </div>
         </div>
 
@@ -529,8 +608,8 @@ export default function LoiUnderwritingFormModal({
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={submitting}
-            className="inline-flex items-center gap-2 rounded-xl bg-purple-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-purple-700 disabled:opacity-50"
+            disabled={submitting || !brandingComplete}
+            className="inline-flex items-center gap-2 rounded-xl bg-[#0F766E] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#0d655e] disabled:opacity-50"
           >
             {submitting ? (
               <>

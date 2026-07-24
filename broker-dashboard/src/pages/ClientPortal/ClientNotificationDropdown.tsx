@@ -27,6 +27,7 @@ export type ClientNotification = {
     lenderName?: string;
     decision?: string;
     senderName?: string;
+    signDocument?: boolean;
   };
   createdAt: string;
   isRead: boolean;

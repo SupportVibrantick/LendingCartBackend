@@ -8,6 +8,7 @@ import {
   getRequiredCriteriaKeysForProduct,
   type CriteriaField,
 } from "../../../lib/loanProductCriteriaFields";
+import { cleanupOrphanedCustomDocumentTypes } from "../../../lib/documentConfigApi";
 import {
   formatNumberInputValue,
   sanitizeNumberInput,
@@ -770,6 +771,10 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
   const openProductDocState = openProductId
     ? getDocState(openProductId)
     : null;
+
+  useEffect(() => {
+    cleanupOrphanedCustomDocumentTypes().catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     if (!openProductId) return;

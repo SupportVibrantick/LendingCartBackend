@@ -1,4 +1,4 @@
-﻿import {
+import {
   ArrowLeft,
   Building2,
   CheckCircle2,
@@ -38,8 +38,11 @@ import LoanApplication from "../LoanApplication/LoanApplication";
 import { mapSubmissionToLoanApplication } from "../../lib/mapSubmissionToLoanApplication";
 import {
   expandDocumentsForDisplay,
-  getDocumentSentDisplay,
+  formatDocumentStatusLine,
   getDocumentSourceDisplay,
+  getDocumentStatusBadgeDate,
+  getDocumentStatusLineClass,
+  getDocumentStatusLines,
   getUploadFileSentLabel,
   matchesDocumentSentFilter,
   type DocumentSentFilter,
@@ -422,6 +425,7 @@ const LoanPreview = () => {
     null,
   );
   const [documentsRefreshKey, setDocumentsRefreshKey] = useState(0);
+  const [loiCount, setLoiCount] = useState(0);
   // const [uploadingDocId, setUploadingDocId] = useState<string | null>(null);
   // const [selectedFiles, setSelectedFiles] = useState<Record<string, File[]>>(
   //   {},
@@ -893,6 +897,35 @@ const LoanPreview = () => {
     () => getBrokerRequestDocumentsDisabledReason(submissionDetail),
     [submissionDetail],
   );
+
+  useEffect(() => {
+    if (!applicationId) {
+      setLoiCount(0);
+      return;
+    }
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const res = await fetch(
+          `${API_BASE}/broker/loan-pipeline/${applicationId}/lois?page=1&limit=1`,
+          { headers: getAuthHeaders() },
+        );
+        const json = await res.json();
+
+        if (!cancelled && res.ok && json.success) {
+          setLoiCount(json.data?.totalLoiReceived ?? 0);
+        }
+      } catch {
+        if (!cancelled) setLoiCount(0);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [applicationId]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -1846,7 +1879,7 @@ const LoanPreview = () => {
         },
         {
           key: "sign-documents",
-          label: "Signable Documents",
+          label: "Documents to Sign",
           icon: FileText,
           color: "text-indigo-600",
         },
@@ -2337,6 +2370,7 @@ const LoanPreview = () => {
       apiRole="broker"
       getAuthHeaders={getAuthHeaders}
       isActive={activeTab === "view-loi"}
+      onLoiCountChange={setLoiCount}
     />
   );
 
@@ -3114,7 +3148,8 @@ dark:bg-red-900/20 dark:text-red-400"
                   const isOpen = activeAction === doc.rowKey;
                   const { label: sourceLabel, className: sourceClass } =
                     getDocumentSourceDisplay(doc, { brokerSourceLabel: "Me" });
-                  const sentDisplay = getDocumentSentDisplay(doc);
+                  const statusBadgeDate = getDocumentStatusBadgeDate(doc);
+                  const statusLines = getDocumentStatusLines(doc);
 
                   return (
                     <tr
@@ -3157,41 +3192,25 @@ dark:bg-red-900/20 dark:text-red-400"
                       <td className="px-5 py-4 text-center">
                         <div className="flex flex-col items-center gap-1">
                           <span
-                            className={`px-3 py-1 rounded-full text-xs font-semibold ${getDocumentStatusChip(
+                            className={`max-w-[240px] px-3 py-1 rounded-full text-xs font-semibold ${getDocumentStatusChip(
                               doc.status ?? ""
                             )}`}
                           >
-                            {formatDocumentStatusLabel(doc.status)}
+                            {formatDocumentStatusLine(
+                              formatDocumentStatusLabel(doc.status),
+                              statusBadgeDate,
+                            )}
                           </span>
-                          {sentDisplay && (
+                          {statusLines.map((line, index) => (
                             <span
-                              className={`max-w-[220px] text-center text-[10px] font-semibold px-2 py-0.5 rounded-full ${sentDisplay.isPartial
-                                  ? "bg-amber-50 text-amber-700"
-                                  : sentDisplay.isSent
-                                    ? "bg-emerald-50 text-emerald-700"
-                                    : "bg-orange-50 text-orange-700"
-                                }`}
+                              key={`${doc.rowKey}-status-${index}`}
+                              className={`max-w-[240px] text-center text-[10px] font-semibold px-2 py-0.5 rounded-full ${getDocumentStatusLineClass(
+                                line.tone,
+                              )}`}
                             >
-                              {sentDisplay.detail}
+                              {formatDocumentStatusLine(line.text, line.date)}
                             </span>
-                          )}
-                          {["BROKER_ADDED", "LENDER_ADDED", "SUB_BROKER_ADDED"].includes(
-                            String(doc.source || ""),
-                          ) && (
-                            <span
-                              className={`max-w-[220px] text-center text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                                doc.isForwardedToClient
-                                  ? "bg-indigo-50 text-indigo-700"
-                                  : "bg-slate-100 text-slate-600"
-                              }`}
-                            >
-                              {doc.isForwardedToClient
-                                ? "Sent to client"
-                                : doc.source === "LENDER_ADDED"
-                                  ? "Broker only — not on client portal"
-                                  : "Not sent to client"}
-                            </span>
-                          )}
+                          ))}
                         </div>
                       </td>
 
@@ -3843,6 +3862,17 @@ dark:bg-red-900/20 dark:text-red-400"
                             }
                           />
                           <span className="whitespace-nowrap">{tab.label}</span>
+                          {tab.key === "view-loi" && loiCount > 0 && (
+                            <span
+                              className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+                                isActive
+                                  ? "bg-white/20 text-white"
+                                  : "bg-violet-100 text-violet-700 dark:bg-violet-500/20 dark:text-violet-300"
+                              }`}
+                            >
+                              {loiCount}
+                            </span>
+                          )}
                         </button>
                       );
                     })}

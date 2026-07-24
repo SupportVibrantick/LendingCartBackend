@@ -164,6 +164,14 @@ async function lenderDecisionRoutes(fastify) {
           });
         }
 
+        if (decision === "CONDITIONAL" && !record.loiUrl) {
+          return reply.status(400).send({
+            success: false,
+            message:
+              "Generate the Term Sheet / LOI before requesting documents.",
+          });
+        }
+
         /* ===============================
            EXTRACT CLIENT EMAIL
         =============================== */

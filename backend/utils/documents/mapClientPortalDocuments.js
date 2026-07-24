@@ -14,8 +14,8 @@ function isDocumentVisibleToClient(doc) {
     return false;
   }
 
-  // Lender-requested upload docs stay broker-only until forwarded
-  if (doc.source === "LENDER_ADDED" && !doc.sentToClientAt) {
+  // Upload requests stay broker-only until forwarded to the client portal
+  if (!doc.sentToClientAt) {
     return false;
   }
 

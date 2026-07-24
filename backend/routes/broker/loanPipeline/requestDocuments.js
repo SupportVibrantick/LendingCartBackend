@@ -151,9 +151,9 @@ async function requestDocumentsRoute(fastify) {
         const autoForwardLenderRequestsToClient =
           source === "LENDER_ADDED"
             ? await getAutoForwardLenderRequestsToClient(prisma, loan.id)
-            : true;
+            : false;
         const sentToClientAt =
-          source === "BROKER_ADDED" || autoForwardLenderRequestsToClient
+          source === "LENDER_ADDED" && autoForwardLenderRequestsToClient
             ? new Date()
             : null;
         const shouldNotifyClient = Boolean(sentToClientAt);
@@ -193,9 +193,6 @@ async function requestDocumentsRoute(fastify) {
                   ...(source === "LENDER_ADDED" && sentToClientAt
                     ? { sentToClientAt }
                     : {}),
-                  ...(source === "BROKER_ADDED"
-                    ? { sentToClientAt: new Date() }
-                    : {}),
                 },
               });
             } else {
@@ -208,9 +205,7 @@ async function requestDocumentsRoute(fastify) {
                   isRequired: true,
                   status: "PENDING",
                   lastRequestedAt: new Date(),
-                  ...(source === "LENDER_ADDED"
-                    ? { sentToClientAt }
-                    : { sentToClientAt: new Date() }),
+                  ...(sentToClientAt ? { sentToClientAt } : {}),
                 },
               });
             }

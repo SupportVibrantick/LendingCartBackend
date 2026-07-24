@@ -172,7 +172,14 @@ module.exports = async function lenderViewDocuments(fastify) {
 
         const isRequirementVisibleToLender = (reqDoc) => {
           if (reqDoc.status === "SKIPPED") return false;
-          if (reqDoc.requiresClientSignature) return false;
+
+          if (reqDoc.requiresClientSignature) {
+            return (
+              sharedRequirementIdSet.has(reqDoc.id) &&
+              (reqDoc.signStatus === "FORWARDED_TO_LENDER" ||
+                reqDoc.signStatus === "LENDER_SEEN")
+            );
+          }
 
           // Broker manually shared this requirement with this lender.
           if (sharedRequirementIdSet.has(reqDoc.id)) {
@@ -303,7 +310,8 @@ module.exports = async function lenderViewDocuments(fastify) {
           return {
             requirementId: reqDoc.id,
             documentTypeId: reqDoc.documentTypeId,
-            documentName: reqDoc.documentType?.name ?? null,
+            documentName:
+              reqDoc.signDocumentTitle || reqDoc.documentType?.name || null,
             source: reqDoc.source,
             sourceLabel,
             isRequired: reqDoc.isRequired,

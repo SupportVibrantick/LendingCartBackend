@@ -1,6 +1,6 @@
-/**
- * Shared LOI metric calculations used by the term sheet PDF.
- */
+const {
+  getTotalLoanAmountWithFinancedFees,
+} = require("./financedLoanAmount");
 
 function toNumber(value) {
   if (value === null || value === undefined || value === "") return null;
@@ -137,19 +137,31 @@ function calculateLoiMetrics({
   const property = toNumber(propertyValue);
   const cost = toNumber(projectCost);
 
-  const ltv =
-    loanAmount && property ? (loanAmount / property) * 100 : null;
-  const ltc = loanAmount && cost ? (loanAmount / cost) * 100 : null;
+  const { baseLoanAmount, financedFees, totalLoanAmount } =
+    getTotalLoanAmountWithFinancedFees({
+      baseLoanAmount: loanAmount,
+      originationFeePercent,
+      processingFee,
+      underwritingFee,
+      exitFee,
+    });
 
-  const originationAmount = parseFeeAmount(originationFeePercent, loanAmount);
-  const exitAmount = parseFeeAmount(exitFee, loanAmount);
-  const processingAmount = parseFeeAmount(processingFee, loanAmount);
-  const underwritingAmount = parseFeeAmount(underwritingFee, loanAmount);
-  const estimatedClosingCost =
-    originationAmount + processingAmount + underwritingAmount + exitAmount;
+  const principalForPayment = totalLoanAmount || loanAmount;
+
+  const ltv =
+    principalForPayment && property
+      ? (principalForPayment / property) * 100
+      : null;
+  const ltc =
+    principalForPayment && cost ? (principalForPayment / cost) * 100 : null;
+
+  const estimatedClosingCost = financedFees;
 
   if (!loanAmount || !termMonths) {
     return {
+      baseLoanAmount,
+      totalLoanAmount: principalForPayment,
+      financedFees,
       ltv,
       ltc,
       monthlyPayment: null,
@@ -163,10 +175,13 @@ function calculateLoiMetrics({
 
   if (rate == null) {
     return {
+      baseLoanAmount,
+      totalLoanAmount: principalForPayment,
+      financedFees,
       ltv,
       ltc,
       monthlyPayment: null,
-      balloonPayment: loanAmount,
+      balloonPayment: principalForPayment,
       interestAmount: null,
       estimatedClosingCost,
       apr: null,
@@ -180,25 +195,29 @@ function calculateLoiMetrics({
   let interestAmountValue;
 
   if (interestOnly) {
-    monthlyPaymentValue = (loanAmount * rate) / 100 / 12;
-    balloonPaymentValue = loanAmount;
+    monthlyPaymentValue = (principalForPayment * rate) / 100 / 12;
+    balloonPaymentValue = principalForPayment;
     interestAmountValue = monthlyPaymentValue * termMonths;
   } else {
     const scheduleMonths = amortMonths > 0 ? amortMonths : termMonths;
-    monthlyPaymentValue = amortizingPayment(loanAmount, rate, scheduleMonths);
+    monthlyPaymentValue = amortizingPayment(
+      principalForPayment,
+      rate,
+      scheduleMonths,
+    );
     balloonPaymentValue = remainingBalance(
-      loanAmount,
+      principalForPayment,
       rate,
       scheduleMonths,
       termMonths,
     );
     const totalPaid =
       (monthlyPaymentValue || 0) * termMonths + (balloonPaymentValue || 0);
-    interestAmountValue = Math.max(totalPaid - loanAmount, 0);
+    interestAmountValue = Math.max(totalPaid - principalForPayment, 0);
   }
 
   const apr = approximateApr({
-    loanAmount,
+    loanAmount: principalForPayment,
     financedFees: estimatedClosingCost,
     monthlyPayment: monthlyPaymentValue,
     termMonths,
@@ -206,6 +225,9 @@ function calculateLoiMetrics({
   });
 
   return {
+    baseLoanAmount,
+    totalLoanAmount: principalForPayment,
+    financedFees,
     ltv,
     ltc,
     monthlyPayment: monthlyPaymentValue,

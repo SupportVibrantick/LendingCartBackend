@@ -149,6 +149,14 @@ module.exports = async function clientSignDocuments(fastify) {
                 id: true,
                 applicationNumber: true,
                 brokerOrgId: true,
+                client: {
+                  include: {
+                    contacts: {
+                      where: { isPrimary: true },
+                      take: 1,
+                    },
+                  },
+                },
               },
             },
             requestApplicationLender: {
@@ -179,6 +187,16 @@ module.exports = async function clientSignDocuments(fastify) {
           requirement.id,
         );
 
+        const signedAt = new Date();
+        const primaryContact = requirement.loanApplication.client?.contacts?.[0];
+        const signerName =
+          [primaryContact?.firstName, primaryContact?.lastName]
+            .filter(Boolean)
+            .join(" ")
+            .trim() ||
+          requirement.loanApplication.client?.legalName ||
+          "Client";
+
         const signedFile = await createSignedDocumentFile({
           templateFileUrl: requirement.templateFileUrl,
           templateMimeType: requirement.templateMimeType,
@@ -186,6 +204,8 @@ module.exports = async function clientSignDocuments(fastify) {
           signature,
           outputDir,
           outputBaseName: `signed-${crypto.randomBytes(8).toString("hex")}`,
+          signerName,
+          signedAt,
         });
 
         const result = await prisma.$transaction(async (tx) => {
@@ -207,7 +227,7 @@ module.exports = async function clientSignDocuments(fastify) {
             where: { id: requirement.id },
             data: {
               signStatus: "CLIENT_SIGNED",
-              clientSignedAt: new Date(),
+              clientSignedAt: signedAt,
               status: "COMPLETE",
             },
             include: {
@@ -230,11 +250,13 @@ module.exports = async function clientSignDocuments(fastify) {
           eventType: BROKER_NOTIFICATION_EVENTS.CLIENT_UPLOADED_DOCUMENT,
           category: "DOCUMENTS",
           subject: "Client signed a document",
-          body: `${requirement.documentType?.name || "Document"} was signed by the client`,
+          body: `${requirement.signDocumentTitle || requirement.documentType?.name || "Document"} was signed by the client`,
           metadata: {
             loanApplicationId: requirement.loanApplicationId,
             requirementId: requirement.id,
             signedUploadId: result.signedUpload.id,
+            signedFileUrl: result.signedUpload.fileUrl,
+            brokerLoi: /\/broker\/LOI\//i.test(requirement.templateFileUrl || ""),
           },
         });
 

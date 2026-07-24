@@ -79,6 +79,7 @@ async function listLoiRoute(fastify) {
         const where = {
           loanApplicationId: applicationId,
           loiUrl: { not: null },
+          loiSentToBrokerAt: { not: null },
           ...buildLoiSearchFilter(search),
         };
 

@@ -56,24 +56,25 @@ async function viewLoiBrokerRoute(fastify) {
             }
           },
           select: {
-            loiUrl: true
-          }
+            loiUrl: true,
+            loiSentToBrokerAt: true,
+          },
         });
 
         if (!record) {
           return reply.code(404).send({
             success: false,
-            message: "LOI record not found"
+            message: "LOI record not found",
           });
         }
 
-        if (!record.loiUrl) {
+        if (!record.loiUrl || !record.loiSentToBrokerAt) {
           return reply.code(200).send({
             success: true,
             message: "No LOI received yet",
             data: {
-              loiPath: null
-            }
+              loiPath: null,
+            },
           });
         }
 

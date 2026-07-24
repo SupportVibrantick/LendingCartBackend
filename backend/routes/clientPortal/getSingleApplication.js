@@ -9,6 +9,9 @@ const {
   canClientSignApplication,
   resolveLatestActiveSubmission,
 } = require("../../utils/applications/clientPortalSubmission");
+const {
+  resolveClientPortalAccess,
+} = require("../../utils/auth/clientPortalAuth");
 
 function findSubmissionFieldValue(fields, keys) {
   const field = fields.find((item) => keys.includes(item.fieldKey));
@@ -24,36 +27,19 @@ async function getClientApplicationDetailsRoute(fastify) {
     const prisma = fastify.prisma;
 
     try {
-      const authHeader = req.headers.authorization;
+      const access = await resolveClientPortalAccess(prisma, req, {
+        applicationId: req.params.id,
+      });
 
-      if (!authHeader || !authHeader.startsWith("Bearer ")) {
-        return reply.code(401).send({
+      if (access.error) {
+        return reply.code(access.error.code).send({
           success: false,
-          message: "Unauthorized",
+          message: access.error.message,
         });
       }
 
-      const token = authHeader.split(" ")[1];
-
-      let decoded;
-      try {
-        decoded = jwt.verify(token, process.env.JWT_SECRET);
-      } catch {
-        return reply.code(401).send({
-          success: false,
-          message: "Invalid token",
-        });
-      }
-
-      if (!decoded.clientId || decoded.role !== "CLIENT") {
-        return reply.code(403).send({
-          success: false,
-          message: "Access denied",
-        });
-      }
-
-      const clientId = decoded.clientId;
-      const applicationId = req.params.id;
+      const clientId = access.clientId;
+      const applicationId = access.applicationId;
 
       const application = await prisma.loanApplication.findFirst({
         where: {

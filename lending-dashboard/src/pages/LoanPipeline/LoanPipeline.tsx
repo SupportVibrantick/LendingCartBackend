@@ -1,17 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
-import Swal from "sweetalert2";
 import { createPortal } from "react-dom";
 import {
   Eye,
   Search,
   FileText,
   DollarSign,
-  Loader2,
   ChevronLeft,
   ChevronRight,
   CheckCircle,
-  XCircle,
   FileIcon,
   Download,
   EllipsisVertical,
@@ -25,10 +22,6 @@ import {
 import { useNavigate } from "react-router";
 import {
   buildBorrowerDisplayName,
-  canLenderTakeDecision,
-  canShowFinalApprovalAction,
-  canShowRejectAction,
-  canShowRequestDocumentsAction,
   DECISION_FILTERS,
   formatApplicationStatus,
   formatCompactAmount,
@@ -40,11 +33,6 @@ import {
   getPaginationWindow,
   type DecisionFilterValue,
 } from "../../lib/loanPipelineUtils";
-import {
-  canDecideApplications,
-  canGenerateLoi,
-  canRequestDocuments,
-} from "../../lib/lenderPermissions";
 
 /* ================= TYPES ================= */
 type TableRow = {
@@ -63,6 +51,7 @@ type TableRow = {
   lenderDecision: string;
   pendingDocumentsCount?: number;
   loiGenerated?: boolean;
+  loiSentToBroker?: boolean;
 };
 
 /* ================= HELPERS ================= */
@@ -80,30 +69,9 @@ function getAuthHeaders(): HeadersInit {
 
 const normalizeStatus = (status?: string) => status?.toUpperCase().trim();
 
-type DecisionFormErrors = {
-  approvedAmount?: string;
-  interestRate?: string;
-  notes?: string;
-};
-
-function getSwalTheme() {
-  const isDark = document.documentElement.classList.contains("dark");
-
-  return {
-    background: isDark ? "#1e293b" : "#ffffff",
-    color: isDark ? "#e2e8f0" : "#1e293b",
-    customClass: {
-      popup: "rounded-2xl",
-    },
-  };
-}
-
 /* ================= COMPONENT ================= */
 export default function LoanPipeline() {
   const navigate = useNavigate();
-  const canDecide = canDecideApplications();
-  const canRequestDocs = canRequestDocuments();
-  const canCreateLoi = canGenerateLoi();
   const [rows, setRows] = useState<TableRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [statsLoading, setStatsLoading] = useState(false);
@@ -111,28 +79,11 @@ export default function LoanPipeline() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [decisionFilter, setDecisionFilter] =
     useState<DecisionFilterValue>("");
-  const [decisionModal, setDecisionModal] = useState<{
-    type: "APPROVED" | "DECLINED" | null;
-    applicationId: string | null;
-  }>({
-    type: null,
-    applicationId: null,
-  });
 
   const [dropdownPos, setDropdownPos] = useState<{
     top: number;
     left: number;
   } | null>(null);
-
-  const [decisionForm, setDecisionForm] = useState({
-    approvedAmount: "",
-    interestRate: "",
-    notes: "",
-  });
-  const [decisionFormErrors, setDecisionFormErrors] = useState<DecisionFormErrors>(
-    {},
-  );
-  const [decisionSubmitting, setDecisionSubmitting] = useState(false);
 
   // File Preview State
   const [previewFile, setPreviewFile] = useState<{
@@ -140,9 +91,6 @@ export default function LoanPipeline() {
     type: string;
     name: string;
   } | null>(null);
-
-  const [loiPreview, setLoiPreview] = useState<string | null>(null);
-  const [loiLoading, setLoiLoading] = useState(false);
 
   // Multi-file Grid Modal State
   const [multiFileModal, setMultiFileModal] = useState<{
@@ -276,6 +224,7 @@ const totalVolume = stats.totalVolume;
         lenderDecision: item.lenderDecision,
         pendingDocumentsCount: item.pendingDocumentsCount ?? 0,
         loiGenerated: item.loiGenerated,
+        loiSentToBroker: item.loiSentToBroker,
       }));
 
       if (decisionFilter === "PENDING") {
@@ -296,17 +245,6 @@ const totalVolume = stats.totalVolume;
     }
   }, [currentPage, debouncedSearch, decisionFilter]);
 
-  const handleGenerateLOI = (applicationId: string) => {
-    navigate("/loan-preview/?tab=loi", {
-      state: {
-        applicationLenderId: applicationId,
-        initialTab: "loi",
-        isLoi: false,
-        openLoiForm: true,
-      },
-    });
-  };
-
 useEffect(() => {
   loadSubmissions();
   loadStats();
@@ -316,16 +254,6 @@ useEffect(() => {
     navigate("/loan-preview", {
       state: {
         applicationLenderId: row.applicationLenderId,
-        isLoi: row.loiGenerated,
-      },
-    });
-  };
-
-  const openRequestDocumentsTab = (row: TableRow) => {
-    navigate("/loan-preview/?tab=requestDocs", {
-      state: {
-        applicationLenderId: row.applicationLenderId,
-        initialTab: "requestDocs",
         isLoi: row.loiGenerated,
       },
     });
@@ -350,216 +278,6 @@ useEffect(() => {
     }
   }, [pagination.totalPages, currentPage]);
 
-  // const handleConditionalApproval = async (applicationId: string) => {
-  //   try {
-  //     setLoading(true);
-  //     const payload = {
-  //       decision: "CONDITIONAL",
-  //       notes: "Please upload required documents",
-  //     };
-
-  //     const res = await fetch(
-  //       `${API_BASE}/lender/loan-pipeline/${applicationId}/decision`,
-  //       {
-  //         method: "PATCH",
-  //         headers: getAuthHeaders(),
-  //         body: JSON.stringify(payload),
-  //       },
-  //     );
-
-  //     const json = await res.json();
-
-  //     if (!res.ok || !json.success) {
-  //       throw new Error(json.message || "Conditional approval failed");
-  //     }
-
-  //     toast.success("Application Conditionally Approved");
-  //     loadSubmissions();
-  //   } catch (err: any) {
-  //     toast.error(err.message || "Something went wrong");
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
-
-  const closeDecisionModal = () => {
-    setDecisionModal({ type: null, applicationId: null });
-    setDecisionForm({
-      approvedAmount: "",
-      interestRate: "",
-      notes: "",
-    });
-    setDecisionFormErrors({});
-    setDecisionSubmitting(false);
-  };
-
-  const validateDecisionForm = () => {
-    const errors: DecisionFormErrors = {};
-    const notes = decisionForm.notes.trim();
-
-    if (!notes) {
-      errors.notes = "Notes are required";
-    }
-
-    if (decisionModal.type === "APPROVED") {
-      const approvedAmount = Number(decisionForm.approvedAmount);
-      if (!decisionForm.approvedAmount.trim()) {
-        errors.approvedAmount = "Approved amount is required";
-      } else if (!Number.isFinite(approvedAmount) || approvedAmount <= 0) {
-        errors.approvedAmount = "Enter a valid approved amount greater than 0";
-      }
-
-      const interestRate = Number(decisionForm.interestRate);
-      if (!decisionForm.interestRate.trim()) {
-        errors.interestRate = "Interest rate is required";
-      } else if (
-        !Number.isFinite(interestRate) ||
-        interestRate < 0 ||
-        interestRate > 100
-      ) {
-        errors.interestRate = "Enter a valid interest rate between 0 and 100";
-      }
-    }
-
-    setDecisionFormErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-
-  const handleDecisionSubmit = async () => {
-    if (!decisionModal.applicationId || !decisionModal.type) return;
-    if (!validateDecisionForm()) {
-      await Swal.fire({
-        title: "Missing required fields",
-        text: "Please complete all required fields before continuing.",
-        icon: "warning",
-        confirmButtonColor: "#0F766E",
-        ...getSwalTheme(),
-      });
-      return;
-    }
-
-    const isApproval = decisionModal.type === "APPROVED";
-    const confirmResult = await Swal.fire({
-      title: isApproval ? "Confirm final approval?" : "Confirm rejection?",
-      text: isApproval
-        ? "This will mark the application as approved."
-        : "This will mark the application as rejected.",
-      icon: isApproval ? "question" : "warning",
-      showCancelButton: true,
-      confirmButtonColor: isApproval ? "#059669" : "#dc2626",
-      cancelButtonColor: "#6b7280",
-      confirmButtonText: isApproval
-        ? "Yes, approve"
-        : "Yes, reject",
-      cancelButtonText: "Cancel",
-      ...getSwalTheme(),
-    });
-
-    if (!confirmResult.isConfirmed) return;
-
-    try {
-      setDecisionSubmitting(true);
-
-      const payload =
-        decisionModal.type === "APPROVED"
-          ? {
-              decision: "APPROVED",
-              approvedAmount: Number(decisionForm.approvedAmount),
-              interestRate: Number(decisionForm.interestRate),
-              notes: decisionForm.notes.trim(),
-            }
-          : {
-              decision: "DECLINED",
-              notes: decisionForm.notes.trim(),
-            };
-
-      const res = await fetch(
-        `${API_BASE}/lender/loan-pipeline/${decisionModal.applicationId}/decision`,
-        {
-          method: "PATCH",
-          headers: getAuthHeaders(),
-          body: JSON.stringify(payload),
-        },
-      );
-
-      const json = await res.json();
-
-      if (!res.ok || !json.success) {
-        throw new Error(json.message || "Decision failed");
-      }
-
-      closeDecisionModal();
-
-      await Swal.fire({
-        title: isApproval ? "Application approved" : "Application rejected",
-        text: isApproval
-          ? "Final approval has been recorded successfully."
-          : "The application has been rejected successfully.",
-        icon: "success",
-        timer: 1800,
-        showConfirmButton: false,
-        ...getSwalTheme(),
-      });
-
-      loadSubmissions();
-      loadStats();
-    } catch (err: any) {
-      await Swal.fire({
-        title: isApproval ? "Approval failed" : "Rejection failed",
-        text: err.message || "Something went wrong",
-        icon: "error",
-        confirmButtonColor: "#0F766E",
-        ...getSwalTheme(),
-      });
-    } finally {
-      setDecisionSubmitting(false);
-    }
-  };
-
-  const handleViewLOI = async (applicationLenderId: string) => {
-    try {
-      setLoiLoading(true);
-
-      const res = await fetch(
-        `${API_BASE}/lender/loan-pipeline/${applicationLenderId}/view-loi`,
-        {
-          headers: getAuthHeaders(),
-        },
-      );
-
-      const json = await res.json();
-
-      if (!res.ok || !json.success) {
-        throw new Error(json.message || "Failed to fetch LOI");
-      }
-
-      if (!json.data?.loiPath) {
-        toast.error("LOI not generated yet");
-        return;
-      }
-
-      const fileUrl = `${API_BASE}/public${json.data.loiPath}`;
-
-      // SAME METHOD as previewFile
-      const fileRes = await fetch(fileUrl, {
-        headers: getAuthHeaders(),
-      });
-
-      const blob = await fileRes.blob();
-      const blobUrl = URL.createObjectURL(blob);
-
-      setPreviewFile({
-        url: blobUrl,
-        type: "application/pdf",
-        name: "Loan-LOI.pdf",
-      });
-    } catch (err: any) {
-      toast.error(err.message || "Failed to load LOI");
-    } finally {
-      setLoiLoading(false);
-    }
-  };
-
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(searchTerm.trim());
@@ -572,6 +290,163 @@ useEffect(() => {
     loadSubmissions();
     loadStats();
   };
+
+  const multiFileModalPortal =
+    multiFileModal.isOpen && multiFileModal.doc
+      ? createPortal(
+          <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+            <div className="flex max-h-[80vh] w-full max-w-3xl flex-col rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+              <div className="flex items-center justify-between border-b px-6 py-4 dark:border-slate-800">
+                <div>
+                  <h2 className="text-lg font-bold">Select File to Preview</h2>
+                  <p className="text-xs text-slate-500">
+                    {multiFileModal.doc.documentName} (
+                    {multiFileModal.doc.uploadedCount} uploads)
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setMultiFileModal({ isOpen: false, doc: null })
+                  }
+                  className="rounded-lg bg-slate-100 px-3 py-1 text-sm text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400"
+                >
+                  Back
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-6">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  {multiFileModal.doc.uploadedFiles?.map((file: any) => (
+                    <div
+                      key={file.uploadId}
+                      className="group rounded-xl border border-slate-200 bg-white p-4 transition-all hover:border-blue-500 dark:border-slate-800 dark:bg-slate-900/50"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="rounded-lg bg-slate-50 p-2 text-slate-400 dark:bg-slate-800">
+                          <FileIcon size={20} />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p
+                            className="truncate text-sm font-semibold"
+                            title={file.fileName}
+                          >
+                            {file.fileName}
+                          </p>
+                          <p className="mt-1 text-[10px] uppercase text-slate-500">
+                            {file.fileMimeType.split("/")[1] || "FILE"}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="mt-4 flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setPreviewFile({
+                              url: `${API_BASE}${file.fileUrl}`,
+                              type: file.fileMimeType,
+                              name: file.fileName,
+                            })
+                          }
+                          className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-blue-50 py-2 text-xs font-bold text-blue-600 transition-all hover:bg-blue-600 hover:text-white dark:bg-blue-600/10 dark:text-blue-400"
+                        >
+                          <Eye size={14} /> Preview
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleDownload(
+                              `${API_BASE}${file.fileUrl}`,
+                              file.fileName,
+                            )
+                          }
+                          className="rounded-lg bg-slate-50 p-2 text-slate-600 transition-all hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400"
+                        >
+                          <Download size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )
+      : null;
+
+  const previewFilePortal = previewFile
+    ? createPortal(
+        <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/80 p-4 backdrop-blur-md">
+          <div className="flex h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white dark:bg-slate-900">
+            <div className="flex shrink-0 items-center justify-between border-b px-6 py-4 dark:border-slate-800">
+              <div>
+                <h2 className="max-w-md truncate text-lg font-bold dark:text-white">
+                  {previewFile.name}
+                </h2>
+                <p className="text-xs text-slate-500">{previewFile.type}</p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleDownload(previewFile.url, previewFile.name)
+                  }
+                  className="flex items-center gap-2 rounded-xl bg-slate-100 px-4 py-2 text-sm font-semibold transition hover:bg-slate-200"
+                >
+                  <Download size={16} />
+                  Download
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPreviewFile(null)}
+                  className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+
+            <div className="flex flex-1 items-center justify-center overflow-hidden bg-slate-100 p-4 dark:bg-slate-950">
+              {previewFile.type.startsWith("image/") ? (
+                <img
+                  src={previewFile.url}
+                  alt={previewFile.name}
+                  className="max-h-full max-w-full rounded-lg object-contain"
+                />
+              ) : previewFile.type === "application/pdf" ? (
+                <iframe
+                  src={previewFile.url}
+                  title={previewFile.name}
+                  className="h-full w-full rounded-lg border-none"
+                />
+              ) : (
+                <div className="space-y-4 text-center">
+                  <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl bg-slate-200 dark:bg-slate-800">
+                    <FileIcon size={40} className="text-slate-400" />
+                  </div>
+                  <p className="text-slate-500">
+                    Preview not available for this file type.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleDownload(previewFile.url, previewFile.name)
+                    }
+                    className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-6 py-3 font-bold text-white transition hover:bg-blue-700"
+                  >
+                    <Download size={18} />
+                    Download instead
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )
+    : null;
 
   return (
     <div className="min-h-screen bg-slate-50 p-4 text-slate-900 dark:bg-[#0b1120] dark:text-slate-100 md:p-6">
@@ -756,28 +631,6 @@ useEffect(() => {
                 ))
               ) : rows.length > 0 ? (
                 rows.map((row) => {
-                  const decisionContext = {
-                    applicationStatus: row.applicationStatus,
-                    lenderStatus: row.lenderStatus,
-                    lenderDecision: row.lenderDecision,
-                  };
-                  const canTakeDecision = canLenderTakeDecision(decisionContext);
-                  const showRequestDocuments = canShowRequestDocumentsAction({
-                    lenderDecision: row.lenderDecision,
-                    canRequestDocuments: canRequestDocs,
-                    canTakeDecision,
-                  });
-                  const showFinalApproval = canShowFinalApprovalAction({
-                    lenderDecision: row.lenderDecision,
-                    canDecide,
-                    canTakeDecision,
-                  });
-                  const showReject = canShowRejectAction({
-                    lenderDecision: row.lenderDecision,
-                    canDecide,
-                    canTakeDecision,
-                  });
-
                   return (
                     <tr
                       key={row.applicationLenderId}
@@ -917,166 +770,18 @@ useEffect(() => {
                                       top: dropdownPos.top,
                                       left: dropdownPos.left,
                                     }}
-                                    className="w-56 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 py-2 z-50 animate-in fade-in zoom-in-95 backdrop-blur"
+                                    className="w-48 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 py-2 z-50 animate-in fade-in zoom-in-95 backdrop-blur"
                                   >
-                                    {/* App Preview */}
                                     <button
                                       onClick={() => {
                                         openApplicationPreview(row);
                                         setActiveDropdown(null);
                                       }}
-                                      className="mx-1 flex w-full items-center gap-3 rounded-lg px-4 py-2.5 text-sm text-blue-600 transition hover:bg-blue-100 dark:hover:bg-blue-900/20"
+                                      className="mx-1 flex w-full items-center gap-3 rounded-lg px-4 py-2.5 text-sm text-[#0F766E] transition hover:bg-green-100 dark:hover:bg-green-900/20"
                                     >
                                       <Eye size={16} />
-                                      App Preview
+                                      Open Application
                                     </button>
-
-                                    {/* View */}
-                                    {/* <button
-                                      onClick={() => {
-                                        fetchLenderApplicationDetail(
-                                          row.applicationLenderId,
-                                        );
-                                        setActiveDropdown(null);
-                                      }}
-                                      className="flex items-center gap-3 w-full px-4 py-2.5 text-sm 
-text-indigo-600 bg-indigo-50/50 dark:bg-indigo-900/10 
-hover:bg-indigo-100 dark:hover:bg-indigo-900/20 
-transition rounded-lg mx-1"
-                                    >
-                                      <Eye size={16} />
-                                      View Details
-                                    </button> */}
-
-                                    {/* Documents */}
-                                    {/* <button
-                                      onClick={() => {
-                                        fetchDocuments(row.applicationLenderId);
-                                        setActiveDropdown(null);
-                                      }}
-                                      className="flex items-center gap-3 w-full px-4 py-2.5 text-sm 
-text-amber-600 bg-amber-50/50 dark:bg-amber-900/10 
-hover:bg-amber-100 dark:hover:bg-amber-900/20 
-transition rounded-lg mx-1"
-                                    >
-                                      <FileIcon size={16} />
-                                      Documents
-                                      {(row.pendingDocumentsCount ?? 0) > 0 && (
-                                        <span className="ml-auto bg-amber-500 text-white text-[10px] px-2 py-0.5 rounded-full">
-                                          {row.pendingDocumentsCount}
-                                        </span>
-                                      )}
-                                    </button> */}
-
-                                    <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
-
-                                    {/* Generate LOI (only if NOT generated) */}
-                                    {canCreateLoi && !row.loiGenerated && (
-                                      <button
-                                        onClick={() => {
-                                          handleGenerateLOI(
-                                            row.applicationLenderId,
-                                          );
-                                          setActiveDropdown(null);
-                                        }}
-                                        className="flex items-center gap-3 w-full px-4 py-2.5 text-sm 
-text-purple-600 bg-purple-50/50 dark:bg-purple-900/10 
-hover:bg-purple-100 dark:hover:bg-purple-900/20 
-transition rounded-lg mx-1"
-                                      >
-                                        <FileText size={16} />
-                                        Generate LOI
-                                      </button>
-                                    )}
-
-                                    {/* View LOI (only if generated) */}
-                                    {row.loiGenerated && (
-                                      <button
-                                        onClick={() => {
-                                          handleViewLOI(
-                                            row.applicationLenderId,
-                                          );
-                                          setActiveDropdown(null);
-                                        }}
-                                        className="flex items-center gap-3 w-full px-4 py-2.5 text-sm 
-text-purple-600 bg-purple-50/50 dark:bg-purple-900/10 
-hover:bg-purple-100 dark:hover:bg-purple-900/20 
-transition rounded-lg mx-1"
-                                      >
-                                        <Eye size={16} />
-                                        View LOI
-                                      </button>
-                                    )}
-
-                                    {/* Request documents (initial conditional step) */}
-                                    {showRequestDocuments && (
-                                      <button
-                                        onClick={() => {
-                                          setActiveDropdown(null);
-                                          openRequestDocumentsTab(row);
-                                        }}
-                                        className="flex items-center gap-3 w-full px-4 py-2.5 text-sm 
-text-amber-600 bg-amber-50/50 dark:bg-amber-900/10 
-hover:bg-amber-100 dark:hover:bg-amber-900/20 
-transition rounded-lg mx-1"
-                                      >
-                                        <FileIcon size={16} />
-                                        Request Documents
-                                        {(row.pendingDocumentsCount ?? 0) > 0 && (
-                                          <span className="ml-auto bg-amber-500 text-white text-[10px] px-2 py-0.5 rounded-full">
-                                            {row.pendingDocumentsCount}
-                                          </span>
-                                        )}
-                                      </button>
-                                    )}
-
-                                    {/* Final approval after docs requested */}
-                                    {showFinalApproval && (
-                                      <button
-                                        onClick={() => {
-                                          setActiveDropdown(null);
-                                          setDecisionModal({
-                                            type: "APPROVED",
-                                            applicationId:
-                                              row.applicationLenderId,
-                                          });
-                                          setDecisionForm({
-                                            approvedAmount: "",
-                                            interestRate: "",
-                                            notes: "",
-                                          });
-                                          setDecisionFormErrors({});
-                                        }}
-                                        className="flex items-center gap-3 w-full px-4 py-2.5 text-sm rounded-lg mx-1 transition text-emerald-600 bg-emerald-50/50 dark:bg-emerald-900/10 hover:bg-emerald-100 dark:hover:bg-emerald-900/20"
-                                      >
-                                        <CheckCircle size={16} />
-                                        Final Approval
-                                      </button>
-                                    )}
-
-                                    {/* Reject */}
-                                    {showReject && (
-                                      <button
-                                        onClick={() => {
-                                          setActiveDropdown(null);
-                                          setDecisionModal({
-                                            type: "DECLINED",
-                                            applicationId:
-                                              row.applicationLenderId,
-                                          });
-                                          setDecisionForm({
-                                            approvedAmount: "",
-                                            interestRate: "",
-                                            notes: "",
-                                          });
-                                          setDecisionFormErrors({});
-                                        }}
-                                        className="flex items-center gap-3 w-full px-4 py-2.5 text-sm rounded-lg mx-1 transition text-rose-600 bg-rose-50/50 dark:bg-rose-900/10 hover:bg-rose-100 dark:hover:bg-rose-900/20"
-                                      >
-                                        <XCircle size={16} />
-                                        Reject
-                                      </button>
-                                    )}
                                   </div>
                                 </>,
                                 document.body,
@@ -1187,371 +892,8 @@ transition rounded-lg mx-1"
           )}
         </div>
 
-        {decisionModal.type &&
-              createPortal(
-                <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-                  <div className="w-full max-w-lg bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800">
-                    {/* Header */}
-                    <div className="flex items-center justify-between px-6 py-4 border-b dark:border-slate-800">
-                      <h2 className="text-lg font-bold">
-                        {decisionModal.type === "APPROVED"
-                          ? "Final Approval"
-                          : "Reject Application"}
-                      </h2>
-
-                      <button
-                        onClick={closeDecisionModal}
-                        className="text-sm px-3 py-1 rounded-lg bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400"
-                      >
-                        Close
-                      </button>
-                    </div>
-
-                    {/* Form */}
-                    <div className="p-6 space-y-5">
-                      {decisionModal.type === "APPROVED" && (
-                        <>
-                          {/* Approved Amount */}
-                          <div>
-                            <label className="block text-sm font-medium mb-1">
-                              Approved Amount <span className="text-red-500">*</span>
-                            </label>
-                            <input
-                              type="number"
-                              required
-                              min="0"
-                              placeholder="Enter approved amount"
-                              value={decisionForm.approvedAmount}
-                              onChange={(e) => {
-                                setDecisionForm({
-                                  ...decisionForm,
-                                  approvedAmount: e.target.value,
-                                });
-                                if (decisionFormErrors.approvedAmount) {
-                                  setDecisionFormErrors((prev) => ({
-                                    ...prev,
-                                    approvedAmount: undefined,
-                                  }));
-                                }
-                              }}
-                              className={`w-full px-3 py-2 rounded-xl border bg-white dark:bg-slate-800 focus:ring-2 focus:ring-emerald-500 outline-none ${
-                                decisionFormErrors.approvedAmount
-                                  ? "border-red-500"
-                                  : "border-slate-200 dark:border-slate-700"
-                              }`}
-                            />
-                            {decisionFormErrors.approvedAmount && (
-                              <p className="mt-1 text-xs text-red-500">
-                                {decisionFormErrors.approvedAmount}
-                              </p>
-                            )}
-                          </div>
-
-                          <div>
-                            <label className="block text-sm font-medium mb-1">
-                              Interest Rate (%) <span className="text-red-500">*</span>
-                            </label>
-                            <input
-                              type="number"
-                              required
-                              step="0.01"
-                              min="0"
-                              max="100"
-                              value={decisionForm.interestRate}
-                              onChange={(e) => {
-                                setDecisionForm({
-                                  ...decisionForm,
-                                  interestRate: e.target.value,
-                                });
-                                if (decisionFormErrors.interestRate) {
-                                  setDecisionFormErrors((prev) => ({
-                                    ...prev,
-                                    interestRate: undefined,
-                                  }));
-                                }
-                              }}
-                              placeholder="Enter interest rate"
-                              className={`w-full px-3 py-2 rounded-xl border bg-white dark:bg-slate-800 focus:ring-2 focus:ring-emerald-500 outline-none ${
-                                decisionFormErrors.interestRate
-                                  ? "border-red-500"
-                                  : "border-slate-200 dark:border-slate-700"
-                              }`}
-                            />
-                            {decisionFormErrors.interestRate && (
-                              <p className="mt-1 text-xs text-red-500">
-                                {decisionFormErrors.interestRate}
-                              </p>
-                            )}
-                          </div>
-                        </>
-                      )}
-
-                      {/* Notes */}
-                      <div>
-                        <label className="block text-sm font-medium mb-1">
-                          Notes <span className="text-red-500">*</span>
-                        </label>
-                        <textarea
-                          required
-                          rows={4}
-                          value={decisionForm.notes}
-                          onChange={(e) => {
-                            setDecisionForm({
-                              ...decisionForm,
-                              notes: e.target.value,
-                            });
-                            if (decisionFormErrors.notes) {
-                              setDecisionFormErrors((prev) => ({
-                                ...prev,
-                                notes: undefined,
-                              }));
-                            }
-                          }}
-                          placeholder={
-                            decisionModal.type === "APPROVED"
-                              ? "Approval notes..."
-                              : "Reason for rejection..."
-                          }
-                          className={`w-full px-3 py-2 rounded-xl border bg-white dark:bg-slate-800 focus:ring-2 focus:ring-blue-500 outline-none ${
-                            decisionFormErrors.notes
-                              ? "border-red-500"
-                              : "border-slate-200 dark:border-slate-700"
-                          }`}
-                        />
-                        {decisionFormErrors.notes && (
-                          <p className="mt-1 text-xs text-red-500">
-                            {decisionFormErrors.notes}
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="flex justify-end gap-3 pt-4">
-                        <button
-                          type="button"
-                          onClick={closeDecisionModal}
-                          disabled={decisionSubmitting}
-                          className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 disabled:opacity-60"
-                        >
-                          Cancel
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={handleDecisionSubmit}
-                          disabled={decisionSubmitting}
-                          className={`px-4 py-2 rounded-xl text-white font-semibold disabled:opacity-60
-    ${
-      decisionModal.type === "APPROVED"
-        ? "bg-emerald-600 hover:bg-emerald-700"
-        : "bg-rose-600 hover:bg-rose-700"
-    }
-  `}
-                        >
-                          {decisionSubmitting
-                            ? "Processing..."
-                            : decisionModal.type === "APPROVED"
-                              ? "Confirm Final Approval"
-                              : "Confirm Rejection"}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>,
-                document.body,
-              )}
-
-            {/* ================= MULTI-FILE GRID MODAL ================= */}
-            {multiFileModal.isOpen &&
-              multiFileModal.doc &&
-              createPortal(
-                <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-                  <div className="w-full max-w-3xl bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 flex flex-col max-h-[80vh]">
-                    <div className="flex items-center justify-between px-6 py-4 border-b dark:border-slate-800">
-                      <div>
-                        <h2 className="text-lg font-bold">
-                          Select File to Preview
-                        </h2>
-                        <p className="text-xs text-slate-500">
-                          {multiFileModal.doc.documentName} (
-                          {multiFileModal.doc.uploadedCount} uploads)
-                        </p>
-                      </div>
-                      <button
-                        onClick={() =>
-                          setMultiFileModal({ isOpen: false, doc: null })
-                        }
-                        className="text-sm px-3 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200"
-                      >
-                        Back
-                      </button>
-                    </div>
-
-                    <div className="flex-1 overflow-y-auto p-6">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {multiFileModal.doc.uploadedFiles?.map((file: any) => (
-                          <div
-                            key={file.uploadId}
-                            className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 hover:border-blue-500 transition-all group"
-                          >
-                            <div className="flex items-start gap-3">
-                              <div className="p-2 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-400">
-                                <FileIcon size={20} />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p
-                                  className="text-sm font-semibold truncate"
-                                  title={file.fileName}
-                                >
-                                  {file.fileName}
-                                </p>
-                                <p className="text-[10px] text-slate-500 mt-1 uppercase">
-                                  {file.fileMimeType.split("/")[1] || "FILE"}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="mt-4 flex gap-2">
-                              <button
-                                onClick={() =>
-                                  setPreviewFile({
-                                    url: `${API_BASE}${file.fileUrl}`,
-                                    type: file.fileMimeType,
-                                    name: file.fileName,
-                                  })
-                                }
-                                className="flex-1 py-2 text-xs font-bold bg-blue-50 text-blue-600 dark:bg-blue-600/10 dark:text-blue-400 rounded-lg hover:bg-blue-600 hover:text-white transition-all flex items-center justify-center gap-1"
-                              >
-                                <Eye size={14} /> Preview
-                              </button>
-                              <button
-                                onClick={() =>
-                                  handleDownload(
-                                    `${API_BASE}${file.fileUrl}`,
-                                    file.fileName,
-                                  )
-                                }
-                                className="p-2 bg-slate-50 text-slate-600 dark:bg-slate-800 dark:text-slate-400 rounded-lg hover:bg-slate-200 transition-all"
-                              >
-                                <Download size={14} />
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>,
-                document.body,
-              )}
-
-            {/* ================= FILE PREVIEW MODAL ================= */}
-            {previewFile &&
-              createPortal(
-                <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
-                  <div className="w-full max-w-5xl bg-white dark:bg-slate-900 rounded-2xl flex flex-col h-[90vh] overflow-hidden">
-                    {/* Header */}
-                    <div className="flex items-center justify-between px-6 py-4 border-b dark:border-slate-800 shrink-0">
-                      <div>
-                        <h2 className="text-lg font-bold truncate max-w-md dark:text-white">
-                          {previewFile.name}
-                        </h2>
-                        <p className="text-xs text-slate-500">
-                          {previewFile.type}
-                        </p>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() =>
-                            handleDownload(previewFile.url, previewFile.name)
-                          }
-                          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-100 text-sm font-semibold hover:bg-slate-200 transition"
-                        >
-                          <Download size={16} />
-                          Download
-                        </button>
-                        <button
-                          onClick={() => setPreviewFile(null)}
-                          className="px-4 py-2 rounded-xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700 transition"
-                        >
-                          Close
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Preview Area */}
-                    <div className="flex-1 bg-slate-100 dark:bg-slate-950 flex items-center justify-center p-4 overflow-hidden">
-                      {previewFile.type.startsWith("image/") ? (
-                        <img
-                          src={previewFile.url}
-                          alt={previewFile.name}
-                          className="max-w-full max-h-full object-contain rounded-lg"
-                        />
-                      ) : previewFile.type === "application/pdf" ? (
-                        <iframe
-                          src={previewFile.url}
-                          title={previewFile.name}
-                          className="w-full h-full rounded-lg border-none"
-                        />
-                      ) : (
-                        <div className="text-center space-y-4">
-                          <div className="w-20 h-20 bg-slate-200 dark:bg-slate-800 rounded-2xl flex items-center justify-center mx-auto">
-                            <FileIcon size={40} className="text-slate-400" />
-                          </div>
-                          <p className="text-slate-500">
-                            Preview not available for this file type.
-                          </p>
-                          <button
-                            onClick={() =>
-                              handleDownload(previewFile.url, previewFile.name)
-                            }
-                            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 transition"
-                          >
-                            <Download size={18} />
-                            Download instead
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>,
-                document.body,
-              )}
-
-            {loiPreview &&
-              createPortal(
-                <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
-                  <div className="w-full max-w-6xl bg-white dark:bg-slate-900 rounded-2xl flex flex-col h-[90vh] overflow-hidden">
-                    {/* Header */}
-                    <div className="flex items-center justify-between px-6 py-4 border-b dark:border-slate-800">
-                      <h2 className="text-lg font-bold">LOI Preview</h2>
-
-                      <button
-                        onClick={() => {
-                          URL.revokeObjectURL(loiPreview);
-                          setLoiPreview(null);
-                        }}
-                        className="px-4 py-2 rounded-xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700"
-                      >
-                        Close
-                      </button>
-                    </div>
-
-                    {/* Loading */}
-                    {loiLoading ? (
-                      <div className="flex items-center justify-center flex-1">
-                        <Loader2 className="animate-spin w-6 h-6 text-blue-500" />
-                      </div>
-                    ) : (
-                      <iframe
-                        src={loiPreview}
-                        className="w-full flex-1 border-none"
-                      />
-                    )}
-                  </div>
-                </div>,
-                document.body,
-              )}
-
+      {multiFileModalPortal}
+      {previewFilePortal}
     </div>
   );
 }
