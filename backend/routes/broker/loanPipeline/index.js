@@ -3,6 +3,10 @@ async function loanPipelineRoutes(fastify) {
   fastify.register(require("./uploadSubmissionDocument"), { prefix: "" });
   fastify.register(require("./listLoi"));
   fastify.register(require("./viewLoi"));
+  fastify.register(require("./brokerLoi")({
+    tagPrefix: "Broker",
+    requireBrokerUserId: false,
+  }), { prefix: "" });
   fastify.register(require("./listLender"));
 
   fastify.register(require("./sendClientLink"));

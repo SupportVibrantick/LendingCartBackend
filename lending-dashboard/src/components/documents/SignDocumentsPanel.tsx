@@ -15,6 +15,7 @@ import {
   X,
 } from "lucide-react";
 import { canMarkSignSeen } from "../../lib/lenderPermissions";
+import { buildApiPublicFileUrl } from "../../lib/publicFileUrl";
 
 const SigCanvas = SignatureCanvas as unknown as React.FC<any>;
 
@@ -322,8 +323,9 @@ export default function SignDocumentsPanel({
   };
 
   const openFile = (fileUrl?: string | null) => {
-    if (!fileUrl) return;
-    window.open(`${apiBase}${fileUrl}`, "_blank");
+    const resolved = buildApiPublicFileUrl(apiBase, fileUrl);
+    if (!resolved) return;
+    window.open(resolved, "_blank");
   };
 
   const downloadRemoteFile = async (
@@ -334,7 +336,10 @@ export default function SignDocumentsPanel({
     try {
       if (trackId) setDownloadingId(trackId);
 
-      const res = await fetch(`${apiBase}${fileUrl}`, {
+      const resolved = buildApiPublicFileUrl(apiBase, fileUrl);
+      if (!resolved) throw new Error("File URL missing");
+
+      const res = await fetch(resolved, {
         headers: getAuthHeaders(),
       });
 
@@ -525,7 +530,14 @@ export default function SignDocumentsPanel({
       );
     }
 
-    const fileUrl = `${apiBase}${row.templateFileUrl}`;
+    const fileUrl = buildApiPublicFileUrl(apiBase, row.templateFileUrl);
+    if (!fileUrl) {
+      return (
+        <div className="flex h-full min-h-[320px] items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-500">
+          Template preview unavailable
+        </div>
+      );
+    }
 
     if (isPdfTemplate(row.templateMimeType, row.templateFileUrl)) {
       return (
@@ -577,7 +589,14 @@ export default function SignDocumentsPanel({
       );
     }
 
-    const fileUrl = `${apiBase}${signed.fileUrl}`;
+    const fileUrl = buildApiPublicFileUrl(apiBase, signed.fileUrl);
+    if (!fileUrl) {
+      return (
+        <div className="flex h-full min-h-[320px] items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-500">
+          Signed copy preview unavailable
+        </div>
+      );
+    }
 
     if (isPdfTemplate(signed.fileMimeType, signed.fileUrl)) {
       return (

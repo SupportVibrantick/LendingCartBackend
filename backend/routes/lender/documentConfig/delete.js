@@ -2,6 +2,10 @@
  * @param {import("fastify").FastifyInstance} fastify
  */
 async function deleteLenderDocumentConfigRoutes(fastify) {
+  const {
+    deactivateOrphanedCustomDocumentType,
+  } = require("../../../utils/documents/customDocumentTypeCleanup");
+
   fastify.delete(
     "/:id",
     {
@@ -43,6 +47,13 @@ async function deleteLenderDocumentConfigRoutes(fastify) {
             lenderProduct: {
               select: { lenderOrgId: true },
             },
+            documentType: {
+              select: {
+                id: true,
+                isCustom: true,
+                createdByOrgId: true,
+              },
+            },
           },
         });
 
@@ -66,9 +77,21 @@ async function deleteLenderDocumentConfigRoutes(fastify) {
           where: { id },
         });
 
+        let customTypeDeactivated = false;
+        if (existing.documentType?.isCustom) {
+          customTypeDeactivated = await deactivateOrphanedCustomDocumentType(
+            prisma,
+            existing.documentType.id,
+            lenderOrgId,
+          );
+        }
+
         return reply.send({
           success: true,
-          message: "Document config deleted successfully",
+          message: customTypeDeactivated
+            ? "Document requirement and unused custom document type removed"
+            : "Document config deleted successfully",
+          data: { customTypeDeactivated },
         });
 
       } catch (error) {

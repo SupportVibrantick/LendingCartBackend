@@ -108,6 +108,9 @@ module.exports = async function brokerRoutes(fastify, opts) {
     instance.register(require("./notifications"), {
       prefix: "/notifications",
     });
+    instance.register(require("./documentTypes"), {
+      prefix: "/document-types",
+    });
     // Later extensions
     // instance.register(documentRoutes, { prefix: "/documents" });
     // instance.register(applicationRoutes, { prefix: "/applications" });

@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useLocation, useNavigate } from "react-router-dom";
+import Swal from "sweetalert2";
 import {
   ArrowLeft,
   Building2,
   Check,
+  CheckCircle,
   ChevronLeft,
   ChevronRight,
   ClipboardList,
@@ -22,6 +24,7 @@ import {
   Upload,
   User,
   ChevronDown,
+  XCircle,
   type LucideIcon,
 } from "lucide-react";
 import toast from "react-hot-toast";
@@ -33,15 +36,21 @@ import { formatDocumentStatusLabel } from "../../lib/documentStatus";
 import { getLenderDocumentSourceDisplay } from "../../lib/documentSource";
 import {
   canLenderRequestDocuments,
+  canLenderTakeDecision,
+  canShowRejectAction,
+  formatLoanProduct,
   getLenderRequestDocumentsDisabledReason,
+  normalizeLenderDecision,
 } from "../../lib/loanPipelineUtils";
 import {
+  canDecideApplications,
   canGenerateLoi,
   canRequestDocuments,
   canUploadSignDocuments,
 } from "../../lib/lenderPermissions";
 import LenderSubmissionDetailsView from "../../components/submissions/LenderSubmissionDetailsView";
 import SignDocumentsPanel from "../../components/documents/SignDocumentsPanel";
+import { buildApiPublicFileUrl } from "../../lib/publicFileUrl";
 import LoiUnderwritingFormModal from "../../components/loi/LoiUnderwritingFormModal";
 import {
   getNumericFieldValue,
@@ -190,6 +199,24 @@ function getAuthHeaders(): HeadersInit {
   };
 }
 
+type DecisionFormErrors = {
+  approvedAmount?: string;
+  interestRate?: string;
+  notes?: string;
+};
+
+function getSwalTheme() {
+  const isDark = document.documentElement.classList.contains("dark");
+
+  return {
+    background: isDark ? "#1e293b" : "#ffffff",
+    color: isDark ? "#e2e8f0" : "#1e293b",
+    customClass: {
+      popup: "rounded-2xl",
+    },
+  };
+}
+
 const tabMeta: Array<{ id: PreviewTab; label: string }> = [
   { id: "details", label: "View Details" },
   { id: "requestDocs", label: "Request Documents" },
@@ -262,8 +289,16 @@ export default function LoanPreview() {
     useState<DocumentSourceFilter>("all");
   const [loiLoading, setLoiLoading] = useState(false);
   const [loiGenerating, setLoiGenerating] = useState(false);
+  const [loiSendingToBroker, setLoiSendingToBroker] = useState(false);
   const [loiFormOpen, setLoiFormOpen] = useState(shouldOpenLoiForm);
   const [loiUrl, setLoiUrl] = useState<string | null>(null);
+  const [signedBrokerLoi, setSignedBrokerLoi] = useState<any>(null);
+  const [signedBrokerLoiUrl, setSignedBrokerLoiUrl] = useState<string | null>(
+    null,
+  );
+  const [loiViewMode, setLoiViewMode] = useState<"lender" | "signed-broker">(
+    "lender",
+  );
   const [loanProducts, setLoanProducts] = useState<any[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [customDocs, setCustomDocs] = useState<string[]>([]);
@@ -287,6 +322,18 @@ export default function LoanPreview() {
     loading: false,
   });
   const [requestLoading, setRequestLoading] = useState(false);
+  const canDecide = useMemo(() => canDecideApplications(), []);
+  const [decisionModal, setDecisionModal] = useState<{
+    type: "APPROVED" | "DECLINED" | null;
+  }>({ type: null });
+  const [decisionForm, setDecisionForm] = useState({
+    approvedAmount: "",
+    interestRate: "",
+    notes: "",
+  });
+  const [decisionFormErrors, setDecisionFormErrors] =
+    useState<DecisionFormErrors>({});
+  const [decisionSubmitting, setDecisionSubmitting] = useState(false);
 
   const handleAddCustomDoc = () => {
     if (!customInput.trim()) return;
@@ -320,22 +367,6 @@ export default function LoanPreview() {
       }
     };
   }, [loiUrl]);
-
-  const PRODUCT_LABELS: Record<string, string> = {
-    FIX_AND_FLIP_LOAN_1_TO_4_UNITS: "FIX & FLIP",
-    DSCR_LOAN_1_TO_4_UNITS: "DSCR",
-    CONSTRUCTION_LOAN_1_TO_4_UNITS: "CONSTRUCTION",
-    BRIDGE_LOAN_1_TO_4_UNITS: "BRIDGE LOAN",
-    SBA_504_REAL_ESTATE_AND_EQUIPMENT: "SBA 504",
-    USDA_BI: "USDA B&I",
-    AGENCY_LOAN_MULTIFAMILY: "AGENCY MULTIFAMILY",
-    CRE_PERMANENT_LOAN: "CRE PERMANENT",
-    RENTAL_PORTFOLIO: "RENTAL PORTFOLIO",
-    PURCHASE_ORDER_FINANCE: "PURCHASE ORDER FINANCE",
-    ACCOUNTS_PAYABLE_FINANCE: "AP SUPPLY CHAIN",
-    ACCOUNTS_RECEIVABLE: "ACCOUNTS RECEIVABLE",
-    INVOICE_FACTORING: "AR FACTORING",
-  };
 
   const Metric = ({ label, value }: any) => {
     return (
@@ -435,7 +466,15 @@ export default function LoanPreview() {
 
   useEffect(() => {
     setSubmissionDetail(null);
+    setSignedBrokerLoi(null);
+    setLoiViewMode("lender");
     setLoiUrl((prev) => {
+      if (prev?.startsWith("blob:")) {
+        URL.revokeObjectURL(prev);
+      }
+      return null;
+    });
+    setSignedBrokerLoiUrl((prev) => {
       if (prev?.startsWith("blob:")) {
         URL.revokeObjectURL(prev);
       }
@@ -445,7 +484,26 @@ export default function LoanPreview() {
 
   const canCreateLoi = useMemo(() => canGenerateLoi(), []);
   const loiGenerated = Boolean(submissionDetail?.loiUrl);
-  const showLoiTab = canCreateLoi || loiGenerated || Boolean(isLoi);
+  const loiSentToBroker = Boolean(submissionDetail?.loiSentToBrokerAt);
+  const hasSignedBrokerLoi = Boolean(signedBrokerLoi?.signedUpload?.fileUrl);
+  const showLoiTab =
+    canCreateLoi || loiGenerated || Boolean(isLoi) || hasSignedBrokerLoi;
+
+  const resolvedLoanProductName = useMemo(() => {
+    const code = submissionDetail?.loanApplication?.loanProductCode;
+    if (submissionDetail?.loanProduct?.name) {
+      return submissionDetail.loanProduct.name;
+    }
+
+    const matchedProduct = loanProducts.find(
+      (product) => product.loanProductCode === code,
+    );
+    if (matchedProduct?.loanProduct?.name || matchedProduct?.name) {
+      return matchedProduct.loanProduct?.name || matchedProduct.name;
+    }
+
+    return formatLoanProduct(code);
+  }, [submissionDetail, loanProducts]);
 
   const fetchLenderApplicationDetail = async () => {
     if (!applicationLenderId) return;
@@ -615,6 +673,14 @@ export default function LoanPreview() {
   };
 
   const handleRequestDocuments = async () => {
+    if (!canRequestDocuments) {
+      toast.error(
+        requestDocumentsDisabledReason ||
+          "Documents cannot be requested for this application.",
+      );
+      return;
+    }
+
     try {
       setRequestLoading(true);
 
@@ -669,34 +735,76 @@ export default function LoanPreview() {
     }
   };
 
+  const loadSignedBrokerLoiPreview = async (fileUrl: string, force = false) => {
+    if (signedBrokerLoiUrl && !force) return;
+
+    const resolved = buildApiPublicFileUrl(API_BASE, fileUrl);
+    if (!resolved) {
+      throw new Error("Signed broker LOI file URL missing");
+    }
+
+    const fileRes = await fetch(resolved, {
+      headers: getAuthHeaders(),
+    });
+
+    if (!fileRes.ok) {
+      throw new Error("Failed to load signed broker LOI file");
+    }
+
+    const blob = await fileRes.blob();
+    const blobUrl = URL.createObjectURL(blob);
+
+    setSignedBrokerLoiUrl((prev) => {
+      if (prev?.startsWith("blob:")) {
+        URL.revokeObjectURL(prev);
+      }
+      return blobUrl;
+    });
+  };
+
   const loadLoiPreview = async (loiPath?: string, force = false) => {
     if (!applicationLenderId) return;
-    if (loiUrl && !force) return;
+    if (loiUrl && signedBrokerLoiUrl && !force) return;
 
     try {
       setLoiLoading(true);
 
       let resolvedPath = loiPath;
 
-      if (!resolvedPath) {
-        const res = await fetch(
-          `${API_BASE}/lender/loan-pipeline/${applicationLenderId}/view-loi`,
-          {
-            headers: getAuthHeaders(),
-          },
-        );
+      const res = await fetch(
+        `${API_BASE}/lender/loan-pipeline/${applicationLenderId}/view-loi`,
+        {
+          headers: getAuthHeaders(),
+        },
+      );
 
-        const json = await res.json();
-        if (!res.ok || !json.success) {
-          throw new Error(json.message || "Failed to fetch LOI");
-        }
-
-        if (!json.data?.loiPath) {
-          throw new Error("LOI not generated yet");
-        }
-
-        resolvedPath = json.data.loiPath;
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Failed to fetch LOI");
       }
+
+      setSignedBrokerLoi(json.data?.signedBrokerLoi || null);
+
+      if (json.data?.signedBrokerLoi?.signedUpload?.fileUrl) {
+        await loadSignedBrokerLoiPreview(
+          json.data.signedBrokerLoi.signedUpload.fileUrl,
+          force,
+        );
+        if (!json.data?.loiPath) {
+          setLoiViewMode("signed-broker");
+        } else if (force || loiViewMode === "signed-broker") {
+          setLoiViewMode("signed-broker");
+        }
+      }
+
+      if (!json.data?.loiPath) {
+        if (json.data?.signedBrokerLoi?.signedUpload?.fileUrl) {
+          return;
+        }
+        throw new Error("LOI not generated yet");
+      }
+
+      resolvedPath = json.data.loiPath;
 
       const fileUrl = `${API_BASE}/public${resolvedPath}`;
       const fileRes = await fetch(fileUrl, {
@@ -717,15 +825,18 @@ export default function LoanPreview() {
         return blobUrl;
       });
     } catch (err: any) {
-      toast.error(err.message || "Failed to load LOI");
+      if (!signedBrokerLoi?.signedUpload?.fileUrl) {
+        toast.error(err.message || "Failed to load LOI");
+      }
     } finally {
       setLoiLoading(false);
     }
   };
 
-  const handleGenerateLOI = async (
-    lenderTerms: ReturnType<typeof serializeLoiUnderwritingTerms>,
-  ) => {
+  const handleGenerateLOI = async (payload: {
+    lenderTerms: ReturnType<typeof serializeLoiUnderwritingTerms>;
+    branding: { brandName: string; logoUrl: string };
+  }) => {
     if (!applicationLenderId) return;
 
     try {
@@ -736,7 +847,7 @@ export default function LoanPreview() {
         {
           method: "POST",
           headers: getAuthHeaders(),
-          body: JSON.stringify({ lenderTerms }),
+          body: JSON.stringify(payload),
         },
       );
 
@@ -746,11 +857,19 @@ export default function LoanPreview() {
         throw new Error(json.message || "Failed to generate LOI");
       }
 
-      toast.success("Term Sheet / LOI generated successfully");
+      toast.success(
+        "Term sheet generated. Review it below, then send it to the broker when ready.",
+      );
       setLoiFormOpen(false);
 
       setSubmissionDetail((prev: any) =>
-        prev ? { ...prev, loiUrl: json.loiUrl } : prev,
+        prev
+          ? {
+              ...prev,
+              loiUrl: json.loiUrl,
+              loiSentToBrokerAt: null,
+            }
+          : prev,
       );
 
       setLoiUrl((prev) => {
@@ -777,6 +896,44 @@ export default function LoanPreview() {
     }
   };
 
+  const handleSendLoiToBroker = async () => {
+    if (!applicationLenderId) return;
+
+    try {
+      setLoiSendingToBroker(true);
+
+      const res = await fetch(
+        `${API_BASE}/lender/loan-pipeline/${applicationLenderId}/send-loi-to-broker`,
+        {
+          method: "POST",
+          headers: getAuthHeaders(),
+          body: JSON.stringify({}),
+        },
+      );
+
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Failed to send LOI to broker");
+      }
+
+      toast.success("LOI sent to broker successfully");
+      setSubmissionDetail((prev: any) =>
+        prev
+          ? {
+              ...prev,
+              loiSentToBrokerAt:
+                json.data?.loiSentToBrokerAt || new Date().toISOString(),
+            }
+          : prev,
+      );
+    } catch (err: any) {
+      toast.error(err.message || "Failed to send LOI to broker");
+    } finally {
+      setLoiSendingToBroker(false);
+    }
+  };
+
   useEffect(() => {
     fetchLoanProducts();
   }, []);
@@ -793,7 +950,7 @@ export default function LoanPreview() {
       fetchDocuments();
     }
 
-    if (activeTab === "loi" && (loiGenerated || isLoi)) {
+    if (activeTab === "loi" && (loiGenerated || isLoi || hasSignedBrokerLoi)) {
       loadLoiPreview();
     }
   }, [
@@ -804,6 +961,7 @@ export default function LoanPreview() {
     documentSourceFilter,
     loiGenerated,
     isLoi,
+    hasSignedBrokerLoi,
   ]);
 
   const latestLenderReview = submissionDetail?.lenderReviews?.[0];
@@ -811,22 +969,204 @@ export default function LoanPreview() {
     latestLenderReview?.reviewStatus || latestLenderReview?.decision || null;
 
   const canRequestDocuments = useMemo(() => {
-    if (!submissionDetail) return true;
+    if (!submissionDetail) return false;
 
     return canLenderRequestDocuments(
       submissionDetail.status,
       latestReviewStatus,
+      loiGenerated,
     );
-  }, [submissionDetail, latestReviewStatus]);
+  }, [submissionDetail, latestReviewStatus, loiGenerated]);
 
   const requestDocumentsDisabledReason = useMemo(
     () =>
       getLenderRequestDocumentsDisabledReason(
         submissionDetail?.status,
         latestReviewStatus,
+        loiGenerated,
       ),
-    [submissionDetail?.status, latestReviewStatus],
+    [submissionDetail?.status, latestReviewStatus, loiGenerated],
   );
+
+  const canTakeDecision = useMemo(
+    () =>
+      canLenderTakeDecision({
+        applicationStatus: submissionDetail?.loanApplication?.status,
+        lenderStatus: submissionDetail?.status,
+        lenderDecision: latestReviewStatus,
+      }),
+    [submissionDetail, latestReviewStatus],
+  );
+
+  const showApproval = useMemo(
+    () =>
+      canShowRejectAction({
+        lenderDecision: latestReviewStatus,
+        canDecide,
+        canTakeDecision,
+      }),
+    [latestReviewStatus, canDecide, canTakeDecision],
+  );
+
+  const approvalButtonLabel =
+    normalizeLenderDecision(latestReviewStatus) === "CONDITIONAL"
+      ? "Final Approval"
+      : "Approve";
+
+  const showReject = useMemo(
+    () =>
+      canShowRejectAction({
+        lenderDecision: latestReviewStatus,
+        canDecide,
+        canTakeDecision,
+      }),
+    [latestReviewStatus, canDecide, canTakeDecision],
+  );
+
+  const closeDecisionModal = () => {
+    setDecisionModal({ type: null });
+    setDecisionForm({
+      approvedAmount: "",
+      interestRate: "",
+      notes: "",
+    });
+    setDecisionFormErrors({});
+    setDecisionSubmitting(false);
+  };
+
+  const openDecisionModal = (type: "APPROVED" | "DECLINED") => {
+    setDecisionModal({ type });
+    setDecisionForm({
+      approvedAmount: loanAmount ? String(loanAmount) : "",
+      interestRate: interestRate ? String(interestRate) : "",
+      notes: "",
+    });
+    setDecisionFormErrors({});
+  };
+
+  const validateDecisionForm = () => {
+    const errors: DecisionFormErrors = {};
+    const notes = decisionForm.notes.trim();
+
+    if (!notes) {
+      errors.notes = "Notes are required";
+    }
+
+    if (decisionModal.type === "APPROVED") {
+      const approvedAmountValue = Number(decisionForm.approvedAmount);
+      if (!decisionForm.approvedAmount.trim()) {
+        errors.approvedAmount = "Approved amount is required";
+      } else if (
+        !Number.isFinite(approvedAmountValue) ||
+        approvedAmountValue <= 0
+      ) {
+        errors.approvedAmount =
+          "Enter a valid approved amount greater than 0";
+      }
+
+      const interestRateValue = Number(decisionForm.interestRate);
+      if (!decisionForm.interestRate.trim()) {
+        errors.interestRate = "Interest rate is required";
+      } else if (
+        !Number.isFinite(interestRateValue) ||
+        interestRateValue < 0 ||
+        interestRateValue > 100
+      ) {
+        errors.interestRate = "Enter a valid interest rate between 0 and 100";
+      }
+    }
+
+    setDecisionFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleDecisionSubmit = async () => {
+    if (!applicationLenderId || !decisionModal.type) return;
+    if (!validateDecisionForm()) {
+      await Swal.fire({
+        title: "Missing required fields",
+        text: "Please complete all required fields before continuing.",
+        icon: "warning",
+        confirmButtonColor: "#0F766E",
+        ...getSwalTheme(),
+      });
+      return;
+    }
+
+    const isApproval = decisionModal.type === "APPROVED";
+    const confirmResult = await Swal.fire({
+      title: isApproval ? "Confirm final approval?" : "Confirm rejection?",
+      text: isApproval
+        ? "This will mark the application as approved."
+        : "This will mark the application as rejected.",
+      icon: isApproval ? "question" : "warning",
+      showCancelButton: true,
+      confirmButtonColor: isApproval ? "#059669" : "#dc2626",
+      cancelButtonColor: "#6b7280",
+      confirmButtonText: isApproval ? "Yes, approve" : "Yes, reject",
+      cancelButtonText: "Cancel",
+      ...getSwalTheme(),
+    });
+
+    if (!confirmResult.isConfirmed) return;
+
+    try {
+      setDecisionSubmitting(true);
+
+      const payload =
+        decisionModal.type === "APPROVED"
+          ? {
+              decision: "APPROVED",
+              approvedAmount: Number(decisionForm.approvedAmount),
+              interestRate: Number(decisionForm.interestRate),
+              notes: decisionForm.notes.trim(),
+            }
+          : {
+              decision: "DECLINED",
+              notes: decisionForm.notes.trim(),
+            };
+
+      const res = await fetch(
+        `${API_BASE}/lender/loan-pipeline/${applicationLenderId}/decision`,
+        {
+          method: "PATCH",
+          headers: getAuthHeaders(),
+          body: JSON.stringify(payload),
+        },
+      );
+
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Decision failed");
+      }
+
+      closeDecisionModal();
+
+      await Swal.fire({
+        title: isApproval ? "Application approved" : "Application rejected",
+        text: isApproval
+          ? "Final approval has been recorded successfully."
+          : "The application has been rejected successfully.",
+        icon: "success",
+        timer: 1800,
+        showConfirmButton: false,
+        ...getSwalTheme(),
+      });
+
+      await fetchLenderApplicationDetail();
+    } catch (err: any) {
+      await Swal.fire({
+        title: isApproval ? "Approval failed" : "Rejection failed",
+        text: err.message || "Something went wrong",
+        icon: "error",
+        confirmButtonColor: "#0F766E",
+        ...getSwalTheme(),
+      });
+    } finally {
+      setDecisionSubmitting(false);
+    }
+  };
 
   useEffect(() => {
     if (
@@ -1282,6 +1622,30 @@ export default function LoanPreview() {
   };
 
   const renderRequestDocs = () => {
+    if (!canRequestDocuments) {
+      return (
+        <div className="mx-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800/60">
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+            Request Documents
+          </h2>
+          <p className="mt-2 text-sm text-slate-500">
+            {requestDocumentsDisabledReason ||
+              "Documents cannot be requested for this application."}
+          </p>
+          {!loiGenerated && canCreateLoi && (
+            <button
+              type="button"
+              onClick={() => onTabChange("loi")}
+              className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[#13538A] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#0f4270]"
+            >
+              <FileText size={16} />
+              Generate Term Sheet / LOI
+            </button>
+          )}
+        </div>
+      );
+    }
+
     return (
       <div
         className="mx-auto rounded-2xl p-6 space-y-6 
@@ -1641,7 +2005,7 @@ export default function LoanPreview() {
       );
     }
 
-    if (!loiGenerated && !isLoi) {
+    if (!loiGenerated && !isLoi && !hasSignedBrokerLoi) {
       if (!canCreateLoi) {
         return (
           <div className="text-center py-16 text-slate-500">
@@ -1675,7 +2039,24 @@ export default function LoanPreview() {
       );
     }
 
-    if (!loiUrl) {
+    if (!loiUrl && !signedBrokerLoiUrl) {
+      return (
+        <div className="text-center py-16 text-slate-500">
+          LOI preview not available.
+        </div>
+      );
+    }
+
+    const activePreviewUrl =
+      loiViewMode === "signed-broker" && signedBrokerLoiUrl
+        ? signedBrokerLoiUrl
+        : loiUrl;
+    const activeDownloadName =
+      loiViewMode === "signed-broker"
+        ? signedBrokerLoi?.signedUpload?.fileName || "Signed-Broker-LOI.pdf"
+        : "Loan-LOI.pdf";
+
+    if (!activePreviewUrl) {
       return (
         <div className="text-center py-16 text-slate-500">
           LOI preview not available.
@@ -1685,9 +2066,79 @@ export default function LoanPreview() {
 
     return (
       <div className="space-y-4">
+        {loiGenerated && !loiSentToBroker && (
+          <div className="flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="font-semibold">Review before sending</p>
+              <p className="mt-1 text-amber-800/90 dark:text-amber-100/90">
+                This term sheet is saved as a draft. The broker will only see it
+                after you send it.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleSendLoiToBroker}
+              disabled={loiSendingToBroker}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#0F766E] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0d655e] disabled:opacity-50"
+            >
+              {loiSendingToBroker ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <Send size={16} />
+              )}
+              Send to Broker
+            </button>
+          </div>
+        )}
+
+        {loiGenerated && loiSentToBroker && (
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-100">
+            Sent to broker
+            {submissionDetail?.loiSentToBrokerAt
+              ? ` · ${new Date(submissionDetail.loiSentToBrokerAt).toLocaleString()}`
+              : ""}
+          </div>
+        )}
+
+        {hasSignedBrokerLoi && loiUrl && (
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setLoiViewMode("lender")}
+              className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
+                loiViewMode === "lender"
+                  ? "bg-purple-600 text-white"
+                  : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+              }`}
+            >
+              Your LOI
+            </button>
+            <button
+              type="button"
+              onClick={() => setLoiViewMode("signed-broker")}
+              className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
+                loiViewMode === "signed-broker"
+                  ? "bg-emerald-600 text-white"
+                  : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+              }`}
+            >
+              Signed Broker LOI
+            </button>
+          </div>
+        )}
+
+        {loiViewMode === "signed-broker" && signedBrokerLoi && (
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+            Client-signed broker LOI forwarded by the broker
+            {signedBrokerLoi.clientSignedAt
+              ? ` · signed ${new Date(signedBrokerLoi.clientSignedAt).toLocaleDateString()}`
+              : ""}
+          </div>
+        )}
+
         <div className="flex justify-end">
           <button
-            onClick={() => handleDownload(loiUrl, "Loan-LOI.pdf")}
+            onClick={() => handleDownload(activePreviewUrl, activeDownloadName)}
             className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-100 text-sm font-semibold hover:bg-slate-200 transition"
           >
             <Download size={16} />
@@ -1696,7 +2147,15 @@ export default function LoanPreview() {
         </div>
 
         <div className="overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-950 h-[70vh]">
-          <iframe src={loiUrl} title="Loan LOI" className="w-full h-full" />
+          <iframe
+            src={activePreviewUrl}
+            title={
+              loiViewMode === "signed-broker"
+                ? "Signed Broker LOI"
+                : "Loan LOI"
+            }
+            className="w-full h-full"
+          />
         </div>
       </div>
     );
@@ -1867,10 +2326,35 @@ export default function LoanPreview() {
             </div>
           </div>
 
-          <div>
-            <h1 className="text-xs bg-gray-100 border-2 px-2 py-1 rounded-md text-purple-700 font-semibold">
+          <div className="flex flex-col items-end gap-3">
+            <span className="text-xs bg-gray-100 border-2 px-2 py-1 rounded-md text-purple-700 font-semibold">
               {submissionDetail && submissionDetail?.status}
-            </h1>
+            </span>
+
+            {(showApproval || showReject) && (
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                {showApproval && (
+                  <button
+                    type="button"
+                    onClick={() => openDecisionModal("APPROVED")}
+                    className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700"
+                  >
+                    <CheckCircle size={16} />
+                    {approvalButtonLabel}
+                  </button>
+                )}
+                {showReject && (
+                  <button
+                    type="button"
+                    onClick={() => openDecisionModal("DECLINED")}
+                    className="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-300 dark:hover:bg-rose-950/50"
+                  >
+                    <XCircle size={16} />
+                    Reject
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -1950,13 +2434,7 @@ export default function LoanPreview() {
                     className="text-sm font-semibold
         text-purple-900 dark:text-purple-100"
                   >
-                    {submissionDetail.loanProduct?.name ||
-                      PRODUCT_LABELS[
-                        submissionDetail.loanApplication.loanProductCode
-                      ] ||
-                      submissionDetail.loanApplication.loanProductCode
-                        ?.replace(/_/g, " ")
-                        .toUpperCase()}
+                    {resolvedLoanProductName}
                   </span>
                 </div>
               </div>
@@ -2327,6 +2805,176 @@ export default function LoanPreview() {
           document.body,
         )}
 
+      {decisionModal.type &&
+        createPortal(
+          <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+            <div className="w-full max-w-lg bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800">
+              <div className="flex items-center justify-between px-6 py-4 border-b dark:border-slate-800">
+                <h2 className="text-lg font-bold">
+                  {decisionModal.type === "APPROVED"
+                    ? "Final Approval"
+                    : "Reject Application"}
+                </h2>
+
+                <button
+                  type="button"
+                  onClick={closeDecisionModal}
+                  className="text-sm px-3 py-1 rounded-lg bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400"
+                >
+                  Close
+                </button>
+              </div>
+
+              <div className="p-6 space-y-5">
+                {decisionModal.type === "APPROVED" && (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium mb-1">
+                        Approved Amount{" "}
+                        <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        required
+                        min="0"
+                        placeholder="Enter approved amount"
+                        value={decisionForm.approvedAmount}
+                        onChange={(e) => {
+                          setDecisionForm({
+                            ...decisionForm,
+                            approvedAmount: e.target.value,
+                          });
+                          if (decisionFormErrors.approvedAmount) {
+                            setDecisionFormErrors((prev) => ({
+                              ...prev,
+                              approvedAmount: undefined,
+                            }));
+                          }
+                        }}
+                        className={`w-full px-3 py-2 rounded-xl border bg-white dark:bg-slate-800 focus:ring-2 focus:ring-emerald-500 outline-none ${
+                          decisionFormErrors.approvedAmount
+                            ? "border-red-500"
+                            : "border-slate-200 dark:border-slate-700"
+                        }`}
+                      />
+                      {decisionFormErrors.approvedAmount && (
+                        <p className="mt-1 text-xs text-red-500">
+                          {decisionFormErrors.approvedAmount}
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-1">
+                        Interest Rate (%){" "}
+                        <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        required
+                        step="0.01"
+                        min="0"
+                        max="100"
+                        value={decisionForm.interestRate}
+                        onChange={(e) => {
+                          setDecisionForm({
+                            ...decisionForm,
+                            interestRate: e.target.value,
+                          });
+                          if (decisionFormErrors.interestRate) {
+                            setDecisionFormErrors((prev) => ({
+                              ...prev,
+                              interestRate: undefined,
+                            }));
+                          }
+                        }}
+                        placeholder="Enter interest rate"
+                        className={`w-full px-3 py-2 rounded-xl border bg-white dark:bg-slate-800 focus:ring-2 focus:ring-emerald-500 outline-none ${
+                          decisionFormErrors.interestRate
+                            ? "border-red-500"
+                            : "border-slate-200 dark:border-slate-700"
+                        }`}
+                      />
+                      {decisionFormErrors.interestRate && (
+                        <p className="mt-1 text-xs text-red-500">
+                          {decisionFormErrors.interestRate}
+                        </p>
+                      )}
+                    </div>
+                  </>
+                )}
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Notes <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    required
+                    rows={4}
+                    value={decisionForm.notes}
+                    onChange={(e) => {
+                      setDecisionForm({
+                        ...decisionForm,
+                        notes: e.target.value,
+                      });
+                      if (decisionFormErrors.notes) {
+                        setDecisionFormErrors((prev) => ({
+                          ...prev,
+                          notes: undefined,
+                        }));
+                      }
+                    }}
+                    placeholder={
+                      decisionModal.type === "APPROVED"
+                        ? "Approval notes..."
+                        : "Reason for rejection..."
+                    }
+                    className={`w-full px-3 py-2 rounded-xl border bg-white dark:bg-slate-800 focus:ring-2 focus:ring-blue-500 outline-none ${
+                      decisionFormErrors.notes
+                        ? "border-red-500"
+                        : "border-slate-200 dark:border-slate-700"
+                    }`}
+                  />
+                  {decisionFormErrors.notes && (
+                    <p className="mt-1 text-xs text-red-500">
+                      {decisionFormErrors.notes}
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex justify-end gap-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={closeDecisionModal}
+                    disabled={decisionSubmitting}
+                    className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 disabled:opacity-60"
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleDecisionSubmit}
+                    disabled={decisionSubmitting}
+                    className={`px-4 py-2 rounded-xl text-white font-semibold disabled:opacity-60 ${
+                      decisionModal.type === "APPROVED"
+                        ? "bg-emerald-600 hover:bg-emerald-700"
+                        : "bg-rose-600 hover:bg-rose-700"
+                    }`}
+                  >
+                    {decisionSubmitting
+                      ? "Processing..."
+                      : decisionModal.type === "APPROVED"
+                        ? "Confirm Final Approval"
+                        : "Confirm Rejection"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
+
       {createPortal(
         <LoiUnderwritingFormModal
           isOpen={loiFormOpen}
@@ -2354,6 +3002,38 @@ export default function LoanPreview() {
               return combined > 0 ? combined : null;
             })()
           }
+          arv={getNumericFieldValue(submissionFields, "afterRepairValue")}
+          applicationInterestRate={interestRate}
+          applicationLoanTerm={loanTermMonths}
+          loanProductCode={
+            submissionDetail?.loanApplication?.loanProductCode || null
+          }
+          applicationContext={{
+            borrowerName: getBorrowerDisplayName(
+              submissionDetail,
+              submissionFields,
+            ),
+            propertyAddress:
+              getFieldValueFromList(
+                submissionFields,
+                "propertyAddress",
+                "property_address",
+                "address",
+              ) || undefined,
+            propertyType:
+              getFieldValueFromList(
+                submissionFields,
+                "propertyType",
+                "property_type",
+              ) || undefined,
+            loanProduct: resolvedLoanProductName || undefined,
+            brokerName:
+              submissionDetail?.loanApplication?.brokerUser
+                ? `${submissionDetail.loanApplication.brokerUser.firstName || ""} ${submissionDetail.loanApplication.brokerUser.lastName || ""}`.trim() ||
+                  submissionDetail?.loanApplication?.brokerOrg?.name
+                : submissionDetail?.loanApplication?.brokerOrg?.name ||
+                  undefined,
+          }}
           submitting={loiGenerating}
           onClose={() => setLoiFormOpen(false)}
           onSubmit={handleGenerateLOI}

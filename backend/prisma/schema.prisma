@@ -34,6 +34,7 @@ model Organization {
   escrowTitleCompanies        EscrowTitleCompany[]
   feeAgreements               FeeAgreement[]             @relation("OrgToFeeAgreement")
   loiTemplates                LenderLoiTemplate?
+  lenderBrandingSettings      LenderBrandingSetting?
   lenderProducts              LenderProduct[]
   lenderProfile               LenderProfile?
   loanAiUsers                 LoanAiUser?
@@ -269,6 +270,19 @@ model LenderProfile {
   lender               Organization        @relation(fields: [lenderOrgId], references: [id])
 
   @@map("lender_profiles")
+}
+
+model LenderBrandingSetting {
+  id          String       @id @default(uuid()) @db.Uuid
+  lenderOrgId String       @unique @db.Uuid
+  brandName   String?
+  logoUrl     String?
+  createdAt   DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime     @updatedAt @db.Timestamptz(6)
+  lender      Organization @relation(fields: [lenderOrgId], references: [id])
+
+  @@index([lenderOrgId])
+  @@map("lender_branding_settings")
 }
 
 model Role {
@@ -756,6 +770,11 @@ model LoanApplication {
   fundedApplicationLenderId  String?                          @unique @map("funded_application_lender_id") @db.Uuid
   fundedAt                   DateTime?                        @map("funded_at") @db.Timestamptz(6)
   fundedByUserId             String?                          @map("funded_by_user_id") @db.Uuid
+  brokerLoiUrl               String?                          @map("broker_loi_url")
+  brokerLoiSourceApplicationLenderId String?                  @map("broker_loi_source_application_lender_id") @db.Uuid
+  brokerLoiTerms             Json?                            @map("broker_loi_terms")
+  brokerLoiGeneratedAt       DateTime?                        @map("broker_loi_generated_at") @db.Timestamptz(6)
+  brokerLoiGeneratedByUserId String?                          @map("broker_loi_generated_by_user_id") @db.Uuid
   clientUploadTokens           ClientUploadToken?
   subBrokerSubmissions         SubBrokerSubmission[]
   collaterals                  ApplicationCollateral[]
@@ -1155,6 +1174,8 @@ model ApplicationLender {
   sentAt                    DateTime?                       @db.Timestamptz(6)
   lastUpdatedAt             DateTime?                       @db.Timestamptz(6)
   loiUrl                    String?
+  loiTermsJson              Json?                           @map("loi_terms_json")
+  loiSentToBrokerAt         DateTime?                       @map("loi_sent_to_broker_at") @db.Timestamptz(6)
   documentSubmissions       ApplicationDocumentSubmission[]
   lender                    Organization                    @relation("LenderApplications", fields: [lenderOrgId], references: [id])
   lenderProduct             LenderProduct?                  @relation(fields: [lenderProductId], references: [id])

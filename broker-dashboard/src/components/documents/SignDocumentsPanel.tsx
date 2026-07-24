@@ -15,6 +15,7 @@ import {
   Upload,
   X,
 } from "lucide-react";
+import { buildApiPublicFileUrl } from "../../lib/publicFileUrl";
 
 const SigCanvas = SignatureCanvas as unknown as React.FC<any>;
 
@@ -344,8 +345,9 @@ export default function SignDocumentsPanel({
   };
 
   const openFile = (fileUrl?: string | null) => {
-    if (!fileUrl) return;
-    window.open(`${apiBase}${fileUrl}`, "_blank");
+    const resolved = buildApiPublicFileUrl(apiBase, fileUrl);
+    if (!resolved) return;
+    window.open(resolved, "_blank");
   };
 
   const downloadRemoteFile = async (
@@ -356,7 +358,10 @@ export default function SignDocumentsPanel({
     try {
       if (trackId) setDownloadingId(trackId);
 
-      const res = await fetch(`${apiBase}${fileUrl}`, {
+      const resolved = buildApiPublicFileUrl(apiBase, fileUrl);
+      if (!resolved) throw new Error("File URL missing");
+
+      const res = await fetch(resolved, {
         headers: getAuthHeaders(),
       });
 
@@ -707,7 +712,8 @@ export default function SignDocumentsPanel({
       );
     }
 
-    const fileUrl = `${apiBase}${row.templateFileUrl}`;
+    const fileUrl = buildApiPublicFileUrl(apiBase, row.templateFileUrl);
+    if (!fileUrl) return null;
 
     if (isPdfTemplate(row.templateMimeType, row.templateFileUrl)) {
       return (
@@ -759,7 +765,14 @@ export default function SignDocumentsPanel({
       );
     }
 
-    const fileUrl = `${apiBase}${signed.fileUrl}`;
+    const fileUrl = buildApiPublicFileUrl(apiBase, signed.fileUrl);
+    if (!fileUrl) {
+      return (
+        <div className="flex h-full min-h-[320px] items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-500">
+          Signed copy unavailable
+        </div>
+      );
+    }
 
     if (isPdfTemplate(signed.fileMimeType, signed.fileUrl)) {
       return (
@@ -1256,6 +1269,164 @@ export default function SignDocumentsPanel({
     );
   };
 
+  const renderClientDocumentActions = (row: SignDocumentRow) => {
+    const hasTemplate = Boolean(row.templateFileUrl);
+    const hasSigned = Boolean(row.signedUpload?.fileUrl);
+
+    if (!hasTemplate && !hasSigned) return null;
+
+    const actionClass =
+      "inline-flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2.5 text-xs font-semibold transition min-w-0";
+
+    return (
+      <div className="flex gap-2">
+        {hasTemplate && (
+          <button
+            type="button"
+            onClick={() => setActiveTemplateViewDoc(row)}
+            className={`${actionClass} flex-1 border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100`}
+            title="View template"
+          >
+            <Eye size={14} className="shrink-0" />
+            <span className="truncate">Template</span>
+          </button>
+        )}
+        {hasSigned && (
+          <>
+            <button
+              type="button"
+              onClick={() => setActiveSignedViewDoc(row)}
+              className={`${actionClass} flex-1 border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100`}
+              title="View signed copy"
+            >
+              <Eye size={14} className="shrink-0" />
+              <span className="truncate">Signed</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => downloadSignedCopy(row)}
+              disabled={downloadingId === row.requirementId}
+              className={`${actionClass} flex-1 border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 disabled:opacity-60`}
+              title="Download signed copy"
+            >
+              {downloadingId === row.requirementId ? (
+                <Loader2 size={14} className="shrink-0 animate-spin" />
+              ) : (
+                <Download size={14} className="shrink-0" />
+              )}
+              <span className="truncate">Save</span>
+            </button>
+          </>
+        )}
+      </div>
+    );
+  };
+
+  const renderClientStatusFooter = (row: SignDocumentRow) => {
+    switch (row.signStatus) {
+      case "SENT_TO_CLIENT":
+        return (
+          <div className="flex items-center gap-2 rounded-xl bg-blue-50 px-3 py-2.5 text-sm text-blue-800">
+            <PenLine size={16} className="shrink-0" />
+            Your signature is required
+          </div>
+        );
+      case "CLIENT_SIGNED":
+        return (
+          <div className="flex items-center gap-2 rounded-xl bg-emerald-50 px-3 py-2.5 text-sm text-emerald-800">
+            <CheckCircle2 size={16} className="shrink-0" />
+            Signed — broker will forward to{" "}
+            {row.lenderName || "the lender"}
+          </div>
+        );
+      case "FORWARDED_TO_LENDER":
+        return (
+          <div className="flex items-center gap-2 rounded-xl bg-violet-50 px-3 py-2.5 text-sm text-violet-800">
+            <CheckCircle2 size={16} className="shrink-0" />
+            Signed and forwarded to {row.lenderName || "lender"}
+          </div>
+        );
+      case "LENDER_SEEN":
+        return (
+          <div className="flex items-center gap-2 rounded-xl bg-teal-50 px-3 py-2.5 text-sm text-teal-800">
+            <CheckCircle2 size={16} className="shrink-0" />
+            Reviewed by {row.lenderName || "lender"}
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
+
+  const renderClientDocumentCard = (row: SignDocumentRow) => {
+    const isPending = row.signStatus === "SENT_TO_CLIENT";
+
+    return (
+      <div
+        key={row.requirementId}
+        className="flex flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-blue-200 hover:shadow-md"
+      >
+        <div className="mb-4 flex items-start gap-3">
+          <div
+            className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${
+              isPending
+                ? "bg-blue-100 text-blue-700"
+                : "bg-emerald-100 text-emerald-700"
+            }`}
+          >
+            {isImageTemplate(row.templateMimeType, row.templateFileUrl) ? (
+              <FileImage size={22} />
+            ) : (
+              <FileText size={22} />
+            )}
+          </div>
+
+          <div className="min-w-0 flex-1">
+            <h3
+              className="text-base font-semibold leading-snug text-slate-900"
+              title={row.documentName}
+            >
+              {row.documentName}
+            </h3>
+            {row.lenderName && (
+              <p className="mt-1 flex items-center gap-1 text-xs text-slate-500">
+                <Building2 size={12} className="shrink-0" />
+                <span className="truncate">Requested by {row.lenderName}</span>
+              </p>
+            )}
+            <div className="mt-2">
+              <span
+                className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${statusClass(row.signStatus)}`}
+              >
+                {row.signStatusLabel || row.signStatus || "-"}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {renderClientDocumentActions(row)}
+
+        {isPending ? (
+          <button
+            type="button"
+            onClick={() => {
+              setActiveSigningDoc(row);
+              sigRef.current?.clear();
+            }}
+            className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:shadow-md"
+          >
+            <PenLine size={16} />
+            Review & Sign
+          </button>
+        ) : (
+          <div className="mt-4 border-t border-slate-100 pt-4">
+            {renderClientStatusFooter(row)}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const renderClientView = () => {
     const pendingDocs = rows.filter((row) => row.signStatus === "SENT_TO_CLIENT");
     const completedDocs = rows.filter((row) => row.signStatus !== "SENT_TO_CLIENT");
@@ -1322,67 +1493,8 @@ export default function SignDocumentsPanel({
           </div>
         ) : (
           <>
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {rows.map((row) => {
-                const isPending = row.signStatus === "SENT_TO_CLIENT";
-
-                return (
-                  <div
-                    key={row.requirementId}
-                    className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md"
-                  >
-                    <div className="mb-4 flex items-start justify-between gap-3">
-                      <div className="flex items-start gap-3">
-                        <div
-                          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${
-                            isPending
-                              ? "bg-blue-100 text-blue-700"
-                              : "bg-emerald-100 text-emerald-700"
-                          }`}
-                        >
-                          {isImageTemplate(
-                            row.templateMimeType,
-                            row.templateFileUrl,
-                          ) ? (
-                            <FileImage size={20} />
-                          ) : (
-                            <FileText size={20} />
-                          )}
-                        </div>
-                        <div className="min-w-0">
-                          {renderDocumentTitle(row)}
-                          {row.lenderName && (
-                            <p className="mt-1 text-xs text-slate-500">
-                              Requested by {row.lenderName}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      <span
-                        className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${statusClass(row.signStatus)}`}
-                      >
-                        {row.signStatusLabel || row.signStatus || "-"}
-                      </span>
-                    </div>
-
-                    {renderInlineDocumentActions(row)}
-
-                    {isPending && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setActiveSigningDoc(row);
-                          sigRef.current?.clear();
-                        }}
-                        className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:shadow-md"
-                      >
-                        <PenLine size={16} />
-                        Review & Sign
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
+            <div className="mx-auto grid max-w-2xl gap-4">
+              {rows.map((row) => renderClientDocumentCard(row))}
             </div>
 
             {renderSigningModal()}

@@ -1,12 +1,20 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
-import { MdModeEdit, MdDelete } from "react-icons/md";
-import { FiAlertCircle } from "react-icons/fi";
+import {
+  FileText,
+  Loader2,
+  Plus,
+  RefreshCw,
+  Search,
+  ShieldCheck,
+  X,
+} from "lucide-react";
+import { MdDelete, MdModeEdit } from "react-icons/md";
 import Swal from "sweetalert2";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
-
-/* ================= TYPES ================= */
+const ITEMS_PER_PAGE = 10;
+const SEARCH_DEBOUNCE_MS = 400;
 
 type Document = {
   id: string;
@@ -21,98 +29,172 @@ type DocumentForm = {
   description: string;
 };
 
-/* ================= HELPERS ================= */
+type PaginationMeta = {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+};
 
-function getAuthHeaders(): Record<string, string> {
+type StatusFilter = "all" | "active" | "inactive";
+
+function getAuthHeaders(options?: { json?: boolean }): Record<string, string> {
+  const headers: Record<string, string> = {};
+  if (options?.json !== false) {
+    headers["Content-Type"] = "application/json";
+  }
+
   try {
     const token = sessionStorage.getItem("admin_token");
     if (token) {
-      return {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      };
+      headers.Authorization = `Bearer ${token}`;
     }
   } catch {
     /* ignore */
   }
-  return { "Content-Type": "application/json" };
+
+  return headers;
 }
 
-/* ================= COMPONENT ================= */
+function getSwalTheme() {
+  const isDark = document.documentElement.classList.contains("dark");
+  return {
+    background: isDark ? "#1e293b" : "#ffffff",
+    color: isDark ? "#e2e8f0" : "#1e293b",
+    customClass: { popup: "rounded-2xl" },
+  };
+}
 
-const AllDocuments = () => {
+function statusClass(isActive: boolean) {
+  return isActive
+    ? "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/40"
+    : "bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-500/40";
+}
+
+function formatDate(value?: string) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+export default function AllDocuments() {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loadingList, setLoadingList] = useState(false);
   const [saving, setSaving] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState<DocumentForm>({
-    name: "",
-    description: "",
+  const [form, setForm] = useState<DocumentForm>({ name: "", description: "" });
+  const [searchInput, setSearchInput] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pagination, setPagination] = useState<PaginationMeta>({
+    page: 1,
+    limit: ITEMS_PER_PAGE,
+    total: 0,
+    totalPages: 1,
+    hasNextPage: false,
+    hasPreviousPage: false,
   });
 
-  const [currentPage, setCurrentPage] = useState(1);
-  const [limit] = useState(5);
-  const [total, setTotal] = useState(0);
-
-  const totalPages = Math.ceil(total / limit);
-  const formatDate = (value?: string) => {
-    if (!value) return "-";
-    const d = new Date(value);
-    return Number.isNaN(d.getTime()) ? "-" : d.toLocaleDateString();
-  };
+  const activeOnPage = useMemo(
+    () => documents.filter((doc) => doc.isActive).length,
+    [documents],
+  );
 
   const resetForm = () => {
     setEditingId(null);
     setForm({ name: "", description: "" });
   };
 
-  /* ================= API ================= */
+  const fetchDocuments = useCallback(
+    async (pageNo = currentPage, searchQuery = debouncedSearch) => {
+      try {
+        setLoadingList(true);
 
-  const fetchDocuments = async (page = 1) => {
-    try {
-      setLoadingList(true);
+        const params = new URLSearchParams({
+          page: String(pageNo),
+          limit: String(ITEMS_PER_PAGE),
+        });
 
-      const res = await fetch(
-        `${API_BASE}/admin/document-types/read?page=${page}&limit=${limit}`,
-        {
-          headers: getAuthHeaders(),
-        },
-      );
+        if (searchQuery.trim()) {
+          params.set("search", searchQuery.trim());
+        }
+        if (statusFilter === "active") params.set("isActive", "true");
+        if (statusFilter === "inactive") params.set("isActive", "false");
 
-      const json = await res.json();
+        const res = await fetch(
+          `${API_BASE}/admin/document-types/read?${params.toString()}`,
+          { headers: getAuthHeaders({ json: false }) },
+        );
 
-      if (!res.ok || !json.success) {
-        toast.error(json.message || "Failed to load documents");
-        return;
+        const json = await res.json();
+        if (!res.ok || !json.success) {
+          toast.error(json.message || "Failed to load documents");
+          return;
+        }
+
+        const total = Number(json.meta?.total || 0);
+        const limit = Number(json.meta?.limit || ITEMS_PER_PAGE);
+        const page = Number(json.meta?.page || pageNo);
+        const totalPages = Math.max(1, Math.ceil(total / limit));
+
+        setDocuments(
+          (json.data || []).map((item: Document) => ({
+            id: String(item.id),
+            name: item.name ?? "",
+            description: item.description ?? "",
+            isActive: Boolean(item.isActive),
+            createdAt: item.createdAt,
+          })),
+        );
+
+        setPagination({
+          page,
+          limit,
+          total,
+          totalPages,
+          hasNextPage: page < totalPages,
+          hasPreviousPage: page > 1,
+        });
+        setCurrentPage(page);
+      } catch (error) {
+        console.error(error);
+        toast.error("Failed to load documents");
+      } finally {
+        setLoadingList(false);
       }
+    },
+    [currentPage, debouncedSearch, statusFilter],
+  );
 
-      setDocuments(
-        (json.data || []).map((d: any) => ({
-          id: String(d.id),
-          code: d.code,
-          name: d.name ?? "",
-          description: d.description ?? "",
-          isActive: Boolean(d.isActive),
-          createdAt: d.createdAt ?? undefined,
-        })),
-      );
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setDebouncedSearch(searchInput.trim());
+    }, SEARCH_DEBOUNCE_MS);
+    return () => window.clearTimeout(timer);
+  }, [searchInput]);
 
-      setTotal(json.meta?.total || 0);
-      setCurrentPage(json.meta?.page || 1);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoadingList(false);
-    }
-  };
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearch, statusFilter]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!form.name) {
-      toast.error("Name is required");
+  useEffect(() => {
+    fetchDocuments(currentPage, debouncedSearch);
+  }, [currentPage, debouncedSearch, statusFilter, fetchDocuments]);
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!form.name.trim()) {
+      toast.error("Document name is required");
       return;
     }
 
@@ -130,10 +212,13 @@ const AllDocuments = () => {
             editingId
               ? {
                   id: editingId,
-                  name: form.name,
-                  description: form.description,
+                  name: form.name.trim(),
+                  description: form.description.trim(),
                 }
-              : form,
+              : {
+                  name: form.name.trim(),
+                  description: form.description.trim(),
+                },
           ),
         },
       );
@@ -145,8 +230,11 @@ const AllDocuments = () => {
       }
 
       toast.success(editingId ? "Document updated" : "Document created");
-      await fetchDocuments(currentPage);
+      await fetchDocuments(currentPage, debouncedSearch);
       resetForm();
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to save document");
     } finally {
       setSaving(false);
     }
@@ -158,6 +246,7 @@ const AllDocuments = () => {
       name: doc.name,
       description: doc.description || "",
     });
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handleToggleStatus = async (doc: Document) => {
@@ -179,8 +268,8 @@ const AllDocuments = () => {
         return;
       }
 
-      toast.success("Status updated");
-      await fetchDocuments(currentPage);
+      toast.success(`Document marked as ${doc.isActive ? "inactive" : "active"}`);
+      await fetchDocuments(currentPage, debouncedSearch);
     } finally {
       setTogglingId(null);
     }
@@ -189,12 +278,14 @@ const AllDocuments = () => {
   const handleDelete = async (doc: Document) => {
     const result = await Swal.fire({
       title: "Delete document?",
-      text: `"${doc.name}" will be permanently removed.`,
+      html: `Remove <strong>${doc.name}</strong> from the platform catalog?`,
       icon: "warning",
       showCancelButton: true,
       confirmButtonColor: "#dc2626",
       cancelButtonColor: "#6b7280",
-      confirmButtonText: "Delete",
+      confirmButtonText: "Yes, delete",
+      cancelButtonText: "Cancel",
+      ...getSwalTheme(),
     });
 
     if (!result.isConfirmed) return;
@@ -210,239 +301,322 @@ const AllDocuments = () => {
 
       const json = await res.json().catch(() => ({}));
       if (!res.ok || !json.success) {
-        toast.error(json.message || "Delete failed");
+        await Swal.fire({
+          icon: "error",
+          title: "Delete failed",
+          text: json.message || "Failed to delete document",
+          ...getSwalTheme(),
+        });
         return;
       }
 
-      toast.success(json.message || "Document deleted");
-
-      if (editingId === doc.id) {
-        resetForm();
-      }
+      if (editingId === doc.id) resetForm();
 
       const nextPage =
         documents.length === 1 && currentPage > 1
           ? currentPage - 1
           : currentPage;
 
-      await fetchDocuments(nextPage);
-    } catch (err) {
-      console.error(err);
+      await fetchDocuments(nextPage, debouncedSearch);
+
+      await Swal.fire({
+        icon: "success",
+        title: "Deleted",
+        text: `"${doc.name}" has been removed.`,
+        timer: 1500,
+        showConfirmButton: false,
+        ...getSwalTheme(),
+      });
+    } catch (error) {
+      console.error(error);
       toast.error("Failed to delete document");
     } finally {
       setDeletingId(null);
     }
   };
 
-  const gotoPage = (page: number) => {
-    if (page < 1 || page > totalPages) return;
-    fetchDocuments(page);
-  };
-
-  /* ================= EFFECT ================= */
-
-  useEffect(() => {
-    fetchDocuments(1);
-  }, []);
-
-  /* ================= UI ================= */
+  const showingFrom =
+    pagination.total === 0 ? 0 : (pagination.page - 1) * pagination.limit + 1;
+  const showingTo = Math.min(
+    pagination.page * pagination.limit,
+    pagination.total,
+  );
 
   return (
-    <div className="px-6 py-6 bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100 min-h-screen">
-      <h1 className="text-2xl font-semibold mb-6 text-[#13538A] dark:text-indigo-600">
-        Document Management
-      </h1>
+    <div className="text-gray-900 dark:text-gray-100">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-[#13538A] dark:text-indigo-400">
+            Document Management
+          </h1>
+          <p className="mt-1 max-w-2xl text-sm text-gray-500 dark:text-slate-400">
+            Manage platform-wide document types used by lenders, brokers, and
+            loan applications.
+          </p>
+        </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-6">
-        {/* FORM */}
-        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-6">
-          <div className="flex items-center justify-between mb-5">
+        <div className="inline-flex items-center gap-2 rounded-full border border-[#13538A]/15 bg-[#13538A]/5 px-3 py-1.5 text-xs font-medium text-[#13538A] dark:border-indigo-500/20 dark:bg-indigo-500/10 dark:text-indigo-300">
+          <FileText className="h-3.5 w-3.5" />
+          {pagination.total} total documents
+        </div>
+      </div>
+
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+            Catalog Size
+          </p>
+          <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">
+            {pagination.total}
+          </p>
+        </div>
+        <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4 shadow-sm dark:border-emerald-500/20 dark:bg-emerald-500/10">
+          <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700/70 dark:text-emerald-300/80">
+            Active On Page
+          </p>
+          <p className="mt-2 text-2xl font-bold text-emerald-700 dark:text-emerald-300">
+            {activeOnPage}
+          </p>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+            <ShieldCheck className="h-3.5 w-3.5" />
+            Platform Catalog
+          </div>
+          <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+            Documents created here are available across all lender portals.
+          </p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[340px_minmax(0,1fr)]">
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <div className="mb-5 flex items-start justify-between gap-3">
             <div>
-              <h2 className="text-lg font-semibold">
-                {editingId ? "Edit Document" : "Create Document"}
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
+                {editingId ? "Edit Document" : "Add Document"}
               </h2>
-              <p className="text-xs text-slate-500">
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                 {editingId
-                  ? "Update your existing document"
-                  : "Add a new document type"}
+                  ? "Update the selected document type."
+                  : "Create a reusable document type for the platform."}
               </p>
             </div>
-
-            {editingId && (
+            {editingId ? (
               <button
+                type="button"
                 onClick={resetForm}
-                className="text-xs px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 transition"
+                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
               >
-                + New
+                <X className="h-3.5 w-3.5" />
+                Cancel
               </button>
-            )}
+            ) : null}
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="text-xs text-slate-500 mb-1 block">
+              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Document Name
               </label>
               <input
                 value={form.name}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, name: e.target.value }))
+                onChange={(event) =>
+                  setForm((prev) => ({ ...prev, name: event.target.value }))
                 }
-                placeholder="Enter document name"
-                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-[#18B6B4]/20 outline-none transition"
+                placeholder="e.g. Bank Statements, Appraisal Report"
+                disabled={saving}
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/10 dark:border-slate-700 dark:bg-slate-800"
               />
             </div>
 
             <div>
-              <label className="text-xs text-slate-500 mb-1 block">
+              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Description
               </label>
               <textarea
-                rows={3}
+                rows={4}
                 value={form.description}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, description: e.target.value }))
+                onChange={(event) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    description: event.target.value,
+                  }))
                 }
-                placeholder="Enter description"
-                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-[#18B6B4]/20 outline-none transition"
+                placeholder="Optional guidance for admins and lenders"
+                disabled={saving}
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/10 dark:border-slate-700 dark:bg-slate-800"
               />
             </div>
 
-            <div className="flex gap-3 pt-2">
-              <button
-                type="submit"
-                disabled={saving}
-                className="flex-1 text-sm py-2.5 rounded-xl bg-[#13538A] hover:bg-[#0b70c8] text-white font-semibold transition-all active:scale-95"
-              >
-                {saving
-                  ? "Saving..."
-                  : editingId
-                    ? "Update Document"
-                    : "Create Document"}
-              </button>
-            </div>
+            <button
+              type="submit"
+              disabled={saving}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#13538A] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#1b72be] disabled:cursor-not-allowed disabled:opacity-60 dark:hover:bg-blue-600"
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : editingId ? (
+                "Save Changes"
+              ) : (
+                <>
+                  <Plus className="h-4 w-4" />
+                  Create Document
+                </>
+              )}
+            </button>
           </form>
         </div>
 
-        {/* TABLE */}
-        <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-700">
-          <div className="w-full overflow-x-auto">
-            <table className="min-w-full text-sm border-separate border-spacing-y-2">
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
+                All Documents
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Search, filter, and manage document types
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="search"
+                  value={searchInput}
+                  onChange={(event) => setSearchInput(event.target.value)}
+                  placeholder="Search documents..."
+                  className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm outline-none focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/10 dark:border-slate-700 dark:bg-slate-800 sm:w-64"
+                />
+              </div>
+
+              <select
+                value={statusFilter}
+                onChange={(event) =>
+                  setStatusFilter(event.target.value as StatusFilter)
+                }
+                className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#13538A] dark:border-slate-700 dark:bg-slate-800"
+              >
+                <option value="all">All status</option>
+                <option value="active">Active only</option>
+                <option value="inactive">Inactive only</option>
+              </select>
+
+              <button
+                type="button"
+                onClick={() => fetchDocuments(currentPage, debouncedSearch)}
+                disabled={loadingList}
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+              >
+                <RefreshCw
+                  className={`h-4 w-4 ${loadingList ? "animate-spin" : ""}`}
+                />
+                Refresh
+              </button>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
               <thead>
-                <tr className="text-xs uppercase text-slate-500 dark:text-slate-400">
-                  <th className="px-4 py-2 text-left">Name</th>
-                  <th className="px-4 py-2 text-left">Status</th>
-                  <th className="px-4 py-2 text-left">Created</th>
-                  <th className="px-4 py-2 text-right">Actions</th>
+                <tr className="border-b border-slate-100 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:border-slate-800">
+                  <th className="py-3 pr-4">Document</th>
+                  <th className="py-3 pr-4">Description</th>
+                  <th className="py-3 pr-4">Status</th>
+                  <th className="py-3 pr-4">Created</th>
+                  <th className="py-3 text-right">Actions</th>
                 </tr>
               </thead>
-
               <tbody>
                 {loadingList ? (
                   <tr>
-                    <td
-                      colSpan={4}
-                      className="py-14 text-center text-slate-500"
-                    >
-                      <span className="animate-pulse">
+                    <td colSpan={5} className="py-14 text-center">
+                      <Loader2 className="mx-auto h-6 w-6 animate-spin text-[#13538A]" />
+                      <p className="mt-3 text-sm text-slate-500">
                         Loading documents...
-                      </span>
+                      </p>
                     </td>
                   </tr>
                 ) : documents.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="py-20 text-center">
-                      <div className="flex flex-col items-center">
-                        <div className="w-14 h-14 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-4">
-                          <FiAlertCircle size={26} className="text-slate-400" />
-                        </div>
-
-                        <h3 className="text-base font-semibold">
-                          No Documents Found
-                        </h3>
-
-                        <p className="text-sm text-slate-500 mt-1">
-                          Create your first document to get started
-                        </p>
+                    <td colSpan={5} className="py-16 text-center">
+                      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 dark:bg-slate-800">
+                        <FileText className="h-6 w-6 text-slate-400" />
                       </div>
+                      <p className="mt-4 text-sm font-semibold text-slate-700 dark:text-slate-200">
+                        No documents found
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {debouncedSearch || statusFilter !== "all"
+                          ? "Try adjusting your search or filter."
+                          : "Create your first document using the form on the left."}
+                      </p>
                     </td>
                   </tr>
                 ) : (
-                  documents.map((p) => (
+                  documents.map((doc) => (
                     <tr
-                      key={p.id}
-                      className="
-            bg-white dark:bg-slate-900 
-            shadow-sm 
-            hover:shadow-md 
-            transition-all 
-            rounded-xl
-          "
+                      key={doc.id}
+                      className="border-b border-slate-50 last:border-0 hover:bg-slate-50/70 dark:border-slate-800/80 dark:hover:bg-slate-800/40"
                     >
-                      <td className="px-4 py-3">
-                        <p
-                          className="font-medium text-slate-800 dark:text-slate-200 "
-                          title={p.name}
-                        >
-                          {p.name}
+                      <td className="py-3.5 pr-4">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#13538A]/10 text-[#13538A] dark:bg-indigo-500/10 dark:text-indigo-300">
+                            <FileText className="h-4 w-4" />
+                          </div>
+                          <p className="font-medium text-slate-900 dark:text-slate-100">
+                            {doc.name}
+                          </p>
+                        </div>
+                      </td>
+                      <td className="max-w-[280px] py-3.5 pr-4 text-slate-600 dark:text-slate-300">
+                        <p className="truncate" title={doc.description || "—"}>
+                          {doc.description || "—"}
                         </p>
                       </td>
-
-                      <td className="px-4 py-3">
+                      <td className="py-3.5 pr-4">
                         <button
-                          onClick={() => handleToggleStatus(p)}
-                          disabled={togglingId === p.id}
-                          className={`px-3 py-1 text-xs font-semibold rounded-full transition
-                ${
-                  p.isActive
-                    ? "bg-emerald-100 text-emerald-600 hover:bg-emerald-200"
-                    : "bg-rose-100 text-rose-600 hover:bg-rose-200"
-                }
-              `}
+                          type="button"
+                          onClick={() => handleToggleStatus(doc)}
+                          disabled={togglingId === doc.id}
+                          className={`inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${statusClass(doc.isActive)}`}
                         >
-                          {togglingId === p.id
-                            ? "..."
-                            : p.isActive
+                          {togglingId === doc.id
+                            ? "Updating..."
+                            : doc.isActive
                               ? "Active"
                               : "Inactive"}
                         </button>
                       </td>
-
-                      <td className="px-4 py-3 text-slate-500 text-sm">
-                        {formatDate(p.createdAt)}
+                      <td className="py-3.5 pr-4 text-slate-500 dark:text-slate-400">
+                        {formatDate(doc.createdAt)}
                       </td>
-
-                      <td className="px-4 py-3 text-right">
-                        <div className="inline-flex items-center justify-end gap-2">
+                      <td className="py-3.5 text-right">
+                        <div className="inline-flex items-center gap-2">
                           <button
                             type="button"
-                            onClick={() => handleEdit(p)}
-                            className="
-                h-9 w-9 flex items-center justify-center 
-                rounded-lg 
-                bg-slate-100 dark:bg-slate-800
-                hover:bg-blue-600 hover:text-white
-                transition-all
-              "
+                            onClick={() => handleEdit(doc)}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                            title="Edit"
                           >
-                            <MdModeEdit size={16} />
+                            <MdModeEdit />
                           </button>
-
                           <button
                             type="button"
-                            onClick={() => handleDelete(p)}
-                            disabled={deletingId === p.id}
-                            className="
-                h-9 w-9 flex items-center justify-center 
-                rounded-lg 
-                bg-slate-100 dark:bg-slate-800 text-rose-600
-                hover:bg-rose-600 hover:text-white
-                transition-all
-                disabled:opacity-50 disabled:cursor-not-allowed
-              "
-                            title="Delete document"
+                            onClick={() => handleDelete(doc)}
+                            disabled={deletingId === doc.id}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-red-100 text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-red-500/20 dark:text-red-400 dark:hover:bg-red-500/10"
+                            title="Delete"
                           >
-                            <MdDelete size={16} />
+                            {deletingId === doc.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <MdDelete />
+                            )}
                           </button>
                         </div>
                       </td>
@@ -451,70 +625,79 @@ const AllDocuments = () => {
                 )}
               </tbody>
             </table>
+          </div>
 
-            {!loadingList && totalPages > 1 && (
-              <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-slate-200 dark:border-slate-700 pt-4">
-                <p className="text-sm text-slate-500 dark:text-slate-400">
-                  Showing page{" "}
-                  <span className="font-semibold text-slate-800 dark:text-slate-100">
-                    {currentPage}
-                  </span>{" "}
-                  of {totalPages}
-                </p>
+          {pagination.total > 0 ? (
+            <div className="mt-4 flex flex-col gap-3 border-t border-slate-100 pt-4 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                Showing{" "}
+                <span className="font-medium text-slate-800 dark:text-slate-100">
+                  {showingFrom}–{showingTo}
+                </span>{" "}
+                of{" "}
+                <span className="font-medium text-slate-800 dark:text-slate-100">
+                  {pagination.total}
+                </span>
+              </p>
 
-                <div className="flex items-center gap-2 flex-wrap">
-                  <button
-                    disabled={currentPage === 1}
-                    onClick={() => gotoPage(currentPage - 1)}
-                    className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700
-        bg-white dark:bg-slate-900
-        text-slate-700 dark:text-slate-200
-        hover:bg-slate-50 dark:hover:bg-slate-800
-        transition-colors
-        disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    Prev
-                  </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage((page) => Math.max(page - 1, 1))}
+                  disabled={!pagination.hasPreviousPage || loadingList}
+                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium disabled:opacity-50 dark:border-slate-700"
+                >
+                  Previous
+                </button>
 
-                  {Array.from({ length: totalPages }).map((_, i) => {
-                    const page = i + 1;
+                {Array.from({ length: Math.min(pagination.totalPages, 5) }).map(
+                  (_, index) => {
+                    const half = Math.floor(5 / 2);
+                    let start = 1;
+                    if (pagination.totalPages <= 5) start = 1;
+                    else if (currentPage <= half + 1) start = 1;
+                    else if (currentPage >= pagination.totalPages - half) {
+                      start = pagination.totalPages - 4;
+                    } else start = currentPage - half;
+
+                    const pageNumber = start + index;
+                    if (pageNumber > pagination.totalPages) return null;
 
                     return (
                       <button
-                        key={page}
-                        onClick={() => gotoPage(page)}
-                        className={`px-3 py-1.5 rounded-lg text-sm border transition-colors
-              ${
-                currentPage === page
-                  ? "bg-[#13538A] text-white border-[#13538A] shadow-sm dark:bg-indigo-600 dark:border-indigo-600"
-                  : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
-              }`}
+                        key={pageNumber}
+                        type="button"
+                        onClick={() => setCurrentPage(pageNumber)}
+                        disabled={loadingList}
+                        className={`min-w-8 rounded-lg px-2.5 py-1.5 text-sm font-medium ${
+                          pageNumber === currentPage
+                            ? "bg-[#13538A] text-white dark:bg-indigo-600"
+                            : "border border-slate-200 text-slate-700 dark:border-slate-700 dark:text-slate-200"
+                        }`}
                       >
-                        {page}
+                        {pageNumber}
                       </button>
                     );
-                  })}
+                  },
+                )}
 
-                  <button
-                    disabled={currentPage === totalPages}
-                    onClick={() => gotoPage(currentPage + 1)}
-                    className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700
-        bg-white dark:bg-slate-900
-        text-slate-700 dark:text-slate-200
-        hover:bg-slate-50 dark:hover:bg-slate-800
-        transition-colors
-        disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    Next
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setCurrentPage((page) =>
+                      Math.min(page + 1, pagination.totalPages),
+                    )
+                  }
+                  disabled={!pagination.hasNextPage || loadingList}
+                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium disabled:opacity-50 dark:border-slate-700"
+                >
+                  Next
+                </button>
               </div>
-            )}
-          </div>
+            </div>
+          ) : null}
         </div>
       </div>
     </div>
   );
-};
-
-export default AllDocuments;
+}

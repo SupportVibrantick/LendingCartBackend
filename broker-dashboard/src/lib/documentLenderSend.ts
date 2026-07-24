@@ -5,6 +5,8 @@ export type DocumentSendRow = {
   documentName?: string;
   isRequired?: boolean;
   subBrokerSourceName?: string | null;
+  sentToClientAt?: string | null;
+  isForwardedToClient?: boolean;
   requestedByLenders?: Array<{
     applicationLenderId?: string | null;
     lenderName?: string | null;
@@ -22,6 +24,13 @@ export type DocumentSendRow = {
   isSentToAnyLender?: boolean;
   hasPendingSendToLender?: boolean;
   uploadedCount?: number;
+  uploadedFiles?: Array<{
+    uploadId?: string;
+    fileName?: string;
+    fileUrl?: string;
+    uploadedAt?: string | null;
+    [key: string]: unknown;
+  }>;
   [key: string]: unknown;
 };
 
@@ -42,6 +51,165 @@ export type DocumentDisplayRow = DocumentSendRow & {
     sourceClass: string;
   } | null;
 };
+
+export type DocumentStatusLine = {
+  text: string;
+  date?: string | null;
+  tone: "neutral" | "success" | "warning" | "info" | "muted";
+};
+
+export function formatDocumentTimelineDate(
+  value?: string | Date | null,
+): string | null {
+  if (!value) return null;
+
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+
+  return date.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+export function formatDocumentStatusLine(
+  label: string,
+  date?: string | Date | null,
+) {
+  const formatted = formatDocumentTimelineDate(date);
+  return formatted ? `${label} · ${formatted}` : label;
+}
+
+function getLatestClientUploadAt(doc: DocumentSendRow): string | null {
+  const uploads = doc.uploadedFiles || [];
+  if (!uploads.length) return null;
+
+  const timestamps = uploads
+    .map((file) => file.uploadedAt)
+    .filter(Boolean)
+    .map((value) => new Date(String(value)).getTime())
+    .filter((value) => Number.isFinite(value));
+
+  if (!timestamps.length) return null;
+
+  return new Date(Math.max(...timestamps)).toISOString();
+}
+
+function getRelevantLenderSentAt(doc: DocumentDisplayRow): string | null {
+  const sentToLenders = doc.sentToLenders || [];
+  if (!sentToLenders.length) return null;
+
+  if (doc.sourceLender?.applicationLenderId) {
+    return (
+      sentToLenders.find(
+        (entry) =>
+          entry.applicationLenderId === doc.sourceLender?.applicationLenderId,
+      )?.sentAt || null
+    );
+  }
+
+  const sentDates = sentToLenders
+    .filter((entry) => entry.isSent && entry.sentAt)
+    .map((entry) => new Date(String(entry.sentAt)).getTime())
+    .filter((value) => Number.isFinite(value));
+
+  if (!sentDates.length) return null;
+
+  return new Date(Math.max(...sentDates)).toISOString();
+}
+
+export function getDocumentStatusBadgeDate(doc: DocumentDisplayRow): string | null {
+  const uploadedCount = Number(doc.uploadedCount) || 0;
+  const lenderSentAt = getRelevantLenderSentAt(doc);
+
+  if (
+    doc.status === "SENT_TO_LENDER" ||
+    (doc.status === "COMPLETE" && lenderSentAt)
+  ) {
+    return lenderSentAt;
+  }
+
+  if (
+    uploadedCount > 0 &&
+    (doc.status === "PARTIAL" ||
+      doc.status === "COMPLETE" ||
+      doc.status === "UPLOADED")
+  ) {
+    return getLatestClientUploadAt(doc);
+  }
+
+  return null;
+}
+
+export function getDocumentStatusLineClass(
+  tone: DocumentStatusLine["tone"],
+): string {
+  switch (tone) {
+    case "success":
+      return "bg-emerald-50 text-emerald-700";
+    case "warning":
+      return "bg-amber-50 text-amber-700";
+    case "info":
+      return "bg-indigo-50 text-indigo-700";
+    case "muted":
+      return "bg-slate-100 text-slate-600";
+    default:
+      return "bg-orange-50 text-orange-700";
+  }
+}
+
+export function getDocumentStatusLines(
+  doc: DocumentDisplayRow,
+): DocumentStatusLine[] {
+  const lines: DocumentStatusLine[] = [];
+  const sentDisplay = getDocumentSentDisplay(doc);
+  const latestUploadAt = getLatestClientUploadAt(doc);
+  const uploadedCount = Number(doc.uploadedCount) || 0;
+
+  if (sentDisplay) {
+    lines.push({
+      text: sentDisplay.detail,
+      date: sentDisplay.sentAt,
+      tone: sentDisplay.isPartial
+        ? "warning"
+        : sentDisplay.isSent
+          ? "success"
+          : "neutral",
+    });
+  }
+
+  if (
+    ["BROKER_ADDED", "LENDER_ADDED", "SUB_BROKER_ADDED"].includes(
+      String(doc.source || ""),
+    )
+  ) {
+    lines.push({
+      text: doc.isForwardedToClient
+        ? "Sent to client"
+        : doc.source === "LENDER_ADDED"
+          ? "Broker only — not on client portal"
+          : "Not sent to client",
+      date: doc.isForwardedToClient ? doc.sentToClientAt || null : null,
+      tone: doc.isForwardedToClient ? "info" : "muted",
+    });
+  }
+
+  if (uploadedCount > 0 && latestUploadAt) {
+    lines.push({
+      text:
+        uploadedCount === 1
+          ? "Client uploaded 1 file"
+          : `Client uploaded ${uploadedCount} files`,
+      date: latestUploadAt,
+      tone: "success",
+    });
+  }
+
+  return lines;
+}
 
 const BROKER_SENDABLE_SOURCES = new Set(["BROKER_ADDED", "SUB_BROKER_ADDED"]);
 
@@ -231,6 +399,7 @@ export function getDocumentSentDisplay(doc: DocumentDisplayRow) {
         isSent: false,
         isPartial: false,
         detail: `Not sent to ${doc.sourceLender.lenderName}`,
+        sentAt: null,
       };
     }
 
@@ -242,6 +411,7 @@ export function getDocumentSentDisplay(doc: DocumentDisplayRow) {
       isSent: entry.isSent,
       isPartial: entry.isSent && pending > 0,
       detail: formatLenderSendDetail(entry, uploadedCount),
+      sentAt: entry.sentAt || null,
     };
   }
 
@@ -249,11 +419,21 @@ export function getDocumentSentDisplay(doc: DocumentDisplayRow) {
 
   if (sentEntries.length === 0) {
     if (sentToLenders.length > 0) {
-      return { isSent: false, isPartial: false, detail: "Not sent to lenders" };
+      return {
+        isSent: false,
+        isPartial: false,
+        detail: "Not sent to lenders",
+        sentAt: null,
+      };
     }
 
     if (doc.isSentToAnyLender) {
-      return { isSent: true, isPartial: false, detail: "Sent to lender" };
+      return {
+        isSent: true,
+        isPartial: false,
+        detail: "Sent to lender",
+        sentAt: getRelevantLenderSentAt(doc),
+      };
     }
 
     return null;
@@ -269,6 +449,7 @@ export function getDocumentSentDisplay(doc: DocumentDisplayRow) {
       isSent: true,
       isPartial: pending > 0,
       detail: formatLenderSendDetail(entry, uploadedCount),
+      sentAt: entry.sentAt || null,
     };
   }
 
@@ -283,6 +464,12 @@ export function getDocumentSentDisplay(doc: DocumentDisplayRow) {
     0,
   );
 
+  const latestSentAt = sentEntries
+    .map((entry) => entry.sentAt)
+    .filter(Boolean)
+    .map((value) => new Date(String(value)).getTime())
+    .filter((value) => Number.isFinite(value));
+
   return {
     isSent: true,
     isPartial: totalPending > 0,
@@ -290,6 +477,9 @@ export function getDocumentSentDisplay(doc: DocumentDisplayRow) {
       totalPending > 0
         ? `Sent to ${sentEntries.length} lenders · ${totalPending} file${totalPending === 1 ? "" : "s"} pending`
         : `Sent to ${sentEntries.length} lenders`,
+    sentAt: latestSentAt.length
+      ? new Date(Math.max(...latestSentAt)).toISOString()
+      : null,
   };
 }
 

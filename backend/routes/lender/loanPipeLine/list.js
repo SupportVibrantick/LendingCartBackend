@@ -310,6 +310,8 @@ async function listSubmittedApplications(fastify) {
 
               loiUrl: item.loiUrl,
               loiGenerated: !!item.loiUrl,
+              loiSentToBroker: !!item.loiSentToBrokerAt,
+              loiSentToBrokerAt: item.loiSentToBrokerAt,
               // Pipeline vs Decision
               lenderPipelineStatus: item.status,
               lenderDecision,

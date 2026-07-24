@@ -115,6 +115,9 @@ async function subBrokerViewLoiRoute(fastify) {
             loiUrl: {
               not: null,
             },
+            loiSentToBrokerAt: {
+              not: null,
+            },
           },
 
           include: {

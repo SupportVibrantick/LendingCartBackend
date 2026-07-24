@@ -1,6 +1,9 @@
 /**
  * @param {import("fastify").FastifyInstance} fastify
  */
+const {
+  getSignedBrokerLoiForLender,
+} = require("../../../utils/broker/brokerLoiSignWorkflow");
 
 async function viewLoiRoute(fastify) {
 
@@ -70,12 +73,37 @@ async function viewLoiRoute(fastify) {
         // =========================
 
         if (!lenderRecord.loiUrl) {
+          const signedBrokerLoiResult = await getSignedBrokerLoiForLender(
+            prisma,
+            { applicationLenderId, lenderOrgId },
+          );
+
+          if (signedBrokerLoiResult.error) {
+            return reply.code(signedBrokerLoiResult.error.status).send({
+              success: false,
+              message: signedBrokerLoiResult.error.message,
+            });
+          }
+
           return reply.send({
             success: true,
             message: "LOI not generated yet",
             data: {
-              loiPath: null
-            }
+              loiPath: null,
+              signedBrokerLoi: signedBrokerLoiResult.data,
+            },
+          });
+        }
+
+        const signedBrokerLoiResult = await getSignedBrokerLoiForLender(prisma, {
+          applicationLenderId,
+          lenderOrgId,
+        });
+
+        if (signedBrokerLoiResult.error) {
+          return reply.code(signedBrokerLoiResult.error.status).send({
+            success: false,
+            message: signedBrokerLoiResult.error.message,
           });
         }
 
@@ -87,8 +115,9 @@ async function viewLoiRoute(fastify) {
           success: true,
           message: "LOI fetched successfully",
           data: {
-            loiPath: lenderRecord.loiUrl
-          }
+            loiPath: lenderRecord.loiUrl,
+            signedBrokerLoi: signedBrokerLoiResult.data,
+          },
         });
 
       } catch (error) {

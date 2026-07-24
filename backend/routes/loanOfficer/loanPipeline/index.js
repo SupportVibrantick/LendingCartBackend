@@ -14,6 +14,10 @@ async function loanOfficerLoanPipelineRoutes(fastify) {
   fastify.register(require("./submitDocumentsToLender"));
   fastify.register(require("./updateDocumentAutoForward"));
   fastify.register(require("./listLoi"));
+  fastify.register(require("../../broker/loanPipeline/brokerLoi")({
+    tagPrefix: "Loan Officer",
+    requireBrokerUserId: true,
+  }), { prefix: "" });
   fastify.register(require("./getSubmittedlenders"));
   fastify.register(require("./sendClientLink"));
   fastify.register(require("./feeAgreement"));

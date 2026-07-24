@@ -1,142 +1,246 @@
-export type LoiInterestRateType = "FIXED" | "VARIABLE";
+import { getTotalLoanAmountWithFinancedFees } from "./loiFinancedFees";
+
+export type LoiApplicationContext = {
+  borrowerName?: string;
+  propertyAddress?: string;
+  propertyType?: string;
+  loanProduct?: string;
+  brokerName?: string;
+};
 
 export type LoiUnderwritingTerms = {
   approvedAmount: string;
-  interestRateType: LoiInterestRateType;
   interestRate: string;
-  variableRateIndex: string;
-  variableRateSpread: string;
+  ltvPercent: string;
+  ltcPercent: string;
+  arvPercent: string;
+  monthlyPayment: string;
+  interestOnly: boolean;
   loanTerm: string;
-  amortization: string;
-  paymentFrequency: string;
-  originationFeePercent: string;
-  exitFee: string;
-  processingFee: string;
-  underwritingFee: string;
-  legalFee: string;
-  appraisalRequired: string;
-  environmentalReport: string;
-  personalGuarantee: string;
-  prepaymentPenalty: string;
-  recourse: string;
-  closingConditions: string[];
-  customClosingCondition: string;
-  specialConditions: string;
-  expirationDate: string;
+  requiredDocuments: string[];
+  customDocument: string;
 };
 
-export const LOI_LOAN_TERM_OPTIONS = ["12 Months", "24 Months", "36 Months"];
-export const LOI_AMORTIZATION_OPTIONS = [
-  "Interest Only",
-  "30 Years",
-  "25 Years",
-  "20 Years",
-];
-export const LOI_PAYMENT_FREQUENCY_OPTIONS = [
-  "Monthly",
-  "Quarterly",
-  "Interest Only",
-];
-export const LOI_ORIGINATION_FEE_OPTIONS = ["1%", "2%", "2.5%"];
-export const LOI_EXIT_FEE_OPTIONS = ["0%", "1%", "Flat Fee"];
-export const LOI_PROCESSING_FEE_OPTIONS = ["$995", "$1,500"];
-export const LOI_LEGAL_FEE_OPTIONS = ["Borrower Pays", "Actual Cost"];
-export const LOI_YES_NO_OPTIONS = ["Yes", "No"];
-export const LOI_ENVIRONMENTAL_OPTIONS = ["Required", "Waived"];
-export const LOI_PERSONAL_GUARANTEE_OPTIONS = ["Required", "Not Required"];
-export const LOI_PREPAYMENT_OPTIONS = ["None", "3-2-1", "Yield Maintenance"];
-export const LOI_RECOURSE_OPTIONS = ["Full", "Limited", "Non-Recourse"];
-
-export const LOI_CLOSING_CONDITION_OPTIONS = [
+export const LOI_DEFAULT_DOCUMENTS = [
   "Clear Title",
   "Insurance",
-  "Entity Docs",
-  "Bank Statements",
   "Appraisal",
-  "Environmental",
+  "Entity Documents",
+  "Bank Statements",
   "Background Check",
+  "Environmental Report",
 ];
+
+export const LOI_TERM_OPTIONS = [
+  "6 Months",
+  "12 Months",
+  "18 Months",
+  "24 Months",
+  "36 Months",
+];
+
+export const LOI_DEFAULT_FINANCED_FEES = {
+  originationFeePercent: "2%",
+  exitFee: "0%",
+  processingFee: "$995",
+  underwritingFee: "$750",
+};
+
+function toNumber(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  const numeric = Number(String(value).replace(/[$,\s%]/g, ""));
+  if (!Number.isFinite(numeric) || numeric < 0) return null;
+  return numeric;
+}
+
+function parseTermMonths(label?: string) {
+  if (!label) return 0;
+  const months = String(label).match(/(\d+)\s*Months?/i);
+  if (months) return Number(months[1]);
+  const years = String(label).match(/(\d+)\s*Years?/i);
+  if (years) return Number(years[1]) * 12;
+  return 0;
+}
+
+function defaultExpirationDate() {
+  const date = new Date();
+  date.setDate(date.getDate() + 30);
+  return date.toISOString().slice(0, 10);
+}
+
+export function calculateSuggestedLoiMetrics(input: {
+  approvedAmount?: string;
+  interestRate?: string;
+  interestOnly?: boolean;
+  loanTerm?: string;
+  propertyValue?: number | string | null;
+  projectCost?: number | string | null;
+  arv?: number | string | null;
+  originationFeePercent?: string;
+  exitFee?: string;
+  processingFee?: string;
+  underwritingFee?: string;
+}) {
+  const baseLoanAmount = toNumber(input.approvedAmount);
+  const rate = toNumber(input.interestRate);
+  const property = toNumber(input.propertyValue);
+  const cost = toNumber(input.projectCost);
+  const arv = toNumber(input.arv);
+  const termMonths = parseTermMonths(input.loanTerm);
+
+  const { totalLoanAmount, financedFees } = getTotalLoanAmountWithFinancedFees({
+    approvedAmount: baseLoanAmount,
+    originationFeePercent:
+      input.originationFeePercent ?? LOI_DEFAULT_FINANCED_FEES.originationFeePercent,
+    exitFee: input.exitFee ?? LOI_DEFAULT_FINANCED_FEES.exitFee,
+    processingFee:
+      input.processingFee ?? LOI_DEFAULT_FINANCED_FEES.processingFee,
+    underwritingFee:
+      input.underwritingFee ?? LOI_DEFAULT_FINANCED_FEES.underwritingFee,
+  });
+
+  const loanAmount = totalLoanAmount ?? baseLoanAmount;
+
+  const ltv =
+    loanAmount && property
+      ? Number(((loanAmount / property) * 100).toFixed(2))
+      : null;
+  const ltc =
+    loanAmount && cost ? Number(((loanAmount / cost) * 100).toFixed(2)) : null;
+  const arvPercent =
+    loanAmount && arv ? Number(((loanAmount / arv) * 100).toFixed(2)) : null;
+
+  let monthlyPayment: number | null = null;
+  if (loanAmount && rate != null && termMonths > 0) {
+    if (input.interestOnly) {
+      monthlyPayment = (loanAmount * rate) / 100 / 12;
+    } else {
+      const monthlyRate = rate / 100 / 12;
+      if (monthlyRate === 0) {
+        monthlyPayment = loanAmount / termMonths;
+      } else {
+        monthlyPayment =
+          (loanAmount * monthlyRate * Math.pow(1 + monthlyRate, termMonths)) /
+          (Math.pow(1 + monthlyRate, termMonths) - 1);
+      }
+    }
+  }
+
+  return {
+    baseLoanAmount,
+    totalLoanAmount: loanAmount,
+    financedFees,
+    ltv,
+    ltc,
+    arvPercent,
+    monthlyPayment:
+      monthlyPayment != null ? Number(monthlyPayment.toFixed(2)) : null,
+  };
+}
 
 export function createEmptyLoiUnderwritingTerms(
   requestedAmount?: number | string | null,
+  seed?: Partial<{
+    interestRate: number | string | null;
+    loanTerm: number | string | null;
+    propertyValue: number | string | null;
+    projectCost: number | string | null;
+    arv: number | string | null;
+    requiredDocuments: string[];
+  }>,
 ): LoiUnderwritingTerms {
-  const requested = Number(String(requestedAmount || "").replace(/[$,\s]/g, ""));
-  return {
+  const requested = toNumber(requestedAmount);
+  const loanTerm =
+    seed?.loanTerm != null && String(seed.loanTerm).trim()
+      ? String(seed.loanTerm).includes("Month")
+        ? String(seed.loanTerm)
+        : `${seed.loanTerm} Months`
+      : "12 Months";
+
+  const base: LoiUnderwritingTerms = {
     approvedAmount:
-      Number.isFinite(requested) && requested > 0 ? String(requested) : "",
-    interestRateType: "FIXED",
-    interestRate: "",
-    variableRateIndex: "SOFR",
-    variableRateSpread: "",
-    loanTerm: "12 Months",
-    amortization: "25 Years",
-    paymentFrequency: "Monthly",
-    originationFeePercent: "2%",
-    exitFee: "0%",
-    processingFee: "$995",
-    underwritingFee: "$750",
-    legalFee: "Borrower Pays",
-    appraisalRequired: "Yes",
-    environmentalReport: "Required",
-    personalGuarantee: "Required",
-    prepaymentPenalty: "None",
-    recourse: "Full",
-    closingConditions: ["Clear Title", "Insurance", "Appraisal"],
-    customClosingCondition: "",
-    specialConditions: "",
-    expirationDate: "",
+      requested != null && requested > 0 ? String(requested) : "",
+    interestRate:
+      seed?.interestRate != null && Number(seed.interestRate) > 0
+        ? String(seed.interestRate)
+        : "",
+    ltvPercent: "",
+    ltcPercent: "",
+    arvPercent: "",
+    monthlyPayment: "",
+    interestOnly: true,
+    loanTerm,
+    requiredDocuments:
+      seed?.requiredDocuments?.filter(Boolean) ||
+      LOI_DEFAULT_DOCUMENTS.slice(0, 3),
+    customDocument: "",
+  };
+
+  const suggested = calculateSuggestedLoiMetrics({
+    approvedAmount: base.approvedAmount,
+    interestRate: base.interestRate,
+    interestOnly: base.interestOnly,
+    loanTerm: base.loanTerm,
+    propertyValue: seed?.propertyValue,
+    projectCost: seed?.projectCost,
+    arv: seed?.arv,
+  });
+
+  return {
+    ...base,
+    ltvPercent: suggested.ltv != null ? String(suggested.ltv) : "",
+    ltcPercent: suggested.ltc != null ? String(suggested.ltc) : "",
+    arvPercent: suggested.arvPercent != null ? String(suggested.arvPercent) : "",
+    monthlyPayment:
+      suggested.monthlyPayment != null ? String(suggested.monthlyPayment) : "",
   };
 }
 
 export function validateLoiUnderwritingTerms(terms: LoiUnderwritingTerms) {
   const errors: Partial<Record<keyof LoiUnderwritingTerms, string>> = {};
 
-  const approvedAmount = Number(String(terms.approvedAmount).replace(/[$,\s]/g, ""));
+  const approvedAmount = toNumber(terms.approvedAmount);
   if (!terms.approvedAmount.trim()) {
-    errors.approvedAmount = "Approved amount is required";
-  } else if (!Number.isFinite(approvedAmount) || approvedAmount <= 0) {
-    errors.approvedAmount = "Enter a valid approved amount";
+    errors.approvedAmount = "Loan amount is required";
+  } else if (approvedAmount == null || approvedAmount <= 0) {
+    errors.approvedAmount = "Enter a valid loan amount";
   }
 
-  if (terms.interestRateType === "FIXED") {
-    const rate = Number(terms.interestRate);
-    if (!terms.interestRate.trim()) {
-      errors.interestRate = "Interest rate is required";
-    } else if (!Number.isFinite(rate) || rate <= 0 || rate > 100) {
-      errors.interestRate = "Enter a valid rate between 0 and 100";
-    }
-  } else {
-    if (!terms.variableRateIndex.trim()) {
-      errors.variableRateIndex = "Index is required";
-    }
-    const spread = Number(terms.variableRateSpread);
-    if (!terms.variableRateSpread.trim()) {
-      errors.variableRateSpread = "Spread is required";
-    } else if (!Number.isFinite(spread) || spread < 0 || spread > 100) {
-      errors.variableRateSpread = "Enter a valid spread";
-    }
+  const rate = toNumber(terms.interestRate);
+  if (!terms.interestRate.trim()) {
+    errors.interestRate = "Interest rate is required";
+  } else if (rate == null || rate <= 0 || rate > 100) {
+    errors.interestRate = "Enter a valid rate between 0 and 100";
   }
 
-  if (!terms.loanTerm) errors.loanTerm = "Loan term is required";
-  if (!terms.amortization) errors.amortization = "Amortization is required";
-  if (!terms.paymentFrequency) {
-    errors.paymentFrequency = "Payment frequency is required";
-  }
-  if (!terms.originationFeePercent) {
-    errors.originationFeePercent = "Origination fee is required";
-  }
-  if (!terms.expirationDate) {
-    errors.expirationDate = "Expiration date is required";
+  if (!terms.loanTerm) {
+    errors.loanTerm = "Loan term is required";
   }
 
-  const conditions = [
-    ...terms.closingConditions,
-    ...(terms.customClosingCondition.trim()
-      ? [terms.customClosingCondition.trim()]
-      : []),
-  ];
-  if (conditions.length === 0) {
-    errors.closingConditions = "Select at least one closing condition";
+  const ltv = toNumber(terms.ltvPercent);
+  if (terms.ltvPercent.trim() && (ltv == null || ltv <= 0 || ltv > 100)) {
+    errors.ltvPercent = "Enter a valid LTV";
+  }
+
+  const ltc = toNumber(terms.ltcPercent);
+  if (terms.ltcPercent.trim() && (ltc == null || ltc <= 0 || ltc > 100)) {
+    errors.ltcPercent = "Enter a valid LTC";
+  }
+
+  const arv = toNumber(terms.arvPercent);
+  if (terms.arvPercent.trim() && (arv == null || arv <= 0 || arv > 100)) {
+    errors.arvPercent = "Enter a valid ARV ratio";
+  }
+
+  const payment = toNumber(terms.monthlyPayment);
+  if (!terms.monthlyPayment.trim()) {
+    errors.monthlyPayment = "Monthly payment is required";
+  } else if (payment == null || payment <= 0) {
+    errors.monthlyPayment = "Enter a valid monthly payment";
+  }
+
+  if (!terms.requiredDocuments.length) {
+    errors.requiredDocuments = "Select at least one required document";
   }
 
   return {
@@ -146,54 +250,53 @@ export function validateLoiUnderwritingTerms(terms: LoiUnderwritingTerms) {
 }
 
 export function serializeLoiUnderwritingTerms(terms: LoiUnderwritingTerms) {
-  const approvedAmount = Number(
-    String(terms.approvedAmount).replace(/[$,\s]/g, ""),
-  );
+  const approvedAmount = toNumber(terms.approvedAmount) || 0;
+  const interestRate = toNumber(terms.interestRate) || 0;
+  const ltvPercent = toNumber(terms.ltvPercent);
+  const ltcPercent = toNumber(terms.ltcPercent);
+  const arvPercent = toNumber(terms.arvPercent);
 
-  const interestRateDisplay =
-    terms.interestRateType === "VARIABLE"
-      ? `${terms.variableRateIndex.trim()} + ${terms.variableRateSpread.trim()}%`
-      : `${Number(terms.interestRate)}%`;
-
-  const closingConditions = [
-    ...terms.closingConditions,
-    ...(terms.customClosingCondition.trim()
-      ? [terms.customClosingCondition.trim()]
-      : []),
-  ];
+  const feeDefaults = LOI_DEFAULT_FINANCED_FEES;
+  const suggested = calculateSuggestedLoiMetrics({
+    approvedAmount: terms.approvedAmount,
+    interestRate: terms.interestRate,
+    interestOnly: terms.interestOnly,
+    loanTerm: terms.loanTerm,
+    ...feeDefaults,
+  });
+  const monthlyPayment =
+    suggested.monthlyPayment ?? toNumber(terms.monthlyPayment) ?? 0;
 
   return {
     approvedAmount,
-    interestRateType: terms.interestRateType,
-    interestRate:
-      terms.interestRateType === "FIXED" ? Number(terms.interestRate) : null,
-    interestRateDisplay,
-    variableRateIndex:
-      terms.interestRateType === "VARIABLE"
-        ? terms.variableRateIndex.trim()
-        : null,
-    variableRateSpread:
-      terms.interestRateType === "VARIABLE"
-        ? Number(terms.variableRateSpread)
-        : null,
+    interestRateType: "FIXED" as const,
+    interestRate,
+    interestRateDisplay: `${interestRate}%`,
+    variableRateIndex: null,
+    variableRateSpread: null,
     loanTerm: terms.loanTerm,
-    amortization: terms.amortization,
-    paymentFrequency: terms.paymentFrequency,
-    originationFeePercent: terms.originationFeePercent,
-    exitFee: terms.exitFee,
-    processingFee: terms.processingFee,
-    underwritingFee: terms.underwritingFee,
-    legalFee: terms.legalFee,
-    appraisalRequired: terms.appraisalRequired,
-    environmentalReport: terms.environmentalReport,
-    personalGuarantee: terms.personalGuarantee,
-    prepaymentPenalty: terms.prepaymentPenalty,
-    recourse: terms.recourse,
-    closingConditions,
-    specialConditions: terms.specialConditions
-      .split("\n")
-      .map((line) => line.trim())
-      .filter(Boolean),
-    expirationDate: terms.expirationDate,
+    amortization: terms.interestOnly ? "Interest Only" : "30 Years",
+    paymentFrequency: terms.interestOnly ? "Interest Only" : "Monthly",
+    interestOnly: terms.interestOnly,
+    ltvPercent,
+    ltcPercent,
+    arvPercent,
+    monthlyPayment,
+    totalLoanAmount: suggested.totalLoanAmount ?? approvedAmount,
+    financedFees: suggested.financedFees ?? 0,
+    originationFeePercent: feeDefaults.originationFeePercent,
+    exitFee: feeDefaults.exitFee,
+    processingFee: feeDefaults.processingFee,
+    underwritingFee: feeDefaults.underwritingFee,
+    legalFee: "Borrower Pays",
+    appraisalRequired: "Yes",
+    environmentalReport: "Required",
+    personalGuarantee: "Required",
+    prepaymentPenalty: "None",
+    recourse: "Full",
+    requiredDocuments: terms.requiredDocuments,
+    closingConditions: terms.requiredDocuments,
+    specialConditions: [] as string[],
+    expirationDate: defaultExpirationDate(),
   };
 }

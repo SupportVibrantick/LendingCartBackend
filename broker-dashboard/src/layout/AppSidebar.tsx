@@ -10,6 +10,7 @@ import { MdOutlineDocumentScanner } from "react-icons/md";
 import { FaUsersBetweenLines, FaUserGroup } from "react-icons/fa6";
 import { PiSecurityCameraFill } from "react-icons/pi";
 import {
+  FolderOpen,
   TrendingUp,
   //  MessageSquare
   Wallet,
@@ -126,6 +127,20 @@ const AppSidebar: React.FC = () => {
               { name: "My Lenders", path: "/my-lenders" },
               { name: "Invited Lenders", path: "/invited-lenders" },
               { name: "Find Lenders", path: "/find-lenders" },
+            ],
+          },
+        ]
+        : []),
+      ...(!isSubBroker
+        ? [
+          {
+            icon: <FolderOpen size={18} />,
+            name: "Documents",
+            subItems: [
+              {
+                name: "Custom Documents",
+                path: "/documents/custom",
+              },
             ],
           },
         ]

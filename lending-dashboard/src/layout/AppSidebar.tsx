@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router";
 import type { LucideIcon } from "lucide-react";
-import { ChevronDown, LayoutDashboard, Layers, TrendingUp, UserCircle, Users } from "lucide-react";
+import { ChevronDown, FileText, LayoutDashboard, Layers, Settings, TrendingUp, UserCircle, Users } from "lucide-react";
 import { HorizontaLDots } from "../icons";
 import { useSidebar } from "../context/SidebarContext";
 import { isLenderAdminUser } from "../lib/lenderTeamMembers";
@@ -44,6 +44,13 @@ const navItems: NavItem[] = [
     ],
   },
   {
+    icon: FileText,
+    name: "Documents",
+    description: "Required docs by product",
+    path: "/documents",
+    matchPaths: ["/documents"],
+  },
+  {
     icon: UserCircle,
     name: "Profile",
     description: "Lender information",
@@ -62,14 +69,29 @@ const adminNavItems: NavItem[] = [
   },
 ];
 
+const settingsNavItem: NavItem = {
+  icon: Settings,
+  name: "Settings",
+  description: "Branding & preferences",
+  matchPaths: ["/settings/branding"],
+  subItems: [{ name: "Branding", path: "/settings/branding" }],
+};
+
 function getNavItems() {
-  return isLenderAdminUser()
-    ? [
-        ...navItems.slice(0, 3),
-        adminNavItems[0],
-        ...navItems.slice(3),
-      ]
-    : navItems;
+  const documentsNavItem = navItems.find((item) => item.path === "/documents");
+  const baseNavItems = navItems.filter((item) => item.path !== "/documents");
+
+  if (!isLenderAdminUser()) {
+    return baseNavItems;
+  }
+
+  return [
+    ...baseNavItems.slice(0, 3),
+    adminNavItems[0],
+    ...(documentsNavItem ? [documentsNavItem] : []),
+    ...baseNavItems.slice(3),
+    settingsNavItem,
+  ];
 }
 
 function isNavItemActive(pathname: string, item: NavItem) {
@@ -97,6 +119,7 @@ const AppSidebar: React.FC = () => {
   const subMenuRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const isActive = useCallback(
+    
     (item: NavItem) => isNavItemActive(location.pathname, item),
     [location.pathname],
   );

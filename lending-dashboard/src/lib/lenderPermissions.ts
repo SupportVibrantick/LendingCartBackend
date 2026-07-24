@@ -83,6 +83,10 @@ export function canManageLoanProducts(): boolean {
   return hasLenderPermission(LENDER_PERMISSION.MANAGE_LOAN_PRODUCTS);
 }
 
+export function canManageDocumentConfig(): boolean {
+  return hasLenderPermission(LENDER_PERMISSION.MANAGE_DOCUMENT_CONFIG);
+}
+
 export function canManageLenderProfile(): boolean {
   return hasLenderPermission(LENDER_PERMISSION.MANAGE_LENDER_PROFILE);
 }

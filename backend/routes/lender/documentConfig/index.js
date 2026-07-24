@@ -3,6 +3,7 @@ const createCustomDocumentTypeRoutes = require("./createCustomDocumentType");
 const updateRoutes = require("./update");
 const listRoutes = require("./list");
 const deleteRoutes = require("./delete");
+const cleanupOrphanedCustomTypesRoutes = require("./cleanupOrphanedCustomTypes");
 /**
  * @param {import("fastify").FastifyInstance} fastify
  */
@@ -14,6 +15,7 @@ async function lenderDocumentConfigRoutes(fastify) {
   fastify.register(updateRoutes, { prefix: "/update" });
   fastify.register(listRoutes, { prefix: "/list" });
   fastify.register(deleteRoutes, {prefix:"/delete"});
+  fastify.register(cleanupOrphanedCustomTypesRoutes);
 }
 
 module.exports = lenderDocumentConfigRoutes;

@@ -9,7 +9,13 @@ const Docxtemplater = require("docxtemplater");
 
 const { convertDocxToPdf } = require("../../../utils/pdf/convertDocxToPdf");
 const { generateLoiPdf } = require("../../../services/loi/generateLoiPdf");
-const { buildLoiTemplateData } = require("../../../services/loi/buildLoiTemplateData");
+const {
+  buildLoiTemplateData,
+  normalizeLenderTerms,
+} = require("../../../services/loi/buildLoiTemplateData");
+const {
+  resolveLenderLoiBranding,
+} = require("../../../services/loi/resolveLoiBranding");
 const { logAudit } = require("../../../services/logger/auditLogger");
 const {
   resolveLatestActiveSubmission,
@@ -37,13 +43,9 @@ async function generateLoiRoute(fastify) {
               type: "object",
               required: [
                 "approvedAmount",
-                "interestRateType",
+                "interestRate",
                 "loanTerm",
-                "amortization",
-                "paymentFrequency",
-                "originationFeePercent",
-                "expirationDate",
-                "closingConditions",
+                "monthlyPayment",
               ],
               properties: {
                 approvedAmount: { type: "number", exclusiveMinimum: 0 },
@@ -56,9 +58,14 @@ async function generateLoiRoute(fastify) {
                 variableRateIndex: { type: ["string", "null"] },
                 variableRateSpread: { type: ["number", "null"] },
                 loanTerm: { type: "string", minLength: 1 },
-                amortization: { type: "string", minLength: 1 },
-                paymentFrequency: { type: "string", minLength: 1 },
-                originationFeePercent: { type: "string", minLength: 1 },
+                amortization: { type: "string" },
+                paymentFrequency: { type: "string" },
+                interestOnly: { type: "boolean" },
+                ltvPercent: { type: ["number", "null"] },
+                ltcPercent: { type: ["number", "null"] },
+                arvPercent: { type: ["number", "null"] },
+                monthlyPayment: { type: ["number", "null"] },
+                originationFeePercent: { type: "string" },
                 exitFee: { type: "string" },
                 processingFee: { type: "string" },
                 underwritingFee: { type: "string" },
@@ -68,16 +75,27 @@ async function generateLoiRoute(fastify) {
                 personalGuarantee: { type: "string" },
                 prepaymentPenalty: { type: "string" },
                 recourse: { type: "string" },
-                closingConditions: {
+                requiredDocuments: {
                   type: "array",
                   minItems: 1,
+                  items: { type: "string" },
+                },
+                closingConditions: {
+                  type: "array",
                   items: { type: "string" },
                 },
                 specialConditions: {
                   type: "array",
                   items: { type: "string" },
                 },
-                expirationDate: { type: "string", minLength: 1 },
+                expirationDate: { type: "string" },
+              },
+            },
+            branding: {
+              type: "object",
+              properties: {
+                brandName: { type: "string" },
+                logoUrl: { type: "string" },
               },
             },
           },
@@ -132,14 +150,51 @@ async function generateLoiRoute(fastify) {
         }
 
         if (
-          !Array.isArray(lenderTerms.closingConditions) ||
-          lenderTerms.closingConditions.length === 0
+          !Number.isFinite(Number(lenderTerms.interestRate)) ||
+          Number(lenderTerms.interestRate) <= 0
         ) {
           return reply.code(400).send({
             success: false,
-            message: "At least one closing condition is required",
+            message: "Interest rate is required",
           });
         }
+
+        if (!String(lenderTerms.loanTerm || "").trim()) {
+          return reply.code(400).send({
+            success: false,
+            message: "Loan term is required",
+          });
+        }
+
+        if (
+          !Number.isFinite(Number(lenderTerms.monthlyPayment)) ||
+          Number(lenderTerms.monthlyPayment) <= 0
+        ) {
+          return reply.code(400).send({
+            success: false,
+            message: "Monthly payment is required",
+          });
+        }
+
+        const requiredDocuments = Array.isArray(lenderTerms.requiredDocuments)
+          ? lenderTerms.requiredDocuments
+              .map((item) => String(item || "").trim())
+              .filter(Boolean)
+          : Array.isArray(lenderTerms.closingConditions)
+            ? lenderTerms.closingConditions
+                .map((item) => String(item || "").trim())
+                .filter(Boolean)
+            : [];
+
+        if (requiredDocuments.length === 0) {
+          return reply.code(400).send({
+            success: false,
+            message: "At least one required document is needed",
+          });
+        }
+
+        lenderTerms.requiredDocuments = requiredDocuments;
+        lenderTerms.closingConditions = requiredDocuments;
 
         /* ===============================
            FETCH APPLICATION
@@ -180,8 +235,21 @@ async function generateLoiRoute(fastify) {
                 },
               },
             },
-            lender: true,
-            lenderProduct: true,
+            lender: {
+              include: {
+                lenderProfile: true,
+              },
+            },
+            lenderProduct: {
+              include: {
+                loanProduct: {
+                  select: {
+                    code: true,
+                    name: true,
+                  },
+                },
+              },
+            },
             lenderReviews: {
               orderBy: { createdAt: "desc" },
               take: 1,
@@ -222,6 +290,23 @@ async function generateLoiRoute(fastify) {
         /* ===============================
            MAP FORM FIELDS + TEMPLATE DATA
         =============================== */
+        let lenderBranding;
+        try {
+          lenderBranding = await resolveLenderLoiBranding(
+            prisma,
+            lenderOrgId,
+            req.body?.branding,
+            lenderRecord.lender?.name,
+          );
+        } catch (brandingError) {
+          return reply.code(400).send({
+            success: false,
+            message:
+              brandingError.message ||
+              "Brand name and logo are required for LOI generation",
+          });
+        }
+
         const loiData = buildLoiTemplateData({
           submission,
           loanApplication: lenderRecord.loanApplication,
@@ -229,7 +314,10 @@ async function generateLoiRoute(fastify) {
           applicationLenderId,
           collaterals: lenderRecord.loanApplication?.collaterals || [],
           lenderTerms,
+          lenderBranding,
         });
+
+        const persistedLoiTerms = normalizeLenderTerms(lenderTerms);
 
         /* ===============================
            GENERATE PDF
@@ -333,41 +421,19 @@ async function generateLoiRoute(fastify) {
         }
 
         const fileUrl = `/lender/LOI/${fileName}`;
-        const brokerOrgId = lenderRecord.loanApplication.brokerOrgId;
+        const loanApplicationId = lenderRecord.loanApplication.id;
 
         /* ===============================
            DB TRANSACTION
         =============================== */
-        const [, notification] = await prisma.$transaction([
-          prisma.applicationLender.update({
-            where: { id: applicationLenderId },
-            data: { loiUrl: fileUrl },
-          }),
-
-          prisma.notification.create({
-            data: {
-              eventType: "LOI_GENERATED",
-              category: "LOI",
-              channel: "IN_APP",
-              status: "QUEUED",
-              recipientType: "BROKER",
-              recipientOrgId: brokerOrgId,
-              subject: "New LOI Received",
-              body: `LOI generated by ${lenderRecord.lender?.name || "Lender"} for application ${lenderRecord.loanApplication.applicationNumber}`,
-              metadata: {
-                applicationId:
-                  lenderRecord.loanApplication.id,
-                applicationNumber:
-                  lenderRecord.loanApplication.applicationNumber,
-                applicationLenderId: lenderRecord.id,
-                lenderName:
-                  lenderRecord.lender?.name || "Lender",
-                loiPath: fileUrl,
-              },
-              sentAt: new Date(),
-            },
-          }),
-        ]);
+        await prisma.applicationLender.update({
+          where: { id: applicationLenderId },
+          data: {
+            loiUrl: fileUrl,
+            loiTermsJson: persistedLoiTerms || lenderTerms,
+            lastUpdatedAt: new Date(),
+          },
+        });
 
         /* ===============================
            AUDIT LOG
@@ -384,22 +450,14 @@ async function generateLoiRoute(fastify) {
         });
 
         /* ===============================
-           SOCKET
-        =============================== */
-        try {
-          const { emitBrokerNotification } = require("../../../services/notifications/notificationRealtime");
-          emitBrokerNotification(fastify.io, brokerOrgId, notification);
-        } catch (e) {
-          fastify.log.warn("Socket emit failed:", e);
-        }
-
-        /* ===============================
            RESPONSE
         =============================== */
         return reply.send({
           success: true,
-          message: "LOI generated successfully",
+          message:
+            "LOI generated successfully. Review the term sheet, then send it to the broker when ready.",
           loiUrl: fileUrl,
+          loiSentToBrokerAt: null,
         });
 
       } catch (error) {

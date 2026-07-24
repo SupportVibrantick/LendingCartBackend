@@ -52,6 +52,35 @@ function normalizeSourceFilter(sourceFilter) {
   return "all";
 }
 
+function buildUnsentLoiDocumentsExcludeClause() {
+  return {
+    NOT: {
+      AND: [
+        { source: "LENDER_ADDED" },
+        { requiresClientSignature: false },
+        {
+          requestApplicationLender: {
+            is: {
+              loiUrl: { not: null },
+              loiSentToBrokerAt: null,
+            },
+          },
+        },
+      ],
+    },
+  };
+}
+
+function applyBrokerDocumentVisibility(where, viewerRole = "broker") {
+  if (viewerRole !== "broker" && viewerRole !== "loan_officer") {
+    return where;
+  }
+
+  return {
+    AND: [where, buildUnsentLoiDocumentsExcludeClause()],
+  };
+}
+
 function buildSubmissionDocumentsWhere({
   loanApplicationId,
   search,
@@ -86,12 +115,15 @@ function buildSubmissionDocumentsWhere({
       : { source: "SUB_BROKER_ADDED", isSentToBroker: true };
 
   if (normalizedSourceFilter === "broker") {
-    return {
-      loanApplicationId,
-      source: "BROKER_ADDED",
-      ...signatureFilter,
-      ...searchFilter,
-    };
+    return applyBrokerDocumentVisibility(
+      {
+        loanApplicationId,
+        source: "BROKER_ADDED",
+        ...signatureFilter,
+        ...searchFilter,
+      },
+      viewerRole,
+    );
   }
 
   if (normalizedSourceFilter === "sub_broker") {
@@ -114,36 +146,45 @@ function buildSubmissionDocumentsWhere({
       ),
     ];
 
-    return {
-      loanApplicationId,
-      source: "LENDER_ADDED",
-      documentTypeId: {
-        in: documentTypeIds,
+    return applyBrokerDocumentVisibility(
+      {
+        loanApplicationId,
+        source: "LENDER_ADDED",
+        documentTypeId: {
+          in: documentTypeIds,
+        },
+        ...signatureFilter,
+        ...searchFilter,
       },
-      ...signatureFilter,
-      ...searchFilter,
-    };
+      viewerRole,
+    );
   }
 
   if (normalizedSourceFilter === "lender") {
-    return {
-      loanApplicationId,
-      source: "LENDER_ADDED",
-      ...signatureFilter,
-      ...searchFilter,
-    };
+    return applyBrokerDocumentVisibility(
+      {
+        loanApplicationId,
+        source: "LENDER_ADDED",
+        ...signatureFilter,
+        ...searchFilter,
+      },
+      viewerRole,
+    );
   }
 
-  return {
-    loanApplicationId,
-    OR: [
-      { source: "BROKER_ADDED" },
-      subBrokerVisibility,
-      { source: "LENDER_ADDED" },
-    ],
-    ...signatureFilter,
-    ...searchFilter,
-  };
+  return applyBrokerDocumentVisibility(
+    {
+      loanApplicationId,
+      OR: [
+        { source: "BROKER_ADDED" },
+        subBrokerVisibility,
+        { source: "LENDER_ADDED" },
+      ],
+      ...signatureFilter,
+      ...searchFilter,
+    },
+    viewerRole,
+  );
 }
 
 function evaluateLenderSendState(doc, lenderId) {
@@ -279,6 +320,8 @@ module.exports = {
   buildLenderRequestMap,
   buildDocumentFilterLenders,
   buildSubmissionDocumentsWhere,
+  buildUnsentLoiDocumentsExcludeClause,
+  applyBrokerDocumentVisibility,
   normalizeSourceFilter,
   documentMatchesSentFilter,
   paginateDocuments,

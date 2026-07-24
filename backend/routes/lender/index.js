@@ -89,6 +89,10 @@ module.exports = async function lenderRoutes(fastify, opts) {
       prefix: "/dashboard",
     });
 
+    instance.register(require("./branding"), {
+      prefix: "/branding",
+    });
+
     // Later:
     // instance.register(brokerRoutes, { prefix: "/brokers" });
     // instance.register(commonRoutes, { prefix: "/common" });

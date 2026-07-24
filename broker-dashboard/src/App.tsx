@@ -86,6 +86,7 @@ import LoanOfficerMessagesPage from "./pages/loanOfficer/Messages/LoanOfficerMes
 import LoanOfficerApplication from "./pages/loanOfficer/LoanApplication/LoanApplication";
 import LoanOfficerContacts from "./pages/loanOfficer/Contacts/ContactPage";
 import BrokerBranding from "./pages/Settings/BrokerBranding";
+import BrokerCustomDocuments from "./pages/Documents/BrokerCustomDocuments";
 import CommissionsPage from "./pages/Commissions/CommissionsPage";
 import PaymentsLayout from "./pages/Payments/PaymentsLayout";
 import InvoicesPage from "./pages/Payments/InvoicesPage";
@@ -303,6 +304,14 @@ export default function App() {
             {/* Others Page */}
             <Route path="/profile" element={<UserProfiles />} />
             <Route path="/settings/branding" element={<BrokerBranding />} />
+            <Route
+              path="/documents/custom"
+              element={<BrokerCustomDocuments />}
+            />
+            <Route
+              path="/settings/custom-documents"
+              element={<Navigate to="/documents/custom" replace />}
+            />
             <Route path="/calendar" element={<Calendar />} />
             <Route path="/blank" element={<Blank />} />
 

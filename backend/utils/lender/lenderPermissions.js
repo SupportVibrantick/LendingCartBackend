@@ -115,6 +115,10 @@ function resolveLenderMutationPermission(req) {
     return LENDER_PERMISSION.MANAGE_ELIGIBILITY;
   }
 
+  if (path.includes("/branding")) {
+    return LENDER_PERMISSION.MANAGE_LENDER_PROFILE;
+  }
+
   if (method === "DELETE" && path.includes("/notifications")) {
     return LENDER_PERMISSION.MANAGE_PORTAL;
   }

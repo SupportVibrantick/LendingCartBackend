@@ -1,3 +1,5 @@
+import { getTotalLoanAmountWithFinancedFees } from "./loiFinancedFees";
+
 export function toMetricNumber(value: unknown): number | null {
   if (value === null || value === undefined || value === "") return null;
   const numeric = Number(String(value).replace(/[$,\s%]/g, ""));
@@ -69,18 +71,6 @@ function remainingBalance(
   );
 }
 
-function parseFeeAmount(feeValue: string | undefined, loanAmount: number | null) {
-  if (!feeValue) return 0;
-  const raw = String(feeValue).trim();
-  if (/flat\s*fee/i.test(raw)) return 0;
-  if (raw.includes("%")) {
-    const percent = toMetricNumber(raw);
-    if (percent == null || !loanAmount) return 0;
-    return (loanAmount * percent) / 100;
-  }
-  return toMetricNumber(raw) || 0;
-}
-
 function approximateApr({
   loanAmount,
   financedFees,
@@ -134,7 +124,7 @@ export type LoiCalculatedMetricsInput = {
 };
 
 export function calculateLoiMetricsPreview(input: LoiCalculatedMetricsInput) {
-  const loanAmount = toMetricNumber(input.approvedAmount);
+  const baseLoanAmount = toMetricNumber(input.approvedAmount);
   const rate =
     input.interestRateType === "VARIABLE"
       ? null
@@ -146,17 +136,26 @@ export function calculateLoiMetricsPreview(input: LoiCalculatedMetricsInput) {
   const property = toMetricNumber(input.propertyValue);
   const cost = toMetricNumber(input.projectCost);
 
+  const { totalLoanAmount, financedFees } = getTotalLoanAmountWithFinancedFees({
+    approvedAmount: baseLoanAmount,
+    originationFeePercent: input.originationFeePercent,
+    processingFee: input.processingFee,
+    underwritingFee: input.underwritingFee,
+    exitFee: input.exitFee,
+  });
+
+  const loanAmount = totalLoanAmount ?? baseLoanAmount;
+
   const ltv = loanAmount && property ? (loanAmount / property) * 100 : null;
   const ltc = loanAmount && cost ? (loanAmount / cost) * 100 : null;
 
-  const estimatedClosingCost =
-    parseFeeAmount(input.originationFeePercent, loanAmount) +
-    parseFeeAmount(input.processingFee, loanAmount) +
-    parseFeeAmount(input.underwritingFee, loanAmount) +
-    parseFeeAmount(input.exitFee, loanAmount);
+  const estimatedClosingCost = financedFees;
 
   if (!loanAmount || !termMonths || rate == null) {
     return {
+      baseLoanAmount,
+      totalLoanAmount: loanAmount,
+      financedFees,
       ltv,
       ltc,
       monthlyPayment: null as number | null,
@@ -204,6 +203,9 @@ export function calculateLoiMetricsPreview(input: LoiCalculatedMetricsInput) {
   });
 
   return {
+    baseLoanAmount,
+    totalLoanAmount: loanAmount,
+    financedFees,
     ltv,
     ltc,
     monthlyPayment: monthlyPaymentValue,

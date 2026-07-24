@@ -37,7 +37,7 @@ import BrokersLenders from "./pages/Eligibility Engine/CreateRule";
 import AdminLogs from "./pages/AdminLogs/AdminLogs";
 import AllLoanProducts from "./pages/LoanProducts/AllLoanProducts";
 import AddLoanProduct from "./pages/LoanProducts/AddLoanProduct";
-// import AllDocuments from "./pages/Documents/AllDocuments";
+import AllDocuments from "./pages/Documents/AllDocuments";
 import AllSuperadmin from "./pages/SuperAdmin/AllSuperAdmin";
 import LenderProductAssign from "./pages/LoanProducts/LenderAssignProduct";
 import AssignedProducts from "./pages/LoanProducts/AssignedProducts";
@@ -52,6 +52,7 @@ import LoanPreview from "./pages/LoanPipeline/LoanPreview";
 import TeamMembers from "./pages/TeamMembers/TeamMembers";
 import UpdateLoanProduct from "./pages/LoanProducts/UpdateLoanProduct";
 import ChangePassword from "./pages/Account/ChangePassword";
+import LenderBranding from "./pages/Settings/LenderBranding";
 
 export default function App() {
   return (
@@ -95,7 +96,15 @@ export default function App() {
             <Route index path="/lender-assigned-products" element={<LenderProductAssign />} />
             <Route index path="/assigned-products" element={<AssignedProducts />} />
             <Route index path="/all-super-admins" element={<AllSuperadmin />} />
-            {/* <Route index path="/all-documents" element={<AllDocuments />} /> */}
+            <Route
+              index
+              path="/documents"
+              element={
+                <RequireLenderAdmin>
+                  <AllDocuments />
+                </RequireLenderAdmin>
+              }
+            />
             <Route index path="/admin-logs" element={<AdminLogs />} />
             <Route index path="/my-broker" element={<MyBroker />} />
             <Route index path="/broker-request" element={<BrokerRequest />} />
@@ -105,6 +114,14 @@ export default function App() {
             <Route index path="/loi-preview" element={<LoiPreview />} />
             <Route path="/team-members" element={<TeamMembers />} />
             <Route path="/account/change-password" element={<ChangePassword />} />
+            <Route
+              path="/settings/branding"
+              element={
+                <RequireLenderAdmin>
+                  <LenderBranding />
+                </RequireLenderAdmin>
+              }
+            />
             <Route path="/profile" element={<LenderProfileView />} />
             <Route
               path="/profile/edit"
