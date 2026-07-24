@@ -10,5 +10,6 @@ export const MAX_LICENSE_NUMBER = 30;
 
 export const MIN_FIRST_NAME_LENGTH = 1;
 export const MIN_LAST_NAME_LENGTH = 1;
-export const MIN_PROFILE_NAME_LENGTH = 1;
-export const MIN_USER_NAME_LENGTH = 1;
+
+// Maximum 5 MB
+export const MAX_FILE_SIZE = 5 * 1024 * 1024;

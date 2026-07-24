@@ -17,6 +17,7 @@ import {
 import toast from "react-hot-toast";
 
 import {
+  MAX_FILE_SIZE,
   MAX_COMPANY_NAME,
   MAX_LICENSE_NUMBER,
   MAX_FIRST_NAME_LENGTH,
@@ -241,6 +242,10 @@ export default function UserProfileCard() {
     formData.append("website", website.trim());
     if (profileImage) formData.append("profileImage", profileImage);
 
+    for (const [key, value] of formData.entries()) {
+      console.log(key, value);
+    }
+
     setSaving(true);
     try {
       const res = await fetch(`${API_BASE}/broker/auth/update/profile`, {
@@ -356,11 +361,21 @@ export default function UserProfileCard() {
                       className="hidden"
                       onChange={(e) => {
                         const file = e.target.files?.[0];
-                        if (file?.type.startsWith("image/")) {
-                          setProfileImage(file);
-                        } else {
-                          toast.error("Only image files allowed");
+                        if (!file) return;
+                        if (!file.type.startsWith("image/")) {
+                          toast.error(
+                            "Only JPG, PNG, and WEBP images are allowed.",
+                          );
+                          return;
                         }
+
+                        if (file.size > MAX_FILE_SIZE) {
+                          toast.error("Profile image must be 5 MB or smaller.");
+                          e.target.value = "";
+                          return;
+                        }
+
+                        setProfileImage(file);
                       }}
                     />
                   </label>
