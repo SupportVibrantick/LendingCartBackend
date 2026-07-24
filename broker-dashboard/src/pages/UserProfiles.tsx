@@ -53,6 +53,7 @@ export default function UserProfileCard() {
 
   const [nameError, setNameError] = useState("");
   const [lastNameError, setLastNameError] = useState("");
+  const [phoneError, setPhoneError] = useState("");
 
   const [showPasswordSection, setShowPasswordSection] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
@@ -358,7 +359,12 @@ export default function UserProfileCard() {
         <div className="flex flex-wrap items-start justify-between gap-4 px-4 pb-6 pt-16 sm:px-8 sm:pt-20">
           <div>
             <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-              {displayName}
+              {displayName
+                .split(" ")
+                .map((name) =>
+                  name.length > 10 ? `${name.slice(0, 10)}...` : name,
+                )
+                .join(" ")}
             </h2>
             <p className="mt-1 flex items-center gap-2 text-sm font-medium text-[#13538A] dark:text-[#6ba3d8]">
               <Briefcase size={14} />
@@ -448,8 +454,44 @@ export default function UserProfileCard() {
                   label="Phone"
                   value={phone}
                   editing={editing}
-                  onChange={setPhone}
+                  onChange={(value) => {
+                    let digits = value.replace(/\D/g, "");
+                    if (digits.startsWith("1") && digits.length > 10) {
+                      digits = digits.slice(1);
+                    }
+
+                    if (digits.length > 10) {
+                      setPhoneError("Please enter a valid US phone number.");
+                      return;
+                    }
+
+                    let formatted = "";
+
+                    if (digits.length > 6) {
+                      formatted = `(${digits.slice(0, 3)}) ${digits.slice(
+                        3,
+                        6,
+                      )}-${digits.slice(6)}`;
+                    } else if (digits.length > 3) {
+                      formatted = `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+                    } else if (digits.length > 0) {
+                      formatted = `(${digits}`;
+                    }
+
+                    setPhoneError("");
+                    setPhone(formatted);
+                  }}
+                  // onBlur={() => {
+                  //   if (phone.replace(/\D/g, "").length !== 10) {
+                  //     setPhoneError(
+                  //       "Please enter a valid 10-digit US phone number.",
+                  //     );
+                  //   } else {
+                  //     setPhoneError("");
+                  //   }
+                  // }}
                   icon={<Phone size={14} />}
+                  error={phoneError}
                 />
               </div>
             </section>
@@ -673,6 +715,7 @@ function ProfileField({
   value,
   editing,
   onChange,
+  onBlur,
   icon,
   error,
 }: {
@@ -680,6 +723,7 @@ function ProfileField({
   value: string;
   editing: boolean;
   onChange?: (value: string) => void;
+  onBlur?: () => void;
   icon: React.ReactNode;
   error?: string;
 }) {
@@ -694,6 +738,7 @@ function ProfileField({
         <>
           <input
             value={value}
+            onBlur={onBlur}
             onChange={(e) => {
               onChange(e.target.value);
             }}

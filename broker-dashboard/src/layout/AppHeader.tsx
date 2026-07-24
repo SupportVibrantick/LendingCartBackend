@@ -180,7 +180,12 @@ const AppHeader: React.FC = () => {
               Welcome back
             </p>
             <p className="truncate text-sm font-semibold leading-tight text-gray-900 dark:text-white">
-              {toTitleCase(displayName)}
+                {toTitleCase(displayName)
+                  .split(" ")
+                  .map((name) =>
+                    name.length > 10 ? `${name.slice(0, 10)}...` : name,
+                  )
+                  .join(" ")}
             </p>
             {orgName && (
               <p className="truncate text-xs leading-tight text-gray-500 dark:text-gray-400">
