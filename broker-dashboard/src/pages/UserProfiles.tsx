@@ -16,13 +16,20 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 
+import {
+  MAX_FIRST_NAME_LENGTH,
+  MIN_FIRST_NAME_LENGTH,
+  MAX_LAST_NAME_LENGTH,
+  MIN_LAST_NAME_LENGTH,
+} from "../../config";
+
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
 const inputClass =
   "w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-900 outline-none transition focus:border-[#13538A]/40 focus:bg-white focus:ring-2 focus:ring-[#13538A]/10 dark:border-gray-700 dark:bg-gray-800 dark:text-white";
 
 const displayClass =
-  "rounded-xl border border-gray-100 bg-gray-50 px-4 py-2.5 text-sm text-gray-800 dark:border-gray-700 dark:bg-gray-800/80 dark:text-gray-200";
+  "rounded-xl border border-gray-100 bg-gray-50 px-4 py-2.5 text-sm text-gray-800 overflow-hidden whitespace-nowrap truncate dark:border-gray-700 dark:bg-gray-800/80 dark:text-gray-200";
 
 function getBrokerToken() {
   return sessionStorage.getItem("broker_token");
@@ -43,6 +50,9 @@ export default function UserProfileCard() {
   const [profileImage, setProfileImage] = useState<File | null>(null);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  const [nameError, setNameError] = useState("");
+  const [lastNameError, setLastNameError] = useState("");
 
   const [showPasswordSection, setShowPasswordSection] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
@@ -234,8 +244,7 @@ export default function UserProfileCard() {
       const updatedUser = {
         ...user,
         ...(json.data?.user || {}),
-        brokerProfile:
-          json.data?.user?.brokerProfile || user.brokerProfile,
+        brokerProfile: json.data?.user?.brokerProfile || user.brokerProfile,
         organizationName:
           json.data?.organization?.name || user.organizationName,
       };
@@ -397,15 +406,43 @@ export default function UserProfileCard() {
                   label="First Name"
                   value={firstName}
                   editing={editing}
-                  onChange={setFirstName}
+                  onChange={(value) => {
+                    if (value.length > MAX_FIRST_NAME_LENGTH) {
+                      setNameError(
+                        `First name cannot exceed ${MAX_FIRST_NAME_LENGTH} characters.`,
+                      );
+                      return;
+                    }
+                    if (value.trim().length < MIN_FIRST_NAME_LENGTH) {
+                      setNameError("First name cannot be empty.");
+                      return;
+                    }
+                    setNameError("");
+                    setFirstName(value);
+                  }}
                   icon={<User size={14} />}
+                  error={nameError}
                 />
                 <ProfileField
                   label="Last Name"
                   value={lastName}
                   editing={editing}
-                  onChange={setLastName}
+                  onChange={(value) => {
+                    if (value.length > MAX_LAST_NAME_LENGTH) {
+                      setLastNameError(
+                        `Last name cannot exceed ${MAX_LAST_NAME_LENGTH} characters.`,
+                      );
+                      return;
+                    }
+                    if (value.trim().length < MIN_LAST_NAME_LENGTH) {
+                      setLastNameError("Last name cannot be empty.");
+                      return;
+                    }
+                    setLastNameError("");
+                    setLastName(value);
+                  }}
                   icon={<User size={14} />}
+                  error={lastNameError}
                 />
                 <ProfileField
                   label="Phone"
@@ -573,7 +610,9 @@ export default function UserProfileCard() {
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-40" />
                   <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
                 </span>
-                {user.status === "DISABLED" ? "Inactive Account" : "Active Account"}
+                {user.status === "DISABLED"
+                  ? "Inactive Account"
+                  : "Active Account"}
               </div>
 
               <div className="mt-4 grid grid-cols-2 gap-3">
@@ -591,7 +630,8 @@ export default function UserProfileCard() {
               </p>
               <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
                 Keep your company, license, and contact details updated so
-                lenders and clients see accurate information across the platform.
+                lenders and clients see accurate information across the
+                platform.
               </p>
             </div>
           </aside>
@@ -634,12 +674,14 @@ function ProfileField({
   editing,
   onChange,
   icon,
+  error,
 }: {
   label: string;
   value: string;
   editing: boolean;
   onChange?: (value: string) => void;
   icon: React.ReactNode;
+  error?: string;
 }) {
   return (
     <div className="space-y-2">
@@ -647,14 +689,23 @@ function ProfileField({
         {icon}
         {label}
       </label>
+
       {editing && onChange ? (
-        <input
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className={inputClass}
-        />
+        <>
+          <input
+            value={value}
+            onChange={(e) => {
+              onChange(e.target.value);
+            }}
+            className={inputClass}
+          />
+
+          {error && <p className="text-xs text-red-500">{error}</p>}
+        </>
       ) : (
-        <div className={displayClass}>{value || "—"}</div>
+        <div className={`${displayClass} truncate`} title={value}>
+          {value || "—"}
+        </div>
       )}
     </div>
   );
@@ -724,7 +775,9 @@ function PasswordField({
 }) {
   return (
     <div className="space-y-2">
-      <label className="text-xs text-gray-500 dark:text-gray-400">{label}</label>
+      <label className="text-xs text-gray-500 dark:text-gray-400">
+        {label}
+      </label>
       <div className="relative">
         <input
           type={show ? "text" : "password"}
