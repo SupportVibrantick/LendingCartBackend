@@ -2,6 +2,7 @@ import { useState } from "react";
 import { AlertTriangle, ChevronDown, ChevronUp, Plus } from "lucide-react";
 import { MdDeleteForever } from "react-icons/md";
 import LoanDateField from "../form/LoanDateField";
+import { useLocation } from "react-router-dom";
 import {
   ASSET_FIELD_DEFS,
   createEmptyAssets,
@@ -222,7 +223,7 @@ export default function ResidentialBorrowerPanel({
   const liabilities = borrower.liabilities ?? createEmptyLiabilities();
   const declarations = borrower.declarations ?? createEmptyDeclarations();
   const realEstateOwned = borrower.realEstateOwned ?? [];
-
+  const location = useLocation();
   const totalAssets = sumBorrowerAssets(assets);
   const totalLiabilities = sumBorrowerLiabilities(liabilities);
   const netWorth = totalAssets - totalLiabilities;
@@ -358,8 +359,9 @@ export default function ResidentialBorrowerPanel({
               <input
                 type="email"
                 value={borrower.email}
-                disabled
-                className={`${inputClass(Boolean(err("email")))} cursor-not-allowed bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200 disabled:opacity-100`}
+                disabled={location.pathname === "/loan-preview"}
+                onChange={(e) => onFieldChange("email", e.target.value)}
+                className={`${inputClass(Boolean(err("email")))} disabled:cursor-not-allowed disabled:opacity-100`}
               />
 
               {err("email") && (
