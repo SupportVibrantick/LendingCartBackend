@@ -49,6 +49,7 @@ module.exports = async function adminRoutes(fastify, opts) {
     instance.register(adminUserRoutes, { prefix: "/admin-user" });
     instance.register(documentTypes, { prefix: "/document-types" });
     instance.register(subscriptions, { prefix: "/subscriptions" });
+    instance.register(require("./loanAiUsers"), { prefix: "/loan-ai-users" });
     instance.register(impersonateRoutes, { prefix: "/impersonate" });
     instance.register(applicationRoutes, {
       prefix: "/applications",

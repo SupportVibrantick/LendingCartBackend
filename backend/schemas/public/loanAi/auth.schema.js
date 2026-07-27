@@ -31,6 +31,7 @@ const loanAiPurchaseSchema = z.object({
     .refine((val) => /^[0-9]{10,15}$/.test(val), "Phone must be 10–15 digits"),
   firstName: z.string().trim().min(2).max(50),
   lastName: z.string().trim().min(2).max(50),
+  addOnCodes: z.array(z.string().trim().min(1)).optional().default([]),
 });
 
 module.exports = {

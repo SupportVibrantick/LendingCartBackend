@@ -88,9 +88,16 @@ function normalizeFeatures(features) {
 
   if (typeof features === "string" && features.trim()) {
 
+    if (features.includes("\n")) {
+      return features
+        .split("\n")
+        .map((item) => item.trim())
+        .filter(Boolean);
+    }
+
     return features
 
-      .split(/[,;|\n]/)
+      .split(/[,;|]/)
 
       .map((item) => item.trim())
 
@@ -170,6 +177,83 @@ function planDemoMessage(pkg, billingCycle) {
 
 
 
+function formatUsageLimit(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "—";
+  if (n >= 1000) return `${(n / 1000).toFixed(n % 1000 === 0 ? 0 : 1)}k`;
+  return String(n);
+}
+
+const USAGE_LIMIT_LABELS = {
+  LOAN_APPLICATIONS: "Loan apps / mo",
+  ACTIVE_USERS: "Active users",
+  LOAN_OFFICERS: "Loan officers",
+  LENDER_CONNECTIONS: "Lender connections",
+};
+
+function UsageLimitsSummary({ limits }) {
+  if (!limits || typeof limits !== "object") return null;
+
+  const entries = Object.entries(USAGE_LIMIT_LABELS).filter(
+    ([key]) => limits[key] != null,
+  );
+
+  if (entries.length === 0) return null;
+
+  return (
+    <div className="mb-6 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+      <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">
+        Usage limits
+      </p>
+      <dl className="grid grid-cols-2 gap-x-3 gap-y-2">
+        {entries.map(([key, label]) => (
+          <div key={key}>
+            <dt className="text-[11px] text-gray-500 leading-tight">{label}</dt>
+            <dd className="text-sm font-semibold text-white">
+              {formatUsageLimit(limits[key])}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </div>
+  );
+}
+
+function AddOnsSection({ addOns, formatPrice }) {
+  if (!addOns?.length) return null;
+
+  return (
+    <div className="mt-16 max-w-4xl mx-auto text-left">
+      <h3 className="text-xl md:text-2xl font-bold text-white text-center mb-2">
+        Optional add-ons
+      </h3>
+      <p className="text-sm text-gray-400 text-center mb-8">
+        Extend any plan with product packs, extra seats, and integrations. Select add-ons during
+        checkout when you subscribe.
+      </p>
+      <ul className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {addOns.map((addOn) => (
+          <li
+            key={addOn.code || addOn.name}
+            className="flex items-start justify-between gap-4 rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-4"
+          >
+            <div>
+              <p className="text-sm font-medium text-gray-100">{addOn.name}</p>
+              {addOn.note && (
+                <p className="text-xs text-gray-500 mt-1">{addOn.note}</p>
+              )}
+            </div>
+            <span className="text-sm font-semibold text-indigo-300 whitespace-nowrap">
+              +{formatPrice(addOn.priceMonthly)}/mo
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+
 function PricingSkeleton() {
 
   return (
@@ -199,6 +283,7 @@ function PricingSkeleton() {
 const Pricing = () => {
   const { isAuthenticated, user, refreshUser } = useAuth();
   const [packages, setPackages] = useState([]);
+  const [addOns, setAddOns] = useState([]);
 
   const [loading, setLoading] = useState(true);
 
@@ -230,9 +315,13 @@ const Pricing = () => {
 
         setError("");
 
-        const data = await fetchSubscriptionPackages();
+        const { packages: loadedPackages, addOns: loadedAddOns } =
+          await fetchSubscriptionPackages();
 
-        if (!cancelled) setPackages(data);
+        if (!cancelled) {
+          setPackages(loadedPackages);
+          setAddOns(loadedAddOns);
+        }
 
       } catch (err) {
 
@@ -507,6 +596,8 @@ const Pricing = () => {
 
 
 
+                  <UsageLimitsSummary limits={pkg.usageLimits} />
+
                   {features.length > 0 && (
 
                     <ul className="space-y-3 mb-8 flex-1">
@@ -543,6 +634,10 @@ const Pricing = () => {
 
           </div>
 
+        )}
+
+        {!loading && !error && addOns.length > 0 && (
+          <AddOnsSection addOns={addOns} formatPrice={formatPrice} />
         )}
 
 

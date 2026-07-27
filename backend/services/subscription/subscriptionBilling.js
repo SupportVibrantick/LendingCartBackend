@@ -1,3 +1,9 @@
+const {
+  getAddOnsTotalForCycle,
+  mergeUsageLimitsWithAddOns,
+  resolvePurchasedAddOns,
+} = require("../../utils/subscription/addOnCatalog");
+
 const ACTIVE_SUB_STATUSES = ["TRIAL", "ACTIVE", "PAST_DUE"];
 
 /** Broker portal access allowed only in these states */
@@ -25,6 +31,12 @@ function getPackagePrice(pkg, billingCycle) {
     return Number(pkg.priceYearly);
   }
   return Number(pkg.priceMonthly);
+}
+
+function getSubscriptionTotal(sub) {
+  const base = getPackagePrice(sub.package, sub.billingCycle);
+  const addOns = getAddOnsTotalForCycle(sub.purchasedAddOns, sub.billingCycle);
+  return base + addOns;
 }
 
 async function ensureSinglePopularPackage(prisma, packageId) {
@@ -68,7 +80,7 @@ async function generateInvoiceNumber(tx) {
 }
 
 async function createSubscriptionInvoice(tx, sub, options = {}) {
-  const amount = getPackagePrice(sub.package, sub.billingCycle);
+  const amount = options.amount ?? getSubscriptionTotal(sub);
   const periodStart = options.periodStart || sub.currentPeriodStart;
   const periodEnd = options.periodEnd || sub.currentPeriodEnd;
   const dueDate = options.dueDate || new Date();
@@ -153,10 +165,12 @@ async function refreshUsageForSubscription(prisma, organizationSubscriptionId) {
     throw new Error("Subscription not found");
   }
 
-  const limits =
+  const limits = mergeUsageLimitsWithAddOns(
     sub.package.usageLimits && typeof sub.package.usageLimits === "object"
       ? sub.package.usageLimits
-      : {};
+      : {},
+    sub.purchasedAddOns,
+  );
 
   const records = [];
 
@@ -218,6 +232,7 @@ async function assignPlanToOrganization(prisma, payload) {
     notes,
     assignedByAdminId,
     generateInvoice: shouldInvoice = true,
+    addOnCodes = [],
   } = payload;
 
   const org = await prisma.organization.findUnique({
@@ -236,6 +251,14 @@ async function assignPlanToOrganization(prisma, payload) {
     throw Object.assign(new Error("Subscription package not found or inactive"), {
       statusCode: 404,
     });
+  }
+
+  let purchasedAddOns = [];
+  try {
+    purchasedAddOns = resolvePurchasedAddOns(addOnCodes, pkg.code);
+  } catch (error) {
+    if (error.statusCode) throw error;
+    throw error;
   }
 
   const existing = await prisma.organizationSubscription.findFirst({
@@ -269,6 +292,7 @@ async function assignPlanToOrganization(prisma, payload) {
         currentPeriodEnd: periodEnd,
         trialEndsAt,
         notes: notes || null,
+        purchasedAddOns: purchasedAddOns.length > 0 ? purchasedAddOns : null,
         assignedByAdminId: assignedByAdminId || null,
       },
       include: { package: true, organization: true },
@@ -580,6 +604,7 @@ module.exports = {
   USAGE_METRICS,
   addPeriod,
   getPackagePrice,
+  getSubscriptionTotal,
   ensureSinglePopularPackage,
   refreshUsageForSubscription,
   generateInvoice,

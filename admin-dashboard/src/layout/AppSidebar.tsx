@@ -129,6 +129,7 @@ const navItems: NavItem[] = [
     name: "Subscriptions",
     subItems: [
       { name: "Packages", path: "/all-subscriptions" },
+      { name: "Loan AI Signups", path: "/loan-ai-signups" },
       { name: "Subscribers", path: "/subscription-subscribers" },
       { name: "Invoices", path: "/subscription-invoices" },
     ],

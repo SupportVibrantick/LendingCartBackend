@@ -4,6 +4,7 @@ import { SUBSCRIBER_DETAIL_PATH } from "../../lib/subscriberNavigation";
 
 const TABS = [
   { label: "Packages", path: "/all-subscriptions", permission: "VIEW_SUBSCRIPTIONS" },
+  { label: "Loan AI Signups", path: "/loan-ai-signups", permission: "VIEW_SUBSCRIBERS" },
   { label: "Subscribers", path: "/subscription-subscribers", permission: "VIEW_SUBSCRIBERS" },
   { label: "Invoices", path: "/subscription-invoices", permission: "VIEW_SUBSCRIPTION_INVOICES" },
 ] as const;

@@ -11,3 +11,4 @@ if (!global.__prisma) {
 prisma = global.__prisma;
 
 module.exports = prisma;
+

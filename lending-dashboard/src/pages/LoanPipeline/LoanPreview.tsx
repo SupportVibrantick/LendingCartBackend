@@ -4,7 +4,6 @@ import { useLocation, useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
 import {
   ArrowLeft,
-  Building2,
   Check,
   CheckCircle,
   ChevronLeft,
@@ -63,7 +62,7 @@ import type { serializeLoiUnderwritingTerms } from "../../lib/loiUnderwritingTer
 
 type PreviewTab = "details" | "documents" | "signDocuments" | "requestDocs" | "loi" | "chat";
 type DocumentSourceFilter = "all" | "mine" | "broker";
-type PreviewSectionId = "application" | "documents" | "communication" | "lender";
+type PreviewSectionId = "application" | "documents" | "communication";
 
 type PreviewTabItem = {
   id: PreviewTab;
@@ -87,7 +86,7 @@ const PREVIEW_SECTION_BY_TAB: Record<PreviewTab, PreviewSectionId> = {
   requestDocs: "documents",
   signDocuments: "documents",
   chat: "communication",
-  loi: "lender",
+  loi: "documents",
 };
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
@@ -2122,7 +2121,7 @@ export default function LoanPreview() {
                   : "bg-slate-100 text-slate-700 hover:bg-slate-200"
               }`}
             >
-              Signed Broker LOI
+              Signed LOI
             </button>
           </div>
         )}
@@ -2246,6 +2245,16 @@ export default function LoanPreview() {
           icon: FileText,
           color: "text-indigo-600",
         },
+        ...(showLoiTab
+          ? [
+              {
+                id: "loi" as const,
+                label: getVisibleTabLabel("loi", "LOI / Term Sheet"),
+                icon: FileText,
+                color: "text-purple-600",
+              },
+            ]
+          : []),
       ]),
     },
     {
@@ -2261,23 +2270,6 @@ export default function LoanPreview() {
         },
       ],
     },
-    ...(availableTabIds.has("loi")
-      ? [
-          {
-            id: "lender" as const,
-            label: "Lender",
-            icon: Building2,
-            items: [
-              {
-                id: "loi" as const,
-                label: getVisibleTabLabel("loi", "LOI / Term Sheet"),
-                icon: FileText,
-                color: "text-purple-600",
-              },
-            ],
-          },
-        ]
-      : []),
   ];
 
   const activeSectionId =
@@ -2537,7 +2529,7 @@ export default function LoanPreview() {
         <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
           <nav aria-label="Loan preview sections">
             {/* Primary sections */}
-            <div className="grid grid-cols-2 gap-1.5 bg-slate-50/80 p-2 sm:grid-cols-4 dark:bg-slate-950/50">
+            <div className="grid grid-cols-2 gap-1.5 bg-slate-50/80 p-2 sm:grid-cols-3 dark:bg-slate-950/50">
               {previewTabSections.map((section) => {
                 const SectionIcon = section.icon;
                 const isSectionActive = section.id === activeSectionId;

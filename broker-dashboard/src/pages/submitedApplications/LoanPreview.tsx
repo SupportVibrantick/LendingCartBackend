@@ -1,5 +1,6 @@
 import {
   ArrowLeft,
+  Activity,
   Building2,
   CheckCircle2,
   ChevronLeft,
@@ -38,21 +39,16 @@ import LoanApplication from "../LoanApplication/LoanApplication";
 import { mapSubmissionToLoanApplication } from "../../lib/mapSubmissionToLoanApplication";
 import {
   expandDocumentsForDisplay,
-  formatDocumentStatusLine,
   getDocumentSourceDisplay,
-  getDocumentStatusBadgeDate,
-  getDocumentStatusLineClass,
-  getDocumentStatusLines,
   getUploadFileSentLabel,
   matchesDocumentSentFilter,
+  type DocumentDisplayRow,
   type DocumentSentFilter,
   type DocumentSourceFilter,
 } from "../../lib/documentLenderSend";
-import {
-  formatDocumentStatusLabel,
-  getDocumentStatusChipClass,
-} from "../../lib/documentStatus";
 import DocumentControlsBar from "../../components/documents/DocumentControlsBar";
+import DocumentActivityModal from "../../components/documents/DocumentActivityModal";
+import DocumentStatusCell from "../../components/documents/DocumentStatusCell";
 import EmbeddedFilePreview from "../../components/documents/EmbeddedFilePreview";
 import SignDocumentsPanel from "../../components/documents/SignDocumentsPanel";
 import DocumentReminderPanel from "../../components/loanPipeline/DocumentReminderPanel";
@@ -154,10 +150,10 @@ const TAB_SECTION_BY_KEY: Record<TabKey, TabSectionId> = {
   documents: "documents",
   "request-document": "documents",
   "sign-documents": "documents",
+  "view-loi": "documents",
   chat: "communication",
   "email-reminders": "communication",
   "find-lenders": "lender",
-  "view-loi": "lender",
 };
 
 const parseValue = (val: unknown): any => {
@@ -251,8 +247,6 @@ function getAuthHeaders(): HeadersInit {
     ...(token && { Authorization: `Bearer ${token}` }),
   };
 }
-
-const getDocumentStatusChip = getDocumentStatusChipClass;
 
 // const formatFieldKey = (key: string | null | undefined) => {
 //   if (!key) return "";
@@ -443,7 +437,9 @@ const LoanPreview = () => {
   const [previewFiles, setPreviewFiles] = useState<any[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [activeAction, setActiveAction] = useState<string | null>(null);
-  
+  const [activityDoc, setActivityDoc] = useState<DocumentDisplayRow | null>(
+    null,
+  );
 
   const [lenders, setLenders] = useState<Lender[]>([]);
   const [borrowerSummary, setBorrowerSummary] = useState<any>(null);
@@ -1885,6 +1881,12 @@ const LoanPreview = () => {
           icon: FileText,
           color: "text-indigo-600",
         },
+        {
+          key: "view-loi",
+          label: "LOI / Term Sheets",
+          icon: FileText,
+          color: "text-purple-600",
+        },
       ],
     },
     {
@@ -1908,7 +1910,7 @@ const LoanPreview = () => {
     },
     {
       id: "lender",
-      label: "Lender",
+      label: "Lender Hub",
       icon: Building2,
       items: [
         {
@@ -1916,12 +1918,6 @@ const LoanPreview = () => {
           label: "Lender Hub",
           icon: FileSearch,
           color: "text-blue-600",
-        },
-        {
-          key: "view-loi",
-          label: "LOI / Term Sheets",
-          icon: FileText,
-          color: "text-purple-600",
         },
       ],
     },
@@ -3125,145 +3121,169 @@ dark:bg-red-900/20 dark:text-red-400"
           <p className="mt-3 text-sm text-slate-500">Loading documents...</p>
         </div>
       ) : displayDocuments.length > 0 ? (
-        <div className="h-[85vh] my-4 flex flex-col rounded-2xl border border-slate-200 dark:border-slate-800">
-          {/* TABLE */}
-          <div className="h-full overflow-y-auto">
-            <table className="w-full text-sm">
-              {/* HEADER */}
-              <thead className="sticky top-0 z-10 bg-white/80 backdrop-blur border-b dark:bg-slate-900/80">
-                <tr className="text-xs uppercase text-slate-500">
-                  <th className="px-5 py-4 text-left">
+        <div className="my-4 flex max-h-[calc(100vh-220px)] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <div className="flex items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/80 px-5 py-3 dark:border-slate-800 dark:bg-slate-900/80">
+            <div>
+              <p className="text-sm font-semibold text-slate-800 dark:text-white">
+                Requested documents
+              </p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                {documentsPagination?.total ?? displayDocuments.length} document
+                {(documentsPagination?.total ?? displayDocuments.length) === 1
+                  ? ""
+                  : "s"}{" "}
+                in this view
+              </p>
+            </div>
+            {selectedRows.length > 0 && (
+              <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-950/50 dark:text-blue-300">
+                {selectedRows.length} selected
+              </span>
+            )}
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-auto">
+            <table className="w-full min-w-[960px] text-sm">
+              <colgroup>
+                <col className="w-12" />
+                <col className="w-[30%]" />
+                <col className="w-[15%]" />
+                <col className="w-[28%]" />
+                <col className="w-[14%]" />
+                <col className="w-14" />
+              </colgroup>
+
+              <thead className="sticky top-0 z-10 border-b border-slate-200 bg-white/95 backdrop-blur dark:border-slate-800 dark:bg-slate-900/95">
+                <tr className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  <th className="px-4 py-3 text-left">
                     <input
                       type="checkbox"
                       checked={isAllSelected}
                       onChange={handleSelectAll}
-                      className="h-4 w-4 accent-emerald-600 cursor-pointer"
+                      className="h-4 w-4 cursor-pointer accent-blue-600"
+                      aria-label="Select all documents"
                     />
                   </th>
-                  <th className="px-5 py-4 text-left">Document</th>
-                  <th className="px-5 py-4 text-center">Source</th>
-                  <th className="px-5 py-4 text-center">Status</th>
-                  <th className="px-5 py-4 text-center">Files</th>
-                  <th className="px-5 py-4 text-right">Actions</th>
+                  <th className="px-4 py-3 text-left">Document</th>
+                  <th className="px-4 py-3 text-left">Source</th>
+                  <th className="px-4 py-3 text-left">Status</th>
+                  <th className="px-4 py-3 text-left">Files</th>
+                  <th className="px-4 py-3 text-right">Actions</th>
                 </tr>
               </thead>
 
-              {/* BODY */}
-              <tbody className="divide-y dark:divide-slate-800">
-                {displayDocuments.map((doc) => {
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {displayDocuments.map((doc, rowIndex) => {
                   const isOpen = activeAction === doc.rowKey;
+                  const isSelected = selectedRows.includes(doc.rowKey);
                   const { label: sourceLabel, className: sourceClass } =
                     getDocumentSourceDisplay(doc, { brokerSourceLabel: "Me" });
-                  const statusBadgeDate = getDocumentStatusBadgeDate(doc);
-                  const statusLines = getDocumentStatusLines(doc);
+                  const uploadedCount = Number(doc.uploadedCount) || 0;
 
                   return (
                     <tr
                       key={doc.rowKey}
-                      className="group hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-all hover:shadow-sm"
+                      className={`group transition-colors ${
+                        isSelected
+                          ? "bg-blue-50/70 dark:bg-blue-950/20"
+                          : rowIndex % 2 === 1
+                            ? "bg-slate-50/40 dark:bg-slate-900/20"
+                            : "bg-white dark:bg-slate-900"
+                      } hover:bg-slate-50 dark:hover:bg-slate-800/40`}
                     >
-                      <td className="px-5 py-4">
+                      <td className="px-4 py-3 align-top">
                         <input
                           type="checkbox"
                           disabled={doc.status === "SKIPPED"}
-                          checked={selectedRows.includes(doc.rowKey)}
+                          checked={isSelected}
                           onChange={() => handleSelectRow(doc.rowKey)}
-                          className="h-4 w-4 accent-emerald-600 cursor-pointer disabled:opacity-40"
+                          className="mt-1 h-4 w-4 cursor-pointer accent-blue-600 disabled:opacity-40"
+                          aria-label={`Select ${doc.documentName}`}
                         />
                       </td>
-                      {/* NAME */}
-                      <td className="px-5 py-4">
-                        <div className="flex flex-col">
-                          <span className="font-semibold text-slate-800 dark:text-white">
-                            {doc.documentName}
-                          </span>
-                          {doc.isRequired && (
-                            <span className="text-[10px] text-rose-500 font-semibold">
-                              Required
-                            </span>
-                          )}
+
+                      <td className="px-4 py-3 align-top">
+                        <div className="flex items-start gap-3">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50 text-blue-600 ring-1 ring-blue-100 dark:from-blue-950/40 dark:to-indigo-950/30 dark:text-blue-400 dark:ring-blue-900/40">
+                            <FileText size={16} />
+                          </div>
+                          <div className="min-w-0">
+                            <p
+                              className="font-semibold leading-snug text-slate-800 dark:text-white"
+                              title={doc.documentName}
+                            >
+                              {doc.documentName}
+                            </p>
+                            {doc.isRequired && (
+                              <span className="mt-1 inline-flex rounded-md bg-rose-50 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-rose-600 ring-1 ring-rose-100 dark:bg-rose-950/30 dark:text-rose-400 dark:ring-rose-900/40">
+                                Required
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </td>
 
-                      {/* SOURCE */}
-                      <td className="px-5 py-4 text-center">
+                      <td className="px-4 py-3 align-top">
                         <span
-                          className={`px-3 py-1 text-xs rounded-full font-medium ${sourceClass}`}
+                          className={`inline-flex max-w-[160px] truncate rounded-full px-2.5 py-1 text-[11px] font-semibold ${sourceClass}`}
+                          title={sourceLabel}
                         >
                           {sourceLabel}
                         </span>
                       </td>
 
-                      {/* STATUS */}
-                      <td className="px-5 py-4 text-center">
-                        <div className="flex flex-col items-center gap-1">
-                          <span
-                            className={`max-w-[240px] px-3 py-1 rounded-full text-xs font-semibold ${getDocumentStatusChip(
-                              doc.status ?? ""
-                            )}`}
-                          >
-                            {formatDocumentStatusLine(
-                              formatDocumentStatusLabel(doc.status),
-                              statusBadgeDate,
-                            )}
-                          </span>
-                          {statusLines.map((line, index) => (
-                            <span
-                              key={`${doc.rowKey}-status-${index}`}
-                              className={`max-w-[240px] text-center text-[10px] font-semibold px-2 py-0.5 rounded-full ${getDocumentStatusLineClass(
-                                line.tone,
-                              )}`}
-                            >
-                              {formatDocumentStatusLine(line.text, line.date)}
-                            </span>
-                          ))}
-                        </div>
+                      <td className="px-4 py-3 align-top">
+                        <DocumentStatusCell doc={doc} />
                       </td>
 
-                      {/* FILES */}
-                      <td className="px-5 py-4 text-center">
-                        {Number(doc.uploadedCount) > 0 ? (
-                          <div className="flex justify-center items-center gap-2">
-                            <span className="px-3 py-1 text-xs rounded-full bg-emerald-100 text-emerald-700 font-semibold">
-                              {Number(doc.uploadedCount)} Files
+                      <td className="px-4 py-3 align-top">
+                        {uploadedCount > 0 ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPreviewFiles(
+                                ((doc.uploadedFiles as any[]) || []),
+                              );
+                              setActiveIndex(0);
+                            }}
+                            className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-100 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-300 dark:hover:bg-emerald-950/50"
+                          >
+                            <span>
+                              {uploadedCount} file
+                              {uploadedCount === 1 ? "" : "s"}
                             </span>
-
-                            <button
-                              onClick={() => {
-                                setPreviewFiles(((doc.uploadedFiles as any[]) || []));
-                                setActiveIndex(0);
-                              }}
-                              className="p-2 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition-all"
-                            >
-                              <Eye size={16} />
-                            </button>
-                          </div>
+                            <Eye size={14} className="opacity-80" />
+                          </button>
                         ) : (
-                          <span className="text-slate-400 text-xs">
+                          <span className="inline-flex items-center rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs font-medium text-slate-400 dark:bg-slate-800 dark:text-slate-500">
                             No files
                           </span>
                         )}
                       </td>
 
-                      {/* ACTION */}
-                      <td className="px-5 py-4 text-right relative">
-                      <div
-  ref={(el) => {
-    actionRefs.current[doc.rowKey] = el;
-  }}
->
-                        <button
-                          onClick={() =>
-                            setActiveAction(isOpen ? null : doc.rowKey)
-                          }
-                          className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition"
+                      <td className="relative px-4 py-3 text-right align-top">
+                        <div
+                          ref={(el) => {
+                            actionRefs.current[doc.rowKey] = el;
+                          }}
                         >
-                          <MoreVertical size={16} />
-                        </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setActiveAction(isOpen ? null : doc.rowKey)
+                            }
+                            className="rounded-xl border border-transparent p-2 text-slate-500 transition hover:border-slate-200 hover:bg-white hover:text-slate-700 dark:hover:border-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                            aria-label={`Actions for ${doc.documentName}`}
+                          >
+                            <MoreVertical size={16} />
+                          </button>
 
-                        {isOpen && (
-                          <div className="absolute right-0 mt-2 w-44 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in-95">
-                            <label className="flex items-center gap-2 px-4 py-3 text-sm text-amber-600 hover:bg-amber-50 cursor-pointer transition">
+                          {isOpen && (
+                            <div className="absolute right-4 top-11 z-50 w-52 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900">
+                              <div className="border-b border-slate-100 px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400 dark:border-slate-800">
+                                Document actions
+                              </div>
+                              <label className="flex cursor-pointer items-center gap-2 px-4 py-2.5 text-sm text-amber-700 transition hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/20">
                               <Upload size={14} />
                               Upload Files
                               <input
@@ -3313,6 +3333,17 @@ dark:bg-red-900/20 dark:text-red-400"
                                 }}
                               />
                             </label>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActivityDoc(doc);
+                                setActiveAction(null);
+                              }}
+                              className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-slate-700 transition hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800"
+                            >
+                              <Activity size={14} />
+                              Current Activities
+                            </button>
                             {(doc.source === "LENDER_ADDED" ||
                               doc.source === "BROKER_ADDED") &&
                               doc.status !== "SKIPPED" && (
@@ -3324,7 +3355,7 @@ dark:bg-red-900/20 dark:text-red-400"
                                     ])
                                   }
                                   disabled={forwardingToClient}
-                                  className="flex w-full items-center gap-2 px-4 py-3 text-sm text-indigo-600 hover:bg-indigo-50 transition disabled:opacity-60"
+                                  className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-indigo-600 transition hover:bg-indigo-50 disabled:opacity-60 dark:text-indigo-400 dark:hover:bg-indigo-950/20"
                                 >
                                   <Mail size={14} />
                                   Send to Client
@@ -3332,7 +3363,9 @@ dark:bg-red-900/20 dark:text-red-400"
                               )}
                             {doc.source === "SUB_BROKER_ADDED" &&
                               doc.status !== "SKIPPED" && (
-                                <button
+                                <>
+                                  <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
+                                  <button
                                   onClick={async () => {
                                     const result = await Swal.fire({
                                       title: "Skip Document?",
@@ -3407,11 +3440,12 @@ dark:bg-red-900/20 dark:text-red-400"
                                       setActiveAction(null);
                                     }
                                   }}
-                                  className="flex w-full items-center gap-2 px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition"
+                                  className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-red-600 transition hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/20"
                                 >
                                   <Send size={14} />
                                   Skip Document
                                 </button>
+                                </>
                               )}
                           </div>
                         )}
@@ -3892,18 +3926,21 @@ dark:bg-red-900/20 dark:text-red-400"
         </div>
       </div>
 
+      <DocumentActivityModal
+        doc={activityDoc}
+        onClose={() => setActivityDoc(null)}
+      />
+
       {previewFiles.length > 0 && (
         <div className="fixed inset-0 z-[99999999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="w-full max-w-6xl h-[90vh] rounded-3xl overflow-hidden 
-    bg-white dark:bg-slate-900 shadow-2xl flex flex-col"
+            className="flex h-[90vh] max-h-[90vh] w-full max-w-6xl min-h-0 flex-col overflow-hidden rounded-3xl bg-white shadow-2xl dark:bg-slate-900"
           >
             {/* HEADER */}
             <div
-              className="flex justify-between items-center px-6 py-4 
-  bg-gradient-to-r from-blue-600 to-teal-600 text-white"
+              className="flex shrink-0 items-center justify-between bg-gradient-to-r from-blue-600 to-teal-600 px-6 py-4 text-white"
             >
               {/* LEFT */}
               <div>
@@ -3974,13 +4011,13 @@ dark:bg-red-900/20 dark:text-red-400"
             </div>
 
             {/* CONTENT */}
-            <div className="flex-1 flex items-center justify-center bg-slate-100 relative">
+            <div className="relative flex min-h-0 flex-1 overflow-hidden bg-slate-100 dark:bg-slate-950">
               {/* LEFT */}
               {activeIndex > 0 && (
                 <button
                   type="button"
                   onClick={() => setActiveIndex((p) => p - 1)}
-                  className="absolute left-4 inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-md transition hover:bg-slate-50"
+                  className="absolute left-4 top-1/2 z-10 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-md transition hover:bg-slate-50"
                   aria-label="Previous file"
                 >
                   <ChevronLeft size={20} />
@@ -3992,7 +4029,7 @@ dark:bg-red-900/20 dark:text-red-400"
                 <button
                   type="button"
                   onClick={() => setActiveIndex((p) => p + 1)}
-                  className="absolute right-4 inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-md transition hover:bg-slate-50"
+                  className="absolute right-4 top-1/2 z-10 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-md transition hover:bg-slate-50"
                   aria-label="Next file"
                 >
                   <ChevronRight size={20} />
@@ -4005,14 +4042,18 @@ dark:bg-red-900/20 dark:text-red-400"
                 mimeType={currentFile?.fileMimeType}
                 fileName={currentFile?.fileName}
                 getAuthHeaders={getAuthHeaders}
-                className="relative flex h-full w-full flex-1 items-center justify-center bg-slate-100"
-                iframeClassName="h-full w-full rounded-xl bg-white"
+                className="flex h-full min-h-0 w-full items-center justify-center overflow-hidden p-4"
+                iframeClassName="h-full min-h-0 w-full flex-1 rounded-xl bg-white"
                 imageClassName="max-h-full max-w-full rounded-xl object-contain shadow"
               />
             </div>
 
             {/* THUMBNAILS */}
-            <div className="flex gap-2 p-3 overflow-x-auto bg-slate-50">
+            <div className="shrink-0 border-t border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900/80">
+              <p className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                Select file ({activeIndex + 1} of {previewFiles.length})
+              </p>
+              <div className="flex gap-2 overflow-x-auto px-3 pb-3">
               {previewFiles.map((file, i) => {
                 const fileSent = getUploadFileSentLabel(file);
 
@@ -4046,6 +4087,7 @@ dark:bg-red-900/20 dark:text-red-400"
                   </div>
                 )
               })}
+              </div>
             </div>
           </motion.div>
         </div>

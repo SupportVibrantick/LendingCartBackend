@@ -4,6 +4,10 @@ const {
   loanAiRegisterSchema,
 } = require("../../../../schemas/public/loanAi/auth.schema");
 const { commonLogs } = require("../../../../services/logger/contextLogger");
+const {
+  notifyPlatform,
+  PLATFORM_NOTIFICATION_EVENTS,
+} = require("../../../../services/notifications/platformNotifications");
 
 function signLoanAiToken(user) {
   return jwt.sign(
@@ -80,6 +84,29 @@ async function loanAiRegisterRoutes(fastify) {
         });
 
         const token = signLoanAiToken(user);
+
+        try {
+          const leadName = [firstName, lastName].filter(Boolean).join(" ").trim();
+          await notifyPlatform(prisma, fastify.io, {
+            eventType: PLATFORM_NOTIFICATION_EVENTS.LANDING_PAGE_LEAD,
+            category: "LEAD",
+            subject: "New Loan AI account registration",
+            body: leadName
+              ? `${leadName} registered on Loan AI (${email})`
+              : `New Loan AI signup: ${email}`,
+            metadata: {
+              loanAiUserId: user.id,
+              firstName,
+              lastName,
+              email,
+              source: "loan-ai-register",
+            },
+          });
+        } catch (notifyErr) {
+          commonLogs.warn("Loan AI register notification failed", {
+            error: notifyErr.message,
+          });
+        }
 
         return reply.status(201).send({
           success: true,

@@ -1,7 +1,13 @@
 function parseFeatures(features) {
   if (!features?.trim()) return [];
+  if (features.includes("\n")) {
+    return features
+      .split("\n")
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
   return features
-    .split(/[,;|\n]/)
+    .split(/[,;|]/)
     .map((item) => item.trim())
     .filter(Boolean);
 }
@@ -16,9 +22,12 @@ function formatPackage(pkg) {
     isPopular: Boolean(pkg.isPopular),
     description: pkg.description,
     features: parseFeatures(pkg.features),
+    usageLimits: pkg.usageLimits ?? null,
     sortOrder: pkg.sortOrder,
   };
 }
+
+const { getCatalogAddOns } = require("../../../utils/subscription/addOnCatalog");
 
 /**
  * Public API: List active subscription packages for marketing / pricing pages.
@@ -48,6 +57,7 @@ async function listPublicSubscriptionPackages(fastify) {
             isPopular: true,
             description: true,
             features: true,
+            usageLimits: true,
             sortOrder: true,
           },
         });
@@ -55,6 +65,7 @@ async function listPublicSubscriptionPackages(fastify) {
         return reply.send({
           success: true,
           data: packages.map(formatPackage),
+          addOns: getCatalogAddOns(),
         });
       } catch (error) {
         fastify.log.error(error);

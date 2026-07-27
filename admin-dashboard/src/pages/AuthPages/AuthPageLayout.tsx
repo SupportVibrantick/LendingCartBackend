@@ -40,7 +40,7 @@ export default function AuthLayout({
             </Link>
 
             <h2 className="text-3xl font-bold tracking-tight text-white xl:text-4xl">
-              Admin Dashboard
+              Super Admin Dashboard
             </h2>
             <p className="mt-3 max-w-sm text-base leading-relaxed text-blue-100/80">
               Smart Loans for Smarter Businesses.

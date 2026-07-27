@@ -3,7 +3,7 @@ export const API_BASE =
 
 /**
  * Fetch active subscription packages for public pricing pages.
- * @returns {Promise<import('../types/pricing').SubscriptionPackage[]>}
+ * @returns {Promise<{ packages: import('../types/pricing').SubscriptionPackage[], addOns: import('../types/pricing').SubscriptionAddOn[] }>}
  */
 export async function fetchSubscriptionPackages() {
   const res = await fetch(`${API_BASE}/common/subscriptions`);
@@ -14,7 +14,10 @@ export async function fetchSubscriptionPackages() {
     throw new Error(json.message || "Failed to load pricing");
   }
 
-  return json.data || [];
+  return {
+    packages: json.data || [],
+    addOns: json.addOns || [],
+  };
 }
 
 /**

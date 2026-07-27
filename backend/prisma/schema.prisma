@@ -590,6 +590,7 @@ model OrganizationSubscription {
   cancelAtPeriodEnd         Boolean                        @default(false)
   stripeCustomerId          String?
   stripeSubscriptionId      String?
+  purchasedAddOns           Json?
   assignedByAdminId         String?                        @db.Uuid
   notes                     String?
   createdAt                 DateTime                       @default(now()) @db.Timestamptz(6)
@@ -1441,6 +1442,25 @@ model ClmLandingPageLead {
   @@index([source])
   @@index([status])
   @@map("clm_landing_page_leads")
+}
+
+model LoanAiBookDemoLead {
+  id        String     @id @default(uuid()) @db.Uuid
+  firstName String?
+  lastName  String?
+  email     String
+  phone     String?
+  company   String?
+  message   String?
+  source    String     @default("loan-ai-book-demo")
+  status    LeadStatus @default(NEW)
+  createdAt DateTime   @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime   @updatedAt @db.Timestamptz(6)
+
+  @@index([email])
+  @@index([source])
+  @@index([status])
+  @@map("loan_ai_book_demo_leads")
 }
 
 model AdminManualLead {

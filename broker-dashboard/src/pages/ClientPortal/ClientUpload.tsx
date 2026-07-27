@@ -1,7 +1,20 @@
 import { useParams } from "react-router-dom";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
-import { Upload, FileText, CheckCircle } from "lucide-react";
+import {
+  Upload,
+  FileText,
+  CheckCircle,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  Eye,
+  Loader2,
+  FolderOpen,
+  LayoutGrid,
+  FileSignature,
+  Receipt,
+} from "lucide-react";
 import toast from "react-hot-toast";
 import SignatureCanvas from "react-signature-canvas";
 import FeeAgreement from "./FeeAgreement";
@@ -16,7 +29,6 @@ import {
   FiUser,
   FiX,
   FiSearch,
-  FiEye,
 } from "react-icons/fi";
 import Chat from "./Chat";
 import ClientNotificationDropdown, {
@@ -44,61 +56,92 @@ import {
   submissionHasClientSignature,
 } from "../../lib/clientPortalSignature";
 import SignDocumentsPanel from "../../components/documents/SignDocumentsPanel";
+import EmbeddedFilePreview from "../../components/documents/EmbeddedFilePreview";
+import { buildApiPublicFileUrl } from "../../lib/publicFileUrl";
 
 /* ================= TYPES ================= */
 const SigCanvas = SignatureCanvas as unknown as React.FC<any>;
+
+interface UploadedFileItem {
+  uploadId?: string;
+  fileName?: string;
+  fileUrl?: string;
+  uploadedAt?: string;
+  fileMimeType?: string;
+}
 
 interface DocumentItem {
   id: string;
   name: string;
   status: "PENDING" | "UPLOADED" | string;
-  uploadedFiles: Array<
-    | string
-    | {
-        fileName?: string;
-        fileUrl?: string;
-        uploadedAt?: string;
-      }
-  >;
+  uploadedFiles: UploadedFileItem[];
   required: boolean;
 }
+
+const MAX_FILES = 4;
+
+const inferUploadedFileMimeType = (
+  fileName?: string,
+  fileMimeType?: string,
+) => {
+  if (fileMimeType) return fileMimeType;
+
+  const ext = fileName?.split(".").pop()?.toLowerCase();
+  if (ext === "pdf") return "application/pdf";
+  if (ext === "png") return "image/png";
+  if (ext === "webp") return "image/webp";
+  if (ext === "jpg" || ext === "jpeg") return "image/jpeg";
+  return undefined;
+};
+
+const normalizeUploadedFiles = (uploadedFiles: any[] = []): UploadedFileItem[] =>
+  uploadedFiles.map((file) => {
+    if (typeof file === "string") {
+      return {
+        fileName: file.split("/").pop() || "Uploaded file",
+        fileUrl: file,
+      };
+    }
+
+    return {
+      uploadId: file.uploadId || file.id,
+      fileName: file.fileName,
+      fileUrl: file.fileUrl,
+      uploadedAt: file.uploadedAt,
+      fileMimeType: inferUploadedFileMimeType(file.fileName, file.fileMimeType),
+    };
+  });
+
+const formatUploadedAt = (value?: string) => {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+};
 
 const mapApiDocumentsToItems = (docs: any[] = []): DocumentItem[] =>
   docs.map((doc) => ({
     id: doc.id,
     name: doc.name || doc.documentType?.name || "Document",
     status: doc.status,
-    uploadedFiles: doc.uploadedFiles || [],
+    uploadedFiles: normalizeUploadedFiles(doc.uploadedFiles || []),
     required: doc.required ?? doc.isRequired ?? true,
   }));
-
-const buildUploadedState = (docs: DocumentItem[]) => {
-  const uploadedMap: Record<string, boolean> = {};
-  let uploadedCount = 0;
-
-  docs.forEach((doc) => {
-    if (doc.uploadedFiles?.length > 0) {
-      uploadedMap[doc.id] = true;
-      uploadedCount += doc.uploadedFiles.length;
-    }
-  });
-
-  return { uploadedMap, uploadedCount };
-};
 
 const applyApplicationDocuments = (
   docs: DocumentItem[],
   setters: {
     setDocuments: React.Dispatch<React.SetStateAction<DocumentItem[]>>;
-    setUploaded: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
-    setUploadedFilesCount: React.Dispatch<React.SetStateAction<number>>;
     setFiles: React.Dispatch<React.SetStateAction<Record<string, File[]>>>;
   },
 ) => {
-  const { uploadedMap, uploadedCount } = buildUploadedState(docs);
   setters.setDocuments(docs);
-  setters.setUploaded(uploadedMap);
-  setters.setUploadedFilesCount(uploadedCount);
   setters.setFiles({});
 };
 
@@ -181,6 +224,88 @@ const getStatusDot = (status?: string) => {
   }
 };
 
+const formatLoanProductLabel = (code?: string | null) => {
+  if (!code) return "Loan Application";
+
+  const labels: Record<string, string> = {
+    FIX_AND_FLIP_LOAN_1_TO_4_UNITS: "Fix & Flip",
+    DSCR_LOAN_1_TO_4_UNITS: "DSCR / Rental",
+    CONSTRUCTION_LOAN_1_TO_4_UNITS: "Construction",
+    BRIDGE_LOAN_1_TO_4_UNITS: "Bridge Loan",
+    SBA_504_REAL_ESTATE_AND_EQUIPMENT: "SBA 504",
+    USDA_BI: "USDA B&I",
+    AGENCY_LOAN_MULTIFAMILY: "Agency Multifamily",
+    CRE_PERMANENT_LOAN: "CRE Permanent",
+    RENTAL_PORTFOLIO: "Rental Portfolio",
+    PURCHASE_ORDER_FINANCE: "Purchase Order Finance",
+    ACCOUNTS_PAYABLE_FINANCE: "AP Supply Chain",
+    ACCOUNTS_RECEIVABLE: "Accounts Receivable",
+    INVOICE_FACTORING: "AR Factoring",
+  };
+
+  return labels[code] || code.replace(/_/g, " ");
+};
+
+const formatApplicationAmount = (value: unknown) => {
+  const parseAmount = (raw: unknown): number | null => {
+    const direct = parseNumericValue(raw);
+    if (direct !== null) return direct;
+
+    if (typeof raw === "string" && raw.trim()) {
+      const cleaned = raw.replace(/[^0-9.-]/g, "");
+      if (!cleaned) return null;
+      const numeric = Number(cleaned);
+      return Number.isFinite(numeric) ? numeric : null;
+    }
+
+    return null;
+  };
+
+  const numeric = parseAmount(value);
+  if (numeric === null) return "—";
+
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  }).format(numeric);
+};
+
+const getDocumentProgressPercent = (app: {
+  documentProgress?: {
+    total?: number;
+    uploaded?: number;
+    filesUploaded?: number;
+  };
+}) => {
+  const total = Number(app.documentProgress?.total) || 0;
+  const uploaded = Number(app.documentProgress?.uploaded) || 0;
+
+  if (total <= 0) return 0;
+  return Math.min(100, Math.round((uploaded / total) * 100));
+};
+
+const getStatusAccentClass = (status?: string) => {
+  switch (status ?? "") {
+    case "SUBMITTED":
+    case "APPROVED":
+    case "LENDER_APPROVED":
+    case "AUTO_APPROVED":
+    case "FUNDED":
+      return "bg-emerald-500";
+    case "IN_REVIEW":
+      return "bg-blue-500";
+    case "PENDING":
+    case "CLIENT_PENDING":
+      return "bg-amber-500";
+    case "REJECTED":
+    case "LENDER_DECLINED":
+    case "AUTO_DECLINED":
+      return "bg-red-500";
+    default:
+      return "bg-slate-400";
+  }
+};
 const formatStatusLabel = (status?: string | null) => {
   if (!status) return "Unknown";
 
@@ -204,7 +329,7 @@ const getClientInitials = (name?: string | null) => {
   return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
 };
 
-const APPLICATIONS_PAGE_SIZE = 6;
+const APPLICATIONS_PAGE_SIZE = 18;
 
 function getApplicationsRange(
   page: number,
@@ -235,6 +360,120 @@ function buildVisiblePages(current: number, totalPages: number) {
   return pages;
 }
 
+type ApplicationWorkspaceTab =
+  | "application"
+  | "documents"
+  | "signDocuments"
+  | "feeAgreement"
+  | "chat";
+
+type ApplicationWorkspaceHeaderProps = {
+  activeTab: ApplicationWorkspaceTab;
+  applicationNumber?: string;
+  status?: string;
+  onTabChange: (tab: ApplicationWorkspaceTab) => void;
+  onBackToApplications: () => void;
+  formatStatusLabel: (status?: string | null) => string;
+  getStatusStyles: (status?: string) => string;
+  getStatusDot: (status?: string) => string;
+};
+
+const APPLICATION_WORKSPACE_TABS: Array<{
+  key: ApplicationWorkspaceTab;
+  label: string;
+  icon: React.ComponentType<{ size?: number; className?: string }>;
+}> = [
+  { key: "application", label: "Overview", icon: LayoutGrid },
+  { key: "documents", label: "Upload Documents", icon: FiUploadCloud },
+  { key: "signDocuments", label: "Documents to Sign", icon: FileSignature },
+  { key: "feeAgreement", label: "Fee Agreement", icon: Receipt },
+];
+
+function ApplicationWorkspaceHeader({
+  activeTab,
+  applicationNumber,
+  status,
+  onTabChange,
+  onBackToApplications,
+  formatStatusLabel,
+  getStatusStyles,
+  getStatusDot,
+}: ApplicationWorkspaceHeaderProps) {
+  return (
+    <div className="mb-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="flex flex-col gap-4 border-b border-slate-100 px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
+        <div className="min-w-0">
+          <button
+            type="button"
+            onClick={onBackToApplications}
+            className="mb-2 inline-flex items-center gap-1.5 text-md font-medium text-slate-500 transition hover:text-blue-600"
+          >
+            <ChevronLeft size={14} />
+            Back to applications
+          </button>
+          <h1 className="text-lg font-bold tracking-tight text-slate-900 sm:text-xl">
+            Loan Application
+          </h1>
+          <p className="mt-0.5 font-mono text-xs text-slate-500">
+            {applicationNumber || "Application"}
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => onTabChange("chat")}
+            className={`inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition ${
+              activeTab === "chat"
+                ? "bg-emerald-600 text-white shadow-sm"
+                : "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100 hover:bg-emerald-100"
+            }`}
+          >
+            <FiMessageCircle size={14} />
+            Chat
+          </button>
+
+          {status && (
+            <span
+              className={`inline-flex items-center gap-2 rounded-full px-3.5 py-2 text-xs font-semibold ${getStatusStyles(
+                status,
+              )}`}
+            >
+              <span className={`h-2 w-2 rounded-full ${getStatusDot(status)}`} />
+              {formatStatusLabel(status)}
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div className="overflow-x-auto bg-slate-50/90 p-2">
+        <div className="flex min-w-max gap-1">
+          {APPLICATION_WORKSPACE_TABS.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.key;
+
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => onTabChange(tab.key)}
+                className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-semibold transition ${
+                  isActive
+                    ? "bg-white text-blue-700 shadow-sm ring-1 ring-blue-100"
+                    : "text-slate-600 hover:bg-white/70 hover:text-slate-900"
+                }`}
+              >
+                <Icon size={15} className={isActive ? "text-blue-600" : ""} />
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ClientUpload() {
   const { token } = useParams<{ token: string }>();
   const sigRef = useRef<SignatureCanvas | null>(null);
@@ -247,8 +486,8 @@ export default function ClientUpload() {
   const [loading, setLoading] = useState(true);
   const [invalidToken, setInvalidToken] = useState(false);
   const [uploading, setUploading] = useState<Record<string, boolean>>({});
-  const [uploaded, setUploaded] = useState<Record<string, boolean>>({});
-  const [uploadedFilesCount, setUploadedFilesCount] = useState(0);
+  const [previewFiles, setPreviewFiles] = useState<UploadedFileItem[]>([]);
+  const [previewActiveIndex, setPreviewActiveIndex] = useState(0);
   const [applicationNumber, setApplicationNumber] = useState("");
   const [clientName, setClientName] = useState("");
   const [clientEmail, setClientEmail] = useState("");
@@ -309,8 +548,6 @@ export default function ClientUpload() {
 
   const documentSetters = {
     setDocuments,
-    setUploaded,
-    setUploadedFilesCount,
     setFiles,
   };
 
@@ -338,9 +575,11 @@ export default function ClientUpload() {
         status: doc.status,
         required: doc.isRequired,
         uploadedFiles: (doc.uploads || []).map((file: any) => ({
+          uploadId: file.id,
           fileName: file.fileName,
           fileUrl: file.fileUrl,
           uploadedAt: file.uploadedAt,
+          fileMimeType: file.fileMimeType,
         })),
       })),
     );
@@ -587,49 +826,58 @@ export default function ClientUpload() {
     }
   };
 
-  const MAX_FILES = 4;
+  const getDocumentUploadedCount = (docId: string) =>
+    documents.find((doc) => doc.id === docId)?.uploadedFiles.length || 0;
+
+  const getRemainingUploadSlots = (docId: string) => {
+    const pendingCount = files[docId]?.length || 0;
+    return Math.max(0, MAX_FILES - getDocumentUploadedCount(docId) - pendingCount);
+  };
 
   const handleFileChange = (id: string, newFiles: FileList | null) => {
     if (!newFiles) return;
 
     const selectedFiles = Array.from(newFiles);
     const existingFiles = files[id] || [];
+    const remainingSlots =
+      MAX_FILES - getDocumentUploadedCount(id) - existingFiles.length;
 
-    // total after adding
-    const totalFiles = [...existingFiles, ...selectedFiles];
-
-    if (totalFiles.length > MAX_FILES) {
-      toast.error(`You can upload maximum ${MAX_FILES} files only`);
-
-      // only allow remaining slots
-      const allowedFiles = selectedFiles.slice(
-        0,
-        MAX_FILES - existingFiles.length,
-      );
-
-      setFiles((prev) => ({
-        ...prev,
-        [id]: [...existingFiles, ...allowedFiles],
-      }));
-    } else {
-      setFiles((prev) => ({
-        ...prev,
-        [id]: totalFiles,
-      }));
+    if (remainingSlots <= 0) {
+      toast.error(`You can upload maximum ${MAX_FILES} files for this document`);
+      return;
     }
+
+    const allowedFiles =
+      selectedFiles.length > remainingSlots
+        ? selectedFiles.slice(0, remainingSlots)
+        : selectedFiles;
+
+    if (allowedFiles.length < selectedFiles.length) {
+      toast.error(`Only ${remainingSlots} more file slot(s) available`);
+    }
+
+    setFiles((prev) => ({
+      ...prev,
+      [id]: [...existingFiles, ...allowedFiles],
+    }));
   };
 
-  // const removeFile = (id: string, index: number) => {
-  //   setFiles((prev) => {
-  //     const updated = [...(prev[id] || [])];
-  //     updated.splice(index, 1);
+  const removePendingFile = (docId: string, index: number) => {
+    setFiles((prev) => {
+      const updated = [...(prev[docId] || [])];
+      updated.splice(index, 1);
+      return {
+        ...prev,
+        [docId]: updated,
+      };
+    });
+  };
 
-  //     return {
-  //       ...prev,
-  //       [id]: updated.length > 0 ? updated : [],
-  //     };
-  //   });
-  // };
+  const openUploadedFilesPreview = (doc: DocumentItem, index = 0) => {
+    if (!doc.uploadedFiles.length) return;
+    setPreviewFiles(doc.uploadedFiles);
+    setPreviewActiveIndex(Math.min(index, doc.uploadedFiles.length - 1));
+  };
 
   const uploadFile = async (id: string) => {
     const fileList = files[id];
@@ -659,15 +907,8 @@ export default function ClientUpload() {
         );
 
         console.log("UPLOAD SUCCESS:", res.data);
-
-        // increment count
-        setUploadedFilesCount((prev) => prev + 1);
       }
 
-      //  mark uploaded
-      setUploaded((prev) => ({ ...prev, [id]: true }));
-
-      // clear selected files
       setFiles((prev) => ({ ...prev, [id]: [] }));
 
       toast.success("Document uploaded successfully");
@@ -818,6 +1059,47 @@ export default function ClientUpload() {
     }
   };
 
+  const handleWorkspaceTab = async (tab: ApplicationWorkspaceTab) => {
+    if (tab === "application") {
+      setActiveTab("application");
+      return;
+    }
+
+    if (tab === "chat") {
+      setActiveTab("chat");
+      return;
+    }
+
+    await openApplicationTab(tab);
+  };
+
+  const handleBackToApplications = () => {
+    setSelectedApplication(null);
+    setApplicationData(null);
+    setApplicationId("");
+    clearApplicationDocuments();
+    setActiveTab("applications");
+  };
+
+  const renderApplicationWorkspaceHeader = () => (
+    <ApplicationWorkspaceHeader
+      activeTab={
+        activeTab === "chat"
+          ? "chat"
+          : (activeTab as ApplicationWorkspaceTab)
+      }
+      applicationNumber={
+        selectedApplication?.applicationNumber || applicationNumber
+      }
+      status={selectedApplication?.status || applicationData?.status}
+      onTabChange={handleWorkspaceTab}
+      onBackToApplications={handleBackToApplications}
+      formatStatusLabel={formatStatusLabel}
+      getStatusStyles={getStatusStyles}
+      getStatusDot={getStatusDot}
+    />
+  );
+
   const formatCurrency = (val: any) => {
     const numeric = parseNumericValue(val);
     if (numeric === null) return "-";
@@ -830,10 +1112,25 @@ export default function ClientUpload() {
     return `${numeric.toFixed(2)}%`;
   };
 
-  const totalFiles = Object.values(files).flat().length + uploadedFilesCount;
+  const totalUploadedDocuments = documents.filter(
+    (doc) => (doc.uploadedFiles?.length || 0) > 0,
+  ).length;
+
+  const totalFiles = documents.reduce(
+    (count, doc) => count + (doc.uploadedFiles?.length || 0),
+    0,
+  );
 
   const progress =
-    totalFiles === 0 ? 0 : Math.round((uploadedFilesCount / totalFiles) * 100);
+    documents.length === 0
+      ? 0
+      : Math.round((totalUploadedDocuments / documents.length) * 100);
+
+  const currentPreviewFile = previewFiles[previewActiveIndex];
+  const currentPreviewFileUrl = buildApiPublicFileUrl(
+    API_BASE,
+    currentPreviewFile?.fileUrl,
+  );
 
   const getValue = (key: string) => {
     if (key === "borrowerName") {
@@ -943,8 +1240,9 @@ export default function ClientUpload() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen text-gray-500">
-        Loading...
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-gradient-to-b from-slate-100 via-slate-50 to-white text-slate-500">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+        <p className="text-sm font-medium">Loading your portal...</p>
       </div>
     );
   }
@@ -965,7 +1263,7 @@ export default function ClientUpload() {
   const isImpersonation = isClientPortalImpersonationSession();
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4 sm:p-6">
+    <div className="min-h-screen bg-gradient-to-b from-slate-100 via-slate-50 to-white p-4 sm:p-6">
       {isImpersonation && (
         <div className="mx-auto mb-4 flex max-w-8xl flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900">
           <span>You are viewing this client portal as a broker admin.</span>
@@ -981,8 +1279,8 @@ export default function ClientUpload() {
       <div className="max-w-8xl mx-auto">
         {/* TOP HEADER */}
         {(applicationData || clientName || isClientLoggedIn) && (
-          <header className="relative mb-6 overflow-visible rounded-2xl border border-slate-200 bg-white">
-            <div className="h-1 rounded-t-2xl bg-blue-600" />
+          <header className="relative mb-6 overflow-visible rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div className="h-1.5 rounded-t-2xl bg-gradient-to-r from-blue-600 via-cyan-500 to-teal-500" />
 
             <div className="relative px-4 py-4 sm:px-6 sm:py-5">
               <div className="mb-4 flex items-center justify-between gap-4 border-b border-slate-100 pb-4">
@@ -1024,8 +1322,8 @@ export default function ClientUpload() {
                 </div>
               </div>
 
-              <div className="flex min-w-0 items-center gap-4">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-blue-100 bg-blue-50 text-base font-bold text-blue-700">
+              <div className="flex min-w-0 items-center gap-4 rounded-2xl bg-gradient-to-r from-blue-50/80 via-white to-cyan-50/50 p-4 ring-1 ring-blue-100/80">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-blue-100 bg-white text-base font-bold text-blue-700 shadow-sm">
                   {clientInitials}
                 </div>
 
@@ -1075,21 +1373,13 @@ export default function ClientUpload() {
 
         {activeTab === "documents" && (
           <>
+            {renderApplicationWorkspaceHeader()}
             {applicationDetailsLoading ? (
               <div className="flex items-center justify-center py-20 text-gray-500">
                 Loading documents...
               </div>
             ) : documents.length === 0 ? (
               <>
-                <div className="flex items-center justify-between mb-4">
-                  {/* Back Button */}
-                  <button
-                    onClick={() => setActiveTab("application")}
-                    className="flex text-xs items-center gap-2 px-3 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 transition"
-                  >
-                    ← Back
-                  </button>
-                </div>
                 <div
                   className="relative h-[60vh] overflow-hidden rounded-2xl
   bg-gradient-to-br from-blue-50 via-white to-cyan-50 
@@ -1124,31 +1414,18 @@ export default function ClientUpload() {
               </>
             ) : (
               <>
-                {/* HEADER (ONLY WHEN DOCUMENTS EXIST) */}
-                <div className="bg-white rounded-2xl shadow p-6 mb-6 sticky top-4 z-10">
-                  {/* TOP ROW WITH BACK BUTTON */}
-                  <div className="flex items-center justify-between mb-4">
-                    {/* Back Button */}
-                    <button
-                      onClick={() => setActiveTab("application")}
-                      className="flex text-xs items-center gap-2 px-3 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 transition"
-                    >
-                      ← Back
-                    </button>
-                  </div>
-
-                  {/* HEADER */}
-                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                <div className="sticky top-4 z-10 mb-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                  <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                     <div>
-                      <h1 className="text-xl font-semibold text-gray-800">
+                      <h2 className="text-lg font-semibold text-slate-900">
                         Upload Documents
-                      </h1>
-                      <p className="text-sm text-gray-500 mt-1">{clientName}</p>
+                      </h2>
+                      <p className="mt-1 text-sm text-slate-500">{clientName}</p>
                     </div>
 
                     <div className="text-right">
-                      <p className="text-xs text-gray-400">Application No.</p>
-                      <p className="text-sm font-medium text-gray-700">
+                      <p className="text-xs text-slate-400">Application No.</p>
+                      <p className="text-sm font-medium text-slate-700">
                         {applicationNumber}
                       </p>
                     </div>
@@ -1156,9 +1433,11 @@ export default function ClientUpload() {
 
                   {/* PROGRESS */}
                   <div className="mt-4">
-                    <div className="flex justify-between text-xs text-gray-500 mb-1">
+                    <div className="mb-1 flex justify-between text-xs text-gray-500">
                       <span>
-                        {uploadedFilesCount} / {totalFiles} Files Uploaded
+                        {totalUploadedDocuments} / {documents.length} documents
+                        uploaded · {totalFiles} file
+                        {totalFiles === 1 ? "" : "s"}
                       </span>
                       <span>{progress}%</span>
                     </div>
@@ -1174,7 +1453,14 @@ export default function ClientUpload() {
 
                 {/* GRID */}
                 <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {documents.map((doc) => (
+                  {documents.map((doc) => {
+                    const uploadedCount = doc.uploadedFiles.length;
+                    const pendingFiles = files[doc.id] || [];
+                    const remainingSlots = getRemainingUploadSlots(doc.id);
+                    const canUploadMore =
+                      remainingSlots > 0 || pendingFiles.length > 0;
+
+                    return (
                     <div
                       key={doc.id}
                       className="bg-white border rounded-xl p-4 shadow-sm hover:shadow-md transition flex flex-col justify-between"
@@ -1184,7 +1470,7 @@ export default function ClientUpload() {
                         <div className="flex items-center justify-between mb-2">
                           <FileText className="text-blue-600" size={20} />
 
-                          {uploaded[doc.id] && (
+                          {uploadedCount > 0 && (
                             <CheckCircle className="text-green-600" size={20} />
                           )}
                         </div>
@@ -1195,64 +1481,139 @@ export default function ClientUpload() {
 
                         <p
                           className={`text-xs mt-1 font-medium ${
-                            uploaded[doc.id]
+                            uploadedCount > 0
                               ? "text-green-600"
                               : "text-yellow-600"
                           }`}
                         >
-                          {uploaded[doc.id] ? "Uploaded" : "Pending"}
+                          {uploadedCount > 0
+                            ? `Uploaded · ${uploadedCount} file${uploadedCount === 1 ? "" : "s"}`
+                            : "Pending"}
                         </p>
+
+                        {uploadedCount > 0 && (
+                          <div className="mt-3 space-y-2">
+                            {doc.uploadedFiles.map((file, index) => (
+                              <div
+                                key={file.uploadId || `${doc.id}-${index}`}
+                                className="flex items-center gap-2 rounded-lg border border-slate-100 bg-slate-50 px-2.5 py-2"
+                              >
+                                <FileText size={14} className="shrink-0 text-blue-600" />
+                                <div className="min-w-0 flex-1">
+                                  <p
+                                    className="truncate text-xs font-medium text-slate-700"
+                                    title={file.fileName}
+                                  >
+                                    {file.fileName || "Uploaded file"}
+                                  </p>
+                                  {file.uploadedAt && (
+                                    <p className="text-[10px] text-slate-400">
+                                      {formatUploadedAt(file.uploadedAt)}
+                                    </p>
+                                  )}
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    openUploadedFilesPreview(doc, index)
+                                  }
+                                  className="inline-flex items-center gap-1 rounded-md bg-blue-600 px-2 py-1 text-[10px] font-semibold text-white transition hover:bg-blue-700"
+                                >
+                                  <Eye size={12} />
+                                  View
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
 
                       {/* ACTIONS */}
-                      <div className="mt-4">
-                        {uploaded[doc.id] ? (
-                          <div className="text-xs text-green-600 font-medium">
-                            ✔ Completed
-                          </div>
-                        ) : (
+                      <div className="mt-4 border-t border-slate-100 pt-4">
+                        {canUploadMore ? (
                           <div className="space-y-2">
                             <input
                               type="file"
                               multiple
-                              disabled={(files[doc.id]?.length || 0) >= 4}
+                              accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/*"
+                              disabled={remainingSlots <= 0}
                               id={`file-${doc.id}`}
                               className="hidden"
-                              onChange={(e) =>
-                                handleFileChange(doc.id, e.target.files)
-                              }
+                              onChange={(e) => {
+                                handleFileChange(doc.id, e.target.files);
+                                e.target.value = "";
+                              }}
                             />
+
+                            {pendingFiles.length > 0 && (
+                              <div className="space-y-1">
+                                {pendingFiles.map((file, index) => (
+                                  <div
+                                    key={`${doc.id}-pending-${index}`}
+                                    className="flex items-center justify-between rounded-md bg-amber-50 px-2 py-1.5 text-[11px] text-amber-800"
+                                  >
+                                    <span className="truncate pr-2">
+                                      {file.name}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        removePendingFile(doc.id, index)
+                                      }
+                                      className="shrink-0 text-amber-700 hover:text-amber-900"
+                                    >
+                                      Remove
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
 
                             <div className="flex gap-2">
                               <label
                                 htmlFor={`file-${doc.id}`}
-                                className={`flex-1 text-center text-xs px-3 py-2 border rounded-lg cursor-pointer 
-                ${
-                  (files[doc.id]?.length || 0) >= 4
-                    ? "bg-gray-200 cursor-not-allowed text-slate-500"
-                    : "hover:bg-gray-100"
-                }`}
+                                className={`flex-1 text-center text-xs px-3 py-2 border rounded-lg cursor-pointer ${
+                                  remainingSlots <= 0
+                                    ? "bg-gray-200 cursor-not-allowed text-slate-500"
+                                    : "hover:bg-gray-100"
+                                }`}
                               >
-                                Choose File
+                                {uploadedCount > 0 ? "Add More Files" : "Choose File"}
                               </label>
 
                               <button
+                                type="button"
                                 onClick={() => uploadFile(doc.id)}
                                 disabled={
-                                  !(files[doc.id]?.length > 0) ||
-                                  uploading[doc.id]
+                                  pendingFiles.length === 0 || uploading[doc.id]
                                 }
                                 className="flex-1 flex items-center justify-center gap-1 text-xs px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
                               >
                                 <Upload size={14} />
-                                {uploading[doc.id] ? "Uploading..." : "Upload"}
+                                {uploading[doc.id]
+                                  ? "Uploading..."
+                                  : uploadedCount > 0
+                                    ? "Upload More"
+                                    : "Upload"}
                               </button>
                             </div>
+
+                            <p className="text-[10px] text-slate-400">
+                              PDF, JPG, PNG, WEBP · up to {MAX_FILES} files ·{" "}
+                              {remainingSlots} slot
+                              {remainingSlots === 1 ? "" : "s"} left
+                            </p>
                           </div>
+                        ) : (
+                          <p className="text-xs font-medium text-slate-500">
+                            Maximum {MAX_FILES} files uploaded. Use View to
+                            preview your documents.
+                          </p>
                         )}
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </>
             )}
@@ -1261,12 +1622,7 @@ export default function ClientUpload() {
 
         {activeTab === "signDocuments" && applicationId && (
           <div className="space-y-4">
-            <button
-              onClick={() => setActiveTab("application")}
-              className="flex text-xs items-center gap-2 px-3 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 transition"
-            >
-              ← Back
-            </button>
+            {renderApplicationWorkspaceHeader()}
             <SignDocumentsPanel
               key={tabRefreshKey}
               mode="client"
@@ -1282,136 +1638,140 @@ export default function ClientUpload() {
         {activeTab === "applications" && (
           <div
             ref={applicationsSectionRef}
-            className="min-h-[88vh] rounded-2xl border border-slate-200 bg-white p-5 sm:p-6"
+            className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
           >
-            <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <div>
-                <h2 className="text-xl font-bold tracking-tight text-slate-900">
-                  Loan Applications
-                </h2>
-                <p className="mt-1 text-sm text-slate-500">
-                  Track status, documents, and updates for your loans.
-                  {totalApplications > 0 && (
-                    <>
-                      {" "}
-                      · {totalApplications} application
-                      {totalApplications === 1 ? "" : "s"}
-                    </>
+            <div className="border-b border-slate-100 bg-gradient-to-r from-slate-50 via-white to-blue-50/40 px-5 py-6 sm:px-6">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-blue-600">
+                    Your applications
+                  </p>
+                  <h2 className="mt-1 text-2xl font-bold tracking-tight text-slate-900">
+                    Loan Applications
+                  </h2>
+                  <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-500">
+                    Track status, upload documents, and stay updated on every
+                    loan in one place.
+                    {totalApplications > 0 && (
+                      <span className="font-semibold text-slate-700">
+                        {" "}
+                        {totalApplications} total application
+                        {totalApplications === 1 ? "" : "s"}.
+                      </span>
+                    )}
+                  </p>
+                </div>
+
+                <div className="relative w-full lg:max-w-sm">
+                  <FiSearch
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                    size={16}
+                  />
+                  <input
+                    type="text"
+                    placeholder="Search by application ID or product..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-9 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15"
+                  />
+                  {search && (
+                    <button
+                      type="button"
+                      onClick={() => setSearch("")}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-slate-600"
+                    >
+                      <FiX size={16} />
+                    </button>
                   )}
-                </p>
-              </div>
-
-              {/* SEARCH BOX */}
-              <div className="relative w-full md:w-80">
-                {/* ICON */}
-                <FiSearch
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                  size={16}
-                />
-
-                <input
-                  type="text"
-                  placeholder="Search applications..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="w-full pl-9 pr-9 py-2 text-sm rounded-xl border bg-white 
-      focus:ring-2 focus:ring-blue-500 focus:border-blue-500 
-      outline-none transition"
-                />
-
-                {/* CLEAR BUTTON */}
-                {search && (
-                  <button
-                    onClick={() => setSearch("")}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  >
-                    <FiX size={16} />
-                  </button>
-                )}
+                </div>
               </div>
             </div>
 
+            <div className="p-5 sm:p-6">
             {applicationsLoading ? (
-              <p className="text-gray-500">Loading...</p>
-            ) : applications.length === 0 ? (
-              <div
-                className="relative overflow-hidden rounded-2xl border border-purple-100 
-  bg-gradient-to-br from-purple-50 via-white to-pink-50 
-  p-12 text-center shadow-sm flex flex-col items-center justify-center gap-4"
-              >
-                {/* GLOW */}
-                <div className="absolute -top-10 -left-10 w-40 h-40 bg-purple-200 opacity-20 blur-3xl rounded-full" />
-                <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-pink-200 opacity-20 blur-3xl rounded-full" />
-
-                {/* ICON */}
-                <div className="relative">
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {Array.from({ length: 6 }).map((_, index) => (
                   <div
-                    className="h-16 w-16 rounded-2xl bg-gradient-to-br from-blue-500 to-green-500 
-      flex items-center justify-center shadow-lg"
+                    key={`app-skeleton-${index}`}
+                    className="animate-pulse overflow-hidden rounded-2xl border border-slate-200 bg-white"
                   >
-                    <FiFileText className="text-white" size={28} />
+                    <div className="h-1.5 bg-slate-200" />
+                    <div className="space-y-4 p-5">
+                      <div className="h-4 w-2/3 rounded bg-slate-200" />
+                      <div className="h-3 w-1/2 rounded bg-slate-100" />
+                      <div className="h-16 rounded-xl bg-slate-100" />
+                      <div className="h-2 rounded-full bg-slate-100" />
+                    </div>
                   </div>
+                ))}
+              </div>
+            ) : applications.length === 0 ? (
+              <div className="relative overflow-hidden rounded-2xl border border-dashed border-slate-200 bg-slate-50/80 px-6 py-16 text-center">
+                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 shadow-lg">
+                  <FolderOpen className="text-white" size={28} />
                 </div>
-
-                {/* TITLE */}
-                <p className="text-base font-semibold text-gray-700">
-                  No Applications Found
+                <p className="text-base font-semibold text-slate-800">
+                  No applications found
                 </p>
+                <p className="mx-auto mt-2 max-w-md text-sm text-slate-500">
+                  {search
+                    ? "Try a different search term or clear the filter."
+                    : "Your loan applications will appear here once they are created."}
+                </p>
+                {search && (
+                  <button
+                    type="button"
+                    onClick={() => setSearch("")}
+                    className="mt-4 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                  >
+                    Clear search
+                  </button>
+                )}
               </div>
             ) : (
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {applications.map((app) => {
-                  const progress =
-                    app.documentProgress.total === 0
-                      ? 0
-                      : Math.min(
-                          100,
-                          Math.round(
-                            (app.documentProgress.uploaded /
-                              app.documentProgress.total) *
-                              100,
-                          ),
-                        );
+                  const progress = getDocumentProgressPercent(app);
+                  const docsComplete =
+                    (app.documentProgress?.total || 0) > 0 &&
+                    (app.documentProgress?.uploaded || 0) >=
+                      (app.documentProgress?.total || 0);
+                  const filesUploaded = app.documentProgress?.filesUploaded || 0;
 
                   return (
-                    <div
+                    <article
                       key={app.id}
                       onClick={() => fetchApplicationDetails(app.id)}
-                      className="group relative border border-slate-100 rounded-xl p-4
-             shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer 
-             overflow-hidden bg-white"
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          fetchApplicationDetails(app.id);
+                        }
+                      }}
+                      role="button"
+                      tabIndex={0}
+                      className="group flex h-full cursor-pointer flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30"
                     >
-                      {/*  MINIMAL HOVER OVERLAY */}
                       <div
-                        className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 
-               transition-all duration-300 flex items-center justify-center z-20 backdrop-blur-[1px]"
-                      >
-                        <div
-                          className="text-white text-[10px] font-bold uppercase tracking-wider flex items-center gap-2 
-                 px-4 py-2 rounded-lg bg-slate-800/80 border border-white/10 
-                 backdrop-blur-md shadow-2xl transform translate-y-2 
-                 group-hover:translate-y-0 transition-all duration-300"
-                        >
-                          <FiEye size={14} />
-                          View Details
-                        </div>
-                      </div>
+                        className={`h-1.5 ${getStatusAccentClass(app.status)}`}
+                      />
 
-                      {/* CONTENT */}
-                      <div className="relative z-10 group-hover:opacity-20 transition duration-300">
-                        {/* HEADER */}
-                        <div className="flex justify-between items-start mb-3">
-                          <div>
-                            <p className="text-[9px] uppercase tracking-[0.05em] text-slate-400 font-bold mb-0.5">
+                      <div className="flex flex-1 flex-col p-5">
+                        <div className="mb-4 flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                               Application ID
                             </p>
-                            <p className="text-[12px] font-bold text-slate-800 font-mono">
+                            <p
+                              className="mt-1 truncate font-mono text-sm font-bold text-slate-900"
+                              title={app.applicationNumber}
+                            >
                               {app.applicationNumber}
                             </p>
                           </div>
 
                           <span
-                            className={`inline-flex items-center gap-1 px-2 py-0.5 text-[9px] font-bold rounded-md uppercase tracking-tight ${getStatusStyles(
+                            className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${getStatusStyles(
                               app.status,
                             )}`}
                           >
@@ -1422,12 +1782,12 @@ export default function ClientUpload() {
                           </span>
                         </div>
 
-                        {/* PRODUCT INFO */}
-                        <div className="mb-3">
-                          <p className="text-[11px] font-semibold text-slate-600 truncate">
-                            {app.loanProduct?.replace(/_/g, " ")}
+                        <div className="mb-4 rounded-xl border border-slate-100 bg-slate-50/80 px-3 py-3">
+                          <p className="text-sm font-semibold text-slate-800">
+                            {formatLoanProductLabel(app.loanProduct)}
                           </p>
-                          <p className="text-[10px] text-slate-400">
+                          <p className="mt-1 text-xs text-slate-500">
+                            Created{" "}
                             {new Date(app.createdAt).toLocaleDateString(
                               undefined,
                               {
@@ -1439,45 +1799,68 @@ export default function ClientUpload() {
                           </p>
                         </div>
 
-                        {/* AMOUNT & PROGRESS BAR */}
-                        <div className="pt-3 border-t border-slate-50">
-                          <div className="flex justify-between items-end mb-1.5">
+                        <div className="mt-auto space-y-3">
+                          <div className="flex items-end justify-between gap-3">
                             <div>
-                              <p className="text-[9px] text-slate-400 font-bold uppercase">
-                                Amount
+                              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                Loan amount
                               </p>
-                              <p className="text-[13px] font-black text-slate-900">
-                                {app.amountRequested || "—"}
+                              <p className="mt-1 text-lg font-bold text-slate-900">
+                                {formatApplicationAmount(app.amountRequested)}
                               </p>
                             </div>
                             <span
-                              className={`text-[10px] font-bold ${progress === 100 ? "text-emerald-600" : "text-slate-500"}`}
-                            >
-                              {progress}%
-                            </span>
-                          </div>
-
-                          <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
-                            <div
-                              className={`h-full rounded-full transition-all duration-1000 ease-out ${
-                                progress === 100
-                                  ? "bg-emerald-500"
-                                  : "bg-slate-800"
+                              className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${
+                                docsComplete
+                                  ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100"
+                                  : "bg-amber-50 text-amber-700 ring-1 ring-amber-100"
                               }`}
-                              style={{ width: `${progress}%` }}
-                            />
+                            >
+                              Docs {app.documentProgress?.uploaded || 0}/
+                              {app.documentProgress?.total || 0}
+                              {filesUploaded > 0
+                                ? ` · ${filesUploaded} file${filesUploaded === 1 ? "" : "s"}`
+                                : ""}
+                            </span>
                           </div>
 
-                          <p className="text-[9px] text-slate-400 mt-1.5 font-medium">
-                            Documents:{" "}
-                            <span className="text-slate-600">
-                              {app.documentProgress.uploaded}/
-                              {app.documentProgress.total}
+                          <div>
+                            <div className="mb-1.5 flex items-center justify-between text-[11px] font-medium text-slate-500">
+                              <span>Document progress</span>
+                              <span
+                                className={
+                                  progress === 100
+                                    ? "text-emerald-600"
+                                    : "text-slate-600"
+                                }
+                              >
+                                {progress}%
+                              </span>
+                            </div>
+                            <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+                              <div
+                                className={`h-full rounded-full transition-all duration-500 ${
+                                  progress === 100
+                                    ? "bg-emerald-500"
+                                    : "bg-gradient-to-r from-blue-600 to-cyan-500"
+                                }`}
+                                style={{ width: `${Math.max(progress, progress > 0 ? 8 : 0)}%` }}
+                              />
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between border-t border-slate-100 pt-3">
+                            <span className="text-xs text-slate-500">
+                              Open to view details & upload
                             </span>
-                          </p>
+                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 transition group-hover:gap-2">
+                              View
+                              <ChevronRight size={14} />
+                            </span>
+                          </div>
                         </div>
                       </div>
-                    </div>
+                    </article>
                   );
                 })}
               </div>
@@ -1547,6 +1930,7 @@ export default function ClientUpload() {
                 )}
               </div>
             )}
+            </div>
           </div>
         )}
 
@@ -1556,105 +1940,12 @@ export default function ClientUpload() {
               Loading application details...
             </div>
           ) : applicationData ? (
-            <div className="bg-white rounded-2xl p-6">
+            <>
+              {renderApplicationWorkspaceHeader()}
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
               {activeTab === "application" && applicationData && (
-                <div className="bg-white rounded-2xl p-6">
+                <div>
                   <div className="mb-6">
-                    {/* BACK BUTTON */}
-                    <button
-                      onClick={() => {
-                        setSelectedApplication(null);
-                        setApplicationData(null);
-                        setApplicationId("");
-                        clearApplicationDocuments();
-                        setActiveTab("applications");
-                      }}
-                      className="flex items-center gap-2 text-sm text-gray-500 hover:text-blue-600 mb-3"
-                    >
-                      ← Back to Submitted Applications
-                    </button>
-
-                    {/* TITLE */}
-                    <div className="mb-4 flex items-center justify-between">
-                      <div>
-                        <h1 className="text-xl font-semibold text-gray-800">
-                          Loan Application Preview
-                        </h1>
-                        <p className="text-xs text-gray-400">
-                          {selectedApplication?.applicationNumber}
-                        </p>
-                      </div>
-
-                      {/* DOCUMENTS */}
-                      <button
-                        onClick={() => openApplicationTab("documents")}
-                        className={`relative flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium transition-all
-      hover:text-blue-500`}
-                      >
-                        <FiUploadCloud size={16} />
-                        Upload Documents
-                      </button>
-
-                      <button
-                        onClick={() => openApplicationTab("signDocuments")}
-                        className={`relative flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium transition-all
-      hover:text-indigo-500`}
-                      >
-                        <FiFileText size={16} />
-                        Documents to Sign
-                      </button>
-
-                      {/* Fee Agreement */}
-                      <button
-                        onClick={() => openApplicationTab("feeAgreement")}
-                        className={`relative flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium transition-all
-      hover:text-blue-500`}
-                      >
-                        <FiFileText size={16} />
-                        Fee Agreement
-                        <span className="absolute -bottom-2 left-2 right-2 h-[2px] bg-blue-500 rounded-full" />
-                      </button>
-
-                      <div className="flex items-center gap-3">
-                        {/* Chat Button */}
-                        <button
-                          type="button"
-                          onClick={() => setActiveTab("chat")}
-                          className="group relative inline-flex items-center gap-2 rounded-xl 
-  bg-gradient-to-r from-emerald-500 to-green-600 
-  px-3 py-1.5 text-xs font-semibold text-white 
-  shadow-md transition-all duration-200 
-  hover:shadow-lg hover:scale-[1.03] active:scale-95"
-                        >
-                          {/* glow */}
-                          <span className="absolute inset-0 rounded-xl bg-white/10 opacity-0 group-hover:opacity-100 transition" />
-
-                          {/* icon */}
-                          <span className="flex items-center justify-center">
-                            <FiMessageCircle size={14} />
-                          </span>
-
-                          {/* text */}
-                          <span>Chat</span>
-
-                          {/* subtle pulse */}
-                          <span className="ml-1 flex h-2 w-2">
-                            <span className="absolute inline-flex h-2 w-2 animate-ping rounded-full bg-white/70" />
-                            <span className="relative inline-flex h-2 w-2 rounded-full bg-white" />
-                          </span>
-                        </button>
-
-                        {/* STATUS */}
-                        <span
-                          className={`rounded-full text-xs px-4 py-1.5 font-semibold ${getStatusStyles(
-                            selectedApplication?.status,
-                          )}`}
-                        >
-                          {formatStatusLabel(selectedApplication?.status)}
-                        </span>
-                      </div>
-                    </div>
-
                     {/* CARDS CONTAINER */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                       {/* CLIENT CARD */}
@@ -1939,9 +2230,12 @@ export default function ClientUpload() {
                 </div>
               )}
             </div>
+            </>
           ) : null)}
 
         {activeTab === "feeAgreement" && (
+          <>
+            {renderApplicationWorkspaceHeader()}
           <FeeAgreement
             key={tabRefreshKey}
             applicationId={
@@ -1952,9 +2246,12 @@ export default function ClientUpload() {
             getAuthHeaders={() => getClientPortalAuthConfig().headers}
             onBack={() => setActiveTab("application")}
           />
+          </>
         )}
 
         {activeTab === "chat" && (
+          <>
+            {renderApplicationWorkspaceHeader()}
           <Chat
             applicationId={
               selectedApplication?.id ||
@@ -1963,8 +2260,134 @@ export default function ClientUpload() {
             }
             onBack={() => setActiveTab("application")}
           />
+          </>
         )}
       </div>
+
+      {previewFiles.length > 0 && (
+        <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+          <div className="flex h-[90vh] max-h-[90vh] w-full max-w-5xl min-h-0 flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <div className="flex shrink-0 items-center justify-between bg-gradient-to-r from-blue-600 to-teal-600 px-5 py-4 text-white">
+              <div className="min-w-0 pr-4">
+                <h2 className="truncate text-sm font-semibold">
+                  {currentPreviewFile?.fileName || "Document preview"}
+                </h2>
+                <p className="text-xs text-white/70">
+                  {previewActiveIndex + 1} / {previewFiles.length}
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!currentPreviewFileUrl) {
+                      toast.error("Download failed");
+                      return;
+                    }
+
+                    try {
+                      const res = await fetch(currentPreviewFileUrl, {
+                        headers: getClientPortalAuthConfig().headers,
+                      });
+                      const blob = await res.blob();
+                      const url = window.URL.createObjectURL(blob);
+                      const link = document.createElement("a");
+                      link.href = url;
+                      link.download =
+                        currentPreviewFile?.fileName || "document";
+                      document.body.appendChild(link);
+                      link.click();
+                      link.remove();
+                      window.URL.revokeObjectURL(url);
+                    } catch {
+                      toast.error("Download failed");
+                    }
+                  }}
+                  className="inline-flex items-center gap-1 rounded-lg bg-white/20 px-3 py-1.5 text-xs font-medium transition hover:bg-white/30"
+                >
+                  <Download size={14} />
+                  Download
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPreviewFiles([]);
+                    setPreviewActiveIndex(0);
+                  }}
+                  className="rounded-lg bg-red-500 px-3 py-1.5 text-xs transition hover:bg-red-600"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+
+            <div className="relative flex min-h-0 flex-1 overflow-hidden bg-slate-100">
+              {previewActiveIndex > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setPreviewActiveIndex((index) => index - 1)}
+                  className="absolute left-4 top-1/2 z-10 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-md"
+                  aria-label="Previous file"
+                >
+                  <ChevronLeft size={20} />
+                </button>
+              )}
+
+              {previewActiveIndex < previewFiles.length - 1 && (
+                <button
+                  type="button"
+                  onClick={() => setPreviewActiveIndex((index) => index + 1)}
+                  className="absolute right-4 top-1/2 z-10 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-md"
+                  aria-label="Next file"
+                >
+                  <ChevronRight size={20} />
+                </button>
+              )}
+
+              <EmbeddedFilePreview
+                remoteUrl={currentPreviewFileUrl}
+                mimeType={inferUploadedFileMimeType(
+                  currentPreviewFile?.fileName,
+                  currentPreviewFile?.fileMimeType,
+                )}
+                fileName={currentPreviewFile?.fileName}
+                getAuthHeaders={() => getClientPortalAuthConfig().headers}
+                className="flex h-full min-h-0 w-full items-center justify-center overflow-hidden p-4"
+                iframeClassName="h-full min-h-0 w-full rounded-xl bg-white"
+                imageClassName="max-h-full max-w-full rounded-xl object-contain shadow"
+              />
+            </div>
+
+            {previewFiles.length > 1 && (
+              <div className="shrink-0 border-t border-slate-200 bg-slate-50 p-3">
+                <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                  Select file
+                </p>
+                <div className="flex gap-2 overflow-x-auto">
+                  {previewFiles.map((file, index) => (
+                    <button
+                      key={file.uploadId || `${index}-${file.fileName}`}
+                      type="button"
+                      onClick={() => setPreviewActiveIndex(index)}
+                      className={`min-w-[5rem] rounded-lg border px-2 py-2 text-left text-[10px] transition ${
+                        index === previewActiveIndex
+                          ? "border-blue-500 bg-blue-50 text-blue-700"
+                          : "border-slate-200 bg-white text-slate-600 hover:bg-slate-100"
+                      }`}
+                    >
+                      <span className="block truncate font-semibold">
+                        {file.fileName || `File ${index + 1}`}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

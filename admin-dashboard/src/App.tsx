@@ -33,6 +33,7 @@ import AllDocuments from "./pages/Documents/AllDocuments";
 import AllSubscriptions from "./pages/Subscriptions/AllSubscriptions";
 import SubscriptionSubscribers from "./pages/Subscriptions/SubscriptionSubscribers";
 import SubscriberDetail from "./pages/Subscriptions/SubscriberDetail";
+import LoanAiUsers from "./pages/Subscriptions/LoanAiUsers";
 import SubscriptionInvoices from "./pages/Subscriptions/SubscriptionInvoices";
 import AllSuperadmin from "./pages/SuperAdmin/AllSuperAdmin";
 import LenderProductAssign from "./pages/LoanProducts/LenderAssignProduct";
@@ -160,6 +161,7 @@ export default function App() {
             <Route index path="/all-subscriptions" element={<AllSubscriptions />} />
             <Route index path="/subscription-subscribers" element={<SubscriptionSubscribers />} />
             <Route index path="/subscription-subscribers/detail" element={<SubscriberDetail />} />
+            <Route index path="/loan-ai-signups" element={<LoanAiUsers />} />
             <Route index path="/subscription-invoices" element={<SubscriptionInvoices />} />
             <Route
               index

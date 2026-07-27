@@ -17,6 +17,7 @@ export function buildPlanCheckoutState(pkg, billingCycle, formatPrice) {
     billingCycle,
     planPrice: formatPrice(amount),
     billingLabel,
+    addOnCodes: [],
     fromPricing: true,
   };
 }

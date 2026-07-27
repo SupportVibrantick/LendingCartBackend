@@ -320,8 +320,14 @@ export function formatPrice(value: number | string | null | undefined) {
 
 export function parseFeatures(features?: string | null) {
   if (!features?.trim()) return [];
+  if (features.includes("\n")) {
+    return features
+      .split("\n")
+      .map((f) => f.trim())
+      .filter(Boolean);
+  }
   return features
-    .split(/[,;|\n]/)
+    .split(/[,;|]/)
     .map((f) => f.trim())
     .filter(Boolean);
 }

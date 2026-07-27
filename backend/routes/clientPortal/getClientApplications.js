@@ -10,10 +10,17 @@ const APPLICATION_SELECT = {
   loanProductCode: true,
   createdAt: true,
   submissions: {
+    where: { status: { not: "SUPERSEDED" } },
     orderBy: { createdAt: "desc" },
     take: 1,
     include: {
-      fields: true,
+      fields: {
+        include: {
+          builderField: {
+            select: { fieldKey: true },
+          },
+        },
+      },
     },
   },
   documentRequirements: {
@@ -23,6 +30,9 @@ const APPLICATION_SELECT = {
       status: true,
       sentToClientAt: true,
       requiresClientSignature: true,
+      uploads: {
+        select: { id: true },
+      },
     },
   },
   documentUploads: {
@@ -34,8 +44,59 @@ const APPLICATION_SELECT = {
 };
 
 function getSubmissionFieldValue(submission, key) {
-  const field = submission?.fields?.find((item) => item.fieldKey === key);
-  return field?.value || "";
+  const field = submission?.fields?.find(
+    (item) =>
+      item.fieldKey === key || item.builderField?.fieldKey === key,
+  );
+
+  if (!field || field.value === null || field.value === undefined) {
+    return "";
+  }
+
+  if (typeof field.value === "object") {
+    return String(field.value);
+  }
+
+  return String(field.value);
+}
+
+function parseAmountValue(rawValue) {
+  if (rawValue === null || rawValue === undefined || rawValue === "") {
+    return null;
+  }
+
+  if (typeof rawValue === "number" && Number.isFinite(rawValue)) {
+    return rawValue;
+  }
+
+  const cleaned = String(rawValue).replace(/[^0-9.-]/g, "");
+  if (!cleaned) return null;
+
+  const numeric = Number(cleaned);
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
+function resolveAmountRequested(app, latestSubmission) {
+  const amountFromField = getSubmissionFieldValue(
+    latestSubmission,
+    "amountRequested",
+  );
+
+  return (
+    parseAmountValue(amountFromField) ??
+    parseAmountValue(app.amountRequested)
+  );
+}
+
+function countUploadedRequirements(requirements = []) {
+  return requirements.filter((req) => {
+    const uploadCount = req.uploads?.length || 0;
+    return (
+      uploadCount > 0 ||
+      req.status === "COMPLETE" ||
+      req.status === "PARTIAL"
+    );
+  }).length;
 }
 
 function applicationMatchesSearch(app, search) {
@@ -57,10 +118,6 @@ function applicationMatchesSearch(app, search) {
 
 function formatClientApplication(app) {
   const latestSubmission = app.submissions?.[0];
-  const amountFromField = getSubmissionFieldValue(
-    latestSubmission,
-    "amountRequested",
-  );
   const productFromField = getSubmissionFieldValue(
     latestSubmission,
     "loanProductCode",
@@ -75,24 +132,15 @@ function formatClientApplication(app) {
     applicationNumber: app.applicationNumber,
     status: resolveApplicationStatus(app),
     loanProduct: productFromField || app.loanProductCode || null,
-    amountRequested: amountFromField
-      ? Number(amountFromField).toLocaleString("en-IN", {
-          style: "currency",
-          currency: "INR",
-          maximumFractionDigits: 0,
-        })
-      : app.amountRequested
-        ? Number(app.amountRequested).toLocaleString("en-IN", {
-            style: "currency",
-            currency: "INR",
-            maximumFractionDigits: 0,
-          })
-        : null,
+    amountRequested: resolveAmountRequested(app, latestSubmission),
     createdAt: app.createdAt,
     documentProgress: {
       total: visibleRequirements.length,
-      uploaded: visibleRequirements.filter((req) => req.status === "COMPLETE")
-        .length,
+      uploaded: countUploadedRequirements(visibleRequirements),
+      filesUploaded: visibleRequirements.reduce(
+        (sum, req) => sum + (req.uploads?.length || 0),
+        0,
+      ),
     },
   };
 }

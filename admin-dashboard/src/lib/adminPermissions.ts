@@ -29,6 +29,7 @@ export const ROUTE_PERMISSIONS: Record<string, PermissionKey | PermissionKey[] |
   "/all-subscriptions": "VIEW_SUBSCRIPTIONS",
   "/subscription-subscribers": "VIEW_SUBSCRIBERS",
   "/subscription-subscribers/detail": "VIEW_SUBSCRIBERS",
+  "/loan-ai-signups": "VIEW_SUBSCRIBERS",
   "/subscription-invoices": "VIEW_SUBSCRIPTION_INVOICES",
   "/all-super-admins": "MANAGE_PERMISSIONS",
   "/all-landing-pages-leads": "VIEW_CONTACTS",

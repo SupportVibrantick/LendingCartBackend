@@ -25,6 +25,10 @@ export default function EmbeddedFilePreview({
     getAuthHeaders,
   );
 
+  const isImage =
+    mimeType?.includes("image") ||
+    /\.(jpe?g|png|gif|webp|bmp|svg)$/i.test(fileName || "");
+
   if (loading) {
     return (
       <div className={className}>
@@ -58,9 +62,9 @@ export default function EmbeddedFilePreview({
     );
   }
 
-  if (mimeType?.includes("image")) {
+  if (isImage) {
     return (
-      <div className={className}>
+      <div className={`${className} min-h-0`}>
         <img
           src={blobUrl}
           alt={fileName || "Document preview"}

@@ -211,6 +211,121 @@ export function getDocumentStatusLines(
   return lines;
 }
 
+export type DocumentStatusSummaryItem = {
+  key: string;
+  label: string;
+  detail?: string | null;
+  tone: DocumentStatusLine["tone"];
+};
+
+export type DocumentStatusSummary = {
+  statusLabel: string;
+  statusDate?: string | null;
+  items: DocumentStatusSummaryItem[];
+};
+
+function shortenDisplayName(value: string, max = 24) {
+  const trimmed = value.trim();
+  if (trimmed.length <= max) return trimmed;
+  return `${trimmed.slice(0, max - 1)}…`;
+}
+
+export function getDocumentStatusSummary(
+  doc: DocumentDisplayRow,
+): DocumentStatusSummary {
+  const uploadedCount = Number(doc.uploadedCount) || 0;
+  const lenderId = doc.sourceLender?.applicationLenderId ?? null;
+  const lenderName = shortenDisplayName(
+    doc.sourceLender?.lenderName || "lender",
+  );
+  const { sentCount, pendingCount } = evaluateLenderSendState(doc, lenderId);
+  const items: DocumentStatusSummaryItem[] = [];
+
+  if (doc.sourceLender || uploadedCount > 0) {
+    const lenderSentAt = getRelevantLenderSentAt(doc);
+
+    if (uploadedCount === 0) {
+      items.push({
+        key: "lender",
+        label: "Not sent to lender",
+        detail: lenderName,
+        tone: "muted",
+      });
+    } else if (sentCount === 0) {
+      items.push({
+        key: "lender",
+        label: "Not sent to lender",
+        detail: lenderName,
+        tone: "warning",
+      });
+    } else if (pendingCount > 0) {
+      items.push({
+        key: "lender",
+        label: `${sentCount} of ${uploadedCount} sent`,
+        detail: `${lenderName} · ${pendingCount} pending`,
+        tone: "warning",
+      });
+    } else {
+      items.push({
+        key: "lender",
+        label: `${sentCount} of ${uploadedCount} sent`,
+        detail: lenderSentAt
+          ? `${lenderName} · ${formatDocumentTimelineDate(lenderSentAt)}`
+          : lenderName,
+        tone: "success",
+      });
+    }
+  }
+
+  if (isClientForwardableDocument(doc)) {
+    if (doc.isForwardedToClient) {
+      items.push({
+        key: "client",
+        label: "On client portal",
+        detail: formatDocumentTimelineDate(doc.sentToClientAt),
+        tone: "info",
+      });
+    } else if (doc.source === "LENDER_ADDED") {
+      items.push({
+        key: "client",
+        label: "Broker only",
+        detail: "Not on client portal",
+        tone: "muted",
+      });
+    } else {
+      items.push({
+        key: "client",
+        label: "Not sent to client",
+        tone: "warning",
+      });
+    }
+  }
+
+  if (uploadedCount > 0) {
+    items.push({
+      key: "upload",
+      label:
+        uploadedCount === 1
+          ? "1 file uploaded"
+          : `${uploadedCount} files uploaded`,
+      detail: formatDocumentTimelineDate(getLatestClientUploadAt(doc)),
+      tone: "success",
+    });
+  } else if (doc.status !== "SKIPPED") {
+    items.push({
+      key: "upload",
+      label: "Awaiting upload",
+      tone: "muted",
+    });
+  }
+
+  return {
+    statusLabel: doc.status || "UNKNOWN",
+    statusDate: formatDocumentTimelineDate(getDocumentStatusBadgeDate(doc)),
+    items,
+  };
+}
+
 const BROKER_SENDABLE_SOURCES = new Set(["BROKER_ADDED", "SUB_BROKER_ADDED"]);
 
 const LENDER_SOURCE_COLORS = [
@@ -780,5 +895,117 @@ export function summarizeLenderDocumentPayload(
       (sum, entry) => sum + entry.requirementIds.length,
       0,
     ),
+  };
+}
+
+export type DocumentUploadActivity = {
+  uploadId?: string;
+  fileName?: string;
+  uploadedAt?: string | null;
+  sentToLenders?: Array<{
+    lenderName?: string | null;
+    sentAt?: string | null;
+  }>;
+};
+
+export type DocumentLenderActivity = {
+  lenderName: string;
+  sentCount: number;
+  pendingCount: number;
+  uploadedCount: number;
+  sentAt?: string | null;
+  isFullySent: boolean;
+};
+
+export type DocumentActivitySummary = {
+  documentName: string;
+  clientUploads: DocumentUploadActivity[];
+  clientUploadCount: number;
+  clientUploadPending: boolean;
+  awaitingClientForward: boolean;
+  sentToClientAt?: string | null;
+  isForwardedToClient: boolean;
+  lenderActivities: DocumentLenderActivity[];
+  totalLenderSentCount: number;
+  totalLenderPendingCount: number;
+};
+
+export function buildDocumentActivitySummary(
+  doc: DocumentDisplayRow,
+): DocumentActivitySummary {
+  const uploadedCount = Number(doc.uploadedCount) || 0;
+  const lenderId = doc.sourceLender?.applicationLenderId ?? null;
+  const clientUploads = (doc.uploadedFiles || []).map((file) => ({
+    uploadId: file.uploadId,
+    fileName: file.fileName,
+    uploadedAt: file.uploadedAt ?? null,
+    sentToLenders: (
+      (file as { sentToLenders?: DocumentUploadActivity["sentToLenders"] })
+        .sentToLenders || []
+    ).map((entry) => ({
+      lenderName: entry.lenderName,
+      sentAt: entry.sentAt ?? null,
+    })),
+  }));
+
+  const sentToLenders = doc.sentToLenders || [];
+  let lenderActivities: DocumentLenderActivity[] = [];
+
+  if (lenderId && doc.sourceLender) {
+    const entry = sentToLenders.find(
+      (item) => item.applicationLenderId === lenderId,
+    );
+
+    if (entry) {
+      lenderActivities = [
+        {
+          lenderName: entry.lenderName,
+          sentCount: entry.sentCount ?? 0,
+          pendingCount: entry.pendingCount ?? 0,
+          uploadedCount: entry.uploadedCount ?? uploadedCount,
+          sentAt: entry.sentAt ?? null,
+          isFullySent: Boolean(entry.isFullySent),
+        },
+      ];
+    } else {
+      lenderActivities = [
+        {
+          lenderName: doc.sourceLender.lenderName,
+          sentCount: 0,
+          pendingCount: uploadedCount,
+          uploadedCount,
+          sentAt: null,
+          isFullySent: false,
+        },
+      ];
+    }
+  } else if (sentToLenders.length > 0) {
+    lenderActivities = sentToLenders.map((entry) => ({
+      lenderName: entry.lenderName,
+      sentCount: entry.sentCount ?? 0,
+      pendingCount: entry.pendingCount ?? 0,
+      uploadedCount: entry.uploadedCount ?? uploadedCount,
+      sentAt: entry.sentAt ?? null,
+      isFullySent: Boolean(entry.isFullySent),
+    }));
+  }
+
+  const { sentCount, pendingCount } = evaluateLenderSendState(doc, lenderId);
+
+  return {
+    documentName: doc.documentName || "Document",
+    clientUploads,
+    clientUploadCount: uploadedCount,
+    clientUploadPending:
+      isClientForwardableDocument(doc) &&
+      Boolean(doc.isForwardedToClient) &&
+      uploadedCount === 0,
+    awaitingClientForward:
+      isClientForwardableDocument(doc) && !doc.isForwardedToClient,
+    sentToClientAt: doc.sentToClientAt ?? null,
+    isForwardedToClient: Boolean(doc.isForwardedToClient),
+    lenderActivities,
+    totalLenderSentCount: sentCount,
+    totalLenderPendingCount: pendingCount,
   };
 }

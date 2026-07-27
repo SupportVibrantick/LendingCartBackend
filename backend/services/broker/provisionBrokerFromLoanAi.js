@@ -153,6 +153,7 @@ async function provisionBrokerFromLoanAi(prisma, io, loanAiUser, payload) {
       organizationId: brokerOrg.id,
       packageId,
       billingCycle,
+      addOnCodes: payload.addOnCodes || [],
       trialDays: 0,
       notes: "Provisioned via Loan AI subscription purchase",
       generateInvoice: true,
@@ -183,6 +184,7 @@ async function provisionBrokerFromLoanAi(prisma, io, loanAiUser, payload) {
           source: "LOAN_AI_PURCHASE",
           packageId,
           billingCycle,
+          addOnCodes: payload.addOnCodes || [],
         },
       });
     } catch (notifErr) {

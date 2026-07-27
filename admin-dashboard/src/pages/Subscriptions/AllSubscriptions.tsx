@@ -21,8 +21,10 @@ import {
   parseFeatures,
   togglePackageStatus,
   updatePackage,
+  USAGE_METRIC_LABELS,
   type SubscriptionPackage,
   type UsageLimits,
+  type UsageMetric,
 } from "../../lib/subscriptionApi";
 
 type PackageForm = {
@@ -68,6 +70,42 @@ const DEFAULT_TIER_STYLE = TIER_STYLES.BASIC;
 
 function getTierStyle(code: string) {
   return TIER_STYLES[code.toUpperCase()] ?? DEFAULT_TIER_STYLE;
+}
+
+function formatUsageLimitValue(value: number) {
+  if (value >= 1000) return `${(value / 1000).toFixed(value % 1000 === 0 ? 0 : 1)}k`;
+  return String(value);
+}
+
+function UsageLimitsBadges({ limits }: { limits?: UsageLimits | null }) {
+  if (!limits || typeof limits !== "object") return null;
+
+  const entries = (Object.keys(USAGE_METRIC_LABELS) as UsageMetric[]).filter(
+    (key) => limits[key] != null,
+  );
+
+  if (entries.length === 0) return null;
+
+  return (
+    <div className="mb-5 rounded-xl border border-slate-200/80 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/40 p-3">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-2">
+        Usage limits
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {entries.map((key) => (
+          <span
+            key={key}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-700 px-2.5 py-1 text-xs text-slate-600 dark:text-slate-300"
+          >
+            <span className="font-semibold text-slate-800 dark:text-slate-100">
+              {formatUsageLimitValue(limits[key]!)}
+            </span>
+            <span className="text-slate-500">{USAGE_METRIC_LABELS[key]}</span>
+          </span>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 const EMPTY_FORM: PackageForm = {
@@ -472,6 +510,8 @@ const AllSubscriptions = () => {
                       </p>
                     )}
                   </div>
+
+                  <UsageLimitsBadges limits={pkg.usageLimits} />
 
                   {features.length > 0 && (
                     <ul className="space-y-2.5 mb-6 flex-1">
