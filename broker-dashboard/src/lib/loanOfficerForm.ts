@@ -147,6 +147,34 @@ export interface LoanOfficerFormState {
 
 export type LoanOfficerFormErrors = Partial<Record<keyof LoanOfficerFormState, string>>;
 
+// Per-field min/max length constraints. Used both to enforce on the DOM
+// (`minLength` / `maxLength`) and to power the inline character counter and
+// `onBlur` validation messages.
+export interface FieldConstraint {
+  minLength?: number;
+  maxLength: number;
+  label: string;
+}
+
+export const FIELD_CONSTRAINTS: Partial<Record<keyof LoanOfficerFormState, FieldConstraint>> = {
+  firstName: { minLength: 1, maxLength: 50, label: "First name" },
+  lastName: { minLength: 1, maxLength: 50, label: "Last name" },
+  email: { minLength: 5, maxLength: 100, label: "Email" },
+  confirmEmail: { minLength: 5, maxLength: 100, label: "Confirm email" },
+  password: { minLength: 8, maxLength: 64, label: "Password" },
+  confirmPassword: { minLength: 8, maxLength: 64, label: "Confirm password" },
+  company: { minLength: 1, maxLength: 100, label: "Company" },
+  address: { maxLength: 200, label: "Address" },
+  licenseNumber: { maxLength: 50, label: "License #" },
+  ein: { maxLength: 20, label: "EIN #" },
+  dre: { maxLength: 50, label: "DRE #" },
+  companyNmls: { maxLength: 50, label: "Company NMLS #" },
+  personalNmls: { maxLength: 50, label: "Personal NMLS #" },
+  companyStateLicense: { maxLength: 50, label: "Company State License #" },
+  personalStateLicense: { maxLength: 50, label: "Personal State License #" },
+  website: { maxLength: 200, label: "Website" },
+};
+
 export const INITIAL_LOAN_OFFICER_FORM: LoanOfficerFormState = {
   email: "",
   confirmEmail: "",
@@ -248,35 +276,127 @@ export function validateLoanOfficerForm(
   const errors: LoanOfficerFormErrors = {};
   const isEdit = options?.isEdit ?? false;
 
+  // Helper: enforce min/max length for a text field.
+  const checkLength = (key: keyof LoanOfficerFormState, value: string) => {
+    const c = FIELD_CONSTRAINTS[key];
+    if (!c) return;
+    const trimmed = value.trim();
+    if (c.minLength && trimmed.length < c.minLength) {
+      errors[key] = `${c.label} must be at least ${c.minLength} characters`;
+    } else if (value.length > c.maxLength) {
+      errors[key] = `${c.label} cannot exceed ${c.maxLength} characters`;
+    }
+  };
+
   if (!form.firstName.trim()) errors.firstName = "First name is required";
+  else checkLength("firstName", form.firstName);
   if (!form.lastName.trim()) errors.lastName = "Last name is required";
+  else checkLength("lastName", form.lastName);
 
   if (!form.email.trim()) errors.email = "Email is required";
   else if (!/^\S+@\S+\.\S+$/.test(form.email)) errors.email = "Invalid email format";
+  else checkLength("email", form.email);
 
   if (!isEdit) {
     if (!form.confirmEmail.trim()) errors.confirmEmail = "Confirm email is required";
     else if (form.email.trim().toLowerCase() !== form.confirmEmail.trim().toLowerCase()) {
       errors.confirmEmail = "Emails do not match";
+    } else {
+      checkLength("confirmEmail", form.confirmEmail);
     }
   }
 
   const cleanPhone = form.phone.replace(/\D/g, "");
   if (!cleanPhone) errors.phone = "Phone is required";
   else if (cleanPhone.length < 10) errors.phone = "Enter a 10-digit phone number";
+  else if (cleanPhone.length > 10) errors.phone = "Phone number cannot exceed 10 digits";
 
   if (!form.company.trim()) errors.company = "Company is required";
+  else checkLength("company", form.company);
+
+  if (form.address.trim()) checkLength("address", form.address);
+  if (form.licenseNumber.trim()) checkLength("licenseNumber", form.licenseNumber);
+
+  if (form.website.trim()) {
+    if (!/^(https?:\/\/)?([\w-]+\.)+[\w-]{2,}(\/.*)?$/i.test(form.website.trim())) {
+      errors.website = "Enter a valid website URL";
+    } else {
+      checkLength("website", form.website);
+    }
+  }
+
+  if (form.ein.trim()) {
+    if (!/^\d{2}-?\d{7}$/.test(form.ein.trim())) {
+      errors.ein = "Enter a valid EIN (XX-XXXXXXX)";
+    } else {
+      checkLength("ein", form.ein);
+    }
+  }
+
+  if (form.dre.trim()) checkLength("dre", form.dre);
+
+  if (!form.preferredComm) {
+    errors.preferredComm = "Select a preferred communication";
+  }
+
+  if (form.statesAuthorized.length === 0) {
+    errors.statesAuthorized = "Select at least one state";
+  }
+
+  if (form.hasCompanyNmls && !form.companyNmls.trim()) {
+    errors.companyNmls = "Company NMLS # is required";
+  } else if (form.companyNmls.trim()) {
+    if (!/^\d+$/.test(form.companyNmls.trim())) {
+      errors.companyNmls = "NMLS # must be numeric";
+    } else {
+      checkLength("companyNmls", form.companyNmls);
+    }
+  }
+
+  if (form.hasPersonalNmls && !form.personalNmls.trim()) {
+    errors.personalNmls = "Personal NMLS # is required";
+  } else if (form.personalNmls.trim()) {
+    if (!/^\d+$/.test(form.personalNmls.trim())) {
+      errors.personalNmls = "NMLS # must be numeric";
+    } else {
+      checkLength("personalNmls", form.personalNmls);
+    }
+  }
+
+  if (form.hasCompanyStateLicense) {
+    if (form.companyStateLicenseStates.length === 0) {
+      errors.companyStateLicenseStates = "Select at least one state";
+    }
+    if (!form.companyStateLicense.trim()) {
+      errors.companyStateLicense = "Company State License # is required";
+    } else {
+      checkLength("companyStateLicense", form.companyStateLicense);
+    }
+  }
+
+  if (form.hasPersonalStateLicense) {
+    if (form.personalStateLicenseStates.length === 0) {
+      errors.personalStateLicenseStates = "Select at least one state";
+    }
+    if (!form.personalStateLicense.trim()) {
+      errors.personalStateLicense = "Personal State License # is required";
+    } else {
+      checkLength("personalStateLicense", form.personalStateLicense);
+    }
+  }
 
   if (form.allowedToLogin) {
     if (!isEdit) {
       if (!form.password) errors.password = "Password is required";
       else if (form.password.length < 8) errors.password = "Minimum 8 characters";
+      else if (form.password.length > 64) errors.password = "Password cannot exceed 64 characters";
       if (!form.confirmPassword) errors.confirmPassword = "Confirm password is required";
       else if (form.password !== form.confirmPassword) {
         errors.confirmPassword = "Passwords do not match";
       }
     } else if (form.password) {
       if (form.password.length < 8) errors.password = "Minimum 8 characters";
+      else if (form.password.length > 64) errors.password = "Password cannot exceed 64 characters";
       if (!form.confirmPassword) errors.confirmPassword = "Confirm password is required";
       else if (form.password !== form.confirmPassword) {
         errors.confirmPassword = "Passwords do not match";
@@ -289,6 +409,16 @@ export function validateLoanOfficerForm(
   }
 
   return errors;
+}
+
+// Validate a single field on blur; returns the error string or undefined.
+export function validateField(
+  key: keyof LoanOfficerFormState,
+  form: LoanOfficerFormState,
+  options?: { isEdit?: boolean },
+): string | undefined {
+  const errors = validateLoanOfficerForm(form, options);
+  return errors[key];
 }
 
 function normalizeWebsite(input: string) {
